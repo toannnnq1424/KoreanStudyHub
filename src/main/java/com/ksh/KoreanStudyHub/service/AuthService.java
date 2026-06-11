@@ -33,7 +33,7 @@ public class AuthService {
         }
 
         Role userRole = roleRepository
-                .findByRoleName(RoleName.USER)
+                .findByRoleName(RoleName.STUDENT)
                 .orElseThrow(() ->
                         new RuntimeException("Role USER not found"));
 

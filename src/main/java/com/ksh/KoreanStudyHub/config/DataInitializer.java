@@ -19,10 +19,10 @@ public class DataInitializer {
 
         return args -> {
 
-            if (roleRepository.findByRoleName(RoleName.USER).isEmpty()) {
+            if (roleRepository.findByRoleName(RoleName.STUDENT).isEmpty()) {
 
                 Role role = new Role();
-                role.setRoleName(RoleName.USER);
+                role.setRoleName(RoleName.STUDENT);
 
                 roleRepository.save(role);
             }

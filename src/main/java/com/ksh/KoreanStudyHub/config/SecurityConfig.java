@@ -1,5 +1,6 @@
 package com.ksh.KoreanStudyHub.config;
 
+import com.ksh.KoreanStudyHub.security.CustomLoginSuccessHandler;
 import com.ksh.KoreanStudyHub.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
+
+    private final CustomLoginSuccessHandler successHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -49,8 +52,11 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**")
                         .hasRole("ADMIN")
 
+                        .requestMatchers("/student/**")
+                        .hasRole("STUDENT")
+
                         .requestMatchers("/profile/**")
-                        .hasAnyRole("USER", "ADMIN")
+                        .hasAnyRole("STUDENT", "ADMIN")
 
                         .anyRequest()
                         .authenticated()
@@ -60,7 +66,7 @@ public class SecurityConfig {
 
                         .loginPage("/login")
 
-                        .defaultSuccessUrl("/", true)
+                        .successHandler(successHandler)
 
                         .permitAll()
                 )
