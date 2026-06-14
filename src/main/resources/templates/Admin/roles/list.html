@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Quản lý vai trò – Admin</title>
+  <th:block th:replace="~{fragments/admin-layout :: css}"></th:block>
+</head>
+<body>
+
+<th:block th:replace="~{fragments/admin-layout :: sidebar('roles')}"></th:block>
+
+<div class="main">
+  <th:block th:replace="~{fragments/admin-layout :: topbar('🛡️ Quản lý vai trò')}"></th:block>
+
+  <div class="content">
+
+    <div th:if="${success}" class="alert alert-success d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-check-circle-fill"></i><span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-exclamation-circle-fill"></i><span th:text="${error}"></span>
+    </div>
+
+    <div class="row g-4">
+      <!-- Role cards -->
+      <div class="col-md-8">
+        <div class="card-box">
+          <div class="d-flex align-items-center justify-content-between mb-4">
+            <h6 class="fw-bold mb-0">Danh sách vai trò</h6>
+            <button class="btn-ksh" data-bs-toggle="modal" data-bs-target="#createRoleModal">
+              <i class="bi bi-plus-lg me-1"></i>Thêm vai trò
+            </button>
+          </div>
+
+          <div class="row g-3">
+            <!-- ADMIN -->
+            <div class="col-md-6">
+              <div style="background:#fff0f1; border-radius:14px; padding:20px; border:2px solid #fecaca;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div style="width:44px;height:44px;border-radius:12px;background:#e63946;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem">
+                    <i class="bi bi-shield-fill-check"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="color:#e63946">ADMIN</div>
+                    <div style="font-size:0.8rem;color:#9ca3af">Quản trị viên hệ thống</div>
+                  </div>
+                </div>
+                <div style="font-size:0.83rem; color:#6b7280; line-height:1.6">
+                  ✅ Quản lý tất cả người dùng<br>
+                  ✅ Cấu hình hệ thống<br>
+                  ✅ Xem audit log<br>
+                  ✅ Quản lý vai trò & quyền hạn
+                </div>
+              </div>
+            </div>
+            <!-- TEACHER -->
+            <div class="col-md-6">
+              <div style="background:#eff6ff; border-radius:14px; padding:20px; border:2px solid #bfdbfe;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div style="width:44px;height:44px;border-radius:12px;background:#2563eb;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem">
+                    <i class="bi bi-person-workspace"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="color:#2563eb">TEACHER</div>
+                    <div style="font-size:0.8rem;color:#9ca3af">Giáo viên</div>
+                  </div>
+                </div>
+                <div style="font-size:0.83rem; color:#6b7280; line-height:1.6">
+                  ✅ Quản lý lớp học<br>
+                  ✅ Tạo & phân phối tài nguyên<br>
+                  ✅ Tạo bài kiểm tra<br>
+                  ✅ Chấm điểm học sinh
+                </div>
+              </div>
+            </div>
+            <!-- SUBJECT_LEADER -->
+            <div class="col-md-6">
+              <div style="background:#fefce8; border-radius:14px; padding:20px; border:2px solid #fde68a;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div style="width:44px;height:44px;border-radius:12px;background:#ca8a04;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem">
+                    <i class="bi bi-star-fill"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="color:#ca8a04">SUBJECT_LEADER</div>
+                    <div style="font-size:0.8rem;color:#9ca3af">Trưởng bộ môn</div>
+                  </div>
+                </div>
+                <div style="font-size:0.83rem; color:#6b7280; line-height:1.6">
+                  ✅ Duyệt tài nguyên học tập<br>
+                  ✅ Quản lý chương trình học<br>
+                  ✅ Review & phê duyệt nội dung<br>
+                  ✅ Báo cáo chất lượng
+                </div>
+              </div>
+            </div>
+            <!-- STUDENT -->
+            <div class="col-md-6">
+              <div style="background:#f0fdf4; border-radius:14px; padding:20px; border:2px solid #bbf7d0;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div style="width:44px;height:44px;border-radius:12px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem">
+                    <i class="bi bi-mortarboard-fill"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold" style="color:#16a34a">STUDENT</div>
+                    <div style="font-size:0.8rem;color:#9ca3af">Học sinh</div>
+                  </div>
+                </div>
+                <div style="font-size:0.83rem; color:#6b7280; line-height:1.6">
+                  ✅ Tham gia lớp học<br>
+                  ✅ Học tài nguyên được phân công<br>
+                  ✅ Làm bài kiểm tra<br>
+                  ✅ Tham gia diễn đàn
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Role stats -->
+      <div class="col-md-4">
+        <div class="card-box mb-3">
+          <h6 class="fw-bold mb-3">Thống kê theo vai trò</h6>
+          <div th:each="r : ${roles}">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span th:class="'badge-role badge-' + ${r.roleName}" th:text="${r.roleName}"></span>
+              </div>
+              <span class="fw-bold" style="color:#1a1a2e" th:text="${roleCounts[r.roleName] ?: 0}">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="card-box">
+          <h6 class="fw-bold mb-3">Ghi chú</h6>
+          <p class="text-muted mb-0" style="font-size:0.85rem; line-height:1.7">
+            Vai trò xác định quyền hạn của từng người dùng trong hệ thống. Thay đổi vai trò sẽ ảnh hưởng ngay đến quyền truy cập.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

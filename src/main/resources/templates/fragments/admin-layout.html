@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Common CSS fragment -->
+<th:block th:fragment="css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  * { font-family:'Inter',sans-serif; }
+  body { background:#f0f2f5; }
+  .sidebar { width:250px; min-height:100vh; position:fixed; top:0; left:0; background:linear-gradient(180deg,#1a1a2e,#16213e); z-index:100; overflow-y:auto; }
+  .sidebar-brand { padding:22px 22px 18px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .brand-korean { font-size:1.4rem; font-weight:700; color:#e63946; }
+  .brand-en { font-size:0.72rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px; }
+  .menu-label { font-size:0.68rem; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; padding:10px 20px 4px; }
+  .menu-item { display:flex; align-items:center; gap:10px; padding:10px 20px; color:rgba(255,255,255,0.6); text-decoration:none; font-size:0.88rem; font-weight:500; margin:2px 10px; border-radius:10px; transition:all 0.2s; }
+  .menu-item:hover,.menu-item.active { background:rgba(230,57,70,0.15); color:#fff; }
+  .menu-item.active { background:#e63946; color:#fff; }
+  .menu-item i { font-size:1rem; width:18px; }
+  .main { margin-left:250px; }
+  .topbar { background:#fff; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #eee; position:sticky; top:0; z-index:99; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .content { padding:28px; }
+  .card-box { background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+  .stat-card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,0.06); transition:transform 0.2s; }
+  .stat-card:hover { transform:translateY(-3px); }
+  .stat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+  .stat-num { font-size:1.9rem; font-weight:700; color:#1a1a2e; }
+  .stat-label { color:#6b7280; font-size:0.85rem; }
+  .table th { font-size:0.77rem; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; border:none; padding:10px 14px; background:#fafafa; }
+  .table td { padding:13px 14px; vertical-align:middle; border-color:#f3f4f6; font-size:0.9rem; }
+  .table tbody tr:hover { background:#fafafa; }
+  .avatar-sm { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#e63946,#c1121f); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.8rem; flex-shrink:0; }
+  .btn-ksh { background:#e63946; border:none; color:#fff; border-radius:8px; padding:8px 16px; font-size:0.88rem; font-weight:500; }
+  .btn-ksh:hover { background:#c1121f; color:#fff; }
+  .btn-logout { background:none; border:1.5px solid #e63946; color:#e63946; border-radius:8px; padding:6px 14px; font-size:0.85rem; font-weight:500; cursor:pointer; }
+  .btn-logout:hover { background:#e63946; color:#fff; }
+  .badge-role { font-size:0.75rem; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .badge-ADMIN { background:#fff0f1; color:#e63946; }
+  .badge-STUDENT { background:#f0fdf4; color:#16a34a; }
+  .badge-TEACHER { background:#eff6ff; color:#2563eb; }
+  .badge-SUBJECT_LEADER { background:#fefce8; color:#ca8a04; }
+  .badge-ACTIVE { background:#f0fdf4; color:#16a34a; font-size:0.75rem; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .badge-INACTIVE { background:#f9fafb; color:#9ca3af; font-size:0.75rem; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .form-control,.form-select { border:1.5px solid #e5e7eb; border-radius:8px; font-size:0.9rem; padding:9px 12px; }
+  .form-control:focus,.form-select:focus { border-color:#e63946; box-shadow:0 0 0 3px rgba(230,57,70,0.1); }
+  .modal-content { border:none; border-radius:16px; }
+  .modal-header { border-bottom:1px solid #f3f4f6; padding:20px 24px; }
+  .modal-body { padding:24px; }
+  .modal-footer { border-top:1px solid #f3f4f6; padding:16px 24px; }
+  .page-link { color:#e63946; }
+  .page-item.active .page-link { background:#e63946; border-color:#e63946; }
+  .alert { border-radius:10px; font-size:0.9rem; }
+</style>
+</th:block>
+
+<!-- Sidebar fragment -->
+<div th:fragment="sidebar(active)">
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-korean">한국어</div>
+      <div class="brand-en">Korean Study Hub</div>
+    </div>
+    <div class="py-2">
+      <div class="menu-label">Tổng quan</div>
+      <a th:href="@{/admin}" th:class="'menu-item' + (${active}=='dashboard' ? ' active' : '')">
+        <i class="bi bi-grid-1x2-fill"></i> Dashboard
+      </a>
+      <div class="menu-label mt-1">Quản lý người dùng</div>
+      <a th:href="@{/admin/users}" th:class="'menu-item' + (${active}=='users' ? ' active' : '')">
+        <i class="bi bi-people-fill"></i> Tài khoản
+      </a>
+      <a th:href="@{/admin/roles}" th:class="'menu-item' + (${active}=='roles' ? ' active' : '')">
+        <i class="bi bi-shield-fill"></i> Vai trò
+      </a>
+      <div class="menu-label mt-1">Học thuật</div>
+      <a href="#" class="menu-item"><i class="bi bi-book-fill"></i> Chương trình học</a>
+      <a href="#" class="menu-item"><i class="bi bi-easel-fill"></i> Lớp học</a>
+      <a href="#" class="menu-item"><i class="bi bi-file-earmark-text-fill"></i> Tài nguyên</a>
+      <a href="#" class="menu-item"><i class="bi bi-chat-square-dots-fill"></i> Diễn đàn</a>
+      <div class="menu-label mt-1">Hệ thống</div>
+      <a th:href="@{/admin/settings}" th:class="'menu-item' + (${active}=='settings' ? ' active' : '')">
+        <i class="bi bi-gear-fill"></i> Cài đặt
+      </a>
+      <a th:href="@{/admin/audit-log}" th:class="'menu-item' + (${active}=='audit' ? ' active' : '')">
+        <i class="bi bi-journal-text"></i> Audit Log
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Topbar fragment -->
+<div th:fragment="topbar(title)">
+  <div class="topbar">
+    <div style="font-size:1rem; font-weight:600; color:#1a1a2e" th:text="${title}">Dashboard</div>
+    <div class="d-flex align-items-center gap-3">
+      <a th:href="@{/profile}" style="color:#374151; text-decoration:none; font-size:0.88rem">
+        <i class="bi bi-person-circle me-1"></i>Hồ sơ
+      </a>
+      <form th:action="@{/logout}" method="post">
+        <button type="submit" class="btn-logout"><i class="bi bi-box-arrow-right me-1"></i>Đăng xuất</button>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard – Korean Study Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { font-family:'Inter',sans-serif; }
+        body { background:#f0f2f5; }
+        .sidebar { width:250px; min-height:100vh; position:fixed; top:0; left:0; background:linear-gradient(180deg,#1a1a2e,#16213e); z-index:100; }
+        .sidebar-brand { padding:22px 22px 18px; border-bottom:1px solid rgba(255,255,255,0.08); }
+        .brand-korean { font-size:1.4rem; font-weight:700; color:#e63946; }
+        .brand-en { font-size:0.72rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px; }
+        .menu-label { font-size:0.68rem; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; padding:10px 20px 4px; }
+        .menu-item { display:flex; align-items:center; gap:10px; padding:10px 20px; color:rgba(255,255,255,0.6); text-decoration:none; font-size:0.88rem; font-weight:500; margin:2px 10px; border-radius:10px; transition:all 0.2s; }
+        .menu-item:hover,.menu-item.active { background:rgba(230,57,70,0.15); color:#fff; }
+        .menu-item.active { background:#e63946; }
+        .menu-item i { font-size:1rem; width:18px; }
+        .main { margin-left:250px; }
+        .topbar { background:#fff; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #eee; position:sticky; top:0; z-index:99; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+        .content { padding:28px; }
+        .stat-card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,0.06); transition:transform 0.2s; }
+        .stat-card:hover { transform:translateY(-3px); }
+        .stat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+        .stat-num { font-size:1.9rem; font-weight:700; color:#1a1a2e; }
+        .stat-label { color:#6b7280; font-size:0.85rem; }
+        .table-card { background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+        .table th { font-size:0.77rem; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; border:none; padding:10px 14px; }
+        .table td { padding:13px 14px; vertical-align:middle; border-color:#f3f4f6; font-size:0.9rem; }
+        .avatar-sm { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#e63946,#c1121f); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.8rem; }
+        .btn-logout { background:none; border:1.5px solid #e63946; color:#e63946; border-radius:8px; padding:6px 14px; font-size:0.85rem; font-weight:500; cursor:pointer; }
+        .btn-logout:hover { background:#e63946; color:#fff; }
+        .badge-role { font-size:0.75rem; padding:4px 10px; border-radius:20px; font-weight:600; }
+        .badge-ADMIN { background:#fff0f1; color:#e63946; }
+        .badge-STUDENT { background:#f0fdf4; color:#16a34a; }
+        .badge-TEACHER { background:#eff6ff; color:#2563eb; }
+        .badge-SUBJECT_LEADER { background:#fefce8; color:#ca8a04; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-korean">한국어</div>
+        <div class="brand-en">Korean Study Hub</div>
+    </div>
+    <div class="py-2">
+        <div class="menu-label">Tổng quan</div>
+        <a th:href="@{/admin}" class="menu-item active"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+        <div class="menu-label mt-1">Quản lý người dùng</div>
+        <a th:href="@{/admin/users}" class="menu-item"><i class="bi bi-people-fill"></i> Tài khoản</a>
+        <div class="menu-label mt-1">Học thuật</div>
+        <a href="#" class="menu-item"><i class="bi bi-book-fill"></i> Chương trình học</a>
+        <a href="#" class="menu-item"><i class="bi bi-easel-fill"></i> Lớp học</a>
+        <a href="#" class="menu-item"><i class="bi bi-file-earmark-text-fill"></i> Tài nguyên</a>
+        <a href="#" class="menu-item"><i class="bi bi-chat-square-dots-fill"></i> Diễn đàn</a>
+        <div class="menu-label mt-1">Hệ thống</div>
+        <a href="#" class="menu-item"><i class="bi bi-gear-fill"></i> Cài đặt</a>
+        <a href="#" class="menu-item"><i class="bi bi-journal-text"></i> Audit Log</a>
+    </div>
+</div>
+
+<div class="main">
+    <div class="topbar">
+        <div style="font-size:1rem; font-weight:600; color:#1a1a2e"><i class="bi bi-grid-1x2 me-2 text-muted"></i>Dashboard</div>
+        <div class="d-flex align-items-center gap-3">
+            <a th:href="@{/profile}" style="color:#374151; text-decoration:none; font-size:0.88rem"><i class="bi bi-person-circle me-1"></i>Hồ sơ</a>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="btn-logout"><i class="bi bi-box-arrow-right me-1"></i>Đăng xuất</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="mb-4">
+            <h5 class="fw-bold mb-1">Xin chào, Admin 👋</h5>
+            <p class="text-muted mb-0" style="font-size:0.88rem">Tổng quan hệ thống Korean Study Hub</p>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="stat-icon" style="background:#fff0f1">👥</div>
+                        <span class="text-muted" style="font-size:0.78rem">Tổng số</span>
+                    </div>
+                    <div class="stat-num" th:text="${totalUsers}">0</div>
+                    <div class="stat-label">Người dùng</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="stat-icon" style="background:#f0fdf4">✅</div>
+                        <span class="text-success" style="font-size:0.78rem">Hoạt động</span>
+                    </div>
+                    <div class="stat-num" th:text="${activeUsers}">0</div>
+                    <div class="stat-label">Tài khoản Active</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="stat-icon" style="background:#eff6ff">🎓</div>
+                        <span class="text-muted" style="font-size:0.78rem">Học viên</span>
+                    </div>
+                    <div class="stat-num" th:text="${totalStudents}">0</div>
+                    <div class="stat-label">Học sinh</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="stat-icon" style="background:#fefce8">👨‍🏫</div>
+                        <span class="text-muted" style="font-size:0.78rem">Giáo viên</span>
+                    </div>
+                    <div class="stat-num" th:text="${totalTeachers}">0</div>
+                    <div class="stat-label">Giáo viên</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Quản lý nhanh</h6>
+                <a th:href="@{/admin/users}" class="text-decoration-none fw-500" style="color:#e63946; font-size:0.88rem">Xem tất cả →</a>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <a th:href="@{/admin/users}" class="text-decoration-none">
+                        <div style="background:#fff0f1; border-radius:12px; padding:16px; text-align:center; transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                            <div style="font-size:1.8rem; margin-bottom:8px">👥</div>
+                            <div style="font-weight:600; color:#e63946; font-size:0.9rem">Quản lý tài khoản</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <div style="background:#f0fdf4; border-radius:12px; padding:16px; text-align:center; opacity:0.6">
+                        <div style="font-size:1.8rem; margin-bottom:8px">🏫</div>
+                        <div style="font-weight:600; color:#16a34a; font-size:0.9rem">Quản lý lớp học</div>
+                        <div style="font-size:0.75rem; color:#9ca3af">Sắp ra mắt</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div style="background:#eff6ff; border-radius:12px; padding:16px; text-align:center; opacity:0.6">
+                        <div style="font-size:1.8rem; margin-bottom:8px">📚</div>
+                        <div style="font-weight:600; color:#2563eb; font-size:0.9rem">Tài nguyên học</div>
+                        <div style="font-size:0.75rem; color:#9ca3af">Sắp ra mắt</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div style="background:#fefce8; border-radius:12px; padding:16px; text-align:center; opacity:0.6">
+                        <div style="font-size:1.8rem; margin-bottom:8px">⚙️</div>
+                        <div style="font-weight:600; color:#ca8a04; font-size:0.9rem">Cài đặt hệ thống</div>
+                        <div style="font-size:0.75rem; color:#9ca3af">Sắp ra mắt</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
