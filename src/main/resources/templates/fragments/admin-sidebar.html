@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="sidebar(active)">
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-korean">한국어</div>
+            <div class="brand-en">Korean Study Hub</div>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-label">Tổng quan</div>
+            <a th:href="@{/admin}" th:classappend="${active == 'dashboard'} ? 'active'" class="menu-item">
+                <i class="bi bi-grid-1x2-fill"></i> Dashboard
+            </a>
+
+            <div class="menu-label mt-2">Quản lý người dùng</div>
+            <a th:href="@{/admin/users}" th:classappend="${active == 'users'} ? 'active'" class="menu-item">
+                <i class="bi bi-people-fill"></i> Tài khoản
+            </a>
+
+            <div class="menu-label mt-2">Học thuật</div>
+            <a href="#" class="menu-item"><i class="bi bi-book-fill"></i> Chương trình học</a>
+            <a href="#" class="menu-item"><i class="bi bi-easel-fill"></i> Lớp học</a>
+            <a href="#" class="menu-item"><i class="bi bi-file-earmark-text-fill"></i> Tài nguyên</a>
+            <a href="#" class="menu-item"><i class="bi bi-chat-square-dots-fill"></i> Diễn đàn</a>
+
+            <div class="menu-label mt-2">Hệ thống</div>
+            <a href="#" class="menu-item"><i class="bi bi-gear-fill"></i> Cài đặt</a>
+            <a href="#" class="menu-item"><i class="bi bi-journal-text"></i> Audit Log</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

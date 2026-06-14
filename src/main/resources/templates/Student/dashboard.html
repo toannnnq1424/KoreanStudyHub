@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Dashboard – Korean Study Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f0f2f5; }
+
+        /* Navbar */
+        .topnav {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 0 32px; height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        }
+        .nav-brand { color: #e63946; font-size: 1.2rem; font-weight: 700; }
+        .nav-brand span { color: white; font-weight: 400; font-size: 0.9rem; margin-left: 8px; opacity: 0.7; }
+        .nav-links { display: flex; gap: 4px; }
+        .nav-link-item {
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            padding: 8px 16px; border-radius: 8px; font-size: 0.9rem;
+            font-weight: 500; transition: all 0.2s;
+        }
+        .nav-link-item:hover, .nav-link-item.active { background: rgba(255,255,255,0.1); color: white; }
+        .btn-logout-nav { background: rgba(230,57,70,0.2); border: 1px solid rgba(230,57,70,0.4); color: #e63946; border-radius: 8px; padding: 7px 16px; font-size: 0.88rem; font-weight: 500; transition: all 0.2s; }
+        .btn-logout-nav:hover { background: #e63946; color: white; }
+
+        /* Content */
+        .content { padding: 32px; max-width: 1100px; margin: 0 auto; }
+
+        /* Banner */
+        .banner {
+            background: linear-gradient(135deg, #e63946, #c1121f);
+            border-radius: 20px; padding: 32px 36px; color: white;
+            position: relative; overflow: hidden; margin-bottom: 28px;
+        }
+        .banner::after {
+            content: '한국어'; position: absolute; right: 36px; top: 50%;
+            transform: translateY(-50%); font-size: 5rem; font-weight: 700;
+            opacity: 0.15; line-height: 1;
+        }
+        .banner h4 { font-weight: 700; margin-bottom: 6px; }
+        .banner p { opacity: 0.85; margin-bottom: 20px; }
+        .btn-continue {
+            background: white; color: #e63946; border: none;
+            border-radius: 10px; padding: 10px 24px; font-weight: 600;
+            font-size: 0.9rem; transition: all 0.2s;
+        }
+        .btn-continue:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+
+        /* Cards */
+        .info-card {
+            background: white; border-radius: 16px; padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); height: 100%;
+            transition: transform 0.2s;
+        }
+        .info-card:hover { transform: translateY(-3px); }
+        .card-icon { font-size: 1.8rem; margin-bottom: 12px; }
+        .card-title { font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+        .card-val { font-size: 2rem; font-weight: 700; color: #1a1a2e; }
+        .card-sub { font-size: 0.82rem; color: #9ca3af; }
+
+        /* Progress */
+        .progress { height: 8px; border-radius: 10px; background: #f3f4f6; }
+        .progress-bar { background: linear-gradient(90deg, #e63946, #ff6b6b); border-radius: 10px; }
+
+        /* Lesson list */
+        .lesson-item {
+            display: flex; align-items: center; gap: 16px;
+            padding: 14px 0; border-bottom: 1px solid #f3f4f6;
+        }
+        .lesson-item:last-child { border-bottom: none; }
+        .lesson-num {
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+        }
+        .done { background: #dcfce7; color: #16a34a; }
+        .ongoing { background: #fff0f1; color: #e63946; }
+        .todo { background: #f3f4f6; color: #9ca3af; }
+        .section-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="topnav">
+    <div class="nav-brand">
+        한국어 <span>Korean Study Hub</span>
+    </div>
+    <div class="nav-links">
+        <a href="#" class="nav-link-item active">🏠 Trang chủ</a>
+        <a href="#" class="nav-link-item">🏫 Lớp học</a>
+        <a href="#" class="nav-link-item">💬 Diễn đàn</a>
+        <a href="#" class="nav-link-item">📖 Chương trình</a>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div style="color:rgba(255,255,255,0.7); font-size:0.88rem">
+            👋 <span th:text="${username}">Học viên</span>
+        </div>
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="btn-logout-nav">
+                <i class="bi bi-box-arrow-right me-1"></i>Đăng xuất
+            </button>
+        </form>
+    </div>
+</nav>
+
+<!-- Content -->
+<div class="content">
+
+    <!-- Banner -->
+    <div class="banner">
+        <h4>Bạn đang học: 학교 (Trường học & Học tập)</h4>
+        <p>Tiếp tục từ bài học hôm qua. Bạn đang tiến bộ rất tốt!</p>
+        <button class="btn-continue">▶ Tiếp tục học</button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="info-card text-center">
+                <div class="card-icon">📚</div>
+                <div class="card-title">Bài đã học</div>
+                <div class="card-val">5</div>
+                <div class="card-sub">/ 8 bài học</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-card text-center">
+                <div class="card-icon">⏱️</div>
+                <div class="card-title">Thời gian học</div>
+                <div class="card-val">12h</div>
+                <div class="card-sub">tuần này</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-card text-center">
+                <div class="card-icon">🔥</div>
+                <div class="card-title">Chuỗi ngày học</div>
+                <div class="card-val">7</div>
+                <div class="card-sub">ngày liên tiếp</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="info-card text-center">
+                <div class="card-icon">🏆</div>
+                <div class="card-title">Điểm trung bình</div>
+                <div class="card-val">8.5</div>
+                <div class="card-sub">/ 10 điểm</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress + Lessons -->
+    <div class="row g-3">
+        <div class="col-md-5">
+            <div class="info-card">
+                <div class="section-title">Hành trình học tập</div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span style="font-size:0.88rem; color:#374151">Sơ cấp 1</span>
+                    <span style="font-size:0.88rem; font-weight:600; color:#e63946">63%</span>
+                </div>
+                <div class="progress mb-3">
+                    <div class="progress-bar" style="width:63%"></div>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span style="font-size:0.88rem; color:#374151">Từ vựng</span>
+                    <span style="font-size:0.88rem; font-weight:600; color:#e63946">45%</span>
+                </div>
+                <div class="progress mb-3">
+                    <div class="progress-bar" style="width:45%"></div>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span style="font-size:0.88rem; color:#374151">Ngữ pháp</span>
+                    <span style="font-size:0.88rem; font-weight:600; color:#e63946">30%</span>
+                </div>
+                <div class="progress mb-4">
+                    <div class="progress-bar" style="width:30%"></div>
+                </div>
+
+                <div class="row text-center g-2">
+                    <div class="col-4">
+                        <div style="background:#f0fdf4; border-radius:12px; padding:12px">
+                            <div style="font-size:1.4rem; font-weight:700; color:#16a34a">5</div>
+                            <div style="font-size:0.75rem; color:#6b7280">Hoàn thành</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div style="background:#fff0f1; border-radius:12px; padding:12px">
+                            <div style="font-size:1.4rem; font-weight:700; color:#e63946">1</div>
+                            <div style="font-size:0.75rem; color:#6b7280">Đang học</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div style="background:#f3f4f6; border-radius:12px; padding:12px">
+                            <div style="font-size:1.4rem; font-weight:700; color:#9ca3af">2</div>
+                            <div style="font-size:0.75rem; color:#6b7280">Chưa học</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="info-card">
+                <div class="section-title">Danh sách bài học</div>
+                <div class="lesson-item">
+                    <div class="lesson-num done"><i class="bi bi-check-lg"></i></div>
+                    <div class="flex-grow-1">
+                        <div style="font-weight:600; font-size:0.9rem">Bài 1: Bảng chữ cái Hangul</div>
+                        <div style="font-size:0.8rem; color:#9ca3af">Hoàn thành • 45 phút</div>
+                    </div>
+                    <span style="font-size:0.8rem; color:#16a34a; font-weight:600">10/10</span>
+                </div>
+                <div class="lesson-item">
+                    <div class="lesson-num done"><i class="bi bi-check-lg"></i></div>
+                    <div class="flex-grow-1">
+                        <div style="font-weight:600; font-size:0.9rem">Bài 2: Chào hỏi cơ bản</div>
+                        <div style="font-size:0.8rem; color:#9ca3af">Hoàn thành • 30 phút</div>
+                    </div>
+                    <span style="font-size:0.8rem; color:#16a34a; font-weight:600">9/10</span>
+                </div>
+                <div class="lesson-item">
+                    <div class="lesson-num ongoing"><i class="bi bi-play-fill"></i></div>
+                    <div class="flex-grow-1">
+                        <div style="font-weight:600; font-size:0.9rem">Bài 3: Số đếm tiếng Hàn</div>
+                        <div style="font-size:0.8rem; color:#9ca3af">Đang học • còn 2 phần</div>
+                    </div>
+                    <span style="font-size:0.8rem; color:#e63946; font-weight:600">Tiếp tục</span>
+                </div>
+                <div class="lesson-item">
+                    <div class="lesson-num todo">4</div>
+                    <div class="flex-grow-1">
+                        <div style="font-weight:600; font-size:0.9rem; color:#9ca3af">Bài 4: Gia đình</div>
+                        <div style="font-size:0.8rem; color:#d1d5db">Chưa mở khóa</div>
+                    </div>
+                    <i class="bi bi-lock" style="color:#d1d5db"></i>
+                </div>
+                <div class="lesson-item">
+                    <div class="lesson-num todo">5</div>
+                    <div class="flex-grow-1">
+                        <div style="font-weight:600; font-size:0.9rem; color:#9ca3af">Bài 5: Thời gian & Ngày tháng</div>
+                        <div style="font-size:0.8rem; color:#d1d5db">Chưa mở khóa</div>
+                    </div>
+                    <i class="bi bi-lock" style="color:#d1d5db"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>
