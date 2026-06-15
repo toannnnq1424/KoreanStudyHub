@@ -49,11 +49,32 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public String forgotPassword(@Valid @ModelAttribute ForgotPasswordRequest request,
-                                 RedirectAttributes ra) {
-        // Trong thực tế sẽ gửi email reset link
-        ra.addFlashAttribute("success", "Nếu email tồn tại, chúng tôi đã gửi link đặt lại mật khẩu.");
-        return "redirect:/forgot-password?sent";
+    public String forgotPassword(
+            @Valid @ModelAttribute("forgotRequest")
+            ForgotPasswordRequest request,
+            RedirectAttributes ra
+    ) {
+
+        try {
+
+            authService.forgotPassword(
+                    request.getEmail()
+            );
+
+            ra.addFlashAttribute(
+                    "success",
+                    "Mật khẩu mới đã được gửi qua email của bạn."
+            );
+
+        } catch (RuntimeException e) {
+
+            ra.addFlashAttribute(
+                    "error",
+                    e.getMessage()
+            );
+        }
+
+        return "redirect:/forgot-password";
     }
 
     @GetMapping("/profile")

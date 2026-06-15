@@ -17,6 +17,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public void register(RegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword()))
@@ -54,5 +55,47 @@ public class AuthService {
         if (request.getAvatar() != null && !request.getAvatar().isBlank())
             user.setAvatar(request.getAvatar());
         userRepository.save(user);
+    }
+
+    public void forgotPassword(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Email không tồn tại"));
+
+        String newPassword = generateRandomPassword();
+
+        user.setPassword(
+                passwordEncoder.encode(newPassword)
+        );
+
+        userRepository.save(user);
+
+
+        emailService.sendNewPassword(
+                user.getEmail(),
+                newPassword
+        );
+
+    }
+
+    private String generateRandomPassword() {
+
+        String chars =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+                        "abcdefghijklmnopqrstuvwxyz" +
+                        "0123456789";
+
+        StringBuilder password = new StringBuilder();
+
+        for (int i = 0; i < 10; i++) {
+
+            int index =
+                    (int) (Math.random() * chars.length());
+
+            password.append(chars.charAt(index));
+        }
+
+        return password.toString();
     }
 }
