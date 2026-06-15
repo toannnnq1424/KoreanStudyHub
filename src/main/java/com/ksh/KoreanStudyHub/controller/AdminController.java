@@ -78,7 +78,7 @@ public class AdminController {
     public String resetPassword(@PathVariable Long id, RedirectAttributes ra) {
         try {
             userAdminService.resetPassword(id);
-            ra.addFlashAttribute("success", "Đặt lại mật khẩu thành công! Mật khẩu mới: 123456");
+            ra.addFlashAttribute("success", "Cấp lại mật khẩu thành công! Mật khẩu mới ngẫu nhiên đã được gửi tới email của người dùng.");
         } catch (RuntimeException e) {
             ra.addFlashAttribute("error", e.getMessage());
         }

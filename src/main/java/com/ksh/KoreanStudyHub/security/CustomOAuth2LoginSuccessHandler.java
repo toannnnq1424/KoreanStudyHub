@@ -8,7 +8,6 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import com.ksh.KoreanStudyHub.entity.User;
 import com.ksh.KoreanStudyHub.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -16,8 +15,7 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class CustomLoginSuccessHandler
-        implements AuthenticationSuccessHandler {
+public class CustomOAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
 
@@ -29,8 +27,8 @@ public class CustomLoginSuccessHandler
             throws IOException, ServletException {
 
         Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails) {
-            String email = ((UserDetails) principal).getUsername();
+        if (principal instanceof CustomUserDetails) {
+            String email = ((CustomUserDetails) principal).getUsername();
             Optional<User> userOptional = userRepository.findByEmail(email);
             if (userOptional.isPresent()) {
                 User user = userOptional.get();
@@ -42,19 +40,12 @@ public class CustomLoginSuccessHandler
             }
         }
 
-        boolean isAdmin =
-                authentication.getAuthorities()
-                        .stream()
-                        .anyMatch(a ->
-                                a.getAuthority()
-                                        .equals("ROLE_ADMIN"));
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         if (isAdmin) {
-
             response.sendRedirect("/admin");
-
         } else {
-
             response.sendRedirect("/student/dashboard");
         }
     }

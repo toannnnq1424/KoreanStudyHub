@@ -107,7 +107,7 @@
                   </form>
                   <!-- Reset password -->
                   <form th:action="@{/admin/users/{id}/reset-password(id=${u.userId})}" method="post" class="d-inline"
-                        onsubmit="return confirm('Đặt lại mật khẩu về 123456?')">
+                        onsubmit="return confirm('Cấp lại mật khẩu ngẫu nhiên mới và gửi qua email cho tài khoản này?')">
                     <button type="submit" class="btn btn-sm" title="Đặt lại mật khẩu"
                             style="background:#eff6ff;color:#1d4ed8;border:none;border-radius:6px;padding:4px 8px">
                       <i class="bi bi-key-fill"></i>

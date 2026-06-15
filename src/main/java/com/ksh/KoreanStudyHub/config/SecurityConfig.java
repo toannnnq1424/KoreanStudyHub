@@ -1,7 +1,10 @@
 package com.ksh.KoreanStudyHub.config;
 
+import com.ksh.KoreanStudyHub.security.CustomLoginFailureHandler;
 import com.ksh.KoreanStudyHub.security.CustomLoginSuccessHandler;
 import com.ksh.KoreanStudyHub.security.CustomUserDetailsService;
+import com.ksh.KoreanStudyHub.security.CustomOAuth2UserService;
+import com.ksh.KoreanStudyHub.security.CustomOAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +21,9 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final CustomLoginSuccessHandler successHandler;
+    private final CustomLoginFailureHandler failureHandler;
+    private final CustomOAuth2UserService oAuth2UserService;
+    private final CustomOAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
@@ -41,7 +47,15 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage("/login")
                 .successHandler(successHandler)
+                .failureHandler(failureHandler)
                 .permitAll()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .loginPage("/login")
+                .userInfoEndpoint(userInfo -> userInfo
+                    .userService(oAuth2UserService)
+                )
+                .successHandler(oAuth2LoginSuccessHandler)
             )
             .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
             .userDetailsService(userDetailsService);

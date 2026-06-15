@@ -20,6 +20,7 @@ public class UserAdminService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public Page<User> getAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable);
@@ -56,8 +57,21 @@ public class UserAdminService {
 
     public void resetPassword(Long id) {
         User user = getById(id);
-        user.setPassword(passwordEncoder.encode("123456"));
+        
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        String randomPassword = sb.toString();
+        
+        user.setPassword(passwordEncoder.encode(randomPassword));
+        user.setFailedAttemptCount(0);
+        user.setLockTime(null);
         userRepository.save(user);
+        
+        emailService.sendNewPassword(user.getEmail(), randomPassword);
     }
 
     public void deleteUser(Long id) {
