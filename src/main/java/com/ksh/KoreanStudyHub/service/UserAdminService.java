@@ -21,17 +21,18 @@ public class UserAdminService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public Page<User> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable);
-    }
+    public Page<User> getAllUsers(Pageable pageable) { return userRepository.findAll(pageable); }
 
     public List<User> searchUsers(String keyword) {
         return userRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(keyword, keyword);
     }
 
+    public List<User> getUsersByRole(String roleName) {
+        return userRepository.findByRoleRoleName(roleName);
+    }
+
     public User getById(Long id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
+        return userRepository.findById(id).orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
     }
 
     public void createUser(CreateUserRequest request) {
@@ -60,23 +61,11 @@ public class UserAdminService {
         userRepository.save(user);
     }
 
-    public void deleteUser(Long id) {
-        userRepository.deleteById(id);
-    }
+    public void deleteUser(Long id) { userRepository.deleteById(id); }
 
-    public List<Role> getAllRoles() {
-        return roleRepository.findAll();
-    }
+    public List<Role> getAllRoles() { return roleRepository.findAll(); }
 
-    public long countByRole(String roleName) {
-        return userRepository.countByRoleRoleName(roleName);
-    }
-
-    public long countTotal() {
-        return userRepository.count();
-    }
-
-    public long countActive() {
-        return userRepository.countByStatus("ACTIVE");
-    }
+    public long countByRole(String roleName) { return userRepository.countByRoleRoleName(roleName); }
+    public long countTotal() { return userRepository.count(); }
+    public long countActive() { return userRepository.countByStatus("ACTIVE"); }
 }

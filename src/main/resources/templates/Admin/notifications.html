@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Quản lý thông báo – Admin</title>
+  <th:block th:replace="~{fragments/admin-layout :: css}"></th:block>
+</head>
+<body>
+<th:block th:replace="~{fragments/admin-layout :: sidebar('notifications')}"></th:block>
+
+<div class="main">
+  <th:block th:replace="~{fragments/admin-layout :: topbar('🔔 Quản lý thông báo')}"></th:block>
+
+  <div class="content">
+
+    <div th:if="${success}" class="alert alert-success d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-check-circle-fill"></i><span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-exclamation-circle-fill"></i><span th:text="${error}"></span>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between mb-2">
+            <div class="stat-icon" style="background:#fff0f1">🔔</div>
+            <span class="text-muted" style="font-size:0.78rem">Tổng</span>
+          </div>
+          <div class="stat-num" th:text="${totalCount}">0</div>
+          <div class="stat-label">Thông báo</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between mb-2">
+            <div class="stat-icon" style="background:#fefce8">📬</div>
+            <span style="font-size:0.78rem; color:#ca8a04">Chưa đọc</span>
+          </div>
+          <div class="stat-num" th:text="${unreadCount}">0</div>
+          <div class="stat-label">Chưa được đọc</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Gửi thông báo -->
+      <div class="col-md-4">
+        <div class="card-box mb-3">
+          <h6 class="fw-bold mb-3"><i class="bi bi-send me-2 text-muted"></i>Gửi thông báo cá nhân</h6>
+          <form th:action="@{/admin/notifications/send}" method="post">
+            <div class="mb-3">
+              <label class="form-label" style="font-weight:500">Người nhận</label>
+              <select name="userId" class="form-select" required>
+                <option value="">-- Chọn người dùng --</option>
+                <option th:each="u : ${users}" th:value="${u.userId}"
+                        th:text="${u.fullName + ' (' + u.email + ')'}"></option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" style="font-weight:500">Nội dung</label>
+              <textarea name="message" class="form-control" rows="3" placeholder="Nhập nội dung thông báo..." required style="border-radius:8px"></textarea>
+            </div>
+            <button type="submit" class="btn-ksh w-100"><i class="bi bi-send me-1"></i>Gửi</button>
+          </form>
+        </div>
+
+        <div class="card-box" style="background:linear-gradient(135deg,#e63946,#c1121f); color:white">
+          <h6 class="fw-bold mb-2"><i class="bi bi-megaphone me-2"></i>Gửi đến tất cả</h6>
+          <p style="font-size:0.85rem; opacity:0.85; margin-bottom:16px">Gửi thông báo đến toàn bộ người dùng trong hệ thống</p>
+          <form th:action="@{/admin/notifications/send-all}" method="post">
+            <textarea name="message" class="form-control mb-3" rows="2"
+                      placeholder="Nội dung thông báo hệ thống..."
+                      style="border:none; border-radius:8px; font-size:0.9rem" required></textarea>
+            <button type="submit" class="btn w-100"
+                    style="background:rgba(255,255,255,0.2); color:white; border:1.5px solid rgba(255,255,255,0.4); border-radius:8px; font-weight:600"
+                    onclick="return confirm('Gửi đến tất cả người dùng?')">
+              <i class="bi bi-broadcast me-1"></i>Gửi tất cả
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Danh sách thông báo -->
+      <div class="col-md-8">
+        <div class="card-box">
+          <h6 class="fw-bold mb-3">Lịch sử thông báo</h6>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Người nhận</th>
+                  <th>Nội dung</th>
+                  <th>Trạng thái</th>
+                  <th>Thời gian</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:each="n : ${notifications}">
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="avatar-sm" style="width:28px;height:28px;font-size:0.7rem"
+                           th:text="${#strings.substring(n.user.fullName, 0, 1).toUpperCase()}"></div>
+                      <div>
+                        <div style="font-size:0.88rem; font-weight:500" th:text="${n.user.fullName}"></div>
+                        <div style="font-size:0.78rem; color:#9ca3af" th:text="${n.user.email}"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style="max-width:220px">
+                    <div style="font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" th:text="${n.message}"></div>
+                  </td>
+                  <td>
+                    <span th:if="${n.status == 'UNREAD'}"
+                          style="background:#fefce8;color:#ca8a04;font-size:0.75rem;padding:3px 10px;border-radius:20px;font-weight:600">
+                      Chưa đọc
+                    </span>
+                    <span th:if="${n.status == 'READ'}"
+                          style="background:#f0fdf4;color:#16a34a;font-size:0.75rem;padding:3px 10px;border-radius:20px;font-weight:600">
+                      Đã đọc
+                    </span>
+                  </td>
+                  <td class="text-muted" style="font-size:0.82rem"
+                      th:text="${n.createdAt != null ? #temporals.format(n.createdAt, 'dd/MM HH:mm') : '—'}"></td>
+                  <td>
+                    <form th:action="@{/admin/notifications/{id}/delete(id=${n.notificationId})}" method="post"
+                          onsubmit="return confirm('Xóa thông báo này?')">
+                      <button type="submit" class="btn btn-sm"
+                              style="background:#fff0f1;color:#e63946;border:none;border-radius:6px;padding:4px 8px">
+                        <i class="bi bi-trash3-fill"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(notifications)}">
+                  <td colspan="5" class="text-center text-muted py-5">
+                    <i class="bi bi-bell-slash fs-3 d-block mb-2 opacity-25"></i>Chưa có thông báo nào
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
