@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Lớp học', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}">
+  <!-- Shared app shell header -->
+</header>
+
+<main class="class-page">
+
+  <!-- ===== Flash → toast trigger (no inline banner) =====
+       Server writes flash attributes via RedirectAttributes; we surface them
+       as iziToast notifications on page load. Hidden <span> attrs only. -->
+  <span id="flash-data"
+        th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+        style="display:none;"></span>
+
+  <!-- ===== Rank toggle ===== -->
+  <button class="rank-toggle" id="rankToggle" type="button">
+    <span>Hiện xếp hạng</span>
+    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+
+  <!-- ===== Panel: tabs + toolbar + list ===== -->
+  <section class="panel">
+
+    <!-- Tabs row -->
+    <div class="panel-top">
+      <div class="tabs">
+        <button class="tab active" type="button">
+          Lớp của bạn <span th:text="${classes != null ? classes.size() : 0}">0</span>
+        </button>
+        <button class="tab" type="button" title="Sắp ra mắt">Lớp đã ẩn</button>
+      </div>
+      <div class="panel-top-right">
+        <button class="btn-ghost" type="button" title="Sắp ra mắt">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Thùng rác
+        </button>
+        <button class="btn-ghost icon-only" id="viewToggle" type="button" aria-label="Chuyển dạng lưới">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search">
+        <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        <label for="searchInput" class="sr-only">Tìm kiếm lớp học</label>
+        <input type="text" id="searchInput" placeholder="Tìm kiếm..." aria-label="Tìm kiếm lớp học">
+      </div>
+      <div class="dropdown sort" id="sortDd" style="position:relative;">
+        <button class="sort-btn" data-toggle="dropdown" type="button">
+          <span id="sortLabel">Sắp xếp...</span>
+          <svg class="ico ico-sm caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="menu left">
+          <button class="menu-item" data-sort="Mới nhất" data-sort-key="created-desc" type="button">Mới nhất
+            <svg class="ico ico-sm check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          </button>
+          <button class="menu-item" data-sort="Cũ nhất" data-sort-key="created-asc" type="button">Cũ nhất</button>
+          <button class="menu-item" data-sort="Tên A-Z" data-sort-key="name-asc" type="button">Tên A-Z</button>
+          <button class="menu-item" data-sort="Tên Z-A" data-sort-key="name-desc" type="button">Tên Z-A</button>
+          <button class="menu-item" data-sort="Sĩ số" data-sort-key="student-desc" type="button">Sĩ số</button>
+        </div>
+      </div>
+      <a class="create-btn" th:href="@{/lecturer/classes/new}">
+        <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        Tạo lớp học
+      </a>
+    </div>
+
+    <!-- List header -->
+    <div class="list-head">
+      <div class="col-name">Tên lớp</div>
+      <div class="col">Học sinh</div>
+      <div class="col">Bài giảng</div>
+      <div class="col">Bài tập</div>
+      <div class="col">Tài liệu</div>
+      <div class="col"></div>
+    </div>
+
+    <!-- Class list -->
+    <div class="class-list">
+
+      <!-- Empty state when no classes -->
+      <div class="empty" th:if="${classes == null or classes.isEmpty()}">
+        Chưa có lớp học nào. Nhấn <b>Tạo lớp học</b> để bắt đầu.
+      </div>
+
+      <!-- Class rows. The whole name + thumb area is a link to the class detail page —
+           click anywhere on the class card to open the detail (Bảng tin tab) directly. -->
+      <div th:each="cls : ${classes}" class="class-row"
+           th:attr="data-class-id=${cls.id},data-class-name=${cls.name},data-class-code=${cls.code},data-student-count=${cls.studentCount},data-created-at=${cls.createdAtIso}">
+        <a class="class-main class-main-link"
+           th:href="@{'/lecturer/classes/' + ${cls.id}}"
+           th:aria-label="'Mở lớp ' + ${cls.name}">
+          <div class="class-thumb"
+               th:style="'background:' + ${cls.gradientCss}"
+               th:text="${cls.thumbLabel()}">SE</div>
+          <div class="class-info">
+            <h4 th:text="${cls.name}">SE1865</h4>
+            <div class="class-code">
+              Mã lớp &bull; <b th:text="${cls.code}">NILXM</b>
+              <button class="copy-code" type="button" aria-label="Sao chép mã"
+                      th:attr="data-code=${cls.code}">
+                <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </a>
+        <div class="stat" th:text="${cls.studentCount}">0</div>
+        <div class="stat" th:text="${cls.lectureCount}">0</div>
+        <div class="stat" th:text="${cls.assignmentCount}">0</div>
+        <div class="stat" th:text="${cls.materialCount}">0</div>
+        <div class="dropdown row-menu" style="position:relative;">
+          <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+          <div class="menu right">
+            <button class="menu-item" type="button" title="Sắp ra mắt" disabled>
+              <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Quản lý học sinh
+            </button>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger" type="button"
+                    data-action="delete-class"
+                    th:attr="data-class-id=${cls.id},data-class-name=${cls.name}">
+              <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Xóa lớp
+            </button>
+          </div>
+        </div>
+
+        <!-- Hidden per-row delete form (Thymeleaf injects CSRF, JS calls form.submit()) -->
+        <form th:id="'delete-form-' + ${cls.id}"
+              th:action="@{'/lecturer/classes/' + ${cls.id} + '/delete'}"
+              method="post" style="display:none;">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        </form>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/classes.js}"></script>
+</body>
+</html>
