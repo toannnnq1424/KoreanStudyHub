@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Kho luyện tập TOPIK | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR (PREP-STYLE) ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('library')}"></aside>
+
+  <!-- ═══ MAIN CONTENT WRAPPER (Shifted 72px) ═══ -->
+  <main class="pi-main-wrapper">
+    <div class="pi-content-grid">
+      
+      <!-- ═══ LEFT COLUMN: Practice Library ═══ -->
+      <section class="pi-library-section">
+        
+        <!-- Hero Header -->
+        <div class="pi-hero">
+          <div class="pi-hero-text">
+            <h1>Kho luyện tập TOPIK</h1>
+            <p class="pi-hero-desc">Nghe, Đọc, Viết, Nói — AI chấm điểm và phản hồi chi tiết bằng tiếng Việt.</p>
+          </div>
+          <div class="pi-hero-actions">
+            <a class="pi-btn-primary"
+               sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+               th:href="@{/practice/manage/create}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Biên soạn đề thi
+            </a>
+          </div>
+        </div>
+
+        <!-- Library Container -->
+        <div class="pi-library">
+          
+          <!-- Skill filter pills + search -->
+          <div class="pi-toolbar">
+            <div class="pi-skill-pills" role="tablist">
+              <button id="pill-all" class="pi-pill active" type="button" data-skill="all" role="tab">
+                Tất cả
+              </button>
+              <button id="pill-listening" class="pi-pill" type="button" data-skill="LISTENING" role="tab">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                Nghe
+              </button>
+              <button id="pill-reading" class="pi-pill" type="button" data-skill="READING" role="tab">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Đọc
+              </button>
+              <button id="pill-writing" class="pi-pill" type="button" data-skill="WRITING" role="tab">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Viết
+              </button>
+              <button id="pill-speaking" class="pi-pill" type="button" data-skill="SPEAKING" role="tab">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                Nói
+              </button>
+            </div>
+
+            <label class="pi-search" for="pi-search-input">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="pi-search-input" type="search" placeholder="Tìm bộ luyện tập...">
+            </label>
+          </div>
+
+          <!-- Count row -->
+          <div class="pi-count-row">
+            <span class="pi-count-label">Danh sách bộ luyện tập</span>
+            <strong id="pi-set-count" th:text="${#lists.size(sets)} + ' bộ đề'">0 bộ đề</strong>
+          </div>
+
+          <!-- Card grid -->
+          <div class="pi-card-grid" id="pi-card-grid">
+            <article class="pi-card"
+                     th:each="set, iter : ${sets}"
+                     th:attr="data-skill=${set.skill()},data-title=${set.title()},data-id=${set.id()}"
+                     th:onclick="|if(!event.target.closest('.pi-bookmark-btn')){ window.location.href='@{/practice/sets/{id}(id=${set.id()})}' }|">
+
+              <!-- Card Cover (PREP Style) -->
+              <div class="pi-card-cover"
+                   th:classappend="${set.skill() == 'WRITING'} ? ' writing' :
+                     (${set.skill() == 'SPEAKING'} ? ' speaking' :
+                     (${set.skill() == 'LISTENING'} ? ' listening' : ' reading'))">
+                <span class="pi-card-level" th:text="${set.categoryLabel()}">TOPIK II</span>
+                <strong class="pi-card-skill-name"
+                        th:text="${set.skillLabel()}">READING</strong>
+                <em class="pi-card-platform">KSH STUDY GUIDE</em>
+                <div class="pi-card-circle"></div>
+
+                <!-- Bookmark Button (Floating) -->
+                <button class="pi-bookmark-btn" type="button" aria-label="Lưu bộ đề">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                </button>
+              </div>
+
+              <!-- Card body -->
+              <div class="pi-card-body">
+                <div class="pi-card-title-row">
+                  <h2 class="pi-card-title" th:text="${set.title()}">Tên bộ đề</h2>
+                  <span class="pi-badge"
+                        th:classappend="${#strings.toLowerCase(set.skill())}"
+                        th:text="${set.skillLabel()}">Kỹ năng</span>
+                </div>
+
+                <!-- Bottom info: progress + skill icons -->
+                <div class="pi-card-bottom-row">
+                  <span class="pi-progress-text"
+                        th:attr="data-skill=${set.skill()}"
+                        th:text="${set.skill() == 'MIXED'} ? '0/1 bài thi' : ('0/' + (${set.skill() == 'READING' ? 40 : (set.skill() == 'LISTENING' ? 20 : (set.skill() == 'WRITING' ? 10 : 8))}) + ' bài luyện')">0/4 tests</span>
+                  <div class="pi-card-skill-icons">
+                    <!-- Headphones (Listening) -->
+                    <svg th:classappend="${set.skill() == 'LISTENING' or (set.metadataJson != null and set.metadataJson.contains('LISTENING'))} ? 'active'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                    <!-- Document (Reading) -->
+                    <svg th:classappend="${set.skill() == 'READING' or (set.metadataJson != null and set.metadataJson.contains('READING'))} ? 'active'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <!-- Pen (Writing) -->
+                    <svg th:classappend="${set.skill() == 'WRITING' or (set.metadataJson != null and set.metadataJson.contains('WRITING'))} ? 'active'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <!-- Microphone (Speaking) -->
+                    <svg th:classappend="${set.skill() == 'SPEAKING' or (set.metadataJson != null and set.metadataJson.contains('SPEAKING'))} ? 'active'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Empty state -->
+          <section class="pi-empty" th:if="${#lists.isEmpty(sets)}">
+            <div class="pi-empty-icon">📚</div>
+            <h3>Chưa có bộ luyện tập nào</h3>
+            <p>Hãy upload đề thi PDF để tạo bộ luyện tập đầu tiên.</p>
+            <a class="pi-btn-primary" sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')" th:href="@{/practice/manage/import}">Tạo đề từ PDF</a>
+          </section>
+        </div>
+      </section>
+
+      <!-- ═══ RIGHT COLUMN: Right Panel (PREP-STYLE) ═══ -->
+      <aside class="pi-right-aside">
+
+        <!-- User Profile Card -->
+        <div class="pi-right-card pi-user-card" sec:authorize="isAuthenticated()">
+          <div class="pi-user-avatar">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="pi-user-info">
+            <strong sec:authentication="name">Học viên</strong>
+            <span>Thành viên KSH</span>
+          </div>
+        </div>
+
+        <!-- AI Quota Card -->
+        <div class="pi-right-card pi-quota-card">
+          <p class="pi-right-label">Lượt hỏi AI hôm nay</p>
+          <div class="pi-quota-row">
+            <div class="pi-quota-item">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+              <span>Nói</span>
+              <strong>10/10</strong>
+            </div>
+            <div class="pi-quota-item">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <span>Viết</span>
+              <strong>10/10</strong>
+            </div>
+          </div>
+          <a class="pi-quota-link" th:href="@{/practice/progress}">Xem tiến độ →</a>
+        </div>
+
+        <!-- Test Practice Progress Card -->
+        <div class="pi-right-card pi-progress-card">
+          <p class="pi-right-label">Tiến độ luyện tập</p>
+          <a class="pi-progress-link" th:href="@{/practice/progress}">Chi tiết</a>
+          <div class="pi-skill-bars">
+            <div class="pi-skill-bar-row">
+              <span>Nghe</span>
+              <div class="pi-sbar"><div class="pi-sbar-fill listening" style="width:45%"></div></div>
+              <em>45%</em>
+            </div>
+            <div class="pi-skill-bar-row">
+              <span>Đọc</span>
+              <div class="pi-sbar"><div class="pi-sbar-fill reading" style="width:62%"></div></div>
+              <em>62%</em>
+            </div>
+            <div class="pi-skill-bar-row">
+              <span>Viết</span>
+              <div class="pi-sbar"><div class="pi-sbar-fill writing" style="width:30%"></div></div>
+              <em>30%</em>
+            </div>
+            <div class="pi-skill-bar-row">
+              <span>Nói</span>
+              <div class="pi-sbar"><div class="pi-sbar-fill speaking" style="width:20%"></div></div>
+              <em>20%</em>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Collection Card -->
+        <div class="pi-right-card pi-collection-card">
+          <p class="pi-right-label">Bộ sưu tập của tôi</p>
+          <div class="pi-collection-container" id="pi-collection-container">
+            <!-- Will be dynamically populated via Javascript -->
+            <div class="pi-collection-empty" id="pi-collection-empty">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c1d3f0" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <span>Chưa có bộ đề nào được lưu</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+(function () {
+  const pills = document.querySelectorAll('.pi-pill');
+  const cards = document.querySelectorAll('#pi-card-grid .pi-card');
+  const countEl = document.getElementById('pi-set-count');
+  const searchInput = document.getElementById('pi-search-input');
+  const collectionContainer = document.getElementById('pi-collection-container');
+  const collectionEmpty = document.getElementById('pi-collection-empty');
+  let activeSkill = 'all';
+
+  // 1. SKILL PILLS FILTER & SEARCH
+  const updateVisibility = () => {
+    const q = (searchInput.value || '').trim().toLowerCase();
+    let visible = 0;
+    cards.forEach((card) => {
+      const skill = card.dataset.skill || '';
+      const title = (card.dataset.title || '').toLowerCase();
+      const skillMatch = activeSkill === 'all' || skill === activeSkill;
+      const searchMatch = !q || title.includes(q);
+      const show = skillMatch && searchMatch;
+      card.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    if (countEl) countEl.textContent = visible + ' bộ đề';
+  };
+
+  pills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      pills.forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeSkill = pill.dataset.skill || 'all';
+      updateVisibility();
+    });
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', updateVisibility);
+  }
+
+  // 2. BOOKMARKING & MY COLLECTION MANAGEMENT (PREP Style)
+  const getBookmarks = () => {
+    try {
+      return JSON.parse(localStorage.getItem('ksh_bookmarked_sets') || '[]');
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const saveBookmarks = (bookmarks) => {
+    localStorage.setItem('ksh_bookmarked_sets', JSON.stringify(bookmarks));
+  };
+
+  const updateCollectionUI = () => {
+    const bookmarks = getBookmarks();
+    
+    // Reset collection list
+    const itemsHtml = [];
+    
+    cards.forEach((card) => {
+      const id = card.dataset.id;
+      const bookmarkBtn = card.querySelector('.pi-bookmark-btn');
+      
+      if (bookmarks.includes(id)) {
+        if (bookmarkBtn) bookmarkBtn.classList.add('active');
+        
+        // Build thumbnail model
+        const title = card.querySelector('.pi-card-title').textContent;
+        const coverClasses = card.querySelector('.pi-card-cover').className;
+        const progressText = card.querySelector('.pi-progress-text').textContent;
+        const level = card.querySelector('.pi-card-level').textContent;
+        const skillName = card.querySelector('.pi-card-skill-name').textContent;
+        const detailUrl = `/practice/sets/${id}`;
+        const skill = card.dataset.skill;
+
+        // Cover thumbnail style mapping
+        let coverColorClass = 'reading';
+        if (coverClasses.includes('listening')) coverColorClass = 'listening';
+        else if (coverClasses.includes('writing')) coverColorClass = 'writing';
+        else if (coverClasses.includes('speaking')) coverColorClass = 'speaking';
+
+        // Select correct skill icon
+        let skillIconHtml = '';
+        if (skill === 'LISTENING') {
+          skillIconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/></svg>`;
+        } else if (skill === 'WRITING') {
+          skillIconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+        } else if (skill === 'SPEAKING') {
+          skillIconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/></svg>`;
+        } else {
+          skillIconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>`;
+        }
+
+        itemsHtml.push(`
+          <div class="pi-collection-item" onclick="window.location.href='${detailUrl}'">
+            <div class="pi-collection-cover ${coverColorClass}">
+              <span>${level}</span>
+              <strong>${skillName}</strong>
+            </div>
+            <div class="pi-collection-info">
+              <h4>${title}</h4>
+              <div class="pi-collection-meta">
+                <span>${progressText}</span>
+                <span class="pi-collection-icon">${skillIconHtml}</span>
+              </div>
+            </div>
+          </div>
+        `);
+      } else {
+        if (bookmarkBtn) bookmarkBtn.classList.remove('active');
+      }
+    });
+
+    if (itemsHtml.length > 0) {
+      if (collectionEmpty) collectionEmpty.style.display = 'none';
+      
+      // Remove any existing items first
+      const existingItems = collectionContainer.querySelectorAll('.pi-collection-item');
+      existingItems.forEach(el => el.remove());
+      
+      // Insert new items
+      collectionContainer.insertAdjacentHTML('beforeend', itemsHtml.join(''));
+    } else {
+      const existingItems = collectionContainer.querySelectorAll('.pi-collection-item');
+      existingItems.forEach(el => el.remove());
+      if (collectionEmpty) collectionEmpty.style.display = 'flex';
+    }
+  };
+
+  // Event handler for bookmark buttons
+  cards.forEach((card) => {
+    const id = card.dataset.id;
+    const bookmarkBtn = card.querySelector('.pi-bookmark-btn');
+    if (bookmarkBtn) {
+      bookmarkBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        let bookmarks = getBookmarks();
+        if (bookmarks.includes(id)) {
+          bookmarks = bookmarks.filter(bId => bId !== id);
+        } else {
+          bookmarks.push(id);
+        }
+        saveBookmarks(bookmarks);
+        updateCollectionUI();
+      });
+    }
+  });
+
+  // Initial UI Sync
+  updateCollectionUI();
+  updateVisibility();
+})();
+</script>
+</body>
+</html>
