@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chi tiết bài thi | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR (PREP-STYLE) ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('library')}"></aside>
+
+  <!-- ═══ MAIN CONTENT WRAPPER ═══ -->
+  <main class="pi-main-wrapper">
+    <div class="pi-detail-container">
+      
+      <!-- Back & Breadcrumb Header -->
+      <div class="pi-detail-header">
+        <a class="pi-back-btn" th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Quay lại
+        </a>
+        <div class="pi-breadcrumb">
+          <a th:href="@{/practice}">Luyện tập</a>
+          <span>&gt;</span>
+          <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" th:text="${view.set().title()}">Tên bộ đề</a>
+          <span>&gt;</span>
+          <span>Bài thi Đầy đủ</span>
+        </div>
+      </div>
+
+      <!-- Two-column grid -->
+      <div class="pi-test-grid">
+        
+        <!-- Left Section: Skill & Attempt History -->
+        <section class="pi-test-left">
+          
+          <div class="pi-test-card-white">
+            <h2 class="pi-test-section-title">Kỹ năng làm bài</h2>
+            
+            <div class="pi-skill-row">
+              <div class="pi-skill-badge"
+                   th:classappend="${view.set().skill() == 'WRITING'} ? ' writing' :
+                     (${view.set().skill() == 'SPEAKING'} ? ' speaking' :
+                     (${view.set().skill() == 'LISTENING'} ? ' listening' :
+                     (${view.set().skill() == 'MIXED'} ? ' mixed' : ' reading')))">
+                <!-- Listening icon -->
+                <svg th:if="${view.set().skill() == 'LISTENING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                <!-- Reading icon -->
+                <svg th:if="${view.set().skill() == 'READING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <!-- Writing icon -->
+                <svg th:if="${view.set().skill() == 'WRITING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <!-- Speaking icon -->
+                <svg th:if="${view.set().skill() == 'SPEAKING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <!-- Mixed/Integrated icon -->
+                <svg th:if="${view.set().skill() == 'MIXED'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              </div>
+              <div class="pi-skill-info">
+                <h3 th:text="${view.set().skillLabel()}">Kỹ năng</h3>
+                <span class="pi-skill-subtitle"
+                  th:text="'Bài thi kỹ năng ' + ${view.set().skillLabel()}">Bài thi kỹ năng</span>
+                <span class="pi-ai-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                  AI chấm điểm tự động
+                </span>
+              </div>
+            </div>
+
+            <!-- Attempt History -->
+            <div class="pi-history-section">
+              <h3>Lịch sử làm bài</h3>
+              
+              <!-- Empty attempts state -->
+              <div class="pi-attempts-empty" th:if="${#lists.isEmpty(attempts)}">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <p>Bạn chưa thực hiện lượt làm bài nào cho bài thi này.</p>
+              </div>
+
+              <!-- List of attempts -->
+              <div class="pi-attempts-list" th:if="${!#lists.isEmpty(attempts)}">
+                <div class="pi-attempt-row" th:each="att, iter : ${attempts}">
+                  <div class="pi-att-index">
+                    <span th:text="${iter.count}">1</span>
+                  </div>
+                  <div class="pi-att-meta">
+                    <strong>Lượt làm bài <span th:text="${iter.count}">1</span></strong>
+                    <span th:text="${#temporals.format(att.getSubmittedAt(), 'HH:mm dd/MM/yyyy')}">Thời gian</span>
+                  </div>
+                  <div class="pi-att-score">
+                    <span th:text="${att.getScore()}">0.0</span>
+                  </div>
+                  <a class="pi-att-link" th:href="@{/practice/attempts/{id}/result(id=${att.getId()})}">Xem chi tiết &rarr;</a>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+        
+        <!-- Right Section: Score Summary Card -->
+        <aside class="pi-test-right">
+          
+          <!-- Case 0: In Progress Attempt Detected -->
+          <div class="pi-test-card-white pi-start-info-card" th:if="${inProgressAttempt != null}" style="border: 2px solid var(--pp-accent); background: rgba(59,130,246,0.02); margin-bottom: 20px;">
+            <h2 class="pi-test-section-title" style="color: var(--pp-accent); display: flex; align-items: center; gap: 6px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Lượt làm chưa hoàn thành
+            </h2>
+            <p class="pi-info-desc" style="margin-bottom: 20px;">Hệ thống phát hiện bạn đang có một lượt làm bài dang dở. Bạn có thể tiếp tục làm tiếp hoặc hủy bỏ để làm lượt mới.</p>
+            
+            <a class="pi-btn-primary pi-btn-full text-center" th:href="@{/practice/attempts/{id}(id=${inProgressAttempt.id})}" style="margin-bottom: 12px; display: block; text-decoration: none;">
+              Tiếp tục làm bài
+            </a>
+            
+            <form method="post" th:action="@{/practice/attempts/{id}/discard(id=${inProgressAttempt.id})}" onsubmit="return confirm('Bạn có chắc chắn muốn hủy bỏ lượt làm bài dang dở này? Toàn bộ câu trả lời chưa nộp của lượt này sẽ bị xóa.');">
+              <input type="hidden" name="setId" th:value="${view.set().id()}" />
+              <input type="hidden" name="testId" th:value="${testId}" />
+              <button class="pi-btn-outline pi-btn-full text-center" style="color: var(--pp-error); border-color: var(--pp-error); background: none; width: 100%; cursor: pointer;" type="submit">
+                Hủy lượt làm cũ
+              </button>
+            </form>
+          </div>
+
+          <!-- Case 1: Attempted - Show summary scores -->
+          <div class="pi-test-card-white pi-score-summary-card" th:if="${!#lists.isEmpty(attempts)}">
+            <h2 class="pi-test-section-title">Kết quả đạt được</h2>
+            
+            <div class="pi-score-badge-circle">
+              <strong th:text="${attempts.get(0).getScore()}">5.5</strong>
+              <span>Điểm mới nhất</span>
+            </div>
+            
+            <div class="pi-score-stats">
+              <div class="pi-stat-item">
+                <span>Số lượt làm</span>
+                <strong th:text="${#lists.size(attempts)}">1</strong>
+              </div>
+              <div class="pi-stat-item">
+                <span>Điểm cao nhất</span>
+                <strong>
+                  <span th:text="${bestScore}">5.5</span>
+                </strong>
+              </div>
+            </div>
+
+            <!-- CTA buttons -->
+            <th:block th:if="${inProgressAttempt == null}">
+              <form method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
+                <input type="hidden" name="mode" value="exam" />
+                <button class="pi-btn-primary pi-btn-full" type="submit">Làm lại</button>
+              </form>
+            </th:block>
+            
+            <a class="pi-btn-outline pi-btn-full text-center" th:href="@{/practice/attempts/{id}/result(id=${attempts.get(0).getId()})}" th:if="${inProgressAttempt == null}">
+              Xem kết quả mới nhất
+            </a>
+          </div>
+
+          <!-- Case 2: Not attempted yet - Show Start Info -->
+          <div class="pi-test-card-white pi-start-info-card" th:if="${#lists.isEmpty(attempts) and inProgressAttempt == null}">
+            <h2 class="pi-test-section-title">Thông tin bài thi</h2>
+            
+            <div class="pi-info-stats">
+              <div class="pi-info-stat-row">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Thời gian làm bài: 70 phút</span>
+              </div>
+              <div class="pi-info-stat-row">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span th:text="'Số lượng câu hỏi: ' + ${view.totalQuestions()} + ' câu'">Số câu</span>
+              </div>
+            </div>
+
+            <p class="pi-info-desc">Hệ thống sẽ ghi nhận và chấm điểm tự động. Bạn có thể lựa chọn làm bài ở chế độ Luyện tập tự do hoặc Kiểm tra tính giờ.</p>
+
+            <!-- Start button to mode selection -->
+            <a class="pi-btn-primary pi-btn-full text-center" th:href="@{/practice/sets/{setId}/tests/{testId}/mode(setId=${view.set().id()},testId=${testId})}">
+              Bắt đầu luyện tập
+            </a>
+          </div>
+
+        </aside>
+
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+</body>
+</html>
