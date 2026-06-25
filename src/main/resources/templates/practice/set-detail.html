@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.set().title()} + ' | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR (PREP-STYLE) ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('library')}"></aside>
+
+  <!-- ═══ MAIN CONTENT WRAPPER ═══ -->
+  <main class="pi-main-wrapper">
+    <div class="pi-detail-container">
+      
+      <!-- Back & Breadcrumb Header -->
+      <div class="pi-detail-header">
+        <a class="pi-back-btn" th:href="@{/practice}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Quay lại
+        </a>
+        <div class="pi-breadcrumb">
+          <a th:href="@{/practice}">Luyện tập</a>
+          <span>&gt;</span>
+          <span th:text="${view.set().title()}">Tên bộ đề</span>
+        </div>
+      </div>
+
+      <!-- Set Hero Profile (PREP Style) -->
+      <div class="pi-set-hero">
+        <div class="pi-set-hero-cover"
+             th:classappend="${view.set().skill() == 'WRITING'} ? ' writing' :
+               (${view.set().skill() == 'SPEAKING'} ? ' speaking' :
+               (${view.set().skill() == 'LISTENING'} ? ' listening' :
+               (${view.set().skill() == 'MIXED'} ? ' mixed' : ' reading')))">
+          <span class="pi-card-level" th:text="${view.set().categoryLabel()}">TOPIK II</span>
+          <strong th:text="${view.set().skillLabel()}">READING</strong>
+          <div class="pi-card-circle"></div>
+        </div>
+        
+        <div class="pi-set-hero-info">
+          <h1 th:text="${view.set().title()}">Tên bộ đề</h1>
+          
+          <div class="pi-set-meta-row">
+            <span class="pi-badge"
+                  th:classappend="${#strings.toLowerCase(view.set().skill())}"
+                  th:text="${view.set().skillLabel()}">Kỹ năng</span>
+            <span class="pi-tests-count">1 bài luyện tập</span>
+          </div>
+
+          <p class="pi-set-desc" th:text="${view.set().description()}">Mô tả chi tiết bộ đề luyện tập</p>
+        </div>
+      </div>
+
+      <!-- Tests Timeline Title -->
+      <div class="pi-timeline-heading">
+        <h2>Danh sách bài luyện</h2>
+      </div>
+
+      <!-- Tests Timeline List (PREP Vertical Timeline) -->
+      <div class="pi-timeline">
+        
+        <!-- Full Test item -->
+        <div class="pi-timeline-item active">
+          <div class="pi-timeline-badge">1</div>
+          
+          <!-- Test Card -->
+          <div class="pi-timeline-card" th:onclick="|window.location.href='@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${view.set().id()})}'|">
+            <div class="pi-tcard-main">
+              <div class="pi-tcard-title-row">
+                <h3>Bài thi Đầy đủ (Full Test)</h3>
+                <!-- Status Badge -->
+                <span class="pi-status-badge"
+                      th:classappend="${#lists.isEmpty(submissions)} ? 'not-started' : 'completed'"
+                      th:text="${#lists.isEmpty(submissions)} ? 'Chưa làm' : 'Đã làm'">Chưa làm</span>
+              </div>
+              <p class="pi-tcard-desc" th:text="'Luyện tập trọn vẹn bộ đề ' + ${view.set().title()} + ' với chấm điểm tự động từ AI.'">Mô tả bài thi</p>
+              
+              <div class="pi-tcard-meta">
+                <span th:text="${view.totalQuestions()} + ' câu hỏi'">40 câu hỏi</span>
+                <span>•</span>
+                <span>70 phút</span>
+              </div>
+            </div>
+
+            <!-- Left arrow CTA or Score -->
+            <div class="pi-tcard-cta">
+              <div class="pi-tscore" th:if="${!#lists.isEmpty(submissions)}">
+                <strong th:text="${submissions.get(0).getScore()}">5.5</strong>
+                <span>Kỹ năng</span>
+              </div>
+              <button class="pi-tbtn" th:text="${#lists.isEmpty(submissions)} ? 'Bắt đầu' : 'Làm lại'">Bắt đầu</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+</body>
+</html>
