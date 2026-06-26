@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chọn chế độ làm bài | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+</head>
+<body class="pi-body bg-slate-50">
+
+<div class="pi-container bg-slate-50">
+
+  <!-- Top bar -->
+  <header class="pi-mode-header">
+    <a class="pi-back-btn" th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${testId})}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Quay lại
+    </a>
+    <div class="pi-breadcrumb">
+      <a th:href="@{/practice}">Luyện tập</a>
+      <span>&gt;</span>
+      <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" th:text="${view.set().title()}">Tên bộ đề</a>
+      <span>&gt;</span>
+      <span>Chọn chế độ</span>
+    </div>
+  </header>
+
+  <!-- Content Wrapper -->
+  <main class="pi-mode-wrapper">
+    <div class="pi-mode-content">
+      
+      <div class="pi-mode-title-section">
+        <h1>Chọn chế độ làm bài</h1>
+        <p th:text="${view.set().title()}">Tên bài thi</p>
+      </div>
+
+      <!-- Grid of 2 Cards -->
+      <div class="pi-mode-grid">
+        
+        <!-- Card 1: Practice Mode -->
+        <article class="pi-mode-card">
+          <div class="pi-mode-icon-circle blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3f73ff" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <h2>Chế độ luyện tập</h2>
+          
+          <ul class="pi-mode-features">
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Không giới hạn thời gian</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Luyện tập có gợi ý và bài mẫu tham khảo</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Cho phép lưu bản nháp và làm tiếp bất cứ lúc nào</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Nhận đánh giá và giải thích chi tiết từ AI</span>
+            </li>
+          </ul>
+
+          <!-- Form submit to create attempt -->
+          <form class="mt-auto pt-4" method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
+            <input type="hidden" name="mode" value="practice" />
+            <button class="pi-btn-primary pi-btn-full" type="submit">Bắt đầu</button>
+          </form>
+        </article>
+
+        <!-- Card 2: Test Mode -->
+        <article class="pi-mode-card">
+          <div class="pi-mode-icon-circle violet">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h2>Chế độ kiểm tra</h2>
+          
+          <ul class="pi-mode-features">
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Hệ thống tự động tính giờ và tự động nộp bài khi hết giờ</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Ẩn gợi ý và các lời giải mẫu trong khi thi</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Mô phỏng trải nghiệm phòng thi thật 100%</span>
+            </li>
+            <li>
+              <span class="pi-dot">●</span>
+              <span>Nhận điểm số và phản hồi chi tiết từ AI sau khi nộp</span>
+            </li>
+          </ul>
+
+          <!-- Form submit to create attempt -->
+          <form class="mt-auto pt-4" method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
+            <input type="hidden" name="mode" value="exam" />
+            <button class="pi-btn-primary pi-btn-full" type="submit">Bắt đầu</button>
+          </form>
+        </article>
+
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+</body>
+</html>
