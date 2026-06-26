@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chi tiết kết quả | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-rl-result.css}">
+</head>
+<body class="rl-det-body">
+
+<!-- Header fixed top bar -->
+<header class="rl-det-header">
+  <div class="header-left">
+    <a class="rl-det-back-btn" th:href="@{/practice/attempts/{id}/result(id=${result.submissionId()})}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Quay lại
+    </a>
+  </div>
+  <div class="header-center">
+    <span class="rl-det-header-logo">KSH Korean Study Hub</span>
+  </div>
+  <div class="header-right">
+    <a class="rl-det-complete-btn" th:href="@{/practice}">Hoàn thành</a>
+  </div>
+</header>
+
+<!-- Main Shell: Two-column layout -->
+<div class="rl-det-shell" th:data-option-label-mode="${result.optionLabelMode}">
+  
+  <!-- Left Panel: Passage Text or Audio -->
+  <section class="rl-det-left-panel" id="rl-det-left-panel">
+    <div th:each="g, iter : ${result.groups()}"
+         th:id="'passage-group-' + ${iter.index}"
+         class="rl-passage-group-container"
+         th:classappend="${iter.first} ? 'active' : 'hidden'">
+         
+      <!-- Audio Player if listening -->
+      <div th:if="${g.audioUrl() != null && !#strings.isEmpty(g.audioUrl())}" class="rl-audio-player-container">
+        <div class="rl-audio-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+          듣기 음원 (File nghe)
+        </div>
+        <audio controls class="w-full">
+          <source th:src="${g.audioUrl()}" type="audio/mpeg">
+          Trình duyệt của bạn không hỗ trợ phát audio.
+        </audio>
+      </div>
+
+      <div class="rl-passage-header">
+        <span class="rl-passage-badge" th:text="${(g.audioUrl() != null && !#strings.isEmpty(g.audioUrl())) ? '듣기 (Nghe)' : '읽기 (Đọc)'}">읽기 (Đọc)</span>
+        <h2 class="rl-passage-title" th:text="${g.groupLabel()}">Passage 1</h2>
+      </div>
+
+      <!-- Passage content wrapper -->
+      <div class="rl-passage-content" th:utext="${g.passageText()}">
+        Nội dung bài đọc...
+      </div>
+    </div>
+  </section>
+
+  <!-- Divider -->
+  <div class="rl-det-divider"></div>
+
+  <!-- Right Panel: Questions & Options Review -->
+  <aside class="rl-det-right-panel" id="rl-det-right-panel">
+    <div th:each="g, iter : ${result.groups()}"
+         th:id="'questions-group-' + ${iter.index}"
+         class="rl-questions-group-container"
+         th:classappend="${iter.first} ? 'active' : 'hidden'">
+         
+      <div class="rl-group-instructions">
+        <h4 th:text="${g.instruction()}">Do the following statements agree...</h4>
+      </div>
+
+      <!-- Questions List -->
+      <div th:each="q : ${g.questions()}" class="rl-q-card" th:id="'q-card-' + ${q.questionId()}">
+        
+        <!-- Question Header -->
+        <div class="rl-q-header">
+          <span class="rl-q-number" th:text="'Câu ' + ${q.questionNo()}">Câu 1</span>
+          <span class="rl-q-status-badge" th:classappend="${q.isCorrect()} ? 'correct' : 'incorrect'" th:text="${q.isCorrect()} ? 'Đúng' : 'Sai'">Đúng</span>
+        </div>
+
+        <div class="rl-q-prompt" th:text="${q.prompt()}">Question prompt text...</div>
+
+        <!-- Render options by type -->
+        <div class="rl-options-container">
+          
+          <!-- TYPE: MCQ, TRUE_FALSE_NOT_GIVEN, TRUE_FALSE -->
+          <th:block th:if="${q.questionType() == 'MCQ' || q.questionType() == 'TRUE_FALSE_NOT_GIVEN' || q.questionType() == 'TRUE_FALSE'}">
+            <div th:each="opt, optIter : ${q.options()}" class="rl-option-item"
+                 th:with="
+                   isOptCorrect=${q.correctAnswer() == ('' + (optIter.index + 1)) || q.correctAnswer() == opt || q.correctAnswer() == (#strings.substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ', optIter.index, optIter.index + 1))},
+                   isOptUserChosen=${q.userAnswer() == ('' + (optIter.index + 1)) || q.userAnswer() == opt || q.userAnswer() == (#strings.substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ', optIter.index, optIter.index + 1))}
+                 "
+                 th:classappend="${isOptCorrect && isOptUserChosen} ? 'correct-chosen' : (${isOptCorrect} ? 'correct-unchosen' : (${isOptUserChosen} ? 'incorrect-chosen' : ''))">
+              <span class="rl-option-letter" th:text="${result.optionLabelMode == 'ALPHA' ? #strings.substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ', optIter.index, optIter.index + 1) : (optIter.index + 1)}">1</span>
+              <span class="rl-option-text" th:text="${opt}">Option text</span>
+              <span th:if="${isOptCorrect && isOptUserChosen}" class="rl-option-status-label success">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Đúng
+              </span>
+              <span th:if="${isOptCorrect && !isOptUserChosen}" class="rl-option-status-label correct-key">Đáp án đúng</span>
+              <span th:if="${!isOptCorrect && isOptUserChosen}" class="rl-option-status-label danger">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Bạn chọn
+              </span>
+            </div>
+          </th:block>
+
+          <!-- TYPE: SHORT_ANSWER, FILL_BLANK, TEXT_COMPLETION -->
+          <th:block th:if="${q.questionType() == 'SHORT_TEXT' || q.questionType() == 'FILL_BLANK' || q.questionType() == 'TEXT_COMPLETION'}">
+            <div class="rl-text-answer-review">
+              <div class="rl-text-answer-row">
+                <span class="label">Câu trả lời của bạn:</span>
+                <strong th:text="${#strings.isEmpty(q.userAnswer())} ? '(Không trả lời)' : ${q.userAnswer()}"
+                        th:classappend="${q.isCorrect()} ? 'text-success' : 'text-danger'">answer</strong>
+              </div>
+              <div class="rl-text-answer-row">
+                <span class="label">Đáp án đúng:</span>
+                <strong class="text-success" th:text="${q.correctAnswer()}">correct answer</strong>
+              </div>
+            </div>
+          </th:block>
+
+          <!-- TYPE: ORDERING -->
+          <th:block th:if="${q.questionType() == 'ORDERING'}">
+            <div class="rl-text-answer-review">
+              <div class="rl-text-answer-row">
+                <span class="label">Thứ tự của bạn:</span>
+                <strong th:text="${#strings.isEmpty(q.userAnswer())} ? '(Không chọn)' : ${q.userAnswer()}"
+                        th:classappend="${q.isCorrect()} ? 'text-success' : 'text-danger'">answer</strong>
+              </div>
+              <div class="rl-text-answer-row">
+                <span class="label">Thứ tự đúng:</span>
+                <strong class="text-success" th:text="${q.correctAnswer()}">correct answer</strong>
+              </div>
+            </div>
+          </th:block>
+
+          <!-- Warning for unanswered questions -->
+          <div th:if="${#strings.isEmpty(q.userAnswer())}" class="rl-unanswered-warning">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Bạn chưa trả lời câu hỏi này
+          </div>
+        </div>
+
+        <!-- Explanation Accordion -->
+        <div class="rl-explanation-accordion">
+          <button class="rl-accordion-trigger" type="button">
+            <span class="rl-accordion-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </span>
+            <span class="rl-accordion-text">Giải thích đáp án</span>
+            <svg class="rl-accordion-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          
+          <div class="rl-accordion-content" th:data-explanation="${q.explanationJson()}">
+            <div class="rl-accordion-inner-loading">Đang tải giải thích từ AI...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Fixed Bottom Group Navigator -->
+<footer class="rl-det-navigator">
+  <div class="rl-nav-scroll-wrapper">
+    <button th:each="g, iter : ${result.groups()}"
+            th:classappend="${iter.first} ? 'active' : ''"
+            th:id="'nav-btn-' + ${iter.index}"
+            class="rl-nav-item-btn"
+            type="button"
+            th:data-index="${iter.index}">
+      <span class="rl-nav-label" th:text="${g.groupLabel()}">Passage 1</span>
+      <span class="rl-nav-sub" th:text="${g.questions().size()} + ' câu hỏi'">13 câu hỏi</span>
+    </button>
+  </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Group switching logic
+  const navButtons = document.querySelectorAll('.rl-nav-item-btn');
+  const passageGroups = document.querySelectorAll('.rl-passage-group-container');
+  const questionsGroups = document.querySelectorAll('.rl-questions-group-container');
+
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = btn.dataset.index;
+      
+      // Update buttons
+      navButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Update groups
+      passageGroups.forEach((g, gIdx) => {
+        if (gIdx == idx) {
+          g.classList.remove('hidden');
+          g.classList.add('active');
+        } else {
+          g.classList.remove('active');
+          g.classList.add('hidden');
+        }
+      });
+
+      questionsGroups.forEach((q, qIdx) => {
+        if (qIdx == idx) {
+          q.classList.remove('hidden');
+          q.classList.add('active');
+        } else {
+          q.classList.remove('active');
+          q.classList.add('hidden');
+        }
+      });
+      
+      // Reset scroll position on left/right panels
+      document.getElementById('rl-det-left-panel').scrollTop = 0;
+      document.getElementById('rl-det-right-panel').scrollTop = 0;
+    });
+  });
+
+  // 2. Accordion expansion logic
+  const accordions = document.querySelectorAll('.rl-explanation-accordion');
+  
+  accordions.forEach(acc => {
+    const trigger = acc.querySelector('.rl-accordion-trigger');
+    const content = acc.querySelector('.rl-accordion-content');
+    
+    trigger.addEventListener('click', () => {
+      const isOpen = acc.classList.contains('expanded');
+      
+      if (isOpen) {
+        acc.classList.remove('expanded');
+      } else {
+        acc.classList.add('expanded');
+        // Render explanation contents if not already rendered
+        if (!content.classList.contains('rendered')) {
+          renderExplanation(content);
+        }
+      }
+    });
+  });
+
+  // Helper to escape HTML safely
+  function esc(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Helper for option labels per A2
+  function getOptionLabel(index, mode) {
+    if (mode === "ALPHA") {
+      return String.fromCharCode(65 + index);
+    }
+    return String(index + 1);
+  }
+
+  // 3. Explanation JSON dynamic renderer
+  function renderExplanation(container) {
+    const rawJson = container.dataset.explanation;
+    if (!rawJson) {
+      container.innerHTML = '<div class="rl-err">Không có dữ liệu giải thích.</div>';
+      container.classList.add('rendered');
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(rawJson);
+    } catch (e) {
+      console.error("Failed to parse explanation JSON", e);
+      container.innerHTML = '<div class="rl-err">Lỗi xử lý dữ liệu giải thích.</div>';
+      container.classList.add('rendered');
+      return;
+    }
+
+    let html = '';
+
+    // Retrieve labelMode from main container data-option-label-mode
+    const shellEl = document.querySelector('.rl-det-shell');
+    const labelMode = (shellEl && shellEl.dataset.optionLabelMode) || 'NUMERIC';
+
+    // Correct answer header box
+    const cleanAnswer = data.correctAnswer || (data.correctAnswers && data.correctAnswers.join(', ')) || '';
+    
+    // Resolve cleanAnswer display if it is numeric and we are in ALPHA mode or vice versa
+    let displayAnswer = cleanAnswer;
+    const isAnswerNumeric = /^\d+$/.test(cleanAnswer);
+    if (isAnswerNumeric) {
+      const idx = parseInt(cleanAnswer, 10) - 1;
+      if (idx >= 0 && idx < 26) {
+        displayAnswer = getOptionLabel(idx, labelMode);
+      }
+    }
+
+    html += `<div class="rl-exp-header-box">`;
+    html += `<div class="rl-exp-header-top">Đáp án đúng: <span class="rl-txt-correct">${esc(displayAnswer)}</span></div>`;
+    
+    // Keywords sub-section (retained from old format if exists)
+    if (data.keywords && ((data.keywords.question && data.keywords.question.length > 0) || (data.keywords.passage && data.keywords.passage.length > 0))) {
+      html += `<div class="rl-exp-keywords">`;
+      html += `<strong>Từ khóa quan trọng:</strong> `;
+      if (data.keywords.question) {
+        data.keywords.question.forEach(kw => {
+          html += `<span class="rl-kw-tag q">${esc(kw)}</span>`;
+        });
+      }
+      if (data.keywords.passage) {
+        data.keywords.passage.forEach(kw => {
+          html += `<span class="rl-kw-tag p">${esc(kw)}</span>`;
+        });
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+
+    // Evidence block (evidenceQuote or old evidence array)
+    const evidenceText = data.evidenceQuote || (data.evidence && data.evidence.length > 0 ? data.evidence[0].text : '');
+    if (evidenceText && evidenceText.trim().length > 0 && evidenceText !== "Không tìm thấy bằng chứng.") {
+      html += `<div class="rl-exp-section-label">근거 (Bằng chứng trong bài):</div>`;
+      html += `<div class="rl-evidence-box">`;
+      html += `<div class="rl-evidence-text">“${esc(evidenceText)}”</div>`;
+      html += `</div>`;
+    }
+ 
+    // Detailed explanation / Reason (correctReasonVi or old reasonVi)
+    const reasonText = data.correctReasonVi || data.reasonVi;
+    if (reasonText && reasonText.trim().length > 0) {
+      html += `<div class="rl-exp-section-label">해설 (Giải thích đáp án đúng):</div>`;
+      html += `<div class="rl-reason-box">${esc(reasonText)}</div>`;
+    }
+ 
+    // Translation (relatedTranslationVi or old translationVi)
+    const translationText = data.relatedTranslationVi || data.translationVi;
+    if (translationText && translationText !== 'Không có dịch nghĩa.' && translationText.trim().length > 0) {
+      html += `<div class="rl-exp-section-label">해석 (Dịch nghĩa đoạn liên quan):</div>`;
+      html += `<div class="rl-translation-box">${esc(translationText)}</div>`;
+    }
+ 
+    // Wrong options / eliminatedOptions list
+    let eliminatedList = [];
+    if (Array.isArray(data.eliminatedOptions)) {
+      eliminatedList = data.eliminatedOptions.map(opt => ({
+        option: opt.optionKey,
+        reasonVi: opt.reasonVi
+      }));
+    } else if (Array.isArray(data.wrongOptions)) {
+      // Fallback for old wrongOptions structure
+      eliminatedList = data.wrongOptions.map(opt => ({
+        option: opt.option,
+        reasonVi: opt.reasonVi
+      }));
+    } else if (typeof data.eliminatedOptionsVi === 'string' && data.eliminatedOptionsVi.trim().length > 0) {
+      // Fallback for string-based eliminatedOptionsVi
+      eliminatedList = [{
+        option: '?',
+        reasonVi: data.eliminatedOptionsVi
+      }];
+    }
+ 
+    if (eliminatedList.length > 0) {
+      let hasValidItems = false;
+      let elimHtml = `<div class="rl-exp-section-label">오답 분석 (Phân tích đáp án sai):</div>`;
+      elimHtml += `<div class="rl-wrong-options-list">`;
+      
+      eliminatedList.forEach(opt => {
+        const trimmedReason = (opt.reasonVi || '').trim();
+        if (!trimmedReason || trimmedReason === "Can goi lai AI de tach rieng ly do loai cac dap an sai.") return;
+        
+        hasValidItems = true;
+        
+        // Resolve option display label if numeric index
+        let displayLabel = opt.option;
+        const isNumericString = /^\d+$/.test(displayLabel);
+        if (isNumericString) {
+          const index = parseInt(displayLabel, 10) - 1;
+          if (index >= 0 && index < 26) {
+            displayLabel = getOptionLabel(index, labelMode);
+          }
+        }
+ 
+        elimHtml += `<div class="eliminated-option-row">`;
+        elimHtml += `<span class="eliminated-option-key">${esc(displayLabel)}</span>`;
+        elimHtml += `<span class="eliminated-option-reason">${esc(trimmedReason)}</span>`;
+        elimHtml += `</div>`;
+      });
+      
+      elimHtml += `</div>`;
+      if (hasValidItems) {
+        html += elimHtml;
+      }
+    }
+ 
+    // Matching explanation block (if present)
+    if (data.matchingExplanations && data.matchingExplanations.length > 0) {
+      html += `<div class="rl-exp-section-label">연결 해설 (Giải thích các phần ghép nối):</div>`;
+      html += `<div class="rl-matching-explanations">`;
+      data.matchingExplanations.forEach(m => {
+        html += `<div class="rl-match-exp-item">`;
+        html += `<span class="rl-match-pair"><strong>${esc(m.item)}</strong> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg> <strong>${esc(m.correctMatch)}</strong></span>`;
+        html += `<div class="rl-match-reason">${esc(m.reasonVi)}</div>`;
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+ 
+    container.innerHTML = html;
+    container.classList.add('rendered');
+  }
+});
+</script>
+
+</body>
+</html>
