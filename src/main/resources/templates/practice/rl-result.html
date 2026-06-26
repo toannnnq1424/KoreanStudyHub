@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kết quả luyện tập | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-rl-result.css}">
+</head>
+<body class="rl-res-body bg-gradient-blue">
+
+<div class="rl-res-container">
+  
+  <!-- Header -->
+  <header class="rl-res-header">
+    <div class="header-left">
+      <a class="rl-res-back-btn" th:href="@{/practice/sets/{setId}(setId=${result.set().id()})}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Quay lại
+      </a>
+    </div>
+    <div class="header-title">Kết quả luyện tập</div>
+    <div class="header-right">
+      <a class="rl-res-complete-btn" th:href="@{/practice}">Complete</a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="rl-res-main">
+    
+    <!-- Certificate Card -->
+    <div class="rl-res-cert-card">
+      <div class="rl-res-cert-watermark">KSH</div>
+
+      <div class="rl-res-cert-body">
+        <!-- Left details -->
+        <div class="rl-res-cert-details">
+          <span class="rl-res-cert-congrats">Congratulations!</span>
+          <h1 class="rl-res-cert-name" th:text="${#authentication.principal.fullName} ?: ${#authentication.principal.username}">Nguyễn Quang Toàn</h1>
+          
+          <p class="rl-res-cert-completion">
+            Đã hoàn thành bài thi thử <span th:text="${result.set().skillLabel()}">Reading</span>
+            <strong th:text="'“' + ${result.set().title()} + '”'">"TOPIK II - Reading Set 1"</strong>
+          </p>
+
+          <!-- Scores row -->
+          <div class="rl-res-cert-score-row">
+            <div class="rl-res-cert-score-block">
+              <strong th:text="${result.score().stripTrailingZeros().toPlainString()}">38</strong>
+              <span>Điểm số</span>
+            </div>
+            
+            <div class="rl-res-cert-score-block secondary">
+              <strong th:text="${result.correctCount()} + '/' + ${result.totalCount()}">38/40</strong>
+              <span>Số câu đúng</span>
+            </div>
+          </div>
+
+          <!-- Quick badges -->
+          <div class="rl-res-quick-badges">
+            <span class="rl-res-badge-correct" th:text="${result.correctCount()} + ' câu đúng'">38 câu đúng</span>
+            <span class="rl-res-badge-incorrect" th:text="${result.incorrectCount()} + ' câu sai'">2 câu sai</span>
+          </div>
+
+          <!-- Metadata info -->
+          <div class="rl-res-cert-meta">
+            <span th:text="'Kỹ năng: ' + ${result.set().skillLabel()}">Reading</span>
+            <span>•</span>
+            <span th:text="'Phân loại: ' + ${result.set().categoryLabel()}">TOPIK II</span>
+          </div>
+        </div>
+
+        <!-- Right Badge Asset -->
+        <div class="rl-res-cert-assets">
+          <div class="rl-res-cert-badge" th:classappend="${#strings.toLowerCase(result.set().skill())}">
+            <div class="rl-res-cert-badge-inner">
+              <!-- Reading Icon -->
+              <svg th:if="${result.set().skill() == 'READING' or result.set().skill() == 'MIXED'}" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <!-- Listening Icon -->
+              <svg th:if="${result.set().skill() == 'LISTENING'}" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+              
+              <span th:text="${result.set().skillLabel()}">TOPIK READING</span>
+              <small>COMPLETED</small>
+            </div>
+          </div>
+          <div class="rl-res-cert-mascot">🎓</div>
+        </div>
+      </div>
+
+      <div class="rl-res-cert-footer">
+        <span>by ksh.edu.vn</span>
+      </div>
+    </div>
+
+    <!-- Performance section -->
+    <div class="rl-res-perf-card">
+      <h2 class="rl-res-perf-title">Phân tích kết quả theo dạng câu hỏi</h2>
+      
+      <div class="rl-res-table-wrapper">
+        <table class="rl-res-perf-table">
+          <thead>
+            <tr>
+              <th>Dạng câu hỏi (Question type)</th>
+              <th>Tổng số câu</th>
+              <th>Số câu đúng</th>
+              <th>Số câu sai</th>
+              <th>Tỷ lệ chính xác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="row : ${result.performanceByType()}">
+              <td class="question-type-cell" th:text="${row.label()}">True/False/Not Given</td>
+              <td class="number-cell font-bold" th:text="${row.total()}">13</td>
+              <td class="number-cell text-success font-bold" th:text="${row.correct()}">10</td>
+              <td class="number-cell text-danger font-bold" th:text="${row.incorrect()}">3</td>
+              <td class="number-cell">
+                <span class="rl-res-accuracy-badge" 
+                      th:text="${row.accuracyPct()}"
+                      th:classappend="${#strings.replace(row.accuracyPct(), '%', '')} == '0' ? 'zero' : (${#strings.replace(row.accuracyPct(), '%', '')} >= '70' ? 'good' : 'avg')">
+                  76%
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CTA Actions -->
+    <div class="rl-res-actions">
+      <a class="rl-res-btn-primary" th:href="@{/practice/attempts/{id}/result/detail(id=${attemptId})}">
+        Xem chi tiết từng câu
+      </a>
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>
