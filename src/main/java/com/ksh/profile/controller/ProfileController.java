@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.security.Principal;
 
 /**
- * Controller cho xem va cap nhat hồ sơ cá nhân (full name, bio, phone, avatar).
+ * Controller for viewing and updating user profile details (full name, bio, phone, avatar).
  */
 @Controller
 public class ProfileController {

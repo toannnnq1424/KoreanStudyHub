@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * Man hinh quan tri Email Settings (SMTP) — chi ADMIN truy cap.
+ * Email Settings (SMTP) administration page — ADMIN access only.
  *
  * <p>URLs:
  * <ul>
  *   <li>{@code GET  /admin/settings/email}      — render form</li>
  *   <li>{@code POST /admin/settings/email}      — save form (full page reload)</li>
- *   <li>{@code POST /admin/settings/email/test} — gui test email (AJAX JSON)</li>
+ *   <li>{@code POST /admin/settings/email/test} — send test email (AJAX JSON)</li>
  * </ul>
  */
 @Controller
@@ -58,11 +58,11 @@ public class EmailSettingsController {
                        @AuthenticationPrincipal KshUserDetails principal,
                        Model model,
                        RedirectAttributes redirectAttributes) {
-        // Principal có thể null khi admin login qua OAuth (CustomOidcUserPrincipal
-        // khác type với kshUserDetails — @AuthenticationPrincipal inject null khi
-        // type mismatch). MVP yêu cầu user.id để stamp updated_by, nên từ chối
-        // thay vì ném NPE. Khi RBAC OAuth admin được hỗ trợ, mở rộng principal
-        // resolver ở Security layer.
+        // Principal can be null when admin logs in via OAuth (CustomOidcUserPrincipal
+        // is of a different type than kshUserDetails — @AuthenticationPrincipal injects null on
+        // type mismatch). MVP requires user.id to stamp updated_by, so reject
+        // instead of throwing NPE. When RBAC OAuth admin is supported, extend principal
+        // resolver at the Security layer.
         if (principal == null) {
             redirectAttributes.addFlashAttribute("flashError",
                     "Phiên đăng nhập không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email/mật khẩu.");

@@ -16,8 +16,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.security.Principal;
 
 /**
- * Controller cho đổi mật khẩu khi đã đăng nhập.
- * Yeu cau xac nhan mat khau hien tai truoc khi cap nhat.
+ * Controller for password change when logged in.
+ * Requires verification of the current password before updating.
  */
 @Controller
 public class ChangePasswordController {

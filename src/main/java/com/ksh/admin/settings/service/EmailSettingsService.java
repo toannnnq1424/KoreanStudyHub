@@ -21,16 +21,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Service xu ly Email Settings cho admin: load cau hinh hien tai, save cau
- * hinh moi, va gui test email de verify SMTP transport.
+ * Service to process Email Settings for admin: load current configuration,
+ * save new configuration, and send test email to verify SMTP transport.
  *
- * <p>Masking: cac key trong {@link #SECRET_KEYS} (hien tai chi co
- * {@code smtp.password}) duoc thay the bang {@link #MASKED} truoc khi
- * tra ve view. Khi save, neu form gui ve gia tri rong HOAC chinh xac la
- * {@code MASKED} thi service skip viec ghi de row {@code smtp.password}.
+ * <p>Masking: keys in {@link #SECRET_KEYS} (currently only {@code smtp.password})
+ * are replaced by {@link #MASKED} before returning to the view. During save,
+ * if the form submits an empty value or exactly {@code MASKED}, the service
+ * skips overwriting the {@code smtp.password} record.
  *
- * <p>{@link #save} la {@code @Transactional} — toan bo upsert chay trong
- * 1 transaction, neu fail thi rollback all-or-nothing.
+ * <p>{@link #save} is {@code @Transactional} — all upserts run within
+ * a single transaction, rolling back all-or-nothing if a failure occurs.
  */
 @Service
 public class EmailSettingsService {
@@ -55,8 +55,8 @@ public class EmailSettingsService {
     }
 
     /**
-     * Load Email Settings tu DB. Password luon duoc mask thanh {@code "********"}
-     * truoc khi tra ve form, ke ca khi value rong (de UI thong nhat).
+     * Load Email Settings from database. The password is always masked as {@code "********"}
+     * before being returned to the form, even if the value is empty (for UI consistency).
      */
     @Transactional(readOnly = true)
     public EmailSettingsForm load() {
@@ -74,12 +74,12 @@ public class EmailSettingsService {
     }
 
     /**
-     * Save Email Settings. Atomicity dam bao boi {@code @Transactional}:
-     * neu upsert mot row fail thi rollback tat ca cac row da write.
+     * Save Email Settings. Atomicity is guaranteed by {@code @Transactional}:
+     * if any row upsert fails, all written rows are rolled back.
      *
-     * <p>Password handling: neu {@code form.password()} la null/blank hoac
-     * bang {@link #MASKED} thi skip row {@code smtp.password} hoan toan
-     * (khong update gia tri, khong update {@code updated_by}).
+     * <p>Password handling: if {@code form.password()} is null/blank or
+     * equals {@link #MASKED}, the {@code smtp.password} row is completely skipped
+     * (no value update, no {@code updated_by} update).
      */
     @Transactional
     public void save(EmailSettingsForm form, Long currentUserId) {
@@ -92,7 +92,7 @@ public class EmailSettingsService {
         incoming.put("smtp.from_email", form.fromEmail().trim());
         incoming.put("smtp.reply_to", form.replyTo() == null ? "" : form.replyTo().trim());
 
-        // Password: chi update khi nguoi dung nhap gia tri moi (khong rong va khong la MASKED)
+        // Password: only update when the user enters a new value (non-empty and not MASKED)
         if (form.password() != null && !form.password().isBlank()
                 && !MASKED.equals(form.password())) {
             incoming.put("smtp.password", form.password());
@@ -102,12 +102,12 @@ public class EmailSettingsService {
     }
 
     /**
-     * Gui email test toi {@code to}. Tra ve {@link TestResult} co {@code ok}
-     * va {@code error} message (khi fail) de UI render toast.
+     * Sends a test email to {@code to}. Returns {@link TestResult} with {@code ok}
+     * status and {@code error} message (on failure) for rendering UI toast.
      *
-     * <p>Khong dung {@code @Transactional} vi method chi delegate sang
-     * mail transport (network call). Repository duoc invoke ben trong
-     * {@code DbConfiguredMailSender} co transaction tu Spring Data JPA.
+     * <p>Does not use {@code @Transactional} because the method delegates to
+     * mail transport (network call). Repository invocations inside
+     * {@code DbConfiguredMailSender} are run under Spring Data JPA's transaction.
      */
     public TestResult sendTest(String to) {
         if (to == null || to.isBlank()) {
@@ -131,8 +131,8 @@ public class EmailSettingsService {
     // ─────────────────────────────────────────────────────────────────
 
     private void upsertAll(Map<String, String> incoming, Long currentUserId) {
-        // Load tat ca row hien co cua group SMTP — chi cap nhat row da ton tai
-        // (V1/V9 seed da insert het row can thiet). Neu row missing, insert moi.
+        // Load all existing rows for SMTP group — only update existing rows
+        // (V1/V9 seed has inserted all necessary rows). If a row is missing, insert new.
         Map<String, SystemSetting> existing = new HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup(GROUP)) {
             existing.put(s.getSettingKey(), s);

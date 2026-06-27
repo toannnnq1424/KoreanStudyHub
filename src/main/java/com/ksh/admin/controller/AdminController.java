@@ -15,19 +15,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 /**
- * Controller cho man hinh quan tri he thong (Admin).
- * Chi ADMIN moi truy cap duoc — co the noi long sang HEAD o sprint sau
- * khi co dashboard bo mon rieng.
+ * Controller for system administration dashboard (Admin).
+ * Restricted to ADMIN only — can be extended to HEAD in a future sprint
+ * when department-specific dashboards are implemented.
  *
- * <p>URL pattern: {@code /admin/{tab}} — 5 mục sidebar:
+ * <p>URL pattern: {@code /admin/{tab}} — 5 sidebar items:
  * <ul>
- *   <li>{@code /dashboard} — stat + chart + recent (Sprint 2 wireframe).</li>
- *   <li>{@code /settings}  — Settings index (link sang Email/General/...).</li>
+ *   <li>{@code /dashboard} — stats + charts + recent activity (Sprint 2 wireframe).</li>
+ *   <li>{@code /settings}  — Settings index (links to Email/General settings/etc.).</li>
  *   <li>{@code /users}, {@code /departments}, {@code /classes}
- *       — placeholder, Sprint 6 noi data that.</li>
+ *       — placeholders, to be populated with real data in Sprint 6.</li>
  * </ul>
  *
- * <p>Sub-tab {@code /admin/settings/email} duoc xu ly boi
+ * <p>Sub-tab {@code /admin/settings/email} is handled by
  * {@link com.ksh.admin.settings.controller.EmailSettingsController}.
  */
 @Controller

@@ -10,24 +10,24 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTOs cho man hinh /admin/settings/email.
+ * DTOs for the /admin/settings/email page.
  *
- * <p>{@link EmailSettingsForm} la form binding cho GET/POST. Field
- * {@code password} la {@link String} khong co constraint — empty hoac
- * placeholder {@link #MASKED} co nghia "giu nguyen mat khau cu".
+ * <p>{@link EmailSettingsForm} is the form binding for GET/POST. The
+ * {@code password} field is a {@link String} without constraints — empty or
+ * the placeholder {@link #MASKED} means "keep the old password".
  *
- * <p>{@link TestResult} la JSON response cua POST /test.
+ * <p>{@link TestResult} is the JSON response of POST /test.
  */
 public class EmailSettingsDtos {
 
     /**
-     * Placeholder hien thi thay cho gia tri that cua secret settings.
-     * Shared constant — service/test deu reference de tranh duplicate
+     * Placeholder displayed in place of the actual value of secret settings.
+     * Shared constant — referenced by service and tests to avoid duplicate
      * literal {@code "********"}.
      */
     public static final String MASKED = "********";
 
-    /** Form binding cho /admin/settings/email (GET re-render + POST save). */
+    /** Form binding for /admin/settings/email (GET re-render + POST save). */
     public record EmailSettingsForm(
             @NotBlank(message = "Host là bắt buộc")
             @Size(max = 255)
@@ -46,7 +46,7 @@ public class EmailSettingsDtos {
             @Size(max = 255)
             String username,
 
-            /** Khong validate — empty hoac MASKED nghia la "giu nguyen". */
+            /** No validation — empty or MASKED means "keep unchanged". */
             String password,
 
             @NotBlank(message = "From Name là bắt buộc")
@@ -57,16 +57,16 @@ public class EmailSettingsDtos {
             @Email(message = "From Email không hợp lệ")
             String fromEmail,
 
-            /** Optional — chap nhan empty; neu co thi phai la email hop le. */
+            /** Optional — accepts empty; if provided, it must be a valid email. */
             @Email(message = "Reply-To không hợp lệ")
             String replyTo
     ) {
     }
 
     /**
-     * Ket qua POST /admin/settings/email/test — serialize ra JSON.
-     * {@code @JsonInclude(NON_NULL)} de spec scenario "ok=true" tra ve
-     * {@code {"ok":true}} chu khong phai {@code {"ok":true,"error":null}}.
+     * Result of POST /admin/settings/email/test — serialized to JSON.
+     * {@code @JsonInclude(NON_NULL)} so that in the "ok=true" scenario it returns
+     * {@code {"ok":true}} instead of {@code {"ok":true,"error":null}}.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record TestResult(boolean ok, String error) {

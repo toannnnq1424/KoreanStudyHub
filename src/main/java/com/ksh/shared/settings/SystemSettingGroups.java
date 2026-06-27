@@ -1,11 +1,11 @@
 package com.ksh.shared.settings;
 
 /**
- * Tên các nhóm setting trong bảng {@code system_settings.setting_group}.
+ * Names of setting groups in table {@code system_settings.setting_group}.
  *
- * <p>Hằng số dùng chung để tránh duplicate magic string giữa
- * {@code EmailSettingsService}, {@code DbConfiguredMailSender} và các
- * service settings khác trong tương lai (General, OAuth, AI).
+ * <p>Shared constants to avoid duplicate magic strings between
+ * {@code EmailSettingsService}, {@code DbConfiguredMailSender} and other
+ * settings services in the future (General, OAuth, AI).
  */
 public final class SystemSettingGroups {
 

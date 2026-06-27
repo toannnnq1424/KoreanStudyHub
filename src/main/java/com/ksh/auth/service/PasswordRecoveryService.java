@@ -17,23 +17,23 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 
 /**
- * Xử lý luồng quên mật khẩu — tạo token single-use, gửi email, reset password.
- * Enumeration-safe: luôn trả về kết quả trung lập kể cả khi email không tồn tại.
+ * Processes password recovery flow — creates single-use tokens, sends emails, resets passwords.
+ * Enumeration-safe: always returns neutral results even if the email does not exist.
  *
- * <p>Mail sending là best-effort: {@link MailService#send} trả về {@code false}
- * khi SMTP chưa cấu hình (smtp.host rỗng trong {@code system_settings}) hoặc
- * khi gửi thất bại. Trong cả hai trường hợp, một cảnh báo được log ở mức
- * {@code WARN} (không kèm token) và token được log ở mức {@code DEBUG} riêng
- * để dev có thể bật khi cần test workflow local. Token KHÔNG BAO GIỜ xuất hiện
- * ở log {@code INFO}/{@code WARN} vì các mức này thường được collect vào log
- * aggregator (Graylog, Loki, CloudWatch) — leak token = chiếm tài khoản.
+ * <p>Mail sending is best-effort: {@link MailService#send} returns {@code false}
+ * when SMTP is not configured (smtp.host empty in {@code system_settings}) or
+ * when sending fails. In both cases, a warning is logged at {@code WARN} level
+ * (without the token) and the token is logged separately at {@code DEBUG} level
+ * so devs can enable it when testing workflows locally. The token NEVER appears
+ * in {@code INFO}/{@code WARN} logs because these levels are usually collected by log
+ * aggregators (Graylog, Loki, CloudWatch) — token leak = account takeover.
  */
 @Service
 public class PasswordRecoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
-    /** 96 byte random → ~128 ký tự base64 URL-safe (đủ ngẫu nhiên cho reset token). */
+    /** 96 random bytes → ~128 base64 URL-safe characters (sufficient randomness for reset token). */
     private static final int TOKEN_BYTES = 96;
     private static final int TOKEN_TTL_HOURS = 1;
 
@@ -56,8 +56,8 @@ public class PasswordRecoveryService {
     }
 
     /**
-     * Xử lý yêu cầu quên mật khẩu. Trả về cùng 1 thông báo cho mọi trường hợp
-     * (email tồn tại hay không, SMTP fail, ...) để chống enumeration.
+     * Handles forgot-password request. Returns the same outcome for all cases
+     * (whether email exists or not, SMTP failure, etc.) to prevent enumeration.
      */
     @Transactional
     public void requestReset(String email) {
@@ -85,9 +85,9 @@ public class PasswordRecoveryService {
         boolean sent = mailService.send(user.getEmail(),
                 "Đặt lại mật khẩu ksh", body);
         if (!sent) {
-            // SMTP chưa cấu hình hoặc gửi thất bại. Log WARN không kèm token
-            // (mức này thường được log aggregator collect). Token chỉ log ở
-            // mức DEBUG để dev có thể bật local mà không leak ra production.
+            // SMTP not configured or sending failed. Log WARN without the token
+            // (this level is usually collected by log aggregators). Token is only logged at
+            // DEBUG level so devs can enable it locally without leaking it in production.
             log.warn("Password-reset email NOT sent to {} (SMTP not configured or send failed). "
                     + "Token logged at DEBUG level.", user.getEmail());
             log.debug("Password-reset link for {}: {}", user.getEmail(), link);
@@ -95,13 +95,12 @@ public class PasswordRecoveryService {
     }
 
     /**
-     * Kiểm tra token reset có hợp lệ không (tồn tại, chưa dùng, chưa hết hạn).
-     * Trả về user nếu token hợp lệ, hoặc {@code null} nếu không.
+     * Checks if the reset token is valid (exists, unused, and not expired).
+     * Returns the user if the token is valid, or {@code null} otherwise.
      *
-     * <p>Caller không cần phân biệt lý do thất bại — luồng UX chỉ cần biết
-     * "valid hay không" để render trang nhập mật khẩu mới hoặc trang lỗi
-     * chung. Đây cũng là enumeration-safe (không leak "token đã dùng" vs
-     * "token không tồn tại").
+     * <p>The caller does not need to distinguish the failure reason — the UX flow only needs
+     * to know if it's "valid or not" to render the new password entry page or a general error.
+     * This is also enumeration-safe (does not leak "used token" vs "non-existent token").
      */
     public User validateToken(String rawToken) {
         var opt = tokenRepository.findByToken(rawToken);
@@ -116,7 +115,7 @@ public class PasswordRecoveryService {
     }
 
     /**
-     * Đặt lại mật khẩu và đánh dấu token đã sử dụng.
+     * Resets password and marks the token as used.
      */
     @Transactional
     public boolean resetPassword(String rawToken, String newPassword) {
