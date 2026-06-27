@@ -7,7 +7,6 @@ import com.ksh.auth.repository.UserRepository;
 import com.ksh.shared.mail.MailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,76 +17,110 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 
 /**
- * Xu ly luong quen mat khau — tao token single-use, gui email, reset password.
- * Enumeration-safe: luon tra ve ket qua trung lap ke ca khi email khong ton tai.
- * Mail sending is best-effort (silently skipped when SMTP is not configured).
+ * Handles the forgot-password flow: generates a single-use reset token, sends the
+ * reset email, and applies the new password once the token is validated.
+ *
+ * <p>Enumeration-safe: always returns a neutral result regardless of whether the
+ * requested email address exists in the system.
+ *
+ * <p>Mail sending is best-effort: {@link MailService#send} returns {@code false}
+ * when SMTP is not configured (i.e. {@code smtp.host} is empty in
+ * {@code system_settings}) or when delivery fails. In both cases a warning is
+ * logged at {@code WARN} level <em>without</em> the token, and the reset link is
+ * logged separately at {@code DEBUG} so developers can enable it locally when
+ * testing the workflow. The token is <strong>never</strong> emitted at
+ * {@code INFO} or {@code WARN} level because those levels are typically collected
+ * by log aggregators (Graylog, Loki, CloudWatch) — a leaked token equals account
+ * takeover.
  */
 @Service
 public class PasswordRecoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
+    /** 96 random bytes → ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
+    private static final int TOKEN_BYTES = 96;
+    private static final int TOKEN_TTL_HOURS = 1;
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
-
-    @Autowired(required = false)
-    private MailService mailService;
-
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
+    private final MailService mailService;
+    private final String baseUrl;
 
     public PasswordRecoveryService(UserRepository userRepository,
                                    PasswordResetTokenRepository tokenRepository,
-                                   PasswordEncoder passwordEncoder) {
+                                   PasswordEncoder passwordEncoder,
+                                   MailService mailService,
+                                   @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.mailService = mailService;
+        this.baseUrl = baseUrl;
     }
 
     /**
-     * Xu ly yeu cau quen mat khau. Tra ve cung 1 thong bao cho moi truong hop
-     * (email ton tai hay khong, SMTP fail, ...) de chong enumeration.
+     * Initiates a password-reset request for the given email address.
+     *
+     * <p>If the email is not found the method returns silently, giving no
+     * indication to the caller that the address is absent (enumeration-safe).
+     * When SMTP is unavailable or the send fails, the reset link is logged at
+     * {@code DEBUG} level only — see class-level Javadoc for the security
+     * rationale.
+     *
+     * @param email the email address of the account whose password should be reset
      */
     @Transactional
     public void requestReset(String email) {
-        var userOpt = userRepository.findByEmail(email);
+        var userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
             log.info("Forgot-password requested for unknown email: {}", email);
-            return; // silent — neutral UX
+            return; // silent — neutral response to avoid user enumeration
         }
 
         User user = userOpt.get();
         String rawToken = generateToken();
         PasswordResetToken entity = new PasswordResetToken(
-                user, rawToken, LocalDateTime.now().plusHours(1));
+                user, rawToken, LocalDateTime.now().plusHours(TOKEN_TTL_HOURS));
 
         tokenRepository.save(entity);
 
-        if (mailService != null) {
-            String link = baseUrl + "/reset-password?token=" + rawToken;
-            String body = "Chào " + user.getFullName() + ",\n\n"
-                    + "Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản KSH của bạn.\n\n"
-                    + "Nhấp vào liên kết bên dưới để đặt mật khẩu mới (hết hạn sau 1 giờ):\n"
-                    + link + "\n\n"
-                    + "Nếu bạn không yêu cầu điều này, vui lòng bỏ qua email này.\n\n"
-                    + "— KSH Team";
+        String link = baseUrl + "/reset-password?token=" + rawToken;
+        String body = "Hi " + user.getFullName() + ",\n\n"
+                + "You (or someone else) requested a password reset for your ksh account.\n\n"
+                + "Click the link below to set a new password (expires in " + TOKEN_TTL_HOURS + " hour(s)):\n"
+                + link + "\n\n"
+                + "If you did not request this, you can safely ignore this email.\n\n"
+                + "— ksh Team";
 
-            boolean sent = mailService.send(user.getEmail(),
-                    "Đặt lại mật khẩu KSH", body);
-            if (!sent) {
-                log.warn("Failed to send password-reset email to {}", user.getEmail());
-            }
-        } else {
-            log.info("Mail not configured — reset token created for {} but email NOT sent. Token: {}",
-                    user.getEmail(), baseUrl + "/reset-password?token=" + rawToken);
+        boolean sent = mailService.send(user.getEmail(),
+                "ksh Password Reset", body);
+        if (!sent) {
+            // SMTP is not configured or the send failed. Log at WARN without the
+            // token (WARN is typically collected by log aggregators). The reset
+            // link is logged at DEBUG only so developers can enable it locally
+            // without leaking tokens in production.
+            log.warn("Password-reset email NOT sent to {} (SMTP not configured or send failed). "
+                    + "Token logged at DEBUG level.", user.getEmail());
+            log.debug("Password-reset link for {}: {}", user.getEmail(), link);
         }
     }
 
     /**
-     * Kiem tra token reset co hop le khong (ton tai, chua dung, chua het han).
-     * Tra ve user neu token hop le.
+     * Validates a password-reset token.
+     *
+     * <p>Returns the associated {@link User} when the token exists, has not been
+     * used, and has not expired. Returns {@code null} in all failure cases.
+     *
+     * <p>The caller does not need to distinguish the reason for failure — the UX
+     * only needs to know "valid or not" to render either the new-password form or
+     * a generic error page. This is also enumeration-safe: the response does not
+     * reveal whether a token was already used versus never existed.
+     *
+     * @param rawToken the plain-text reset token from the email link
+     * @return the {@link User} that owns the token, or {@code null} if the token
+     *         is invalid, expired, or already used
      */
     public User validateToken(String rawToken) {
         var opt = tokenRepository.findByToken(rawToken);
@@ -102,7 +135,16 @@ public class PasswordRecoveryService {
     }
 
     /**
-     * Dat lai mat khau va danh dau token da su dung.
+     * Resets the user's password and marks the token as consumed.
+     *
+     * <p>The token must exist, be unused, and not have expired. If any of those
+     * checks fail this method returns {@code false} and leaves the account
+     * unchanged.
+     *
+     * @param rawToken    the plain-text reset token from the email link
+     * @param newPassword the desired new password in plain text (will be BCrypt-encoded)
+     * @return {@code true} if the password was updated successfully;
+     *         {@code false} if the token is invalid, expired, or already used
      */
     @Transactional
     public boolean resetPassword(String rawToken, String newPassword) {
@@ -126,7 +168,7 @@ public class PasswordRecoveryService {
     }
 
     private String generateToken() {
-        byte[] bytes = new byte[96]; // -> 128 chars base64
+        byte[] bytes = new byte[TOKEN_BYTES];
         RNG.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }

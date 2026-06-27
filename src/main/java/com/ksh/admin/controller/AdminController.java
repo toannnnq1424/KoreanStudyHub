@@ -15,16 +15,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 /**
- * Controller cho man hinh quan tri he thong (Admin).
- * Chi ADMIN moi truy cap duoc — co the noi long sang HEAD o sprint sau
- * khi co dashboard bo mon rieng.
+ * MVC controller for the system administration panel.
+ * Access is restricted to the {@code ADMIN} role only — may be relaxed to include
+ * {@code HEAD} in a future sprint once per-department dashboards are available.
  *
- * <p>URL pattern: {@code /admin/{tab}} — 5 mục sidebar:
+ * <p>URL pattern: {@code /admin/{tab}} — five sidebar tabs:
  * <ul>
- *   <li>{@code /dashboard} — stat + chart + recent (Sprint 2 wireframe).</li>
- *   <li>{@code /users}, {@code /departments}, {@code /classes}, {@code /settings}
- *       — placeholder, Sprint 6 noi data that.</li>
+ *   <li>{@code /dashboard} — platform statistics, role breakdown chart, and recent
+ *       classes (Sprint 2 wireframe).</li>
+ *   <li>{@code /settings}  — settings index page (links to Email, General, etc.).</li>
+ *   <li>{@code /users}, {@code /departments}, {@code /classes}
+ *       — placeholder views; real data wired in Sprint 6.</li>
  * </ul>
+ *
+ * <p>The {@code /admin/settings/email} sub-tab is handled by
+ * {@link com.ksh.admin.settings.controller.EmailSettingsController}.
  */
 @Controller
 @RequestMapping("/admin")
@@ -55,7 +60,13 @@ public class AdminController {
         return "admin/dashboard";
     }
 
-    @GetMapping({"/users", "/departments", "/classes", "/settings"})
+    @GetMapping("/settings")
+    public String settingsIndex(Model model) {
+        populateSidebar(model, "settings");
+        return "admin/settings";
+    }
+
+    @GetMapping({"/departments", "/classes"})
     public String placeholder(HttpServletRequest request, Model model) {
         String path = request.getRequestURI();
         String tab = path.substring(path.lastIndexOf('/') + 1);
@@ -71,11 +82,8 @@ public class AdminController {
 
     private static String labelFor(String tab) {
         return switch (tab) {
-            case "dashboard" -> "Dashboard";
-            case "users" -> "Tài khoản";
             case "departments" -> "Bộ môn";
             case "classes" -> "Lớp học";
-            case "settings" -> "Cài đặt hệ thống";
             default -> tab;
         };
     }

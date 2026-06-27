@@ -14,8 +14,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Luu tru avatar local. Validate type (image/jpeg|png|webp) va size (<= 2 MB).
- * File duoc dat ten ngau nhien de tranh path traversal/spoofing.
+ * Local avatar storage. Validates file type (image/jpeg|png|webp) and size (<= 2 MB).
+ * Files are given random names to prevent path traversal/spoofing.
  */
 @Service
 public class AvatarStorageService {
@@ -37,10 +37,10 @@ public class AvatarStorageService {
     }
 
     /**
-     * Luu file avatar. Tra ve URL tuong doi (vi du: /uploads/avatars/x.jpg).
+     * Stores an avatar file. Returns a relative URL (e.g., /uploads/avatars/x.jpg).
      *
-     * @throws IllegalArgumentException neu file vuot kich thuoc hoac sai type
-     * @throws IOException neu khong the ghi file
+     * @throws IllegalArgumentException if the file exceeds maximum size or has invalid type
+     * @throws IOException if the file cannot be written
      */
     public String store(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
@@ -55,7 +55,7 @@ public class AvatarStorageService {
             throw new IllegalArgumentException("Chỉ chấp nhận JPEG, PNG hoặc WebP");
         }
 
-        // Validate content-type thuc te (sniff magic bytes)
+        // Validate actual content-type (sniff magic bytes)
         if (!isValidImageContent(file)) {
             throw new IllegalArgumentException("File không phải ảnh hợp lệ");
         }
@@ -74,9 +74,9 @@ public class AvatarStorageService {
         return "/uploads/avatars/" + filename;
     }
 
-    /** Kiem tra magic bytes de xac nhan file thuc su la anh. */
+    /** Checks magic bytes to verify that the file is indeed a valid image. */
     private boolean isValidImageContent(MultipartFile file) throws IOException {
-        // WebP can 12 byte dau (RIFF....WEBP); JPEG/PNG chi can 4-8.
+        // WebP requires the first 12 bytes (RIFF....WEBP); JPEG/PNG only require 4-8 bytes.
         byte[] header;
         try (var in = file.getInputStream()) {
             header = in.readNBytes(12);

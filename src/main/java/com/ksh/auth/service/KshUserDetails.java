@@ -1,5 +1,6 @@
 package com.ksh.auth.service;
 
+import com.ksh.auth.Role;
 import com.ksh.auth.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -9,13 +10,17 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * UserDetails cho form-login. Ngoai cac field chuan cua Spring Security,
- * lo them {@link #getFullName()} de template dung chung accessor
- * {@code principal.fullName} cho ca form-login lan OAuth
- * (xem {@link CustomOidcUserPrincipal}).
+ * Spring Security {@link UserDetails} implementation for form-based login.
+ *
+ * <p>In addition to the standard Spring Security fields, this class exposes
+ * {@link #getFullName()} so that Thymeleaf templates can use the unified
+ * {@code principal.fullName} accessor for both form-login and OAuth principals
+ * (see {@link CustomOidcUserPrincipal}).
  */
 public class KshUserDetails implements UserDetails {
 
+    private final Long id;
+    private final Role role;
     private final String username;
     private final String password;
     private final String fullName;
@@ -23,13 +28,47 @@ public class KshUserDetails implements UserDetails {
     private final boolean locked;
     private final Collection<GrantedAuthority> authorities;
 
+    /**
+     * Constructs a {@code kshUserDetails} from a {@link User} entity.
+     *
+     * @param user the authenticated user entity; must not be {@code null}
+     */
     public KshUserDetails(User user) {
+        this.id = user.getId();
+        this.role = user.getRole();
         this.username = user.getEmail();
         this.password = user.getPasswordHash();
         this.fullName = user.getFullName();
         this.active = user.isActive();
         this.locked = user.isLocked();
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
+    }
+
+    /**
+     * Returns the ID of the currently authenticated user.
+     *
+     * <p>Intended for audit purposes (e.g. {@code updated_by}) in admin-facing services,
+     * and for service-layer authz checks that previously required re-resolving the
+     * caller's identity via {@code findByEmailIgnoreCase}.
+     *
+     * @return the user's primary key
+     */
+    public Long getId() {
+        return id;
+    }
+
+    /**
+     * Returns the role of the currently authenticated user.
+     *
+     * <p>Exposed so controllers can pass the role to service methods without
+     * an additional DB lookup. Spring Security has already resolved the user
+     * during authentication, and this is the authoritative role at the
+     * moment of authentication.
+     *
+     * @return the user's {@link Role} enum value
+     */
+    public Role getRole() {
+        return role;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */
