@@ -10,6 +10,6 @@ public class KoreanStudyHubApplication {
     public static void main(String[] args) {
         SpringApplication.run(KoreanStudyHubApplication.class, args);
     }
-
+//abc
 }
 
