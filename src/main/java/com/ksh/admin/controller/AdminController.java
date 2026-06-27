@@ -15,19 +15,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 /**
- * Controller for system administration dashboard (Admin).
- * Restricted to ADMIN only — can be extended to HEAD in a future sprint
- * when department-specific dashboards are implemented.
+ * MVC controller for the system administration panel.
+ * Access is restricted to the {@code ADMIN} role only — may be relaxed to include
+ * {@code HEAD} in a future sprint once per-department dashboards are available.
  *
- * <p>URL pattern: {@code /admin/{tab}} — 5 sidebar items:
+ * <p>URL pattern: {@code /admin/{tab}} — five sidebar tabs:
  * <ul>
- *   <li>{@code /dashboard} — stats + charts + recent activity (Sprint 2 wireframe).</li>
- *   <li>{@code /settings}  — Settings index (links to Email/General settings/etc.).</li>
+ *   <li>{@code /dashboard} — platform statistics, role breakdown chart, and recent
+ *       classes (Sprint 2 wireframe).</li>
+ *   <li>{@code /settings}  — settings index page (links to Email, General, etc.).</li>
  *   <li>{@code /users}, {@code /departments}, {@code /classes}
- *       — placeholders, to be populated with real data in Sprint 6.</li>
+ *       — placeholder views; real data wired in Sprint 6.</li>
  * </ul>
  *
- * <p>Sub-tab {@code /admin/settings/email} is handled by
+ * <p>The {@code /admin/settings/email} sub-tab is handled by
  * {@link com.ksh.admin.settings.controller.EmailSettingsController}.
  */
 @Controller

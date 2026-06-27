@@ -21,16 +21,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Service to process Email Settings for admin: load current configuration,
- * save new configuration, and send test email to verify SMTP transport.
+ * Service for managing SMTP email settings in the admin panel: loading the
+ * current configuration, persisting changes, and sending a test email to
+ * verify the SMTP transport.
  *
- * <p>Masking: keys in {@link #SECRET_KEYS} (currently only {@code smtp.password})
- * are replaced by {@link #MASKED} before returning to the view. During save,
- * if the form submits an empty value or exactly {@code MASKED}, the service
- * skips overwriting the {@code smtp.password} record.
+ * <p>Masking: keys listed in {@link #SECRET_KEYS} (currently only
+ * {@code smtp.password}) are replaced with {@link #MASKED} before being
+ * returned to the view. On save, if the form submits a blank value or the
+ * exact sentinel {@code MASKED}, the service skips writing the
+ * {@code smtp.password} row entirely.
  *
- * <p>{@link #save} is {@code @Transactional} — all upserts run within
- * a single transaction, rolling back all-or-nothing if a failure occurs.
+ * <p>{@link #save} is {@code @Transactional} — all upserts run within a
+ * single transaction and are rolled back atomically on failure.
  */
 @Service
 public class EmailSettingsService {
@@ -55,8 +57,13 @@ public class EmailSettingsService {
     }
 
     /**
-     * Load Email Settings from database. The password is always masked as {@code "********"}
-     * before being returned to the form, even if the value is empty (for UI consistency).
+     * Loads the current email settings from the database.
+     *
+     * <p>The SMTP password is always replaced with {@link #MASKED} before the
+     * form object is returned, even if the stored value is empty, so the UI
+     * renders consistently without exposing the real credential.
+     *
+     * @return an {@link EmailSettingsForm} populated with the current settings
      */
     @Transactional(readOnly = true)
     public EmailSettingsForm load() {
@@ -66,7 +73,7 @@ public class EmailSettingsService {
                 parsePortOrNull(cfg.get("smtp.port")),
                 cfg.getOrDefault("smtp.encryption", "tls"),
                 cfg.getOrDefault("smtp.username", ""),
-                MASKED, // password luon mask
+                MASKED, // password is always masked
                 cfg.getOrDefault("smtp.from_name", ""),
                 cfg.getOrDefault("smtp.from_email", ""),
                 cfg.getOrDefault("smtp.reply_to", "")
@@ -74,12 +81,18 @@ public class EmailSettingsService {
     }
 
     /**
-     * Save Email Settings. Atomicity is guaranteed by {@code @Transactional}:
-     * if any row upsert fails, all written rows are rolled back.
+     * Persists updated email settings to the database.
      *
-     * <p>Password handling: if {@code form.password()} is null/blank or
-     * equals {@link #MASKED}, the {@code smtp.password} row is completely skipped
-     * (no value update, no {@code updated_by} update).
+     * <p>Atomicity is guaranteed by {@code @Transactional}: if any upsert
+     * fails, all writes in this call are rolled back.
+     *
+     * <p>Password handling: if {@code form.password()} is {@code null},
+     * blank, or equal to {@link #MASKED}, the {@code smtp.password} row is
+     * skipped entirely — the stored value and {@code updated_by} are left
+     * unchanged.
+     *
+     * @param form          the submitted settings form
+     * @param currentUserId ID of the admin user performing the save
      */
     @Transactional
     public void save(EmailSettingsForm form, Long currentUserId) {
@@ -92,7 +105,7 @@ public class EmailSettingsService {
         incoming.put("smtp.from_email", form.fromEmail().trim());
         incoming.put("smtp.reply_to", form.replyTo() == null ? "" : form.replyTo().trim());
 
-        // Password: only update when the user enters a new value (non-empty and not MASKED)
+        // Password: only update when the user submits a new value (non-blank and not the masked sentinel)
         if (form.password() != null && !form.password().isBlank()
                 && !MASKED.equals(form.password())) {
             incoming.put("smtp.password", form.password());
@@ -102,12 +115,18 @@ public class EmailSettingsService {
     }
 
     /**
-     * Sends a test email to {@code to}. Returns {@link TestResult} with {@code ok}
-     * status and {@code error} message (on failure) for rendering UI toast.
+     * Sends a test email to the given address to verify the SMTP configuration.
      *
-     * <p>Does not use {@code @Transactional} because the method delegates to
-     * mail transport (network call). Repository invocations inside
-     * {@code DbConfiguredMailSender} are run under Spring Data JPA's transaction.
+     * <p>Returns a {@link TestResult} containing an {@code ok} flag and, on
+     * failure, an error message suitable for rendering as a UI toast.
+     *
+     * <p>This method is intentionally not {@code @Transactional} because it
+     * only delegates to the mail transport layer (a network call). Any
+     * repository access inside {@code DbConfiguredMailSender} runs under its
+     * own Spring Data JPA transaction.
+     *
+     * @param to the recipient email address
+     * @return a {@link TestResult} indicating success or failure
      */
     public TestResult sendTest(String to) {
         if (to == null || to.isBlank()) {
