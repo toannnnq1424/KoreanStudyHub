@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * OidcUser decorator that maps the KSH user's role into Spring Security authorities.
+ * OidcUser decorator that maps the ksh user's role into Spring Security authorities.
  * Delegates attribute/id-token/user-info calls to the underlying Google OidcUser.
  */
 public class CustomOidcUserPrincipal implements OidcUser {
@@ -35,7 +35,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
     }
 
     /**
-     * Email cua user (= username trong KSH). Lo accessor nay de template dung
+     * Email cua user (= username trong ksh). Lo accessor nay de template dung
      * chung {@code principal.username} cho ca form-login lan OAuth.
      */
     public String getUsername() {

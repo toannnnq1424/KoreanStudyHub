@@ -35,7 +35,7 @@ public class PasswordRecoveryController {
 
     @PostMapping("/forgot-password")
     public String forgotSubmit(@Valid @ModelAttribute("request") AuthDtos.ForgotPasswordRequest req,
-                                BindingResult result, Model model, RedirectAttributes ra) {
+                               BindingResult result, Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
             return "auth/forgot-password";
         }
@@ -58,7 +58,7 @@ public class PasswordRecoveryController {
 
     @PostMapping("/reset-password")
     public String resetSubmit(@Valid @ModelAttribute("request") AuthDtos.ResetPasswordRequest req,
-                               BindingResult result, Model model, RedirectAttributes ra) {
+                              BindingResult result, Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
             model.addAttribute("token", req.token());
             return "auth/reset-password";
