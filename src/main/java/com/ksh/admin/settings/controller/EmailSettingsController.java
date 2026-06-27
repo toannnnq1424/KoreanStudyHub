@@ -83,7 +83,7 @@ public class EmailSettingsController {
     @PostMapping
     public String save(@Valid @ModelAttribute("form") EmailSettingsForm form,
                        BindingResult result,
-                       @AuthenticationPrincipal Ksh principal,
+                       @AuthenticationPrincipal KshUserDetails principal,
                        Model model,
                        RedirectAttributes redirectAttributes) {
         // Principal can be null when the admin logs in via OAuth2 (CustomOidcUserPrincipal

@@ -1,11 +1,13 @@
 package com.ksh.admin.settings.service;
 
 import com.ksh.admin.settings.dto.OauthSettingsDtos.OauthSettingsForm;
+import com.ksh.shared.config.CacheConfig;
 import com.ksh.shared.settings.SystemSettingGroups;
 import com.ksh.shared.settings.entity.SystemSetting;
 import com.ksh.shared.settings.repository.SystemSettingsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,10 +84,15 @@ public class OauthSettingsService {
      * the form intentionally; to overwrite with an empty secret the row must
      * be edited directly in the database.
      *
+     * <p>Cache invalidation: evicts the {@code OAUTH} entry from the
+     * {@code settingsGroup} cache so the next OAuth-config read picks up the
+     * new credentials immediately.
+     *
      * @param form          the submitted settings form
      * @param currentUserId ID of the admin user performing the save
      */
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_SETTINGS_GROUP, key = "'OAUTH'")
     public void save(OauthSettingsForm form, Long currentUserId) {
         Map<String, String> incoming = new LinkedHashMap<>();
         incoming.put(KEY_GOOGLE_CLIENT_ID, nullSafeTrim(form.googleClientId()));
