@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Admin Users page behaviour
+   ksh — Admin Users page behaviour
    Kebab menu actions, confirmation modals, lock-reason and reset-password
    modals, flash → toast drain, modal re-open on flash validation error.
 
@@ -11,7 +11,7 @@
      their position in the kebab menu.
    - Esc and overlay click both close.
 
-   Requires app.js (UlpToast + dropdown bootstrap).
+   Requires app.js (kshToast + dropdown bootstrap).
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -19,10 +19,10 @@
 
     // ── Flash drain → toast + modal re-open ──────────────────────────
     var flashData = document.getElementById('flash-data');
-    if (flashData && window.UlpToast) {
-        if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-        if (flashData.dataset.flashError)   window.UlpToast.error(flashData.dataset.flashError);
-        if (flashData.dataset.flashWarning) window.UlpToast.warning(flashData.dataset.flashWarning);
+    if (flashData && window.kshToast) {
+        if (flashData.dataset.flashSuccess) window.kshToast.success(flashData.dataset.flashSuccess);
+        if (flashData.dataset.flashError)   window.kshToast.error(flashData.dataset.flashError);
+        if (flashData.dataset.flashWarning) window.kshToast.warning(flashData.dataset.flashWarning);
     }
 
     // ── Confirmation prompts (simple POST submissions) ──────────────
@@ -127,6 +127,21 @@
         var action = btn.getAttribute('data-action');
         var userId = btn.getAttribute('data-user-id');
 
+        // Detail-page toolbar Xóa button — userId is not on the button itself;
+        // read it from the toolbar's data attribute so the same modal flow as
+        // the list-page row menu can be reused without new markup.
+        if (action === 'delete-user') {
+            var toolbar = btn.closest('.detail-toolbar');
+            var detailUserId = toolbar ? toolbar.getAttribute('data-user-id') : null;
+            if (!detailUserId) return;
+            openConfirmModal(
+                'Xoá tài khoản này? Có thể khôi phục từ bộ lọc Đã xoá.',
+                'form-delete-' + detailUserId,
+                true
+            );
+            return;
+        }
+
         if (confirmActions[action]) {
             var cfg = confirmActions[action];
             openConfirmModal(cfg.confirm, cfg.form + userId, cfg.danger);
@@ -168,7 +183,7 @@
             // not depend on trailing spaces.
             var reasonRaw = lockReasonInput.value || '';
             if (!reasonRaw.trim()) {
-                if (window.UlpToast) window.UlpToast.error('Vui lòng nhập lý do khoá.');
+                if (window.kshToast) window.kshToast.error('Vui lòng nhập lý do khoá.');
                 lockReasonInput.focus();
                 return;
             }
@@ -206,7 +221,7 @@
             // exact value the admin typed.
             var pwd = resetPasswordInput.value || '';
             if (pwd.length === 0) {
-                if (window.UlpToast) window.UlpToast.error('Vui lòng nhập mật khẩu mới.');
+                if (window.kshToast) window.kshToast.error('Vui lòng nhập mật khẩu mới.');
                 resetPasswordInput.focus();
                 return;
             }
