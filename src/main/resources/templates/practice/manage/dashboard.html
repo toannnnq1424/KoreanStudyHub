@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Quản trị kho luyện tập | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('manage')}"></aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="pi-main-wrapper">
+    <div class="pp-content-container">
+
+      <!-- Alert notifications -->
+      <div th:if="${success}" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${success}"></div>
+      <div th:if="${error}" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${error}"></div>
+
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+        <div>
+          <span style="font-size:0.75rem; font-weight:600; color:var(--pp-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Lecturer Workspace</span>
+          <h1 style="font-size:1.8rem; font-weight:800; color:var(--pp-text); margin:4px 0 0 0;">Quản lý kho luyện tập</h1>
+          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Tải lên đề từ file PDF hoặc tự soạn thảo cấu trúc bài luyện TOPIK đa kỹ năng.</p>
+        </div>
+        <div style="display:flex; gap:12px;">
+          <a class="pi-btn-secondary" th:href="@{/practice/manage/import}" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--pp-border); padding:10px 20px; border-radius:12px; font-weight:600; text-decoration:none; color:var(--pp-text);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Nhập từ PDF
+          </a>
+          <a class="pi-btn-primary" th:href="@{/practice/manage/create}" style="display:flex; align-items:center; gap:8px; padding:10px 20px; border-radius:12px; font-weight:600; text-decoration:none; color:#fff; background:var(--pp-accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Tạo thủ công
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick stats summary -->
+      <section style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:32px;">
+        <div class="pp-stat-card">
+          <div class="pp-stat-icon-wrapper blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          </div>
+          <div class="pp-stat-info">
+            <span>Tổng bộ đề</span>
+            <h3 th:text="${sets.size()}">0</h3>
+            <p>Tài liệu luyện tập đã lưu</p>
+          </div>
+        </div>
+        <div class="pp-stat-card">
+          <div class="pp-stat-icon-wrapper green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="pp-stat-info">
+            <span>Đang phát hành</span>
+            <h3 th:text="${publishedCount}">0</h3>
+            <p>Học viên có thể tự do truy cập</p>
+          </div>
+        </div>
+        <div class="pp-stat-card">
+          <div class="pp-stat-icon-wrapper orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="pp-stat-info">
+            <span>Học liệu của tôi</span>
+            <h3 th:text="${sets.size()}">0</h3>
+            <p>Ghi nhận tài liệu gốc giảng dạy</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Drafts Grid -->
+      <section th:if="${!#lists.isEmpty(drafts)}" class="pp-chart-card" style="padding: 28px; margin-bottom: 32px; border-left: 4px solid var(--pp-accent);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+          <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0;">Bản nháp đang biên soạn</h2>
+          <span style="font-size:0.78rem; padding:4px 10px; border-radius:12px; background:rgba(59,130,246,0.1); color:var(--pp-accent); font-weight:600;" th:text="${#lists.size(drafts)} + ' bản nháp'">1 bản nháp</span>
+        </div>
+        
+        <div class="pp-table-wrapper">
+          <table class="pp-table">
+            <thead>
+              <tr>
+                <th>Tên bản nháp</th>
+                <th>Phân loại (Level)</th>
+                <th>Cập nhật gần nhất</th>
+                <th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="d : ${drafts}">
+                <td>
+                  <div style="font-weight:700; color:var(--pp-text);" th:text="${d.title != null && !d.title.isBlank() ? d.title : 'Bản nháp chưa đặt tên'}">Bản nháp 1</div>
+                  <span style="font-size:0.75rem; color:var(--pp-text-muted);" th:text="${d.description != null && !d.description.isBlank() ? d.description : 'Không có mô tả'}">Mô tả</span>
+                </td>
+                <td>
+                  <span style="padding:4px 8px; border-radius:6px; background:#f1f5f9; color:#475569; font-size:0.78rem; font-weight:600;" 
+                        th:text="${d.category == 'TOPIK_I' ? 'TOPIK I' : (d.category == 'TOPIK_II' ? 'TOPIK II' : (d.category == 'EXTENDED_PRACTICE' ? 'Bài tập mở rộng' : (d.category == 'GENERAL_KOREAN' ? 'Tiếng Hàn tổng hợp' : (d.category == 'CUSTOM' ? 'Tự chỉnh' : d.category))))}">TOPIK II</span>
+                </td>
+                <td>
+                  <span style="font-size:0.85rem; color:var(--pp-text);" th:text="${#temporals.format(d.updatedAt, 'HH:mm dd/MM/yyyy')}">12:00 01/01/2026</span>
+                </td>
+                <td>
+                  <a th:href="@{/practice/manage/drafts/{id}(id=${d.id})}" class="pp-table-link" style="margin-right:16px; font-weight:700;">Tiếp tục sửa</a>
+                  <form th:action="@{/practice/manage/drafts/{id}/delete(id=${d.id})}" method="post" style="display:inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn bản nháp này?');">
+                    <button type="submit" class="pp-table-link" style="background:none; border:none; color:var(--pp-error); font-weight:600; cursor:pointer; padding:0; font-family:inherit; font-size:inherit;">Xóa nháp</button>
+                  </form>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Sets Grid -->
+      <section class="pp-chart-card" style="padding: 28px;">
+        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Danh sách tài liệu học tập</h2>
+        
+        <div th:if="${#lists.isEmpty(sets)}" class="pp-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <h4>Chưa có tài liệu học tập nào được tải lên</h4>
+          <p>Nhấp "Nhập từ PDF" để bắt đầu trích xuất đề thi tự động bằng trí tuệ nhân tạo AI.</p>
+        </div>
+
+        <div th:unless="${#lists.isEmpty(sets)}" class="pp-table-wrapper">
+          <table class="pp-table">
+            <thead>
+              <tr>
+                <th>Tên bộ luyện tập</th>
+                <th>Phân loại (Level)</th>
+                <th>Kỹ năng</th>
+                <th>Người tạo</th>
+                <th>Trạng thái</th>
+                <th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="item : ${sets}">
+                <td>
+                  <div style="font-weight:700; color:var(--pp-text);" th:text="${item.title}">Đề thi mẫu số 1</div>
+                  <span style="font-size:0.75rem; color:var(--pp-text-muted);" th:text="${item.description != null ? item.description : 'Không có mô tả'}">Mô tả đề thi</span>
+                </td>
+                <td>
+                  <span style="padding:4px 8px; border-radius:6px; background:#f1f5f9; color:#475569; font-size:0.78rem; font-weight:600;" 
+                        th:text="${item.topikLevel == 'TOPIK_I' ? 'TOPIK I' : (item.topikLevel == 'TOPIK_II' ? 'TOPIK II' : (item.topikLevel == 'EXTENDED_PRACTICE' ? 'Bài tập mở rộng' : (item.topikLevel == 'GENERAL_KOREAN' ? 'Tiếng Hàn tổng hợp' : (item.topikLevel == 'CUSTOM' ? 'Tự chỉnh' : item.topikLevel))))}">TOPIK II</span>
+                </td>
+                <td>
+                  <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                    <span th:each="sk : ${item.skillsList}" class="pp-timeline-skill-tag" th:classappend="${#strings.toLowerCase(sk)}" 
+                          th:text="${sk == 'READING' ? '읽기 (Đọc)' : (sk == 'LISTENING' ? '듣기 (Nghe)' : (sk == 'WRITING' ? '쓰기 (Viết)' : '말하기 (Nói)'))}">Đọc</span>
+                  </div>
+                </td>
+                <td>
+                  <span style="font-size:0.85rem; color:var(--pp-text); font-weight:600;" th:text="${authorsMap.get(item.createdBy) != null ? authorsMap.get(item.createdBy) : 'Hệ thống'}">Giáo viên A</span>
+                </td>
+                <td>
+                  <span style="padding:4px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); color:#10b981; font-size:0.78rem; font-weight:600;" th:text="${item.status}">PUBLISHED</span>
+                </td>
+                <td>
+                  <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem chi tiết</a>
+                  <a th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link">Sửa đề</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
