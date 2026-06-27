@@ -3,6 +3,7 @@ package com.ksh.admin.settings.service;
 import com.ksh.admin.settings.dto.EmailSettingsDtos;
 import com.ksh.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.admin.settings.dto.EmailSettingsDtos.TestResult;
+import com.ksh.shared.config.CacheConfig;
 import com.ksh.shared.mail.MailSendResult;
 import com.ksh.shared.mail.MailService;
 import com.ksh.shared.settings.SystemSettingGroups;
@@ -12,6 +13,7 @@ import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,10 +93,14 @@ public class EmailSettingsService {
      * skipped entirely — the stored value and {@code updated_by} are left
      * unchanged.
      *
+     * <p>Cache invalidation: evicts the {@code SMTP} entry from the
+     * {@code settingsGroup} cache so the next read picks up the new values.
+     *
      * @param form          the submitted settings form
      * @param currentUserId ID of the admin user performing the save
      */
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_SETTINGS_GROUP, key = "'SMTP'")
     public void save(EmailSettingsForm form, Long currentUserId) {
         Map<String, String> incoming = new LinkedHashMap<>();
         incoming.put("smtp.host", form.host().trim());
@@ -150,8 +156,8 @@ public class EmailSettingsService {
     // ─────────────────────────────────────────────────────────────────
 
     private void upsertAll(Map<String, String> incoming, Long currentUserId) {
-        // Load all existing rows for SMTP group — only update existing rows
-        // (V1/V9 seed has inserted all necessary rows). If a row is missing, insert new.
+        // Load all existing rows for the SMTP group — only update rows that already exist
+        // (seeded by V1/V9 migrations). Insert a new row if one is unexpectedly missing.
         Map<String, SystemSetting> existing = new HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup(GROUP)) {
             existing.put(s.getSettingKey(), s);
