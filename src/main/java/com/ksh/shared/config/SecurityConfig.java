@@ -14,7 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
 /**
- * Cau hinh bao mat cho KSH (Sprint 1).
+ * Cau hinh bao mat cho ksh (Sprint 1).
  *
  * <ul>
  *   <li>Form login (luon on).</li>
