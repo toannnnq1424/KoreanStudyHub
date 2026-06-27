@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Hồ sơ học tập & Tiến độ | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR (PREP-STYLE) ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('progress')}"></aside>
+
+  <!-- ═══ MAIN WRAPPER ═══ -->
+  <main class="pi-main-wrapper">
+    <div class="pp-content-container">
+
+      <!-- ── PAGE HEADER ── -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+          <span style="font-size:0.75rem; font-weight:600; color:var(--pp-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Learning Profile</span>
+          <h1 style="font-size:1.8rem; font-weight:800; color:var(--pp-text); margin:4px 0 0 0;">Hồ sơ học tập cá nhân</h1>
+        </div>
+        <a class="pi-btn-primary" th:href="@{/practice}" style="display:flex; align-items:center; gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Luyện tiếp
+        </a>
+      </div>
+
+      <!-- ── PROFILE HERO CARD ── -->
+      <div class="pp-hero-card">
+        <div class="pp-hero-left">
+          <div class="pp-avatar-wrapper">
+            <img th:if="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}" th:src="${overview.avatarUrl()}" alt="Avatar">
+            <div th:unless="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}" class="pp-avatar-placeholder" th:text="${#strings.substring(overview.studentName(), 0, 1)}">U</div>
+          </div>
+          <div class="pp-hero-greet">
+            <p>Xin chào,</p>
+            <h2 th:text="${overview.studentName()}">Học viên KSH</h2>
+            <span>Hôm nay là một ngày tuyệt vời để bứt phá band điểm TOPIK của bạn! 🚀</span>
+          </div>
+        </div>
+        <div class="pp-hero-right">
+          <div class="pp-level-item">
+            <span>Trình độ hiện tại</span>
+            <strong th:text="${overview.currentLevel()}">TOPIK II Cấp 3</strong>
+          </div>
+          <div class="pp-level-divider"></div>
+          <div class="pp-level-item primary">
+            <span>Dự đoán tiếp theo</span>
+            <strong th:text="${overview.recentAverageScore() >= 80.0 ? 'TOPIK II Cấp 6' :
+                            (overview.recentAverageScore() >= 70.0 ? 'TOPIK II Cấp 5' :
+                            (overview.recentAverageScore() >= 60.0 ? 'TOPIK II Cấp 4' : 'TOPIK II Cấp 3'))}">TOPIK II Cấp 4</strong>
+          </div>
+          <div class="pp-level-divider"></div>
+          <div class="pp-level-item">
+            <span>Mục tiêu</span>
+            <strong>TOPIK II Cấp 5</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB NAVIGATION ── -->
+      <div class="pp-tab-nav-wrapper">
+        <nav class="pp-tabs">
+          <button class="pp-tab-btn" id="btn-overview" onclick="switchTab('overview')">Tổng quan</button>
+          <button class="pp-tab-btn" id="btn-test-practice" onclick="switchTab('test-practice')">Luyện tập</button>
+        </nav>
+      </div>
+
+      <!-- ── TAB CONTENT: OVERVIEW ── -->
+      <div class="pp-tab-panel" id="tab-overview">
+        
+        <!-- Stats Row -->
+        <div class="pp-stats-row">
+          <div class="pp-stat-card">
+            <div class="pp-stat-icon-wrapper blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="pp-stat-info">
+              <span>Thời gian luyện</span>
+              <h3 th:text="${overview.totalPracticeMinutes() >= 60 ? (overview.totalPracticeMinutes() / 60) + ' giờ ' + (overview.totalPracticeMinutes() % 60) + 'm' : overview.totalPracticeMinutes() + ' phút'}">0 phút</h3>
+              <p>Tổng thời gian làm đề</p>
+            </div>
+          </div>
+          <div class="pp-stat-card">
+            <div class="pp-stat-icon-wrapper purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <div class="pp-stat-info">
+              <span>Lượt luyện</span>
+              <h3 th:text="${overview.totalAttempts()}">0</h3>
+              <p>Lượt làm bài đã nộp</p>
+            </div>
+          </div>
+          <div class="pp-stat-card">
+            <div class="pp-stat-icon-wrapper green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="pp-stat-info">
+              <span>Hoàn thành</span>
+              <h3 th:text="${overview.totalCompletedTests()}">0</h3>
+              <p>Bài đã được chấm điểm</p>
+            </div>
+          </div>
+          <div class="pp-stat-card">
+            <div class="pp-stat-icon-wrapper orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="pp-stat-info">
+              <span>Điểm TB gần đây</span>
+              <h3 th:text="${overview.recentAverageScore()} + '%'">0%</h3>
+              <p>Xét 20 bài gần nhất</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2-Col Grid Charts -->
+        <div class="pp-charts-row">
+          <div class="pp-chart-card">
+            <div class="pp-chart-header">
+              <h3>Điểm trung bình theo kỹ năng</h3>
+              <p>Chuẩn hóa theo thang 100 điểm để dễ so sánh</p>
+            </div>
+            <div class="pp-chart-container">
+              <canvas id="chart-radar-skills"></canvas>
+            </div>
+          </div>
+          <div class="pp-chart-card">
+            <div class="pp-chart-header">
+              <h3>Tổng lượt làm bài</h3>
+              <p>Phân bố lượt luyện tập theo từng kỹ năng</p>
+            </div>
+            <div class="pp-chart-container">
+              <canvas id="chart-donut-distribution"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="pp-heatmap-card">
+          <div class="pp-heatmap-header">
+            <div>
+              <h3>Tần suất học tập</h3>
+              <p>Lịch sử hoạt động luyện tập trong 12 tuần gần đây</p>
+            </div>
+            <div class="pp-heatmap-legend">
+              <span>Ít</span>
+              <div class="pp-legend-cell lvl-0"></div>
+              <div class="pp-legend-cell lvl-1"></div>
+              <div class="pp-legend-cell lvl-2"></div>
+              <div class="pp-legend-cell lvl-3"></div>
+              <span>Nhiều</span>
+            </div>
+          </div>
+          <div class="pp-heatmap-wrapper">
+            <div class="pp-heatmap-grid" id="heatmap-grid">
+              <!-- Grid cells generated dynamically via JS to avoid excessive Thymeleaf boilerplate -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent History Timeline -->
+        <div class="pp-history-card">
+          <div class="pp-history-title-row">
+            <h3>Lịch sử hoạt động gần đây</h3>
+          </div>
+          
+          <div th:if="${#lists.isEmpty(overview.recentHistory())}" class="pp-empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <h4>Chưa có lượt làm bài nào</h4>
+            <p>Hãy bắt đầu luyện tập một đề bất kỳ để ghi lại tiến trình của bạn.</p>
+          </div>
+
+          <div class="pp-timeline" th:unless="${#lists.isEmpty(overview.recentHistory())}">
+            <div class="pp-timeline-item" th:each="row : ${overview.recentHistory()}">
+              <div class="pp-timeline-dot"></div>
+              <a class="pp-timeline-content" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">
+                <div class="pp-timeline-left">
+                  <span class="pp-timeline-skill-tag" 
+                        th:classappend="${#strings.toLowerCase(row.skill())}" 
+                        th:text="${row.skill() == 'READING' ? 'Đọc' : (row.skill() == 'LISTENING' ? 'Nghe' : (row.skill() == 'WRITING' ? 'Viết' : 'Nói'))}">READING</span>
+                  <div class="pp-timeline-details">
+                    <h4 th:text="${row.title()}">Tên đề luyện tập</h4>
+                    <span th:text="${#temporals.format(row.submittedAt(), 'dd/MM/yyyy HH:mm')}">01/01/2026</span>
+                  </div>
+                </div>
+                <div class="pp-timeline-right">
+                  <span class="pp-timeline-score" th:text="${row.score()} + ' / ' + ${row.totalPoints()}">0 / 0</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── TAB CONTENT: TEST PRACTICE ── -->
+      <div class="pp-tab-panel" id="tab-test-practice">
+        
+        <!-- Weekly skill delta cards -->
+        <div class="pp-weekly-cards">
+          <div class="pp-weekly-card" th:each="m : ${analytics.weeklySkillMetrics()}">
+            <div class="pp-weekly-header">
+              <h4 th:text="${m.skillLabel()}">Kỹ năng</h4>
+              <!-- Delta badge -->
+              <span class="pp-weekly-delta" th:classappend="${m.deltaFromLastPeriod() > 0 ? 'up' : (m.deltaFromLastPeriod() < 0 ? 'down' : 'none')}">
+                <th:block th:if="${m.deltaFromLastPeriod() > 0}">↑ <span th:text="${m.deltaFromLastPeriod()}"></span></th:block>
+                <th:block th:if="${m.deltaFromLastPeriod() < 0}">↓ <span th:text="${#math.abs(m.deltaFromLastPeriod())}"></span></th:block>
+                <th:block th:if="${m.deltaFromLastPeriod() == 0}">--</th:block>
+              </span>
+            </div>
+            <div class="pp-weekly-body">
+              <span class="pp-weekly-score" th:text="${m.normalizedScore()} + '%'">0%</span>
+            </div>
+            <div class="pp-weekly-footer">
+              Hoàn thành <strong th:text="${m.attemptCount()}">0</strong> bài tuần này
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Tracking Line Chart -->
+        <div class="pp-chart-card" style="margin-bottom:32px;">
+          <div class="pp-chart-header">
+            <h3>Xu hướng điểm số</h3>
+            <p>Biểu đồ tiến trình điểm chuẩn hóa (0-100) của tối đa 30 lượt làm bài gần nhất</p>
+          </div>
+          <div class="pp-chart-container" style="height:320px;">
+            <canvas id="chart-score-trend"></canvas>
+          </div>
+        </div>
+
+        <!-- Performance by Question Type -->
+        <div class="pp-accordion-card">
+          <div class="pp-chart-header" style="margin-bottom:20px;">
+            <h3>Hiệu suất chi tiết dạng câu hỏi</h3>
+            <p>Tỉ lệ chính xác và điểm trung bình theo phân loại câu hỏi TOPIK</p>
+          </div>
+          
+          <div class="pp-accordion-tabs">
+            <button class="pp-accordion-tab-btn active" onclick="switchSkillAccordion('READING')">Đọc (Reading)</button>
+            <button class="pp-accordion-tab-btn" onclick="switchSkillAccordion('LISTENING')">Nghe (Listening)</button>
+            <button class="pp-accordion-tab-btn" onclick="switchSkillAccordion('WRITING')">Viết (Writing)</button>
+            <button class="pp-accordion-tab-btn" onclick="switchSkillAccordion('SPEAKING')">Nói (Speaking)</button>
+          </div>
+
+          <!-- Table Container -->
+          <div class="pp-table-wrapper">
+            <table class="pp-table">
+              <thead>
+                <tr>
+                  <th>Dạng câu hỏi / Phần thi</th>
+                  <th>Tổng số câu/lượt luyện</th>
+                  <th>Điểm trung bình</th>
+                  <th>Điểm tốt nhất</th>
+                  <th>Lần luyện gần nhất</th>
+                </tr>
+              </thead>
+              <tbody id="question-type-table-body">
+                <!-- Rows loaded via JS based on selected skill -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Performance Highlights -->
+        <div class="pp-chart-header" style="margin-bottom:16px;">
+          <h3>Phân tích bứt phá</h3>
+          <p>Phản hồi thông minh dựa trên lịch sử học tập</p>
+        </div>
+        
+        <div class="pp-highlights-grid">
+          <div class="pp-highlight-card" th:each="h : ${analytics.highlights()}" th:classappend="${h.hasData() ? 'highlighted' : ''}">
+            <div class="pp-highlight-header">
+              <span th:text="${h.label()}">Đặc điểm</span>
+              <h4 th:text="${h.hasData() ? h.skillOrType() : 'Chưa có phân tích'}">Đang phân tích</h4>
+              <p th:if="${h.hasData() && h.type() == 'MOST_PRACTICED'}" th:text="'Bạn đã luyện kỹ năng này ' + ${h.attempts()} + ' lần.'">Mô tả</p>
+              <p th:if="${h.hasData() && h.type() == 'NEEDS_WORK'}" th:text="'Điểm trung bình chỉ đạt ' + ${h.score()} + '%. Cần làm thêm đề để kéo band điểm.'">Mô tả</p>
+              <p th:unless="${h.hasData()}">Hãy luyện thêm ít nhất 3 lượt đề thuộc kỹ năng này để nhận phân tích.</p>
+            </div>
+            <div class="pp-highlight-footer" th:if="${h.hasData()}">
+              Có dữ liệu hoạt động
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline 30 days history -->
+        <div class="pp-history-card">
+          <div class="pp-history-title-row">
+            <h3>Lịch sử luyện tập đầy đủ</h3>
+          </div>
+
+          <div th:if="${#lists.isEmpty(analytics.history())}" class="pp-empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <h4>Không có lịch sử</h4>
+          </div>
+
+          <div class="pp-timeline" th:unless="${#lists.isEmpty(analytics.history())}">
+            <div class="pp-timeline-item" th:each="row : ${analytics.history()}">
+              <div class="pp-timeline-dot"></div>
+              <a class="pp-timeline-content" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">
+                <div class="pp-timeline-left">
+                  <span class="pp-timeline-skill-tag" 
+                        th:classappend="${#strings.toLowerCase(row.skill())}" 
+                        th:text="${row.skill() == 'READING' ? 'Đọc' : (row.skill() == 'LISTENING' ? 'Nghe' : (row.skill() == 'WRITING' ? 'Viết' : 'Nói'))}">READING</span>
+                  <div class="pp-timeline-details">
+                    <h4 th:text="${row.title()}">Tên đề luyện tập</h4>
+                    <span th:text="${#temporals.format(row.submittedAt(), 'dd/MM/yyyy HH:mm')}">01/01/2026</span>
+                  </div>
+                </div>
+                <div class="pp-timeline-right">
+                  <span class="pp-timeline-score" th:text="${row.score()} + ' / ' + ${row.totalPoints()}">0 / 0</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Heatmap Tooltip Element -->
+<div class="pp-tooltip" id="heatmap-tooltip"></div>
+
+<!-- Thymeleaf variables to JS -->
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  const OVERVIEW_DATA = JSON.parse(/*[[${overviewJson}]]*/ '{}');
+  const ANALYTICS_DATA = JSON.parse(/*[[${analyticsJson}]]*/ '{}');
+  const CURRENT_TAB = /*[[${tab}]]*/ 'overview';
+  /*]]>*/
+</script>
+
+<!-- Vendor Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Dashboard specific JS script -->
+<script th:src="@{/js/practice-progress.js}"></script>
+
+</body>
+</html>
