@@ -12,20 +12,20 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
- * Bat loi toan cuc cho cac controller.
+ * Global exception handler for controllers.
  *
- * <p>Sprint 2 them 2 handler chuyen biet:
+ * <p>Sprint 2 adds 2 specific handlers:
  * <ul>
- *   <li>{@link EntityNotFoundException} → 404 (lop/entity khong ton tai
- *       hoac da soft-delete).</li>
- *   <li>{@link AccessDeniedException} → 403 (vi pham owner check tu
- *       service layer; Spring Security chi tu xu ly cac instance phat
- *       sinh trong filter chain hoac qua {@code @PreAuthorize}).</li>
+ *   <li>{@link EntityNotFoundException} → 404 (class/entity does not exist
+ *       or has been soft-deleted).</li>
+ *   <li>{@link AccessDeniedException} → 403 (violates ownership check from
+ *       service layer; Spring Security only handles instances arising
+ *       in the filter chain or via {@code @PreAuthorize}).</li>
  * </ul>
  *
- * <p>Handler chuyen biet phai dat TRUOC catch-all {@code Exception.class}
- * de Spring chon dung — Spring's exception resolver match theo thu tu
- * specificity, nhung de minh bach minh dat dung thu tu nay.
+ * <p>Specific handlers must be placed BEFORE the catch-all {@code Exception.class}
+ * for Spring to select correctly — Spring's exception resolver matches by order of
+ * specificity, but we place them in this order for clarity.
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {

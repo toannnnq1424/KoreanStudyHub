@@ -150,8 +150,8 @@ public class EmailSettingsService {
     // ─────────────────────────────────────────────────────────────────
 
     private void upsertAll(Map<String, String> incoming, Long currentUserId) {
-        // Load all existing rows for the SMTP group — only update rows that already exist
-        // (seeded by V1/V9 migrations). Insert a new row if one is unexpectedly missing.
+        // Load all existing rows for SMTP group — only update existing rows
+        // (V1/V9 seed has inserted all necessary rows). If a row is missing, insert new.
         Map<String, SystemSetting> existing = new HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup(GROUP)) {
             existing.put(s.getSettingKey(), s);

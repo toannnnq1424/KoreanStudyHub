@@ -1,11 +1,11 @@
 package com.ksh.classes.dto;
 
-/** View-model DTOs cho trang chi tiet lop hoc — tab Thanh vien. */
+/** View-model DTOs for class detail page — Members tab. */
 public class MemberDtos {
 
     /**
-     * 1 dong trong bang danh sach thanh vien (tab Thanh vien).
-     * Render boi {@code templates/classes/detail-members.html}.
+     * A row in the members list table (Members tab).
+     * Rendered by {@code templates/classes/detail-members.html}.
      */
     public record MemberRow(
             Long userId,
@@ -16,12 +16,12 @@ public class MemberDtos {
             String phone,
             String joinedVia
     ) {
-        /** Hien thi phone gon (rut ngan neu null hoac quoc te format). */
+        /** Displays formatted phone number (fallback to "—" if null or empty). */
         public String displayPhone() {
             return phone == null || phone.isBlank() ? "—" : phone;
         }
 
-        /** Hien thi joined-via badge: CODE/LINK/IMPORT/MANUAL → label tieng Viet. */
+        /** Displays joined-via badge: CODE/LINK/IMPORT/MANUAL → Vietnamese labels. */
         public String displayJoinedVia() {
             if (joinedVia == null) return "—";
             return switch (joinedVia) {

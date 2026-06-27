@@ -20,25 +20,25 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.security.Principal;
 
 /**
- * Controller cho man hinh quan ly lop hoc cua giang vien.
- * Chi LECTURER, HEAD, ADMIN co the truy cap (xem {@link Roles}).
+ * Controller for the lecturer's class management screen.
+ * Restricted to LECTURER, HEAD, and ADMIN roles (see {@link Roles}).
  *
- * <p>5 endpoint:
+ * <p>Endpoints:
  * <ul>
- *   <li>{@code GET  /lecturer/classes}            — danh sach lop</li>
- *   <li>{@code GET  /lecturer/classes/new}        — form tao moi</li>
- *   <li>{@code POST /lecturer/classes}            — submit tao moi</li>
- *   <li>{@code GET  /lecturer/classes/{id}/edit}  — form chinh sua</li>
- *   <li>{@code POST /lecturer/classes/{id}}       — submit chinh sua</li>
- *   <li>{@code POST /lecturer/classes/{id}/delete}— soft-delete (sau modal confirm)</li>
+ *   <li>{@code GET  /lecturer/classes}            — list classes</li>
+ *   <li>{@code GET  /lecturer/classes/new}        — create class form</li>
+ *   <li>{@code POST /lecturer/classes}            — submit class creation</li>
+ *   <li>{@code GET  /lecturer/classes/{id}/edit}  — edit class form</li>
+ *   <li>{@code POST /lecturer/classes/{id}}       — submit class modifications</li>
+ *   <li>{@code POST /lecturer/classes/{id}/delete}— soft-delete class</li>
  * </ul>
  *
- * <p>Validation: {@code @Valid ClassForm + BindingResult}. Loi render
- * inline duoi tung field qua {@code th:errors}, input duoc preserve.
+ * <p>Validation: {@code @Valid ClassForm + BindingResult}. Errors are rendered
+ * inline under each field using {@code th:errors}, inputs are preserved.
  *
- * <p>Authz: class-level {@code @PreAuthorize} chan STUDENT/anonymous.
- * Owner check (LECTURER chi sua lop minh) enforced o service layer.
- * 404 va 403 map qua {@code GlobalExceptionHandler}.
+ * <p>Authorization: class-level {@code @PreAuthorize} blocks STUDENT/anonymous users.
+ * Owner checks (e.g. LECTURER can only edit their own class) are enforced at the service layer.
+ * 404 and 403 maps are handled via {@code GlobalExceptionHandler}.
  */
 @Controller
 @RequestMapping("/lecturer")
@@ -127,16 +127,16 @@ public class ClassesController {
         return "redirect:/lecturer/classes";
     }
 
-    // ───────── Trang chi tiết lớp — sidebar tabs (Sprint 2 phase 2) ─────────
+    // ───────── Class Detail Page — sidebar tabs (Sprint 2 phase 2) ─────────
     //
     // URL pattern: /lecturer/classes/{id}/{tab}
-    //   - /board     : Bảng tin   (tab mặc định khi vào /lecturer/classes/{id})
-    //   - /members   : Thành viên (đã wire data thật)
+    //   - /board     : Board (default tab when entering /lecturer/classes/{id})
+    //   - /members   : Members (wired with real data)
     //   - /schedule, /roles, /groups, /assignments, /scores, /lessons,
     //     /materials  : placeholder (Sprint 3-5)
-    //   - /settings  : form edit lớp hiện có (reuse classes/form.html)
+    //   - /settings  : form to edit the class (reuses classes/form.html)
     //
-    // Tất cả endpoint dùng cùng class-detail layout (sidebar + main).
+    // All endpoints use the same class-detail layout (sidebar + main).
 
     @GetMapping("/classes/{id}")
     public String detailRoot(@PathVariable Long id) {
@@ -189,7 +189,7 @@ public class ClassesController {
         return "classes/detail-settings";
     }
 
-    /** Gan cac attribute chung cho layout chi tiet lop (sidebar). */
+    /** Populates common attributes for class detail layout (sidebar). */
     private void populateDetailModel(Model model, ClassEntity clazz, String activeTab) {
         model.addAttribute("clazz", clazz);
         model.addAttribute("activeTab", activeTab);
@@ -212,9 +212,9 @@ public class ClassesController {
     }
 
     /**
-     * {@code @AssertTrue isDateRangeValid()} sinh global error voi
-     * field-name {@code dateRangeValid}. Chuyen no thanh field error
-     * tren {@code endDate} de template hien thi inline dung cho.
+     * {@code @AssertTrue isDateRangeValid()} generates a global error with
+     * field-name {@code dateRangeValid}. Rebinds it to a field error
+     * on {@code endDate} so the template can render it inline in the correct place.
      */
     private void rebindDateRangeError(BindingResult result) {
         result.getFieldErrors("dateRangeValid").forEach(err ->

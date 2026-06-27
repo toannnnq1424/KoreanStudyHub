@@ -1,0 +1,46 @@
+schema: spec-driven
+
+context: |
+  Project: Korean Study Hub (KSH)
+  Tech stack: Java 21, Spring Boot 3, Spring Security 6, Spring Data JPA, Thymeleaf, MySQL 8, Flyway
+  Build tool: Maven (mvnw wrapper)
+  Architecture: Feature-based package structure under com.ksh.*
+  Frontend: Thymeleaf server-side rendering + Vanilla CSS + JavaScript
+
+  Package conventions:
+  - com.ksh.auth          — authentication, registration, OAuth2, password recovery
+  - com.ksh.profile       — user profile, avatar, change password
+  - com.ksh.classes       — class CRUD, members, enrollment
+  - com.ksh.admin         — admin dashboard, user management, settings
+  - com.ksh.shared        — cross-cutting: config, mail, upload, exception, settings
+
+  Database conventions:
+  - All migrations in src/main/resources/db/migration/ (Flyway V<n>__description.sql)
+  - Entities use JPA + Lombok (@Data, @Builder, @NoArgsConstructor)
+  - Repositories extend JpaRepository
+
+  Roles: STUDENT, LECTURER, HEAD, ADMIN (enum com.ksh.auth.Role)
+
+  Development sprint plan:
+  - Sprint 1 (done): Auth, Registration, Password Recovery, Google OAuth2
+  - Sprint 2 (done): User Profile, Avatar Upload, Class CRUD, Class Members
+  - Sprint 3 (planned): Lessons, Assignments, Material Upload
+  - Sprint 4 (planned): Scoring, Grade Book
+  - Sprint 5 (planned): Department Management, Reporting, Korean vocabulary module
+
+rules:
+  specs:
+    - Describe behavior from the user's perspective (student, lecturer, admin)
+    - Use GIVEN / WHEN / THEN scenario format
+    - Reference Spring Security roles explicitly (e.g., ROLE_LECTURER)
+    - Include DB, BE, FE, and Test sub-tasks for each story
+    - Link to Flyway migration files when specifying schema changes
+  tasks:
+    - Break down stories into [DB], [BE], [FE], [Test] sub-tasks
+    - Mark sprint ownership (Sprint 1/2/3/4/5)
+    - Include acceptance criteria per task
+  design:
+    - Document authorization rules at the service layer (not controller)
+    - Prefer soft-delete over hard-delete for user-visible entities
+    - All mutations must record activity logs where applicable
+    - Document SMTP/email behavior including best-effort sending semantics

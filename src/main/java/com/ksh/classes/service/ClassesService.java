@@ -27,19 +27,19 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 /**
- * Service nghiep vu CRUD lop hoc cho man hinh giang vien.
+ * Business service for class CRUD operations on the lecturer dashboard.
  *
- * <p>Quy tac phan quyen (enforce o day, KHONG dua o controller):
+ * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
- *   <li>LECTURER chi thay/sua/xoa lop cua minh ({@code lecturer_id == user.id}).</li>
- *   <li>HEAD va ADMIN thay het, sua/xoa moi lop.</li>
- *   <li>Vi pham phan quyen nem {@link AccessDeniedException} → 403.</li>
- *   <li>Lop khong ton tai / da soft-delete nem {@link EntityNotFoundException} → 404.</li>
+ *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
+ *   <li>HEAD and ADMIN can view all, and edit/delete any class.</li>
+ *   <li>Authorization violations throw {@link AccessDeniedException} → 403.</li>
+ *   <li>Classes that do not exist or are soft-deleted throw {@link EntityNotFoundException} → 404.</li>
  * </ul>
  *
- * <p>Moi mutation (create/update/softDelete) deu ghi 1 row vao
- * {@link ClassActivity}. Vi service method la {@code @Transactional},
- * neu insert activity fail thi class mutation cung rollback.
+ * <p>Every mutation (create/update/softDelete) records a row in
+ * {@link ClassActivity}. Since service methods are {@code @Transactional},
+ * if the activity logging fails, the class mutation also rolls back.
  */
 @Service
 public class ClassesService {
@@ -68,9 +68,9 @@ public class ClassesService {
     // ───────────────────── Public CRUD API ──────────────────────────
 
     /**
-     * Tra ve danh sach lop nguoi dung duoc thay.
-     * LECTURER → chi lop cua minh.
-     * HEAD/ADMIN → tat ca lop chua soft-delete.
+     * Returns a list of classes viewable by the user.
+     * LECTURER → only their own classes.
+     * HEAD/ADMIN → all classes that are not soft-deleted.
      */
     @Transactional(readOnly = true)
     public List<ClassRow> listForUser(Principal principal) {
@@ -83,7 +83,7 @@ public class ClassesService {
                 .toList();
     }
 
-    /** Load lop de edit, da kiem tra quyen. */
+    /** Loads a class for editing, checking permissions. */
     @Transactional(readOnly = true)
     public ClassEntity getEditable(Long id, Principal principal) {
         User user = currentUser(principal);
@@ -91,10 +91,10 @@ public class ClassesService {
     }
 
     /**
-     * Load lop de XEM CHI TIET (members, board, ...). Cung kiem tra
-     * quyen nhu {@link #getEditable}: LECTURER chi xem duoc lop minh,
-     * HEAD/ADMIN xem het. Tach ra de Sprint sau co the noi long quy
-     * tac (vd. ai cung xem duoc bang tin) ma khong dung den edit path.
+     * Loads a class for VIEWING DETAILS (members, board, ...). Also checks
+     * permissions similar to {@link #getEditable}: LECTURER only views their own classes,
+     * HEAD/ADMIN can view all. Separated so future sprints can relax rules
+     * (e.g. allowing everyone to view the activity board) without touching the edit path.
      */
     @Transactional(readOnly = true)
     public ClassEntity getViewable(Long id, Principal principal) {
@@ -103,8 +103,8 @@ public class ClassesService {
     }
 
     /**
-     * Tao lop moi. Sinh code, retry toi da 3 lan khi collision tren
-     * {@code uk_classes_code}; nem ngay neu unique-violation tren cot khac.
+     * Creates a new class. Generates invite code, retrying up to 3 times on collision
+     * for {@code uk_classes_code}; immediately throws on unique violations on other columns.
      */
     @Transactional
     public ClassEntity create(ClassForm form, Principal principal) {
@@ -140,7 +140,7 @@ public class ClassesService {
                 lastCollision);
     }
 
-    /** Cap nhat lop. Phan quyen enforced. Ghi activity UPDATED voi diff. */
+    /** Updates a class. Authorization is enforced. Records UPDATED activity with diff. */
     @Transactional
     public ClassEntity update(Long id, ClassForm form, Principal principal) {
         User user = currentUser(principal);
@@ -166,7 +166,7 @@ public class ClassesService {
         return saved;
     }
 
-    /** Soft-delete lop. Phan quyen enforced. Ghi activity DELETED. */
+    /** Soft-deletes a class. Authorization is enforced. Records DELETED activity. */
     @Transactional
     public void softDelete(Long id, Principal principal) {
         User user = currentUser(principal);
@@ -185,7 +185,7 @@ public class ClassesService {
 
     // ──────────────────────── Internal ──────────────────────────────
 
-    /** Load + authz, dung trong noi bo (khi user da resolve). DRY voi {@link #getEditable}. */
+    /** Load + authz, used internally (after user resolution). DRY with {@link #getEditable}. */
     private ClassEntity loadEditable(Long id, User user) {
         ClassEntity entity = classRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));

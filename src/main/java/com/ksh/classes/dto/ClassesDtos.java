@@ -9,22 +9,22 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-/** View-model DTOs cho man hinh quan ly lop hoc cua giang vien. */
+/** View-model DTOs for the lecturer's class management screen. */
 public class ClassesDtos {
 
     /**
-     * View-model 1 dong trong danh sach lop. Render boi
+     * View-model for a single row in the class list. Rendered by
      * {@code templates/classes/manage.html}.
      *
-     * <p>{@code thumbLabel} duoc derive tu {@link #name} (2 ky tu dau,
-     * viet hoa). {@code gradientCss} duoc Service tinh tu chi muc danh sach
-     * de moi lop co mau phan biet — xem {@link com.ksh.classes.ClassGradient}.
+     * <p>{@code thumbLabel} is derived from {@link #name} (first 2 characters,
+     * uppercased). {@code gradientCss} is computed by the Service from the list index
+     * so each class has a distinct color — see {@link com.ksh.classes.ClassGradient}.
      *
-     * <p>Cac cot stat (studentCount/lectureCount/assignmentCount/materialCount)
-     * tam thoi return 0 cho Sprint 2. Sprint 3/5 se noi vao count thuc.
+     * <p>Stat columns (studentCount/lectureCount/assignmentCount/materialCount)
+     * return 0 temporarily for Sprint 2. Sprint 3/5 will wire in real counts.
      *
-     * <p>{@code createdAtIso} la {@code created_at.toString()} duoi dang
-     * ISO-8601, dung cho client-side sort theo ngay tao.
+     * <p>{@code createdAtIso} is {@code created_at.toString()} in
+     * ISO-8601 format, used for client-side sorting by creation date.
      */
     public record ClassRow(
             Long id,
@@ -37,7 +37,7 @@ public class ClassesDtos {
             int materialCount,
             String createdAtIso
     ) {
-        /** Nhan 2 ky tu dau cua ten lop, viet hoa, dung cho thumbnail. */
+        /** Returns first 2 characters of class name, uppercased, for use as a thumbnail label. */
         public String thumbLabel() {
             if (name == null || name.isBlank()) return "?";
             String trimmed = name.trim();
@@ -47,16 +47,16 @@ public class ClassesDtos {
     }
 
     /**
-     * Form payload cho ca {@code GET /lecturer/classes/new} + {@code /edit}
-     * lan {@code POST /lecturer/classes} + {@code /{id}}.
+     * Form payload for both {@code GET /lecturer/classes/new} + {@code /edit}
+     * and {@code POST /lecturer/classes} + {@code /{id}}.
      *
-     * <p>Quy tac validate:
+     * <p>Validation rules:
      * <ul>
-     *   <li>{@code name}: bat buoc, 3–300 ky tu</li>
-     *   <li>{@code description}: tuy chon, ≤2000 ky tu</li>
-     *   <li>{@code maxStudents}: tuy chon, 1–1000</li>
-     *   <li>{@code endDate} phai STRICTLY sau {@code startDate} khi ca 2 deu co
-     *       (equal cung khong duoc, tranh "lop 1 ngay") — kiem tra qua
+     *   <li>{@code name}: required, 3–300 characters</li>
+     *   <li>{@code description}: optional, ≤2000 characters</li>
+     *   <li>{@code maxStudents}: optional, 1–1000</li>
+     *   <li>{@code endDate} must be STRICTLY after {@code startDate} when both are present
+     *       (equal dates are also rejected to prevent "1-day classes") — checked via
      *       {@link #isDateRangeValid()}</li>
      * </ul>
      */
@@ -76,12 +76,12 @@ public class ClassesDtos {
             Integer maxStudents
     ) {
 
-        /** Form rong, dung khi render {@code GET /new}. */
+        /** Empty form, used when rendering {@code GET /new}. */
         public static ClassForm empty() {
             return new ClassForm("", "", null, null, 100);
         }
 
-        /** Chuyen entity ve form de pre-fill khi edit. */
+        /** Converts an entity to a form for pre-filling when editing. */
         public static ClassForm fromEntity(ClassEntity e) {
             return new ClassForm(
                     e.getName(),
@@ -93,14 +93,14 @@ public class ClassesDtos {
         }
 
         /**
-         * Bean Validation constraint: {@code endDate} phai STRICTLY sau
-         * {@code startDate} khi ca 2 deu non-null. Equal cung bi reject.
-         * Truong hop NULL (mot trong hai hoac ca 2) duoc cho phep.
+         * Bean Validation constraint: {@code endDate} must be STRICTLY after
+         * {@code startDate} when both are non-null. Equal dates are also rejected.
+         * NULL values (one or both) are permitted.
          *
-         * <p>Violation se gan vao field {@code endDate} qua {@code @AssertTrue}
-         * — Spring/Hibernate Validator suy ra ten property tu ten method
-         * ({@code isDateRangeValid} → {@code dateRangeValid}). Controller
-         * se rebind error vao field {@code endDate} cho dung UX.
+         * <p>Violations are bound to the field {@code endDate} via {@code @AssertTrue}
+         * — Spring/Hibernate Validator derives the property name from the method name
+         * ({@code isDateRangeValid} → {@code dateRangeValid}). The controller
+         * will rebind the error to field {@code endDate} for correct UX display.
          */
         @AssertTrue(message = "Ngày kết thúc phải sau ngày bắt đầu")
         public boolean isDateRangeValid() {
