@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kết quả chi tiết | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
+</head>
+<body class="prd-body">
+
+<!-- Pass data from Thymeleaf -->
+<script id="ai-feedback-json" type="application/json" th:utext="${result.aiFeedbackJson()}"></script>
+<script id="prd-skill" type="text/plain" th:text="${result.set().skill()}"></script>
+<script id="prd-attempt-id" type="text/plain" th:text="${result.submissionId()}"></script>
+<script id="prd-questions-json" type="application/json" th:utext="${questionsJson}"></script>
+
+<!-- Header fixed top bar -->
+<header class="prd-header">
+  <div class="prd-header-left">
+    <a class="prd-back-btn" th:href="@{/practice/attempts/{id}/result(id=${result.submissionId()})}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+  </div>
+  <div class="prd-header-center">
+    <span class="prd-header-title">Kết quả chi tiết</span>
+  </div>
+  <div class="prd-header-right">
+    <a class="prd-complete-btn" th:href="@{/practice}">Complete</a>
+  </div>
+</header>
+
+<!-- Main shell -->
+<div class="prd-shell">
+
+  <!-- Task navigation row -->
+  <div class="prd-task-row" id="prd-task-row">
+    <div class="prd-task-name" id="prd-task-name">Đang tải...</div>
+    <div class="prd-task-nav" id="prd-task-nav"></div>
+  </div>
+
+  <!-- Two-column card -->
+  <div class="prd-card">
+
+    <!-- ═══ LEFT PANEL ═══ -->
+    <section class="prd-left-panel" id="prd-left-panel">
+      <div class="prd-left-header">
+        <h2 class="prd-left-title">Bài làm của bạn</h2>
+        <p class="prd-left-subtitle">KSH đánh dấu điểm mạnh 
+          <span class="prd-legend prd-legend-strength">●</span> và lỗi 
+          <span class="prd-legend prd-legend-need">●</span> trong bài làm gốc.
+        </p>
+      </div>
+
+      <!-- Prompt -->
+      <div class="prd-prompt-block" id="prd-prompt-block">
+        <div class="prd-prompt-label">Đề bài</div>
+        <div class="prd-prompt-text" id="prd-prompt-text">Đang tải...</div>
+      </div>
+
+      <!-- Annotated student answer -->
+      <div class="prd-answer-block" id="prd-answer-block">
+        <div class="prd-answer-label">Bài làm của bạn</div>
+        <div class="prd-annotated-text" id="prd-annotated-text">Đang tải...</div>
+      </div>
+    </section>
+
+    <!-- Divider -->
+    <div class="prd-divider"></div>
+
+    <!-- ═══ RIGHT PANEL ═══ -->
+    <aside class="prd-right-panel" id="prd-right-panel">
+
+      <!-- Top primary tabs -->
+      <div class="prd-tabs-primary" role="tablist" id="prd-tabs-primary">
+        <button class="prd-tab-btn active" data-tab="overview" role="tab" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Tổng quan
+        </button>
+        <button class="prd-tab-btn" data-tab="strengths" role="tab" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+          Điểm mạnh
+        </button>
+        <button class="prd-tab-btn" data-tab="needs" role="tab" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Cần cải thiện
+        </button>
+        <button class="prd-tab-btn" data-tab="upgrade" role="tab" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+          Bài nâng cấp
+        </button>
+        <button class="prd-tab-btn" data-tab="sample" role="tab" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Bài mẫu
+        </button>
+      </div>
+
+      <!-- TAB: OVERVIEW -->
+      <div class="prd-tab-panel active" id="tab-overview">
+        <div class="prd-overview-header">
+          <div class="prd-task-score-display">
+            <strong id="ov-score">—</strong>
+            <span id="ov-score-max">/ 100</span>
+            <div class="prd-task-score-label">Task Score</div>
+          </div>
+        </div>
+
+        <!-- Rubric chips -->
+        <div class="prd-rubric-chips" id="prd-rubric-chips">
+          <!-- JS populated -->
+        </div>
+
+        <!-- Summary -->
+        <div class="prd-ov-summary" id="prd-ov-summary">
+          <div class="prd-section-label">Nhận xét chung</div>
+          <p id="ov-summary-text">Đang tải...</p>
+        </div>
+      </div>
+
+      <!-- TAB: STRENGTHS -->
+      <div class="prd-tab-panel" id="tab-strengths">
+        <!-- Sub-category pills -->
+        <div class="prd-subcats" id="strengths-subcats"></div>
+        <!-- Findings list -->
+        <div class="prd-findings-list" id="strengths-list"></div>
+      </div>
+
+      <!-- TAB: NEEDS IMPROVEMENT -->
+      <div class="prd-tab-panel" id="tab-needs">
+        <!-- Sub-category pills -->
+        <div class="prd-subcats" id="needs-subcats"></div>
+        <!-- Findings list -->
+        <div class="prd-findings-list" id="needs-list"></div>
+      </div>
+
+      <!-- TAB: UPGRADED ANSWER -->
+      <div class="prd-tab-panel" id="tab-upgrade">
+        <div class="prd-section-label" style="margin-bottom: 12px;">Bài viết nâng cấp</div>
+        <div class="prd-upgrade-text" id="prd-upgrade-text"></div>
+
+        <div class="prd-section-label" style="margin: 24px 0 12px;">So sánh câu từng phần</div>
+        <div class="prd-rewrites-list" id="prd-rewrites-list"></div>
+      </div>
+
+      <!-- TAB: SAMPLE ANSWER -->
+      <div class="prd-tab-panel" id="tab-sample">
+        <div class="prd-sample-header">
+          <span class="prd-sample-badge">Bài mẫu tham khảo</span>
+          <button class="prd-copy-btn" id="prd-copy-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy
+          </button>
+        </div>
+        <div class="prd-sample-text" id="prd-sample-text"></div>
+      </div>
+
+    </aside>
+  </div>
+
+</div>
+
+<div id="prd-tooltip" class="prd-tooltip" style="display:none;"></div>
+
+<script>
+(function() {
+  // ════ Parse Data ════
+  let aiData = {};
+  let questions = [];
+  let skill = '';
+  let attemptId = '';
+
+  try {
+    const src = document.getElementById('ai-feedback-json');
+    if (src) aiData = JSON.parse(src.textContent || '{}');
+  } catch(e) {}
+  try {
+    const src = document.getElementById('prd-questions-json');
+    if (src) questions = JSON.parse(src.textContent || '[]');
+  } catch(e) {}
+  try {
+    skill = document.getElementById('prd-skill').textContent.trim();
+    attemptId = document.getElementById('prd-attempt-id').textContent.trim();
+  } catch(e) {}
+
+  const strengths = Array.isArray(aiData.strengths) ? aiData.strengths : [];
+  const needs = Array.isArray(aiData.needs_improvement) ? aiData.needs_improvement : [];
+  const annotations = Array.isArray(aiData.annotations) ? aiData.annotations : [];
+  const rubricScores = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
+
+  // ════ Render Task Name & Prompt ════
+  let currentQ = questions[0] || {};
+  const taskNameEl = document.getElementById('prd-task-name');
+  const promptEl = document.getElementById('prd-prompt-text');
+
+  function setQuestion(idx) {
+    currentQ = questions[idx] || {};
+    let currentSkillLabel = '말하기 (Nói)';
+    if (currentQ.questionType === 'ESSAY') {
+      currentSkillLabel = '쓰기 (Viết)';
+    } else if (currentQ.questionType === 'SPEAKING') {
+      currentSkillLabel = '말하기 (Nói)';
+    } else if (skill === 'WRITING') {
+      currentSkillLabel = '쓰기 (Viết)';
+    } else if (skill === 'SPEAKING') {
+      currentSkillLabel = '말하기 (Nói)';
+    }
+    if (taskNameEl) taskNameEl.textContent = currentSkillLabel + ' ' + (currentQ.questionNo || (idx + 1));
+    if (promptEl) promptEl.textContent = currentQ.prompt || 'Không có đề bài.';
+    renderAnnotatedText(currentQ.learnerAnswer || '');
+  }
+
+  // Render nav if multiple questions
+  const navEl = document.getElementById('prd-task-nav');
+  if (questions.length > 1 && navEl) {
+    questions.forEach((q, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'prd-task-nav-btn' + (idx === 0 ? ' active' : '');
+      btn.textContent = idx === 0 ? '← Trước' : 'Tiếp →';
+      btn.addEventListener('click', () => {
+        setQuestion(idx);
+        document.querySelectorAll('.prd-task-nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      navEl.appendChild(btn);
+    });
+  }
+
+  setQuestion(0);
+
+  // ════ Annotated Text Renderer ════
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderAnnotatedText(text, activeCategory) {
+    const el = document.getElementById('prd-annotated-text');
+    if (!el) return;
+    if (!text) { el.innerHTML = '<em class="prd-empty">Không có bài làm.</em>'; return; }
+
+    // Filter valid annotations
+    let validAnn = annotations.filter(a =>
+      a.start >= 0 && a.end >= 0 && a.end > a.start &&
+      a.end <= text.length
+    );
+    if (activeCategory) {
+      validAnn = validAnn.filter(a => !a.category || a.category === activeCategory || a.kind === 'strength' || a.kind === 'need');
+    }
+
+    // Sort by start, de-overlap (needs win over strengths)
+    validAnn.sort((a, b) => a.start - b.start);
+    const merged = [];
+    let lastEnd = 0;
+    for (const ann of validAnn) {
+      if (ann.start >= lastEnd) {
+        merged.push(ann);
+        lastEnd = ann.end;
+      } else if (ann.kind === 'need' && merged.length > 0 && merged[merged.length-1].kind === 'strength') {
+        merged.pop();
+        merged.push(ann);
+        lastEnd = ann.end;
+      }
+    }
+
+    let html = '';
+    let pos = 0;
+    for (const ann of merged) {
+      if (ann.start > pos) {
+        html += escHtml(text.slice(pos, ann.start));
+      }
+      const isStrength = ann.kind === 'strength';
+      const sevClass = ann.severity === 'HIGH' ? 'prd-sev-high' : ann.severity === 'MEDIUM' ? 'prd-sev-med' : 'prd-sev-low';
+      const dtClass = ann.displayType === 'SENTENCE' ? 'prd-ann-sentence' : ann.displayType === 'PARAGRAPH' ? 'prd-ann-paragraph' : '';
+      const cls = `prd-ann ${isStrength ? 'prd-ann-strength' : 'prd-ann-need'} ${dtClass} ${sevClass}`;
+      html += `<span class="${cls.trim()}" data-ann-id="${escHtml(ann.id || '')}" data-kind="${ann.kind}" data-idx="${ann.index || ''}" tabindex="0">`;
+      html += escHtml(text.slice(ann.start, ann.end));
+      html += `<sup class="prd-ann-sup">${ann.index || ''}</sup>`;
+      html += `</span>`;
+      pos = ann.end;
+    }
+    if (pos < text.length) html += escHtml(text.slice(pos));
+    el.innerHTML = html;
+
+    // Hover tooltip
+    el.querySelectorAll('.prd-ann').forEach(span => {
+      span.addEventListener('mouseenter', (e) => showTooltip(e, span, merged));
+      span.addEventListener('mouseleave', () => hideTooltip());
+    });
+  }
+
+  const tooltip = document.getElementById('prd-tooltip');
+  function showTooltip(e, span, merged) {
+    const id = span.dataset.annId;
+    const ann = merged.find(a => a.id == id) || {};
+    let content = '';
+    if (ann.kind === 'strength') {
+      content = `<div class="tt-kind tt-strength"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Điểm mạnh</div><div class="tt-text">${escHtml(ann.explanationVi || '')}</div>`;
+    } else {
+      content = `<div class="tt-kind tt-need"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cần sửa</div>`;
+      if (ann.correction) content += `<div class="tt-correction">${escHtml(ann.evidence || '')} <span>→</span> ${escHtml(ann.correction)}</div>`;
+      content += `<div class="tt-text">${escHtml(ann.explanationVi || '')}</div>`;
+    }
+    tooltip.innerHTML = content;
+    tooltip.style.display = 'block';
+    const rect = span.getBoundingClientRect();
+    tooltip.style.left = (window.scrollX + rect.left) + 'px';
+    tooltip.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+  }
+  function hideTooltip() { tooltip.style.display = 'none'; }
+
+  // ════ Tabs ════
+  const primaryTabs = document.querySelectorAll('.prd-tab-btn[data-tab]');
+  const panels = document.querySelectorAll('.prd-tab-panel');
+
+  function activateTab(tabId) {
+    primaryTabs.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + tabId));
+
+    // Reset annotation highlights
+    if (tabId === 'overview') renderAnnotatedText(currentQ.learnerAnswer || '');
+    if (tabId === 'strengths') {
+      renderStrengthsPanel();
+      renderAnnotatedText(currentQ.learnerAnswer || '');
+    }
+    if (tabId === 'needs') {
+      renderNeedsPanel();
+      renderAnnotatedText(currentQ.learnerAnswer || '');
+    }
+    if (tabId === 'upgrade') renderUpgradePanel();
+    if (tabId === 'sample') renderSamplePanel();
+  }
+  primaryTabs.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
+
+  // ════ Overview Tab ════
+  function renderOverview() {
+    const scoreEl = document.getElementById('ov-score');
+    const scoreMaxEl = document.getElementById('ov-score-max');
+    const summaryEl = document.getElementById('ov-summary-text');
+
+    const rawScore = parseFloat(aiData.raw_score || aiData.score || 0);
+    const rawMax = parseFloat(aiData.raw_score_max || 100);
+    if (scoreEl) scoreEl.textContent = rawScore.toFixed(0);
+    if (scoreMaxEl) scoreMaxEl.textContent = '/ ' + rawMax.toFixed(0);
+    if (summaryEl) summaryEl.textContent = aiData.summary_vi || aiData.summary || 'Chưa có nhận xét.';
+
+    // Rubric chips
+    const chipsEl = document.getElementById('prd-rubric-chips');
+    if (chipsEl && rubricScores.length > 0) {
+      chipsEl.innerHTML = rubricScores.map(r => {
+        const pct = Math.round((r.score / 10.0) * 100);
+        const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
+        return `<div class="prd-rubric-chip ${cls}">
+          <div class="prd-chip-name">${escHtml(r.name)}</div>
+          <div class="prd-chip-score">${r.score}/10</div>
+          <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
+          <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+  renderOverview();
+
+  // ════ Strengths Tab ════
+  let activeStrengthCat = null;
+  function renderStrengthsPanel(filterCat) {
+    const subcatsEl = document.getElementById('strengths-subcats');
+    const listEl = document.getElementById('strengths-list');
+
+    // Group by category
+    const catMap = {};
+    strengths.forEach(s => {
+      const cat = s.category || s.vietnameseLabel || 'Khác';
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push(s);
+    });
+
+    const cats = Object.keys(catMap);
+    if (!filterCat || !catMap[filterCat]) filterCat = cats[0] || null;
+    activeStrengthCat = filterCat;
+
+    // Pills
+    if (subcatsEl) {
+      subcatsEl.innerHTML = cats.map(cat =>
+        `<button class="prd-subcat-pill prd-subcat-strength ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
+          ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
+        </button>`
+      ).join('');
+      subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          renderStrengthsPanel(btn.dataset.cat);
+          renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+        });
+      });
+    }
+
+    // Findings
+    const filtered = filterCat ? (catMap[filterCat] || strengths) : strengths;
+    if (listEl) {
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="prd-empty-state">Không có điểm mạnh nào được ghi nhận ở mục này.</div>';
+        return;
+      }
+      listEl.innerHTML = filtered.map((s, idx) => `
+        <div class="prd-finding-card prd-finding-strength">
+          <div class="prd-finding-header">
+            <span class="prd-finding-idx prd-idx-strength">${idx + 1}</span>
+            <span class="prd-finding-label">${escHtml(s.uiLabel || s.vietnameseLabel || s.criterionId)}</span>
+          </div>
+          <div class="prd-finding-evidence prd-evidence-strength">"${escHtml(s.evidence)}"</div>
+          <div class="prd-finding-explanation">${escHtml(s.explanationVi)}</div>
+          ${s.whyItIsGood ? `<div class="prd-finding-extra"><strong>Vì sao tốt?</strong> ${escHtml(s.whyItIsGood)}</div>` : ''}
+          ${s.topikTip ? `<div class="prd-topik-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> TOPIK Tip</span> ${escHtml(s.topikTip)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+  }
+
+  // ════ Needs Improvement Tab ════
+  let activeNeedCat = null;
+  const SEV_LABELS = { HIGH: 'Nghiêm trọng', MEDIUM: 'Cần sửa', LOW: 'Nhỏ' };
+  const SEV_CLASSES = { HIGH: 'prd-sev-badge-high', MEDIUM: 'prd-sev-badge-med', LOW: 'prd-sev-badge-low' };
+
+  function renderNeedsPanel(filterCat) {
+    const subcatsEl = document.getElementById('needs-subcats');
+    const listEl = document.getElementById('needs-list');
+
+    // Group by category
+    const catMap = {};
+    needs.forEach(n => {
+      const cat = n.category || n.vietnameseLabel || 'Khác';
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push(n);
+    });
+
+    const cats = Object.keys(catMap);
+    if (!filterCat || !catMap[filterCat]) filterCat = cats[0] || null;
+    activeNeedCat = filterCat;
+
+    // Pills
+    if (subcatsEl) {
+      subcatsEl.innerHTML = cats.map(cat =>
+        `<button class="prd-subcat-pill prd-subcat-need ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
+          ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
+        </button>`
+      ).join('');
+      subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          renderNeedsPanel(btn.dataset.cat);
+          renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+        });
+      });
+    }
+
+    const filtered = filterCat ? (catMap[filterCat] || needs) : needs;
+    if (listEl) {
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="prd-empty-state">Tuyệt vời! Không có lỗi nào ở mục này.</div>';
+        return;
+      }
+      listEl.innerHTML = filtered.map((n, idx) => `
+        <div class="prd-finding-card prd-finding-need">
+          <div class="prd-finding-header">
+            <span class="prd-finding-idx prd-idx-need">${idx + 1}</span>
+            <span class="prd-finding-label">${escHtml(n.uiLabel || n.vietnameseLabel || n.criterionId)}</span>
+            ${n.severity ? `<span class="prd-sev-badge ${SEV_CLASSES[n.severity] || 'prd-sev-badge-med'}">${SEV_LABELS[n.severity] || n.severity}</span>` : ''}
+          </div>
+          ${n.errorType ? `<div class="prd-finding-error-type">${escHtml(n.errorType)}</div>` : ''}
+          <div class="prd-finding-evidence prd-evidence-need">"${escHtml(n.evidence)}"</div>
+          ${n.correction ? `<div class="prd-correction-diff">
+            <span class="prd-diff-original">${escHtml(n.evidence)}</span>
+            <span class="prd-diff-arrow">→</span>
+            <span class="prd-diff-correction">${escHtml(n.correction)}</span>
+          </div>` : ''}
+          <div class="prd-finding-explanation">${escHtml(n.explanationVi)}</div>
+          ${n.topikTip ? `<div class="prd-topik-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> TOPIK Tip</span> ${escHtml(n.topikTip)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+  }
+
+  // ════ Upgraded Answer Tab ════
+  function renderUpgradePanel() {
+    const upgradeEl = document.getElementById('prd-upgrade-text');
+    const rewritesEl = document.getElementById('prd-rewrites-list');
+    const upgraded = aiData.upgraded_answer || '';
+    if (upgradeEl) upgradeEl.textContent = upgraded || '(Chưa có bài nâng cấp)';
+
+    const rewrites = Array.isArray(aiData.sentence_rewrites) ? aiData.sentence_rewrites : [];
+    if (rewritesEl) {
+      if (rewrites.length === 0) {
+        rewritesEl.innerHTML = '<div class="prd-empty-state">Không có câu so sánh nào.</div>';
+        return;
+      }
+      rewritesEl.innerHTML = rewrites.map((r, idx) => `
+        <div class="prd-rewrite-card">
+          <div class="prd-rewrite-num">${idx + 1}</div>
+          <div class="prd-rewrite-body">
+            <div class="prd-rewrite-original">${escHtml(r.original)}</div>
+            <div class="prd-rewrite-arrow">↓</div>
+            <div class="prd-rewrite-upgraded">${escHtml(r.upgraded)}</div>
+            <div class="prd-rewrite-reason">${escHtml(r.reason)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  // ════ Sample Answer Tab ════
+  function renderSamplePanel() {
+    const el = document.getElementById('prd-sample-text');
+    const sample = aiData.sample_answer || '';
+    if (el) el.textContent = sample || '(Chưa có bài mẫu)';
+
+    const copyBtn = document.getElementById('prd-copy-btn');
+    if (copyBtn && sample) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(sample).then(() => {
+          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Đã copy!';
+          setTimeout(() => { copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy'; }, 1800);
+        });
+      };
+    }
+  }
+
+  // ════ Init ════
+  renderAnnotatedText(currentQ.learnerAnswer || '');
+
+})();
+</script>
+
+</body>
+</html>
