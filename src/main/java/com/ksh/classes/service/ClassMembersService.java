@@ -89,6 +89,14 @@ public class ClassMembersService {
         return (first + last).toUpperCase();
     }
 
-    /** View model aggregating class info, member rows, and total member count. */
-    public record ClassMembersView(ClassEntity clazz, List<MemberRow> members, int total) {}
+    /**
+     * View model aggregating class info and member rows for the Members tab.
+     *
+     * @param clazz   the target class entity
+     * @param members active member rows
+     * @param total   active-member count
+     */
+    public record ClassMembersView(ClassEntity clazz,
+                                   List<MemberRow> members,
+                                   int total) {}
 }

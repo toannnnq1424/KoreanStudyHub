@@ -4,6 +4,8 @@ import com.ksh.auth.entity.User;
 import com.ksh.auth.repository.UserRepository;
 import com.ksh.classes.entity.ClassActivity;
 import com.ksh.classes.entity.ClassEntity;
+import com.ksh.classes.entity.ClassInviteCode;
+import com.ksh.classes.repository.ClassInviteCodeRepository;
 import com.ksh.classes.repository.ClassActivityRepository;
 import com.ksh.classes.repository.ClassRepository;
 import jakarta.persistence.EntityManager;
@@ -47,6 +49,7 @@ class Sprint2ClassesIntegrationTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private ClassActivityRepository activityRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private ClassInviteCodeRepository inviteRepository;
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
@@ -157,6 +160,12 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getCode()).hasSize(5);
         assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
         assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+        List<ClassInviteCode> tokens = inviteRepository.findAllByClassIdOrderByIdAsc(saved.getId());
+        assertThat(tokens).hasSize(2);
+        assertThat(tokens).allMatch(ClassInviteCode::isActive);
+        assertThat(tokens).extracting(ClassInviteCode::getType)
+                .containsExactlyInAnyOrder(ClassInviteCode.TYPE_CODE, ClassInviteCode.TYPE_LINK);
+
     }
 
     @Test
@@ -459,7 +468,7 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity c = saveClass("DetailSet", lecturer.getId(), "DTSS1");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/settings"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Cài đặt lớp học")))
+                .andExpect(content().string(containsString("Thông tin lớp")))
                 .andExpect(content().string(containsString("DetailSet")));
     }
 
