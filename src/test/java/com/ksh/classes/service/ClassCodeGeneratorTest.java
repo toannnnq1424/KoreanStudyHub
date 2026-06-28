@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ClassCodeGeneratorTest {
 
-    private final ClassCodeGenerator generator = new ClassCodeGeneratorImpl();
+    private final ClassCodeGenerator generator = new ClassCodeGenerator();
 
     @Test
     void generated_code_has_exact_length_5() {
@@ -24,7 +24,7 @@ class ClassCodeGeneratorTest {
         for (int i = 0; i < 1000; i++) {
             String code = generator.generate();
             for (char c : code.toCharArray()) {
-                assertThat(ClassCodeGeneratorImpl.ALPHABET.indexOf(c))
+                assertThat(ClassCodeGenerator.ALPHABET.indexOf(c))
                         .as("char '%s' must be in alphabet", c)
                         .isGreaterThanOrEqualTo(0);
             }
@@ -51,9 +51,9 @@ class ClassCodeGeneratorTest {
                 Long.MAX_VALUE, Long.MIN_VALUE, -1L, -System.currentTimeMillis()
         };
         for (long m : millisCandidates) {
-            int idx = Math.floorMod(m, ClassCodeGeneratorImpl.ALPHABET.length());
+            int idx = Math.floorMod(m, ClassCodeGenerator.ALPHABET.length());
             assertThat(idx).as("floorMod(%d) must be >= 0", m).isGreaterThanOrEqualTo(0);
-            assertThat(idx).isLessThan(ClassCodeGeneratorImpl.ALPHABET.length());
+            assertThat(idx).isLessThan(ClassCodeGenerator.ALPHABET.length());
         }
     }
 }

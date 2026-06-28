@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSH — Class Management page styles
+    — Class Management page styles
    Used by /lecturer/classes (list + form).
    Requires main.css + app-shell.css to be loaded first.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -247,26 +247,11 @@
 }
 .btn-danger:hover { background: #B71C1C; }
 
-/* ── Confirm modal (window.KshModal.confirm) ───────────────────────── */
-.ksh-modal {
-  border: none; padding: 0; border-radius: 14px;
-  box-shadow: var(--shadow);
-  max-width: 420px; width: 90%;
-  background: var(--bg);
-}
-.ksh-modal::backdrop { background: rgba(32, 34, 39, .42); }
-.ksh-modal-form { padding: 24px 26px; }
-.ksh-modal-title {
-  font-size: 17px; font-weight: 700;
-  color: var(--heading); margin-bottom: 10px;
-}
-.ksh-modal-body {
-  font-size: 14px; color: var(--muted);
-  line-height: 1.55; margin-bottom: 22px;
-}
-.ksh-modal-actions {
-  display: flex; gap: 10px; justify-content: flex-end;
-}
+/* NOTE: .-modal styles moved to main.css (global) — they back the
+   shared window.Modal.confirm helper used by every page, not just
+   the lecturer class list. Keeping them here previously meant the
+   modal rendered un-styled (top-left of the viewport) on pages that
+   did not load classes.css (e.g. /lecturer/classes/{id}/members). */
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 720px) {

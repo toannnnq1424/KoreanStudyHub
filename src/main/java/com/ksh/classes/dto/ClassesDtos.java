@@ -9,22 +9,23 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-/** View-model DTOs for the lecturer's class management screen. */
+/** View-model DTOs for the lecturer class-management screens. */
 public class ClassesDtos {
 
     /**
-     * View-model for a single row in the class list. Rendered by
+     * View-model for a single row in the class list, rendered by
      * {@code templates/classes/manage.html}.
      *
-     * <p>{@code thumbLabel} is derived from {@link #name} (first 2 characters,
-     * uppercased). {@code gradientCss} is computed by the Service from the list index
-     * so each class has a distinct color — see {@link com.ksh.classes.ClassGradient}.
+     * <p>{@code thumbLabel} is derived from {@link #name} (first two characters,
+     * uppercased). {@code gradientCss} is computed by the service from the list
+     * index so each class gets a distinct color — see {@link com.ksh.classes.ClassGradient}.
      *
-     * <p>Stat columns (studentCount/lectureCount/assignmentCount/materialCount)
-     * return 0 temporarily for Sprint 2. Sprint 3/5 will wire in real counts.
+     * <p>The stat columns ({@code studentCount}, {@code lectureCount},
+     * {@code assignmentCount}, {@code materialCount}) temporarily return 0 for
+     * Sprint 2. Sprint 3/5 will wire them to real counts.
      *
-     * <p>{@code createdAtIso} is {@code created_at.toString()} in
-     * ISO-8601 format, used for client-side sorting by creation date.
+     * <p>{@code createdAtIso} is {@code created_at.toString()} in ISO-8601 format,
+     * used for client-side sorting by creation date.
      */
     public record ClassRow(
             Long id,
@@ -37,7 +38,7 @@ public class ClassesDtos {
             int materialCount,
             String createdAtIso
     ) {
-        /** Returns first 2 characters of class name, uppercased, for use as a thumbnail label. */
+        /** Returns the first two characters of the class name, uppercased, for use as a thumbnail label. */
         public String thumbLabel() {
             if (name == null || name.isBlank()) return "?";
             String trimmed = name.trim();
@@ -55,9 +56,9 @@ public class ClassesDtos {
      *   <li>{@code name}: required, 3–300 characters</li>
      *   <li>{@code description}: optional, ≤2000 characters</li>
      *   <li>{@code maxStudents}: optional, 1–1000</li>
-     *   <li>{@code endDate} must be STRICTLY after {@code startDate} when both are present
-     *       (equal dates are also rejected to prevent "1-day classes") — checked via
-     *       {@link #isDateRangeValid()}</li>
+     *   <li>{@code endDate} must be STRICTLY after {@code startDate} when both are
+     *       present (equal dates are also rejected to avoid a one-day class) —
+     *       enforced via {@link #isDateRangeValid()}</li>
      * </ul>
      */
     public record ClassForm(
@@ -76,12 +77,16 @@ public class ClassesDtos {
             Integer maxStudents
     ) {
 
-        /** Empty form, used when rendering {@code GET /new}. */
+        /** Returns an empty form instance, used when rendering {@code GET /new}. */
         public static ClassForm empty() {
             return new ClassForm("", "", null, null, 100);
         }
 
-        /** Converts an entity to a form for pre-filling when editing. */
+        /** Converts an entity to a form instance to pre-fill the edit form.
+         *
+         * @param e the {@link ClassEntity} to read field values from
+         * @return a {@code ClassForm} populated with the entity's current values
+         */
         public static ClassForm fromEntity(ClassEntity e) {
             return new ClassForm(
                     e.getName(),
@@ -95,12 +100,14 @@ public class ClassesDtos {
         /**
          * Bean Validation constraint: {@code endDate} must be STRICTLY after
          * {@code startDate} when both are non-null. Equal dates are also rejected.
-         * NULL values (one or both) are permitted.
+         * {@code null} values (either or both fields) are allowed and pass validation.
          *
-         * <p>Violations are bound to the field {@code endDate} via {@code @AssertTrue}
-         * — Spring/Hibernate Validator derives the property name from the method name
+         * <p>The violation is bound to the {@code endDate} field via {@code @AssertTrue}
+         * — Spring/Hibernate Validator infers the property name from the method name
          * ({@code isDateRangeValid} → {@code dateRangeValid}). The controller
-         * will rebind the error to field {@code endDate} for correct UX display.
+         * re-binds the error to the {@code endDate} field for correct UX.
+         *
+         * @return {@code true} if the date range is valid or either date is {@code null}
          */
         @AssertTrue(message = "Ngày kết thúc phải sau ngày bắt đầu")
         public boolean isDateRangeValid() {
@@ -108,4 +115,27 @@ public class ClassesDtos {
             return endDate.isAfter(startDate);
         }
     }
+
+    /**
+     * View-model for the active {@code CODE} invite token rendered
+     * on the Members tab "Mời sinh viên" panel.
+     *
+     * @param code     the 6-char invite code value
+     * @param id       primary key of the {@code class_invite_codes} row
+     * @param useCount how many successful joins this token has served
+     */
+    public record InviteCodeView(String code, Long id, Integer useCount) {}
+
+    /**
+     * View-model for the active {@code LINK} invite token rendered
+     * on the Members tab "Mời sinh viên" panel.
+     *
+     * @param token    the 32-char base64url token (the URL path
+     *                 segment under {@code /j/})
+     * @param fullUrl  the complete invite URL the lecturer copies
+     *                 (e.g. {@code https://app.example/j/<token>})
+     * @param id       primary key of the {@code class_invite_codes} row
+     * @param useCount how many successful joins this LINK has served
+     */
+    public record InviteLinkView(String token, String fullUrl, Long id, Integer useCount) {}
 }
