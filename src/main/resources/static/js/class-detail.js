@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Class detail page behavior
-   Loaded by /lecturer/classes/{id}/*. Requires app.js (UlpToast).
+   Loaded by /lecturer/classes/{id}/*. Requires app.js (KshToast).
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -8,11 +8,11 @@
 
   // ── Flash → toast on page load ─────────────────────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
+  if (flashData && window.KshToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
+    if (ok) window.KshToast.success(ok);
+    if (err) window.KshToast.error(err);
   }
 
   // ── Copy buttons in sidebar share-box ──────────────────────────────
@@ -28,9 +28,9 @@
       var label = btn.dataset.copyLabel || 'giá trị';
       if (!value || !navigator.clipboard) return;
       navigator.clipboard.writeText(value).then(function () {
-        if (window.UlpToast) window.UlpToast.success('Đã sao chép ' + label);
+        if (window.KshToast) window.KshToast.success('Đã sao chép ' + label);
       }).catch(function () {
-        if (window.UlpToast) window.UlpToast.error('Không thể sao chép');
+        if (window.KshToast) window.KshToast.error('Không thể sao chép');
       });
     });
   });
@@ -52,15 +52,15 @@
   // Used by the Settings tab toolbar (detail-page pattern). The hidden form
   // posts to /lecturer/classes/{id}/delete; class id + name are read from
   // the toolbar dataset so this handler stays decoupled from any specific
-  // class id. Falls back silently if UlpModal is not yet available (e.g.
+  // class id. Falls back silently if KshModal is not yet available (e.g.
   // app.js failed to load).
   document.querySelectorAll('[data-action="delete-class"]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var toolbar = btn.closest('.detail-toolbar');
       var classId = toolbar && toolbar.dataset ? toolbar.dataset.classId : null;
       var className = (toolbar && toolbar.dataset && toolbar.dataset.className) || 'lớp này';
-      if (!classId || !window.UlpModal) return;
-      window.UlpModal.confirm({
+      if (!classId || !window.KshModal) return;
+      window.KshModal.confirm({
         title: 'Xác nhận xoá lớp',
         body: 'Bạn có chắc chắn muốn xoá ' + className + '? Hành động này không thể hoàn tác.',
         confirmLabel: 'Xoá',

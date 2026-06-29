@@ -129,8 +129,8 @@ img { display: block; max-width: 100%; }
 .text-sm { font-size: 13px; }
 .text-xs { font-size: 12px; }
 
-/* ── Confirm modal (window.UlpModal.confirm) ───────────────────────── */
-/* Global modal styles backing the shared UlpModal.confirm helper in app.js.
+/* ── Confirm modal (window.KshModal.confirm) ───────────────────────── */
+/* Global modal styles backing the shared KshModal.confirm helper in app.js.
    Lives in main.css so every page (Members tab, my-classes, admin, ...)
    can use the helper without importing a per-feature stylesheet. */
 .ulp-modal {

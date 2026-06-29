@@ -1,10 +1,10 @@
--- ULP-4.0b — Replace the lessons table with the slimmer schema for the
+-- ksh-4.0b — Replace the lessons table with the slimmer schema for the
 -- Lesson CRUD feature.
 --
 -- V1 created `lessons` as a child of `sections` with a multi-type
 -- discriminator (RICH_TEXT / PDF / VIDEO) and a body stored in a sibling
--- `lesson_contents` table. ULP-4.0b narrows the scope to a single in-row
--- rich-text body and defers attachments to ULP-4.0c. The table is still
+-- `lesson_contents` table. ksh-4.0b narrows the scope to a single in-row
+-- rich-text body and defers attachments to ksh-4.0c. The table is still
 -- empty in every environment so we DROP + CREATE rather than ALTER —
 -- this side-steps the auto-named MySQL CHECK constraint that the
 -- original `status VARCHAR(20) CHECK (...)` baked in, which a sequence of
@@ -39,23 +39,23 @@ DROP TABLE IF EXISTS lessons;
 SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE lessons (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    section_id BIGINT NOT NULL,
-    title VARCHAR(300) NOT NULL,
-    display_order SMALLINT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
-    content_richtext LONGTEXT NULL,
-    created_by BIGINT NOT NULL,
-    published_at DATETIME NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
-    INDEX idx_lesson_section_id (section_id, is_deleted),
-    INDEX idx_lesson_status (status),
-    UNIQUE KEY uk_lesson_section_order (section_id, display_order),
-    CONSTRAINT chk_lesson_status CHECK (status IN ('DRAFT','PUBLISHED')),
-    CONSTRAINT fk_lesson_section FOREIGN KEY (section_id)
-        REFERENCES sections(id) ON DELETE CASCADE,
-    CONSTRAINT fk_lesson_creator FOREIGN KEY (created_by)
-        REFERENCES users(id)
+                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                         section_id BIGINT NOT NULL,
+                         title VARCHAR(300) NOT NULL,
+                         display_order SMALLINT NULL,
+                         status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+                         content_richtext LONGTEXT NULL,
+                         created_by BIGINT NOT NULL,
+                         published_at DATETIME NULL,
+                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                         is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+                         INDEX idx_lesson_section_id (section_id, is_deleted),
+                         INDEX idx_lesson_status (status),
+                         UNIQUE KEY uk_lesson_section_order (section_id, display_order),
+                         CONSTRAINT chk_lesson_status CHECK (status IN ('DRAFT','PUBLISHED')),
+                         CONSTRAINT fk_lesson_section FOREIGN KEY (section_id)
+                             REFERENCES sections(id) ON DELETE CASCADE,
+                         CONSTRAINT fk_lesson_creator FOREIGN KEY (created_by)
+                             REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

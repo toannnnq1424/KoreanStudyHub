@@ -142,7 +142,7 @@
       .then(function (out) {
         if (out.status !== 200) {
           var msg = (out.body && out.body.error) || defaultErrorMsg;
-          if (window.UlpToast) window.UlpToast.error(msg);
+          if (window.KshToast) window.KshToast.error(msg);
           if (btn) btn.disabled = false;
           return;
         }
@@ -150,7 +150,7 @@
       })
       .catch(function (err) {
         console.error(err);
-        if (window.UlpToast) window.UlpToast.error('Không kết nối được tới server.');
+        if (window.KshToast) window.KshToast.error('Không kết nối được tới server.');
         if (btn) btn.disabled = false;
       });
   }

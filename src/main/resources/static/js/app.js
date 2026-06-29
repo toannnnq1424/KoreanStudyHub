@@ -2,7 +2,7 @@
    ULP — Shared client-side behavior (vanilla JS, no framework)
    - Dropdown toggle (click trigger → open/close menu, close-on-outside-click)
    - Tab switching
-   - Confirm modal helper (window.UlpModal.confirm)
+   - Confirm modal helper (window.KshModal.confirm)
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -59,20 +59,20 @@
     });
   });
 
-  // ── Confirm modal helper (window.UlpModal.confirm) ─────────────────
+  // ── Confirm modal helper (window.KshModal.confirm) ─────────────────
   // Reusable across all pages. Uses native <dialog> when available.
   // Usage:
-  //   UlpModal.confirm({
+  //   KshModal.confirm({
   //     title: 'Xác nhận xoá',
   //     body: 'Bạn có chắc muốn xoá lớp này?',
   //     confirmLabel: 'Xoá',
   //     onConfirm: function () { ... }
   //   });
   function buildDialog() {
-    var dlg = document.getElementById('ulpConfirmDialog');
+    var dlg = document.getElementById('kshConfirmDialog');
     if (dlg) return dlg;
     dlg = document.createElement('dialog');
-    dlg.id = 'ulpConfirmDialog';
+    dlg.id = 'kshConfirmDialog';
     dlg.className = 'ulp-modal';
     dlg.innerHTML =
       '<form method="dialog" class="ulp-modal-form">' +
@@ -87,7 +87,7 @@
     return dlg;
   }
 
-  window.UlpModal = {
+  window.KshModal = {
     confirm: function (opts) {
       opts = opts || {};
       var dlg = buildDialog();
@@ -136,9 +136,9 @@
 
   // ── Toast helper (wraps iziToast loaded in head.html) ──────────────
   // Usage:
-  //   UlpToast.success('Đã tạo lớp NILXM');
-  //   UlpToast.error('Có lỗi xảy ra');
-  //   UlpToast.info('Đang xử lý...');
+  //   KshToast.success('Đã tạo lớp NILXM');
+  //   KshToast.error('Có lỗi xảy ra');
+  //   KshToast.info('Đang xử lý...');
   // Falls back to console.log if iziToast script failed to load.
   function showToast(type, message, title) {
     if (!message) return;
@@ -162,7 +162,7 @@
     else window.iziToast.info(common);
   }
 
-  window.UlpToast = {
+  window.KshToast = {
     success: function (msg, title) { showToast('success', msg, title); },
     error:   function (msg, title) { showToast('error', msg, title); },
     warning: function (msg, title) { showToast('warning', msg, title); },

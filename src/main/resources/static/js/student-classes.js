@@ -10,13 +10,13 @@
 
   // ── Flash → toast on page load ─────────────────────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
+  if (flashData && window.KshToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
     var info = flashData.dataset.flashInfo;
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
-    if (info) window.UlpToast.info(info);
+    if (ok) window.KshToast.success(ok);
+    if (err) window.KshToast.error(err);
+    if (info) window.KshToast.info(info);
   }
 
   // ── Auto-uppercase the join code input ────────────────────────────
@@ -36,12 +36,12 @@
       e.preventDefault();
       var btn = form.querySelector('.leave-btn');
       var className = (btn && btn.dataset.className) || 'này';
-      if (!window.UlpModal || !window.UlpModal.confirm) {
+      if (!window.KshModal || !window.KshModal.confirm) {
         form.dataset.confirmed = '1';
         form.submit();
         return;
       }
-      window.UlpModal.confirm({
+      window.KshModal.confirm({
         title: 'Rời lớp học',
         body: 'Bạn có chắc muốn rời lớp ' + className + '?',
         confirmLabel: 'Rời lớp',

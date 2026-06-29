@@ -45,9 +45,9 @@ SELECT c.id,
 FROM classes c
 WHERE c.is_deleted = 0
   AND NOT EXISTS (
-        SELECT 1 FROM class_invite_codes ic
-        WHERE ic.class_id = c.id AND ic.type = 'CODE'
-  );
+    SELECT 1 FROM class_invite_codes ic
+    WHERE ic.class_id = c.id AND ic.type = 'CODE'
+);
 
 INSERT INTO class_invite_codes (class_id, code, type, is_active, use_count, max_uses, expires_at, created_by)
 SELECT c.id,
@@ -61,6 +61,6 @@ SELECT c.id,
 FROM classes c
 WHERE c.is_deleted = 0
   AND NOT EXISTS (
-        SELECT 1 FROM class_invite_codes ic
-        WHERE ic.class_id = c.id AND ic.type = 'LINK'
-  );
+    SELECT 1 FROM class_invite_codes ic
+    WHERE ic.class_id = c.id AND ic.type = 'LINK'
+);

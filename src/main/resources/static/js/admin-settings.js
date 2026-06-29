@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ULP — Admin Email Settings test-send AJAX
    Reads CSRF token from <meta> tags placed in fragments/head.html.
-   Uses window.UlpToast (defined in app.js) for success/error notifications.
+   Uses window.KshToast (defined in app.js) for success/error notifications.
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -29,8 +29,8 @@
     btn.addEventListener('click', function () {
       var recipient = (input.value || '').trim();
       if (!recipient) {
-        if (window.UlpToast) {
-          window.UlpToast.error('Vui lòng nhập email người nhận');
+        if (window.KshToast) {
+          window.KshToast.error('Vui lòng nhập email người nhận');
         }
         announce('Lỗi: Vui lòng nhập email người nhận');
         return;
@@ -76,18 +76,18 @@
         .then(function (json) {
           if (json.ok) {
             var msg = 'Đã gửi email thử đến ' + recipient;
-            if (window.UlpToast) window.UlpToast.success(msg);
+            if (window.KshToast) window.KshToast.success(msg);
             announce(msg);
           } else {
             var err = json.error || 'Gửi thất bại';
-            if (window.UlpToast) window.UlpToast.error(err);
+            if (window.KshToast) window.KshToast.error(err);
             announce('Lỗi: ' + err);
           }
         })
         .catch(function (err) {
           var msg = 'Lỗi: ' + (err.message || 'Không xác định');
-          if (window.UlpToast) {
-            window.UlpToast.error(msg);
+          if (window.KshToast) {
+            window.KshToast.error(msg);
           } else {
             console.error(err);
           }

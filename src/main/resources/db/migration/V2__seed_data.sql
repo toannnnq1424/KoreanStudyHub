@@ -1,6 +1,6 @@
 -- =============================================================================
 -- ksh — V2__seed_data.sql
--- Seed data cho Korean Study Hub
+-- Seed data cho University Learning Platform
 -- Chạy sau V1__init_schema.sql
 -- Sprint 0 — Foundation
 -- =============================================================================
@@ -11,11 +11,11 @@
 -- =============================================================================
 
 INSERT INTO departments (name, code, description) VALUES
-('Công nghệ thông tin', 'CNTT', 'Khoa Công nghệ thông tin — đào tạo các ngành về phần mềm, mạng, hệ thống thông tin'),
-('Kinh tế', 'KT', 'Khoa Kinh tế — đào tạo các ngành về kinh tế, quản trị kinh doanh, tài chính'),
-('Ngoại ngữ', 'NN', 'Khoa Ngoại ngữ — đào tạo các ngành về ngôn ngữ Anh, Nhật, Hàn, Trung'),
-('Điện - Điện tử', 'DDT', 'Khoa Điện - Điện tử — đào tạo các ngành về điện, điện tử, tự động hoá'),
-('Cơ khí', 'CK', 'Khoa Cơ khí — đào tạo các ngành về cơ khí chế tạo, cơ điện tử');
+                                                      ('Công nghệ thông tin', 'CNTT', 'Khoa Công nghệ thông tin — đào tạo các ngành về phần mềm, mạng, hệ thống thông tin'),
+                                                      ('Kinh tế', 'KT', 'Khoa Kinh tế — đào tạo các ngành về kinh tế, quản trị kinh doanh, tài chính'),
+                                                      ('Ngoại ngữ', 'NN', 'Khoa Ngoại ngữ — đào tạo các ngành về ngôn ngữ Anh, Nhật, Hàn, Trung'),
+                                                      ('Điện - Điện tử', 'DDT', 'Khoa Điện - Điện tử — đào tạo các ngành về điện, điện tử, tự động hoá'),
+                                                      ('Cơ khí', 'CK', 'Khoa Cơ khí — đào tạo các ngành về cơ khí chế tạo, cơ điện tử');
 
 -- =============================================================================
 -- 2. DEFAULT ADMIN USER
@@ -24,12 +24,12 @@ INSERT INTO departments (name, code, description) VALUES
 -- =============================================================================
 
 INSERT INTO users (email, password_hash, full_name, role, is_email_verified, is_active) VALUES
-('admin@ksh.edu.vn',
- '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
- 'System Admin',
- 'ADMIN',
- 1,
- 1);
+    ('admin@ksh.edu.vn',
+     '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+     'System Admin',
+     'ADMIN',
+     1,
+     1);
 
 -- Cập nhật departments.head_user_id (tạm NULL vì chưa có Head)
 
@@ -39,14 +39,14 @@ INSERT INTO users (email, password_hash, full_name, role, is_email_verified, is_
 
 -- Cấp 1 — Danh mục cha
 INSERT INTO categories (name, slug, parent_id, description) VALUES
-('Lập trình', 'lap-trinh', NULL, 'Các khoá học về lập trình phần mềm'),
-('Cơ sở dữ liệu', 'co-so-du-lieu', NULL, 'Các khoá học về thiết kế và quản trị CSDL'),
-('Mạng máy tính', 'mang-may-tinh', NULL, 'Các khoá học về mạng, bảo mật, hệ thống'),
-('Kinh tế học', 'kinh-te-hoc', NULL, 'Các khoá học về kinh tế vi mô, vĩ mô'),
-('Quản trị kinh doanh', 'quan-tri-kinh-doanh', NULL, 'Các khoá học về quản trị, marketing, nhân sự'),
-('Tiếng Anh', 'tieng-anh', NULL, 'Các khoá học tiếng Anh từ cơ bản đến nâng cao'),
-('Tiếng Nhật', 'tieng-nhat', NULL, 'Các khoá học tiếng Nhật'),
-('Kỹ năng mềm', 'ky-nang-mem', NULL, 'Các khoá học về kỹ năng giao tiếp, làm việc nhóm, thuyết trình');
+                                                                ('Lập trình', 'lap-trinh', NULL, 'Các khoá học về lập trình phần mềm'),
+                                                                ('Cơ sở dữ liệu', 'co-so-du-lieu', NULL, 'Các khoá học về thiết kế và quản trị CSDL'),
+                                                                ('Mạng máy tính', 'mang-may-tinh', NULL, 'Các khoá học về mạng, bảo mật, hệ thống'),
+                                                                ('Kinh tế học', 'kinh-te-hoc', NULL, 'Các khoá học về kinh tế vi mô, vĩ mô'),
+                                                                ('Quản trị kinh doanh', 'quan-tri-kinh-doanh', NULL, 'Các khoá học về quản trị, marketing, nhân sự'),
+                                                                ('Tiếng Anh', 'tieng-anh', NULL, 'Các khoá học tiếng Anh từ cơ bản đến nâng cao'),
+                                                                ('Tiếng Nhật', 'tieng-nhat', NULL, 'Các khoá học tiếng Nhật'),
+                                                                ('Kỹ năng mềm', 'ky-nang-mem', NULL, 'Các khoá học về kỹ năng giao tiếp, làm việc nhóm, thuyết trình');
 
 -- Cấp 2 — Danh mục con (parent_id trỏ lên cấp 1)
 -- Các ID này sẽ được DB tự sinh; ta dùng subquery để lấy
@@ -89,86 +89,86 @@ FROM categories WHERE slug = 'tieng-nhat';
 
 -- STUDENT (R1) — Quyền cơ bản
 INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
-('STUDENT', 'course.view', 1),
-('STUDENT', 'class.view', 1),
-('STUDENT', 'enrollment.join', 1),
-('STUDENT', 'enrollment.leave', 1),
-('STUDENT', 'lesson.view', 1),
-('STUDENT', 'lesson.attachment.download', 1),
-('STUDENT', 'progress.track', 1),
-('STUDENT', 'comment.create', 1),
-('STUDENT', 'comment.edit_own', 1),
-('STUDENT', 'comment.delete_own', 1),
-('STUDENT', 'flashcard.create_own', 1),
-('STUDENT', 'flashcard.review_own', 1),
-('STUDENT', 'flashcard.share', 1),
-('STUDENT', 'test.take', 1),
-('STUDENT', 'test.view_result', 1),
-('STUDENT', 'test.create_practice', 1),
-('STUDENT', 'assignment.submit', 1),
-('STUDENT', 'assignment.view_feedback', 1),
-('STUDENT', 'notification.view', 1),
-('STUDENT', 'message.send', 1),
-('STUDENT', 'profile.edit_own', 1),
-('STUDENT', 'password.change_own', 1);
+                                                                    ('STUDENT', 'course.view', 1),
+                                                                    ('STUDENT', 'class.view', 1),
+                                                                    ('STUDENT', 'enrollment.join', 1),
+                                                                    ('STUDENT', 'enrollment.leave', 1),
+                                                                    ('STUDENT', 'lesson.view', 1),
+                                                                    ('STUDENT', 'lesson.attachment.download', 1),
+                                                                    ('STUDENT', 'progress.track', 1),
+                                                                    ('STUDENT', 'comment.create', 1),
+                                                                    ('STUDENT', 'comment.edit_own', 1),
+                                                                    ('STUDENT', 'comment.delete_own', 1),
+                                                                    ('STUDENT', 'flashcard.create_own', 1),
+                                                                    ('STUDENT', 'flashcard.review_own', 1),
+                                                                    ('STUDENT', 'flashcard.share', 1),
+                                                                    ('STUDENT', 'test.take', 1),
+                                                                    ('STUDENT', 'test.view_result', 1),
+                                                                    ('STUDENT', 'test.create_practice', 1),
+                                                                    ('STUDENT', 'assignment.submit', 1),
+                                                                    ('STUDENT', 'assignment.view_feedback', 1),
+                                                                    ('STUDENT', 'notification.view', 1),
+                                                                    ('STUDENT', 'message.send', 1),
+                                                                    ('STUDENT', 'profile.edit_own', 1),
+                                                                    ('STUDENT', 'password.change_own', 1);
 
 -- LECTURER (R2) — Kế thừa STUDENT + quyền quản lý lớp/nội dung
 INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
-('LECTURER', 'class.create', 1),
-('LECTURER', 'class.manage', 1),
-('LECTURER', 'class.invite_code', 1),
-('LECTURER', 'enrollment.manage', 1),
-('LECTURER', 'enrollment.import_excel', 1),
-('LECTURER', 'lesson.create', 1),
-('LECTURER', 'lesson.edit', 1),
-('LECTURER', 'lesson.delete', 1),
-('LECTURER', 'lesson.publish', 1),
-('LECTURER', 'lesson.preview', 1),
-('LECTURER', 'comment.reply', 1),
-('LECTURER', 'comment.pin', 1),
-('LECTURER', 'comment.delete_any', 1),
-('LECTURER', 'flashcard.create_official', 1),
-('LECTURER', 'test.create', 1),
-('LECTURER', 'test.edit', 1),
-('LECTURER', 'test.delete', 1),
-('LECTURER', 'test.view_student_results', 1),
-('LECTURER', 'question_bank.manage', 1),
-('LECTURER', 'assignment.create', 1),
-('LECTURER', 'assignment.edit', 1),
-('LECTURER', 'assignment.grade', 1),
-('LECTURER', 'progress.view_student', 1),
-('LECTURER', 'dashboard.teaching', 1);
+                                                                    ('LECTURER', 'class.create', 1),
+                                                                    ('LECTURER', 'class.manage', 1),
+                                                                    ('LECTURER', 'class.invite_code', 1),
+                                                                    ('LECTURER', 'enrollment.manage', 1),
+                                                                    ('LECTURER', 'enrollment.import_excel', 1),
+                                                                    ('LECTURER', 'lesson.create', 1),
+                                                                    ('LECTURER', 'lesson.edit', 1),
+                                                                    ('LECTURER', 'lesson.delete', 1),
+                                                                    ('LECTURER', 'lesson.publish', 1),
+                                                                    ('LECTURER', 'lesson.preview', 1),
+                                                                    ('LECTURER', 'comment.reply', 1),
+                                                                    ('LECTURER', 'comment.pin', 1),
+                                                                    ('LECTURER', 'comment.delete_any', 1),
+                                                                    ('LECTURER', 'flashcard.create_official', 1),
+                                                                    ('LECTURER', 'test.create', 1),
+                                                                    ('LECTURER', 'test.edit', 1),
+                                                                    ('LECTURER', 'test.delete', 1),
+                                                                    ('LECTURER', 'test.view_student_results', 1),
+                                                                    ('LECTURER', 'question_bank.manage', 1),
+                                                                    ('LECTURER', 'assignment.create', 1),
+                                                                    ('LECTURER', 'assignment.edit', 1),
+                                                                    ('LECTURER', 'assignment.grade', 1),
+                                                                    ('LECTURER', 'progress.view_student', 1),
+                                                                    ('LECTURER', 'dashboard.teaching', 1);
 
 -- HEAD (R3) — Kế thừa LECTURER + quyền quản lý bộ môn
 INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
-('HEAD', 'course.create', 1),
-('HEAD', 'course.edit', 1),
-('HEAD', 'course.delete', 1),
-('HEAD', 'course.publish', 1),
-('HEAD', 'section.manage', 1),
-('HEAD', 'department.report', 1),
-('HEAD', 'content.approve', 1),
-('HEAD', 'content.version_manage', 1),
-('HEAD', 'lecturer.assign', 1);
+                                                                    ('HEAD', 'course.create', 1),
+                                                                    ('HEAD', 'course.edit', 1),
+                                                                    ('HEAD', 'course.delete', 1),
+                                                                    ('HEAD', 'course.publish', 1),
+                                                                    ('HEAD', 'section.manage', 1),
+                                                                    ('HEAD', 'department.report', 1),
+                                                                    ('HEAD', 'content.approve', 1),
+                                                                    ('HEAD', 'content.version_manage', 1),
+                                                                    ('HEAD', 'lecturer.assign', 1);
 
 -- ADMIN (R4) — Toàn quyền hệ thống
 INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
-('ADMIN', 'user.manage', 1),
-('ADMIN', 'user.role_assign', 1),
-('ADMIN', 'user.lock_unlock', 1),
-('ADMIN', 'department.manage', 1),
-('ADMIN', 'category.manage', 1),
-('ADMIN', 'course.manage_all', 1),
-('ADMIN', 'course.activate_deactivate', 1),
-('ADMIN', 'comment.moderate', 1),
-('ADMIN', 'permission.manage', 1),
-('ADMIN', 'system.settings', 1),
-('ADMIN', 'system.google_oauth', 1),
-('ADMIN', 'system.smtp', 1),
-('ADMIN', 'system.ai_integration', 1),
-('ADMIN', 'system.login_history', 1),
-('ADMIN', 'system.progress_all', 1),
-('ADMIN', 'dashboard.system', 1);
+                                                                    ('ADMIN', 'user.manage', 1),
+                                                                    ('ADMIN', 'user.role_assign', 1),
+                                                                    ('ADMIN', 'user.lock_unlock', 1),
+                                                                    ('ADMIN', 'department.manage', 1),
+                                                                    ('ADMIN', 'category.manage', 1),
+                                                                    ('ADMIN', 'course.manage_all', 1),
+                                                                    ('ADMIN', 'course.activate_deactivate', 1),
+                                                                    ('ADMIN', 'comment.moderate', 1),
+                                                                    ('ADMIN', 'permission.manage', 1),
+                                                                    ('ADMIN', 'system.settings', 1),
+                                                                    ('ADMIN', 'system.google_oauth', 1),
+                                                                    ('ADMIN', 'system.smtp', 1),
+                                                                    ('ADMIN', 'system.ai_integration', 1),
+                                                                    ('ADMIN', 'system.login_history', 1),
+                                                                    ('ADMIN', 'system.progress_all', 1),
+                                                                    ('ADMIN', 'dashboard.system', 1);
 
 -- =============================================================================
 -- 5. SAMPLE DATA (cho development)

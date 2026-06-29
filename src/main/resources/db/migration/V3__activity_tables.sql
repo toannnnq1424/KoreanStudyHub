@@ -12,17 +12,17 @@
 -- =============================================================================
 
 CREATE TABLE activity_courses (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    course_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ac_course (course_id, created_at),
-    INDEX idx_ac_type (type),
-    CONSTRAINT fk_ac_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ac_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                  course_id BIGINT NOT NULL,
+                                  type VARCHAR(50) NOT NULL,
+                                  description TEXT NULL,
+                                  metadata JSON NULL,
+                                  created_by BIGINT NOT NULL,
+                                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                  INDEX idx_ac_course (course_id, created_at),
+                                  INDEX idx_ac_type (type),
+                                  CONSTRAINT fk_ac_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+                                  CONSTRAINT fk_ac_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -31,16 +31,16 @@ CREATE TABLE activity_courses (
 -- =============================================================================
 
 CREATE TABLE activity_sections (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    section_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_asec_section (section_id, created_at),
-    CONSTRAINT fk_asec_section FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
-    CONSTRAINT fk_asec_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                   id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                   section_id BIGINT NOT NULL,
+                                   type VARCHAR(50) NOT NULL,
+                                   description TEXT NULL,
+                                   metadata JSON NULL,
+                                   created_by BIGINT NOT NULL,
+                                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                   INDEX idx_asec_section (section_id, created_at),
+                                   CONSTRAINT fk_asec_section FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
+                                   CONSTRAINT fk_asec_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -49,17 +49,17 @@ CREATE TABLE activity_sections (
 -- =============================================================================
 
 CREATE TABLE activity_lessons (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    lesson_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_al_lesson (lesson_id, created_at),
-    INDEX idx_al_type (type),
-    CONSTRAINT fk_al_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
-    CONSTRAINT fk_al_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                  lesson_id BIGINT NOT NULL,
+                                  type VARCHAR(50) NOT NULL,
+                                  description TEXT NULL,
+                                  metadata JSON NULL,
+                                  created_by BIGINT NOT NULL,
+                                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                  INDEX idx_al_lesson (lesson_id, created_at),
+                                  INDEX idx_al_type (type),
+                                  CONSTRAINT fk_al_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+                                  CONSTRAINT fk_al_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -68,17 +68,17 @@ CREATE TABLE activity_lessons (
 -- =============================================================================
 
 CREATE TABLE activity_classes (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    class_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_acl_class (class_id, created_at),
-    INDEX idx_acl_type (type),
-    CONSTRAINT fk_acl_class FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
-    CONSTRAINT fk_acl_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                  class_id BIGINT NOT NULL,
+                                  type VARCHAR(50) NOT NULL,
+                                  description TEXT NULL,
+                                  metadata JSON NULL,
+                                  created_by BIGINT NOT NULL,
+                                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                  INDEX idx_acl_class (class_id, created_at),
+                                  INDEX idx_acl_type (type),
+                                  CONSTRAINT fk_acl_class FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+                                  CONSTRAINT fk_acl_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -87,17 +87,17 @@ CREATE TABLE activity_classes (
 -- =============================================================================
 
 CREATE TABLE activity_enrollments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    enrollment_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_aenr_enrollment (enrollment_id, created_at),
-    INDEX idx_aenr_type (type),
-    CONSTRAINT fk_aenr_enrollment FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
-    CONSTRAINT fk_aenr_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                      enrollment_id BIGINT NOT NULL,
+                                      type VARCHAR(50) NOT NULL,
+                                      description TEXT NULL,
+                                      metadata JSON NULL,
+                                      created_by BIGINT NOT NULL,
+                                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                      INDEX idx_aenr_enrollment (enrollment_id, created_at),
+                                      INDEX idx_aenr_type (type),
+                                      CONSTRAINT fk_aenr_enrollment FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+                                      CONSTRAINT fk_aenr_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -106,17 +106,17 @@ CREATE TABLE activity_enrollments (
 -- =============================================================================
 
 CREATE TABLE activity_tests (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    test_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_atest_test (test_id, created_at),
-    INDEX idx_atest_type (type),
-    CONSTRAINT fk_atest_test FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
-    CONSTRAINT fk_atest_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                test_id BIGINT NOT NULL,
+                                type VARCHAR(50) NOT NULL,
+                                description TEXT NULL,
+                                metadata JSON NULL,
+                                created_by BIGINT NOT NULL,
+                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                INDEX idx_atest_test (test_id, created_at),
+                                INDEX idx_atest_type (type),
+                                CONSTRAINT fk_atest_test FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+                                CONSTRAINT fk_atest_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -125,17 +125,17 @@ CREATE TABLE activity_tests (
 -- =============================================================================
 
 CREATE TABLE activity_assignments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    assignment_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_aasg_assignment (assignment_id, created_at),
-    INDEX idx_aasg_type (type),
-    CONSTRAINT fk_aasg_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
-    CONSTRAINT fk_aasg_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                      assignment_id BIGINT NOT NULL,
+                                      type VARCHAR(50) NOT NULL,
+                                      description TEXT NULL,
+                                      metadata JSON NULL,
+                                      created_by BIGINT NOT NULL,
+                                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                      INDEX idx_aasg_assignment (assignment_id, created_at),
+                                      INDEX idx_aasg_type (type),
+                                      CONSTRAINT fk_aasg_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+                                      CONSTRAINT fk_aasg_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -144,17 +144,17 @@ CREATE TABLE activity_assignments (
 -- =============================================================================
 
 CREATE TABLE activity_submissions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    submission_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_asub_submission (submission_id, created_at),
-    INDEX idx_asub_type (type),
-    CONSTRAINT fk_asub_submission FOREIGN KEY (submission_id) REFERENCES assignment_submissions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_asub_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                      submission_id BIGINT NOT NULL,
+                                      type VARCHAR(50) NOT NULL,
+                                      description TEXT NULL,
+                                      metadata JSON NULL,
+                                      created_by BIGINT NOT NULL,
+                                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                      INDEX idx_asub_submission (submission_id, created_at),
+                                      INDEX idx_asub_type (type),
+                                      CONSTRAINT fk_asub_submission FOREIGN KEY (submission_id) REFERENCES assignment_submissions(id) ON DELETE CASCADE,
+                                      CONSTRAINT fk_asub_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -163,17 +163,17 @@ CREATE TABLE activity_submissions (
 -- =============================================================================
 
 CREATE TABLE activity_users (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_au_user (user_id, created_at),
-    INDEX idx_au_type (type),
-    CONSTRAINT fk_au_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_au_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                user_id BIGINT NOT NULL,
+                                type VARCHAR(50) NOT NULL,
+                                description TEXT NULL,
+                                metadata JSON NULL,
+                                created_by BIGINT NOT NULL,
+                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                INDEX idx_au_user (user_id, created_at),
+                                INDEX idx_au_type (type),
+                                CONSTRAINT fk_au_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                                CONSTRAINT fk_au_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -182,17 +182,17 @@ CREATE TABLE activity_users (
 -- =============================================================================
 
 CREATE TABLE activity_comments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    comment_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_acmt_comment (comment_id, created_at),
-    INDEX idx_acmt_type (type),
-    CONSTRAINT fk_acmt_comment FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-    CONSTRAINT fk_acmt_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                   id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                   comment_id BIGINT NOT NULL,
+                                   type VARCHAR(50) NOT NULL,
+                                   description TEXT NULL,
+                                   metadata JSON NULL,
+                                   created_by BIGINT NOT NULL,
+                                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                   INDEX idx_acmt_comment (comment_id, created_at),
+                                   INDEX idx_acmt_type (type),
+                                   CONSTRAINT fk_acmt_comment FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+                                   CONSTRAINT fk_acmt_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -201,17 +201,17 @@ CREATE TABLE activity_comments (
 -- =============================================================================
 
 CREATE TABLE activity_content_versions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    version_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_av_version (version_id, created_at),
-    INDEX idx_av_type (type),
-    CONSTRAINT fk_av_version FOREIGN KEY (version_id) REFERENCES content_versions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_av_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                           id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                           version_id BIGINT NOT NULL,
+                                           type VARCHAR(50) NOT NULL,
+                                           description TEXT NULL,
+                                           metadata JSON NULL,
+                                           created_by BIGINT NOT NULL,
+                                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                           INDEX idx_av_version (version_id, created_at),
+                                           INDEX idx_av_type (type),
+                                           CONSTRAINT fk_av_version FOREIGN KEY (version_id) REFERENCES content_versions(id) ON DELETE CASCADE,
+                                           CONSTRAINT fk_av_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -220,17 +220,17 @@ CREATE TABLE activity_content_versions (
 -- =============================================================================
 
 CREATE TABLE activity_flashcard_decks (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    deck_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_afd_deck (deck_id, created_at),
-    INDEX idx_afd_type (type),
-    CONSTRAINT fk_afd_deck FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE,
-    CONSTRAINT fk_afd_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                          deck_id BIGINT NOT NULL,
+                                          type VARCHAR(50) NOT NULL,
+                                          description TEXT NULL,
+                                          metadata JSON NULL,
+                                          created_by BIGINT NOT NULL,
+                                          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                          INDEX idx_afd_deck (deck_id, created_at),
+                                          INDEX idx_afd_type (type),
+                                          CONSTRAINT fk_afd_deck FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE,
+                                          CONSTRAINT fk_afd_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -239,16 +239,16 @@ CREATE TABLE activity_flashcard_decks (
 -- =============================================================================
 
 CREATE TABLE activity_departments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    department_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT NULL,
-    metadata JSON NULL,
-    created_by BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_adep_department (department_id, created_at),
-    CONSTRAINT fk_adep_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
-    CONSTRAINT fk_adep_creator FOREIGN KEY (created_by) REFERENCES users(id)
+                                      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                      department_id BIGINT NOT NULL,
+                                      type VARCHAR(50) NOT NULL,
+                                      description TEXT NULL,
+                                      metadata JSON NULL,
+                                      created_by BIGINT NOT NULL,
+                                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                      INDEX idx_adep_department (department_id, created_at),
+                                      CONSTRAINT fk_adep_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+                                      CONSTRAINT fk_adep_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================

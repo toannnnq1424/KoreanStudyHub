@@ -8,11 +8,11 @@
 
   // ── Flash → toast on page load (shared pattern) ────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
+  if (flashData && window.KshToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
-    if (ok) window.UlpToast.success(ok);
-    if (err) window.UlpToast.error(err);
+    if (ok) window.KshToast.success(ok);
+    if (err) window.KshToast.error(err);
   }
 
   // ── Donut chart for users-by-role ─────────────────────────────────

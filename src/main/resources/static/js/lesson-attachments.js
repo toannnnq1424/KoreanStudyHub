@@ -3,7 +3,7 @@
    Wires the drag-and-drop zone on the lesson edit page to the upload +
    delete API. Visual + behavioral style mirrors `import-excel.js` so the
    two uploaders feel like the same product.
-   Toasts via window.UlpToast — no inline alerts, no native alert().
+   Toasts via window.KshToast — no inline alerts, no native alert().
 
    Page markup: templates/classes/lesson-form.html (section #lessonAttachmentsCard)
    ════════════════════════════════════════════════════════════════════ */
@@ -20,8 +20,8 @@
   }
 
   function toast(kind, message) {
-    if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
-      window.UlpToast[kind](message);
+    if (window.KshToast && typeof window.KshToast[kind] === 'function') {
+      window.KshToast[kind](message);
     }
   }
 

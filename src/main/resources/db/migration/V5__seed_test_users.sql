@@ -12,9 +12,9 @@
 
 INSERT INTO users (email, password_hash, full_name, role, department_id, is_email_verified, is_active)
 VALUES
-('lecturer@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
- 'Giang Vien Test', 'LECTURER', 1, 1, 1),
-('head@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
- 'Truong Bo Mon Test', 'HEAD', 1, 1, 1),
-('student@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
- 'Sinh Vien Test', 'STUDENT', NULL, 1, 1);
+    ('lecturer@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+     'Giang Vien Test', 'LECTURER', 1, 1, 1),
+    ('head@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+     'Truong Bo Mon Test', 'HEAD', 1, 1, 1),
+    ('student@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+     'Sinh Vien Test', 'STUDENT', NULL, 1, 1);

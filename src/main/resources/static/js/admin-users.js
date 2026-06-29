@@ -11,7 +11,7 @@
      their position in the kebab menu.
    - Esc and overlay click both close.
 
-   Requires app.js (UlpToast + dropdown bootstrap).
+   Requires app.js (KshToast + dropdown bootstrap).
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -19,10 +19,10 @@
 
   // ── Flash drain → toast + modal re-open ──────────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.UlpToast) {
-    if (flashData.dataset.flashSuccess) window.UlpToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError)   window.UlpToast.error(flashData.dataset.flashError);
-    if (flashData.dataset.flashWarning) window.UlpToast.warning(flashData.dataset.flashWarning);
+  if (flashData && window.KshToast) {
+    if (flashData.dataset.flashSuccess) window.KshToast.success(flashData.dataset.flashSuccess);
+    if (flashData.dataset.flashError)   window.KshToast.error(flashData.dataset.flashError);
+    if (flashData.dataset.flashWarning) window.KshToast.warning(flashData.dataset.flashWarning);
   }
 
   // ── Confirmation prompts (simple POST submissions) ──────────────
@@ -183,7 +183,7 @@
       // not depend on trailing spaces.
       var reasonRaw = lockReasonInput.value || '';
       if (!reasonRaw.trim()) {
-        if (window.UlpToast) window.UlpToast.error('Vui lòng nhập lý do khoá.');
+        if (window.KshToast) window.KshToast.error('Vui lòng nhập lý do khoá.');
         lockReasonInput.focus();
         return;
       }
@@ -221,7 +221,7 @@
       // exact value the admin typed.
       var pwd = resetPasswordInput.value || '';
       if (pwd.length === 0) {
-        if (window.UlpToast) window.UlpToast.error('Vui lòng nhập mật khẩu mới.');
+        if (window.KshToast) window.KshToast.error('Vui lòng nhập mật khẩu mới.');
         resetPasswordInput.focus();
         return;
       }

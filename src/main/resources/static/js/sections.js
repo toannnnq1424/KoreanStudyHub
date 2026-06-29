@@ -34,8 +34,8 @@
   }
 
   function toast(kind, message) {
-    if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
-      window.UlpToast[kind](message);
+    if (window.KshToast && typeof window.KshToast[kind] === 'function') {
+      window.KshToast[kind](message);
     }
   }
 
@@ -233,12 +233,12 @@
     // Close the dropdown immediately so it doesn't linger behind the
     // confirm dialog.
     closeAllMenus(null);
-    // Prefer the shared UlpModal.confirm dialog (defined in app.js) so
+    // Prefer the shared KshModal.confirm dialog (defined in app.js) so
     // destructive actions across the app share one visual + i18n surface.
     // Native window.confirm() is a hard fallback in case app.js fails to
     // load — extremely unlikely but cheap to handle.
-    if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
-      window.UlpModal.confirm({
+    if (window.KshModal && typeof window.KshModal.confirm === 'function') {
+      window.KshModal.confirm({
         title: 'Xác nhận xoá chương',
         body: 'Bạn có chắc muốn xoá chương "' + title + '"? Hành động này không thể hoàn tác.',
         confirmLabel: 'Xoá',
@@ -350,8 +350,8 @@
     var id = delBtn.getAttribute('data-lesson-id');
     var title = delBtn.getAttribute('data-lesson-title') || '';
     closeAllMenus(null);
-    if (window.UlpModal && typeof window.UlpModal.confirm === 'function') {
-      window.UlpModal.confirm({
+    if (window.KshModal && typeof window.KshModal.confirm === 'function') {
+      window.KshModal.confirm({
         title: 'Xác nhận xoá bài giảng',
         body: 'Bạn có chắc muốn xoá bài giảng "' + title
               + '"? Hành động này không thể hoàn tác.',

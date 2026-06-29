@@ -15,21 +15,21 @@ DROP TABLE IF EXISTS feature_permissions;
 -- 2. ROLES — Định nghĩa vai trò hệ thống
 -- =============================================================================
 CREATE TABLE roles (
-    code VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT NULL,
-    is_system TINYINT(1) DEFAULT 1 COMMENT '1=role hệ thống không thể xoá',
-    priority INT DEFAULT 0 COMMENT 'Độ ưu tiên (càng cao càng nhiều quyền)',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                       code VARCHAR(20) PRIMARY KEY,
+                       name VARCHAR(100) NOT NULL,
+                       description TEXT NULL,
+                       is_system TINYINT(1) DEFAULT 1 COMMENT '1=role hệ thống không thể xoá',
+                       priority INT DEFAULT 0 COMMENT 'Độ ưu tiên (càng cao càng nhiều quyền)',
+                       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed 4 role hệ thống
 INSERT INTO roles (code, name, description, is_system, priority) VALUES
-('STUDENT',  'Sinh viên',         'Người học — xem nội dung, làm bài, thảo luận', 1, 10),
-('LECTURER', 'Giảng viên',        'Người dạy — soạn nội dung, quản lý lớp, chấm bài', 1, 20),
-('HEAD',     'Trưởng bộ môn',     'Quản lý bộ môn — duyệt nội dung, phân công GV, báo cáo', 1, 30),
-('ADMIN',    'Quản trị hệ thống', 'Toàn quyền — quản lý user, cấu hình hệ thống, bảo mật', 1, 40);
+                                                                     ('STUDENT',  'Sinh viên',         'Người học — xem nội dung, làm bài, thảo luận', 1, 10),
+                                                                     ('LECTURER', 'Giảng viên',        'Người dạy — soạn nội dung, quản lý lớp, chấm bài', 1, 20),
+                                                                     ('HEAD',     'Trưởng bộ môn',     'Quản lý bộ môn — duyệt nội dung, phân công GV, báo cáo', 1, 30),
+                                                                     ('ADMIN',    'Quản trị hệ thống', 'Toàn quyền — quản lý user, cấu hình hệ thống, bảo mật', 1, 40);
 
 -- Thêm FK từ users.role → roles.code (xoá constraint CHECK cũ nếu có)
 -- Note: MySQL không hỗ trợ DROP CHECK constraint trực tiếp.
@@ -39,17 +39,17 @@ ALTER TABLE users
     ADD CONSTRAINT fk_user_role FOREIGN KEY (role) REFERENCES roles(code);
 
 -- =============================================================================
--- 3. PERMISSIONS — Định nghĩa tất cả quyền (features key) trong hệ thống
+-- 3. PERMISSIONS — Định nghĩa tất cả quyền (feature key) trong hệ thống
 -- =============================================================================
 CREATE TABLE permissions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    feature_key VARCHAR(100) NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    description TEXT NULL,
-    permission_group VARCHAR(50) NOT NULL COMMENT 'Nhóm quyền: AUTH, COURSE, LESSON, ...',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_perm_key (feature_key),
-    INDEX idx_perm_group (permission_group)
+                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                             feature_key VARCHAR(100) NOT NULL,
+                             name VARCHAR(200) NOT NULL,
+                             description TEXT NULL,
+                             permission_group VARCHAR(50) NOT NULL COMMENT 'Nhóm quyền: AUTH, COURSE, LESSON, ...',
+                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                             UNIQUE INDEX idx_perm_key (feature_key),
+                             INDEX idx_perm_group (permission_group)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed tất cả permissions (theo group)
@@ -193,79 +193,79 @@ INSERT INTO permissions (feature_key, name, description, permission_group) VALUE
 -- 4. ROLE PERMISSIONS — M:N: Role được cấp những quyền gì
 -- =============================================================================
 CREATE TABLE role_permissions (
-    role_code VARCHAR(20) NOT NULL,
-    permission_id BIGINT NOT NULL,
-    granted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (role_code, permission_id),
-    CONSTRAINT fk_rp_role FOREIGN KEY (role_code) REFERENCES roles(code) ON DELETE CASCADE,
-    CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+                                  role_code VARCHAR(20) NOT NULL,
+                                  permission_id BIGINT NOT NULL,
+                                  granted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                  PRIMARY KEY (role_code, permission_id),
+                                  CONSTRAINT fk_rp_role FOREIGN KEY (role_code) REFERENCES roles(code) ON DELETE CASCADE,
+                                  CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed: STUDENT permissions (R1)
 INSERT INTO role_permissions (role_code, permission_id)
 SELECT 'STUDENT', id FROM permissions WHERE feature_key IN (
-    'auth.register', 'auth.login', 'auth.logout', 'auth.verify_email', 'auth.reset_password',
-    'profile.view_own', 'profile.edit_own', 'profile.change_password',
-    'course.view', 'course.search', 'course.filter',
-    'class.view', 'class.change_layout',
-    'enrollment.join', 'enrollment.leave', 'enrollment.view_own',
-    'section.view',
-    'lesson.view', 'lesson.attachment.download',
-    'comment.create', 'comment.edit_own', 'comment.delete_own',
-    'progress.track_own',
-    'flashcard.view_own', 'flashcard.create_own', 'flashcard.review', 'flashcard.share',
-    'test.view', 'test.take', 'test.view_own_result', 'test.create_practice',
-    'assignment.view', 'assignment.submit', 'assignment.view_feedback',
-    'notification.view', 'notification.receive_email',
-    'message.send', 'message.view_badge',
-    'dashboard.student'
-);
+                                                            'auth.register', 'auth.login', 'auth.logout', 'auth.verify_email', 'auth.reset_password',
+                                                            'profile.view_own', 'profile.edit_own', 'profile.change_password',
+                                                            'course.view', 'course.search', 'course.filter',
+                                                            'class.view', 'class.change_layout',
+                                                            'enrollment.join', 'enrollment.leave', 'enrollment.view_own',
+                                                            'section.view',
+                                                            'lesson.view', 'lesson.attachment.download',
+                                                            'comment.create', 'comment.edit_own', 'comment.delete_own',
+                                                            'progress.track_own',
+                                                            'flashcard.view_own', 'flashcard.create_own', 'flashcard.review', 'flashcard.share',
+                                                            'test.view', 'test.take', 'test.view_own_result', 'test.create_practice',
+                                                            'assignment.view', 'assignment.submit', 'assignment.view_feedback',
+                                                            'notification.view', 'notification.receive_email',
+                                                            'message.send', 'message.view_badge',
+                                                            'dashboard.student'
+    );
 
 -- Seed: LECTURER permissions (R2) — CHỈ các quyền RIÊNG của Lecturer
 -- (Quyền của STUDENT được kế thừa qua role_hierarchy)
 INSERT INTO role_permissions (role_code, permission_id)
 SELECT 'LECTURER', id FROM permissions WHERE feature_key IN (
-    'class.create', 'class.edit', 'class.delete', 'class.invite_code',
-    'enrollment.manage', 'enrollment.import_excel', 'enrollment.status_manage',
-    'section.manage',
-    'lesson.create', 'lesson.edit', 'lesson.delete', 'lesson.publish', 'lesson.preview',
-    'comment.reply', 'comment.pin', 'comment.delete_any',
-    'progress.view_student',
-    'flashcard.create_official',
-    'test.create', 'test.edit', 'test.delete', 'test.publish', 'test.view_student_results',
-    'question_bank.view', 'question_bank.manage',
-    'assignment.create', 'assignment.edit', 'assignment.delete', 'assignment.publish', 'assignment.grade',
-    'content.submit',
-    'dashboard.teaching'
-);
+                                                             'class.create', 'class.edit', 'class.delete', 'class.invite_code',
+                                                             'enrollment.manage', 'enrollment.import_excel', 'enrollment.status_manage',
+                                                             'section.manage',
+                                                             'lesson.create', 'lesson.edit', 'lesson.delete', 'lesson.publish', 'lesson.preview',
+                                                             'comment.reply', 'comment.pin', 'comment.delete_any',
+                                                             'progress.view_student',
+                                                             'flashcard.create_official',
+                                                             'test.create', 'test.edit', 'test.delete', 'test.publish', 'test.view_student_results',
+                                                             'question_bank.view', 'question_bank.manage',
+                                                             'assignment.create', 'assignment.edit', 'assignment.delete', 'assignment.publish', 'assignment.grade',
+                                                             'content.submit',
+                                                             'dashboard.teaching'
+    );
 
 -- Seed: HEAD permissions (R3) — CHỈ các quyền RIÊNG của Head
 INSERT INTO role_permissions (role_code, permission_id)
 SELECT 'HEAD', id FROM permissions WHERE feature_key IN (
-    'course.create', 'course.edit', 'course.delete', 'course.publish', 'course.archive',
-    'department.report',
-    'content.approve', 'content.reject', 'content.request_changes', 'content.version_manage',
-    'lecturer.assign',
-    'dashboard.department'
-);
+                                                         'course.create', 'course.edit', 'course.delete', 'course.publish', 'course.archive',
+                                                         'department.report',
+                                                         'content.approve', 'content.reject', 'content.request_changes', 'content.version_manage',
+                                                         'lecturer.assign',
+                                                         'dashboard.department'
+    );
 
 -- Seed: ADMIN permissions (R4) — CHỈ các quyền RIÊNG của Admin
 INSERT INTO role_permissions (role_code, permission_id)
 SELECT 'ADMIN', id FROM permissions WHERE feature_key IN (
-    'course.manage_all',
-    'flashcard.manage_any',
-    'user.view', 'user.create', 'user.edit', 'user.activate_deactivate',
-    'user.role_assign', 'user.lock_unlock',
-    'department.view', 'department.manage',
-    'category.view', 'category.manage',
-    'comment.moderate',
-    'progress.view_all',
-    'system.settings', 'system.oauth', 'system.smtp', 'system.ai', 'system.login_history',
-    'dashboard.system',
+                                                          'course.manage_all',
+                                                          'flashcard.manage_any',
+                                                          'user.view', 'user.create', 'user.edit', 'user.activate_deactivate',
+                                                          'user.role_assign', 'user.lock_unlock',
+                                                          'department.view', 'department.manage',
+                                                          'category.view', 'category.manage',
+                                                          'comment.moderate',
+                                                          'progress.view_all',
+                                                          'system.settings', 'system.oauth', 'system.smtp', 'system.ai', 'system.login_history',
+                                                          'dashboard.system',
     -- OPT permissions (Admin có thể bật cho user cụ thể qua override)
-    'video.view', 'video.history',
-    'ai.grading', 'ai.question_gen', 'ai.chatbot', 'ai.flashcard_gen', 'ai.weakness_analysis'
-);
+                                                          'video.view', 'video.history',
+                                                          'ai.grading', 'ai.question_gen', 'ai.chatbot', 'ai.flashcard_gen', 'ai.weakness_analysis'
+    );
 
 -- =============================================================================
 -- 5. ROLE HIERARCHY — Kế thừa quyền giữa các role
@@ -274,20 +274,20 @@ SELECT 'ADMIN', id FROM permissions WHERE feature_key IN (
 --    ADMIN extends HEAD    (→ ADMIN tự động có tất cả)
 -- =============================================================================
 CREATE TABLE role_hierarchy (
-    parent_role_code VARCHAR(20) NOT NULL,
-    child_role_code VARCHAR(20) NOT NULL,
-    PRIMARY KEY (parent_role_code, child_role_code),
-    CONSTRAINT fk_rh_parent FOREIGN KEY (parent_role_code) REFERENCES roles(code) ON DELETE CASCADE,
-    CONSTRAINT fk_rh_child FOREIGN KEY (child_role_code) REFERENCES roles(code) ON DELETE CASCADE
+                                parent_role_code VARCHAR(20) NOT NULL,
+                                child_role_code VARCHAR(20) NOT NULL,
+                                PRIMARY KEY (parent_role_code, child_role_code),
+                                CONSTRAINT fk_rh_parent FOREIGN KEY (parent_role_code) REFERENCES roles(code) ON DELETE CASCADE,
+                                CONSTRAINT fk_rh_child FOREIGN KEY (child_role_code) REFERENCES roles(code) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed hierarchy chain:
 -- STUDENT ← LECTURER ← HEAD ← ADMIN
 -- (Đọc: LECTURER kế thừa STUDENT; HEAD kế thừa LECTURER; ADMIN kế thừa HEAD)
 INSERT INTO role_hierarchy (parent_role_code, child_role_code) VALUES
-('STUDENT',  'LECTURER'),
-('LECTURER', 'HEAD'),
-('HEAD',     'ADMIN');
+                                                                   ('STUDENT',  'LECTURER'),
+                                                                   ('LECTURER', 'HEAD'),
+                                                                   ('HEAD',     'ADMIN');
 
 -- =============================================================================
 -- 6. USER PERMISSION OVERRIDES — Gán/Thu hồi quyền cho user cụ thể
@@ -299,22 +299,22 @@ INSERT INTO role_hierarchy (parent_role_code, child_role_code) VALUES
 --      - Cho 1 HEAD quyền system.settings (GRANT) → Head đó truy cập được cài đặt hệ thống
 -- =============================================================================
 CREATE TABLE user_permission_overrides (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    permission_id BIGINT NOT NULL,
-    override_type VARCHAR(10) NOT NULL CHECK (override_type IN ('GRANT', 'REVOKE')),
-    reason VARCHAR(500) NULL COMMENT 'Lý do override',
-    granted_by BIGINT NOT NULL COMMENT 'Ai thực hiện override (thường là Admin)',
-    expires_at DATETIME NULL COMMENT 'Hết hạn override (NULL = vĩnh viễn)',
-    is_active TINYINT(1) DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_upo_user_perm (user_id, permission_id),
-    INDEX idx_upo_user (user_id),
-    INDEX idx_upo_active (is_active, expires_at),
-    CONSTRAINT fk_upo_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_upo_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_upo_grantor FOREIGN KEY (granted_by) REFERENCES users(id)
+                                           id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                           user_id BIGINT NOT NULL,
+                                           permission_id BIGINT NOT NULL,
+                                           override_type VARCHAR(10) NOT NULL CHECK (override_type IN ('GRANT', 'REVOKE')),
+                                           reason VARCHAR(500) NULL COMMENT 'Lý do override',
+                                           granted_by BIGINT NOT NULL COMMENT 'Ai thực hiện override (thường là Admin)',
+                                           expires_at DATETIME NULL COMMENT 'Hết hạn override (NULL = vĩnh viễn)',
+                                           is_active TINYINT(1) DEFAULT 1,
+                                           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                           UNIQUE INDEX idx_upo_user_perm (user_id, permission_id),
+                                           INDEX idx_upo_user (user_id),
+                                           INDEX idx_upo_active (is_active, expires_at),
+                                           CONSTRAINT fk_upo_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                                           CONSTRAINT fk_upo_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
+                                           CONSTRAINT fk_upo_grantor FOREIGN KEY (granted_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
@@ -348,26 +348,26 @@ SELECT
         WHEN revoke_override.id IS NOT NULL THEN 0
         WHEN grant_override.id IS NOT NULL THEN 1
         ELSE 1
-    END AS is_granted,
+        END AS is_granted,
     CASE
         WHEN revoke_override.id IS NOT NULL THEN 'REVOKED'
         WHEN grant_override.id IS NOT NULL THEN 'GRANTED_OVERRIDE'
         ELSE 'FROM_ROLE'
-    END AS source
+        END AS source
 FROM user_base_permissions ubp
-JOIN permissions p ON ubp.permission_id = p.id
-LEFT JOIN user_permission_overrides revoke_override
-    ON revoke_override.user_id = ubp.user_id
-    AND revoke_override.permission_id = ubp.permission_id
-    AND revoke_override.override_type = 'REVOKE'
-    AND revoke_override.is_active = 1
-    AND (revoke_override.expires_at IS NULL OR revoke_override.expires_at > NOW())
-LEFT JOIN user_permission_overrides grant_override
-    ON grant_override.user_id = ubp.user_id
-    AND grant_override.permission_id = ubp.permission_id
-    AND grant_override.override_type = 'GRANT'
-    AND grant_override.is_active = 1
-    AND (grant_override.expires_at IS NULL OR grant_override.expires_at > NOW())
+         JOIN permissions p ON ubp.permission_id = p.id
+         LEFT JOIN user_permission_overrides revoke_override
+                   ON revoke_override.user_id = ubp.user_id
+                       AND revoke_override.permission_id = ubp.permission_id
+                       AND revoke_override.override_type = 'REVOKE'
+                       AND revoke_override.is_active = 1
+                       AND (revoke_override.expires_at IS NULL OR revoke_override.expires_at > NOW())
+         LEFT JOIN user_permission_overrides grant_override
+                   ON grant_override.user_id = ubp.user_id
+                       AND grant_override.permission_id = ubp.permission_id
+                       AND grant_override.override_type = 'GRANT'
+                       AND grant_override.is_active = 1
+                       AND (grant_override.expires_at IS NULL OR grant_override.expires_at > NOW())
 UNION
 -- Thêm GRANT overrides cho quyền user không có từ role
 SELECT
@@ -377,14 +377,14 @@ SELECT
     1 AS is_granted,
     'GRANTED_OVERRIDE' AS source
 FROM user_permission_overrides upo
-JOIN permissions p ON upo.permission_id = p.id
+         JOIN permissions p ON upo.permission_id = p.id
 WHERE upo.override_type = 'GRANT'
   AND upo.is_active = 1
   AND (upo.expires_at IS NULL OR upo.expires_at > NOW())
   AND NOT EXISTS (
-      SELECT 1 FROM user_base_permissions ubp
-      WHERE ubp.user_id = upo.user_id AND ubp.permission_id = upo.permission_id
-  );
+    SELECT 1 FROM user_base_permissions ubp
+    WHERE ubp.user_id = upo.user_id AND ubp.permission_id = upo.permission_id
+);
 
 -- =============================================================================
 -- DONE — RBAC Enhancement

@@ -24,7 +24,7 @@
 
     <!-- Flash → toast on page load (admin.js xử lý).
          Dùng pattern data attribute giống admin/dashboard để tái dùng
-         UlpToast thay vì render inline alert. -->
+         KshToast thay vì render inline alert. -->
     <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
 
