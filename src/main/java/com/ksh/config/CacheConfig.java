@@ -21,11 +21,11 @@ import java.time.Duration;
  * <p>Registered caches:
  * <ul>
  *   <li>{@code settingsGroup} — caches the result of
- *       {@link com.ulp.shared.settings.service.SystemSettingsService#loadGroupAsMap(String)}
+ *       {@link com.ksh.features.admin.settings.service.SystemSettingsService#loadGroupAsMap(String)}
  *       keyed by setting group name (e.g. {@code SMTP}, {@code OAUTH}).
  *       Write-through invalidation is performed by
- *       {@link com.ulp.admin.settings.service.EmailSettingsService#save} and
- *       {@link com.ulp.admin.settings.service.OauthSettingsService#save}.</li>
+ *       {@link com.ksh.features.admin.settings.service.EmailSettingsService#save} and
+ *       {@link com.ksh.features.admin.settings.service.OauthSettingsService#save}.</li>
  * </ul>
  *
  * <p>Tuning rationale:

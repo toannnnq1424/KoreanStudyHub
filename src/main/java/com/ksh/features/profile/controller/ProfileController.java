@@ -4,7 +4,7 @@ import com.ksh.entities.User;
 import com.ksh.security.KshUserDetails;
 import com.ksh.features.profile.dto.ProfileDtos;
 import com.ksh.features.profile.service.ProfileService;
-import com.ksh.shared.upload.AvatarStorageService;
+import com.ksh.features.upload.AvatarStorageService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -83,10 +83,10 @@ public class ProfileController {
      */
     @PostMapping("/profile")
     public String update(@Valid @ModelAttribute("profileForm") ProfileDtos.ProfileUpdateRequest form,
-                         BindingResult result,
-                         @AuthenticationPrincipal KshUserDetails principal,
-                         Model model,
-                         RedirectAttributes ra) {
+                          BindingResult result,
+                          @AuthenticationPrincipal KshUserDetails principal,
+                          Model model,
+                          RedirectAttributes ra) {
         User user = profileService.getCurrentUser(principal.getId());
         if (result.hasErrors()) {
             model.addAttribute(ATTR_USER, user);
@@ -107,8 +107,8 @@ public class ProfileController {
      */
     @PostMapping("/profile/avatar")
     public String uploadAvatar(@RequestParam(PARAM_AVATAR) MultipartFile file,
-                               @AuthenticationPrincipal KshUserDetails principal,
-                               RedirectAttributes ra) {
+                                @AuthenticationPrincipal KshUserDetails principal,
+                                RedirectAttributes ra) {
         User user = profileService.getCurrentUser(principal.getId());
         try {
             String url = avatarService.store(file);

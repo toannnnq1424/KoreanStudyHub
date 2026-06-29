@@ -71,7 +71,7 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    // ── Sprint 1 additions ────────────────────────────────────────
+    // â”€â”€ Sprint 1 additions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Column(name = "bio")
     private String bio;
@@ -87,7 +87,7 @@ public class User {
     @Column(name = "google_id", length = 100)
     private String googleId;
 
-    // ── Sprint 3 admin-side constructor ────────────────────────────
+    // â”€â”€ Sprint 3 admin-side constructor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Package-private constructor used by {@link UserFactory#newAdminCreated}.
@@ -109,7 +109,7 @@ public class User {
         this.bio = bio;
     }
 
-    // ── Business helpers ───────────────────────────────────────────
+    // â”€â”€ Business helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Updates the profile fields that a user is allowed to edit directly.
@@ -124,7 +124,7 @@ public class User {
         this.phone = blankToNull(phone);
     }
 
-    // ── Sprint 3 admin-side business methods ───────────────────────
+    // â”€â”€ Sprint 3 admin-side business methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Sets the account's {@code is_active} flag.

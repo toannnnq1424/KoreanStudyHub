@@ -2,7 +2,7 @@ package com.ksh.features.student.controller;
 
 import com.ksh.security.KshUserDetails;
 import com.ksh.entities.ClassEntity;
-import com.ksh.features.classes.service.InviteCodeValidationException;
+import com.ksh.features.classes.service.invites.InviteCodeValidationException;
 import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ksh.features.classes.service.JoinClassService.JoinResult;

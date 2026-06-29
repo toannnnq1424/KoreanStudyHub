@@ -1,13 +1,13 @@
 package com.ksh.features.auth.service;
 
 import com.ksh.security.Role;
+import com.ksh.security.CustomOidcUserService;
+import com.ksh.security.CustomOidcUserPrincipal;
 import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.entities.UserOAuthProvider;
 import com.ksh.features.auth.repository.UserOAuthProviderRepository;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.security.CustomOidcUserPrincipal;
-import com.ksh.security.CustomOidcUserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class OAuthLoginIntegrationTest {
 
-    private static final String SEED_REGISTERED_EMAIL = "student@ksh.edu.vn";
+    private static final String SEED_REGISTERED_EMAIL = "student@ulp.edu.vn";
 
     @Autowired private CustomOidcUserService customOidcUserService;
     @Autowired private UserRepository userRepository;

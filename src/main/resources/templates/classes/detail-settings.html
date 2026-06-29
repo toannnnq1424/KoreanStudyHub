@@ -155,7 +155,7 @@
 
     <!-- ═══ Invite tab — mời sinh viên (CODE + LINK) ════════════════════
          If no active invite tokens exist (e.g. a class created before the
-         invite features shipped), show an empty-state card. Otherwise render
+         invite feature shipped), show an empty-state card. Otherwise render
          the unchanged invite-panel from the previous design.
          ══════════════════════════════════════════════════════════════════ -->
     <div th:if="${activeDetailTab == 'invite'}">
@@ -240,7 +240,7 @@
     </div>
 
     <!-- ═══ Hidden delete form — submitted by toolbar "Xóa lớp" ═════════
-         class-detail.js wires the toolbar button to KshModal.confirm and
+         class-detail.js wires the toolbar button to UlpModal.confirm and
          submits this form on confirmation. -->
     <form th:id="'form-delete-' + ${clazz.id}"
           th:action="@{'/lecturer/classes/' + ${clazz.id} + '/delete'}"

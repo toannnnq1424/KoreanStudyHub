@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Admin Users page (list + form + modals)
+   ULP — Admin Users page (list + form + modals)
    ----------------------------------------------------------------------------
    This file contains rules SPECIFIC to the `/admin/users` list page and to
    the legacy 720px-cap form. The detail-page chrome (sticky toolbar, header
@@ -10,135 +10,135 @@
 
 /* ── Toolbar ─────────────────────────────────────────────────────── */
 .users-toolbar {
-    margin-bottom: 16px;
+  margin-bottom: 16px;
 }
 
 .users-toolbar-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .users-search {
-    position: relative;
-    flex: 1 1 280px;
-    min-width: 240px;
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 240px;
 }
 
 .users-search .ico {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #6b7280;
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
 }
 
 .users-search input {
-    width: 100%;
-    padding: 10px 12px 10px 38px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: #fff;
-    font-size: 14px;
+  width: 100%;
+  padding: 10px 12px 10px 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
 }
 
 .users-toolbar-row select,
 .users-toolbar-row .btn-ghost {
-    padding: 10px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: #fff;
-    font-size: 14px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
 }
 
 .users-toolbar-row .create-btn {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    background: #2563eb;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .users-toolbar-row .create-btn:hover {
-    background: #1d4ed8;
+  background: #1d4ed8;
 }
 
 /* ── Table ───────────────────────────────────────────────────────── */
 .users-panel {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .users-table-scroll {
-    overflow-x: auto;
+  overflow-x: auto;
 }
 
 .users-table {
-    width: 100%;
-    min-width: 720px;
-    border-collapse: collapse;
-    font-size: 14px;
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
 .users-table thead th {
-    background: #f9fafb;
-    color: #374151;
-    text-align: left;
-    padding: 12px 16px;
-    font-weight: 600;
-    border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .users-table tbody td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
 }
 
 .users-table tbody tr:last-child td {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .users-table tbody tr:hover {
-    background: #f9fafb;
+  background: #f9fafb;
 }
 
 .user-name {
-    font-weight: 600;
-    color: #111827;
+  font-weight: 600;
+  color: #111827;
 }
 
 .user-email {
-    color: #6b7280;
-    font-size: 12px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .col-actions {
-    width: 60px;
-    text-align: right;
+  width: 60px;
+  text-align: right;
 }
 
 /* Deleted rows: full-row fade so they read as "archived" at a glance.
    Status pill styling (the `.status-pill.status-*` rules) lives in
    detail-page.css since pills are shared with the detail page. */
 .users-table tbody tr[data-deleted="true"] {
-    opacity: 0.55;
+  opacity: 0.55;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────── */
 .users-empty {
-    padding: 40px 20px;
-    text-align: center;
-    color: #6b7280;
-    font-size: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 /* ── Form (legacy 720px-cap form for non-detail admin pages) ──────
@@ -146,33 +146,33 @@
    we identify a second caller. The detail page uses the new grid in
    detail-page.css and does NOT rely on these rules. */
 .users-form-panel {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 720px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 720px;
 }
 
 .users-form .form-row {
-    margin-bottom: 16px;
+  margin-bottom: 16px;
 }
 
 .users-form .form-row-pair {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .users-form label {
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 500;
-    color: #374151;
-    font-size: 14px;
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
 }
 
 .users-form .required {
-    color: #dc2626;
+  color: #dc2626;
 }
 
 .users-form input[type=text],
@@ -180,160 +180,160 @@
 .users-form input[type=password],
 .users-form select,
 .users-form textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-    background: #fff;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
 }
 
 .users-form textarea {
-    resize: vertical;
-    min-height: 80px;
+  resize: vertical;
+  min-height: 80px;
 }
 
 .form-checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding-top: 32px; /* align with adjacent label baseline */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding-top: 32px; /* align with adjacent label baseline */
 }
 
 .form-checkbox-label input[type=checkbox] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .field-error {
-    margin: 6px 0 0;
-    color: #dc2626;
-    font-size: 12px;
+  margin: 6px 0 0;
+  color: #dc2626;
+  font-size: 12px;
 }
 
 .field-help {
-    margin: 6px 0 0;
-    color: #6b7280;
-    font-size: 12px;
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .form-actions .btn-ghost,
 .form-actions .btn-primary {
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 14px;
-    text-decoration: none;
-    cursor: pointer;
-    border: 1px solid transparent;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
 }
 
 .form-actions .btn-ghost {
-    background: #fff;
-    border-color: #d1d5db;
-    color: #374151;
+  background: #fff;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 .form-actions .btn-primary {
-    background: #2563eb;
-    color: #fff;
+  background: #2563eb;
+  color: #fff;
 }
 
 .form-actions .btn-primary:hover {
-    background: #1d4ed8;
+  background: #1d4ed8;
 }
 
 /* ── Modal overlay (used by list-page action modals: lock / reset / confirm
    — and reused by the detail page's confirm modal). Kept here because the
    list page is the primary caller; the detail page just piggybacks. */
 .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(17, 24, 39, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
 .modal-overlay[hidden] {
-    display: none;
+  display: none;
 }
 
 .modal-box {
-    background: #fff;
-    border-radius: 12px;
-    padding: 24px;
-    width: 100%;
-    max-width: 480px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 .modal-box h3 {
-    margin: 0 0 8px;
-    font-size: 18px;
-    color: #111827;
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #111827;
 }
 
 .modal-box p {
-    margin: 0 0 16px;
-    color: #6b7280;
-    font-size: 14px;
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .modal-box textarea,
 .modal-box input[type=text],
 .modal-box input[type=password] {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 16px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
 .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .btn-danger {
-    padding: 10px 18px;
-    background: #dc2626;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
+  padding: 10px 18px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .btn-danger:hover {
-    background: #b91c1c;
+  background: #b91c1c;
 }
 
 /* ── Row-menu / kebab ────────────────────────────────────────────── */
 .users-table .row-menu .menu {
-    min-width: 200px;
+  min-width: 200px;
 }
 
 .users-table .menu-item.danger {
-    color: #dc2626;
+  color: #dc2626;
 }
 
 .users-table .menu-item.danger:hover {
-    background: #fef2f2;
+  background: #fef2f2;
 }
 
 /* ── Detail-page form spacing tweaks (user-form specific) ─────────
@@ -341,7 +341,7 @@
    `.users-form` rules above (used by other admin forms) stay
    untouched. Generic detail-page rules live in detail-page.css. */
 .detail-page .users-form label {
-    margin-bottom: 4px;
+  margin-bottom: 4px;
 }
 
 .detail-page .users-form input[type=text],
@@ -349,5 +349,5 @@
 .detail-page .users-form input[type=password],
 .detail-page .users-form select,
 .detail-page .users-form textarea {
-    padding: 8px 12px;
+  padding: 8px 12px;
 }

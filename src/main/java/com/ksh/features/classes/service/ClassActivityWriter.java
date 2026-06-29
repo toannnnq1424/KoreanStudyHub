@@ -35,7 +35,7 @@ public class ClassActivityWriter {
     private final ObjectMapper objectMapper;
 
     public ClassActivityWriter(ClassActivityRepository repository,
-                               ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper) {
         this.repository = repository;
         this.objectMapper = objectMapper;
     }
@@ -57,7 +57,7 @@ public class ClassActivityWriter {
      * @param actorId     id of the user that triggered the activity
      */
     public void write(Long classId, String type, String description,
-                      Map<String, Object> metadata, Long actorId) {
+                       Map<String, Object> metadata, Long actorId) {
         String serialized = serialize(metadata);
         repository.save(new ClassActivity(classId, type, description, serialized, actorId));
     }

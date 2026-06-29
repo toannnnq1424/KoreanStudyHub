@@ -1,7 +1,6 @@
 package com.ksh.features.classes.dto;
 
 import com.ksh.entities.ClassEntity;
-import com.ksh.features.classes.ClassGradient;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -19,7 +18,7 @@ public class ClassesDtos {
      *
      * <p>{@code thumbLabel} is derived from {@link #name} (first two characters,
      * uppercased). {@code gradientCss} is computed by the service from the list
-     * index so each class gets a distinct color — see {@link ClassGradient}.
+     * index so each class gets a distinct color — see {@link com.ksh.features.classes.ClassGradient}.
      *
      * <p>The stat columns ({@code studentCount}, {@code lectureCount},
      * {@code assignmentCount}, {@code materialCount}) temporarily return 0 for

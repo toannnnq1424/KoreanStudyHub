@@ -3,8 +3,8 @@ package com.ksh.features.admin.settings.service;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.TestResult;
-import com.ksh.shared.mail.MailSendResult;
-import com.ksh.shared.mail.MailService;
+import com.ksh.features.mail.MailSendResult;
+import com.ksh.features.mail.MailService;
 import com.ksh.features.admin.settings.SystemSettingGroups;
 import com.ksh.entities.SystemSetting;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -27,17 +28,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link EmailSettingsService}.
+ * Unit test cho {@link EmailSettingsService}.
  *
- * <p>Covers the main scenarios from the spec:
+ * <p>Cover cac scenario chinh trong spec:
  * <ul>
- *   <li>load() masks password</li>
- *   <li>save() with empty password skips the password row</li>
- *   <li>save() with MASKED placeholder also skips the password row</li>
- *   <li>save() with a real new password overwrites the row</li>
- *   <li>sendTest() with invalid recipient does not call MailService</li>
- *   <li>sendTest() when host is empty returns a specific error</li>
- *   <li>sendTest() when SMTP fails returns the error message</li>
+ *   <li>load() mask password</li>
+ *   <li>save() empty password skip row</li>
+ *   <li>save() MASKED placeholder cung skip row</li>
+ *   <li>save() password thuc su thi overwrite</li>
+ *   <li>sendTest() invalid recipient khong goi MailService</li>
+ *   <li>sendTest() empty host tra ve loi cu the</li>
+ *   <li>sendTest() mail exception tra ve loi voi message</li>
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)
@@ -61,7 +62,7 @@ class EmailSettingsServiceTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "noreply@example.com",
                 "smtp.password", "real-secret",
-                "smtp.from_name", "KSH",
+                "smtp.from_name", "ULP",
                 "smtp.from_email", "noreply@example.com",
                 "smtp.reply_to", ""
         );
@@ -106,7 +107,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "new-host", 587, "tls", "u", "", "KSH", "from@example.com", "");
+                "new-host", 587, "tls", "u", "", "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         // Assert by content, not count — robust to adding/removing SMTP keys later.
@@ -124,7 +125,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "h", 587, "tls", "u", MASKED, "KSH", "from@example.com", "");
+                "h", 587, "tls", "u", MASKED, "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         ArgumentCaptor<SystemSetting> captor = ArgumentCaptor.forClass(SystemSetting.class);
@@ -141,7 +142,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "h", 587, "tls", "u", "brand-new-pw", "KSH", "from@example.com", "");
+                "h", 587, "tls", "u", "brand-new-pw", "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         ArgumentCaptor<SystemSetting> captor = ArgumentCaptor.forClass(SystemSetting.class);

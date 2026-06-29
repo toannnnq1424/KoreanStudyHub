@@ -1,8 +1,6 @@
 package com.ksh.features.classes.repository;
 
 import com.ksh.entities.Enrollment;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
@@ -12,6 +10,9 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.List;
 
@@ -48,25 +49,25 @@ class EnrollmentRepositoryN1Test {
 
     @Test
     void find_all_by_class_status_uses_join_fetch_for_user() {
-        // ── Seed: 1 fresh class + N enrollments using already-seeded students ──
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        // â”€â”€ Seed: 1 fresh class + N enrollments using already-seeded students â”€â”€
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
 
         long[] studentIds = new long[ENROLLMENT_COUNT];
         for (int i = 0; i < ENROLLMENT_COUNT; i++) {
-            studentIds[i] = lookupUserId(String.format("sv0%d@ksh.edu.vn", i + 1));
+            studentIds[i] = lookupUserId(String.format("sv0%d@ulp.edu.vn", i + 1));
             insertEnrollment(studentIds[i], classId);
         }
         em.flush();
         em.clear();
 
-        // ── Reset statistics so we only count the queries we care about ──
+        // â”€â”€ Reset statistics so we only count the queries we care about â”€â”€
         SessionFactory sf = em.getEntityManagerFactory().unwrap(SessionFactory.class);
         Statistics stats = sf.getStatistics();
         stats.clear();
         long before = stats.getPrepareStatementCount();
 
-        // ── Execute + touch the user fields that would normally trigger N+1 ──
+        // â”€â”€ Execute + touch the user fields that would normally trigger N+1 â”€â”€
         List<Enrollment> rows = enrollmentRepository
                 .findAllByClassIdAndStatusOrderByJoinedAtDesc(classId, Enrollment.STATUS_ACTIVE);
 
@@ -89,9 +90,9 @@ class EnrollmentRepositoryN1Test {
     @Test
     void find_all_returns_user_initialized_with_accessible_fields() {
         // Smaller smoke check: even without measuring statements, ensure user fields are usable.
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
-        long studentId = lookupUserId("sv01@ksh.edu.vn");
+        long studentId = lookupUserId("sv01@ulp.edu.vn");
         insertEnrollment(studentId, classId);
         em.flush();
         em.clear();
@@ -106,7 +107,7 @@ class EnrollmentRepositoryN1Test {
         assertThat(e.getUser().getFullName()).isNotBlank();
     }
 
-    // ─────────── Helpers ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private long lookupUserId(String email) {
         Number id = (Number) em.createNativeQuery("SELECT id FROM users WHERE email = :e")

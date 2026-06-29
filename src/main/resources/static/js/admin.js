@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSH — Admin pages behavior (dashboard chart, etc.)
+   ULP — Admin pages behavior (dashboard chart, etc.)
    Loaded by /admin/*. Requires app.js + Chart.js.
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -8,11 +8,11 @@
 
   // ── Flash → toast on page load (shared pattern) ────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
+  if (flashData && window.UlpToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
+    if (ok) window.UlpToast.success(ok);
+    if (err) window.UlpToast.error(err);
   }
 
   // ── Donut chart for users-by-role ─────────────────────────────────

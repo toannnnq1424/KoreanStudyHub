@@ -1,11 +1,11 @@
 package com.ksh.features.admin.settings;
 
 /**
- * Names of setting groups in table {@code system_settings.setting_group}.
+ * Constants for the {@code setting_group} column in the {@code system_settings} table.
  *
- * <p>Shared constants to avoid duplicate magic strings between
- * {@code EmailSettingsService}, {@code DbConfiguredMailSender} and other
- * settings services in the future (General, OAuth, AI).
+ * <p>Centralises group-name literals to avoid duplicating magic strings across
+ * {@code EmailSettingsService}, {@code DbConfiguredMailSender}, and any future
+ * settings services (General, OAuth, AI).
  */
 public final class SystemSettingGroups {
 

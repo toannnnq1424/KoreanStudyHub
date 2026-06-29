@@ -20,7 +20,7 @@ public class ProfileService {
     /**
      * Retrieves the currently authenticated user by their database id.
      *
-     * <p>Controllers obtain the id from {@code @AuthenticationPrincipal kshUserDetails}
+     * <p>Controllers obtain the id from {@code @AuthenticationPrincipal KshUserDetails}
      * — Spring Security has already loaded the user during authentication, so this
      * method takes the id directly instead of re-resolving by email.
      *

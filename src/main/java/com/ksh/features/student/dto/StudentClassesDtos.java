@@ -1,6 +1,6 @@
 package com.ksh.features.student.dto;
 
-import com.ksh.features.classes.service.InviteTokenGenerator;
+import com.ksh.features.classes.service.invites.InviteTokenGenerator;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 

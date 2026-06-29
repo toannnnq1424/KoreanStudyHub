@@ -4,7 +4,7 @@ import com.ksh.entities.PasswordResetToken;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.shared.mail.MailService;
+import com.ksh.features.mail.MailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,7 +38,7 @@ public class PasswordRecoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
-    /** 96 random bytes → ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
+    /** 96 random bytes â†’ ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
     private static final int TOKEN_BYTES = 96;
     private static final int TOKEN_TTL_HOURS = 1;
 

@@ -19,6 +19,7 @@
 
       <div class="share-box">
         <div class="share-label">Chia sẻ lớp học</div>
+
         <div class="share-row" th:if="${activeCode != null}">
           <span class="share-row-label">Mã mời</span>
           <code class="share-row-value" th:text="${activeCode.code()}">CODE</code>
@@ -48,7 +49,6 @@
             Sao chép link
           </button>
         </div>
-
 
         <div class="desc-row">
           <svg class="ico ico-sm" viewBox="0 0 24 24">

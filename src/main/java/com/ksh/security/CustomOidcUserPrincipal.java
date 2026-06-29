@@ -45,7 +45,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         return username;
     }
 
-    // ── OidcUser delegation ──────────────────────────────────
+    // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override public Map<String, Object> getClaims() { return delegate.getClaims(); }
     @Override public OidcUserInfo getUserInfo() { return delegate.getUserInfo(); }
@@ -60,7 +60,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
      * by Spring Security audit code, the home controller, etc. The default
      * OIDC implementation returns the {@code sub} claim (a numeric Google
      * subject), which is opaque to the rest of the application. The form-login
-     * principal ({@code kshUserDetails}) returns the email here, so we mirror
+     * principal ({@code KshUserDetails}) returns the email here, so we mirror
      * that for OIDC to keep callers like {@code HomeController.home()} simple.
      *
      * @return the user's email address

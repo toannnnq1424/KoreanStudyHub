@@ -3,7 +3,7 @@ package com.ksh.features.profile.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** DTOs cho features profile — cap nhat thong tin va doi mat khau. */
+/** DTOs for the profile feature — update user information and change password. */
 public class ProfileDtos {
 
     public record ProfileUpdateRequest(

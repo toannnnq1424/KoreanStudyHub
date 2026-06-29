@@ -28,7 +28,7 @@ public class KshUserDetails implements UserDetails {
     private final Collection<GrantedAuthority> authorities;
 
     /**
-     * Constructs a {@code kshUserDetails} from a {@link User} entity.
+     * Constructs a {@code KshUserDetails} from a {@link User} entity.
      *
      * @param user the authenticated user entity; must not be {@code null}
      */
