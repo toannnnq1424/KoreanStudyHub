@@ -6,7 +6,7 @@
 -- KHONG dung o production — chi cho dev/demo.
 --
 -- Mat khau cho tat ca: "password"
--- BCrypt: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy (giong V5).
+-- BCrypt: $2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa (giong V5).
 --
 -- Re-runnable: dung INSERT IGNORE de tranh duplicate email khi rerun sau khi
 -- xoa tay (Flyway thuc su chi chay 1 lan — but safety net rat re).
@@ -14,14 +14,14 @@
 
 INSERT IGNORE INTO users (email, password_hash, full_name, role, phone, is_email_verified, is_active)
 VALUES
-('sv01@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Đỗ Khắc Nam',     'STUDENT', '0971761607', 1, 1),
-('sv02@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Trần Thu Hà',     'STUDENT', '0905123456', 1, 1),
-('sv03@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Lê Văn Hùng',     'STUDENT', '0912765432', 1, 1),
-('sv04@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Phạm Minh Anh',   'STUDENT', '0987654321', 1, 1),
-('sv05@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Vũ Thị Mai',      'STUDENT', '0938222111', 1, 1),
-('sv06@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Nguyễn Bá Sơn',   'STUDENT', '0901234567', 1, 1),
-('sv07@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Hoàng Quỳnh Như', 'STUDENT', '0966778899', 1, 1),
-('sv08@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Bùi Tuấn Khang',  'STUDENT', '0989887766', 1, 1);
+('sv01@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Đỗ Khắc Nam',     'STUDENT', '0971761607', 1, 1),
+('sv02@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Trần Thu Hà',     'STUDENT', '0905123456', 1, 1),
+('sv03@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Lê Văn Hùng',     'STUDENT', '0912765432', 1, 1),
+('sv04@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Phạm Minh Anh',   'STUDENT', '0987654321', 1, 1),
+('sv05@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Vũ Thị Mai',      'STUDENT', '0938222111', 1, 1),
+('sv06@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Nguyễn Bá Sơn',   'STUDENT', '0901234567', 1, 1),
+('sv07@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Hoàng Quỳnh Như', 'STUDENT', '0966778899', 1, 1),
+('sv08@ksh.edu.vn', '$2a$10$dTtO2C/fo28EF0SQ9lI3kO2gXa2GICyduasPVLYnBlAvLTLrHJwxa', 'Bùi Tuấn Khang',  'STUDENT', '0989887766', 1, 1);
 
 -- Enroll tat ca SV vao moi lop hien co (chua soft-delete).
 -- Dung NOT EXISTS de re-runnable + bo qua khi da enrolled (UNIQUE constraint).

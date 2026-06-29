@@ -21,7 +21,7 @@ This is the core identity layer that all other KSH features depend on.
 
 **Status:** Done
 
-- Entity: `com.ksh.auth.entity.User`
+- Entity: `com.ksh.entities.User`
 - Table: `users`
 - Migration: `V1__init_schema.sql`
 - Key columns: `id`, `email` (unique), `full_name`, `password_hash`, `role`, `is_active`, `is_email_verified`, `created_at`
@@ -38,8 +38,8 @@ This is the core identity layer that all other KSH features depend on.
 
 **Status:** Done
 
-- Controller: `com.ksh.auth.controller.AuthController` → `POST /register`
-- DTOs: `com.ksh.auth.dto.AuthDtos.RegisterForm`
+- Controller: `com.ksh.features.controller.auth.AuthController` → `POST /register`
+- DTOs: `com.ksh.features.dto.auth.AuthDtos.RegisterForm`
 - Service: `AuthController` inline (simple path), password encoded with BCrypt
 - Validation: `@NotBlank`, `@Email`, `@Size`, password confirm match (cross-field)
 
@@ -83,9 +83,9 @@ This is the core identity layer that all other KSH features depend on.
 
 **Status:** Done
 
-- Config: `com.ksh.shared.config.SecurityConfig`
-- `UserDetailsService`: `com.ksh.auth.service.CustomUserDetailsService`
-- `UserDetails` impl: `com.ksh.auth.service.KshUserDetails`
+- Config: `com.ksh.config.SecurityConfig`
+- `UserDetailsService`: `com.ksh.features.service.auth.CustomUserDetailsService`
+- `UserDetails` impl: `com.ksh.features.service.auth.KshUserDetails`
 - Login page: `GET /login` | form action: `POST /login` (handled by Spring Security)
 - Success redirect: role-based (`/admin/dashboard`, `/lecturer/classes`, `/student/home`)
 
@@ -116,8 +116,8 @@ This is the core identity layer that all other KSH features depend on.
 **Status:** Done
 
 - Config: `SecurityConfig` — `oauth2Login()` enabled
-- Custom service: `com.ksh.auth.service.CustomOidcUserService`
-- Principal wrapper: `com.ksh.auth.service.CustomOidcUserPrincipal`
+- Custom service: `com.ksh.features.service.auth.CustomOidcUserService`
+- Principal wrapper: `com.ksh.features.service.auth.CustomOidcUserPrincipal`
 - On first OAuth2 login: creates User row (role=STUDENT, is_email_verified=true)
 - On subsequent logins: loads existing user by email
 - Linked provider stored in `user_oauth_providers` table
@@ -138,7 +138,7 @@ This is the core identity layer that all other KSH features depend on.
 
 **Status:** Done
 
-- Entity: `com.ksh.auth.entity.PasswordResetToken`
+- Entity: `com.ksh.entities.PasswordResetToken`
 - Table: `password_reset_tokens`
 - Migration: `V3__password_reset_tokens.sql`
 - Key columns: `token` (unique, VARCHAR 200), `user_id` (FK), `expires_at`, `used_at`
@@ -149,12 +149,12 @@ This is the core identity layer that all other KSH features depend on.
 
 **Status:** Done
 
-- Controllers: `com.ksh.auth.controller.PasswordRecoveryController`
+- Controllers: `com.ksh.features.controller.auth.PasswordRecoveryController`
   - `GET /forgot-password` — show request form
   - `POST /forgot-password` — create token, send email
   - `GET /reset-password?token=…` — show new password form
   - `POST /reset-password` — validate token, set new password
-- Service: `com.ksh.auth.service.PasswordRecoveryService`
+- Service: `com.ksh.features.service.auth.PasswordRecoveryService`
 - Token: 96 random bytes → URL-safe Base64, TTL = 1 hour
 - Email: best-effort (`MailService.send`), WARN logged on failure, token logged at DEBUG only
 

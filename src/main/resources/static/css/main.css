@@ -132,7 +132,7 @@ img { display: block; max-width: 100%; }
 /* ── Confirm modal (window.kshModal.confirm) ───────────────────────── */
 /* Global modal styles backing the shared kshModal.confirm helper in app.js.
    Lives in main.css so every page (Members tab, my-classes, admin, ...)
-   can use the helper without importing a per-feature stylesheet. */
+   can use the helper without importing a per-features stylesheet. */
 .ksh-modal {
   border: none;
   padding: 0;

@@ -15,7 +15,7 @@ Flyway database migrations.
 
 **Status:** Done
 
-- Config: `com.ksh.shared.config.SecurityConfig`
+- Config: `com.ksh.config.SecurityConfig`
 - Patterns:
   - `/login`, `/register`, `/forgot-password`, `/reset-password`, `/css/**`, `/js/**`, `/images/**`, `/uploads/**` — public
   - `/admin/**` — ROLE_ADMIN only
@@ -67,9 +67,9 @@ Flyway database migrations.
 
 **Status:** Done
 
-- Entity: `com.ksh.shared.settings.entity.SystemSetting`
+- Entity: `com.ksh.entities.SystemSetting`
 - Repository: `SystemSettingsRepository.loadGroupAsMap(group)` — returns all settings for a group as Map
-- Groups constant: `com.ksh.shared.settings.SystemSettingGroups`
+- Groups constant: `com.ksh.features.admin.settings.SystemSettingGroups`
   - `SMTP = "smtp"`
   - Add new groups here as features require (e.g., `"storage"`, `"security"`)
 
@@ -79,7 +79,7 @@ Flyway database migrations.
 
 **Status:** Done
 
-- Handler: `com.ksh.shared.exception.GlobalExceptionHandler`
+- Handler: `com.ksh.exception.GlobalExceptionHandler`
 - `EntityNotFoundException` → 404 error page
 - `AccessDeniedException` → 403 error page
 - Generic `Exception` → 500 error page

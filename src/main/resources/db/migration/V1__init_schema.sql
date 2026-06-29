@@ -206,7 +206,7 @@ CREATE TABLE classes (
 CREATE TABLE class_invite_codes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_id BIGINT NOT NULL,
-    code VARCHAR(20) NOT NULL,
+    code VARCHAR(40) NOT NULL,
     type VARCHAR(10) DEFAULT 'CODE' CHECK (type IN ('CODE','LINK')),
     is_active TINYINT(1) DEFAULT 1,
     max_uses INT NULL,

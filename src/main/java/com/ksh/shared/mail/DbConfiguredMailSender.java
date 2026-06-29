@@ -1,7 +1,7 @@
 package com.ksh.shared.mail;
 
-import com.ksh.shared.settings.SystemSettingGroups;
-import com.ksh.shared.settings.service.SystemSettingsService;
+import com.ksh.features.admin.settings.SystemSettingGroups;
+import com.ksh.features.admin.settings.service.SystemSettingsService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;

@@ -39,7 +39,7 @@ ALTER TABLE users
     ADD CONSTRAINT fk_user_role FOREIGN KEY (role) REFERENCES roles(code);
 
 -- =============================================================================
--- 3. PERMISSIONS — Định nghĩa tất cả quyền (feature key) trong hệ thống
+-- 3. PERMISSIONS — Định nghĩa tất cả quyền (features key) trong hệ thống
 -- =============================================================================
 CREATE TABLE permissions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

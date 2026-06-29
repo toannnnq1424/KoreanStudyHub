@@ -1,7 +1,7 @@
 package com.ksh.shared.mail;
 
-import com.ksh.shared.settings.SystemSettingGroups;
-import com.ksh.shared.settings.repository.SystemSettingsRepository;
+import com.ksh.features.admin.settings.SystemSettingGroups;
+import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import jakarta.mail.Address;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;

@@ -20,13 +20,13 @@ system settings (including SMTP email configuration).
 
 **Status:** Done
 
-- Controller: `com.ksh.admin.controller.AdminController`
+- Controller: `com.ksh.features.auth.controller.admin.AdminController`
   - `GET /admin/dashboard` — main dashboard
   - `GET /admin/users` — user list (partial)
   - `GET /admin/departments` — department list (placeholder)
   - `GET /admin/classes` — class overview (placeholder)
-- Service: `com.ksh.admin.service.AdminDashboardService`
-- DTOs: `com.ksh.admin.dto.AdminDashboardDtos`
+- Service: `com.ksh.features.auth.service.admin.AdminDashboardService`
+- DTOs: `com.ksh.features.auth.dto.admin.AdminDashboardDtos`
   - `DashboardStats` — 4 stat card numbers
   - `UserRoleCount` — donut chart data
   - `RecentClass` — 5 most recent classes table
@@ -58,7 +58,7 @@ system settings (including SMTP email configuration).
 
 **Status:** Done
 
-- Entity: `com.ksh.shared.settings.entity.SystemSetting`
+- Entity: `com.ksh.entities.SystemSetting`
 - Table: `system_settings`
 - Key columns: `setting_group`, `setting_key`, `setting_value`, `updated_by`
 - SMTP keys: `smtp.host`, `smtp.port`, `smtp.encryption`, `smtp.username`,
@@ -71,13 +71,13 @@ system settings (including SMTP email configuration).
 
 **Status:** Done
 
-- Controller: `com.ksh.admin.settings.controller.EmailSettingsController`
+- Controller: `com.ksh.features.auth.controller.settings.admin.EmailSettingsController`
   - `GET /admin/settings/email` — view form
   - `POST /admin/settings/email` — save settings
   - `POST /admin/settings/email/test` — send test email (JSON response)
-- Service: `com.ksh.admin.settings.service.EmailSettingsService`
+- Service: `com.ksh.features.auth.service.settings.admin.EmailSettingsService`
 - Mail transport: `com.ksh.shared.mail.DbConfiguredMailSender` (reads SMTP config from DB at send time)
-- DTO: `com.ksh.admin.settings.dto.EmailSettingsDtos`
+- DTO: `com.ksh.features.auth.dto.settings.admin.EmailSettingsDtos`
 
 **Password masking:**
 - `smtp.password` is returned as `"********"` (constant `MASKED`) to the view

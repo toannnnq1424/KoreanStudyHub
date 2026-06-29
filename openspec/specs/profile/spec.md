@@ -20,7 +20,7 @@ upload a custom avatar, and change their password.
 
 **Status:** Done
 
-- Entity: `com.ksh.auth.entity.User` (extended with profile fields)
+- Entity: `com.ksh.entities.User` (extended with profile fields)
 - Added columns: `phone`, `bio`, `avatar_url`, `updated_at`
 - Migration: `V4__user_profile_fields.sql`
 
@@ -30,11 +30,11 @@ upload a custom avatar, and change their password.
 
 **Status:** Done
 
-- Controller: `com.ksh.profile.controller.ProfileController`
+- Controller: `com.ksh.features.controller.profile.ProfileController`
   - `GET /profile` — load current user data into form
   - `POST /profile` — validate and save
-- DTOs: `com.ksh.profile.dto.ProfileDtos.ProfileForm`
-- Service: `com.ksh.profile.service.ProfileService`
+- DTOs: `com.ksh.features.dto.profile.ProfileDtos.ProfileForm`
+- Service: `com.ksh.features.service.profile.ProfileService`
 
 **Acceptance criteria:**
 - Only the authenticated user can update their own profile
@@ -85,10 +85,10 @@ upload a custom avatar, and change their password.
 
 **Status:** Done
 
-- Controller: `com.ksh.profile.controller.ChangePasswordController`
+- Controller: `com.ksh.features.controller.profile.ChangePasswordController`
   - `GET /profile/change-password`
   - `POST /profile/change-password`
-- DTOs: `com.ksh.profile.dto.ProfileDtos.ChangePasswordForm`
+- DTOs: `com.ksh.features.dto.profile.ProfileDtos.ChangePasswordForm`
 - Service: `ProfileService.changePassword()`
 
 **Acceptance criteria:**

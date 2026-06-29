@@ -21,14 +21,14 @@ Assignments, Scores, Lessons, Materials, Settings.
 
 **Status:** Done
 
-- Entity: `com.ksh.classes.entity.ClassEntity`
+- Entity: `com.ksh.entities.ClassEntity`
 - Table: `classes`
 - Migration: `V5__classes.sql`
 - Key columns: `id`, `name`, `code` (unique, 6-char invite code), `lecturer_id` (FK users),
   `description`, `start_date`, `end_date`, `max_students`, `status`, `deleted_at`
 - Soft-delete: `deleted_at IS NULL` filter on all queries
 
-- Entity: `com.ksh.classes.entity.ClassActivity`
+- Entity: `com.ksh.entities.ClassActivity`
 - Table: `class_activities`
 - Records every create/update/delete with `type`, `description`, `metadata_json`, `actor_id`
 
@@ -38,15 +38,15 @@ Assignments, Scores, Lessons, Materials, Settings.
 
 **Status:** Done
 
-- Controller: `com.ksh.classes.controller.ClassesController`
+- Controller: `com.ksh.features.controller.classes.ClassesController`
   - `GET /lecturer/classes` — list (own classes for LECTURER; all for HEAD/ADMIN)
   - `GET /lecturer/classes/new` — create form
   - `POST /lecturer/classes` — submit create
   - `GET /lecturer/classes/{id}/edit` — edit form
   - `POST /lecturer/classes/{id}` — submit update
   - `POST /lecturer/classes/{id}/delete` — soft-delete
-- DTOs: `com.ksh.classes.dto.ClassesDtos` (ClassRow, ClassForm)
-- Service: `com.ksh.classes.service.ClassesService`
+- DTOs: `com.ksh.features.dto.classes.ClassesDtos` (ClassRow, ClassForm)
+- Service: `com.ksh.features.service.classes.ClassesService`
 - Code generator: `ClassCodeGeneratorImpl` — 6-char alphanumeric, retries up to 3 times on collision
 
 **Authorization rules (enforced in service, not controller):**
@@ -105,7 +105,7 @@ Assignments, Scores, Lessons, Materials, Settings.
 
 **Status:** Done
 
-- Entity: `com.ksh.classes.entity.Enrollment`
+- Entity: `com.ksh.entities.Enrollment`
 - Table: `enrollments`
 - Key columns: `id`, `class_id`, `user_id`, `join_method` (CODE/MANUAL/OAUTH), `enrolled_at`, `status`
 
@@ -115,8 +115,8 @@ Assignments, Scores, Lessons, Materials, Settings.
 
 **Status:** Done
 
-- Service: `com.ksh.classes.service.ClassMembersService`
-- DTO: `com.ksh.classes.dto.MemberDtos`
+- Service: `com.ksh.features.service.classes.ClassMembersService`
+- DTO: `com.ksh.features.dto.classes.MemberDtos`
 - Loads enrollments + user info for the members tab
 
 ---
