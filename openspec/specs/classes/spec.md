@@ -121,38 +121,119 @@ Assignments, Scores, Lessons, Materials, Settings.
 
 ---
 
-## KSH-3.4 — Story: Lessons & Assignments [Sprint 3 — Planned]
+## KSH-3.4 — Story: Lessons, Sections & Attachments [Sprint 3 — ✅ Done]
 
-> As a lecturer, I want to create lesson content and assignments for a class
-> so that students have structured learning material.
+> As a lecturer, I want to create structured course content (sections + lessons +
+> file attachments) so that students have organised learning material.
 
-**Status:** Planned
+**Status:** Done (Lecturer-facing backend + frontend complete)
 
-### KSH-3.4-DB: [DB] Lessons & Assignments — Schema
+### KSH-3.4-DB: [DB] Schema
 
-**Status:** Not started
+**Status:** ✅ Done
 
-- Table: `lessons` — `id`, `class_id`, `title`, `content_html`, `order`, `published_at`
-- Table: `assignments` — `id`, `class_id`, `title`, `description`, `due_date`, `max_score`
-- Table: `lesson_attachments` — `id`, `lesson_id`, `file_url`, `file_name`, `file_size`
-- Migration: `V10__lessons_assignments.sql` (planned)
-
-### KSH-3.4-BE: [BE] Lessons CRUD
-
-**Status:** Not started
-
-- Controller: `com.ksh.classes.lessons.controller.LessonsController` [NEW]
-- Service: `com.ksh.classes.lessons.service.LessonsService` [NEW]
-
-### KSH-3.4-FE: [FE] Lessons Detail Tab
-
-**Status:** Not started
-
-- Template: `classes/detail-lessons.html` [NEW] (replaces placeholder)
+- `sections` (V13): `id`, `class_id`, `title`, `display_order`, `is_deleted`,
+  `created_by`, `created_at`, `updated_at`. Soft-delete via `@SQLRestriction`.
+  Unique key `uk_section_class_order` (class_id, display_order).
+- `lessons` (V14): `id`, `section_id`, `title`, `status` (DRAFT/PUBLISHED),
+  `content_richtext LONGTEXT`, `display_order`, `published_at`, `is_deleted`,
+  `created_by`, `created_at`, `updated_at`. Unique key `uk_lesson_section_order`.
+- `lesson_attachments` (V15): `id`, `lesson_id`, `original_filename`,
+  `stored_path`, `mime_type`, `size_bytes`, `uploaded_by`, `uploaded_at`.
 
 ---
 
-## KSH-3.5 — Story: Grade Book / Scoring [Sprint 4 — Planned]
+### KSH-3.4-BE: [BE] Sections CRUD
+
+**Status:** ✅ Done
+
+- `com.ksh.features.lessons.controller.SectionsController` — full-page create/rename form
+- `com.ksh.features.lessons.controller.SectionsApiController` — JSON delete + reorder
+- `com.ksh.features.lessons.service.SectionsService` — create, rename, soft-delete
+- `com.ksh.features.lessons.service.SectionsReorderService` — drag-reorder validation
+- `com.ksh.features.lessons.service.SectionActivityWriter` — audit log rows
+- `com.ksh.features.lessons.repository.SectionRepository` — `findByIdAndClassId`, etc.
+
+**Activity log types:** `CREATED`, `RENAMED`, `DELETED`, `REORDERED`
+
+---
+
+### KSH-3.4-BE2: [BE] Lessons CRUD
+
+**Status:** ✅ Done
+
+- `com.ksh.features.lessons.controller.LessonsController` — create/edit forms (full-page)
+- `com.ksh.features.lessons.controller.LessonsApiController` — JSON delete + reorder
+- `com.ksh.features.lessons.controller.LessonsLifecycleController` — publish/unpublish POST
+- `com.ksh.features.lessons.controller.LessonsTabController` — GET lessons tab (both lecturer + ?)
+- `com.ksh.features.lessons.service.LessonsService` — list, create, update, soft-delete, reorder
+- `com.ksh.features.lessons.service.LessonsPublishService` — publish/unpublish transitions
+- `com.ksh.features.lessons.service.LessonsReorderService` — reorder + cross-class guard
+- `com.ksh.features.lessons.service.LessonsUpdateHelper` — diff tracking + status transitions
+- `com.ksh.features.lessons.service.LessonActivityWriter` — audit log rows
+- `com.ksh.features.lessons.repository.LessonRepository` — `findByIdAndSectionId`, `findMaxDisplayOrder`, etc.
+
+**Content sanitisation:** `HtmlSanitizer.sanitize()` called on `contentHtml` before save.
+
+**Authorization:**
+- `LessonsService.listForSection` calls `classesService.getEditable` (lecturer-only read).
+- Student read uses a separate method `listPublishedForSection` — see **KSH-4.1-BE**.
+
+**Activity log types:** `CREATED`, `UPDATED`, `PUBLISHED`, `UNPUBLISHED`, `DELETED`, `REORDERED`
+
+---
+
+### KSH-3.4-BE3: [BE] Lesson Attachments
+
+**Status:** ✅ Done
+
+- `com.ksh.features.lessons.controller.LessonAttachmentsApiController` — upload / delete / list
+- `com.ksh.features.lessons.service.LessonAttachmentsService`
+  - `listForLesson` — lecturer read (calls `getEditable`)
+  - `upload` — store file + save DB row
+  - `delete` — hard-delete row + on-disk file
+  - `deleteAllByLesson` — cascade called from `LessonsService.delete`
+  - `download` — auth-aware; students may download only PUBLISHED lesson attachments
+
+**Download URL pattern:** `/api/lessons/{lessonId}/attachments/{attachmentId}/download`
+
+**Three-layer auth on upload/delete:** `getEditable` → `verifySectionBelongsToClass` → `findByIdAndSectionId`
+
+---
+
+### KSH-3.4-FE: [FE] Lessons Tab (Lecturer)
+
+**Status:** ✅ Done
+
+- Template: `classes/detail-lessons.html`
+- Left column: section list (drag-to-reorder, create button)
+- Right column: lesson list per selected section (drag-to-reorder, create button, publish toggle)
+- History tab on lesson edit: `LessonActivityRow` timeline
+- `?section=<id>` query param pre-selects a section; cross-class links degrade gracefully
+
+---
+
+## KSH-4.1 — Student Lessons Tab [Sprint 4 — Planned]
+
+> As an enrolled student, I want to browse published lessons grouped by section.
+
+**Status:** 🔲 Not started
+
+See full spec in **[student/spec.md](../student/spec.md)**.
+
+Sub-tasks:
+
+| Task | Description |
+|------|-------------|
+| KSH-4.1-BE | `StudentLessonsTabController` + `LessonsService.listPublishedForSection` |
+| KSH-4.1-FE | `student/class-lessons.html` template |
+| KSH-4.2-BE | `StudentLessonDetailController` + `LessonAttachmentsService.listForStudent` |
+| KSH-4.2-FE | `student/lesson-detail.html` template |
+| KSH-4.3-FE | Inline `?lesson=` slide-in panel (progressive enhancement) |
+
+---
+
+## KSH-3.5 — Story: Grade Book / Scoring [Sprint 5 — Planned]
 
 > As a lecturer, I want to enter and update student scores for assignments
 > so that students can view their grade progress.

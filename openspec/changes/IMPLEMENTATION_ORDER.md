@@ -36,20 +36,44 @@ Use it to decide which `openspec/specs/` to pick from next.
 
 ---
 
-## 🔲 Sprint 3 — Lessons & Materials (Planned)
+## ✅ Sprint 3 — Lessons & Materials (Completed)
 
-| ID | Story | Spec |
-|----|-------|------|
-| KSH-3.4 | Lessons CRUD (create/edit/publish) | [classes/spec.md](../specs/classes/spec.md#ksh-34) |
-| KSH-3.4-FE | Lessons Detail Tab (replaces placeholder) | [classes/spec.md](../specs/classes/spec.md#ksh-34-fe) |
-| KSH-3.6 | Material file upload (PDF, DOCX, ZIP) | classes/spec.md [TBD] |
-| KSH-0.6 | V10 Flyway migration (lessons + assignments) | [shared/spec.md](../specs/shared/spec.md) |
+> All backend + lecturer-side frontend for the lessons tab has shipped.
+> The student-side viewer (KSH-4.1) is the **next planned story** — see Sprint 4 below.
+
+| ID | Story | Status | Notes |
+|----|-------|--------|-------|
+| KSH-3.4-DB | Sections schema (V13) | ✅ Done | `sections` table; soft-delete via `is_deleted`; `uk_section_class_order` unique key |
+| KSH-3.4-DB2 | Lessons schema (V14) | ✅ Done | `lessons` table; `content_richtext LONGTEXT`; `uk_lesson_section_order` unique key |
+| KSH-3.4-DB3 | Lesson Attachments schema (V15) | ✅ Done | `lesson_attachments` table; FK `lesson_id`; stores `stored_path`, `mime_type`, `size_bytes` |
+| KSH-3.4-BE | Sections CRUD (create/rename/reorder/delete) | ✅ Done | `SectionsController`, `SectionsApiController`, `SectionsService`, `SectionsReorderService` |
+| KSH-3.4-BE2 | Lessons CRUD (create/edit/publish/unpublish/reorder/delete) | ✅ Done | `LessonsController`, `LessonsApiController`, `LessonsLifecycleController`, `LessonsService`, `LessonsPublishService`, `LessonsReorderService` |
+| KSH-3.4-BE3 | Lesson Attachments upload/download/delete | ✅ Done | `LessonAttachmentsApiController`, `LessonAttachmentsService`, `LessonAttachmentStorageService` |
+| KSH-3.4-FE | Lessons Tab (sections sidebar + lesson list) | ✅ Done | `LessonsTabController` → `classes/detail-lessons.html`; `?section=` query param supported |
+| KSH-3.6 | Material file upload (PDF, DOCX, ZIP) | ✅ Done | Embedded inside lesson edit form; `LessonAttachmentStorageService` |
+| KSH-0.6 | V13–V15 Flyway migrations (sections + lessons + attachments) | ✅ Done | V13 sections, V14 lessons, V15 lesson_attachments |
 
 **Sprint 3 owner:** toannq1424
 
 ---
 
-## 🔲 Sprint 4 — Assignments & Grade Book (Planned)
+## 🔲 Sprint 4 — Student Lesson Viewer (Next)
+
+> Student-side lesson viewing is the immediate next feature to implement.
+> Spec: [student/spec.md](../specs/student/spec.md)
+
+| ID | Story | Spec |
+|----|-------|------|
+| KSH-4.1-DB | No schema change required (reuses existing tables) | — |
+| KSH-4.1-BE | Student Lessons Tab Controller | [student/spec.md#ksh-41-be](../specs/student/spec.md) |
+| KSH-4.1-FE | Student Lessons Tab — sections grouped list view | [student/spec.md#ksh-41-fe](../specs/student/spec.md) |
+| KSH-4.2-BE | Student Lesson Detail Page | [student/spec.md#ksh-42-be](../specs/student/spec.md) |
+| KSH-4.2-FE | Lesson Detail — rich-text + attachments | [student/spec.md#ksh-42-fe](../specs/student/spec.md) |
+| KSH-4.3-FE | Inline Lesson Detail via `?lesson=` query param | [student/spec.md#ksh-43-fe](../specs/student/spec.md) |
+
+---
+
+## 🔲 Sprint 5 — Assignments & Grade Book (Planned)
 
 | ID | Story | Spec |
 |----|-------|------|
@@ -59,7 +83,7 @@ Use it to decide which `openspec/specs/` to pick from next.
 
 ---
 
-## 🔲 Sprint 5 — Department, User Mgmt & Vocabulary (Planned)
+## 🔲 Sprint 6 — Department, User Mgmt & Vocabulary (Planned)
 
 | ID | Story | Spec |
 |----|-------|------|
@@ -73,12 +97,12 @@ Use it to decide which `openspec/specs/` to pick from next.
 
 ---
 
-## Team Split (Sprint 3 Example)
+## Team Split (Sprint 4 Example)
 
 ```
-Member 1 (toannq1424)  — KSH-3.4-DB + KSH-3.4-BE (Lessons CRUD backend)
-Member 2              — KSH-3.4-FE (Lessons detail-lessons.html template)
-Member 3              — KSH-3.6-BE (Material upload service)
-Member 4              — KSH-3.6-FE (Materials tab template)
-Member 5              — KSH-0.6 V10 migration + unit tests
+Member 1 (toannq1424)  — KSH-4.1-BE (StudentLessonsTabController)
+Member 2              — KSH-4.1-FE (student/class-lessons.html template)
+Member 3              — KSH-4.2-BE (StudentLessonDetailController)
+Member 4              — KSH-4.2-FE (student/lesson-detail.html template)
+Member 5              — KSH-4.3-FE (?lesson= inline detail + slide-in panel)
 ```
