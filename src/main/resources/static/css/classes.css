@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Class Management page styles
+   ksh — Class Management page styles
    Used by /lecturer/classes (list + form).
    Requires main.css + app-shell.css to be loaded first.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -247,7 +247,7 @@
 }
 .btn-danger:hover { background: #B71C1C; }
 
-/* NOTE: .ulp-modal styles moved to main.css (global) — they back the
+/* NOTE: .ksh-modal styles moved to main.css (global) — they back the
    shared window.KshModal.confirm helper used by every page, not just
    the lecturer class list. Keeping them here previously meant the
    modal rendered un-styled (top-left of the viewport) on pages that

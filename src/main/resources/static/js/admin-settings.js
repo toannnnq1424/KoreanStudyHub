@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Admin Email Settings test-send AJAX
+   ksh — Admin Email Settings test-send AJAX
    Reads CSRF token from <meta> tags placed in fragments/head.html.
    Uses window.KshToast (defined in app.js) for success/error notifications.
    ══════════════════════════════════════════════════════════════════════════ */

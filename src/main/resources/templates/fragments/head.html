@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: head(title, extraCss)
-    - title    : page title (prepended to "| ULP — University Learning Platform")
+    - title    : page title (prepended to "| ksh — University Learning Platform")
     - extraCss : optional fragment expression with additional <link> tags. Pass ~{}
                  when the page does not need extra CSS. To include extra stylesheets,
                  define them in a fragment in the page and reference it, e.g.:
@@ -19,7 +19,7 @@
   <!-- CSRF token for AJAX endpoints (safe-navigation: pages without CSRF still render) -->
   <meta name="_csrf" th:content="${_csrf?.token}"/>
   <meta name="_csrf_header" th:content="${_csrf?.headerName}"/>
-  <title th:text="${title} + ' | ULP — University Learning Platform'">ULP</title>
+  <title th:text="${title} + ' | ksh — University Learning Platform'">ksh</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

@@ -34,5 +34,5 @@ DB_PASSWORD=your_password_here
 #spring.mail.properties.mail.smtp.starttls.enable=true
 
 # ===== Base URL (dung trong link reset password) =====
-# Prod: dat URL that, vi du https://ulp.edu.vn
+# Prod: dat URL that, vi du https://ksh.edu.vn
 #APP_BASE_URL=http://localhost:8080

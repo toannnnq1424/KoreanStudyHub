@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Admin Users page behaviour
+   ksh — Admin Users page behaviour
    Kebab menu actions, confirmation modals, lock-reason and reset-password
    modals, flash → toast drain, modal re-open on flash validation error.
 

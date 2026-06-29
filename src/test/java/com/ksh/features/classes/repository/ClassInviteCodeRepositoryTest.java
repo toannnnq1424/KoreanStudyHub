@@ -35,7 +35,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_class_id_and_type_returns_active_only() {
-        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
         long classId = insertClass(lecturerId);
 
         ClassInviteCode active = new ClassInviteCode(classId, "ACT" + uniqueShortSuffix(), "CODE", lecturerId);
@@ -54,7 +54,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_code_and_active_returns_match_only_when_active() {
-        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "AB" + uniqueShortSuffix();
 
@@ -74,7 +74,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_code_for_update_returns_active_row() {
-        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "CD" + uniqueShortSuffix();
         repository.saveAndFlush(new ClassInviteCode(classId, value, "CODE", lecturerId));
@@ -87,7 +87,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void duplicate_code_violates_unique_index() {
-        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "DUP" + uniqueShortSuffix();
 

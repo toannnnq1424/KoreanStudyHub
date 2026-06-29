@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Student classes behavior
+   ksh — Student classes behavior
    - Flash → toast on page load (success / error / info)
    - Leave-class form gated by confirm modal
    - Auto-uppercase the join-code input as the user types

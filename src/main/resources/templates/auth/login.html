@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đăng nhập vào tài khoản của bạn | ULP — University Learning Platform</title>
+  <title>Đăng nhập vào tài khoản của bạn | ksh — University Learning Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -95,7 +95,7 @@
   <header>
     <a th:href="@{/login}" class="logo" id="logo">
       <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1E88E5"/><path d="M16 7l8 4v6c0 4.4-3.4 7.2-8 8-4.6-.8-8-3.6-8-8v-6l8-4z" fill="#fff"/><path d="M16 11l4 2-4 2-4-2 4-2z" fill="#1E88E5"/></svg>
-      ULP
+      ksh
     </a>
     <div class="header-right" id="headerRight">
       <button class="nav-btn" data-act="home">Trang chủ</button>
@@ -108,7 +108,7 @@
       <div class="split">
         <div class="panel">
           <div class="card">
-            <h1>Chào mừng bạn đến với ULP</h1>
+            <h1>Chào mừng bạn đến với ksh</h1>
             <div class="role-block">
               <p class="role-label">Chọn vai trò của bạn</p>
               <div class="select" id="roleSelect">
@@ -190,7 +190,7 @@
 
             <p class="hint" th:if="${@environment.acceptsProfiles('dev') or @environment.getProperty('app.show-test-accounts') == 'true'}">
               Tài khoản thử nghiệm (Sprint 0):<br>
-              <code>admin@ulp.edu.vn</code> · <code>lecturer@ulp.edu.vn</code> · <code>student@ulp.edu.vn</code><br>
+              <code>admin@ksh.edu.vn</code> · <code>lecturer@ksh.edu.vn</code> · <code>student@ksh.edu.vn</code><br>
               Mật khẩu: <code>password</code>
             </p>
           </div>

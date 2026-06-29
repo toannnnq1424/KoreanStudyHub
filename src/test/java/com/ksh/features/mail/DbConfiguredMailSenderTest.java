@@ -63,16 +63,16 @@ class DbConfiguredMailSenderTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "u",
                 "smtp.password", "p",
-                "smtp.from_name", "ULP Team",
-                "smtp.from_email", "noreply@ulp.edu.vn",
+                "smtp.from_name", "ksh Team",
+                "smtp.from_email", "noreply@ksh.edu.vn",
                 "smtp.reply_to", ""
         ));
 
         Address[] from = message.getFrom();
         assertThat(from).hasSize(1);
         InternetAddress addr = (InternetAddress) from[0];
-        assertThat(addr.getAddress()).isEqualTo("noreply@ulp.edu.vn");
-        assertThat(addr.getPersonal()).isEqualTo("ULP Team");
+        assertThat(addr.getAddress()).isEqualTo("noreply@ksh.edu.vn");
+        assertThat(addr.getPersonal()).isEqualTo("ksh Team");
     }
 
     @Test
@@ -84,14 +84,14 @@ class DbConfiguredMailSenderTest {
                 "smtp.username", "u",
                 "smtp.password", "p",
                 "smtp.from_name", "",   // empty
-                "smtp.from_email", "noreply@ulp.edu.vn",
+                "smtp.from_email", "noreply@ksh.edu.vn",
                 "smtp.reply_to", ""
         ));
 
         Address[] from = message.getFrom();
         assertThat(from).hasSize(1);
         InternetAddress addr = (InternetAddress) from[0];
-        assertThat(addr.getAddress()).isEqualTo("noreply@ulp.edu.vn");
+        assertThat(addr.getAddress()).isEqualTo("noreply@ksh.edu.vn");
         assertThat(addr.getPersonal()).isNull();
     }
 
@@ -103,15 +103,15 @@ class DbConfiguredMailSenderTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "u",
                 "smtp.password", "p",
-                "smtp.from_name", "ULP",
-                "smtp.from_email", "noreply@ulp.edu.vn",
-                "smtp.reply_to", "support@ulp.edu.vn"
+                "smtp.from_name", "ksh",
+                "smtp.from_email", "noreply@ksh.edu.vn",
+                "smtp.reply_to", "support@ksh.edu.vn"
         ));
 
         Address[] replyTo = message.getReplyTo();
         assertThat(replyTo).isNotEmpty();
         assertThat(((InternetAddress) replyTo[0]).getAddress())
-                .isEqualTo("support@ulp.edu.vn");
+                .isEqualTo("support@ksh.edu.vn");
     }
 
     // ─────────────────────────────────────────────────────────────────

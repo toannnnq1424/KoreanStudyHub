@@ -28,30 +28,30 @@ class ExcelParserTest {
     @Test
     void parse_returns_rows_when_file_is_valid() throws IOException {
         MultipartFile file = build(new String[]{"Email", "MSSV", "Họ tên", "SĐT"}, new String[][]{
-                {"alice@ulp.vn", "SV0001", "Alice", "0900000001"},
-                {"bob@ulp.vn",   "SV0002", "Bob",   "0900000002"}
+                {"alice@ksh.vn", "SV0001", "Alice", "0900000001"},
+                {"bob@ksh.vn",   "SV0002", "Bob",   "0900000002"}
         });
 
         ExcelParser.ParsedFile parsed = parser.parse(file);
 
         assertThat(parsed.rows()).hasSize(2);
-        assertThat(parsed.rows().get(0).email()).isEqualTo("alice@ulp.vn");
+        assertThat(parsed.rows().get(0).email()).isEqualTo("alice@ksh.vn");
         assertThat(parsed.rows().get(0).studentId()).isEqualTo("SV0001");
         assertThat(parsed.rows().get(0).fullName()).isEqualTo("Alice");
         assertThat(parsed.rows().get(0).phone()).isEqualTo("0900000001");
-        assertThat(parsed.rows().get(1).email()).isEqualTo("bob@ulp.vn");
+        assertThat(parsed.rows().get(1).email()).isEqualTo("bob@ksh.vn");
     }
 
     @Test
     void parse_accepts_aliased_and_diacritic_headers() throws IOException {
         // "E-mail" and "Mã sinh viên" must both resolve to canonical columns.
         MultipartFile file = build(new String[]{"E-mail", "Mã sinh viên", "Full Name", "Phone"}, new String[][]{
-                {"x@ulp.vn", "SV9999", "Xena", "0900000099"}
+                {"x@ksh.vn", "SV9999", "Xena", "0900000099"}
         });
 
         ExcelParser.ParsedFile parsed = parser.parse(file);
         assertThat(parsed.rows()).hasSize(1);
-        assertThat(parsed.rows().get(0).email()).isEqualTo("x@ulp.vn");
+        assertThat(parsed.rows().get(0).email()).isEqualTo("x@ksh.vn");
         assertThat(parsed.rows().get(0).studentId()).isEqualTo("SV9999");
         assertThat(parsed.rows().get(0).fullName()).isEqualTo("Xena");
         assertThat(parsed.rows().get(0).phone()).isEqualTo("0900000099");
@@ -86,7 +86,7 @@ class ExcelParserTest {
         String[] header = {"Email", "MSSV"};
         String[][] data = new String[501][2];
         for (int i = 0; i < 501; i++) {
-            data[i] = new String[]{"user" + i + "@ulp.vn", "SV" + String.format("%04d", i)};
+            data[i] = new String[]{"user" + i + "@ksh.vn", "SV" + String.format("%04d", i)};
         }
         MultipartFile file = build(header, data);
 
@@ -114,12 +114,12 @@ class ExcelParserTest {
         header.createCell(0).setCellValue("Email");
         header.createCell(1).setCellValue("MSSV");
         Row r1 = sheet.createRow(1);
-        r1.createCell(0).setCellValue("alice@ulp.vn");
+        r1.createCell(0).setCellValue("alice@ksh.vn");
         r1.createCell(1).setCellValue("SV0001");
         // r2 intentionally left blank
         sheet.createRow(2);
         Row r3 = sheet.createRow(3);
-        r3.createCell(0).setCellValue("bob@ulp.vn");
+        r3.createCell(0).setCellValue("bob@ksh.vn");
         r3.createCell(1).setCellValue("SV0002");
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();

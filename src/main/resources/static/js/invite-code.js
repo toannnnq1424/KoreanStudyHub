@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Invite code panel behavior (Members tab)
+   ksh — Invite code panel behavior (Members tab)
    - Copy button: writes data-copy to clipboard, success toast via KshToast
    - Regenerate button: gates submit behind KshModal.confirm modal
    ══════════════════════════════════════════════════════════════════════════ */

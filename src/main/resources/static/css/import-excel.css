@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Import Students from Excel — modal styles (ULP-3.4)
+   Import Students from Excel — modal styles (ksh-3.4)
    Scoped to #importExcelModal so the rules cannot bleed into other dialogs.
    Generic button visuals reuse `.add-student-btn` from class-detail.css;
    this file only ships layout-specific rules (modal frame, drop zone, table,

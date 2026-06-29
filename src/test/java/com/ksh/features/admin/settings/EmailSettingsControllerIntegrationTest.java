@@ -82,21 +82,21 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void student_forbidden() throws Exception {
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void lecturer_forbidden() throws Exception {
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("head@ulp.edu.vn")
+    @WithUserDetails("head@ksh.edu.vn")
     void head_forbidden() throws Exception {
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isForbidden());
@@ -105,7 +105,7 @@ class EmailSettingsControllerIntegrationTest {
     // ─────────────────── Form render ───────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void admin_form_renders_with_masked_password() throws Exception {
         // Set a known password so test khong phu thuoc vao seed
         repository.findBySettingKey("smtp.password").ifPresent(s -> {
@@ -124,7 +124,7 @@ class EmailSettingsControllerIntegrationTest {
     // ─────────────────── Save (POST) ───────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_valid_settings_redirects_with_success() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -133,7 +133,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "noreply@example.com")
                         .param("password", "new-secret")
-                        .param("fromName", "ULP Test")
+                        .param("fromName", "ksh Test")
                         .param("fromEmail", "noreply@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().is3xxRedirection())
@@ -148,7 +148,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_invalid_encryption_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -157,7 +157,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "bogus")  // not in {none,tls,ssl}
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().isOk())
@@ -170,7 +170,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_empty_password_preserves_existing_value() throws Exception {
         // Set up known password
         repository.findBySettingKey("smtp.password").ifPresent(s -> {
@@ -185,7 +185,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "ssl")
                         .param("username", "u")
                         .param("password", "") // empty — should keep
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().is3xxRedirection());
@@ -196,7 +196,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_masked_placeholder_also_preserves_password() throws Exception {
         repository.findBySettingKey("smtp.password").ifPresent(s -> {
             s.setSettingValue("keep-this-secret-too");
@@ -210,7 +210,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", MASKED) // masked placeholder verbatim
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().is3xxRedirection());
@@ -223,7 +223,7 @@ class EmailSettingsControllerIntegrationTest {
     // ─────────────────── Validation boundary ───────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_empty_host_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -232,7 +232,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().isOk())
@@ -244,7 +244,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_port_zero_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -253,7 +253,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().isOk())
@@ -265,7 +265,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_port_out_of_range_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -274,7 +274,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().isOk())
@@ -282,7 +282,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_port_non_numeric_returns_type_mismatch_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -291,7 +291,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().isOk());
@@ -302,7 +302,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_invalid_from_email_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -311,7 +311,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "not-an-email")
                         .param("replyTo", ""))
                 .andExpect(status().isOk())
@@ -323,7 +323,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_invalid_reply_to_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -332,7 +332,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", "not-an-email"))
                 .andExpect(status().isOk())
@@ -340,7 +340,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void save_empty_reply_to_is_accepted() throws Exception {
         // reply_to la optional — empty phai pass validation
         mockMvc.perform(post("/admin/settings/email")
@@ -350,7 +350,7 @@ class EmailSettingsControllerIntegrationTest {
                         .param("encryption", "tls")
                         .param("username", "u")
                         .param("password", "")
-                        .param("fromName", "ULP")
+                        .param("fromName", "ksh")
                         .param("fromEmail", "from@example.com")
                         .param("replyTo", ""))
                 .andExpect(status().is3xxRedirection())
@@ -360,7 +360,7 @@ class EmailSettingsControllerIntegrationTest {
     // ─────────────────── Test send ───────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void test_send_invalid_recipient_returns_json_error() throws Exception {
         mockMvc.perform(post("/admin/settings/email/test")
                         .with(csrf())
@@ -371,7 +371,7 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void test_send_empty_host_returns_specific_error() throws Exception {
         // Force smtp.host empty
         repository.findBySettingKey("smtp.host").ifPresent(s -> {

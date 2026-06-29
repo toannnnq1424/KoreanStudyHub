@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Class detail page behavior
+   ksh — Class detail page behavior
    Loaded by /lecturer/classes/{id}/*. Requires app.js (KshToast).
    ══════════════════════════════════════════════════════════════════════════ */
 

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   ULP — Lesson attachments uploader (ULP-4.0c)
+   ksh — Lesson attachments uploader (ksh-4.0c)
    Wires the drag-and-drop zone on the lesson edit page to the upload +
    delete API. Visual + behavioral style mirrors `import-excel.js` so the
    two uploaders feel like the same product.

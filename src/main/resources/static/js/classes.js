@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Class management page behavior
+   ksh — Class management page behavior
    Loaded by /lecturer/classes (manage). Requires app.js (KshModal + dropdowns).
    ══════════════════════════════════════════════════════════════════════════ */
 

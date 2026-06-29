@@ -50,9 +50,9 @@ class JoinClassConcurrencyTest {
     @Test
     @Commit
     void two_threads_race_on_last_use_yields_one_success_and_one_rejection() throws Exception {
-        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
-        User a = userRepository.findByEmailIgnoreCase("sv01@ulp.edu.vn").orElseThrow();
-        User b = userRepository.findByEmailIgnoreCase("sv02@ulp.edu.vn").orElseThrow();
+        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        User a = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
+        User b = userRepository.findByEmailIgnoreCase("sv02@ksh.edu.vn").orElseThrow();
 
         for (int iter = 0; iter < RUNS; iter++) {
             // â”€â”€ Fresh seed for each iteration â”€â”€

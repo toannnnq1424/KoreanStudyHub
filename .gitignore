@@ -34,13 +34,13 @@ build/
 ### VS Code ###
 .vscode/
 
-### ULP — secret / local config (KHONG commit) ###
+### ksh — secret / local config (KHONG commit) ###
 application-local.properties
 application-*-local.properties
 *.env
 .env
 
-### ULP — uploaded files (avatars, ...) ###
+### ksh — uploaded files (avatars, ...) ###
 uploads/
 
 # Harness durable layer

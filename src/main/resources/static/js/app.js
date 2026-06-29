@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Shared client-side behavior (vanilla JS, no framework)
+   ksh — Shared client-side behavior (vanilla JS, no framework)
    - Dropdown toggle (click trigger → open/close menu, close-on-outside-click)
    - Tab switching
    - Confirm modal helper (window.KshModal.confirm)
@@ -73,12 +73,12 @@
     if (dlg) return dlg;
     dlg = document.createElement('dialog');
     dlg.id = 'kshConfirmDialog';
-    dlg.className = 'ulp-modal';
+    dlg.className = 'ksh-modal';
     dlg.innerHTML =
-      '<form method="dialog" class="ulp-modal-form">' +
-      '  <h3 class="ulp-modal-title" data-role="title"></h3>' +
-      '  <p class="ulp-modal-body" data-role="body"></p>' +
-      '  <div class="ulp-modal-actions">' +
+      '<form method="dialog" class="ksh-modal-form">' +
+      '  <h3 class="ksh-modal-title" data-role="title"></h3>' +
+      '  <p class="ksh-modal-body" data-role="body"></p>' +
+      '  <div class="ksh-modal-actions">' +
       '    <button type="button" class="btn-ghost" data-role="cancel">Huỷ</button>' +
       '    <button type="button" class="btn-danger" data-role="confirm">OK</button>' +
       '  </div>' +

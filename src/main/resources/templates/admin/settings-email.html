@@ -113,7 +113,7 @@
           <div class="form-row">
             <label for="fromName">From Name <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="fromName" th:field="*{fromName}"
-                   placeholder="ULP" maxlength="100"
+                   placeholder="ksh" maxlength="100"
                    required aria-required="true"
                    th:attr="aria-invalid=${#fields.hasErrors('fromName')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('fromName')} ? 'fromName-error' : ''">
             <span id="fromName-error" class="field-error" role="alert"
@@ -123,7 +123,7 @@
           <div class="form-row">
             <label for="fromEmail">From Email <span class="req" aria-hidden="true">*</span></label>
             <input type="email" id="fromEmail" th:field="*{fromEmail}"
-                   placeholder="noreply@ulp.edu.vn" autocomplete="email"
+                   placeholder="noreply@ksh.edu.vn" autocomplete="email"
                    required aria-required="true"
                    th:attr="aria-invalid=${#fields.hasErrors('fromEmail')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('fromEmail')} ? 'fromEmail-error' : ''">
             <span id="fromEmail-error" class="field-error" role="alert"
@@ -133,7 +133,7 @@
           <div class="form-row">
             <label for="replyTo">Reply-To</label>
             <input type="email" id="replyTo" th:field="*{replyTo}"
-                   placeholder="support@ulp.edu.vn (tùy chọn)" autocomplete="email"
+                   placeholder="support@ksh.edu.vn (tùy chọn)" autocomplete="email"
                    th:attr="aria-invalid=${#fields.hasErrors('replyTo')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('replyTo')} ? 'replyTo-error' : ''">
             <span id="replyTo-error" class="field-error" role="alert"
                   th:if="${#fields.hasErrors('replyTo')}" th:errors="*{replyTo}">Lỗi reply to</span>

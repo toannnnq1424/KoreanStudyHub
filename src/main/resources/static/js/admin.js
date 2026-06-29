@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Admin pages behavior (dashboard chart, etc.)
+   ksh — Admin pages behavior (dashboard chart, etc.)
    Loaded by /admin/*. Requires app.js + Chart.js.
    ══════════════════════════════════════════════════════════════════════════ */
 
