@@ -1,7 +1,7 @@
 package com.ksh.utils;
 
 /**
- * String utility helpers used across features packages. Pure-static; no
+ * String utility helpers used across feature packages. Pure-static; no
  * instances. Keep this tiny — only add a method here when at least two
  * features genuinely need it (per the project's DRY-after-three-uses rule).
  */

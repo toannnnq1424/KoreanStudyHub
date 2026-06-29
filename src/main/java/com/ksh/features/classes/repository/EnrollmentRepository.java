@@ -1,7 +1,6 @@
 package com.ksh.features.classes.repository;
 
 import com.ksh.entities.Enrollment;
-import com.ksh.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,7 +21,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      * Returns all enrollments for a given class with the specified status,
      * ordered by {@code joined_at} descending (most recent first).
      *
-     * <p>Uses {@code JOIN FETCH} to eagerly load the associated {@link User}
+     * <p>Uses {@code JOIN FETCH} to eagerly load the associated {@link com.ksh.entities.User}
      * in the same query, avoiding the N+1 SELECT problem when callers access
      * {@code enrollment.getUser()} for each row.
      *
@@ -57,7 +56,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      */
     @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId AND e.classId = :classId")
     Optional<Enrollment> findByUserIdAndClassId(@Param("userId") Long userId,
-                                                @Param("classId") Long classId);
+                                                 @Param("classId") Long classId);
 
     /**
      * Returns all enrollments for the given user with the specified
@@ -72,7 +71,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
             "WHERE e.user.id = :userId AND e.status = :status " +
             "ORDER BY e.joinedAt DESC")
     List<Enrollment> findAllByUserIdAndStatusOrderByJoinedAtDesc(@Param("userId") Long userId,
-                                                                 @Param("status") String status);
+                                                                  @Param("status") String status);
 
     /**
      * Returns the number of currently ACTIVE enrollments for the

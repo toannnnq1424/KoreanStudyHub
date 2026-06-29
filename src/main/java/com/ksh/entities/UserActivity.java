@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
  * performed against a user account through the {@code /admin/users} screen.
  *
  * <p><b>Why plain {@code Long} for the foreign-key columns?</b> The
- * {@link com.ulp.auth.entity.User} entity carries
+ * {@link com.ksh.entities.User} entity carries
  * {@code @SQLRestriction("is_deleted = 0")}. A JPA {@code @ManyToOne}
  * association would route every read through that filter and silently drop
  * audit rows whose target user has been soft-deleted. Mirroring the

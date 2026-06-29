@@ -65,7 +65,7 @@ class SystemSettingsCacheTest {
         Cache cache = cacheManager.getCache(CacheConfig.CACHE_SETTINGS_GROUP);
         if (cache != null) cache.clear();
 
-        adminId = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn")
+        adminId = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn")
                 .map(u -> u.getId())
                 .orElseThrow();
     }
@@ -133,7 +133,7 @@ class SystemSettingsCacheTest {
         // Save SMTP — eviction should drop only the SMTP entry.
         EmailSettingsForm form = new EmailSettingsForm(
                 "smtp.example.com", 587, "tls", "u@example.com",
-                "", "ksh", "u@example.com", "");
+                "", "ULP", "u@example.com", "");
         emailSettingsService.save(form, adminId);
 
         assertThat(cache.get(SystemSettingGroups.SMTP))

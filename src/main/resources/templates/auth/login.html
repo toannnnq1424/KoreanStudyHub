@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đăng nhập vào tài khoản của bạn | ksh — University Learning Platform</title>
+  <title>Đăng nhập vào tài khoản của bạn | ULP — University Learning Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -95,7 +95,7 @@
   <header>
     <a th:href="@{/login}" class="logo" id="logo">
       <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1E88E5"/><path d="M16 7l8 4v6c0 4.4-3.4 7.2-8 8-4.6-.8-8-3.6-8-8v-6l8-4z" fill="#fff"/><path d="M16 11l4 2-4 2-4-2 4-2z" fill="#1E88E5"/></svg>
-      ksh
+      ULP
     </a>
     <div class="header-right" id="headerRight">
       <button class="nav-btn" data-act="home">Trang chủ</button>
@@ -108,7 +108,7 @@
       <div class="split">
         <div class="panel">
           <div class="card">
-            <h1>Chào mừng bạn đến với ksh</h1>
+            <h1>Chào mừng bạn đến với ULP</h1>
             <div class="role-block">
               <p class="role-label">Chọn vai trò của bạn</p>
               <div class="select" id="roleSelect">
@@ -190,7 +190,7 @@
 
             <p class="hint" th:if="${@environment.acceptsProfiles('dev') or @environment.getProperty('app.show-test-accounts') == 'true'}">
               Tài khoản thử nghiệm (Sprint 0):<br>
-              <code>admin@ksh.edu.vn</code> · <code>lecturer@ksh.edu.vn</code> · <code>student@ksh.edu.vn</code><br>
+              <code>admin@ulp.edu.vn</code> · <code>lecturer@ulp.edu.vn</code> · <code>student@ulp.edu.vn</code><br>
               Mật khẩu: <code>password</code>
             </p>
           </div>
@@ -209,131 +209,131 @@
     </section>
   </main>
 </div>
-<!-- Shared toast helper (defines window.KshToast). -->
+<!-- Shared toast helper (defines window.UlpToast). -->
 <script th:src="@{/js/app.js}"></script>
 <!-- Flash → toast: drain #flash-data on page load. Mirrors the pattern used
      by admin.js / class-detail.js so notification UX is consistent. -->
 <script th:inline="none">
-  (function(){
-    var fd = document.getElementById('flash-data');
-    if (!fd || !window.KshToast) return;
-    var ok = fd.getAttribute('data-flash-success');
-    var err = fd.getAttribute('data-flash-error');
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-  })();
+(function(){
+  var fd = document.getElementById('flash-data');
+  if (!fd || !window.UlpToast) return;
+  var ok = fd.getAttribute('data-flash-success');
+  var err = fd.getAttribute('data-flash-error');
+  if (ok) window.UlpToast.success(ok);
+  if (err) window.UlpToast.error(err);
+})();
 </script>
 <script th:inline="none">
-  (function(){
-    var roleLabels={lecturer:'Tôi là giảng viên',student:'Tôi là sinh viên'};
-    var titleLabels={lecturer:'Giảng viên đăng nhập',student:'Sinh viên đăng nhập'};
-    var currentRole='lecturer';
-    var roleSelect=document.getElementById('roleSelect');
-    var roleTrigger=document.getElementById('roleTrigger');
-    var roleValue=document.getElementById('roleValue');
-    var headerRight=document.getElementById('headerRight');
+(function(){
+  var roleLabels={lecturer:'Tôi là giảng viên',student:'Tôi là sinh viên'};
+  var titleLabels={lecturer:'Giảng viên đăng nhập',student:'Sinh viên đăng nhập'};
+  var currentRole='lecturer';
+  var roleSelect=document.getElementById('roleSelect');
+  var roleTrigger=document.getElementById('roleTrigger');
+  var roleValue=document.getElementById('roleValue');
+  var headerRight=document.getElementById('headerRight');
 
-    roleTrigger.addEventListener('click',function(e){
-      e.stopPropagation();
-      var open=roleSelect.classList.toggle('open');
-      roleTrigger.setAttribute('aria-expanded',open);
+  roleTrigger.addEventListener('click',function(e){
+    e.stopPropagation();
+    var open=roleSelect.classList.toggle('open');
+    roleTrigger.setAttribute('aria-expanded',open);
+  });
+  roleSelect.querySelectorAll('.option').forEach(function(opt){
+    opt.addEventListener('click',function(){
+      currentRole=opt.dataset.value;
+      roleValue.textContent=roleLabels[currentRole];
+      roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.remove('selected')});
+      opt.classList.add('selected');
+      roleSelect.classList.remove('open');
     });
-    roleSelect.querySelectorAll('.option').forEach(function(opt){
+  });
+
+  document.getElementById('continueBtn').addEventListener('click',function(){
+    document.getElementById('loginTitle').textContent=titleLabels[currentRole];
+    buildHeaderChip();
+    showScreen('login');
+    history.replaceState(null,'','#/login/'+currentRole);
+  });
+
+  function buildRoleScreenHeader(){
+    headerRight.innerHTML='<button class="nav-btn" data-act="home">Trang chủ</button><button class="nav-btn signup" data-act="signup">Đăng ký</button>';
+  }
+  function buildHeaderChip(){
+    headerRight.innerHTML='<div class="role-chip-wrap" id="chipWrap"><button class="role-chip" id="chipTrigger"><span id="chipValue">'+roleLabels[currentRole]+'</span><svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="options" role="listbox"><div class="option'+(currentRole==='lecturer'?' selected':'')+'" data-value="lecturer">Tôi là giảng viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="option'+(currentRole==='student'?' selected':'')+'" data-value="student">Tôi là sinh viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div>';
+    var chipWrap=document.getElementById('chipWrap');
+    var chipTrigger=document.getElementById('chipTrigger');
+    var chipValue=document.getElementById('chipValue');
+    chipTrigger.addEventListener('click',function(e){
+      e.stopPropagation();
+      chipTrigger.classList.toggle('open');
+      chipWrap.classList.toggle('open');
+    });
+    chipWrap.querySelectorAll('.option').forEach(function(opt){
       opt.addEventListener('click',function(){
         currentRole=opt.dataset.value;
+        chipValue.textContent=roleLabels[currentRole];
+        document.getElementById('loginTitle').textContent=titleLabels[currentRole];
         roleValue.textContent=roleLabels[currentRole];
-        roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.remove('selected')});
-        opt.classList.add('selected');
-        roleSelect.classList.remove('open');
+        roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
+        chipWrap.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
+        chipWrap.classList.remove('open');
+        chipTrigger.classList.remove('open');
+        history.replaceState(null,'','#/login/'+currentRole);
       });
     });
+  }
 
-    document.getElementById('continueBtn').addEventListener('click',function(){
-      document.getElementById('loginTitle').textContent=titleLabels[currentRole];
-      buildHeaderChip();
-      showScreen('login');
-      history.replaceState(null,'','#/login/'+currentRole);
-    });
+  function showScreen(name){
+    document.getElementById('screen-role').classList.toggle('active',name==='role');
+    document.getElementById('screen-login').classList.toggle('active',name==='login');
+    if(name==='role'){buildRoleScreenHeader();}
+  }
 
-    function buildRoleScreenHeader(){
-      headerRight.innerHTML='<button class="nav-btn" data-act="home">Trang chủ</button><button class="nav-btn signup" data-act="signup">Đăng ký</button>';
+  document.getElementById('logo').addEventListener('click',function(e){
+    e.preventDefault();showScreen('role');history.replaceState(null,'','#/');
+  });
+  document.getElementById('backToRole').addEventListener('click',function(){
+    showScreen('role');history.replaceState(null,'','#/');
+  });
+  headerRight.addEventListener('click',function(e){
+    var b=e.target.closest('[data-act]');
+    if(!b)return;
+    if(b.dataset.act==='home'){showScreen('role');history.replaceState(null,'','#/');}
+  });
+
+  document.getElementById('togglePass').addEventListener('click',function(){
+    var inp=document.getElementById('password');
+    var eye=document.getElementById('eyeIcon');
+    if(inp.type==='password'){
+      inp.type='text';
+      eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
+    }else{
+      inp.type='password';
+      eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>';
     }
-    function buildHeaderChip(){
-      headerRight.innerHTML='<div class="role-chip-wrap" id="chipWrap"><button class="role-chip" id="chipTrigger"><span id="chipValue">'+roleLabels[currentRole]+'</span><svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="options" role="listbox"><div class="option'+(currentRole==='lecturer'?' selected':'')+'" data-value="lecturer">Tôi là giảng viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="option'+(currentRole==='student'?' selected':'')+'" data-value="student">Tôi là sinh viên<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div>';
-      var chipWrap=document.getElementById('chipWrap');
-      var chipTrigger=document.getElementById('chipTrigger');
-      var chipValue=document.getElementById('chipValue');
-      chipTrigger.addEventListener('click',function(e){
-        e.stopPropagation();
-        chipTrigger.classList.toggle('open');
-        chipWrap.classList.toggle('open');
-      });
-      chipWrap.querySelectorAll('.option').forEach(function(opt){
-        opt.addEventListener('click',function(){
-          currentRole=opt.dataset.value;
-          chipValue.textContent=roleLabels[currentRole];
-          document.getElementById('loginTitle').textContent=titleLabels[currentRole];
-          roleValue.textContent=roleLabels[currentRole];
-          roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
-          chipWrap.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value===currentRole)});
-          chipWrap.classList.remove('open');
-          chipTrigger.classList.remove('open');
-          history.replaceState(null,'','#/login/'+currentRole);
-        });
-      });
+  });
+
+  document.addEventListener('click',function(){
+    roleSelect.classList.remove('open');
+    roleTrigger.setAttribute('aria-expanded','false');
+    var cw=document.getElementById('chipWrap');
+    if(cw){cw.classList.remove('open');}
+  });
+
+  // Auto-jump to login screen when there is a login error or hash route,
+  // so flashed Spring messages (now rendered as toasts) align with the form.
+  var hasFlash = document.getElementById('flash-data');
+  if(hasFlash || location.hash.indexOf('/login')>=0){
+    if(location.hash.indexOf('/login/student')>=0){
+      currentRole='student';
+      roleValue.textContent=roleLabels.student;
+      roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value==='student')});
     }
-
-    function showScreen(name){
-      document.getElementById('screen-role').classList.toggle('active',name==='role');
-      document.getElementById('screen-login').classList.toggle('active',name==='login');
-      if(name==='role'){buildRoleScreenHeader();}
-    }
-
-    document.getElementById('logo').addEventListener('click',function(e){
-      e.preventDefault();showScreen('role');history.replaceState(null,'','#/');
-    });
-    document.getElementById('backToRole').addEventListener('click',function(){
-      showScreen('role');history.replaceState(null,'','#/');
-    });
-    headerRight.addEventListener('click',function(e){
-      var b=e.target.closest('[data-act]');
-      if(!b)return;
-      if(b.dataset.act==='home'){showScreen('role');history.replaceState(null,'','#/');}
-    });
-
-    document.getElementById('togglePass').addEventListener('click',function(){
-      var inp=document.getElementById('password');
-      var eye=document.getElementById('eyeIcon');
-      if(inp.type==='password'){
-        inp.type='text';
-        eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
-      }else{
-        inp.type='password';
-        eye.innerHTML='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>';
-      }
-    });
-
-    document.addEventListener('click',function(){
-      roleSelect.classList.remove('open');
-      roleTrigger.setAttribute('aria-expanded','false');
-      var cw=document.getElementById('chipWrap');
-      if(cw){cw.classList.remove('open');}
-    });
-
-    // Auto-jump to login screen when there is a login error or hash route,
-    // so flashed Spring messages (now rendered as toasts) align with the form.
-    var hasFlash = document.getElementById('flash-data');
-    if(hasFlash || location.hash.indexOf('/login')>=0){
-      if(location.hash.indexOf('/login/student')>=0){
-        currentRole='student';
-        roleValue.textContent=roleLabels.student;
-        roleSelect.querySelectorAll('.option').forEach(function(o){o.classList.toggle('selected',o.dataset.value==='student')});
-      }
-      document.getElementById('loginTitle').textContent=titleLabels[currentRole];
-      buildHeaderChip();
-      showScreen('login');
-    }
-  })();
+    document.getElementById('loginTitle').textContent=titleLabels[currentRole];
+    buildHeaderChip();
+    showScreen('login');
+  }
+})();
 </script>
 </body>
 </html>

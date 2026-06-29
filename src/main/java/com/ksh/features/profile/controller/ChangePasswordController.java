@@ -78,10 +78,10 @@ public class ChangePasswordController {
      */
     @PostMapping("/change-password")
     public String change(@Valid @ModelAttribute("form") ProfileDtos.ChangePasswordRequest form,
-                         BindingResult result,
-                         @AuthenticationPrincipal KshUserDetails principal,
-                         Model model,
-                         RedirectAttributes ra) {
+                          BindingResult result,
+                          @AuthenticationPrincipal KshUserDetails principal,
+                          Model model,
+                          RedirectAttributes ra) {
         if (result.hasErrors()) {
             return VIEW_CHANGE_PASSWORD;
         }

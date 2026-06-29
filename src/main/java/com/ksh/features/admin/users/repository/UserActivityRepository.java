@@ -37,11 +37,11 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
      * @return one page of {@link ActivityRow}, newest first
      */
     @Query("SELECT new com.ksh.features.admin.users.dto.ActivityRow(" +
-            "  a.id, a.type, a.message, u.email, a.createdAt) " +
-            "FROM UserActivity a " +
-            "LEFT JOIN User u ON u.id = a.performedBy " +
-            "WHERE a.targetUserId = :targetUserId " +
-            "ORDER BY a.createdAt DESC, a.id DESC")
+           "  a.id, a.type, a.message, u.email, a.createdAt) " +
+           "FROM UserActivity a " +
+           "LEFT JOIN User u ON u.id = a.performedBy " +
+           "WHERE a.targetUserId = :targetUserId " +
+           "ORDER BY a.createdAt DESC, a.id DESC")
     Page<ActivityRow> findActivitiesForTargetUser(@Param("targetUserId") Long targetUserId,
                                                   Pageable pageable);
 }

@@ -48,7 +48,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found for email: " + email));
 
-        // kshUserDetails maps roles to ROLE_<name> and exposes isEnabled()/isAccountNonLocked()
+        // KshUserDetails maps roles to ROLE_<name> and exposes isEnabled()/isAccountNonLocked()
         // so that Spring Security throws DisabledException / LockedException respectively.
         return new KshUserDetails(user);
     }

@@ -5,8 +5,8 @@ import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.ClassInviteCode;
-import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassActivityRepository;
+import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * create + validation, edit + authz, soft-delete + audit.
  *
  * <p>Seed users tu V5__seed_test_users.sql:
- * lecturer@ksh.edu.vn, head@ksh.edu.vn, admin@ksh.edu.vn, student@ksh.edu.vn.
+ * lecturer@ulp.edu.vn, head@ulp.edu.vn, admin@ulp.edu.vn, student@ulp.edu.vn.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -59,9 +59,9 @@ class Sprint2ClassesIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
-        admin = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        head = userRepository.findByEmailIgnoreCase("head@ulp.edu.vn").orElseThrow();
+        admin = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn").orElseThrow();
         // We don't have a 2nd LECTURER seeded — simulate "other" via head id only when needed.
         otherLecturer = head;
     }
@@ -69,7 +69,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── List ─────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void list_lecturer_sees_only_own_classes() throws Exception {
         ClassEntity own = saveClass("Lect-Own", lecturer.getId(), "OWN01");
         ClassEntity other = saveClass("Head-Own", head.getId(), "HDA01");
@@ -81,7 +81,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void list_head_sees_all() throws Exception {
         saveClass("By-Lect", lecturer.getId(), "BYL01");
         saveClass("By-Head", head.getId(), "BYH01");
@@ -93,7 +93,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_admin_sees_all() throws Exception {
         saveClass("Admin-See-1", lecturer.getId(), "ADM01");
         saveClass("Admin-See-2", head.getId(), "ADM02");
@@ -105,7 +105,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void list_student_forbidden() throws Exception {
         mockMvc.perform(get("/lecturer/classes"))
                 .andExpect(status().isForbidden());
@@ -119,7 +119,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void list_empty_state_when_no_classes() throws Exception {
         // Defensive: purge any leaked (committed) classes for this lecturer so the
         // empty-state assertion is not flaky against manual-smoke leftovers.
@@ -138,7 +138,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Create ─────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_happy_path_persists_and_logs_activity() throws Exception {
         long before = classRepository.count();
         long activityBefore = activityRepository.count();
@@ -160,16 +160,18 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getCode()).hasSize(5);
         assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
         assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+
+        // Sprint 2.3: ClassesService.create now provisions one active
+        // CODE row and one active LINK row atomically.
         List<ClassInviteCode> tokens = inviteRepository.findAllByClassIdOrderByIdAsc(saved.getId());
         assertThat(tokens).hasSize(2);
         assertThat(tokens).allMatch(ClassInviteCode::isActive);
         assertThat(tokens).extracting(ClassInviteCode::getType)
                 .containsExactlyInAnyOrder(ClassInviteCode.TYPE_CODE, ClassInviteCode.TYPE_LINK);
-
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_blank_name_rerenders_with_inline_error() throws Exception {
         long before = classRepository.count();
 
@@ -185,7 +187,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_end_before_start_rerenders_with_date_error() throws Exception {
         long before = classRepository.count();
 
@@ -200,7 +202,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_end_equal_start_rerenders_with_date_error() throws Exception {
         long before = classRepository.count();
 
@@ -217,7 +219,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Edit ─────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void edit_by_owner_updates_and_logs_activity() throws Exception {
         ClassEntity entity = saveClass("Old", lecturer.getId(), "OLDED");
         long activityBefore = activityRepository.count();
@@ -239,7 +241,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void edit_by_non_owner_lecturer_returns_403() throws Exception {
         ClassEntity entity = saveClass("Owned by HEAD", head.getId(), "HDOWN");
         long activityBefore = activityRepository.count();
@@ -254,7 +256,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void edit_by_head_succeeds_for_any_class() throws Exception {
         ClassEntity entity = saveClass("Lect class", lecturer.getId(), "LCEDT");
 
@@ -267,7 +269,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void edit_by_admin_succeeds_for_any_class() throws Exception {
         ClassEntity entity = saveClass("Lect class admin", lecturer.getId(), "ADMED");
 
@@ -280,14 +282,14 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void edit_nonexistent_returns_404() throws Exception {
         mockMvc.perform(get("/lecturer/classes/9999999/edit"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void edit_soft_deleted_returns_404() throws Exception {
         ClassEntity entity = saveClass("Gone", lecturer.getId(), "GONE1");
         entity.softDelete();
@@ -303,7 +305,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Soft-delete ─────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void delete_by_owner_marks_deleted_and_omits_from_list() throws Exception {
         ClassEntity entity = saveClass("ToRemove", lecturer.getId(), "REMOV");
         long activityBefore = activityRepository.count();
@@ -322,7 +324,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void delete_by_non_owner_lecturer_returns_403() throws Exception {
         ClassEntity entity = saveClass("Owned head", head.getId(), "HDDEL");
 
@@ -334,7 +336,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void delete_by_admin_succeeds_on_any_class() throws Exception {
         ClassEntity entity = saveClass("Admin will delete", lecturer.getId(), "ADMDL");
 
@@ -348,14 +350,14 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Authz: STUDENT denied on all write endpoints ─────────
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void create_form_student_forbidden() throws Exception {
         mockMvc.perform(get("/lecturer/classes/new"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void post_create_student_forbidden() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Hack"))
@@ -365,7 +367,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Validation: missing edge cases ─────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_too_short_name_rerenders_with_error() throws Exception {
         long before = classRepository.count();
         mockMvc.perform(post("/lecturer/classes").with(csrf())
@@ -376,7 +378,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_max_students_zero_rerenders_with_error() throws Exception {
         long before = classRepository.count();
         mockMvc.perform(post("/lecturer/classes").with(csrf())
@@ -387,7 +389,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_with_max_students_omitted_defaults_to_100() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Default max test"))
@@ -401,7 +403,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── HEAD creates → lecturer_id = HEAD ──────────────
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void create_by_head_assigns_head_as_lecturer() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Created by head"))
@@ -415,7 +417,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Edit: code immutable + delete-twice 404 ────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void edit_does_not_change_code() throws Exception {
         ClassEntity entity = saveClass("CodeStays", lecturer.getId(), "CDST1");
         String originalCode = entity.getCode();
@@ -429,7 +431,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void delete_already_deleted_returns_404() throws Exception {
         ClassEntity entity = saveClass("DelTwice", lecturer.getId(), "DELT2");
         entity.softDelete();
@@ -444,7 +446,7 @@ class Sprint2ClassesIntegrationTest {
     // ───────────────────── Class detail tabs ─────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_root_redirects_to_board() throws Exception {
         ClassEntity c = saveClass("DetailRoot", lecturer.getId(), "DTRT1");
         mockMvc.perform(get("/lecturer/classes/" + c.getId()))
@@ -453,7 +455,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_members_renders_empty_state() throws Exception {
         ClassEntity c = saveClass("DetailMem", lecturer.getId(), "DTMM1");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/members"))
@@ -463,9 +465,12 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_settings_renders_form_prefilled() throws Exception {
         ClassEntity c = saveClass("DetailSet", lecturer.getId(), "DTSS1");
+        // Sprint 2.4 detail-page redesign: page title = class name (not the
+        // literal "Cài đặt lớp học"). The page sub-heading "Thông tin lớp"
+        // identifies the info card. The class name is reused in the title.
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/settings"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Thông tin lớp")))
@@ -473,7 +478,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_placeholder_tab_renders_label() throws Exception {
         ClassEntity c = saveClass("DetailPh", lecturer.getId(), "DTPH1");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/assignments"))
@@ -482,7 +487,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void detail_non_owner_lecturer_returns_403() throws Exception {
         ClassEntity c = saveClass("OwnedByHead", head.getId(), "OWNHD");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/board"))
@@ -490,7 +495,7 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void detail_student_forbidden() throws Exception {
         ClassEntity c = saveClass("StudCheck", lecturer.getId(), "STUDC");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/members"))

@@ -10,8 +10,6 @@ import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.classes.service.ClassesService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +20,9 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -30,7 +31,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Sprint 2.3 sprint-level integration test covering scenarios across
@@ -68,15 +72,15 @@ class ClassInviteJoinIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
-        student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        head = userRepository.findByEmailIgnoreCase("head@ulp.edu.vn").orElseThrow();
+        student = userRepository.findByEmailIgnoreCase("student@ulp.edu.vn").orElseThrow();
     }
 
     // ───────────────── Provision on create ─────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void create_class_provisions_one_active_code_and_one_active_link() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "ProvCheck")
@@ -102,7 +106,7 @@ class ClassInviteJoinIntegrationTest {
     // ───────────────── Regenerate ─────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void regenerate_by_owner_rotates_active_token() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "RegenOwner");
         String original = activeCode(c.getId());
@@ -124,7 +128,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void regenerate_by_head_on_other_lecturers_class_succeeds() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "HeadRegen");
 
@@ -134,7 +138,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void regenerate_with_invalid_type_returns_400() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "BadType");
 
@@ -144,7 +148,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void regenerate_on_soft_deleted_class_returns_404() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "GoneClass");
         c.softDelete();
@@ -159,7 +163,7 @@ class ClassInviteJoinIntegrationTest {
     // ───────────────── Settings tab (invite panel moved here in Sprint 2.4) ─────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void settings_tab_displays_active_code_and_link_url() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "SettingsDisplay");
         String activeCode = activeCode(c.getId());
@@ -177,7 +181,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void settings_default_tab_renders_info_form() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "SettingsInfo");
 
@@ -206,7 +210,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void settings_tab_invite_renders_invite_panel() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "SettingsInvite");
         String code = activeCode(c.getId());
@@ -225,7 +229,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void settings_invalid_tab_falls_back_to_info() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "SettingsBadTab");
 
@@ -240,7 +244,7 @@ class ClassInviteJoinIntegrationTest {
     // ───────────────── Join by CODE ─────────────────
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_by_code_happy_path_creates_active_enrollment() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "JoinHappy");
         String code = activeCode(c.getId());
@@ -256,7 +260,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_by_code_lowercase_input_is_normalized() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "JoinLower");
         String code = activeCode(c.getId());
@@ -268,7 +272,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_with_wrong_length_rerenders_with_field_error() throws Exception {
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", "ABC"))
                 .andExpect(status().isOk())
@@ -276,7 +280,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_with_unknown_code_rerenders_with_inline_error() throws Exception {
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", "ZZZZZZ"))
                 .andExpect(status().isOk())
@@ -284,7 +288,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_with_disabled_token_rerenders_with_inline_error() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "DisabledJoin");
         ClassInviteCode token = inviteRepository
@@ -299,7 +303,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void join_when_already_active_short_circuits_with_info_toast() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "DupJoin");
         String code = activeCode(c.getId());
@@ -318,7 +322,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void re_join_after_removed_revives_existing_row() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "ReviveJoin");
         String code = activeCode(c.getId());
@@ -349,7 +353,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void joining_cancelled_class_rerenders_with_error() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "CancelClass");
         em.createNativeQuery("UPDATE classes SET status = 'CANCELLED' WHERE id = :id")
@@ -363,13 +367,13 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void joining_full_class_rerenders_with_class_full_error() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "FullClass");
         em.createNativeQuery("UPDATE classes SET max_students = 1 WHERE id = :id")
                 .setParameter("id", c.getId()).executeUpdate();
         // Fill the only slot with another seeded student.
-        long otherUid = lookupUserId("sv01@ksh.edu.vn");
+        long otherUid = lookupUserId("sv01@ulp.edu.vn");
         em.createNativeQuery("INSERT INTO enrollments(user_id, class_id, status, joined_via) VALUES (:u, :c, 'ACTIVE', 'CODE')")
                 .setParameter("u", otherUid).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
@@ -381,7 +385,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void over_max_uses_token_rerenders_with_error() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "OverMax");
         em.createNativeQuery("UPDATE class_invite_codes SET max_uses = 1, use_count = 1 WHERE class_id = :id AND type='CODE'")
@@ -397,7 +401,7 @@ class ClassInviteJoinIntegrationTest {
     // ───────────────── Leave ─────────────────
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void leave_happy_path_marks_removed() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "LeaveHappy");
         String code = activeCode(c.getId());
@@ -415,7 +419,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void leave_when_not_enrolled_returns_404() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "LeaveNoRow");
         mockMvc.perform(post("/my/classes/" + c.getId() + "/leave").with(csrf()))
@@ -478,7 +482,7 @@ class ClassInviteJoinIntegrationTest {
         mockMvc.perform(post("/login")
                         .session(session)
                         .with(csrf())
-                        .param("username", "student@ksh.edu.vn")
+                        .param("username", "student@ulp.edu.vn")
                         .param("password", "password"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("**/j/" + linkToken + "*"));
@@ -503,14 +507,14 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void malformed_link_token_returns_404() throws Exception {
         mockMvc.perform(get("/j/foo"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void link_join_records_joined_via_link() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "LinkJoin");
         String linkToken = activeLink(c.getId());
@@ -527,7 +531,7 @@ class ClassInviteJoinIntegrationTest {
     // ───────────────── Lecturer can use student routes ─────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void lecturer_can_access_join_form() throws Exception {
         mockMvc.perform(get("/my/classes/join"))
                 .andExpect(status().isOk());

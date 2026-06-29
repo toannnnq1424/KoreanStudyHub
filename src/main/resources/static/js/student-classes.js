@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Ksh — Student classes behavior
+   ULP — Student classes behavior
    - Flash → toast on page load (success / error / info)
    - Leave-class form gated by confirm modal
    - Auto-uppercase the join-code input as the user types
@@ -10,13 +10,13 @@
 
   // ── Flash → toast on page load ─────────────────────────────────────
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
+  if (flashData && window.UlpToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
     var info = flashData.dataset.flashInfo;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-    if (info) window.KshToast.info(info);
+    if (ok) window.UlpToast.success(ok);
+    if (err) window.UlpToast.error(err);
+    if (info) window.UlpToast.info(info);
   }
 
   // ── Auto-uppercase the join code input ────────────────────────────
@@ -36,12 +36,12 @@
       e.preventDefault();
       var btn = form.querySelector('.leave-btn');
       var className = (btn && btn.dataset.className) || 'này';
-      if (!window.KshModal || !window.KshModal.confirm) {
+      if (!window.UlpModal || !window.UlpModal.confirm) {
         form.dataset.confirmed = '1';
         form.submit();
         return;
       }
-      window.KshModal.confirm({
+      window.UlpModal.confirm({
         title: 'Rời lớp học',
         body: 'Bạn có chắc muốn rời lớp ' + className + '?',
         confirmLabel: 'Rời lớp',

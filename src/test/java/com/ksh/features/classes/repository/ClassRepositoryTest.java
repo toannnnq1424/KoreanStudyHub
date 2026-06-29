@@ -38,7 +38,7 @@ class ClassRepositoryTest {
     @PersistenceContext
     private EntityManager em;
 
-    /** Seeded lecturer id (V5__seed_test_users.sql: lecturer@ksh.edu.vn). */
+    /** Seeded lecturer id (V5__seed_test_users.sql: lecturer@ulp.edu.vn). */
     private static final long SEED_LECTURER_EMAIL_ID = lookupSeedLecturerId();
 
     @AfterEach
@@ -71,8 +71,8 @@ class ClassRepositoryTest {
 
     @Test
     void find_by_lecturer_id_filters_to_owner() {
-        Long lec1 = lookupUserId("lecturer@ksh.edu.vn");
-        Long lec2 = lookupUserId("head@ksh.edu.vn"); // HEAD also seeded
+        Long lec1 = lookupUserId("lecturer@ulp.edu.vn");
+        Long lec2 = lookupUserId("head@ulp.edu.vn"); // HEAD also seeded
 
         long before = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lec1).size();
 
@@ -103,7 +103,7 @@ class ClassRepositoryTest {
         assertThat(found).as("soft-deleted row must be excluded by @SQLRestriction").isEmpty();
     }
 
-    // ─────────── Helpers ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private ClassEntity newClass(String name, String code, long lecturerId) {
         ClassEntity e = new ClassEntity(name, lecturerId, lecturerId, null, null, null, 100);

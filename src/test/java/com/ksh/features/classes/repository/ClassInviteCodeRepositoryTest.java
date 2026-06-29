@@ -1,8 +1,6 @@
 package com.ksh.features.classes.repository;
 
 import com.ksh.entities.ClassInviteCode;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -10,6 +8,9 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.Optional;
 
@@ -34,7 +35,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_class_id_and_type_returns_active_only() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
 
         ClassInviteCode active = new ClassInviteCode(classId, "ACT" + uniqueShortSuffix(), "CODE", lecturerId);
@@ -53,7 +54,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_code_and_active_returns_match_only_when_active() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "AB" + uniqueShortSuffix();
 
@@ -73,7 +74,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void find_by_code_for_update_returns_active_row() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "CD" + uniqueShortSuffix();
         repository.saveAndFlush(new ClassInviteCode(classId, value, "CODE", lecturerId));
@@ -86,7 +87,7 @@ class ClassInviteCodeRepositoryTest {
 
     @Test
     void duplicate_code_violates_unique_index() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
         String value = "DUP" + uniqueShortSuffix();
 
@@ -98,7 +99,7 @@ class ClassInviteCodeRepositoryTest {
                 .hasMessageContaining("idx_ic_code");
     }
 
-    // ─────────── helpers ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private long lookupUserId(String email) {
         Number id = (Number) em.createNativeQuery("SELECT id FROM users WHERE email = :e")
@@ -132,7 +133,7 @@ class ClassInviteCodeRepositoryTest {
     }
 
     private static String uniqueShortSuffix() {
-        // 4-char random suffix → combined with prefix yields <=10 chars
+        // 4-char random suffix â†’ combined with prefix yields <=10 chars
         // so we fit comfortably under the column length 20.
         return Long.toString(System.nanoTime() % 100000, 36).toUpperCase();
     }

@@ -13,11 +13,13 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit test for {@link ClassActivityWriter}. Verifies the JSON serialization
- * happy path, the Jackson-failure → null fallback, and the
+ * happy path, the Jackson-failure â†’ null fallback, and the
  * {@code metadata = null} short-circuit.
  */
 class ClassActivityWriterTest {

@@ -1,9 +1,9 @@
 package com.ksh.features.student.controller;
 
 import com.ksh.security.KshUserDetails;
-import com.ksh.features.classes.service.InviteCodeValidationException;
-import com.ksh.features.classes.service.InviteRejectionReason;
-import com.ksh.features.classes.service.InviteTokenGenerator;
+import com.ksh.features.classes.service.invites.InviteCodeValidationException;
+import com.ksh.features.classes.service.invites.InviteRejectionReason;
+import com.ksh.features.classes.service.invites.InviteTokenGenerator;
 import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ksh.features.classes.service.JoinClassService.JoinResult;

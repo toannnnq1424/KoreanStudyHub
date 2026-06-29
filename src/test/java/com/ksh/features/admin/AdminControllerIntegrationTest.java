@@ -27,7 +27,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Auth guards ─────────────────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_root_redirects_to_dashboard() throws Exception {
         mockMvc.perform(get("/admin"))
                 .andExpect(status().is3xxRedirection())
@@ -42,21 +42,21 @@ class AdminControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void admin_student_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void admin_lecturer_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void admin_head_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
@@ -65,7 +65,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Dashboard render ────────────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_dashboard_renders_with_stats() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isOk())
@@ -79,22 +79,24 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Placeholder tabs ────────────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_users_placeholder_renders() throws Exception {
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Tài khoản")));
     }
 
+    // ───────────────────── Settings index ──────────────────────────
+
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
-    void admin_settings_index_renders_with_email_link() throws Exception {
+    @WithUserDetails("admin@ulp.edu.vn")
+    void admin_settings_index_renders() throws Exception {
         mockMvc.perform(get("/admin/settings"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Cài đặt hệ thống")))
                 .andExpect(content().string(containsString("Email")))
-                // Spec requires the Email entry to LINK to /admin/settings/email,
-                // not just appear as plain text.
+                // Spec requires Email entry to LINK to /admin/settings/email,
+                // not just appear as text.
                 .andExpect(content().string(containsString("/admin/settings/email")));
     }
 }

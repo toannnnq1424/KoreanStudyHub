@@ -12,6 +12,8 @@ import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ksh.features.classes.service.JoinClassService.JoinResult;
 import com.ksh.features.classes.service.JoinClassService.Success;
+import com.ksh.features.classes.service.invites.InviteCodeValidationException;
+import com.ksh.features.classes.service.invites.InviteRejectionReason;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit test for {@link JoinClassService}. Covers every validation
@@ -61,7 +66,7 @@ class JoinClassServiceTest {
                 classRepository, activityWriter, userRepository);
     }
 
-    // ─────────── invalid token ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ invalid token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void unknown_token_throws_invalid() {
@@ -114,7 +119,7 @@ class JoinClassServiceTest {
                 .isEqualTo(InviteRejectionReason.EXHAUSTED);
     }
 
-    // ─────────── class status ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ class status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void soft_deleted_class_throws_not_joinable() {
@@ -180,7 +185,7 @@ class JoinClassServiceTest {
         assertThat(token.getUseCount()).isZero();
     }
 
-    // ─────────── enrollment lifecycle ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ enrollment lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void duplicate_active_returns_already_joined_without_writes() {
@@ -316,7 +321,7 @@ class JoinClassServiceTest {
         assertThat(result).isInstanceOf(Success.class);
     }
 
-    // ─────────── leave ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ leave â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void leave_happy_path_marks_removed_and_writes_audit() {
@@ -364,7 +369,7 @@ class JoinClassServiceTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    // ─────────── helpers ───────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static ClassInviteCode activeToken(String code) {
         ClassInviteCode ic = new ClassInviteCode(CLASS_ID, code,

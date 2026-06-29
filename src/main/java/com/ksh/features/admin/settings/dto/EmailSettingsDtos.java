@@ -74,3 +74,4 @@ public class EmailSettingsDtos {
     public record TestResult(boolean ok, String error) {
     }
 }
+

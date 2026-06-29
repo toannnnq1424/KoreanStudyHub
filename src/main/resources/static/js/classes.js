@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSH — Class management page behavior
-   Loaded by /lecturer/classes (manage). Requires app.js (KshModal + dropdowns).
+   ULP — Class management page behavior
+   Loaded by /lecturer/classes (manage). Requires app.js (UlpModal + dropdowns).
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -10,11 +10,11 @@
   // Backend writes flash via RedirectAttributes. Template renders them
   // into hidden #flash-data span; we read and fire iziToast here.
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
+  if (flashData && window.UlpToast) {
     var ok = flashData.dataset.flashSuccess;
     var err = flashData.dataset.flashError;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
+    if (ok) window.UlpToast.success(ok);
+    if (err) window.UlpToast.error(err);
   }
 
   // ── Sort ───────────────────────────────────────────────────────────
@@ -103,9 +103,9 @@
       if (!code) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(function () {
-          if (window.KshToast) window.KshToast.success('Đã sao chép mã ' + code);
+          if (window.UlpToast) window.UlpToast.success('Đã sao chép mã ' + code);
         }).catch(function () {
-          if (window.KshToast) window.KshToast.error('Không sao chép được, vui lòng thử lại');
+          if (window.UlpToast) window.UlpToast.error('Không sao chép được, vui lòng thử lại');
         });
       }
     });
@@ -132,9 +132,9 @@
       e.stopPropagation();
       var classId = btn.dataset.classId;
       var className = btn.dataset.className || 'lớp này';
-      if (!classId || !window.KshModal) return;
+      if (!classId || !window.UlpModal) return;
 
-      window.KshModal.confirm({
+      window.UlpModal.confirm({
         title: 'Xác nhận xoá lớp',
         body: 'Bạn có chắc chắn muốn xoá ' + className + '? Hành động này không thể hoàn tác.',
         confirmLabel: 'Xoá',

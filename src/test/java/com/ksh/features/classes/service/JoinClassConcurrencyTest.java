@@ -7,13 +7,15 @@ import com.ksh.entities.ClassInviteCode;
 import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.ksh.features.classes.service.invites.InviteCodeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,12 +50,12 @@ class JoinClassConcurrencyTest {
     @Test
     @Commit
     void two_threads_race_on_last_use_yields_one_success_and_one_rejection() throws Exception {
-        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        User a = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
-        User b = userRepository.findByEmailIgnoreCase("sv02@ksh.edu.vn").orElseThrow();
+        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        User a = userRepository.findByEmailIgnoreCase("sv01@ulp.edu.vn").orElseThrow();
+        User b = userRepository.findByEmailIgnoreCase("sv02@ulp.edu.vn").orElseThrow();
 
         for (int iter = 0; iter < RUNS; iter++) {
-            // ── Fresh seed for each iteration ──
+            // â”€â”€ Fresh seed for each iteration â”€â”€
             ClassEntity clazz = tx.execute(s -> {
                 ClassEntity c = new ClassEntity("Race-" + System.nanoTime(),
                         lecturer.getId(), lecturer.getId(), null, null, null, 100);
@@ -73,7 +75,7 @@ class JoinClassConcurrencyTest {
             final String code = token.getCode();
             final Long classId = clazz.getId();
 
-            // ── Race two threads on the same token ──
+            // â”€â”€ Race two threads on the same token â”€â”€
             CountDownLatch start = new CountDownLatch(1);
             AtomicInteger successes = new AtomicInteger();
             AtomicInteger rejections = new AtomicInteger();
@@ -128,7 +130,7 @@ class JoinClassConcurrencyTest {
                     .as("iteration %d: exactly one ACTIVE enrollment", iter)
                     .isEqualTo(1L);
 
-            // ── Cleanup ──
+            // â”€â”€ Cleanup â”€â”€
             tx.executeWithoutResult(s -> {
                 em.createNativeQuery("DELETE FROM enrollments WHERE class_id = :id")
                         .setParameter("id", classId).executeUpdate();

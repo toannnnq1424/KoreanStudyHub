@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${clazz.name} + ' | Thành viên', ~{::link.page-css})}">
-    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-    <link class="page-css" rel="stylesheet" th:href="@{/css/import-excel.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/import-excel.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -13,97 +13,97 @@
       style="display:none;"></span>
 
 <div class="class-detail-layout">
-    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'members')}"></aside>
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'members')}"></aside>
 
-    <main class="col">
-        <h1 class="detail-title">Thành viên lớp học (<span th:text="${memberTotal}">0</span>)</h1>
+  <main class="col">
+    <h1 class="detail-title">Thành viên lớp học (<span th:text="${memberTotal}">0</span>)</h1>
 
-        <section class="detail-panel">
-            <!-- Toolbar -->
-            <div class="m-toolbar">
-                <button class="filter-btn" type="button">
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                    Bộ lọc
-                    <svg class="ico ico-sm caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-                </button>
-                <div class="m-search">
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                    <input id="memberSearch" type="text" placeholder="Nhập tên hoặc email để tìm kiếm"
-                           aria-label="Tìm kiếm thành viên">
+    <section class="detail-panel">
+      <!-- Toolbar -->
+      <div class="m-toolbar">
+        <button class="filter-btn" type="button">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Bộ lọc
+          <svg class="ico ico-sm caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="m-search">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="memberSearch" type="text" placeholder="Nhập tên hoặc email để tìm kiếm"
+                 aria-label="Tìm kiếm thành viên">
+        </div>
+        <button class="export-btn" type="button" title="Xuất danh sách" disabled>
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="add-student-btn iex-trigger" type="button"
+                title="Import danh sách sinh viên từ Excel"
+                data-action="open-import-excel"
+                th:attr="data-class-id=${clazz.id}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import Excel
+        </button>
+        <a class="add-student-btn" type="button" title="Tải file Excel mẫu"
+           th:href="@{|/lecturer/classes/${clazz.id}/import-students/template|}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Tải mẫu
+        </a>
+        <button class="add-student-btn" type="button" title="Sắp ra mắt" disabled>
+          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Thêm học sinh
+        </button>
+      </div>
+
+      <!-- Table -->
+      <table class="m-table" th:if="${memberTotal > 0}">
+        <thead>
+          <tr>
+            <th>Họ và tên</th>
+            <th class="col-school">Email</th>
+            <th class="col-phone">SĐT</th>
+            <th class="col-joined center">Tham gia qua</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
+            <td>
+              <div class="stu">
+                <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
+                     th:text="${m.avatarLabel}">??</div>
+                <div>
+                  <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
+                  <div class="stu-sub" th:text="${m.email}">email</div>
                 </div>
-                <button class="export-btn" type="button" title="Xuất danh sách" disabled>
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+            </td>
+            <td class="col-school" th:text="${m.email}">email</td>
+            <td class="col-phone" th:text="${m.displayPhone()}">—</td>
+            <td class="col-joined td-center">
+              <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <button class="act-del" type="button" title="Sắp ra mắt" disabled
+                        aria-label="Xoá học sinh khỏi lớp">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
-                <button class="add-student-btn iex-trigger" type="button"
-                        title="Import danh sách sinh viên từ Excel"
-                        data-action="open-import-excel"
-                        th:attr="data-class-id=${clazz.id}">
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Import Excel
-                </button>
-                <a class="add-student-btn" type="button" title="Tải file Excel mẫu"
-                   th:href="@{|/lecturer/classes/${clazz.id}/import-students/template|}">
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Tải mẫu
-                </a>
-                <button class="add-student-btn" type="button" title="Sắp ra mắt" disabled>
-                    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                    Thêm học sinh
-                </button>
-            </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-            <!-- Table -->
-            <table class="m-table" th:if="${memberTotal > 0}">
-                <thead>
-                <tr>
-                    <th>Họ và tên</th>
-                    <th class="col-school">Email</th>
-                    <th class="col-phone">SĐT</th>
-                    <th class="col-joined center">Tham gia qua</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
-                    <td>
-                        <div class="stu">
-                            <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
-                                 th:text="${m.avatarLabel}">??</div>
-                            <div>
-                                <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
-                                <div class="stu-sub" th:text="${m.email}">email</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="col-school" th:text="${m.email}">email</td>
-                    <td class="col-phone" th:text="${m.displayPhone()}">—</td>
-                    <td class="col-joined td-center">
-                        <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
-                    </td>
-                    <td>
-                        <div class="row-actions">
-                            <button class="act-del" type="button" title="Sắp ra mắt" disabled
-                                    aria-label="Xoá học sinh khỏi lớp">
-                                <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
+      <!-- Empty state -->
+      <div class="m-empty" th:unless="${memberTotal > 0}">
+        Chưa có học sinh nào trong lớp. Mã mời đã hiển thị ở thanh bên (hoặc tại trang Cài đặt lớp học).
+      </div>
 
-            <!-- Empty state -->
-            <div class="m-empty" th:unless="${memberTotal > 0}">
-                Chưa có học sinh nào trong lớp. Mã mời đã hiển thị ở thanh bên (hoặc tại trang Cài đặt lớp học).
-            </div>
-
-            <!-- Pending placeholder -->
-            <div class="pending">
-                <h4>Chờ duyệt <span>&bull; 0</span></h4>
-                <p>Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.</p>
-            </div>
-        </section>
-    </main>
+      <!-- Pending placeholder -->
+      <div class="pending">
+        <h4>Chờ duyệt <span>&bull; 0</span></h4>
+        <p>Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.</p>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
@@ -112,126 +112,126 @@
 
 <!-- ───────────────────── Import Excel Modal (ULP-3.4) ───────────────────── -->
 <dialog id="importExcelModal" aria-labelledby="importExcelTitle">
-    <div class="iex-header">
-        <h2 id="importExcelTitle">Import danh sách sinh viên từ Excel</h2>
-        <button type="button" class="iex-close" aria-label="Đóng"
-                onclick="document.getElementById('importExcelModal').close()">&times;</button>
-    </div>
+  <div class="iex-header">
+    <h2 id="importExcelTitle">Import danh sách sinh viên từ Excel</h2>
+    <button type="button" class="iex-close" aria-label="Đóng"
+            onclick="document.getElementById('importExcelModal').close()">&times;</button>
+  </div>
 
-    <div class="iex-body">
-        <!-- ───────── Step 1: upload ───────── -->
-        <section data-step="step1">
-            <p style="color:#475569; margin-top:0;">
-                Hỗ trợ <strong>.xlsx</strong> và <strong>.xls</strong>, dung lượng tối đa <strong>2&nbsp;MB</strong>,
-                tối đa <strong>500</strong> dòng. File phải có cột Email hoặc MSSV.
-            </p>
+  <div class="iex-body">
+    <!-- ───────── Step 1: upload ───────── -->
+    <section data-step="step1">
+      <p style="color:#475569; margin-top:0;">
+        Hỗ trợ <strong>.xlsx</strong> và <strong>.xls</strong>, dung lượng tối đa <strong>2&nbsp;MB</strong>,
+        tối đa <strong>500</strong> dòng. File phải có cột Email hoặc MSSV.
+      </p>
 
-            <div id="importExcelDropArea" class="iex-drop" tabindex="0" role="button"
-                 aria-label="Kéo thả file Excel vào đây hoặc bấm để chọn">
-                <p><strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn từ máy.</p>
-                <p id="importExcelFileLabel" class="iex-filename">Chưa chọn file</p>
-                <input id="importExcelFile" type="file" accept=".xlsx,.xls" style="display:none;">
-            </div>
+      <div id="importExcelDropArea" class="iex-drop" tabindex="0" role="button"
+           aria-label="Kéo thả file Excel vào đây hoặc bấm để chọn">
+        <p><strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn từ máy.</p>
+        <p id="importExcelFileLabel" class="iex-filename">Chưa chọn file</p>
+        <input id="importExcelFile" type="file" accept=".xlsx,.xls" style="display:none;">
+      </div>
 
-            <div style="margin-top:14px; display:flex; gap:8px;">
-                <button id="importExcelTemplateBtn" type="button" class="iex-btn">Tải file mẫu</button>
-            </div>
-        </section>
+      <div style="margin-top:14px; display:flex; gap:8px;">
+        <button id="importExcelTemplateBtn" type="button" class="iex-btn">Tải file mẫu</button>
+      </div>
+    </section>
 
-        <!-- ───────── Step 2: preview ───────── -->
-        <section data-step="step2" style="display:none;">
-            <div class="iex-stats">
-                <div class="iex-stat">
-                    <span class="iex-stat-label">Tổng số dòng</span>
-                    <span id="importExcelStatTotal" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat iex-stat-ok">
-                    <span class="iex-stat-label">Sẽ import</span>
-                    <span id="importExcelStatOk" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat iex-stat-warn">
-                    <span class="iex-stat-label">Cảnh báo</span>
-                    <span id="importExcelStatWarn" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat iex-stat-error">
-                    <span class="iex-stat-label">Lỗi</span>
-                    <span id="importExcelStatErr" class="iex-stat-value">0</span>
-                </div>
-            </div>
-
-            <div class="iex-filters">
-                <button type="button" data-filter="ALL" class="is-active">Tất cả</button>
-                <button type="button" data-filter="ERROR">Lỗi</button>
-                <button type="button" data-filter="WARNING">Cảnh báo</button>
-                <button type="button" data-filter="OK">Hợp lệ</button>
-            </div>
-
-            <div class="iex-table-wrap">
-                <table class="iex-table">
-                    <thead>
-                    <tr>
-                        <th style="width:60px;">STT</th>
-                        <th style="width:180px;">Trạng thái</th>
-                        <th style="width:120px;">MSSV</th>
-                        <th>Email</th>
-                        <th>Họ tên</th>
-                        <th style="width:240px;">Ghi chú</th>
-                    </tr>
-                    </thead>
-                    <tbody id="importExcelTableBody"></tbody>
-                </table>
-            </div>
-
-            <label class="iex-skip">
-                <input id="importExcelSkipErrors" type="checkbox">
-                Bỏ qua các dòng lỗi và tiếp tục import phần hợp lệ
-            </label>
-        </section>
-
-        <!-- ───────── Step 3: summary ───────── -->
-        <section data-step="step3" style="display:none;">
-            <div class="iex-success-banner">Import hoàn tất.</div>
-            <div class="iex-summary">
-                <div class="iex-stat iex-stat-ok">
-                    <span class="iex-stat-label">Đã thêm</span>
-                    <span id="importExcelSumImported" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat iex-stat-warn">
-                    <span class="iex-stat-label">Kích hoạt lại</span>
-                    <span id="importExcelSumReactivated" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat">
-                    <span class="iex-stat-label">Bỏ qua</span>
-                    <span id="importExcelSumSkipped" class="iex-stat-value">0</span>
-                </div>
-                <div class="iex-stat iex-stat-error">
-                    <span class="iex-stat-label">Thất bại</span>
-                    <span id="importExcelSumFailed" class="iex-stat-value">0</span>
-                </div>
-            </div>
-        </section>
-    </div>
-
-    <div class="iex-footer">
-        <!-- Step 1 footer -->
-        <div data-step="step1" style="display:flex; gap:8px;">
-            <button id="importExcelCancelBtn" type="button" class="iex-btn">Huỷ</button>
-            <button id="importExcelUploadBtn" type="button" class="add-student-btn" disabled>
-                Tải lên &amp; xem trước
-            </button>
+    <!-- ───────── Step 2: preview ───────── -->
+    <section data-step="step2" style="display:none;">
+      <div class="iex-stats">
+        <div class="iex-stat">
+          <span class="iex-stat-label">Tổng số dòng</span>
+          <span id="importExcelStatTotal" class="iex-stat-value">0</span>
         </div>
-        <!-- Step 2 footer -->
-        <div data-step="step2" style="display:none; gap:8px;">
-            <button id="importExcelBackBtn" type="button" class="iex-btn">Chọn file khác</button>
-            <button id="importExcelConfirmBtn" type="button" class="add-student-btn" disabled>
-                Xác nhận import
-            </button>
+        <div class="iex-stat iex-stat-ok">
+          <span class="iex-stat-label">Sẽ import</span>
+          <span id="importExcelStatOk" class="iex-stat-value">0</span>
         </div>
-        <!-- Step 3 footer -->
-        <div data-step="step3" style="display:none;">
-            <button id="importExcelDoneBtn" type="button" class="add-student-btn">Hoàn tất</button>
+        <div class="iex-stat iex-stat-warn">
+          <span class="iex-stat-label">Cảnh báo</span>
+          <span id="importExcelStatWarn" class="iex-stat-value">0</span>
         </div>
+        <div class="iex-stat iex-stat-error">
+          <span class="iex-stat-label">Lỗi</span>
+          <span id="importExcelStatErr" class="iex-stat-value">0</span>
+        </div>
+      </div>
+
+      <div class="iex-filters">
+        <button type="button" data-filter="ALL" class="is-active">Tất cả</button>
+        <button type="button" data-filter="ERROR">Lỗi</button>
+        <button type="button" data-filter="WARNING">Cảnh báo</button>
+        <button type="button" data-filter="OK">Hợp lệ</button>
+      </div>
+
+      <div class="iex-table-wrap">
+        <table class="iex-table">
+          <thead>
+          <tr>
+            <th style="width:60px;">STT</th>
+            <th style="width:180px;">Trạng thái</th>
+            <th style="width:120px;">MSSV</th>
+            <th>Email</th>
+            <th>Họ tên</th>
+            <th style="width:240px;">Ghi chú</th>
+          </tr>
+          </thead>
+          <tbody id="importExcelTableBody"></tbody>
+        </table>
+      </div>
+
+      <label class="iex-skip">
+        <input id="importExcelSkipErrors" type="checkbox">
+        Bỏ qua các dòng lỗi và tiếp tục import phần hợp lệ
+      </label>
+    </section>
+
+    <!-- ───────── Step 3: summary ───────── -->
+    <section data-step="step3" style="display:none;">
+      <div class="iex-success-banner">Import hoàn tất.</div>
+      <div class="iex-summary">
+        <div class="iex-stat iex-stat-ok">
+          <span class="iex-stat-label">Đã thêm</span>
+          <span id="importExcelSumImported" class="iex-stat-value">0</span>
+        </div>
+        <div class="iex-stat iex-stat-warn">
+          <span class="iex-stat-label">Kích hoạt lại</span>
+          <span id="importExcelSumReactivated" class="iex-stat-value">0</span>
+        </div>
+        <div class="iex-stat">
+          <span class="iex-stat-label">Bỏ qua</span>
+          <span id="importExcelSumSkipped" class="iex-stat-value">0</span>
+        </div>
+        <div class="iex-stat iex-stat-error">
+          <span class="iex-stat-label">Thất bại</span>
+          <span id="importExcelSumFailed" class="iex-stat-value">0</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="iex-footer">
+    <!-- Step 1 footer -->
+    <div data-step="step1" style="display:flex; gap:8px;">
+      <button id="importExcelCancelBtn" type="button" class="iex-btn">Huỷ</button>
+      <button id="importExcelUploadBtn" type="button" class="add-student-btn" disabled>
+        Tải lên &amp; xem trước
+      </button>
     </div>
+    <!-- Step 2 footer -->
+    <div data-step="step2" style="display:none; gap:8px;">
+      <button id="importExcelBackBtn" type="button" class="iex-btn">Chọn file khác</button>
+      <button id="importExcelConfirmBtn" type="button" class="add-student-btn" disabled>
+        Xác nhận import
+      </button>
+    </div>
+    <!-- Step 3 footer -->
+    <div data-step="step3" style="display:none;">
+      <button id="importExcelDoneBtn" type="button" class="add-student-btn">Hoàn tất</button>
+    </div>
+  </div>
 </dialog>
 
 </body>

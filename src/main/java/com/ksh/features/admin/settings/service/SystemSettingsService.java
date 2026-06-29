@@ -19,9 +19,9 @@ import java.util.Map;
  *
  * <p>Write-through invalidation is performed by:
  * <ul>
- *   <li>{@link EmailSettingsService#save} —
+ *   <li>{@link com.ksh.features.admin.settings.service.EmailSettingsService#save} —
  *       evicts the {@code SMTP} entry.</li>
- *   <li>{@link OauthSettingsService#save} —
+ *   <li>{@link com.ksh.features.admin.settings.service.OauthSettingsService#save} —
  *       evicts the {@code OAUTH} entry.</li>
  * </ul>
  *

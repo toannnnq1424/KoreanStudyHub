@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSH — Shared client-side behavior (vanilla JS, no framework)
+   ULP — Shared client-side behavior (vanilla JS, no framework)
    - Dropdown toggle (click trigger → open/close menu, close-on-outside-click)
    - Tab switching
-   - Confirm modal helper (window.KshModal.confirm)
+   - Confirm modal helper (window.UlpModal.confirm)
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -59,26 +59,26 @@
     });
   });
 
-  // ── Confirm modal helper (window.KshModal.confirm) ─────────────────
+  // ── Confirm modal helper (window.UlpModal.confirm) ─────────────────
   // Reusable across all pages. Uses native <dialog> when available.
   // Usage:
-  //   KshModal.confirm({
+  //   UlpModal.confirm({
   //     title: 'Xác nhận xoá',
   //     body: 'Bạn có chắc muốn xoá lớp này?',
   //     confirmLabel: 'Xoá',
   //     onConfirm: function () { ... }
   //   });
   function buildDialog() {
-    var dlg = document.getElementById('kshConfirmDialog');
+    var dlg = document.getElementById('ulpConfirmDialog');
     if (dlg) return dlg;
     dlg = document.createElement('dialog');
-    dlg.id = 'kshConfirmDialog';
-    dlg.className = 'ksh-modal';
+    dlg.id = 'ulpConfirmDialog';
+    dlg.className = 'ulp-modal';
     dlg.innerHTML =
-      '<form method="dialog" class="ksh-modal-form">' +
-      '  <h3 class="ksh-modal-title" data-role="title"></h3>' +
-      '  <p class="ksh-modal-body" data-role="body"></p>' +
-      '  <div class="ksh-modal-actions">' +
+      '<form method="dialog" class="ulp-modal-form">' +
+      '  <h3 class="ulp-modal-title" data-role="title"></h3>' +
+      '  <p class="ulp-modal-body" data-role="body"></p>' +
+      '  <div class="ulp-modal-actions">' +
       '    <button type="button" class="btn-ghost" data-role="cancel">Huỷ</button>' +
       '    <button type="button" class="btn-danger" data-role="confirm">OK</button>' +
       '  </div>' +
@@ -87,7 +87,7 @@
     return dlg;
   }
 
-  window.KshModal = {
+  window.UlpModal = {
     confirm: function (opts) {
       opts = opts || {};
       var dlg = buildDialog();
@@ -136,9 +136,9 @@
 
   // ── Toast helper (wraps iziToast loaded in head.html) ──────────────
   // Usage:
-  //   KshToast.success('Đã tạo lớp NILXM');
-  //   KshToast.error('Có lỗi xảy ra');
-  //   KshToast.info('Đang xử lý...');
+  //   UlpToast.success('Đã tạo lớp NILXM');
+  //   UlpToast.error('Có lỗi xảy ra');
+  //   UlpToast.info('Đang xử lý...');
   // Falls back to console.log if iziToast script failed to load.
   function showToast(type, message, title) {
     if (!message) return;
@@ -162,7 +162,7 @@
     else window.iziToast.info(common);
   }
 
-  window.KshToast = {
+  window.UlpToast = {
     success: function (msg, title) { showToast('success', msg, title); },
     error:   function (msg, title) { showToast('error', msg, title); },
     warning: function (msg, title) { showToast('warning', msg, title); },
