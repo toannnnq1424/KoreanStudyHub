@@ -4,12 +4,12 @@ package com.ksh.common;
  * Project-wide constants shared by controllers (and any other layer that
  * benefits from the same key set). Consumers reference these unqualified via
  * a static import — interface fields are implicitly
- * {@code public static final}, so {@code import static com.ksh.common.IConstant.*}
+ * {@code public static final}, so {@code import static com.ulp.common.IConstant.*}
  * lets a class write {@code ATTR_FORM} directly without {@code IConstant.} prefix.
  *
  * <p><b>Why an interface, not a final class with statics?</b>
  * The interface stays as a namespace for the constants. Consumers pull them
- * in with {@code import static com.ksh.common.IConstant.*}, which keeps the
+ * in with {@code import static com.ulp.common.IConstant.*}, which keeps the
  * keys as an <em>implementation detail</em> of the consumer rather than
  * leaking through its public type (the classic "constant interface
  * anti-pattern" — Effective Java Item 22). Sub-interfaces can still extend
@@ -28,7 +28,7 @@ package com.ksh.common;
  * <p><b>What does NOT go here:</b>
  * <ul>
  *   <li>Entity column names — they belong on the entity.</li>
- *   <li>Role / permission strings — see {@code com.ksh.security.Roles}.</li>
+ *   <li>Role / permission strings — see {@code com.ulp.security.Roles}.</li>
  *   <li>One-off literals used by a single method — keep them inline.</li>
  *   <li>Localised UI strings once {@code MessageSource} ships — migrate to
  *       {@code messages.properties}.</li>
@@ -54,6 +54,8 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
+    String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
+    String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -83,14 +85,21 @@ public interface IConstant {
     String ATTR_FLASH_INFO    = "flashInfo";
     String ATTR_FLASH_WARNING = "flashWarning";
 
-    // Lesson-related model attribute keys (ksh-4.0b).
+    // Lesson-related model attribute keys (ULP-4.0b).
     String ATTR_LESSON          = "lesson";
     String ATTR_LESSONS         = "lessons";
     String ATTR_LESSON_ID       = "lessonId";
     String ATTR_SELECTED_LESSON = "selectedLesson";
 
-    // Lesson attachments (ksh-4.0c).
+    // Lesson attachments (ULP-4.0c).
     String ATTR_ATTACHMENTS     = "attachments";
+
+    // Student class-lessons view (ULP-4.1).
+    String ATTR_VIEW              = "view";
+    String ATTR_ACTIVE_SECTION_ID = "activeSectionId";
+
+    // Student lesson detail view (ULP-4.2).
+    String ATTR_LESSON_DETAIL     = "lessonDetail";
 
     // Lessons feature — shared cross-controller attrs
     // (used by SectionsController + LessonsController).
@@ -145,7 +154,7 @@ public interface IConstant {
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
 
-    // ───────── Lesson status discriminators (ksh-4.0b) ───────────────
+    // ───────── Lesson status discriminators (ULP-4.0b) ───────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";
     String LESSON_STATUS_PUBLISHED = "PUBLISHED";
 
@@ -163,7 +172,7 @@ public interface IConstant {
     String MSG_FORBIDDEN_FOR_CLASS = "Bạn không có quyền thao tác với lớp này.";
     String MSG_GENERIC_RETRY       = "Có lỗi xảy ra, vui lòng thử lại.";
 
-    // ───────── Lesson attachments (ksh-4.0c) Vietnamese UI text ──────
+    // ───────── Lesson attachments (ULP-4.0c) Vietnamese UI text ──────
     String MSG_ATTACHMENT_UPLOADED       = "Đã tải lên tệp đính kèm";
     String MSG_ATTACHMENT_DELETED        = "Đã xoá tệp đính kèm";
     String MSG_ATTACHMENT_INVALID        = "Tệp đính kèm không hợp lệ";
@@ -173,6 +182,10 @@ public interface IConstant {
     String MSG_ATTACHMENT_MAGIC_FAIL     = "Định dạng tệp không hợp lệ";
     String MSG_ATTACHMENT_NOT_FOUND      = "Không tìm thấy tệp đính kèm";
     String MSG_ATTACHMENT_EMPTY          = "Tệp đính kèm rỗng";
+
+    // ───────── Student class-lessons (ULP-4.1) Vietnamese UI text ────
+    String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
+    String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
     // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;
