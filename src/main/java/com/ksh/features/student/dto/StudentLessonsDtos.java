@@ -18,7 +18,7 @@ public class StudentLessonsDtos {
      * A single PUBLISHED lesson row rendered in the main panel.
      *
      * @param id          lesson primary key (used in the placeholder href
-     *                    for ksh-4.2 lesson detail)
+     *                    for ULP-4.2 lesson detail)
      * @param title       display title
      * @param sectionId   id of the owning section — kept on the row so the
      *                    template can build per-lesson links without a
@@ -59,9 +59,9 @@ public class StudentLessonsDtos {
      * One attachment row rendered on the student-facing lesson detail page.
      *
      * <p>The {@code downloadUrl} is built once by the service so the view
-     * stays free of URL string concatenation (see ksh-4.2 design D7). The
+     * stays free of URL string concatenation (see ULP-4.2 design D7). The
      * URL targets the existing endpoint exposed by capability
-     * {@code lesson-attachments} (ksh-4.0c) — no new download route.
+     * {@code lesson-attachments} (ULP-4.0c) — no new download route.
      *
      * @param id          attachment primary key
      * @param filename    original filename as uploaded by the lecturer
@@ -75,14 +75,27 @@ public class StudentLessonsDtos {
             long sizeBytes,
             String mimeType,
             String downloadUrl
-    ) { }
+    ) {
+        /**
+         * Human-readable size string (B / KB / MB). Mirrors the
+         * lecturer-side formatter in {@code lesson-attachments.js} so
+         * both surfaces show consistent units.
+         */
+        public String formattedSize() {
+            if (sizeBytes < 1024) return sizeBytes + " B";
+            if (sizeBytes < 1024L * 1024L) {
+                return String.format("%.1f KB", sizeBytes / 1024.0);
+            }
+            return String.format("%.1f MB", sizeBytes / (1024.0 * 1024.0));
+        }
+    }
 
     /**
      * Top-level view model for the student-facing lesson detail page at
      * {@code /my/classes/{classId}/lessons/{lessonId}}.
      *
      * <p>Built entirely inside the service's read transaction so the
-     * template never touches a lazy collection (see ksh-4.2 design D9).
+     * template never touches a lazy collection (see ULP-4.2 design D9).
      * All fields are nullable-safe for the template: empty content is
      * allowed (template renders a placeholder) and empty attachments
      * collapse to an absent section.

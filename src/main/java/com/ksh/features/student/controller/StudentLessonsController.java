@@ -5,7 +5,8 @@ import com.ksh.features.student.dto.StudentLessonsDtos.LessonDetailView;
 import com.ksh.features.student.dto.StudentLessonsDtos.SectionWithLessons;
 import com.ksh.features.student.service.StudentLessonDetailService;
 import com.ksh.features.student.service.StudentLessonsService;
-import com.ksh.security.kshUserDetails;
+import com.ksh.security.KshUserDetails;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -29,6 +30,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_LESSON_DETAIL;
  * <p>Authentication is gated by {@code SecurityConfig} ({@code /my/**}
  * → {@code isAuthenticated()}); the services perform the
  * enrollment-ACTIVE check and raise {@code EntityNotFoundException}
+ *  * enrollment-ACTIVE check and raise {@link EntityNotFoundException}
  * (handled centrally as HTTP 404) when the caller is not enrolled.
  *
  * <p>The {@code ?section=X} query parameter on the list endpoint selects
@@ -36,6 +38,17 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_LESSON_DETAIL;
  * not belong to this class) falls back silently to the first section
  * instead of throwing — preventing section enumeration via URL fuzzing
  * (D7).
+ * <p>Two query parameters control the list endpoint:
+ * <ul>
+ *   <li>{@code ?section=X} — selects which section's lessons render in
+ *       the rail. An invalid id falls back silently to the first section
+ *       (anti-fuzzing, D7).</li>
+ *   <li>{@code ?lesson=Y} — inlines that lesson's rich-text content into
+ *       the main panel. Must belong to the active section and pass the
+ *       same authz gates as the dedicated detail route. Invalid /
+ *       cross-section ids fall back to the hero placeholder rather than
+ *       throwing — again anti-fuzzing.</li>
+ * </ul>
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/lessons")
@@ -55,7 +68,8 @@ public class StudentLessonsController {
     @GetMapping
     public String view(@PathVariable Long classId,
                        @RequestParam(value = "section", required = false) Long sectionParam,
-                       @AuthenticationPrincipal kshUserDetails user,
+                       @RequestParam(value = "lesson", required = false) Long lessonParam,
+                       @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         ClassLessonsView view = studentLessonsService
                 .listClassLessons(classId, user.getId());
@@ -63,7 +77,33 @@ public class StudentLessonsController {
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
+
+        // Inline lesson detail when ?lesson=X is provided AND it belongs to the
+        // active section. Invalid lesson id falls back to the hero placeholder
+        // rather than 404 — preventing URL fuzzing of detail existence.
+        if (lessonParam != null && activeSectionId != null
+                && lessonBelongsToSection(view, activeSectionId, lessonParam)) {
+            try {
+                LessonDetailView detail = studentLessonDetailService
+                        .getLessonDetail(classId, lessonParam, user.getId());
+                model.addAttribute(ATTR_LESSON_DETAIL, detail);
+            } catch (EntityNotFoundException ignored) {
+                // Silently fall back to hero placeholder — caller's enrollment
+                // was already validated by listClassLessons() above.
+            }
+        }
         return VIEW_STUDENT_CLASS_LESSONS;
+    }
+    /** True when {@code lessonId} appears in the active section's lesson list. */
+    private static boolean lessonBelongsToSection(ClassLessonsView view,
+                                                  Long activeSectionId,
+                                                  Long lessonId) {
+        for (SectionWithLessons s : view.sections()) {
+            if (activeSectionId.equals(s.sectionId())) {
+                return s.lessons().stream().anyMatch(l -> lessonId.equals(l.id()));
+            }
+        }
+        return false;
     }
 
     /**
@@ -95,11 +135,13 @@ public class StudentLessonsController {
      * gates and raises {@link jakarta.persistence.EntityNotFoundException}
      * (mapped to HTTP 404 by {@code GlobalExceptionHandler}) when any
      * gate fails. The controller stays thin — no extra validation here.
+     * gates and raises {@link EntityNotFoundException} (mapped to HTTP
+     * 404 by {@code GlobalExceptionHandler}) when any gate fails.
      */
     @GetMapping("/{lessonId}")
     public String viewLesson(@PathVariable Long classId,
                              @PathVariable Long lessonId,
-                             @AuthenticationPrincipal kshUserDetails user,
+                             @AuthenticationPrincipal KshUserDetails user,
                              Model model) {
         LessonDetailView lessonDetail = studentLessonDetailService
                 .getLessonDetail(classId, lessonId, user.getId());

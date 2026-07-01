@@ -4,14 +4,18 @@
     <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
+    <!-- Top bar with back link + class name -->
     <div class="student-lessons-header">
         <a th:href="@{/my/classes}" class="student-lessons-back">
-            <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 width="16" height="16">
                 <polyline points="15 18 9 12 15 6"/>
             </svg>
             Quay lại lớp của tôi
@@ -22,55 +26,217 @@
     <!-- Class-level empty state: no sections at all -->
     <div class="student-lessons-empty-class"
          th:if="${#lists.isEmpty(view.sections())}">
-        <p>Lớp này chưa có chương</p>
+        <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_CLASS}">Lớp này chưa có chương</p>
     </div>
 
-    <!-- 2-column layout when at least one section exists -->
+    <!-- 3-column layout when at least one section exists -->
     <div class="student-lessons-grid"
          th:unless="${#lists.isEmpty(view.sections())}">
 
-        <!-- Sidebar: all live sections, in display order -->
+        <!-- LEFT SIDEBAR: class info + sections nav -->
         <aside class="student-lessons-sidebar">
-            <h2 class="student-lessons-sidebar-title">Chương</h2>
-            <ul class="student-lessons-section-list">
-                <li th:each="section : ${view.sections()}"
-                    th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
-                    class="student-lessons-section-item">
-                    <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
-                       th:text="${section.title()}">Chương 1</a>
-                </li>
-            </ul>
+            <div class="student-lessons-class-card">
+                <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
+                <p class="student-lessons-class-code">Danh sách chương</p>
+            </div>
+
+            <div>
+                <p class="student-lessons-sidebar-title">Chương</p>
+                <ul class="student-lessons-section-list">
+                    <li th:each="section : ${view.sections()}"
+                        th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
+                        class="student-lessons-section-item">
+                        <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
+                           th:text="${section.title()}">Chương 1</a>
+                    </li>
+                </ul>
+            </div>
         </aside>
 
-        <!-- Main: PUBLISHED lessons of the active section -->
+        <!-- MAIN CENTER: lesson detail when ?lesson=X is set, else hero placeholder -->
         <section class="student-lessons-main">
+            <!-- Inlined lesson detail (ULP-4.2) — renders when controller resolves ?lesson=X. -->
+            <th:block th:if="${lessonDetail != null}">
+                <h2 class="student-lessons-main-title" th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
+                <p class="student-lessons-main-subtitle"
+                   th:if="${lessonDetail.publishedAt() != null}"
+                   th:text="'Đăng ngày ' + ${#temporals.format(lessonDetail.publishedAt(), 'dd/MM/yyyy')}">
+                    Đăng ngày --/--/----
+                </p>
+
+                <!-- RICHTEXT viewer — sanitised on persistence so utext is safe. -->
+                <article class="student-lesson-detail-content"
+                         th:if="${lessonDetail.contentType() == 'RICHTEXT' and lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
+                         th:utext="${lessonDetail.contentRichtext()}">
+                    Nội dung bài giảng
+                </article>
+                <p class="student-lesson-detail-empty"
+                   th:if="${lessonDetail.contentType() == 'RICHTEXT' and (lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext()))}">
+                    Bài giảng này chưa có nội dung.
+                </p>
+
+                <!-- PDF viewer — inline embed with a fallback link for browsers
+                     without an inline PDF plugin (mobile, mostly). -->
+                <div class="lesson-pdf-viewer"
+                     th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfDownloadUrl() != null}">
+                    <embed th:src="${lessonDetail.pdfDownloadUrl()}" type="application/pdf"
+                           class="lesson-pdf-embed">
+                    <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
+                       class="lesson-pdf-fallback">Mở PDF trong tab mới</a>
+                    </embed>
+                </div>
+
+                <!-- VIDEO viewer — iframe for YouTube/Vimeo, HTML5 video for UPLOAD.
+                     The 16:9 wrapper keeps both shapes responsive. -->
+                <div class="lesson-video-viewer"
+                     th:if="${lessonDetail.contentType() == 'VIDEO' and lessonDetail.videoUrl() != null}">
+                    <div class="lesson-video-aspect">
+                        <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
+                                th:src="${lessonDetail.videoUrl()}"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen>
+                        </iframe>
+                        <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
+                               th:src="${lessonDetail.videoUrl()}"
+                               controls preload="metadata">
+                            Trình duyệt không hỗ trợ thẻ video.
+                        </video>
+                    </div>
+                </div>
+
+                <section class="student-lesson-detail-attachments"
+                         th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
+                    <h3 class="student-lesson-detail-attachments-title">Tệp đính kèm</h3>
+                    <ul class="student-lesson-detail-attachment-list">
+                        <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
+              <span class="student-lesson-detail-attachment-ext"
+                    th:text="${att.extension()}">PDF</span>
+                            <a class="student-lesson-detail-attachment-name"
+                               th:href="${att.downloadUrl()}"
+                               th:text="${att.filename()}"
+                               th:title="${att.filename()}">tệp.pdf</a>
+                            <span class="student-lesson-detail-attachment-size"
+                                  th:text="${att.formattedSize()}">— KB</span>
+                        </li>
+                    </ul>
+                </section>
+            </th:block>
+
+            <!-- Fallback hero placeholder when no lesson is selected. -->
+            <th:block th:if="${lessonDetail == null}">
+                <th:block th:each="section : ${view.sections()}"
+                          th:if="${section.sectionId() == activeSectionId}">
+                    <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
+                    <p class="student-lessons-main-subtitle">
+                        <span th:text="${#lists.size(section.lessons())}">0</span>
+                        bài giảng đã xuất bản
+                    </p>
+
+                    <div class="student-lessons-hero">
+                        <svg class="student-lessons-hero-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+                        </svg>
+                        <p class="student-lessons-hero-title">Chọn bài giảng để bắt đầu</p>
+                        <p class="student-lessons-hero-text">
+                            Nhấn vào một bài giảng ở cột bên phải để xem nội dung chi tiết của chương này.
+                        </p>
+                    </div>
+
+                    <div class="student-lessons-divider"></div>
+                    <p class="student-lessons-meta-label">Mô tả chương</p>
+                    <p class="student-lessons-meta-value">Chương này chưa có mô tả</p>
+                </th:block>
+            </th:block>
+        </section>
+
+        <!-- RIGHT RAIL: list of PUBLISHED lessons of the active section -->
+        <aside class="student-lessons-rail">
             <th:block th:each="section : ${view.sections()}"
                       th:if="${section.sectionId() == activeSectionId}">
-                <h2 class="student-lessons-main-title" th:text="${section.title()}">Tên chương</h2>
+                <div class="student-lessons-rail-header">
+                    <svg class="student-lessons-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/>
+                        <line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/>
+                        <line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    </svg>
+                    <p class="student-lessons-rail-title">Bài giảng</p>
+                    <span class="student-lessons-rail-count" th:text="${#lists.size(section.lessons())}">0</span>
+                </div>
 
                 <!-- Empty-section state -->
-                <div class="student-lessons-empty-section"
+                <div class="student-lessons-empty-rail"
                      th:if="${#lists.isEmpty(section.lessons())}">
-                    <p>Chương này chưa có bài giảng</p>
+                    <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="2" ry="2"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
                 </div>
 
                 <!-- Lesson cards -->
                 <ul class="student-lessons-lesson-list"
                     th:unless="${#lists.isEmpty(section.lessons())}">
-                    <li th:each="lesson : ${section.lessons()}" class="student-lessons-lesson-card">
-                        <a th:href="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}|}"
+                    <li th:each="lesson : ${section.lessons()}"
+                        th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
+                        class="student-lessons-lesson-card">
+                        <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${activeSectionId},lesson=${lesson.id()})}"
                            class="student-lessons-lesson-link">
-                            <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
-                            <span class="student-lessons-lesson-meta"
-                                  th:if="${lesson.publishedAt() != null}"
-                                  th:text="'Đăng ngày ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
-                Đăng ngày --/--/----
+              <span class="student-lessons-lesson-thumb">
+                <!-- Icon switches per contentType so the rail signals the
+                     viewer the student will land on. Defaults to the
+                     document icon when contentType is null (legacy rows). -->
+                <svg th:if="${lesson.contentType() == 'VIDEO'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7" fill="currentColor"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+                <svg th:if="${lesson.contentType() == 'PDF'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <text x="7" y="18" font-size="6" font-weight="700"
+                        fill="currentColor" stroke="none">PDF</text>
+                </svg>
+                <svg th:if="${lesson.contentType() == null or lesson.contentType() == 'RICHTEXT'}"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="8" y1="13" x2="16" y2="13"/>
+                  <line x1="8" y1="17" x2="16" y2="17"/>
+                  <line x1="8" y1="9" x2="10" y2="9"/>
+                </svg>
+              </span>
+                            <span class="student-lessons-lesson-body">
+                <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
+                <span class="student-lessons-lesson-meta"
+                      th:if="${lesson.publishedAt() != null}"
+                      th:text="'Đăng ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
+                  Đăng --/--/----
+                </span>
               </span>
                         </a>
                     </li>
                 </ul>
             </th:block>
-        </section>
+        </aside>
     </div>
 </main>
 
