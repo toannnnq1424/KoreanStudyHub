@@ -30,6 +30,8 @@ class PracticeServiceTest {
     private PracticeSubmissionRepository submissionRepository;
     private PracticeQuestionGroupRepository groupRepository;
     private com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
+    private com.ksh.features.practice.repository.PracticeAttemptRepository attemptRepository;
+    private com.ksh.features.practice.repository.PracticeTestRepository testRepository;
     private WritingEvaluationClient evaluationClient;
     private AnswerExplanationClient answerExplanationClient;
     private com.ksh.features.practice.service.ReadingListeningExplanationService readingListeningExplanationService;
@@ -45,6 +47,8 @@ class PracticeServiceTest {
         submissionRepository = mock(PracticeSubmissionRepository.class);
         groupRepository = mock(PracticeQuestionGroupRepository.class);
         sectionRepository = mock(com.ksh.features.practice.repository.PracticeSectionRepository.class);
+        attemptRepository = mock(com.ksh.features.practice.repository.PracticeAttemptRepository.class);
+        testRepository = mock(com.ksh.features.practice.repository.PracticeTestRepository.class);
         evaluationClient = mock(WritingEvaluationClient.class);
         answerExplanationClient = mock(AnswerExplanationClient.class);
         readingListeningExplanationService = mock(com.ksh.features.practice.service.ReadingListeningExplanationService.class);
@@ -57,6 +61,8 @@ class PracticeServiceTest {
                 submissionRepository,
                 groupRepository,
                 sectionRepository,
+                attemptRepository,
+                testRepository,
                 evaluationClient,
                 answerExplanationClient,
                 readingListeningExplanationService,
@@ -240,6 +246,100 @@ class PracticeServiceTest {
                 .filter(m -> "READING".equals(m.skill())).findFirst();
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
+    }
+
+    @Test
+    void testStartAttemptValidationAndSuccess() {
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
+        test.setId(10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        section.setId(20L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+
+        when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        when(attemptRepository.save(any(PracticeAttempt.class))).thenAnswer(invocation -> {
+            PracticeAttempt att = invocation.getArgument(0);
+            java.lang.reflect.Field idField = PracticeAttempt.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(att, 99L);
+            return att;
+        });
+
+        Long attemptId = practiceService.startAttempt(1L, 10L, 20L, 2L);
+        assertEquals(99L, attemptId);
+    }
+
+    @Test
+    void testStartAttemptReuseExisting() {
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
+        test.setId(10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        section.setId(20L);
+
+        PracticeAttempt existingAttempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        java.lang.reflect.Field idField;
+        try {
+            idField = PracticeAttempt.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(existingAttempt, 88L);
+        } catch (Exception e) {}
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+
+        when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(2L, 10L, 20L, "IN_PROGRESS"))
+                .thenReturn(Optional.of(existingAttempt));
+
+        Long attemptId = practiceService.startAttempt(1L, 10L, 20L, 2L);
+        assertEquals(88L, attemptId);
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void testStartAttemptInvalidSectionIdThrows() {
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
+        test.setId(10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        section.setId(20L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        // Section not found
+        when(sectionRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> {
+            practiceService.startAttempt(1L, 10L, 999L, 2L);
+        });
+    }
+
+    @Test
+    void testStartAttemptSectionNotBelongingToTestThrows() {
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
+        test.setId(10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(9999L); // mismatch testId
+        section.setId(20L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            practiceService.startAttempt(1L, 10L, 20L, 2L);
+        });
     }
 }
 

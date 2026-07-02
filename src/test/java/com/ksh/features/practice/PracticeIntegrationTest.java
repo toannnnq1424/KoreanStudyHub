@@ -8,6 +8,12 @@ import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSubmissionRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeTestRepository;
+import com.ksh.features.practice.repository.PracticeSectionRepository;
+import com.ksh.entities.PracticeAttempt;
+import com.ksh.entities.PracticeTest;
+import com.ksh.entities.PracticeSection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +51,15 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeSubmissionRepository submissionRepository;
+
+    @Autowired
+    private PracticeAttemptRepository attemptRepository;
+
+    @Autowired
+    private PracticeTestRepository testRepository;
+
+    @Autowired
+    private PracticeSectionRepository sectionRepository;
 
     @Autowired
     private com.ksh.features.practice.repository.PracticeDraftRepository draftRepository;
@@ -485,5 +500,143 @@ class PracticeIntegrationTest {
         List<PracticeQuestion> revertedQs = questionRepository.findBySetIdOrderByDisplayOrderAsc(publishedSet.getId());
         assertThat(revertedQs).isNotEmpty();
         assertThat(revertedQs.get(0).getPrompt()).isEqualTo("Câu 1 ban đầu");
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testSectionAttemptsFlow() throws Exception {
+        // 1. Create and save a PracticeTest
+        PracticeTest test = new PracticeTest(practiceSet.getId(), "Test 1", 1);
+        test = testRepository.saveAndFlush(test);
+
+        // 2. Create Reading and Writing sections
+        PracticeSection readingSec = new PracticeSection(practiceSet.getId(), "Phần Đọc", "READING", "MCQ", "Đọc kỹ", 40, BigDecimal.TEN, 1);
+        readingSec.setTestId(test.getId());
+        readingSec = sectionRepository.saveAndFlush(readingSec);
+
+        PracticeSection writingSec = new PracticeSection(practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
+        writingSec.setTestId(test.getId());
+        writingSec = sectionRepository.saveAndFlush(writingSec);
+
+        // --- Test 1: Start Reading ---
+        // Post request to create attempt for Reading section
+        String redirectUrl = mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(readingSec.getId()))
+                        .param("mode", "practice"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        assertThat(redirectUrl).contains("/practice/attempts/");
+        String attemptIdStr = redirectUrl.substring(redirectUrl.indexOf("/attempts/") + 10, redirectUrl.indexOf("?"));
+        Long readingAttemptId = Long.parseLong(attemptIdStr);
+
+        // Verify PracticeAttempt was created correctly, and NO PracticeSubmission was created
+        PracticeAttempt readingAttempt = attemptRepository.findById(readingAttemptId).orElseThrow();
+        assertThat(readingAttempt.getSectionId()).isEqualTo(readingSec.getId());
+        assertThat(readingAttempt.getSkill()).isEqualTo("READING");
+        assertThat(readingAttempt.getTestId()).isEqualTo(test.getId());
+        assertThat(readingAttempt.getStatus()).isEqualTo("IN_PROGRESS");
+
+        List<PracticeSubmission> submissions = submissionRepository.findAll();
+        assertThat(submissions).isEmpty();
+
+        // --- Test 2: Start Writing ---
+        String redirectUrl2 = mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(writingSec.getId()))
+                        .param("mode", "practice"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+
+        String attemptIdStr2 = redirectUrl2.substring(redirectUrl2.indexOf("/attempts/") + 10, redirectUrl2.indexOf("?"));
+        Long writingAttemptId = Long.parseLong(attemptIdStr2);
+        PracticeAttempt writingAttempt = attemptRepository.findById(writingAttemptId).orElseThrow();
+        assertThat(writingAttempt.getSectionId()).isEqualTo(writingSec.getId());
+        assertThat(writingAttempt.getSkill()).isEqualTo("WRITING");
+        assertThat(writingAttempt.getId()).isNotEqualTo(readingAttemptId);
+
+        // --- Test 3: Restart Reading (reuses existing IN_PROGRESS attempt) ---
+        String redirectUrl3 = mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(readingSec.getId()))
+                        .param("mode", "practice"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+        String attemptIdStr3 = redirectUrl3.substring(redirectUrl3.indexOf("/attempts/") + 10, redirectUrl3.indexOf("?"));
+        Long readingAttemptId3 = Long.parseLong(attemptIdStr3);
+        assertThat(readingAttemptId3).isEqualTo(readingAttemptId);
+
+        // --- Test 4: SectionId mismatch testId ---
+        PracticeSection mismatchedSec = new PracticeSection(practiceSet.getId(), "Mismatched", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 3);
+        mismatchedSec.setTestId(99999L);
+        mismatchedSec = sectionRepository.saveAndFlush(mismatchedSec);
+
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(mismatchedSec.getId())))
+                .andExpect(status().is4xxClientError());
+
+        // --- Test 5: SectionId mismatch setId ---
+        PracticeSet anotherSet = new PracticeSet("Another", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", lecturer.getId());
+        anotherSet = setRepository.saveAndFlush(anotherSet);
+        PracticeSection anotherSetSec = new PracticeSection(anotherSet.getId(), "Phần Khác", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 1);
+        anotherSetSec.setTestId(test.getId());
+        anotherSetSec = sectionRepository.saveAndFlush(anotherSetSec);
+
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(anotherSetSec.getId())))
+                .andExpect(status().is4xxClientError());
+
+        // --- Test 6: Set skill=MIXED, section skill=READING -> attempt skill is READING ---
+        practiceSet.setSkill("MIXED");
+        setRepository.saveAndFlush(practiceSet);
+
+        String redirectUrlMixed = mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(readingSec.getId()))
+                        .param("mode", "practice"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+        String attemptIdStrMixed = redirectUrlMixed.substring(redirectUrlMixed.indexOf("/attempts/") + 10, redirectUrlMixed.indexOf("?"));
+        Long mixedAttemptId = Long.parseLong(attemptIdStrMixed);
+        PracticeAttempt mixedAttempt = attemptRepository.findById(mixedAttemptId).orElseThrow();
+        assertThat(mixedAttempt.getSkill()).isEqualTo("READING");
+
+        // --- Test 7: Player access (only loads current section) ---
+        mockMvc.perform(get("/practice/attempts/" + readingAttemptId))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/player"))
+                .andExpect(model().attributeExists("view"))
+                .andExpect(model().attribute("activeSectionTitle", "Phần Đọc"))
+                .andExpect(model().attribute("activeSectionSkill", "READING"));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void testPlayerAccessDeniedForOtherUser() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId()))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testDiscardAttempt() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/discard")
+                        .with(csrf())
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", "1"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(attemptRepository.findById(attempt.getId())).isEmpty();
     }
 }

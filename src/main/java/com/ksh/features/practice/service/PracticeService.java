@@ -34,6 +34,10 @@ import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSubmissionRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeTestRepository;
+import com.ksh.entities.PracticeAttempt;
+import com.ksh.entities.PracticeTest;
 import com.ksh.common.storage.AudioStorageService;
 import com.ksh.entities.PracticeSection;
 import org.slf4j.Logger;
@@ -60,6 +64,8 @@ public class PracticeService {
     private final PracticeSubmissionRepository submissionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeSectionRepository sectionRepository;
+    private final PracticeAttemptRepository attemptRepository;
+    private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
     private final AnswerExplanationClient answerExplanationClient;
     private final ReadingListeningExplanationService readingListeningExplanationService;
@@ -71,6 +77,8 @@ public class PracticeService {
                            PracticeSubmissionRepository submissionRepository,
                            PracticeQuestionGroupRepository groupRepository,
                            PracticeSectionRepository sectionRepository,
+                           PracticeAttemptRepository attemptRepository,
+                           PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
                            AnswerExplanationClient answerExplanationClient,
                            ReadingListeningExplanationService readingListeningExplanationService,
@@ -81,6 +89,8 @@ public class PracticeService {
         this.submissionRepository = submissionRepository;
         this.groupRepository = groupRepository;
         this.sectionRepository = sectionRepository;
+        this.attemptRepository = attemptRepository;
+        this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
         this.answerExplanationClient = answerExplanationClient;
         this.readingListeningExplanationService = readingListeningExplanationService;
@@ -1085,27 +1095,127 @@ public class PracticeService {
         return writeJson(feedback);
     }
 
-    @Transactional
-    public Long startAttempt(Long setId, Long userId) {
-        PracticeSet set = loadPublished(setId);
-        List<PracticeSubmission> existing = submissionRepository.findBySetIdAndUserIdOrderByCreatedAtDesc(setId, userId);
-        for (PracticeSubmission s : existing) {
-            if (PracticeSubmission.STATUS_IN_PROGRESS.equals(s.getStatus())) {
-                log.info("[PracticeService] Reusing existing IN_PROGRESS attempt id={} for user={}", s.getId(), userId);
-                return s.getId();
+    @Transactional(readOnly = true)
+    public PracticeSection getSection(Long sectionId) {
+        return sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+    }
+
+    @Transactional(readOnly = true)
+    public PracticeAttempt getPracticeAttempt(Long attemptId, Long userId) {
+        return attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Lượt làm bài không tồn tại"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PracticeSection> getSectionsForTest(Long setId, Long testId) {
+        return sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId).stream()
+                .filter(s -> testId.equals(s.getTestId()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, PracticeAttempt> getInProgressAttemptsBySection(Long testId, Long userId) {
+        List<PracticeAttempt> attempts = attemptRepository.findByTestIdAndUserIdOrderByCreatedAtDesc(testId, userId);
+        Map<Long, PracticeAttempt> map = new LinkedHashMap<>();
+        for (PracticeAttempt att : attempts) {
+            if (PracticeAttempt.STATUS_IN_PROGRESS.equals(att.getStatus())) {
+                map.putIfAbsent(att.getSectionId(), att);
             }
         }
-        
-        PracticeSubmission submission = new PracticeSubmission(
-                setId,
-                userId,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                "{}",
-                null
-        );
-        submission.setStatus(PracticeSubmission.STATUS_IN_PROGRESS);
-        PracticeSubmission saved = submissionRepository.save(submission);
+        return map;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PracticeQuestionGroupRow> getQuestionGroupsForSection(Long setId, Long sectionId) {
+        List<PracticeQuestionGroup> dbGroups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        List<PracticeQuestion> dbQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        List<PracticeSection> allSections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+
+        List<PracticeQuestionGroup> secGroups = dbGroups.stream()
+                .filter(g -> sectionId.equals(g.getSectionId()))
+                .toList();
+
+        List<PracticeQuestionGroupRow> groups = new ArrayList<>();
+        if (!secGroups.isEmpty()) {
+            for (PracticeQuestionGroup g : secGroups) {
+                List<PracticeQuestionRow> qRows = dbQuestions.stream()
+                        .filter(q -> g.getId().equals(q.getGroupId()))
+                        .map(this::toQuestionRow)
+                        .toList();
+                groups.add(toGroupRow(g, qRows));
+            }
+        } else {
+            if (allSections.size() == 1) {
+                List<PracticeQuestionRow> orphanQuestions = dbQuestions.stream()
+                        .filter(q -> q.getGroupId() == null)
+                        .map(this::toQuestionRow)
+                        .toList();
+                if (!orphanQuestions.isEmpty()) {
+                    groups.add(new PracticeQuestionGroupRow(
+                            null,
+                            "Phần thi",
+                            1,
+                            orphanQuestions.size(),
+                            null,
+                            null,
+                            null,
+                            orphanQuestions
+                    ));
+                }
+            } else {
+                throw new IllegalStateException("Không thể xác định câu hỏi cho sectionId=" + sectionId 
+                        + " vì nhóm câu hỏi rỗng và bộ đề có nhiều phần.");
+            }
+        }
+        return groups;
+    }
+
+    @Transactional
+    public Long startAttempt(Long setId, Long testId, Long sectionId, Long userId) {
+        PracticeSet set = setRepository.findById(setId)
+                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
+        if (!PracticeSet.STATUS_PUBLISHED.equals(set.getStatus())) {
+            throw new EntityNotFoundException("Bộ luyện tập chưa được xuất bản");
+        }
+
+        PracticeTest test = testRepository.findById(testId)
+                .orElseThrow(() -> new EntityNotFoundException("Bài thi không tồn tại"));
+        if (!setId.equals(test.getSetId())) {
+            throw new IllegalArgumentException("Bài thi không thuộc bộ luyện tập này");
+        }
+
+        PracticeSection section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+        if (!setId.equals(section.getSetId())) {
+            throw new IllegalArgumentException("Section không thuộc bộ luyện tập này");
+        }
+        if (!testId.equals(section.getTestId())) {
+            throw new IllegalArgumentException("Section không thuộc bài thi này");
+        }
+
+        String skill = section.getSkill();
+        if (skill == null || (!"READING".equals(skill) && !"LISTENING".equals(skill) &&
+            !"WRITING".equals(skill) && !"SPEAKING".equals(skill))) {
+            throw new IllegalArgumentException("Skill không hợp lệ");
+        }
+
+        Optional<PracticeAttempt> existing = attemptRepository
+                .findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
+                        userId, testId, sectionId, PracticeAttempt.STATUS_IN_PROGRESS);
+
+        if (existing.isPresent()) {
+            PracticeAttempt attempt = existing.get();
+            if (setId.equals(attempt.getSetId()) && skill.equals(attempt.getSkill())) {
+                log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={} for user={}", attempt.getId(), userId);
+                return attempt.getId();
+            }
+        }
+
+        PracticeAttempt attempt = new PracticeAttempt(userId, setId, testId, skill, sectionId);
+        attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+        PracticeAttempt saved = attemptRepository.save(attempt);
+        log.info("[PracticeService] Created new PracticeAttempt id={} for user={} section={}", saved.getId(), userId, sectionId);
         return saved.getId();
     }
 
@@ -1182,13 +1292,13 @@ public class PracticeService {
 
     @Transactional
     public void saveInProgressAnswers(Long attemptId, Long userId, Map<String, String> form) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(attemptId, userId)
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
 
         Map<String, String> currentAnswers = new LinkedHashMap<>();
-        if (submission.getAnswersJson() != null && !submission.getAnswersJson().isBlank()) {
+        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
             try {
-                currentAnswers.putAll(objectMapper.readValue(submission.getAnswersJson(), new TypeReference<Map<String, String>>() {}));
+                currentAnswers.putAll(objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {}));
             } catch (Exception e) {
                 log.warn("[saveInProgress] Failed to parse previous answers JSON", e);
             }
@@ -1202,19 +1312,20 @@ public class PracticeService {
             }
         }
 
-        submission.updateEvaluation(BigDecimal.ZERO, BigDecimal.ZERO, writeJson(currentAnswers), null);
-        submission.setStatus(PracticeSubmission.STATUS_IN_PROGRESS);
+        attempt.setAnswersJson(writeJson(currentAnswers));
+        attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+        attemptRepository.save(attempt);
     }
 
     @Transactional
     public void discardAttempt(Long attemptId, Long userId) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(attemptId, userId)
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt làm bài"));
-        if (!PracticeSubmission.STATUS_IN_PROGRESS.equals(submission.getStatus())) {
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
             throw new IllegalStateException("Chỉ có thể hủy lượt làm bài chưa hoàn thành.");
         }
-        submissionRepository.delete(submission);
-        log.info("[PracticeService] Discarded in-progress attempt id={} for user={}", attemptId, userId);
+        attemptRepository.delete(attempt);
+        log.info("[PracticeService] Discarded in-progress PracticeAttempt id={} for user={}", attemptId, userId);
     }
 
     @Transactional(readOnly = true)

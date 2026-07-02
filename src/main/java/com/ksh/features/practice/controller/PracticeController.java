@@ -9,6 +9,8 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.User;
+import com.ksh.entities.PracticeAttempt;
+import com.ksh.entities.PracticeSection;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
@@ -125,29 +127,13 @@ public class PracticeController {
                              @AuthenticationPrincipal KshUserDetails user,
                              Model model) {
         PracticeSetView view = practiceService.getPractice(setId);
-        List<PracticeSubmission> allAttempts = practiceService.getAttempts(setId, user.getId());
-        List<PracticeSubmission> attempts = allAttempts.stream()
-                .filter(s -> !PracticeSubmission.STATUS_IN_PROGRESS.equals(s.getStatus()))
-                .toList();
-
-        java.util.Optional<PracticeSubmission> inProgressAttempt = allAttempts.stream()
-                .filter(s -> PracticeSubmission.STATUS_IN_PROGRESS.equals(s.getStatus()))
-                .findFirst();
-
-        if (inProgressAttempt.isPresent()) {
-            model.addAttribute("inProgressAttempt", inProgressAttempt.get());
-        }
+        List<PracticeSection> testSections = practiceService.getSectionsForTest(setId, testId);
+        Map<Long, PracticeAttempt> inProgressAttempts = practiceService.getInProgressAttemptsBySection(testId, user.getId());
 
         model.addAttribute("view", view);
         model.addAttribute("testId", testId);
-        model.addAttribute("attempts", attempts);
-
-        java.math.BigDecimal bestScore = attempts.stream()
-                .map(PracticeSubmission::getScore)
-                .filter(java.util.Objects::nonNull)
-                .max(java.util.Comparator.naturalOrder())
-                .orElse(java.math.BigDecimal.ZERO);
-        model.addAttribute("bestScore", bestScore);
+        model.addAttribute("sections", testSections);
+        model.addAttribute("inProgressAttempts", inProgressAttempts);
 
         return "practice/test-detail";
     }
@@ -180,45 +166,35 @@ public class PracticeController {
     @PostMapping("/sets/{setId}/tests/{testId}/attempts")
     public String createAttempt(@PathVariable Long setId,
                                 @PathVariable Long testId,
+                                @RequestParam("sectionId") Long sectionId,
                                 @RequestParam(value = "mode", defaultValue = "practice") String mode,
                                 @AuthenticationPrincipal KshUserDetails user) {
-        Long attemptId = practiceService.startAttempt(setId, user.getId());
+        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
         return "redirect:/practice/attempts/" + attemptId + "?mode=" + mode;
     }
 
     @GetMapping(Routes.ATTEMPT)
     public String attempt(@PathVariable Long attemptId,
                           @RequestParam(value = "mode", defaultValue = "practice") String mode,
-                          @RequestParam(value = "sectionIndex", defaultValue = "0") int sectionIndex,
                           @AuthenticationPrincipal KshUserDetails user,
                           Model model) {
-        PracticeSubmission submission = practiceService.getPracticeSubmission(attemptId, user.getId());
-        if (!PracticeSubmission.STATUS_IN_PROGRESS.equals(submission.getStatus())) {
-            log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, submission.getStatus());
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, attempt.getStatus());
             return "redirect:/practice/attempts/" + attemptId + "/result";
         }
-        PracticeSetView view = practiceService.getPractice(submission.getSetId());
-
-        List<com.ksh.entities.PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(submission.getSetId());
         
-        List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow> filteredGroups = view.groups();
-        String activeTitle = view.set().title();
-        String activeSkill = view.set().skill();
-        int activeDurationSeconds = 2400; // 40 mins default
-
-        if (!sections.isEmpty() && sectionIndex < sections.size()) {
-            com.ksh.entities.PracticeSection activeSec = sections.get(sectionIndex);
-            activeTitle = activeSec.getTitle();
-            activeSkill = activeSec.getSkill();
-            activeDurationSeconds = activeSec.getDurationMinutes() != null ? activeSec.getDurationMinutes() * 60 : 2400;
-            
-            // Filter groups belonging to this section (or with null sectionId as fallback)
-            filteredGroups = view.groups().stream()
-                    .filter(g -> g.sectionId() == null || activeSec.getId().equals(g.sectionId()))
-                    .toList();
+        PracticeSection section = practiceService.getSection(attempt.getSectionId());
+        if (!attempt.getSetId().equals(section.getSetId()) ||
+            !attempt.getTestId().equals(section.getTestId()) ||
+            !attempt.getSkill().equals(section.getSkill())) {
+            throw new IllegalArgumentException("Section metadata mismatch with attempt");
         }
 
-        // Build filtered SetView
+        PracticeSetView view = practiceService.getPractice(attempt.getSetId());
+        List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow> filteredGroups =
+                practiceService.getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+
         com.ksh.features.practice.dto.PracticeDtos.PracticeSetView filteredView = 
                 new com.ksh.features.practice.dto.PracticeDtos.PracticeSetView(view.set(), filteredGroups);
 
@@ -226,12 +202,11 @@ public class PracticeController {
         model.addAttribute("mode", mode);
         model.addAttribute("attemptId", attemptId);
         
-        // Pass timer details
-        model.addAttribute("activeSectionTitle", activeTitle);
-        model.addAttribute("activeSectionSkill", activeSkill);
-        model.addAttribute("activeSectionDuration", activeDurationSeconds);
-        model.addAttribute("sectionIndex", sectionIndex);
-        model.addAttribute("totalSections", sections.size());
+        model.addAttribute("activeSectionTitle", section.getTitle());
+        model.addAttribute("activeSectionSkill", section.getSkill());
+        model.addAttribute("activeSectionDuration", section.getDurationMinutes() != null ? section.getDurationMinutes() * 60 : 2400);
+        model.addAttribute("sectionIndex", 0);
+        model.addAttribute("totalSections", 1);
 
         return "practice/player";
     }
