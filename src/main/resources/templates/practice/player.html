@@ -6,7 +6,7 @@
 </head>
 <body class="ksh-room-shell">
 <form class="ksh-room"
-      th:action="@{/practice/attempts/{id}/submit(id=${attemptId},mode=${mode},sectionIndex=0)}"
+      th:action="@{/practice/attempts/{id}/submit(id=${attemptId},mode=${mode},sectionIndex=${sectionIndex})}"
       method="post"
       autocomplete="off"
       th:attr="data-mode=${mode}">

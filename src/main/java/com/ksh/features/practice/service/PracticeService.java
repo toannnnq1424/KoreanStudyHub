@@ -1206,7 +1206,12 @@ public class PracticeService {
 
         if (existing.isPresent()) {
             PracticeAttempt attempt = existing.get();
-            if (setId.equals(attempt.getSetId()) && skill.equals(attempt.getSkill())) {
+            if (setId.equals(attempt.getSetId()) &&
+                testId.equals(attempt.getTestId()) &&
+                sectionId.equals(attempt.getSectionId()) &&
+                skill.equals(attempt.getSkill()) &&
+                userId.equals(attempt.getUserId()) &&
+                PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
                 log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={} for user={}", attempt.getId(), userId);
                 return attempt.getId();
             }
@@ -1294,6 +1299,10 @@ public class PracticeService {
     public void saveInProgressAnswers(Long attemptId, Long userId, Map<String, String> form) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
+
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể lưu nháp cho lượt làm bài chưa hoàn thành.");
+        }
 
         Map<String, String> currentAnswers = new LinkedHashMap<>();
         if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {

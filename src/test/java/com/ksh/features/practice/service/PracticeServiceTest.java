@@ -341,5 +341,54 @@ class PracticeServiceTest {
             practiceService.startAttempt(1L, 10L, 20L, 2L);
         });
     }
+
+    @Test
+    void testSaveInProgressAnswersSuccess() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        Map<String, String> form = Map.of("answer_101", "3", "other_field", "value");
+        practiceService.saveInProgressAnswers(99L, 2L, form);
+
+        assertEquals("{\"101\":\"3\"}", attempt.getAnswersJson());
+        verify(attemptRepository).save(attempt);
+    }
+
+    @Test
+    void testSaveInProgressAnswersNotInProgressThrows() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        assertThrows(IllegalStateException.class, () -> {
+            practiceService.saveInProgressAnswers(99L, 2L, Map.of());
+        });
+    }
+
+    @Test
+    void testDiscardAttemptSuccess() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        practiceService.discardAttempt(99L, 2L);
+        verify(attemptRepository).delete(attempt);
+    }
+
+    @Test
+    void testDiscardAttemptNotInProgressThrows() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        assertThrows(IllegalStateException.class, () -> {
+            practiceService.discardAttempt(99L, 2L);
+        });
+    }
 }
 

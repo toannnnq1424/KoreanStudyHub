@@ -639,4 +639,48 @@ class PracticeIntegrationTest {
 
         assertThat(attemptRepository.findById(attempt.getId())).isEmpty();
     }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn") // different user
+    void testDiscardAttemptDeniedForOtherUser() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/discard")
+                        .with(csrf())
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", "1"))
+                .andExpect(status().is4xxClientError());
+
+        assertThat(attemptRepository.findById(attempt.getId())).isPresent();
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testDiscardAttemptDeniedForSubmittedAndGraded() throws Exception {
+        PracticeAttempt attemptSubmitted = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        attemptSubmitted.setStatus("SUBMITTED");
+        attemptSubmitted = attemptRepository.saveAndFlush(attemptSubmitted);
+
+        mockMvc.perform(post("/practice/attempts/" + attemptSubmitted.getId() + "/discard")
+                        .with(csrf())
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", "1"))
+                .andExpect(status().is4xxClientError());
+
+        assertThat(attemptRepository.findById(attemptSubmitted.getId())).isPresent();
+
+        PracticeAttempt attemptGraded = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        attemptGraded.setStatus("GRADED");
+        attemptGraded = attemptRepository.saveAndFlush(attemptGraded);
+
+        mockMvc.perform(post("/practice/attempts/" + attemptGraded.getId() + "/discard")
+                        .with(csrf())
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", "1"))
+                .andExpect(status().is4xxClientError());
+
+        assertThat(attemptRepository.findById(attemptGraded.getId())).isPresent();
+    }
 }
