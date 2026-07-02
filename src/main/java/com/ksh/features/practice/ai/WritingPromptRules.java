@@ -201,22 +201,42 @@ public final class WritingPromptRules {
                     - Đây là dạng điền chỗ trống trong bài viết TOPIK.
                     - Đánh giá sự hòa hợp nghĩa trước/sau chỗ trống và độ chính xác của vĩ tố liên kết.
                     - Điểm cao khi đáp án ngắn, tự nhiên, đúng logic, đúng văn phong.
+                    - KHÔNG yêu cầu bố cục mở/thân/kết (no essay organization/structure requirement).
+                    - Tiêu chí chấm:
+                      * Hoàn thành đúng nội dung & ngữ cảnh: Đánh giá câu trả lời phù hợp logic trước/sau chỗ trống.
+                      * Ngữ pháp & cấu trúc câu: Đánh giá độ chính xác của vĩ tố liên kết và cấu trúc ngữ pháp.
+                      * Từ vựng, register & tính tự nhiên: Đánh giá từ vựng phù hợp ngữ cảnh, văn phong viết trang trọng.
                     """;
             case "Q53" -> """
                     [YÊU CẦU CÂU 53 - BIỂU ĐỒ 200~300자]
-                    - Mô tả khách quan số liệu/xu hướng; không đưa ý kiến cá nhân.
+                    - Mô tả khách quan số liệu/xu hướng; không đưa ý kiến cá nhân (objective written style).
+                    - Tuyệt đối KHÔNG tự bịa dữ kiện, số liệu ngoài đề bài (no fabricated data/statistics rule).
                     - Phạt nặng nếu dùng 나, 저, 생각한다, 느낀다 theo kiểu chủ quan.
                     - Ưu tiên cấu trúc ~에 따르면, ~ㄴ 것으로 나타났다, ~ㄹ 전망이다.
+                    - Tiêu chí chấm:
+                      * Hoàn thành nhiệm vụ & Nội dung: Đánh giá độ bao phủ dữ liệu (data/task coverage) từ biểu đồ.
+                      * Cấu trúc & Bố cục đoạn văn: Đánh giá tính mạch lạc logic và cách sử dụng các từ nối chuyển ý (organization anchors).
+                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Đánh giá chính tả, cách chữ, từ vựng và cấu trúc viết trang trọng (language anchors).
                     """;
             case "Q54" -> """
                     [YÊU CẦU CÂU 54 - NGHỊ LUẬN 600~700자]
-                    - Bố cục mở-thân-kết rõ.
+                    - Bố cục mở-thân-kết rõ ràng (organization anchors).
                     - Trả lời đầy đủ từng gợi ý của đề. Thiếu một ý gợi ý phải trừ mạnh tiêu chí nội dung.
-                    - Cần lập luận, ví dụ, liên kết logic và văn phong nghị luận.
+                    - Phải có luận điểm rõ ràng (thesis/argument coverage), phát triển ý kiến bằng lý do, giải thích hoặc ví dụ thực tế (reasons/examples/development).
+                    - Cần lập luận chặt chẽ, liên kết logic và văn phong nghị luận trang trọng.
+                    - Tiêu chí chấm:
+                      * Hoàn thành nhiệm vụ & Nội dung: Trả lời đầy đủ 3 câu hỏi gợi ý của đề bài và phát triển luận điểm thuyết phục.
+                      * Cấu trúc & Bố cục đoạn văn: Đầy đủ 3 phần mở-thân-kết, sử dụng từ nối chuyển đoạn logic.
+                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Sử dụng từ vựng trung-cao cấp phong phú, ngữ pháp phức tạp chính xác (language anchors).
                     """;
             default -> """
                     [YÊU CẦU BÀI VIẾT CHUNG]
                     - Đánh giá mạch lạc, chính tả, cách chữ, tính tự nhiên và độ phù hợp với đề.
+                    - Đây là bài viết chung (GENERAL), KHÔNG được tự ý ép thành câu hỏi mô tả biểu đồ Q53 hay câu nghị luận xã hội Q54 (no forcing into Q53 or Q54).
+                    - Tiêu chí chấm:
+                      * Hoàn thành nhiệm vụ & Nội dung: Đánh giá độ phù hợp với đề bài và ý tưởng.
+                      * Cấu trúc & Bố cục đoạn văn: Đánh giá bố cục đoạn văn, sự mạch lạc giữa các câu.
+                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Đánh giá độ chính xác của ngữ pháp, từ vựng và chính tả.
                     """;
         };
     }

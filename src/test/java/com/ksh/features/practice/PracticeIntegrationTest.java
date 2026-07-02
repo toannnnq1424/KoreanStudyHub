@@ -96,6 +96,9 @@ class PracticeIntegrationTest {
         student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
 
+        attemptRepository.deleteAll();
+        submissionRepository.deleteAll();
+
         // Seed a published practice set
         practiceSet = new PracticeSet(
                 "TOPIK II - Đọc hiểu 35",
@@ -329,6 +332,68 @@ class PracticeIntegrationTest {
                 .andExpect(model().attributeExists("analytics"))
                 .andExpect(model().attributeExists("overviewJson"))
                 .andExpect(model().attributeExists("analyticsJson"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testProgressUsesPracticeAttemptSkillAndLinks() throws Exception {
+        practiceSet.setSkill("MIXED");
+        setRepository.saveAndFlush(practiceSet);
+
+        PracticeAttempt readingAttempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        readingAttempt.markGraded(BigDecimal.valueOf(8), BigDecimal.TEN, "{}", "{}");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        PracticeSection writingSection = new PracticeSection(
+                practiceSet.getId(), "Pháº§n Viáº¿t", "WRITING", "ESSAY", "Viáº¿t luáº­n", 50, BigDecimal.TEN, 2);
+        writingSection.setTestId(defaultTest.getId());
+        writingSection = sectionRepository.saveAndFlush(writingSection);
+
+        PracticeAttempt writingAttempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "WRITING", writingSection.getId());
+        writingAttempt.markGraded(BigDecimal.valueOf(7), BigDecimal.TEN, "{}", "{}");
+        writingAttempt = attemptRepository.saveAndFlush(writingAttempt);
+
+        mockMvc.perform(get("/practice/progress"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("skill\\\":\\\"READING\\\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("skill\\\":\\\"WRITING\\\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("skill\\\":\\\"MIXED\\\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/attempts/" + readingAttempt.getId() + "/result")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/attempts")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"" + writingSection.getId() + "\"")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testProgressInProgressAttemptShowsContinueOnly() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(get("/practice/progress"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/attempts/" + attempt.getId())))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/practice/attempts/" + attempt.getId() + "/result"))));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testProgressDoesNotShowOtherUsersAttemptsOrCreateSubmission() throws Exception {
+        PracticeAttempt otherUserAttempt = new PracticeAttempt(
+                lecturer.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        otherUserAttempt.markGraded(BigDecimal.valueOf(8), BigDecimal.TEN, "{}", "{}");
+        otherUserAttempt = attemptRepository.saveAndFlush(otherUserAttempt);
+        long submissionsBefore = submissionRepository.count();
+
+        mockMvc.perform(get("/practice/progress"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/practice/attempts/" + otherUserAttempt.getId()))))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("pp-empty-state")));
+
+        assertThat(submissionRepository.count()).isEqualTo(submissionsBefore);
     }
 
     @Test

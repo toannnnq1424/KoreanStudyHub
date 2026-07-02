@@ -358,60 +358,28 @@ class WritingEvaluationClientTest {
     // ---- Helpers ----
 
     private RestClient setupMockRestClient(String responseJson, AtomicInteger postCallCount) {
-        return new RestClient() {
-            @Override
-            public RequestBodyUriSpec post() {
-                postCallCount.incrementAndGet();
-                return new RequestBodyUriSpec() {
-                    @Override public RequestBodySpec uri(String uri, Object... uriVars) { return this; }
-                    @Override public RequestBodySpec uri(java.net.URI uri) { return this; }
-                    @Override public RequestBodySpec uri(String uri, java.util.Map<String, ?> uriVars) { return this; }
-                    @Override public RequestBodySpec uri(org.springframework.web.util.UriBuilderFactory factory, java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI> fn) { return this; }
-                    @Override public RequestBodySpec contentType(org.springframework.http.MediaType type) { return this; }
-                    @Override public RequestBodySpec body(Object body) { return this; }
-                    @Override public <T> RequestBodySpec body(T body, org.springframework.core.ParameterizedTypeReference<T> type) { return this; }
-                    @Override public RequestBodySpec accept(org.springframework.http.MediaType... types) { return this; }
-                    @Override public RequestBodySpec acceptCharset(java.nio.charset.Charset... charsets) { return this; }
-                    @Override public RequestBodySpec contentLength(long length) { return this; }
-                    @Override public RequestBodySpec cookie(String name, String... values) { return this; }
-                    @Override public RequestBodySpec cookies(java.util.function.Consumer<org.springframework.util.MultiValueMap<String, String>> consumer) { return this; }
-                    @Override public RequestBodySpec header(String name, String... values) { return this; }
-                    @Override public RequestBodySpec headers(java.util.function.Consumer<org.springframework.http.HttpHeaders> consumer) { return this; }
-                    @Override public RequestBodySpec ifModifiedSince(java.time.ZonedDateTime time) { return this; }
-                    @Override public RequestBodySpec ifModifiedSince(java.time.Instant instant) { return this; }
-                    @Override public RequestBodySpec ifNoneMatch(String... tags) { return this; }
-                    @Override public RequestBodySpec httpRequestFactory(org.springframework.http.client.ClientHttpRequestFactory factory) { return this; }
-                    @Override
-                    public ResponseSpec retrieve() {
-                        return new ResponseSpec() {
-                            @SuppressWarnings("unchecked")
-                            @Override
-                            public <T> T body(Class<T> bodyType) {
-                                try {
-                                    String rawResponse = "{\"choices\":[{\"message\":{\"content\":" 
-                                            + objectMapper.writeValueAsString(responseJson) + "}}]}";
-                                    return (T) rawResponse;
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                            @Override public <T> T body(org.springframework.core.ParameterizedTypeReference<T> type) { return null; }
-                            @Override public <T> org.springframework.http.ResponseEntity<T> toEntity(Class<T> type) { return null; }
-                            @Override public <T> org.springframework.http.ResponseEntity<T> toEntity(org.springframework.core.ParameterizedTypeReference<T> type) { return null; }
-                            @Override public org.springframework.http.ResponseEntity<Void> toBodilessEntity() { return null; }
-                            @Override public ResponseSpec onStatus(java.util.function.Predicate<org.springframework.http.HttpStatusCode> pred, ResponseSpec.ErrorHandler handler) { return this; }
-                        };
-                    }
-                };
+        RestClient restClient = mock(RestClient.class);
+        RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
+        RestClient.RequestBodySpec requestBodySpec = mock(RestClient.RequestBodySpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+
+        when(restClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any(Object.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any(), any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(any(Class.class))).thenAnswer(inv -> {
+            postCallCount.incrementAndGet();
+            try {
+                return "{\"choices\":[{\"message\":{\"content\":" 
+                        + objectMapper.writeValueAsString(responseJson) + "}}]}";
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-            @Override public RequestHeadersUriSpec<?> get() { return null; }
-            @Override public RequestHeadersUriSpec<?> head() { return null; }
-            @Override public RequestBodyUriSpec put() { return null; }
-            @Override public RequestBodyUriSpec patch() { return null; }
-            @Override public RequestHeadersUriSpec<?> delete() { return null; }
-            @Override public RequestHeadersUriSpec<?> options() { return null; }
-            @Override public RequestBodyUriSpec method(org.springframework.http.HttpMethod m) { return null; }
-            @Override public Builder mutate() { return null; }
-        };
+        });
+
+        return restClient;
     }
 }

@@ -399,4 +399,116 @@ class WritingEvaluationNormalizerTest {
     void testDeriveScoreFromRubricsEmpty() {
         assertEquals(1.0, WritingEvaluationNormalizer.deriveScoreFromRubrics(List.of()));
     }
+
+    // ---- Task-specific raw max and score validation ----
+
+    @Test
+    void testNormalizerScoringTaskSpecificMax() throws Exception {
+        String baseJson = """
+        {
+          "summary": "OK",
+          "rubric_scores": [
+            {"name": "%s", "score": 9.0, "feedback": "Best"},
+            {"name": "%s", "score": 9.0, "feedback": "Best"},
+            {"name": "%s", "score": 9.0, "feedback": "Best"}
+          ],
+          "strengths": [], "needs_improvement": []
+        }
+        """;
+
+        // Q51_52: max 10.0
+        List<String> r51 = WritingPromptRules.rubricNamesForTask("Q51_52");
+        String json51 = String.format(baseJson, r51.get(0), r51.get(1), r51.get(2));
+        JsonNode root51 = objectMapper.readTree(normalizer.normalize(json51, "Q51_52", "답안", null));
+        assertEquals(9.0, root51.path("score").asDouble());
+        assertEquals(10.0, root51.path("raw_score_max").asDouble());
+        assertEquals(10.0, root51.path("raw_score").asDouble());
+
+        // Q53: max 30.0
+        List<String> r53 = WritingPromptRules.rubricNamesForTask("Q53");
+        String json53 = String.format(baseJson, r53.get(0), r53.get(1), r53.get(2));
+        JsonNode root53 = objectMapper.readTree(normalizer.normalize(json53, "Q53", "답안", null));
+        assertEquals(9.0, root53.path("score").asDouble());
+        assertEquals(30.0, root53.path("raw_score_max").asDouble());
+        assertEquals(30.0, root53.path("raw_score").asDouble());
+
+        // Q54: max 50.0
+        List<String> r54 = WritingPromptRules.rubricNamesForTask("Q54");
+        String json54 = String.format(baseJson, r54.get(0), r54.get(1), r54.get(2));
+        JsonNode root54 = objectMapper.readTree(normalizer.normalize(json54, "Q54", "답안", null));
+        assertEquals(9.0, root54.path("score").asDouble());
+        assertEquals(50.0, root54.path("raw_score_max").asDouble());
+        assertEquals(50.0, root54.path("raw_score").asDouble());
+
+        // GENERAL: max 100.0
+        List<String> rGen = WritingPromptRules.rubricNamesForTask("GENERAL");
+        String jsonGen = String.format(baseJson, rGen.get(0), rGen.get(1), rGen.get(2));
+        JsonNode rootGen = objectMapper.readTree(normalizer.normalize(jsonGen, "GENERAL", "답안", null));
+        assertEquals(9.0, rootGen.path("score").asDouble());
+        assertEquals(100.0, rootGen.path("raw_score_max").asDouble());
+        assertEquals(100.0, rootGen.path("raw_score").asDouble());
+    }
+
+    // ---- Duplicate, missing, and wrong-task rubrics validation ----
+
+    @Test
+    void testNormalizerSafeHandlingOfMissingDuplicateAndWrongTaskRubrics() throws Exception {
+        // 1. Missing rubric scores entirely or partially
+        String missingJson = """
+        {
+          "summary": "OK",
+          "rubric_scores": [
+            {"name": "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score": 8.0, "feedback": "Good"}
+          ],
+          "strengths": [], "needs_improvement": []
+        }
+        """;
+        JsonNode rootMissing = objectMapper.readTree(normalizer.normalize(missingJson, "Q53", "답안", null));
+        JsonNode rubricsMissing = rootMissing.path("rubric_scores");
+        assertEquals(3, rubricsMissing.size()); // Normalizer must enforce exactly 3 rubrics for Q53
+        assertEquals(8.0, rubricsMissing.get(0).path("score").asDouble());
+        assertEquals(1.0, rubricsMissing.get(1).path("score").asDouble()); // Fallback missing to 1.0
+        assertEquals(1.0, rubricsMissing.get(2).path("score").asDouble()); // Fallback missing to 1.0
+        // final average: clampAndRound((8 + 1 + 1)/3) = clampAndRound(3.33) = 3.5
+        assertEquals(3.5, rootMissing.path("score").asDouble());
+
+        // 2. Duplicate rubrics in output (should select the first matching and discard duplicates)
+        String duplicateJson = """
+        {
+          "summary": "OK",
+          "rubric_scores": [
+            {"name": "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score": 8.0, "feedback": "First"},
+            {"name": "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score": 5.0, "feedback": "Second"},
+            {"name": "Cấu trúc & Bố cục đoạn văn (글의 전개 구조)", "score": 7.0, "feedback": "OK"},
+            {"name": "Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)", "score": 6.0, "feedback": "OK"}
+          ],
+          "strengths": [], "needs_improvement": []
+        }
+        """;
+        JsonNode rootDuplicate = objectMapper.readTree(normalizer.normalize(duplicateJson, "Q53", "답안", null));
+        JsonNode rubricsDuplicate = rootDuplicate.path("rubric_scores");
+        assertEquals(3, rubricsDuplicate.size());
+        assertEquals(8.0, rubricsDuplicate.get(0).path("score").asDouble()); // Must pick the first matching score 8.0, not 5.0
+        assertEquals(7.0, rubricsDuplicate.get(1).path("score").asDouble());
+        assertEquals(6.0, rubricsDuplicate.get(2).path("score").asDouble());
+
+        // 3. Wrong-task rubrics (e.g., input Q51_52 task but AI returns Q53 essay rubrics)
+        String wrongTaskJson = """
+        {
+          "summary": "OK",
+          "rubric_scores": [
+            {"name": "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score": 8.0, "feedback": "Essay content"},
+            {"name": "Cấu trúc & Bố cục đoạn văn (글의 전개 구조)", "score": 7.0, "feedback": "Essay structure"}
+          ],
+          "strengths": [], "needs_improvement": []
+        }
+        """;
+        JsonNode rootWrong = objectMapper.readTree(normalizer.normalize(wrongTaskJson, "Q51_52", "답안", null));
+        JsonNode rubricsWrong = rootWrong.path("rubric_scores");
+        assertEquals(3, rubricsWrong.size()); // Enforces Q51_52 rubrics
+        assertEquals(1.0, rubricsWrong.get(0).path("score").asDouble()); // Fallback expected Q51_52 rubric 1 to 1.0
+        assertEquals(1.0, rubricsWrong.get(1).path("score").asDouble()); // Fallback expected Q51_52 rubric 2 to 1.0
+        assertEquals(1.0, rubricsWrong.get(2).path("score").asDouble()); // Fallback expected Q51_52 rubric 3 to 1.0
+        assertEquals(1.0, rootWrong.path("score").asDouble());
+    }
 }

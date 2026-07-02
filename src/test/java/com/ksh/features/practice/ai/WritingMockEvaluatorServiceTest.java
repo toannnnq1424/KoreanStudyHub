@@ -64,4 +64,32 @@ class WritingMockEvaluatorServiceTest {
         assertTrue(root.has("raw_score_max"));
         assertTrue(root.has("band_label"));
     }
+
+    @Test
+    void testMockEvaluatorQ51_52Compatibility() throws Exception {
+        WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
+                "Q51_52", 15, "글자 수: 15자.", List.of()
+        );
+        String mockOutput = mockEvaluator.evaluate(
+                "Prompt Q51_52", "한국어를 공부하다", analysis, "Test Q51_52 compatibility"
+        );
+
+        String normalized = normalizer.normalize(mockOutput);
+        JsonNode root = objectMapper.readTree(normalized);
+
+        // Score must not be fallback 1.0
+        assertTrue(root.path("score").asDouble() > 1.0, "Score should not fallback to 1.0");
+        assertEquals("Q51_52", root.path("task_type").asText());
+
+        JsonNode rubrics = root.path("rubric_scores");
+        assertEquals(3, rubrics.size());
+
+        assertEquals(WritingPromptRules.RUBRIC_Q51_52_CONTENT, rubrics.get(0).path("name").asText());
+        assertEquals(WritingPromptRules.RUBRIC_Q51_52_GRAMMAR, rubrics.get(1).path("name").asText());
+        assertEquals(WritingPromptRules.RUBRIC_Q51_52_VOCAB, rubrics.get(2).path("name").asText());
+
+        assertTrue(rubrics.get(0).path("score").asDouble() > 1.0);
+        assertTrue(rubrics.get(1).path("score").asDouble() > 1.0);
+        assertTrue(rubrics.get(2).path("score").asDouble() > 1.0);
+    }
 }

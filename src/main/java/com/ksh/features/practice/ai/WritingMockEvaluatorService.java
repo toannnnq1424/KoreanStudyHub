@@ -78,10 +78,11 @@ public class WritingMockEvaluatorService {
     }
 
     private static List<Map<String, Object>> mockRubrics(double score, WritingRuleEngine.RuleAnalysis ruleAnalysis) {
+        List<String> names = WritingPromptRules.rubricNamesForTask(ruleAnalysis.taskType());
         return List.of(
-                rubric(WritingPromptRules.RUBRIC_CONTENT, score, "Mock: đánh giá dựa trên mức độ có nội dung tiếng Hàn và độ dài bài làm."),
-                rubric(WritingPromptRules.RUBRIC_STRUCTURE, Math.max(1.0, score - 0.5), "Mock: cần AI thật để đọc sâu logic triển khai; hiện hệ thống chỉ kiểm tra dấu hiệu bố cục cơ bản."),
-                rubric(WritingPromptRules.RUBRIC_LANGUAGE, Math.max(1.0, score - Math.min(1.0, ruleAnalysis.ruleViolations().size() * 0.25)), "Mock: đã phát hiện khẩu ngữ/cảnh báo ký tự bằng rule engine.")
+                rubric(names.get(0), score, "Mock: đánh giá dựa trên mức độ có nội dung tiếng Hàn và độ dài bài làm."),
+                rubric(names.get(1), Math.max(1.0, score - 0.5), "Mock: cần AI thật để đọc sâu logic triển khai; hiện hệ thống chỉ kiểm tra dấu hiệu bố cục cơ bản."),
+                rubric(names.get(2), Math.max(1.0, score - Math.min(1.0, ruleAnalysis.ruleViolations().size() * 0.25)), "Mock: đã phát hiện khẩu ngữ/cảnh báo ký tự bằng rule engine.")
         );
     }
 
