@@ -26,9 +26,20 @@
 <!-- Main Shell: Two-column layout -->
 <div class="rl-det-shell" th:data-option-label-mode="${result.optionLabelMode}">
   
-  <!-- Left Panel: Passage Text or Audio -->
-  <section class="rl-det-left-panel" id="rl-det-left-panel">
-    <div th:each="g, iter : ${result.groups()}"
+  <th:block th:if="${#lists.isEmpty(result.groups())}">
+    <div class="rl-empty-state" style="padding: 40px; text-align: center; max-width: 600px; margin: 40px auto; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); width: 100%;">
+      <p style="margin-bottom: 20px; color: var(--muted);">Không tìm thấy dữ liệu câu hỏi cho lượt làm này.</p>
+      <a th:href="@{/practice/attempts/{id}/result(id=${result.submissionId()})}" class="rl-det-back-btn" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; background: var(--primary); color: white; border-radius: 6px; text-decoration: none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Quay lại kết quả
+      </a>
+    </div>
+  </th:block>
+
+  <th:block th:unless="${#lists.isEmpty(result.groups())}">
+    <!-- Left Panel: Passage Text or Audio -->
+    <section class="rl-det-left-panel" id="rl-det-left-panel">
+      <div th:each="g, iter : ${result.groups()}"
          th:id="'passage-group-' + ${iter.index}"
          class="rl-passage-group-container"
          th:classappend="${iter.first} ? 'active' : 'hidden'">
@@ -160,11 +171,12 @@
       </div>
     </div>
   </aside>
+  </th:block>
 
 </div>
 
 <!-- Fixed Bottom Group Navigator -->
-<footer class="rl-det-navigator">
+<footer class="rl-det-navigator" th:unless="${#lists.isEmpty(result.groups())}">
   <div class="rl-nav-scroll-wrapper">
     <button th:each="g, iter : ${result.groups()}"
             th:classappend="${iter.first} ? 'active' : ''"

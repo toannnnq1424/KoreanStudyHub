@@ -5,6 +5,8 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
+import com.ksh.entities.PracticeAttempt;
+import com.ksh.entities.PracticeSection;
 import com.ksh.features.practice.ai.AnswerExplanationClient;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
 import com.ksh.features.practice.dto.PracticeDtos.*;
@@ -148,24 +150,33 @@ class PracticeServiceTest {
 
     @Test
     void testReEvaluateNotFound() {
-        when(submissionRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.empty());
+        when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class, () -> practiceService.reEvaluate(1L, 2L));
     }
 
     @Test
     void testReEvaluateSuccess() {
-        PracticeSubmission sub = new PracticeSubmission(1L, 2L, BigDecimal.TEN, BigDecimal.TEN, "{}", "{}");
-        when(submissionRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(sub));
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"10\":\"Tôi học tiếng Hàn.\"}");
+        setEntityId(attempt, 1L);
+        when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
         PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
-        PracticeQuestion q = mock(PracticeQuestion.class);
-        when(q.getId()).thenReturn(10L);
-        when(q.getQuestionNo()).thenReturn(54);
-        when(q.getQuestionType()).thenReturn("ESSAY");
-        when(q.getPrompt()).thenReturn("Q");
-        when(q.getPoints()).thenReturn(BigDecimal.valueOf(50));
+        PracticeSection section = new PracticeSection(1L, "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findById(any())).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+
+        PracticeQuestion q = new PracticeQuestion(
+                1L, 54, "ESSAY", "Q",
+                "[]", "", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(50.0), 0
+        );
+        setEntityId(q, 10L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
         when(evaluationClient.evaluate(anyString(), anyString(), anyBoolean())).thenReturn("{\"score\":6.0,\"overall_score\":6.0}");
@@ -176,18 +187,29 @@ class PracticeServiceTest {
 
     @Test
     void testGetResult() {
-        PracticeSubmission sub = new PracticeSubmission(1L, 2L, BigDecimal.TEN, BigDecimal.TEN, "{}", "{}");
-        when(submissionRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(sub));
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"10\":\"3\"}");
+        attempt.setScore(BigDecimal.TEN);
+        attempt.setTotalPoints(BigDecimal.TEN);
+        setEntityId(attempt, 1L);
+        when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
         PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
-        PracticeQuestion q = mock(PracticeQuestion.class);
-        when(q.getId()).thenReturn(10L);
-        when(q.getQuestionNo()).thenReturn(1);
-        when(q.getQuestionType()).thenReturn("MCQ");
-        when(q.getPrompt()).thenReturn("Q");
-        when(q.getPoints()).thenReturn(BigDecimal.valueOf(5));
+        PracticeSection section = new PracticeSection(1L, "Section 1", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findById(any())).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+
+        PracticeQuestion q = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q, 10L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
         PracticeResultView view = practiceService.getResult(1L, 2L);
@@ -247,15 +269,24 @@ class PracticeServiceTest {
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
     }
+    private void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field idField = entity.getClass().getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Test
     void testStartAttemptValidationAndSuccess() {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
-        test.setId(10L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
-        section.setId(20L);
+        setEntityId(section, 20L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
@@ -266,9 +297,7 @@ class PracticeServiceTest {
 
         when(attemptRepository.save(any(PracticeAttempt.class))).thenAnswer(invocation -> {
             PracticeAttempt att = invocation.getArgument(0);
-            java.lang.reflect.Field idField = PracticeAttempt.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(att, 99L);
+            setEntityId(att, 99L);
             return att;
         });
 
@@ -279,19 +308,14 @@ class PracticeServiceTest {
     @Test
     void testStartAttemptReuseExisting() {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
-        test.setId(10L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
-        section.setId(20L);
+        setEntityId(section, 20L);
 
         PracticeAttempt existingAttempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        java.lang.reflect.Field idField;
-        try {
-            idField = PracticeAttempt.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(existingAttempt, 88L);
-        } catch (Exception e) {}
+        setEntityId(existingAttempt, 88L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
@@ -308,11 +332,11 @@ class PracticeServiceTest {
     @Test
     void testStartAttemptInvalidSectionIdThrows() {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
-        test.setId(10L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
-        section.setId(20L);
+        setEntityId(section, 20L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
@@ -327,17 +351,17 @@ class PracticeServiceTest {
     @Test
     void testStartAttemptSectionNotBelongingToTestThrows() {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", 1);
-        test.setId(10L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(9999L); // mismatch testId
-        section.setId(20L);
+        setEntityId(section, 20L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
 
-        assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> {
             practiceService.startAttempt(1L, 10L, 20L, 2L);
         });
     }
@@ -389,6 +413,269 @@ class PracticeServiceTest {
         assertThrows(IllegalStateException.class, () -> {
             practiceService.discardAttempt(99L, 2L);
         });
+    }
+
+    @Test
+    void testSubmitReadingAttemptSuccessful() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q1, 101L);
+
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+
+        Map<String, String> form = Map.of("answer_101", "3");
+        Long attemptId = practiceService.submitAttempt(99L, 2L, form);
+
+        assertEquals(99L, attemptId);
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+        assertEquals("{\"101\":\"3\"}", attempt.getAnswersJson());
+        verify(attemptRepository).save(attempt);
+    }
+
+    @Test
+    void testSubmitAttemptToleratesExplanationAiQuotaExceeded() {
+        String metaJson = "{\"skills\":[\"READING\"]}";
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, metaJson, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q1, 101L);
+
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+
+        // Mock explanation client throwing exception
+        when(answerExplanationClient.explain(any(), any(), any()))
+                .thenThrow(new RuntimeException("Gemini quota exceeded 429"));
+
+        Map<String, String> form = Map.of("answer_101", "3");
+        Long attemptId = practiceService.submitAttempt(99L, 2L, form);
+
+        assertEquals(99L, attemptId);
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+    }
+
+    @Test
+    void testSubmitAttemptIgnoresOtherSectionsQuestions() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        // Question 1 belongs to section 20
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q1, 101L);
+
+        // Question 2 belongs to another section (not in section 20)
+        // Since getQuestionGroupsForSection(1L, 20L) only returns question 1, question 2 is not graded
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+
+        Map<String, String> form = Map.of("answer_101", "3", "answer_102", "4");
+        practiceService.submitAttempt(99L, 2L, form);
+
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+    }
+
+    @Test
+    void testSubmitAttemptAlreadySubmittedThrows() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+        setEntityId(attempt, 99L);
+
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        assertThrows(IllegalStateException.class, () -> {
+            practiceService.submitAttempt(99L, 2L, Map.of());
+        });
+    }
+
+    @Test
+    void testSubmitAttemptOtherUserThrows() {
+        // Attempt owned by user 2, requested by user 3
+        when(attemptRepository.findByIdAndUserId(99L, 3L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> {
+            practiceService.submitAttempt(99L, 3L, Map.of());
+        });
+    }
+
+    @Test
+    void testGetResult() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"101\":\"3\"}");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q1, 101L);
+
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+
+        PracticeResultView result = practiceService.getResult(99L, 2L);
+        assertNotNull(result);
+        assertEquals(99L, result.attemptId());
+    }
+
+    @Test
+    void testGetReadingListeningResultLegacyFallback() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"101\":\"3\"}");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        // Question group with sectionId = null (legacy)
+        PracticeQuestionGroup group = new PracticeQuestionGroup(1L, "Group 1", 1, 1, "Instruction", null, null, 1);
+        group.setSectionId(null);
+        setEntityId(group, 5L);
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        q1.setGroupId(5L);
+        setEntityId(q1, 101L);
+
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+        when(questionRepository.findById(101L)).thenReturn(Optional.of(q1));
+
+        ReadingListeningResultView result = practiceService.getReadingListeningResult(99L, 2L);
+        assertNotNull(result);
+        assertEquals(1, result.groups().size());
+        assertEquals("Group 1", result.groups().get(0).groupLabel());
+        assertEquals(1, result.groups().get(0).questions().size());
+        assertEquals("Q", result.groups().get(0).questions().get(0).prompt());
+    }
+
+    @Test
+    void testGetAttemptResultLegacyFallback() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"101\":\"3\"}");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        // Question group with sectionId = null (legacy)
+        PracticeQuestionGroup group = new PracticeQuestionGroup(1L, "Group 1", 1, 1, "Instruction", null, null, 1);
+        group.setSectionId(null);
+        setEntityId(group, 5L);
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(5), 1
+        );
+        q1.setGroupId(5L);
+        setEntityId(q1, 101L);
+
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+        when(questionRepository.findById(101L)).thenReturn(Optional.of(q1));
+
+        PracticeAttemptResultView result = practiceService.getAttemptResult(99L, 2L);
+        assertNotNull(result);
+        assertEquals(1, result.sections().size());
+        assertEquals(1, result.sections().get(0).groups().size());
+        assertEquals("Group 1", result.sections().get(0).groups().get(0).groupLabel());
     }
 }
 

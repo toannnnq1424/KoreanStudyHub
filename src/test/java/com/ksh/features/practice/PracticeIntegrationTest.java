@@ -14,6 +14,8 @@ import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.PracticeSection;
+import com.ksh.entities.PracticeQuestionGroup;
+import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +61,9 @@ class PracticeIntegrationTest {
     private PracticeTestRepository testRepository;
 
     @Autowired
+    private PracticeQuestionGroupRepository groupRepository;
+
+    @Autowired
     private PracticeSectionRepository sectionRepository;
 
     @Autowired
@@ -83,6 +88,8 @@ class PracticeIntegrationTest {
     private User lecturer;
     private PracticeSet practiceSet;
     private PracticeQuestion question;
+    private PracticeTest defaultTest;
+    private PracticeSection defaultSection;
 
     @BeforeEach
     void setUp() {
@@ -102,7 +109,16 @@ class PracticeIntegrationTest {
                 "PUBLISHED",
                 lecturer.getId()
         );
-        setRepository.saveAndFlush(practiceSet);
+        practiceSet = setRepository.saveAndFlush(practiceSet);
+
+        // Seed a default test
+        defaultTest = new PracticeTest(practiceSet.getId(), "Test 1", "Desc", 1, 40);
+        defaultTest = testRepository.saveAndFlush(defaultTest);
+
+        // Seed a default section
+        defaultSection = new PracticeSection(practiceSet.getId(), "Phần Đọc", "READING", "MCQ", "Đọc kỹ", 40, BigDecimal.TEN, 1);
+        defaultSection.setTestId(defaultTest.getId());
+        defaultSection = sectionRepository.saveAndFlush(defaultSection);
 
         // Seed a question for the set
         question = new PracticeQuestion(
@@ -116,7 +132,8 @@ class PracticeIntegrationTest {
                 BigDecimal.valueOf(2.5),
                 0
         );
-        questionRepository.saveAndFlush(question);
+        question.setGroupId(null);
+        question = questionRepository.saveAndFlush(question);
     }
 
     @Test
@@ -141,17 +158,18 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testTestDetailView() throws Exception {
-        mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + practiceSet.getId()))
+        mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/test-detail"))
                 .andExpect(model().attributeExists("view"))
-                .andExpect(model().attributeExists("attempts"));
+                .andExpect(model().attributeExists("sections"))
+                .andExpect(model().attributeExists("inProgressAttempts"));
     }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testModeView() throws Exception {
-        mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + practiceSet.getId() + "/mode"))
+        mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/mode"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/mode"))
                 .andExpect(model().attributeExists("view"));
@@ -161,15 +179,16 @@ class PracticeIntegrationTest {
     @WithUserDetails("student@ksh.edu.vn")
     void testPlayerView() throws Exception {
         // Start attempt
-        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + practiceSet.getId() + "/attempts")
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/attempts")
                         .with(csrf())
+                        .param("sectionId", String.valueOf(defaultSection.getId()))
                         .param("mode", "exam"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/practice/attempts/*"));
 
-        List<PracticeSubmission> submissions = submissionRepository.findTop20ByUserIdOrderByCreatedAtDesc(student.getId());
-        assertThat(submissions).isNotEmpty();
-        PracticeSubmission attempt = submissions.get(0);
+        List<PracticeAttempt> attempts = attemptRepository.findAll();
+        assertThat(attempts).isNotEmpty();
+        PracticeAttempt attempt = attempts.get(0);
 
         mockMvc.perform(get("/practice/attempts/" + attempt.getId()).param("mode", "exam"))
                 .andExpect(status().isOk())
@@ -182,14 +201,15 @@ class PracticeIntegrationTest {
     @WithUserDetails("student@ksh.edu.vn")
     void testSubmitAttemptAndGetResult() throws Exception {
         // Start attempt
-        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + practiceSet.getId() + "/attempts")
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/attempts")
                         .with(csrf())
+                        .param("sectionId", String.valueOf(defaultSection.getId()))
                         .param("mode", "exam"))
                 .andExpect(status().is3xxRedirection());
 
-        List<PracticeSubmission> submissions = submissionRepository.findTop20ByUserIdOrderByCreatedAtDesc(student.getId());
-        assertThat(submissions).isNotEmpty();
-        PracticeSubmission attempt = submissions.get(0);
+        List<PracticeAttempt> attempts = attemptRepository.findAll();
+        assertThat(attempts).isNotEmpty();
+        PracticeAttempt attempt = attempts.get(0);
 
         // Perform Submit
         String paramName = "answer_" + question.getId();
@@ -222,7 +242,7 @@ class PracticeIntegrationTest {
     @WithUserDetails("student@ksh.edu.vn")
     void testSubmitWritingAttemptAndGetResult() throws Exception {
         // Seed a published WRITING set
-        PracticeSet writingSet = new PracticeSet(
+        PracticeSet writingSetSeed = new PracticeSet(
                 "TOPIK II - Viết 35",
                 "Mô tả đề thi viết TOPIK II kì 35",
                 "WRITING",
@@ -234,7 +254,14 @@ class PracticeIntegrationTest {
                 "PUBLISHED",
                 lecturer.getId()
         );
-        setRepository.saveAndFlush(writingSet);
+        final PracticeSet writingSet = setRepository.saveAndFlush(writingSetSeed);
+
+        PracticeTest writingTest = new PracticeTest(writingSet.getId(), "Test 1", "Desc", 1, 40);
+        writingTest = testRepository.saveAndFlush(writingTest);
+
+        PracticeSection writingSec = new PracticeSection(writingSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 1);
+        writingSec.setTestId(writingTest.getId());
+        writingSec = sectionRepository.saveAndFlush(writingSec);
 
         PracticeQuestion writingQuestion = new PracticeQuestion(
                 writingSet.getId(),
@@ -247,17 +274,21 @@ class PracticeIntegrationTest {
                 BigDecimal.valueOf(10.0),
                 0
         );
+        writingQuestion.setGroupId(null);
         questionRepository.saveAndFlush(writingQuestion);
 
         // Start attempt
-        mockMvc.perform(post("/practice/sets/" + writingSet.getId() + "/tests/" + writingSet.getId() + "/attempts")
+        mockMvc.perform(post("/practice/sets/" + writingSet.getId() + "/tests/" + writingTest.getId() + "/attempts")
                         .with(csrf())
+                        .param("sectionId", String.valueOf(writingSec.getId()))
                         .param("mode", "exam"))
                 .andExpect(status().is3xxRedirection());
 
-        List<PracticeSubmission> submissions = submissionRepository.findTop20ByUserIdOrderByCreatedAtDesc(student.getId());
-        assertThat(submissions).isNotEmpty();
-        PracticeSubmission attempt = submissions.get(0);
+        List<PracticeAttempt> attempts = attemptRepository.findAll();
+        assertThat(attempts).isNotEmpty();
+        PracticeAttempt attempt = attempts.stream()
+                .filter(a -> a.getSetId().equals(writingSet.getId()))
+                .findFirst().orElseThrow();
 
         // Perform Submit
         String paramName = "answer_" + writingQuestion.getId();
@@ -506,7 +537,7 @@ class PracticeIntegrationTest {
     @WithUserDetails("student@ksh.edu.vn")
     void testSectionAttemptsFlow() throws Exception {
         // 1. Create and save a PracticeTest
-        PracticeTest test = new PracticeTest(practiceSet.getId(), "Test 1", 1);
+        PracticeTest test = new PracticeTest(practiceSet.getId(), "Test 1", "Desc", 1, 40);
         test = testRepository.saveAndFlush(test);
 
         // 2. Create Reading and Writing sections
@@ -517,6 +548,15 @@ class PracticeIntegrationTest {
         PracticeSection writingSec = new PracticeSection(practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
         writingSec.setTestId(test.getId());
         writingSec = sectionRepository.saveAndFlush(writingSec);
+
+        // Seed question groups for the sections to satisfy multi-section requirements
+        PracticeQuestionGroup readingGroup = new PracticeQuestionGroup(practiceSet.getId(), "Phần Đọc", 1, 1, "Đọc văn bản", null, null, 1);
+        readingGroup.setSectionId(readingSec.getId());
+        groupRepository.saveAndFlush(readingGroup);
+
+        PracticeQuestionGroup writingGroup = new PracticeQuestionGroup(practiceSet.getId(), "Phần Viết", 2, 2, "Viết luận", null, null, 2);
+        writingGroup.setSectionId(writingSec.getId());
+        groupRepository.saveAndFlush(writingGroup);
 
         // --- Test 1: Start Reading ---
         // Post request to create attempt for Reading section
@@ -568,8 +608,10 @@ class PracticeIntegrationTest {
         assertThat(readingAttemptId3).isEqualTo(readingAttemptId);
 
         // --- Test 4: SectionId mismatch testId ---
+        PracticeTest test2 = new PracticeTest(practiceSet.getId(), "Test 2", "Desc", 2, 40);
+        test2 = testRepository.saveAndFlush(test2);
         PracticeSection mismatchedSec = new PracticeSection(practiceSet.getId(), "Mismatched", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 3);
-        mismatchedSec.setTestId(99999L);
+        mismatchedSec.setTestId(test2.getId());
         mismatchedSec = sectionRepository.saveAndFlush(mismatchedSec);
 
         mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + test.getId() + "/attempts")
@@ -682,5 +724,120 @@ class PracticeIntegrationTest {
                 .andExpect(status().is4xxClientError());
 
         assertThat(attemptRepository.findById(attemptGraded.getId())).isPresent();
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn") // different user
+    void testSubmitAttemptDeniedForOtherUser() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
+                        .with(csrf())
+                        .param("answer_" + question.getId(), "1"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn") // different user
+    void testResultAccessDeniedForOtherUser() throws Exception {
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attempt.setStatus("SUBMITTED");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
+                .andExpect(status().is4xxClientError());
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testMixedSetSkillBasedRouting() throws Exception {
+        // Set skill=MIXED
+        practiceSet.setSkill("MIXED");
+        setRepository.saveAndFlush(practiceSet);
+
+        // Seed group for defaultSection to avoid IllegalStateException on multi-section set
+        PracticeQuestionGroup group1 = new PracticeQuestionGroup(practiceSet.getId(), "Phần 1", 1, 1, "Đọc văn bản", null, null, 1);
+        group1.setSectionId(defaultSection.getId());
+        group1 = groupRepository.saveAndFlush(group1);
+
+        question.setGroupId(group1.getId());
+        questionRepository.saveAndFlush(question);
+
+        // 1. Reading attempt -> rl-result & rl-result-detail
+        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        readingAttempt.setStatus("SUBMITTED");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result"));
+
+        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result-detail"));
+
+        // 2. Writing attempt -> result & result-detail
+        PracticeSection writingSection = new PracticeSection(practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
+        writingSection.setTestId(defaultTest.getId());
+        writingSection = sectionRepository.saveAndFlush(writingSection);
+
+        PracticeQuestionGroup group2 = new PracticeQuestionGroup(practiceSet.getId(), "Phần 2", 2, 2, "Viết đoạn văn", null, null, 2);
+        group2.setSectionId(writingSection.getId());
+        groupRepository.saveAndFlush(group2);
+
+        PracticeAttempt writingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "WRITING", writingSection.getId());
+        writingAttempt.setStatus("GRADED");
+        writingAttempt = attemptRepository.saveAndFlush(writingAttempt);
+
+        mockMvc.perform(get("/practice/attempts/" + writingAttempt.getId() + "/result"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/result"));
+
+        mockMvc.perform(get("/practice/attempts/" + writingAttempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/result-detail"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testReadingResultDetailLegacyFallback() throws Exception {
+        // Create attempt for Reading section
+        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        readingAttempt.setStatus("SUBMITTED");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result-detail"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Câu hỏi 1")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testReadingResultDetailEmptyState() throws Exception {
+        // Clear all groups and questions from the set
+        questionRepository.deleteBySetId(practiceSet.getId());
+        groupRepository.deleteBySetId(practiceSet.getId());
+
+        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        readingAttempt.setStatus("SUBMITTED");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result-detail"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Không tìm thấy dữ liệu câu hỏi cho lượt làm này.")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testRestRouteReturns404() throws Exception {
+        mockMvc.perform(get("/practice/attempts/1/rest").param("nextSectionIndex", "1"))
+                .andExpect(status().isNotFound());
     }
 }

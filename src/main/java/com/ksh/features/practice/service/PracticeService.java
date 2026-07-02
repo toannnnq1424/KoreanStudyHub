@@ -130,19 +130,39 @@ public class PracticeService {
     }
 
     @Transactional
-    public Long reEvaluate(Long submissionId, Long userId) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(submissionId, userId)
+    public Long reEvaluate(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        PracticeSet set = setRepository.findById(submission.getSetId())
-                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-        List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
-        Map<String, String> submittedAnswers = readAnswers(submission.getAnswersJson());
+
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+
+        if (!attempt.getSetId().equals(section.getSetId()) ||
+            !attempt.getTestId().equals(section.getTestId()) ||
+            !attempt.getSkill().equals(section.getSkill())) {
+            throw new IllegalArgumentException("Section metadata mismatch with attempt");
+        }
+
+        PracticeSet set = loadPublished(attempt.getSetId());
+
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+        List<Long> sectionQuestionIds = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .map(com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow::id)
+                .toList();
+
+        List<PracticeQuestion> allQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(attempt.getSetId());
+        List<PracticeQuestion> sectionQuestions = allQuestions.stream()
+                .filter(q -> sectionQuestionIds.contains(q.getId()))
+                .toList();
+
+        Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
 
         BigDecimal score = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
         String aiFeedback = null;
 
-        for (PracticeQuestion q : questions) {
+        for (PracticeQuestion q : sectionQuestions) {
             total = total.add(q.getPoints());
             String answer = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
 
@@ -168,38 +188,62 @@ public class PracticeService {
             }
         }
 
-        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(questions)) {
-            Map<String, Object> answersForExplanation = new LinkedHashMap<>(submittedAnswers);
-            aiFeedback = answerExplanationClient.explain(set, questions, answersForExplanation);
+        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(sectionQuestions)) {
+            Map<String, Object> explanationAnswers = new LinkedHashMap<>();
+            for (Map.Entry<String, String> entry : submittedAnswers.entrySet()) {
+                explanationAnswers.put(entry.getKey(), entry.getValue());
+            }
+            aiFeedback = answerExplanationClient.explain(set, sectionQuestions, explanationAnswers);
         }
 
-        submission.updateEvaluation(score, total, writeJson(submittedAnswers), aiFeedback);
-        return submission.getId();
+        if (aiFeedback == null) {
+            attempt.markSubmitted(score, total, writeJson(submittedAnswers));
+        } else {
+            attempt.markGraded(score, total, writeJson(submittedAnswers), aiFeedback);
+        }
+
+        attemptRepository.save(attempt);
+        log.info("[PracticeService] Re-evaluated PracticeAttempt id={} score={} / {}", attempt.getId(), score, total);
+        return attempt.getId();
     }
 
     @Transactional(readOnly = true)
-    public PracticeResultView getResult(Long submissionId, Long userId) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(submissionId, userId)
+    public PracticeResultView getResult(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        PracticeSet set = setRepository.findById(submission.getSetId())
+        PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-        List<PracticeQuestionRow> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(set.getId())
-                .stream()
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+        List<Long> sectionQuestionIds = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .map(com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow::id)
+                .toList();
+
+        List<PracticeQuestion> allQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(attempt.getSetId());
+        List<PracticeQuestion> sectionQuestions = allQuestions.stream()
+                .filter(q -> sectionQuestionIds.contains(q.getId()))
+                .toList();
+
+        List<PracticeQuestionRow> questions = sectionQuestions.stream()
                 .map(this::toQuestionRow)
                 .toList();
+
         List<PracticeAnswerExplanationRow> answerExplanations = usesAnswerExplanations(set)
-                ? answerExplanationRows(submission.getAiFeedbackJson(), questions, submission.getAnswersJson())
+                ? answerExplanationRows(attempt.getAiFeedbackJson(), questions, attempt.getAnswersJson())
                 : List.of();
-        List<PracticeAnswerReviewRow> answerReviews = answerReviewRows(questions, submission.getAnswersJson());
+        List<PracticeAnswerReviewRow> answerReviews = answerReviewRows(questions, attempt.getAnswersJson());
 
         return new PracticeResultView(
-                submission.getId(),
+                attempt.getId(),
                 toSetRow(set),
-                submission.getScore(),
-                submission.getTotalPoints(),
-                scoreLabel(submission.getScore(), submission.getTotalPoints()),
-                submission.getAnswersJson(),
-                submission.getAiFeedbackJson(),
+                attempt.getScore(),
+                attempt.getTotalPoints(),
+                scoreLabel(attempt.getScore(), attempt.getTotalPoints()),
+                attempt.getAnswersJson(),
+                attempt.getAiFeedbackJson(),
                 questions,
                 answerReviews,
                 answerExplanations
@@ -1129,47 +1173,64 @@ public class PracticeService {
 
     @Transactional(readOnly = true)
     public List<PracticeQuestionGroupRow> getQuestionGroupsForSection(Long setId, Long sectionId) {
+        PracticeSection section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Section không tồn tại"));
+        Long testId = section.getTestId();
+
         List<PracticeQuestionGroup> dbGroups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
         List<PracticeQuestion> dbQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
-        List<PracticeSection> allSections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        List<PracticeSection> testSections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId).stream()
+                .filter(s -> testId.equals(s.getTestId()))
+                .toList();
 
+        // Step 1: Strict match
         List<PracticeQuestionGroup> secGroups = dbGroups.stream()
                 .filter(g -> sectionId.equals(g.getSectionId()))
                 .toList();
 
+        // Step 2: Legacy fallback for single-section test
+        if (secGroups.isEmpty() && testSections.size() == 1) {
+            secGroups = dbGroups.stream()
+                    .filter(g -> g.getSectionId() == null)
+                    .toList();
+        }
+
+        // Step 3: Multi-section protection
+        if (secGroups.isEmpty() && testSections.size() > 1) {
+            throw new IllegalStateException("Không thể xác định câu hỏi cho sectionId=" + sectionId 
+                    + " vì nhóm câu hỏi rỗng và bài thi có nhiều phần.");
+        }
+
         List<PracticeQuestionGroupRow> groups = new ArrayList<>();
-        if (!secGroups.isEmpty()) {
-            for (PracticeQuestionGroup g : secGroups) {
-                List<PracticeQuestionRow> qRows = dbQuestions.stream()
-                        .filter(q -> g.getId().equals(q.getGroupId()))
-                        .map(this::toQuestionRow)
-                        .toList();
-                groups.add(toGroupRow(g, qRows));
-            }
-        } else {
-            if (allSections.size() == 1) {
-                List<PracticeQuestionRow> orphanQuestions = dbQuestions.stream()
-                        .filter(q -> q.getGroupId() == null)
-                        .map(this::toQuestionRow)
-                        .toList();
-                if (!orphanQuestions.isEmpty()) {
-                    groups.add(new PracticeQuestionGroupRow(
-                            null,
-                            sectionId,
-                            "Phần thi",
-                            1,
-                            orphanQuestions.size(),
-                            null,
-                            null,
-                            null,
-                            orphanQuestions
-                    ));
-                }
-            } else {
-                throw new IllegalStateException("Không thể xác định câu hỏi cho sectionId=" + sectionId 
-                        + " vì nhóm câu hỏi rỗng và bộ đề có nhiều phần.");
+        for (PracticeQuestionGroup g : secGroups) {
+            List<PracticeQuestionRow> qRows = dbQuestions.stream()
+                    .filter(q -> java.util.Objects.equals(g.getId(), q.getGroupId()))
+                    .map(this::toQuestionRow)
+                    .toList();
+            groups.add(toGroupRow(g, qRows));
+        }
+
+        // Dummy group for orphan questions in single-section test
+        if (testSections.size() == 1) {
+            List<PracticeQuestionRow> orphanQuestions = dbQuestions.stream()
+                    .filter(q -> q.getGroupId() == null)
+                    .map(this::toQuestionRow)
+                    .toList();
+            if (!orphanQuestions.isEmpty()) {
+                groups.add(new PracticeQuestionGroupRow(
+                        null,
+                        sectionId,
+                        "Phần thi",
+                        1,
+                        orphanQuestions.size(),
+                        null,
+                        null,
+                        null,
+                        orphanQuestions
+                ));
             }
         }
+
         return groups;
     }
 
@@ -1184,22 +1245,26 @@ public class PracticeService {
         PracticeTest test = testRepository.findById(testId)
                 .orElseThrow(() -> new EntityNotFoundException("Bài thi không tồn tại"));
         if (!setId.equals(test.getSetId())) {
-            throw new IllegalArgumentException("Bài thi không thuộc bộ luyện tập này");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Bài thi không thuộc bộ luyện tập này");
         }
 
         PracticeSection section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
         if (!setId.equals(section.getSetId())) {
-            throw new IllegalArgumentException("Section không thuộc bộ luyện tập này");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bộ luyện tập này");
         }
         if (!testId.equals(section.getTestId())) {
-            throw new IllegalArgumentException("Section không thuộc bài thi này");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bài thi này");
         }
 
         String skill = section.getSkill();
         if (skill == null || (!"READING".equals(skill) && !"LISTENING".equals(skill) &&
             !"WRITING".equals(skill) && !"SPEAKING".equals(skill))) {
-            throw new IllegalArgumentException("Skill không hợp lệ");
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Skill không hợp lệ");
         }
 
         Optional<PracticeAttempt> existing = attemptRepository
@@ -1228,23 +1293,58 @@ public class PracticeService {
 
     @Transactional
     public Long submitAttempt(Long attemptId, Long userId, Map<String, String> form) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(attemptId, userId)
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
 
-        Long setId = submission.getSetId();
-        PracticeSet set = loadPublished(setId);
-        List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
-        if (questions.isEmpty()) {
-            throw new jakarta.persistence.EntityNotFoundException("Bộ luyện tập chưa có câu hỏi");
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
         }
 
-        Map<String, Object> answers = new LinkedHashMap<>();
-        if (submission.getAnswersJson() != null && !submission.getAnswersJson().isBlank()) {
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+
+        if (!attempt.getSetId().equals(section.getSetId()) ||
+            !attempt.getTestId().equals(section.getTestId()) ||
+            !attempt.getSkill().equals(section.getSkill())) {
+            throw new IllegalArgumentException("Section metadata mismatch with attempt");
+        }
+
+        String skill = attempt.getSkill();
+        if (skill == null || (!"READING".equals(skill) && !"LISTENING".equals(skill) &&
+            !"WRITING".equals(skill) && !"SPEAKING".equals(skill))) {
+            throw new IllegalArgumentException("Skill không hợp lệ");
+        }
+
+        PracticeSet set = loadPublished(attempt.getSetId());
+
+        // Re-use logic to load and grade only the questions of the current section
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+        List<Long> sectionQuestionIds = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .map(com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow::id)
+                .toList();
+
+        List<PracticeQuestion> allQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(attempt.getSetId());
+        List<PracticeQuestion> sectionQuestions = allQuestions.stream()
+                .filter(q -> sectionQuestionIds.contains(q.getId()))
+                .toList();
+
+        Map<String, String> answers = new LinkedHashMap<>();
+        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
             try {
-                Map<String, String> prev = objectMapper.readValue(submission.getAnswersJson(), new TypeReference<Map<String, String>>() {});
+                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
                 answers.putAll(prev);
             } catch (Exception e) {
                 log.warn("[submitAttempt] Failed to parse previous in-progress answers", e);
+            }
+        }
+
+        // Process only form fields that belong to sectionQuestions
+        for (PracticeQuestion q : sectionQuestions) {
+            String key = "answer_" + q.getId();
+            if (form.containsKey(key)) {
+                String answer = form.get(key).trim();
+                answers.put(String.valueOf(q.getId()), answer);
             }
         }
 
@@ -1252,16 +1352,9 @@ public class PracticeService {
         BigDecimal total = BigDecimal.ZERO;
         String aiFeedback = null;
 
-        for (PracticeQuestion q : questions) {
+        for (PracticeQuestion q : sectionQuestions) {
             total = total.add(q.getPoints());
-            String key = "answer_" + q.getId();
-            String answer;
-            if (form.containsKey(key)) {
-                answer = form.get(key).trim();
-                answers.put(String.valueOf(q.getId()), answer);
-            } else {
-                answer = String.valueOf(answers.getOrDefault(String.valueOf(q.getId()), "")).trim();
-            }
+            String answer = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
 
             if (PracticeQuestion.TYPE_MCQ.equals(q.getQuestionType())) {
                 if (answersMatch(answer, q.getAnswerKey())) {
@@ -1285,16 +1378,29 @@ public class PracticeService {
             }
         }
 
-        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(questions)) {
-            aiFeedback = answerExplanationClient.explain(set, questions, answers);
+        // Generate explanation only for objective Reading/Listening sections if requested
+        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(sectionQuestions)) {
+            Map<String, Object> explanationAnswers = new LinkedHashMap<>();
+            for (Map.Entry<String, String> entry : answers.entrySet()) {
+                explanationAnswers.put(entry.getKey(), entry.getValue());
+            }
+            try {
+                aiFeedback = answerExplanationClient.explain(set, sectionQuestions, explanationAnswers);
+            } catch (Exception ex) {
+                log.warn("[PracticeService] Gemini API key is out of quota or failed, skipping AI explanation: {}", ex.getMessage());
+                aiFeedback = null;
+            }
         }
 
-        submission.updateEvaluation(score, total, writeJson(answers), aiFeedback);
-        submission.setStatus(aiFeedback == null ? PracticeSubmission.STATUS_SUBMITTED : PracticeSubmission.STATUS_GRADED);
-        submission.setSubmittedAt(LocalDateTime.now());
+        if (aiFeedback == null) {
+            attempt.markSubmitted(score, total, writeJson(answers));
+        } else {
+            attempt.markGraded(score, total, writeJson(answers), aiFeedback);
+        }
 
-        PracticeSubmission saved = submissionRepository.save(submission);
-        return saved.getId();
+        attemptRepository.save(attempt);
+        log.info("[PracticeService] Submitted PracticeAttempt id={} score={} / {}", attempt.getId(), score, total);
+        return attempt.getId();
     }
 
     @Transactional
@@ -1355,195 +1461,163 @@ public class PracticeService {
      * PracticeSection.skill is the source of truth for which template fragment to render.
      */
     @Transactional(readOnly = true)
-    public PracticeAttemptResultView getAttemptResult(Long submissionId, Long userId) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(submissionId, userId)
+    public PracticeAttemptResultView getAttemptResult(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        PracticeSet set = setRepository.findById(submission.getSetId())
+        PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
 
-        List<PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
-        List<PracticeQuestion> allQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
-        List<PracticeQuestionGroup> allGroups = groupRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
 
-        Map<String, String> submittedAnswers = readAnswers(submission.getAnswersJson());
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+        List<PracticeQuestionRow> dbQuestions = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .toList();
+
+        Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
         String optionLabelMode = getOptionLabelMode(set);
 
-        // Build a map: groupId -> group entity for quick lookup
-        Map<Long, PracticeQuestionGroup> groupById = new LinkedHashMap<>();
-        for (PracticeQuestionGroup g : allGroups) groupById.put(g.getId(), g);
+        BigDecimal sectionScore = attempt.getScore() != null ? attempt.getScore() : BigDecimal.ZERO;
+        BigDecimal sectionTotal = attempt.getTotalPoints() != null ? attempt.getTotalPoints() : BigDecimal.ZERO;
 
-        // Build a map: sectionId -> list of questions (via group.sectionId)
-        Map<Long, List<PracticeQuestion>> questionsBySection = new LinkedHashMap<>();
-        for (PracticeQuestion q : allQuestions) {
-            PracticeQuestionGroup grp = groupById.get(q.getGroupId());
-            if (grp != null && grp.getSectionId() != null) {
-                questionsBySection.computeIfAbsent(grp.getSectionId(), k -> new ArrayList<>()).add(q);
+        String skill = section.getSkill();
+        boolean isObjective = "READING".equals(skill) || "LISTENING".equals(skill);
+
+        int correctCount = 0;
+        int incorrectCount = 0;
+        String sectionAiFeedback = null;
+
+        // Performance breakdown by question type
+        Map<String, List<PracticeQuestionRow>> byType = new LinkedHashMap<>();
+        for (PracticeQuestionRow q : dbQuestions) {
+            byType.computeIfAbsent(q.questionType(), k -> new ArrayList<>()).add(q);
+        }
+
+        List<PerformanceByTypeRow> perfByType = new ArrayList<>();
+        for (Map.Entry<String, List<PracticeQuestionRow>> entry : byType.entrySet()) {
+            String type = entry.getKey();
+            List<PracticeQuestionRow> qs = entry.getValue();
+            int total = qs.size();
+            int correct = 0;
+            for (PracticeQuestionRow q : qs) {
+                String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
+                if (isObjective || isAutoScoredByKey(type)) {
+                    boolean ok = answersMatch(ans, q.answerKey());
+                    if (ok) {
+                        correct++;
+                    }
+                }
+            }
+            if (isObjective) {
+                int incorrect = total - correct;
+                correctCount += correct;
+                incorrectCount += incorrect;
+                String accuracyPct = total == 0 ? "0%" : Math.round(((double) correct / total) * 100) + "%";
+                perfByType.add(new PerformanceByTypeRow(type, getQuestionTypeLabel(type), total, correct, incorrect, accuracyPct));
             }
         }
 
-        BigDecimal totalScore = BigDecimal.ZERO;
-        BigDecimal totalPoints = BigDecimal.ZERO;
+        if (!isObjective) {
+            sectionAiFeedback = attempt.getAiFeedbackJson();
+        }
+
+        // Build review groups
+        List<ReviewGroupRow> reviewGroups = new ArrayList<>();
+        if (isObjective) {
+            for (PracticeQuestionGroupRow g : groupRows) {
+                List<ReviewQuestionRow> qRows = new ArrayList<>();
+                for (PracticeQuestionRow q : g.questions()) {
+                    String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
+                    boolean isCorrect = answersMatch(ans, q.answerKey());
+                    String explanationJson = null;
+                    try {
+                        PracticeQuestion pq = questionRepository.findById(q.id()).orElse(null);
+                        if (pq != null) {
+                            explanationJson = readingListeningExplanationService.getOrCreateExplanation(
+                                    pq, g.instruction(), skill, set.getId(), optionLabelMode);
+                        }
+                    } catch (Exception e) {
+                        log.warn("[PracticeService] Failed to get explanation for question id={}: {}", q.id(), e.getMessage());
+                    }
+                    qRows.add(new ReviewQuestionRow(q.id(), q.questionNo(), q.questionType(),
+                            q.prompt(), q.options(), q.answerKey() != null ? q.answerKey() : "",
+                            ans, isCorrect, explanationJson));
+                }
+                reviewGroups.add(new ReviewGroupRow(g.groupLabel(), g.instruction(),
+                        g.instruction() != null ? g.instruction() : "",
+                        audioStorageService.resolveUrlSafe(g.audioUrl()), qRows));
+            }
+        }
 
         List<SectionResultRow> sectionRows = new ArrayList<>();
+        sectionRows.add(new SectionResultRow(
+                section.getId(),
+                section.getTitle(),
+                skill,
+                correctCount,
+                incorrectCount,
+                dbQuestions.size(),
+                sectionScore,
+                sectionTotal,
+                perfByType,
+                reviewGroups,
+                sectionAiFeedback,
+                optionLabelMode
+        ));
 
-        for (PracticeSection section : sections) {
-            List<PracticeQuestion> secQs = questionsBySection.getOrDefault(section.getId(), List.of());
-            List<PracticeQuestionGroup> secGrps = allGroups.stream()
-                    .filter(g -> section.getId().equals(g.getSectionId()))
-                    .toList();
-
-            String skill = section.getSkill();
-            boolean isObjective = "READING".equals(skill) || "LISTENING".equals(skill);
-
-            BigDecimal sectionScore = BigDecimal.ZERO;
-            BigDecimal sectionTotal = BigDecimal.ZERO;
-            int correctCount = 0;
-            int incorrectCount = 0;
-            String sectionAiFeedback = null;
-
-            // Performance breakdown by question type
-            Map<String, List<PracticeQuestion>> byType = new LinkedHashMap<>();
-            for (PracticeQuestion q : secQs) {
-                byType.computeIfAbsent(q.getQuestionType(), k -> new ArrayList<>()).add(q);
-            }
-
-            List<PerformanceByTypeRow> perfByType = new ArrayList<>();
-            for (Map.Entry<String, List<PracticeQuestion>> entry : byType.entrySet()) {
-                String type = entry.getKey();
-                List<PracticeQuestion> qs = entry.getValue();
-                int total = qs.size();
-                int correct = 0;
-                for (PracticeQuestion q : qs) {
-                    sectionTotal = sectionTotal.add(q.getPoints());
-                    String ans = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                    if (isObjective || isAutoScoredByKey(type)) {
-                        boolean ok = answersMatch(ans, q.getAnswerKey());
-                        if (ok) {
-                            correct++;
-                            sectionScore = sectionScore.add(q.getPoints());
-                        }
-                    }
-                }
-                if (isObjective) {
-                    int incorrect = total - correct;
-                    correctCount += correct;
-                    incorrectCount += incorrect;
-                    String accuracyPct = total == 0 ? "0%" : Math.round(((double) correct / total) * 100) + "%";
-                    perfByType.add(new PerformanceByTypeRow(type, getQuestionTypeLabel(type), total, correct, incorrect, accuracyPct));
-                }
-            }
-
-            // For subjective sections: pull aiFeedbackJson from submission (stored during submit)
-            if (!isObjective) {
-                sectionAiFeedback = submission.getAiFeedbackJson();
-                // sectionScore already computed in submitAttempt path
-                sectionScore = submission.getScore() != null ? submission.getScore() : BigDecimal.ZERO;
-            }
-
-            // Build review groups
-            List<ReviewGroupRow> reviewGroups = new ArrayList<>();
-            if (isObjective) {
-                for (PracticeQuestionGroup g : secGrps) {
-                    List<ReviewQuestionRow> qRows = new ArrayList<>();
-                    List<PracticeQuestion> grpQs = secQs.stream()
-                            .filter(q -> g.getId().equals(q.getGroupId()))
-                            .toList();
-                    for (PracticeQuestion q : grpQs) {
-                        String ans = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                        boolean isCorrect = answersMatch(ans, q.getAnswerKey());
-                        String explanationJson = readingListeningExplanationService.getOrCreateExplanation(
-                                q, g.getInstruction(), skill, set.getId(), optionLabelMode);
-                        qRows.add(new ReviewQuestionRow(q.getId(), q.getQuestionNo(), q.getQuestionType(),
-                                q.getPrompt(), readOptions(q.getOptionsJson()),
-                                q.getAnswerKey() != null ? q.getAnswerKey() : "",
-                                ans, isCorrect, explanationJson));
-                    }
-                    reviewGroups.add(new ReviewGroupRow(g.getGroupLabel(), g.getInstruction(),
-                            g.getInstruction() != null ? g.getInstruction() : "",
-                            audioStorageService.resolveUrlSafe(g.getAudioUrl()), qRows));
-                }
-            }
-
-            totalScore = totalScore.add(sectionScore);
-            totalPoints = totalPoints.add(sectionTotal);
-
-            sectionRows.add(new SectionResultRow(
-                    section.getId(),
-                    section.getTitle(),
-                    skill,
-                    correctCount,
-                    incorrectCount,
-                    secQs.size(),
-                    sectionScore,
-                    sectionTotal,
-                    perfByType,
-                    reviewGroups,
-                    sectionAiFeedback,
-                    optionLabelMode
-            ));
-        }
-
-        // Fallback: if no sections exist (legacy set without sections), treat the whole set as one section
-        if (sectionRows.isEmpty()) {
-            log.warn("[getAttemptResult] No sections for setId={}, falling back to legacy result", set.getId());
-            ReadingListeningResultView legacy = getReadingListeningResult(submissionId, userId);
-            String skill = set.getSkill() != null ? set.getSkill() : "READING";
-            sectionRows.add(new SectionResultRow(null, set.getTitle(), skill,
-                    legacy.correctCount(), legacy.incorrectCount(), legacy.totalCount(),
-                    legacy.score(), legacy.totalPoints(),
-                    legacy.performanceByType(), legacy.groups(),
-                    submission.getAiFeedbackJson(), optionLabelMode));
-            totalScore = legacy.score();
-            totalPoints = legacy.totalPoints();
-        }
-
-        String scoreLabel = totalPoints.compareTo(BigDecimal.ZERO) == 0 ? "0%"
-                : totalScore.divide(totalPoints, 4, RoundingMode.HALF_UP)
+        String scoreLabel = sectionTotal.compareTo(BigDecimal.ZERO) == 0 ? "0%"
+                : sectionScore.divide(sectionTotal, 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(1, RoundingMode.HALF_UP) + "%";
 
         return new PracticeAttemptResultView(
-                submission.getId(),
+                attempt.getId(),
                 toSetRow(set),
-                totalScore,
-                totalPoints,
+                sectionScore,
+                sectionTotal,
                 scoreLabel,
-                submission.getSubmittedAt(),
+                attempt.getSubmittedAt(),
                 sectionRows
         );
     }
 
-    @Transactional
-    public ReadingListeningResultView getReadingListeningResult(Long submissionId, Long userId) {
-        PracticeSubmission submission = submissionRepository.findByIdAndUserId(submissionId, userId)
+    @Transactional(readOnly = true)
+    public ReadingListeningResultView getReadingListeningResult(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        PracticeSet set = setRepository.findById(submission.getSetId())
+        PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-        List<PracticeQuestion> dbQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
-        List<PracticeQuestionGroup> dbGroups = groupRepository.findBySetIdOrderByDisplayOrderAsc(set.getId());
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
 
-        Map<String, String> submittedAnswers = readAnswers(submission.getAnswersJson());
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+        List<PracticeQuestionRow> dbQuestions = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .toList();
+
+        Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
 
         int correctCount = 0;
         int incorrectCount = 0;
         int totalCount = dbQuestions.size();
 
         // Calculate performance by question type
-        Map<String, List<PracticeQuestion>> questionsByType = new LinkedHashMap<>();
-        for (PracticeQuestion q : dbQuestions) {
-            questionsByType.computeIfAbsent(q.getQuestionType(), k -> new ArrayList<>()).add(q);
+        Map<String, List<PracticeQuestionRow>> questionsByType = new LinkedHashMap<>();
+        for (PracticeQuestionRow q : dbQuestions) {
+            questionsByType.computeIfAbsent(q.questionType(), k -> new ArrayList<>()).add(q);
         }
 
         List<PerformanceByTypeRow> performanceByType = new ArrayList<>();
-        for (Map.Entry<String, List<PracticeQuestion>> entry : questionsByType.entrySet()) {
+        for (Map.Entry<String, List<PracticeQuestionRow>> entry : questionsByType.entrySet()) {
             String type = entry.getKey();
-            List<PracticeQuestion> qs = entry.getValue();
+            List<PracticeQuestionRow> qs = entry.getValue();
             int total = qs.size();
             int correct = 0;
             int incorrect = 0;
-            for (PracticeQuestion q : qs) {
-                String ans = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                boolean isCorrect = answersMatch(ans, q.getAnswerKey());
+            for (PracticeQuestionRow q : qs) {
+                String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
+                boolean isCorrect = answersMatch(ans, q.answerKey());
                 if (isCorrect) {
                     correct++;
                 } else {
@@ -1568,84 +1642,54 @@ public class PracticeService {
 
         // Build group rows
         List<ReviewGroupRow> groups = new ArrayList<>();
-        if (dbGroups.isEmpty()) {
-            // fallback grouping
-            List<PracticeQuestionGroupRow> fallbackRows = fallbackGrouping(dbQuestions);
-            for (PracticeQuestionGroupRow fg : fallbackRows) {
-                List<ReviewQuestionRow> questions = new ArrayList<>();
-                for (PracticeQuestionRow qr : fg.questions()) {
-                    PracticeQuestion q = dbQuestions.stream().filter(item -> item.getId().equals(qr.id())).findFirst().orElse(null);
-                    if (q != null) {
-                        String ans = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                        boolean isCorrect = answersMatch(ans, q.getAnswerKey());
-                        String explanationJson = readingListeningExplanationService.getOrCreateExplanation(q, "", set.getSkill(), set.getId(), optionLabelMode);
-                        questions.add(new ReviewQuestionRow(
-                                q.getId(),
-                                q.getQuestionNo(),
-                                q.getQuestionType(),
-                                q.getPrompt(),
-                                readOptions(q.getOptionsJson()),
-                                q.getAnswerKey() != null ? q.getAnswerKey() : "",
-                                ans,
-                                isCorrect,
-                                explanationJson
-                        ));
+        for (PracticeQuestionGroupRow g : groupRows) {
+            List<ReviewQuestionRow> questions = new ArrayList<>();
+            for (PracticeQuestionRow q : g.questions()) {
+                String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
+                boolean isCorrect = answersMatch(ans, q.answerKey());
+                String explanationJson = null;
+                try {
+                    PracticeQuestion pq = questionRepository.findById(q.id()).orElse(null);
+                    if (pq != null) {
+                        explanationJson = readingListeningExplanationService.getOrCreateExplanation(
+                                pq, g.instruction(), section.getSkill(), set.getId(), optionLabelMode
+                        );
                     }
+                } catch (Exception e) {
+                    log.warn("[PracticeService] Failed to get explanation for question id={}: {}", q.id(), e.getMessage());
                 }
-                groups.add(new ReviewGroupRow(
-                        fg.groupLabel(),
-                        fg.instruction(),
-                        fg.instruction() != null ? fg.instruction() : "",
-                        null,
-                        questions
+                questions.add(new ReviewQuestionRow(
+                        q.id(),
+                        q.questionNo(),
+                        q.questionType(),
+                        q.prompt(),
+                        q.options(),
+                        q.answerKey() != null ? q.answerKey() : "",
+                        ans,
+                        isCorrect,
+                        explanationJson
                 ));
             }
-        } else {
-            for (PracticeQuestionGroup g : dbGroups) {
-                List<ReviewQuestionRow> questions = new ArrayList<>();
-                List<PracticeQuestion> groupQs = dbQuestions.stream()
-                        .filter(q -> g.getId().equals(q.getGroupId()))
-                        .toList();
-
-                for (PracticeQuestion q : groupQs) {
-                    String ans = submittedAnswers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                    boolean isCorrect = answersMatch(ans, q.getAnswerKey());
-                    String explanationJson = readingListeningExplanationService.getOrCreateExplanation(
-                            q, g.getInstruction(), set.getSkill(), set.getId(), optionLabelMode
-                    );
-                    questions.add(new ReviewQuestionRow(
-                            q.getId(),
-                            q.getQuestionNo(),
-                            q.getQuestionType(),
-                            q.getPrompt(),
-                            readOptions(q.getOptionsJson()),
-                            q.getAnswerKey() != null ? q.getAnswerKey() : "",
-                            ans,
-                            isCorrect,
-                            explanationJson
-                    ));
-                }
-                groups.add(new ReviewGroupRow(
-                        g.getGroupLabel(),
-                        g.getInstruction(),
-                        g.getInstruction() != null ? g.getInstruction() : "",
-                        audioStorageService.resolveUrlSafe(g.getAudioUrl()),
-                        questions
-                ));
-            }
+            groups.add(new ReviewGroupRow(
+                    g.groupLabel(),
+                    g.instruction(),
+                    g.instruction() != null ? g.instruction() : "",
+                    audioStorageService.resolveUrlSafe(g.audioUrl()),
+                    questions
+            ));
         }
 
         return new ReadingListeningResultView(
-                submission.getId(),
+                attempt.getId(),
                 toSetRow(set),
-                submission.getScore(),
-                submission.getTotalPoints(),
+                attempt.getScore(),
+                attempt.getTotalPoints(),
                 correctCount,
                 incorrectCount,
                 totalCount,
                 performanceByType,
                 groups,
-                submission.getAnswersJson(),
+                attempt.getAnswersJson(),
                 optionLabelMode
         );
     }
