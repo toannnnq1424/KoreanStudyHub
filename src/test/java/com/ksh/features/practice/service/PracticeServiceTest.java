@@ -186,6 +186,40 @@ class PracticeServiceTest {
     }
 
     @Test
+    void testReEvaluateEmptyScoreSavedAsZero() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("SUBMITTED");
+        attempt.setAnswersJson("{\"10\":\"\"}"); // Empty answer
+        setEntityId(attempt, 1L);
+        when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
+
+        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        when(setRepository.findById(any())).thenReturn(Optional.of(set));
+
+        PracticeSection section = new PracticeSection(1L, "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findById(any())).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+
+        PracticeQuestion q = new PracticeQuestion(
+                1L, 54, "ESSAY", "Q",
+                "[]", "", "Giải thích đáp án đúng",
+                BigDecimal.valueOf(50.0), 0
+        );
+        setEntityId(q, 10L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
+
+        // Stub evaluate to return a JSON with score = 0.0 (spam/empty)
+        when(evaluationClient.evaluate(anyString(), anyString(), anyBoolean())).thenReturn("{\"score\":0.0,\"overall_score\":0.0}");
+
+        practiceService.reEvaluate(1L, 2L);
+
+        // Verify that score is saved as exactly ZERO (0.0) in attempt
+        assertEquals(BigDecimal.ZERO, attempt.getScore(), "Empty score must be persisted as exactly 0");
+    }
+
+    @Test
     void testGetResult() {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("SUBMITTED");
@@ -558,38 +592,7 @@ class PracticeServiceTest {
         });
     }
 
-    @Test
-    void testGetResult() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
-        setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
-        section.setTestId(10L);
-        setEntityId(section, 20L);
 
-        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        attempt.setStatus("SUBMITTED");
-        attempt.setAnswersJson("{\"101\":\"3\"}");
-        setEntityId(attempt, 99L);
-
-        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
-        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
-        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
-        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
-
-        PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
-                "[]", "3", "Giải thích đáp án đúng",
-                BigDecimal.valueOf(5), 1
-        );
-        setEntityId(q1, 101L);
-
-        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
-
-        PracticeResultView result = practiceService.getResult(99L, 2L);
-        assertNotNull(result);
-        assertEquals(99L, result.attemptId());
-    }
 
     @Test
     void testGetReadingListeningResultLegacyFallback() {

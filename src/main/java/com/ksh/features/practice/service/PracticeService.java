@@ -751,6 +751,9 @@ public class PracticeService {
         try {
             JsonNode root = objectMapper.readTree(aiFeedback);
             double score = root.path("score").asDouble(root.path("overall_score").asDouble(1.0));
+            if (score <= 0.0) {
+                return BigDecimal.ZERO;
+            }
             return WritingScoreMatrix.toHundredPointScale(score);
         } catch (Exception ex) {
             // Fallback: score band 1.0 = "Không phản hồi" → 11.11/100

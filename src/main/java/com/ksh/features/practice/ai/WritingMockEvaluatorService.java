@@ -60,7 +60,8 @@ public class WritingMockEvaluatorService {
             return true;
         }
         String lower = answer.toLowerCase();
-        return lower.matches(".*(asdf|qwer|fuck|shit).*") || !lower.matches(".*[가-힣].*");
+        // Use (?s) flag so '.' matches newlines in multi-line answers
+        return lower.matches("(?s).*(asdf|qwer|fuck|shit).*") || !lower.matches("(?s).*[가-힣].*");
     }
 
     private static double heuristicScore(String answer, WritingRuleEngine.RuleAnalysis ruleAnalysis) {

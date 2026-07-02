@@ -2,13 +2,14 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
+
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,22 +29,37 @@ public class WritingEvaluationClient {
     private final WritingEvaluationCacheService cacheService;
     private final WritingMockEvaluatorService mockEvaluatorService;
 
+    @Autowired
     public WritingEvaluationClient(OpenAiProperties properties,
                                    ObjectMapper objectMapper,
                                    WritingEvaluationNormalizer normalizer,
                                    WritingRuleEngine ruleEngine,
                                    WritingEvaluationCacheService cacheService,
                                    WritingMockEvaluatorService mockEvaluatorService) {
+        this(properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluatorService, null);
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+                            ObjectMapper objectMapper,
+                            WritingEvaluationNormalizer normalizer,
+                            WritingRuleEngine ruleEngine,
+                            WritingEvaluationCacheService cacheService,
+                            WritingMockEvaluatorService mockEvaluatorService,
+                            RestClient restClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
         this.ruleEngine = ruleEngine;
         this.cacheService = cacheService;
         this.mockEvaluatorService = mockEvaluatorService;
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.baseUrl())
-                .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                .build();
+        if (restClient != null) {
+            this.restClient = restClient;
+        } else {
+            this.restClient = RestClient.builder()
+                    .baseUrl(properties.baseUrl())
+                    .defaultHeader("Authorization", "Bearer " + properties.apiKey())
+                    .build();
+        }
     }
 
     public String evaluate(String prompt, String learnerAnswer) {
@@ -56,6 +72,26 @@ public class WritingEvaluationClient {
                 properties.evaluatorModel(), ruleAnalysis.taskType(), ruleAnalysis.characterCount(),
                 ruleAnalysis.ruleViolations().size(), isReEvaluation);
 
+        // 1. Deterministic spam short-circuit — task-aware
+        if (isDefinitelyInvalid(learnerAnswer, ruleAnalysis)) {
+            log.info("KSH writing evaluation deterministic spam short-circuit: taskType={}", ruleAnalysis.taskType());
+            return normalizer.spamResponse(ruleAnalysis.taskType(), learnerAnswer);
+        }
+
+        // 2. Cache lookup (skip for re-evaluation)
+        if (!isReEvaluation) {
+            var cached = cacheService.get(prompt, learnerAnswer,
+                    ruleAnalysis.taskType(), properties.evaluatorModel(),
+                    WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                    WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+            if (cached.isPresent()) {
+                log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
+                        ruleAnalysis.taskType(), ruleAnalysis.characterCount());
+                return cached.get();
+            }
+        }
+
+        // 3. Mock mode when API key is missing
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             log.info("KSH writing evaluation switched to mock mode: missing API key");
             return normalizer.normalize(mockEvaluatorService.evaluate(
@@ -66,106 +102,93 @@ public class WritingEvaluationClient {
             ));
         }
 
-        if (!isReEvaluation) {
-            var cached = cacheService.get(prompt, learnerAnswer);
-            if (cached.isPresent()) {
-                log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
-                        ruleAnalysis.taskType(), ruleAnalysis.characterCount());
-                return cached.get();
-            }
-        }
-
+        // 4. Single unified provider call
         try {
-            JsonNode overview = evaluateOverview(prompt, learnerAnswer, ruleAnalysis, isReEvaluation);
-            String summary = overview.path("summary").asText("");
-            log.info("KSH writing evaluation pass 1 complete: taskType={}, score={}, summaryPrefix={}",
-                    ruleAnalysis.taskType(), overview.path("score").asDouble(1.0),
-                    summary.substring(0, Math.min(40, summary.length())));
+            String systemPrompt = WritingPromptRules.buildUnifiedPrompt(
+                    ruleAnalysis.taskType(), isReEvaluation);
+            String userPayload = userPayload(prompt, learnerAnswer, ruleAnalysis, isReEvaluation);
 
-            ObjectNode merged;
-            if (summary.contains("[SPAM_DETECTED]")) {
-                log.info("KSH writing evaluation skipped details/upgrade because spam was detected.");
-                merged = merge(overview, emptyDetails(), emptyUpgrade(), ruleAnalysis, learnerAnswer);
-            } else {
-                JsonNode details = evaluateDetails(prompt, learnerAnswer, ruleAnalysis, overview);
-                log.info("KSH writing evaluation pass 2 complete: strengths={}, needs={}",
-                        details.path("strengths").size(), details.path("needs_improvement").size());
+            JsonNode response = callPass("unified", systemPrompt, userPayload, unifiedResponseFormat());
+            log.info("KSH writing evaluation unified call complete: taskType={}",
+                    ruleAnalysis.taskType());
 
-                JsonNode upgrade = evaluateUpgrade(prompt, learnerAnswer, ruleAnalysis, details);
-                log.info("KSH writing evaluation pass 3 complete: rewrites={}",
-                        upgrade.path("sentence_rewrites").size());
+            // 5. Normalize — normalizer is sole source of score/raw_score/raw_score_max
+            String normalized = normalizer.normalize(
+                    objectMapper.writeValueAsString(response),
+                    ruleAnalysis.taskType(),
+                    learnerAnswer,
+                    ruleAnalysis);
 
-                merged = merge(overview, details, upgrade, ruleAnalysis, learnerAnswer);
-            }
+            // 6. Cache result (both submit and re-evaluate overwrite cache)
+            cacheService.put(prompt, learnerAnswer,
+                    ruleAnalysis.taskType(), properties.evaluatorModel(),
+                    WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                    WritingPromptRules.EVALUATION_SCHEMA_VERSION,
+                    normalized);
 
-            String normalized = normalizer.normalize(objectMapper.writeValueAsString(merged));
-            if (!isReEvaluation) {
-                cacheService.put(prompt, learnerAnswer, normalized);
-            }
             return normalized;
-        } catch (Exception ex) {
-            log.warn("Writing AI evaluation failed, switching to mock mode: {}", ex.getMessage());
+        } catch (org.springframework.web.client.RestClientResponseException ex) {
+            String rawBody = ex.getResponseBodyAsString();
+            String redactedBody = rawBody != null && rawBody.length() > 500 ? rawBody.substring(0, 500) + "..." : rawBody;
+            log.warn("Writing AI evaluation failed [HTTP {}] [{}]: {}", ex.getStatusCode().value(), ex.getClass().getName(), redactedBody, ex);
             return normalizer.normalize(mockEvaluatorService.evaluate(
                     prompt,
                     learnerAnswer,
                     ruleAnalysis,
-                    "AI tạm thời không khả dụng hoặc quá tải."
+                    "lỗi HTTP " + ex.getStatusCode().value() + " (" + redactedBody + ")"
+            ));
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            String rootCause = ex.getCause() != null ? ex.getCause().getMessage() : "none";
+            log.warn("Writing AI evaluation failed [Connection Error] [{}]: {}", ex.getClass().getName(), rootCause, ex);
+            return normalizer.normalize(mockEvaluatorService.evaluate(
+                    prompt,
+                    learnerAnswer,
+                    ruleAnalysis,
+                    "lỗi kết nối mạng (" + rootCause + ")"
+            ));
+        } catch (Exception ex) {
+            log.warn("Writing AI evaluation failed [Exception] [{}]: {}", ex.getClass().getName(), ex.getMessage(), ex);
+            String errorDetail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+            return normalizer.normalize(mockEvaluatorService.evaluate(
+                    prompt,
+                    learnerAnswer,
+                    ruleAnalysis,
+                    "lỗi xử lý (" + errorDetail + ")"
             ));
         }
     }
 
-    private JsonNode evaluateOverview(String prompt,
-                                      String learnerAnswer,
-                                      WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                                      boolean isReEvaluation) throws Exception {
-        return callPass(
-                "overview",
-                WritingPromptRules.buildOverviewPrompt(ruleAnalysis.taskType(), isReEvaluation),
-                userPayload(prompt, learnerAnswer, ruleAnalysis, null, null, isReEvaluation),
-                overviewResponseFormat()
-        );
+    // ---- Spam detection — task-aware ----
+
+    /**
+     * Deterministic check for clearly invalid answers.
+     * Task-aware: Q51/Q52 allows short answers, so length alone does not disqualify.
+     * Only short-circuits when answer is empty/whitespace-only, or contains no Hangul at all.
+     */
+    static boolean isDefinitelyInvalid(String answer, WritingRuleEngine.RuleAnalysis ruleAnalysis) {
+        if (answer == null || answer.trim().isEmpty()) {
+            return true;
+        }
+        String trimmed = answer.trim();
+        // No Hangul characters at all — definitely not a Korean writing answer
+        // Use (?s) flag so '.' matches newlines in multi-line answers
+        if (!trimmed.matches("(?s).*[가-힣].*")) {
+            return true;
+        }
+        return false;
     }
 
-    private JsonNode evaluateDetails(String prompt,
-                                     String learnerAnswer,
-                                     WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                                     JsonNode overview) throws Exception {
-        return callPass(
-                "details",
-                WritingPromptRules.buildDetailsPrompt(ruleAnalysis.taskType()),
-                userPayload(prompt, learnerAnswer, ruleAnalysis, overview, null, false),
-                detailsResponseFormat(),
-                learnerAnswer  // passed through for annotation index computation
-        );
-    }
-
-    private JsonNode evaluateUpgrade(String prompt,
-                                     String learnerAnswer,
-                                     WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                                     JsonNode details) throws Exception {
-        return callPass(
-                "upgrade",
-                WritingPromptRules.buildUpgradePrompt(ruleAnalysis.taskType()),
-                userPayload(prompt, learnerAnswer, ruleAnalysis, null, details, false),
-                upgradeResponseFormat()
-        );
-    }
+    // ---- Provider call ----
 
     private JsonNode callPass(String passName,
                               String systemPrompt,
                               String userPayload,
                               Map<String, Object> responseFormat) throws Exception {
-        return callPass(passName, systemPrompt, userPayload, responseFormat, null);
-    }
-
-    private JsonNode callPass(String passName,
-                              String systemPrompt,
-                              String userPayload,
-                              Map<String, Object> responseFormat,
-                              String learnerAnswerForIndex) throws Exception {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("model", properties.evaluatorModel());
         request.put("temperature", 0.0);
+        request.put("top_p", 1.0);
+        request.put("max_tokens", 4096);
         request.put("response_format", responseFormat);
         request.put("messages", List.of(
                 message("system", systemPrompt),
@@ -220,11 +243,11 @@ public class WritingEvaluationClient {
         }
     }
 
+    // ---- Payload ----
+
     private String userPayload(String prompt,
                                String learnerAnswer,
                                WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                               JsonNode overview,
-                               JsonNode details,
                                boolean isReEvaluation) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "WRITING");
@@ -241,12 +264,6 @@ public class WritingEvaluationClient {
         payload.put("audit_mode", isReEvaluation);
         payload.put("allowed_rubric", allowedRubric());
         payload.put("score_matrix", WritingScoreMatrix.bands());
-        if (overview != null) {
-            payload.put("overview_result", overview);
-        }
-        if (details != null) {
-            payload.put("details_result", details);
-        }
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (Exception ex) {
@@ -254,48 +271,7 @@ public class WritingEvaluationClient {
         }
     }
 
-    private ObjectNode merge(JsonNode overview,
-                             JsonNode details,
-                             JsonNode upgrade,
-                             WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                             String learnerAnswer) {
-        ObjectNode merged = objectMapper.createObjectNode();
-        merged.setAll((ObjectNode) overview);
-        merged.set("strengths", details.path("strengths"));
-        merged.set("needs_improvement", details.path("needs_improvement"));
-        merged.put("student_text", learnerAnswer == null ? "" : learnerAnswer);
-        merged.put("upgraded_answer", upgrade.path("upgraded_answer").asText(""));
-        merged.put("upgraded_answer_annotated", upgrade.path("upgraded_answer_annotated").asText(""));
-        merged.put("sample_answer", upgrade.path("sample_answer").asText(""));
-        merged.set("sentence_rewrites", upgrade.path("sentence_rewrites"));
-        merged.put("task_type", ruleAnalysis.taskType());
-        if (!merged.has("raw_score_max")) {
-            merged.put("raw_score_max", WritingScoreMatrix.rawScoreMax(ruleAnalysis.taskType()));
-        }
-        if (!merged.has("raw_score")) {
-            merged.put("raw_score", WritingScoreMatrix.rawScoreFromNormalized(
-                    merged.path("score").asDouble(1.0),
-                    ruleAnalysis.taskType()
-            ));
-        }
-        return merged;
-    }
-
-    private JsonNode emptyDetails() {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.set("strengths", objectMapper.createArrayNode());
-        node.set("needs_improvement", objectMapper.createArrayNode());
-        return node;
-    }
-
-    private JsonNode emptyUpgrade() {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("upgraded_answer", "");
-        node.put("upgraded_answer_annotated", "");
-        node.put("sample_answer", "");
-        node.set("sentence_rewrites", objectMapper.createArrayNode());
-        return node;
-    }
+    // ---- Rubric info ----
 
     private static List<Map<String, Object>> allowedRubric() {
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -312,64 +288,23 @@ public class WritingEvaluationClient {
         return rows;
     }
 
-    private static Map<String, String> message(String role, String content) {
-        Map<String, String> message = new LinkedHashMap<>();
-        message.put("role", role);
-        message.put("content", content);
-        return message;
+    // ---- Response format / schema ----
+
+    private Map<String, Object> unifiedResponseFormat() {
+        return responseFormat("ksh_writing_unified", unifiedSchema());
     }
 
-    private Map<String, Object> overviewResponseFormat() {
-        return responseFormat("ksh_writing_overview", overviewSchema());
-    }
-
-    private Map<String, Object> detailsResponseFormat() {
-        return responseFormat("ksh_writing_details", detailsSchema());
-    }
-
-    private Map<String, Object> upgradeResponseFormat() {
-        return responseFormat("ksh_writing_upgrade", upgradeSchema());
-    }
-
-    private static Map<String, Object> responseFormat(String name, Map<String, Object> schema) {
-        Map<String, Object> responseFormat = new LinkedHashMap<>();
-        responseFormat.put("type", "json_schema");
-        Map<String, Object> jsonSchema = new LinkedHashMap<>();
-        jsonSchema.put("name", name);
-        jsonSchema.put("strict", Boolean.TRUE);
-        jsonSchema.put("schema", schema);
-        responseFormat.put("json_schema", jsonSchema);
-        return responseFormat;
-    }
-
-    private Map<String, Object> overviewSchema() {
-        Map<String, Object> schema = baseObject(list("score", "raw_score", "raw_score_max", "summary", "rubric_scores"));
+    private Map<String, Object> unifiedSchema() {
+        Map<String, Object> schema = baseObject(list(
+                "summary", "rubric_scores", "strengths", "needs_improvement",
+                "upgraded_answer", "upgraded_answer_annotated", "sample_answer", "sentence_rewrites"));
         schema.put("properties", prop(
-                "score", typed("number"),
-                "raw_score", typed("number"),
-                "raw_score_max", typed("number"),
                 "summary", typed("string"),
                 "rubric_scores", arrayOf(objectSchema(
                         list("name", "score", "feedback"),
-                        prop("name", typed("string"), "score", typed("number"), "feedback", typed("string"))))
-        ));
-        return schema;
-    }
-
-    private Map<String, Object> detailsSchema() {
-        // No longer requests XML-tagged student_*_annotated strings.
-        // Backend builds annotations[] from evidence start/end indices.
-        Map<String, Object> schema = baseObject(list("strengths", "needs_improvement"));
-        schema.put("properties", prop(
+                        prop("name", typed("string"), "score", typed("number"), "feedback", typed("string")))),
                 "strengths", arrayOf(findingSchema()),
-                "needs_improvement", arrayOf(findingSchema())
-        ));
-        return schema;
-    }
-
-    private Map<String, Object> upgradeSchema() {
-        Map<String, Object> schema = baseObject(list("upgraded_answer", "upgraded_answer_annotated", "sample_answer", "sentence_rewrites"));
-        schema.put("properties", prop(
+                "needs_improvement", arrayOf(findingSchema()),
                 "upgraded_answer", typed("string"),
                 "upgraded_answer_annotated", typed("string"),
                 "sample_answer", typed("string"),
@@ -387,6 +322,19 @@ public class WritingEvaluationClient {
                         "evidence", typed("string"),
                         "explanationVi", typed("string"),
                         "correction", typed("string")));
+    }
+
+    // ---- Schema helpers ----
+
+    private static Map<String, Object> responseFormat(String name, Map<String, Object> schema) {
+        Map<String, Object> responseFormat = new LinkedHashMap<>();
+        responseFormat.put("type", "json_schema");
+        Map<String, Object> jsonSchema = new LinkedHashMap<>();
+        jsonSchema.put("name", name);
+        jsonSchema.put("strict", Boolean.TRUE);
+        jsonSchema.put("schema", schema);
+        responseFormat.put("json_schema", jsonSchema);
+        return responseFormat;
     }
 
     private static String extractOutputText(JsonNode root, String raw) {
@@ -415,6 +363,13 @@ public class WritingEvaluationClient {
             }
         }
         return raw;
+    }
+
+    private static Map<String, String> message(String role, String content) {
+        Map<String, String> message = new LinkedHashMap<>();
+        message.put("role", role);
+        message.put("content", content);
+        return message;
     }
 
     private static Map<String, Object> typed(String type) {

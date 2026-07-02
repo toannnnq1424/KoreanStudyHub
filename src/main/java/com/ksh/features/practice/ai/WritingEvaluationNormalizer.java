@@ -19,28 +19,32 @@ public class WritingEvaluationNormalizer {
         this.objectMapper = objectMapper;
     }
 
-    public String normalize(String aiJson) {
+    /**
+     * Production normalizer for the unified one-call path.
+     * Normalizer is the sole source of score, raw_score, raw_score_max.
+     * AI provider does NOT return these fields.
+     */
+    public String normalize(String aiJson, String taskType, String learnerAnswer,
+                            WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            double rawScore = root.path("score").isNumber()
-                    ? root.path("score").asDouble()
-                    : root.path("overall_score").asDouble(1.0);
+            String studentText = learnerAnswer == null ? "" : learnerAnswer;
+
+            List<Map<String, Object>> rubricScores = normalizeRubricScores(root.path("rubric_scores"), taskType);
             List<Map<String, Object>> strengths = normalizeFindings(
                     root.path("strengths"),
-                    WritingRubricCriterion.Polarity.STRENGTH);
+                    WritingRubricCriterion.Polarity.STRENGTH,
+                    studentText);
             List<Map<String, Object>> needs = normalizeFindings(
                     root.path("needs_improvement"),
-                    WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT);
-            String taskType = text(root, "task_type", "GENERAL");
-            double score = WritingScoreMatrix.backendScoreFromEvidence(rawScore, strengths.size(), needs.size());
-            double rawTopikScore = root.path("raw_score").isNumber()
-                    ? root.path("raw_score").asDouble()
-                    : WritingScoreMatrix.rawScoreFromNormalized(score, taskType);
-            double rawTopikMax = root.path("raw_score_max").isNumber()
-                    ? root.path("raw_score_max").asDouble()
-                    : WritingScoreMatrix.rawScoreMax(taskType);
+                    WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT,
+                    studentText);
 
-            String studentText = text(root, "student_text", "");
+            // Derive score from rubric average — sole source of truth
+            double score = deriveScoreFromRubrics(rubricScores);
+            double rawTopikScore = WritingScoreMatrix.rawScoreFromNormalized(score, taskType);
+            double rawTopikMax = WritingScoreMatrix.rawScoreMax(taskType);
+
             List<Map<String, Object>> annotations = buildAnnotations(strengths, needs, studentText);
 
             Map<String, Object> normalized = new LinkedHashMap<>();
@@ -52,7 +56,7 @@ public class WritingEvaluationNormalizer {
             normalized.put("band_label", WritingScoreMatrix.bandLabel(score));
             normalized.put("summary", text(root, "summary", text(root, "summary_vi", "")));
             normalized.put("summary_vi", text(root, "summary_vi", text(root, "summary", "")));
-            normalized.put("rubric_scores", normalizeRubricScores(root.path("rubric_scores")));
+            normalized.put("rubric_scores", rubricScores);
             normalized.put("strengths", strengths);
             normalized.put("needs_improvement", needs);
             normalized.put("student_text", studentText);
@@ -64,11 +68,73 @@ public class WritingEvaluationNormalizer {
             normalized.put("upgraded_annotations", normalizeUpgradedAnnotations(root.path("upgraded_annotations")));
             normalized.put("corrected_version", text(root, "corrected_version", text(root, "upgraded_answer", "")));
             normalized.put("sample_answer", text(root, "sample_answer", ""));
-            normalized.put("sentence_rewrites", normalizeSentenceRewrites(root.path("sentence_rewrites")));
-            normalized.put("engine", "KSH_WRITING_EVALUATOR_V1");
+            normalized.put("sentence_rewrites", normalizeSentenceRewrites(root.path("sentence_rewrites"), studentText));
+            normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return fallback("Không đọc được phản hồi AI. Hệ thống đã lưu bài làm, vui lòng chấm lại sau.");
+        }
+    }
+
+    /**
+     * Backward-compatible overload for mock evaluator and PracticeService fallback.
+     * Reads taskType from JSON and studentText from student_text field.
+     * NOT used in production one-call path.
+     */
+    public String normalize(String aiJson) {
+        try {
+            JsonNode root = objectMapper.readTree(aiJson);
+            String taskType = text(root, "task_type", "GENERAL");
+            String studentText = text(root, "student_text", "");
+            // Build a minimal RuleAnalysis — this path does not have the original ruleAnalysis
+            return normalize(aiJson, taskType, studentText, null);
+        } catch (Exception ex) {
+            return fallback("Không đọc được phản hồi AI.");
+        }
+    }
+
+    /**
+     * Deterministic spam/empty response. 0 provider calls.
+     */
+    public String spamResponse(String taskType, String learnerAnswer) {
+        try {
+            String effectiveTaskType = taskType == null ? "GENERAL" : taskType;
+            double score = 0.0;
+            double rawScore = 0.0;
+            double rawMax = WritingScoreMatrix.rawScoreMax(effectiveTaskType);
+
+            List<String> rubricNames = WritingPromptRules.rubricNamesForTask(effectiveTaskType);
+            List<Map<String, Object>> rubricScores = new ArrayList<>();
+            for (String name : rubricNames) {
+                rubricScores.add(rubric(name, 0.0, "Bài làm không hợp lệ."));
+            }
+
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("score", score);
+            normalized.put("overall_score", score);
+            normalized.put("raw_score", rawScore);
+            normalized.put("raw_score_max", rawMax);
+            normalized.put("task_type", effectiveTaskType);
+            normalized.put("band_label", "Không phản hồi");
+            normalized.put("summary", "[SPAM_DETECTED] Bài làm không hợp lệ hoặc chưa đủ dữ liệu tiếng Hàn để chấm.");
+            normalized.put("summary_vi", "[SPAM_DETECTED] Bài làm không hợp lệ hoặc chưa đủ dữ liệu tiếng Hàn để chấm.");
+            normalized.put("rubric_scores", rubricScores);
+            normalized.put("strengths", List.of());
+            normalized.put("needs_improvement", List.of());
+            normalized.put("student_text", learnerAnswer == null ? "" : learnerAnswer);
+            normalized.put("student_strengths_annotated", "");
+            normalized.put("student_needs_annotated", "");
+            normalized.put("annotations", List.of());
+            normalized.put("upgraded_answer", "");
+            normalized.put("upgraded_answer_annotated", "");
+            normalized.put("upgraded_annotations", List.of());
+            normalized.put("corrected_version", "");
+            normalized.put("sample_answer", "");
+            normalized.put("sentence_rewrites", List.of());
+            normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
+            return objectMapper.writeValueAsString(normalized);
+        } catch (Exception ex) {
+            return fallback("[SPAM_DETECTED] Bài làm không hợp lệ.");
         }
     }
 
@@ -107,7 +173,33 @@ public class WritingEvaluationNormalizer {
         }
     }
 
-    private List<Map<String, Object>> normalizeRubricScores(JsonNode array) {
+    // ---- Scoring ----
+
+    /**
+     * Derives final score from rubric scores using equal-weight average.
+     * No existing code defines task-specific rubric weights. Equal average is used as
+     * a stable default. Task-specific weights should be addressed in a dedicated scoring task.
+     */
+    static double deriveScoreFromRubrics(List<Map<String, Object>> rubricScores) {
+        if (rubricScores == null || rubricScores.isEmpty()) {
+            return 1.0;
+        }
+        double sum = 0;
+        int count = 0;
+        for (Map<String, Object> row : rubricScores) {
+            Object scoreObj = row.get("score");
+            if (scoreObj instanceof Number n) {
+                sum += n.doubleValue();
+                count++;
+            }
+        }
+        if (count == 0) return 1.0;
+        return WritingScoreMatrix.clampAndRound(sum / count);
+    }
+
+    // ---- Rubric validation ----
+
+    private List<Map<String, Object>> normalizeRubricScores(JsonNode array, String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
         if (array.isArray()) {
             for (JsonNode node : array) {
@@ -118,15 +210,16 @@ public class WritingEvaluationNormalizer {
                 ));
             }
         }
-        rows = enforceThreeRubrics(rows);
-        return rows;
+        return enforceTaskRubrics(rows, taskType);
     }
 
-    private static List<Map<String, Object>> enforceThreeRubrics(List<Map<String, Object>> rows) {
+    private static List<Map<String, Object>> enforceTaskRubrics(List<Map<String, Object>> rows, String taskType) {
+        List<String> expectedNames = WritingPromptRules.rubricNamesForTask(
+                taskType == null ? "GENERAL" : taskType);
         List<Map<String, Object>> normalized = new ArrayList<>();
-        normalized.add(matchOrFallback(rows, WritingPromptRules.RUBRIC_CONTENT));
-        normalized.add(matchOrFallback(rows, WritingPromptRules.RUBRIC_STRUCTURE));
-        normalized.add(matchOrFallback(rows, WritingPromptRules.RUBRIC_LANGUAGE));
+        for (String name : expectedNames) {
+            normalized.add(matchOrFallback(rows, name));
+        }
         return normalized;
     }
 
@@ -149,7 +242,11 @@ public class WritingEvaluationNormalizer {
         return rubric(name, 1.0, "AI chưa trả đủ nhận xét cho tiêu chí này.");
     }
 
-    private List<Map<String, Object>> normalizeFindings(JsonNode array, WritingRubricCriterion.Polarity polarity) {
+    // ---- Findings validation ----
+
+    private List<Map<String, Object>> normalizeFindings(JsonNode array,
+                                                        WritingRubricCriterion.Polarity polarity,
+                                                        String studentText) {
         List<Map<String, Object>> rows = new ArrayList<>();
         if (!array.isArray()) {
             return rows;
@@ -166,6 +263,10 @@ public class WritingEvaluationNormalizer {
             if (evidence.isBlank() || explanation.isBlank()) {
                 continue;
             }
+            // Evidence validation: must be exact substring of original learnerAnswer
+            if (!studentText.isEmpty() && !studentText.contains(evidence)) {
+                continue;
+            }
             if (polarity == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT && correction.isBlank()) {
                 continue;
             }
@@ -173,7 +274,7 @@ public class WritingEvaluationNormalizer {
                 correction = "";
             }
 
-            // --- NEW ENRICHED FIELDS ---
+            // --- Enriched fields ---
             String category = node.path("category").asText(null);
             if (category == null || category.isBlank()) {
                 category = criterion.vietnameseLabel();
@@ -220,7 +321,7 @@ public class WritingEvaluationNormalizer {
         return "SENTENCE";
     }
 
-    private List<Map<String, Object>> normalizeSentenceRewrites(JsonNode array) {
+    private List<Map<String, Object>> normalizeSentenceRewrites(JsonNode array, String studentText) {
         List<Map<String, Object>> rows = new ArrayList<>();
         if (!array.isArray()) {
             return rows;
@@ -230,6 +331,10 @@ public class WritingEvaluationNormalizer {
             String upgraded = node.path("upgraded").asText("").trim();
             String reason = node.path("reason").asText("").trim();
             if (original.isBlank() || upgraded.isBlank() || reason.isBlank()) {
+                continue;
+            }
+            // Evidence validation: original must be substring of learnerAnswer
+            if (!studentText.isEmpty() && !studentText.contains(original)) {
                 continue;
             }
             Map<String, Object> row = new LinkedHashMap<>();
@@ -262,18 +367,7 @@ public class WritingEvaluationNormalizer {
         return rows;
     }
 
-    private static Map<String, Object> rubric(String name, double score, String feedback) {
-        Map<String, Object> row = new LinkedHashMap<>();
-        row.put("name", name);
-        row.put("score", score);
-        row.put("feedback", feedback == null ? "" : feedback);
-        return row;
-    }
-
-    private static String text(JsonNode node, String field, String fallback) {
-        String value = node.path(field).asText(null);
-        return value == null ? fallback : value;
-    }
+    // ---- Annotation building ----
 
     private List<Map<String, Object>> buildAnnotations(
             List<Map<String, Object>> strengths,
@@ -330,5 +424,20 @@ public class WritingEvaluationNormalizer {
             }
             findingIndex++;
         }
+    }
+
+    // ---- Helpers ----
+
+    private static Map<String, Object> rubric(String name, double score, String feedback) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("name", name);
+        row.put("score", score);
+        row.put("feedback", feedback == null ? "" : feedback);
+        return row;
+    }
+
+    private static String text(JsonNode node, String field, String fallback) {
+        String value = node.path(field).asText(null);
+        return value == null ? fallback : value;
     }
 }
