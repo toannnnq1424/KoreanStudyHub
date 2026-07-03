@@ -1078,4 +1078,76 @@ class PracticeServiceTest {
         assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(40.0)));
         assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(75.00)));
     }
+
+    @Test
+    void testWritingSubmitConflictsWhenLockVersionChangesBeforePersist() {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt snapshotAttempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        snapshotAttempt.setStatus("IN_PROGRESS");
+        snapshotAttempt.setLockVersion(0L);
+        setEntityId(snapshotAttempt, 99L);
+
+        PracticeAttempt changedAttempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        changedAttempt.setStatus("IN_PROGRESS");
+        changedAttempt.setLockVersion(1L);
+        setEntityId(changedAttempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L))
+                .thenReturn(Optional.of(snapshotAttempt), Optional.of(changedAttempt));
+
+        PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q, 101L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+                .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}");
+
+        PracticeAttemptConflictException ex = assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1")));
+
+        assertTrue(ex.getMessage().contains("Bài làm đã thay đổi"));
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q1"), eq("A1"), eq(false));
+        verify(attemptRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testWritingSubmitMapsOptimisticLockFailureToConflict() {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        attempt.setLockVersion(0L);
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q, 101L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+                .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}");
+        doThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(PracticeAttempt.class, 99L))
+                .when(attemptRepository).saveAndFlush(attempt);
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1")));
+    }
 }

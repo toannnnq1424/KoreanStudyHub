@@ -2,6 +2,7 @@ package com.ksh.exception;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -91,6 +92,14 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(ex.getReason() != null ? ex.getReason() : "");
+    }
+
+    @ExceptionHandler(PracticeAttemptConflictException.class)
+    public ResponseEntity<String> handlePracticeAttemptConflict(PracticeAttemptConflictException ex,
+                                                               HttpServletRequest request) {
+        log.info("409 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ex.getMessage() != null ? ex.getMessage() : "");
     }
 
     /**

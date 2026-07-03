@@ -43,8 +43,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -53,7 +58,9 @@ import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
 @Service
@@ -72,7 +79,11 @@ public class PracticeService {
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate readTransactionTemplate;
+    private final TransactionTemplate nonTransactionalTemplate;
+    private final TransactionTemplate writeTransactionTemplate;
 
+    @Autowired
     public PracticeService(PracticeSetRepository setRepository,
                            PracticeQuestionRepository questionRepository,
                            PracticeSubmissionRepository submissionRepository,
@@ -83,7 +94,8 @@ public class PracticeService {
                            WritingEvaluationClient evaluationClient,
                            ReadingListeningExplanationService readingListeningExplanationService,
                            AudioStorageService audioStorageService,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           PlatformTransactionManager transactionManager) {
         this.setRepository = setRepository;
         this.questionRepository = questionRepository;
         this.submissionRepository = submissionRepository;
@@ -95,6 +107,40 @@ public class PracticeService {
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
+        this.readTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.readTransactionTemplate.setReadOnly(true);
+        this.readTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        this.nonTransactionalTemplate = new TransactionTemplate(transactionManager);
+        this.nonTransactionalTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+        this.writeTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.writeTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+    }
+
+    PracticeService(PracticeSetRepository setRepository,
+                    PracticeQuestionRepository questionRepository,
+                    PracticeSubmissionRepository submissionRepository,
+                    PracticeQuestionGroupRepository groupRepository,
+                    PracticeSectionRepository sectionRepository,
+                    PracticeAttemptRepository attemptRepository,
+                    PracticeTestRepository testRepository,
+                    WritingEvaluationClient evaluationClient,
+                    ReadingListeningExplanationService readingListeningExplanationService,
+                    AudioStorageService audioStorageService,
+                    ObjectMapper objectMapper) {
+        this.setRepository = setRepository;
+        this.questionRepository = questionRepository;
+        this.submissionRepository = submissionRepository;
+        this.groupRepository = groupRepository;
+        this.sectionRepository = sectionRepository;
+        this.attemptRepository = attemptRepository;
+        this.testRepository = testRepository;
+        this.evaluationClient = evaluationClient;
+        this.readingListeningExplanationService = readingListeningExplanationService;
+        this.audioStorageService = audioStorageService;
+        this.objectMapper = objectMapper;
+        this.readTransactionTemplate = null;
+        this.nonTransactionalTemplate = null;
+        this.writeTransactionTemplate = null;
     }
 
     @Transactional(readOnly = true)
@@ -127,8 +173,16 @@ public class PracticeService {
         return new PracticeSetView(toSetRow(set), groups);
     }
 
-    @Transactional
     public Long reEvaluate(Long attemptId, Long userId) {
+        WritingGradingSnapshot snapshot = executeRead(() -> loadWritingReEvaluationSnapshot(attemptId, userId));
+        if (snapshot != null) {
+            WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, true));
+            return executeWrite(() -> persistWritingReEvaluationResult(snapshot, result));
+        }
+        return executeWrite(() -> reEvaluateInTransaction(attemptId, userId));
+    }
+
+    private Long reEvaluateInTransaction(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
 
@@ -1634,8 +1688,16 @@ public class PracticeService {
         return saved.getId();
     }
 
-    @Transactional
     public Long submitAttempt(Long attemptId, Long userId, Map<String, String> form) {
+        WritingGradingSnapshot snapshot = executeRead(() -> loadWritingSubmitSnapshot(attemptId, userId, form));
+        if (snapshot != null) {
+            WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, false));
+            return executeWrite(() -> persistWritingSubmitResult(snapshot, result));
+        }
+        return executeWrite(() -> submitAttemptInTransaction(attemptId, userId, form));
+    }
+
+    private Long submitAttemptInTransaction(Long attemptId, Long userId, Map<String, String> form) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
 
@@ -2047,6 +2109,289 @@ public class PracticeService {
 
     private String getOptionLabelMode(PracticeSet set) {
         return PracticeDtos.getOptionLabelMode(set.getTitle(), set.getMetadataJson());
+    }
+
+    private <T> T executeRead(Supplier<T> action) {
+        if (readTransactionTemplate == null) {
+            return action.get();
+        }
+        return readTransactionTemplate.execute(status -> action.get());
+    }
+
+    private <T> T executeNonTransactional(Supplier<T> action) {
+        if (nonTransactionalTemplate == null) {
+            return action.get();
+        }
+        return nonTransactionalTemplate.execute(status -> action.get());
+    }
+
+    private <T> T executeWrite(Supplier<T> action) {
+        if (writeTransactionTemplate == null) {
+            return action.get();
+        }
+        return writeTransactionTemplate.execute(status -> action.get());
+    }
+
+    private WritingGradingSnapshot loadWritingSubmitSnapshot(Long attemptId, Long userId, Map<String, String> form) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
+
+        if (!"WRITING".equals(attempt.getSkill())) {
+            return null;
+        }
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
+        }
+
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+        validateAttemptSection(attempt, section);
+        loadPublished(attempt.getSetId());
+
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt.getSetId(), section.getId());
+        validateWritingQuestionPoints(questions);
+
+        Map<String, String> answers = new LinkedHashMap<>();
+        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
+            try {
+                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
+                answers.putAll(prev);
+            } catch (Exception e) {
+                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
+                        exceptionCategory(e));
+            }
+        }
+        for (QuestionSnapshot q : questions) {
+            String key = "answer_" + q.questionId();
+            if (form.containsKey(key)) {
+                answers.put(String.valueOf(q.questionId()), form.get(key).trim());
+            }
+        }
+
+        return new WritingGradingSnapshot(
+                attempt.getId(),
+                attempt.getUserId(),
+                attempt.getSectionId(),
+                attempt.getSkill(),
+                PracticeAttempt.STATUS_IN_PROGRESS,
+                attempt.getLockVersion(),
+                attempt.getAnswersJson(),
+                writeJson(answers),
+                answers,
+                questions
+        );
+    }
+
+    private WritingGradingSnapshot loadWritingReEvaluationSnapshot(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
+
+        if (!"WRITING".equals(attempt.getSkill())) {
+            return null;
+        }
+
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+        validateAttemptSection(attempt, section);
+        loadPublished(attempt.getSetId());
+
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt.getSetId(), section.getId());
+        validateWritingQuestionPoints(questions);
+        Map<String, String> answers = readAnswers(attempt.getAnswersJson());
+
+        return new WritingGradingSnapshot(
+                attempt.getId(),
+                attempt.getUserId(),
+                attempt.getSectionId(),
+                attempt.getSkill(),
+                attempt.getStatus(),
+                attempt.getLockVersion(),
+                attempt.getAnswersJson(),
+                writeJson(answers),
+                answers,
+                questions
+        );
+    }
+
+    private List<QuestionSnapshot> loadQuestionSnapshots(Long setId, Long sectionId) {
+        List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(setId, sectionId);
+        List<Long> sectionQuestionIds = groupRows.stream()
+                .flatMap(g -> g.questions().stream())
+                .map(com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow::id)
+                .toList();
+
+        List<PracticeQuestion> allQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        return allQuestions.stream()
+                .filter(q -> sectionQuestionIds.contains(q.getId()))
+                .sorted(QUESTION_ORDER)
+                .map(q -> new QuestionSnapshot(
+                        q.getId(),
+                        q.getQuestionNo(),
+                        q.getDisplayOrder(),
+                        q.getPrompt(),
+                        q.getQuestionType(),
+                        q.getAnswerKey(),
+                        q.getPoints()
+                ))
+                .toList();
+    }
+
+    private void validateAttemptSection(PracticeAttempt attempt, PracticeSection section) {
+        if (!attempt.getSetId().equals(section.getSetId()) ||
+            !attempt.getTestId().equals(section.getTestId()) ||
+            !attempt.getSkill().equals(section.getSkill())) {
+            throw new IllegalArgumentException("Section metadata mismatch with attempt");
+        }
+    }
+
+    private void validateWritingQuestionPoints(List<QuestionSnapshot> questions) {
+        for (QuestionSnapshot q : questions) {
+            if (q.points() == null || q.points().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Invalid configured points for question ID: " + q.questionId());
+            }
+        }
+    }
+
+    private WritingGradingResult gradeWritingSnapshot(WritingGradingSnapshot snapshot, boolean isReEvaluate) {
+        BigDecimal attemptTotalPoints = BigDecimal.ZERO;
+        BigDecimal attemptEarnedPoints = BigDecimal.ZERO;
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
+
+        for (QuestionSnapshot q : snapshot.questions()) {
+            BigDecimal configuredPoints = q.points();
+            attemptTotalPoints = attemptTotalPoints.add(configuredPoints);
+            String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
+
+            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType()) || isAutoScoredByKey(q.questionType())) {
+                if (answersMatch(answer, q.answerKey())) {
+                    attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
+                }
+            } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
+                String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer, isReEvaluate);
+                com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
+
+                BigDecimal rawScore = requiredDecimal(node, "raw_score", q.questionId());
+                BigDecimal rawScoreMax = requiredDecimal(node, "raw_score_max", q.questionId());
+                if (rawScoreMax.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalStateException("Invalid raw_score_max for question ID: " + q.questionId());
+                }
+                rawScore = clamp(rawScore, BigDecimal.ZERO, rawScoreMax);
+
+                BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
+                        .divide(rawScoreMax, java.math.MathContext.DECIMAL128);
+                attemptEarnedPoints = attemptEarnedPoints.add(earnedQuestionPoints);
+                feedbackMap.set(String.valueOf(q.questionId()), node);
+            } else {
+                throw new IllegalStateException("Unsupported WRITING question type for question ID " + q.questionId()
+                        + ": " + q.questionType());
+            }
+        }
+
+        BigDecimal attemptScore = BigDecimal.ZERO;
+        if (attemptTotalPoints.compareTo(BigDecimal.ZERO) > 0) {
+            attemptScore = attemptEarnedPoints.multiply(BigDecimal.valueOf(100))
+                    .divide(attemptTotalPoints, 2, RoundingMode.HALF_UP);
+        }
+        attemptScore = clamp(attemptScore, BigDecimal.ZERO, BigDecimal.valueOf(100));
+        if (attemptScore.compareTo(BigDecimal.ZERO) == 0) {
+            attemptScore = BigDecimal.ZERO;
+        }
+
+        String feedbackJson;
+        try {
+            feedbackJson = objectMapper.writeValueAsString(feedbackMap);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize writing feedback map", e);
+        }
+
+        return new WritingGradingResult(attemptScore, attemptTotalPoints, snapshot.answersToPersistJson(), feedbackJson);
+    }
+
+    private Long persistWritingSubmitResult(WritingGradingSnapshot snapshot, WritingGradingResult result) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
+                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw conflict();
+        }
+        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
+            throw conflict();
+        }
+        verifySnapshotVersion(attempt, snapshot);
+        attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
+        flushAttempt(attempt);
+        log.info("[PracticeService] Submitted WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
+        return attempt.getId();
+    }
+
+    private Long persistWritingReEvaluationResult(WritingGradingSnapshot snapshot, WritingGradingResult result) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
+                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
+        if (!Objects.equals(snapshot.expectedStatus(), attempt.getStatus())) {
+            throw conflict();
+        }
+        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
+            throw conflict();
+        }
+        verifySnapshotVersion(attempt, snapshot);
+        attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
+        flushAttempt(attempt);
+        log.info("[PracticeService] Re-evaluated WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
+        return attempt.getId();
+    }
+
+    private void verifySnapshotVersion(PracticeAttempt attempt, WritingGradingSnapshot snapshot) {
+        if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
+            throw conflict();
+        }
+    }
+
+    private void flushAttempt(PracticeAttempt attempt) {
+        try {
+            attemptRepository.saveAndFlush(attempt);
+        } catch (OptimisticLockingFailureException ex) {
+            throw conflict();
+        }
+    }
+
+    private PracticeAttemptConflictException conflict() {
+        return new PracticeAttemptConflictException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại.");
+    }
+
+    private String normalizeJsonForCompare(String value) {
+        return value == null || value.isBlank() ? "{}" : value;
+    }
+
+    private record WritingGradingSnapshot(
+            Long attemptId,
+            Long userId,
+            Long sectionId,
+            String skill,
+            String expectedStatus,
+            Long lockVersion,
+            String expectedExistingAnswersJson,
+            String answersToPersistJson,
+            Map<String, String> answers,
+            List<QuestionSnapshot> questions
+    ) {
+    }
+
+    private record QuestionSnapshot(
+            Long questionId,
+            Integer questionNo,
+            Integer displayOrder,
+            String prompt,
+            String questionType,
+            String answerKey,
+            BigDecimal points
+    ) {
+    }
+
+    private record WritingGradingResult(
+            BigDecimal score,
+            BigDecimal totalPoints,
+            String answersJson,
+            String feedbackJson
+    ) {
     }
 
     private void gradeWritingSection(

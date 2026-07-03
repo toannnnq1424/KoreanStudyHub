@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +37,10 @@ public class PracticeAttempt {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    private Long lockVersion;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -173,6 +178,7 @@ public class PracticeAttempt {
     // --- Getters / Setters ---
 
     public Long getId() { return id; }
+    public Long getLockVersion() { return lockVersion; }
     public Long getUserId() { return userId; }
     public Long getSetId() { return setId; }
     public Long getTestId() { return testId; }
@@ -195,6 +201,7 @@ public class PracticeAttempt {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     public void setStatus(String status) { this.status = status; }
+    public void setLockVersion(Long lockVersion) { this.lockVersion = lockVersion; }
     public void setAnalysisStatus(String analysisStatus) { this.analysisStatus = analysisStatus; }
     public void setScore(BigDecimal score) { this.score = score; }
     public void setTotalPoints(BigDecimal totalPoints) { this.totalPoints = totalPoints; }
