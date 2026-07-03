@@ -12,6 +12,8 @@ import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ExampleBox;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
+import com.ksh.features.practice.ai.WritingEvaluationResult;
+import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
@@ -76,6 +78,7 @@ public class PracticeService {
     private final PracticeAttemptRepository attemptRepository;
     private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
+    private final WritingFeedbackCompatibilityReader writingFeedbackReader;
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private final ObjectMapper objectMapper;
@@ -92,6 +95,7 @@ public class PracticeService {
                            PracticeAttemptRepository attemptRepository,
                            PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
+                           WritingFeedbackCompatibilityReader writingFeedbackReader,
                            ReadingListeningExplanationService readingListeningExplanationService,
                            AudioStorageService audioStorageService,
                            ObjectMapper objectMapper,
@@ -104,6 +108,7 @@ public class PracticeService {
         this.attemptRepository = attemptRepository;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
+        this.writingFeedbackReader = writingFeedbackReader;
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -135,6 +140,7 @@ public class PracticeService {
         this.attemptRepository = attemptRepository;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
+        this.writingFeedbackReader = new WritingFeedbackCompatibilityReader(objectMapper);
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -347,8 +353,10 @@ public class PracticeService {
                 .filter(q -> PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType()))
                 .toList();
 
-        boolean isLegacy = rootNode != null && isLegacySingleFeedback(rootNode);
-        boolean currentMapReEvaluatable = !isLegacy && supportsPerQuestionWritingReEvaluation(rootNode, essayQuestions);
+        boolean isLegacy = rootNode != null && writingFeedbackReader.isLegacyFlatFeedback(rootNode);
+        boolean currentMapReEvaluatable = !isLegacy
+                && writingFeedbackReader.parseRoot(rootNode, essayQuestionIds(essayQuestions)).status()
+                == WritingFeedbackCompatibilityReader.Status.VALID_CURRENT;
 
         for (PracticeQuestion q : orderedQuestions) {
             String qIdStr = String.valueOf(q.getId());
@@ -434,48 +442,10 @@ public class PracticeService {
         return currentMapReEvaluatable;
     }
 
-    private boolean supportsPerQuestionWritingReEvaluation(
-            com.fasterxml.jackson.databind.JsonNode rootNode,
-            List<PracticeQuestion> essayQuestions
-    ) {
-        if (rootNode == null || !rootNode.isObject() || essayQuestions.isEmpty()) {
-            return false;
-        }
-        for (PracticeQuestion essay : essayQuestions) {
-            if (essay.getId() == null) {
-                return false;
-            }
-            JsonNode entry = rootNode.get(String.valueOf(essay.getId()));
-            if (!hasValidStoredWritingFeedbackScore(entry)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean hasValidStoredWritingFeedbackScore(JsonNode node) {
-        if (node == null || !node.isObject()) {
-            return false;
-        }
-        JsonNode rawScoreNode = node.get("raw_score");
-        JsonNode rawScoreMaxNode = node.get("raw_score_max");
-        if (rawScoreNode == null || rawScoreMaxNode == null
-                || !rawScoreNode.isNumber() || !rawScoreMaxNode.isNumber()) {
-            return false;
-        }
-        BigDecimal rawScore = rawScoreNode.decimalValue();
-        BigDecimal rawScoreMax = rawScoreMaxNode.decimalValue();
-        return rawScore.compareTo(BigDecimal.ZERO) >= 0
-                && rawScoreMax.compareTo(BigDecimal.ZERO) > 0
-                && rawScore.compareTo(rawScoreMax) <= 0;
-    }
-
-    private boolean isLegacySingleFeedback(com.fasterxml.jackson.databind.JsonNode root) {
-        return root.has("student_text")
-                || root.has("raw_score")
-                || root.has("rubric_scores")
-                || root.has("task_type")
-                || root.has("score");
+    private List<Long> essayQuestionIds(List<PracticeQuestion> essayQuestions) {
+        return essayQuestions.stream()
+                .map(PracticeQuestion::getId)
+                .toList();
     }
 
 
@@ -2372,11 +2342,9 @@ public class PracticeService {
                 String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer, isReEvaluate);
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
 
-                BigDecimal rawScore = requiredDecimal(node, "raw_score", q.questionId());
-                BigDecimal rawScoreMax = requiredDecimal(node, "raw_score_max", q.questionId());
-                if (rawScoreMax.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new IllegalStateException("Invalid raw_score_max for question ID: " + q.questionId());
-                }
+                WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.questionId());
+                BigDecimal rawScore = evaluation.rawScore();
+                BigDecimal rawScoreMax = evaluation.rawScoreMax();
                 rawScore = clamp(rawScore, BigDecimal.ZERO, rawScoreMax);
 
                 BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
@@ -2412,7 +2380,7 @@ public class PracticeService {
                 true);
         com.fasterxml.jackson.databind.node.ObjectNode targetNode =
                 readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
-        validateStoredWritingFeedbackScore(targetNode, snapshot.targetQuestion().questionId());
+        readStoredWritingScore(targetNode, snapshot.targetQuestion().questionId());
         feedbackMap.set(String.valueOf(snapshot.targetQuestion().questionId()), targetNode);
 
         WritingScoreAggregate aggregate = aggregateWritingScore(snapshot.questions(), snapshot.answers(), feedbackMap);
@@ -2434,7 +2402,7 @@ public class PracticeService {
         JsonNode root = readExistingWritingFeedbackRoot(snapshot.expectedAiFeedbackJson());
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
 
-        if (isLegacySingleFeedback(root)) {
+        if (writingFeedbackReader.isLegacyFlatFeedback(root)) {
             if (essayQuestions.size() != 1 || !essayQuestions.get(0).questionId().equals(snapshot.targetQuestion().questionId())) {
                 throw unsupportedPerQuestionFeedback();
             }
@@ -2455,7 +2423,7 @@ public class PracticeService {
             if (entry == null || entry.isNull() || !entry.isObject()) {
                 throw unsupportedPerQuestionFeedback();
             }
-            validateStoredWritingFeedbackScore(entry, q.questionId());
+            readStoredWritingScore(entry, q.questionId());
         }
         return feedbackMap;
     }
@@ -2499,7 +2467,7 @@ public class PracticeService {
                 if (node == null || node.isNull() || !node.isObject()) {
                     throw unsupportedPerQuestionFeedback();
                 }
-                StoredWritingScore storedScore = validateStoredWritingFeedbackScore(node, q.questionId());
+                WritingEvaluationResult storedScore = readStoredWritingScore(node, q.questionId());
                 BigDecimal rawScore = clamp(storedScore.rawScore(), BigDecimal.ZERO, storedScore.rawScoreMax());
                 BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
                         .divide(storedScore.rawScoreMax(), java.math.MathContext.DECIMAL128);
@@ -2526,25 +2494,20 @@ public class PracticeService {
         return attemptScore;
     }
 
-    private StoredWritingScore validateStoredWritingFeedbackScore(JsonNode node, Long questionId) {
-        if (node == null || !node.isObject()) {
+    private WritingEvaluationResult readStoredWritingScore(JsonNode node, Long questionId) {
+        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseStoredEntry(node);
+        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT) {
             throw unsupportedPerQuestionFeedback();
         }
-        BigDecimal rawScore = storedDecimal(node, "raw_score", questionId);
-        BigDecimal rawScoreMax = storedDecimal(node, "raw_score_max", questionId);
-        if (rawScore.compareTo(BigDecimal.ZERO) < 0 || rawScoreMax.compareTo(BigDecimal.ZERO) <= 0
-                || rawScore.compareTo(rawScoreMax) > 0) {
-            throw unsupportedPerQuestionFeedback();
-        }
-        return new StoredWritingScore(rawScore, rawScoreMax);
+        return parsed.value();
     }
 
-    private BigDecimal storedDecimal(JsonNode node, String fieldName, Long questionId) {
-        JsonNode value = node.get(fieldName);
-        if (value == null || value.isNull() || !value.isNumber()) {
-            throw unsupportedPerQuestionFeedback();
+    private WritingEvaluationResult readGeneratedWritingScore(JsonNode node, Long questionId) {
+        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseGeneratedEntry(node);
+        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT) {
+            throw new IllegalStateException("AI feedback missing numeric score fields for question ID: " + questionId);
         }
-        return value.decimalValue();
+        return parsed.value();
     }
 
     private Long persistWritingSubmitResult(WritingGradingSnapshot snapshot, WritingGradingResult result) {
@@ -2674,12 +2637,6 @@ public class PracticeService {
     ) {
     }
 
-    private record StoredWritingScore(
-            BigDecimal rawScore,
-            BigDecimal rawScoreMax
-    ) {
-    }
-
     private record WritingScoreAggregate(
             BigDecimal score,
             BigDecimal totalPoints
@@ -2728,11 +2685,9 @@ public class PracticeService {
                 String singleFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, isReEvaluate);
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.getId(), singleFeedback);
 
-                BigDecimal rawScore = requiredDecimal(node, "raw_score", q.getId());
-                BigDecimal rawScoreMax = requiredDecimal(node, "raw_score_max", q.getId());
-                if (rawScoreMax.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new IllegalStateException("Invalid raw_score_max for question ID: " + q.getId());
-                }
+                WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.getId());
+                BigDecimal rawScore = evaluation.rawScore();
+                BigDecimal rawScoreMax = evaluation.rawScoreMax();
                 rawScore = clamp(rawScore, BigDecimal.ZERO, rawScoreMax);
 
                 BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
@@ -2771,14 +2726,6 @@ public class PracticeService {
         } catch (Exception e) {
             throw new IllegalStateException("Invalid AI feedback JSON for question ID: " + questionId, e);
         }
-    }
-
-    private BigDecimal requiredDecimal(JsonNode node, String fieldName, Long questionId) {
-        JsonNode value = node.get(fieldName);
-        if (value == null || value.isNull() || !value.isNumber()) {
-            throw new IllegalStateException("AI feedback missing numeric " + fieldName + " for question ID: " + questionId);
-        }
-        return value.decimalValue();
     }
 
     private BigDecimal clamp(BigDecimal value, BigDecimal min, BigDecimal max) {
