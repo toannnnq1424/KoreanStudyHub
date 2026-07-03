@@ -104,7 +104,7 @@ class PracticeIntegrationTest {
         attemptRepository.deleteAll();
         submissionRepository.deleteAll();
 
-        when(writingEvaluationClient.evaluate(anyString(), anyString(), anyBoolean()))
+        when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
                 .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
 
         // Seed a published practice set
@@ -953,7 +953,7 @@ class PracticeIntegrationTest {
         attempt = attemptRepository.saveAndFlush(attempt);
 
         // Mock evaluation client for Question A
-        when(writingEvaluationClient.evaluate(eq("Prompt A"), anyString(), anyBoolean()))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt A"), anyString(), anyBoolean()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}"); // 80% earned points
 
         // Submit for Section A attempt

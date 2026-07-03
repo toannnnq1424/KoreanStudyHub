@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -73,6 +75,62 @@ public class WritingEvaluationNormalizer {
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return fallback("Không đọc được phản hồi AI. Hệ thống đã lưu bài làm, vui lòng chấm lại sau.");
+        }
+    }
+
+    public boolean isCacheableAiResult(String normalizedJson) {
+        try {
+            JsonNode root = objectMapper.readTree(normalizedJson);
+            return root != null
+                    && root.isObject()
+                    && "KSH_WRITING_EVALUATOR_V2".equals(root.path("engine").asText())
+                    && root.path("raw_score").isNumber()
+                    && root.path("raw_score_max").isNumber();
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    public String sanitizeForCache(String normalizedJson) {
+        try {
+            JsonNode root = objectMapper.readTree(normalizedJson);
+            if (!root.isObject()) {
+                throw new IllegalArgumentException("Writing cache payload must be a JSON object.");
+            }
+            ObjectNode sanitized = ((ObjectNode) root).deepCopy();
+            sanitized.remove("student_text");
+            return objectMapper.writeValueAsString(sanitized);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Writing cache payload is not valid JSON.", ex);
+        }
+    }
+
+    public String rehydrateCachedResult(String cachedJson, String learnerAnswer) {
+        try {
+            JsonNode root = objectMapper.readTree(cachedJson);
+            if (!root.isObject()) {
+                throw new IllegalArgumentException("Writing cache payload must be a JSON object.");
+            }
+
+            String studentText = learnerAnswer == null ? "" : learnerAnswer;
+            ObjectNode hydrated = ((ObjectNode) root).deepCopy();
+            hydrated.put("student_text", studentText);
+
+            ArrayNode strengths = filterFindingsForAnswer(hydrated.path("strengths"), studentText);
+            ArrayNode needs = filterFindingsForAnswer(hydrated.path("needs_improvement"), studentText);
+            ArrayNode rewrites = filterSentenceRewritesForAnswer(hydrated.path("sentence_rewrites"), studentText);
+
+            hydrated.set("strengths", strengths);
+            hydrated.set("needs_improvement", needs);
+            hydrated.set("sentence_rewrites", rewrites);
+
+            List<Map<String, Object>> strengthRows = toFindingRows(strengths);
+            List<Map<String, Object>> needRows = toFindingRows(needs);
+            hydrated.set("annotations", objectMapper.valueToTree(buildAnnotations(strengthRows, needRows, studentText)));
+
+            return objectMapper.writeValueAsString(hydrated);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Writing cached result is malformed.", ex);
         }
     }
 
@@ -344,6 +402,57 @@ public class WritingEvaluationNormalizer {
             rows.add(row);
         }
         return rows;
+    }
+
+    private ArrayNode filterFindingsForAnswer(JsonNode array, String studentText) {
+        ArrayNode filtered = objectMapper.createArrayNode();
+        if (!array.isArray()) {
+            return filtered;
+        }
+        for (JsonNode node : array) {
+            String evidence = node.path("evidence").asText("").trim();
+            if (!evidence.isBlank() && (studentText.isEmpty() || studentText.contains(evidence))) {
+                filtered.add(node);
+            }
+        }
+        return filtered;
+    }
+
+    private ArrayNode filterSentenceRewritesForAnswer(JsonNode array, String studentText) {
+        ArrayNode filtered = objectMapper.createArrayNode();
+        if (!array.isArray()) {
+            return filtered;
+        }
+        for (JsonNode node : array) {
+            String original = node.path("original").asText("").trim();
+            if (!original.isBlank() && (studentText.isEmpty() || studentText.contains(original))) {
+                filtered.add(node);
+            }
+        }
+        return filtered;
+    }
+
+    private List<Map<String, Object>> toFindingRows(JsonNode array) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (!array.isArray()) {
+            return rows;
+        }
+        for (JsonNode node : array) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            node.fields().forEachRemaining(entry -> row.put(entry.getKey(), toPlainValue(entry.getValue())));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private Object toPlainValue(JsonNode value) {
+        if (value == null || value.isNull()) return null;
+        if (value.isTextual()) return value.asText();
+        if (value.isInt()) return value.asInt();
+        if (value.isLong()) return value.asLong();
+        if (value.isFloat() || value.isDouble() || value.isBigDecimal()) return value.asDouble();
+        if (value.isBoolean()) return value.asBoolean();
+        return objectMapper.convertValue(value, Object.class);
     }
 
     private List<Map<String, Object>> normalizeUpgradedAnnotations(JsonNode array) {

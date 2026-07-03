@@ -180,7 +180,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer, true);
+                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, true);
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -1721,7 +1721,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer);
+                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, false);
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -2100,7 +2100,7 @@ public class PracticeService {
                     attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                String singleFeedback = evaluationClient.evaluate(q.getPrompt(), answer, isReEvaluate);
+                String singleFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, isReEvaluate);
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.getId(), singleFeedback);
 
                 BigDecimal rawScore = requiredDecimal(node, "raw_score", q.getId());

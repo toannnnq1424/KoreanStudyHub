@@ -63,10 +63,14 @@ public class WritingEvaluationClient {
     }
 
     public String evaluate(String prompt, String learnerAnswer) {
-        return evaluate(prompt, learnerAnswer, false);
+        return evaluate(null, prompt, learnerAnswer, false);
     }
 
     public String evaluate(String prompt, String learnerAnswer, boolean isReEvaluation) {
+        return evaluate(null, prompt, learnerAnswer, isReEvaluation);
+    }
+
+    public String evaluate(Long userId, String prompt, String learnerAnswer, boolean isReEvaluation) {
         WritingRuleEngine.RuleAnalysis ruleAnalysis = ruleEngine.analyze(prompt, learnerAnswer);
         log.info("KSH writing evaluation started: model={}, taskType={}, charCount={}, violations={}, reEvaluation={}",
                 properties.evaluatorModel(), ruleAnalysis.taskType(), ruleAnalysis.characterCount(),
@@ -80,14 +84,25 @@ public class WritingEvaluationClient {
 
         // 2. Cache lookup (skip for re-evaluation)
         if (!isReEvaluation) {
-            var cached = cacheService.get(prompt, learnerAnswer,
-                    ruleAnalysis.taskType(), properties.evaluatorModel(),
-                    WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                    WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-            if (cached.isPresent()) {
-                log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
-                        ruleAnalysis.taskType(), ruleAnalysis.characterCount());
-                return cached.get();
+            try {
+                var cached = cacheService.get(userId, prompt, learnerAnswer,
+                        ruleAnalysis.taskType(), properties.evaluatorModel(),
+                        WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                        WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+                if (cached.isPresent()) {
+                    try {
+                        String rehydrated = normalizer.rehydrateCachedResult(cached.get(), learnerAnswer);
+                        log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
+                                ruleAnalysis.taskType(), ruleAnalysis.characterCount());
+                        return rehydrated;
+                    } catch (Exception ex) {
+                        log.warn("KSH writing evaluation cache entry ignored because payload is malformed: taskType={}",
+                                ruleAnalysis.taskType());
+                        deleteCacheEntry(userId, prompt, learnerAnswer, ruleAnalysis);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("KSH writing evaluation cache read failed; treating as miss: {}", ex.getMessage());
             }
         }
 
@@ -138,13 +153,31 @@ public class WritingEvaluationClient {
                 ruleAnalysis);
 
         // 6. Cache result (both submit and re-evaluate overwrite cache)
-        cacheService.put(prompt, learnerAnswer,
-                ruleAnalysis.taskType(), properties.evaluatorModel(),
-                WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                WritingPromptRules.EVALUATION_SCHEMA_VERSION,
-                normalized);
+        if (normalizer.isCacheableAiResult(normalized)) {
+            try {
+                cacheService.put(userId, prompt, learnerAnswer,
+                        ruleAnalysis.taskType(), properties.evaluatorModel(),
+                        WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                        WritingPromptRules.EVALUATION_SCHEMA_VERSION,
+                        normalizer.sanitizeForCache(normalized));
+            } catch (Exception ex) {
+                log.warn("KSH writing evaluation cache write failed; returning provider result: {}", ex.getMessage());
+            }
+        }
 
         return normalized;
+    }
+
+    private void deleteCacheEntry(Long userId, String prompt, String learnerAnswer,
+                                  WritingRuleEngine.RuleAnalysis ruleAnalysis) {
+        try {
+            cacheService.delete(userId, prompt, learnerAnswer,
+                    ruleAnalysis.taskType(), properties.evaluatorModel(),
+                    WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                    WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+        } catch (Exception ex) {
+            log.warn("KSH writing evaluation malformed cache cleanup failed: {}", ex.getMessage());
+        }
     }
 
     private String fallbackToMock(String prompt, String learnerAnswer, WritingRuleEngine.RuleAnalysis ruleAnalysis, String reason) {

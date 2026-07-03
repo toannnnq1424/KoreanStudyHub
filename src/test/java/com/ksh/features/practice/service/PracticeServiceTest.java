@@ -179,11 +179,11 @@ class PracticeServiceTest {
         setEntityId(q, 10L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
-        when(evaluationClient.evaluate(anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
                 .thenReturn("{\"score\":6.0,\"overall_score\":6.0,\"raw_score\":30.0,\"raw_score_max\":50.0}");
 
         practiceService.reEvaluate(1L, 2L);
-        verify(evaluationClient, times(1)).evaluate(anyString(), anyString(), anyBoolean());
+        verify(evaluationClient, times(1)).evaluate(eq(2L), anyString(), anyString(), anyBoolean());
     }
 
     @Test
@@ -212,7 +212,7 @@ class PracticeServiceTest {
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
         // Stub evaluate to return a contract-valid JSON with raw_score = 0.0 (spam/empty)
-        when(evaluationClient.evaluate(anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
                 .thenReturn("{\"score\":0.0,\"overall_score\":0.0,\"raw_score\":0.0,\"raw_score_max\":50.0}");
 
         practiceService.reEvaluate(1L, 2L);
@@ -876,7 +876,7 @@ class PracticeServiceTest {
         // Total earned points = MCQ (5.0) + ESSAY (9.0) = 14.0 points.
         // Total possible points = 5.0 + 15.0 = 20.0 points.
         // Final percentage score = (14.0 / 20.0) * 100 = 70.00%
-        when(evaluationClient.evaluate(anyString(), anyString(), anyBoolean())).thenReturn("{\"raw_score\":6.0,\"raw_score_max\":10.0}");
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean())).thenReturn("{\"raw_score\":6.0,\"raw_score_max\":10.0}");
 
         Map<String, String> form = Map.of("answer_101", "3", "answer_102", "My essay");
         practiceService.submitAttempt(99L, 2L, form);
@@ -911,9 +911,9 @@ class PracticeServiceTest {
         setEntityId(q2, 102L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1, q2));
 
-        when(evaluationClient.evaluate(eq("Q1"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
-        when(evaluationClient.evaluate(eq("Q2"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean()))
                 .thenReturn("{\"raw_score\":21.0,\"raw_score_max\":30.0,\"rubric_scores\":[]}");
 
         practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1", "answer_102", "A2"));
@@ -950,9 +950,9 @@ class PracticeServiceTest {
         setEntityId(q2, 102L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1, q2));
 
-        when(evaluationClient.evaluate(eq("Q1"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean()))
                 .thenReturn("{\"raw_score\":-5.0,\"raw_score_max\":10.0}");
-        when(evaluationClient.evaluate(eq("Q2"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean()))
                 .thenReturn("{\"raw_score\":40.0,\"raw_score_max\":30.0}");
 
         practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1", "answer_102", "A2"));

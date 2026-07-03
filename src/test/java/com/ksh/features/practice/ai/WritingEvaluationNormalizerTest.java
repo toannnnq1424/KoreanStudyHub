@@ -400,6 +400,81 @@ class WritingEvaluationNormalizerTest {
         assertEquals(1.0, WritingEvaluationNormalizer.deriveScoreFromRubrics(List.of()));
     }
 
+    @Test
+    void testSanitizeForCacheRemovesTopLevelStudentText() throws Exception {
+        String normalized = """
+        {
+          "score": 7.0,
+          "raw_score": 20.0,
+          "raw_score_max": 30.0,
+          "student_text": "한국어를 공부합니다",
+          "engine": "KSH_WRITING_EVALUATOR_V2"
+        }
+        """;
+
+        JsonNode root = objectMapper.readTree(normalizer.sanitizeForCache(normalized));
+
+        assertFalse(root.has("student_text"));
+        assertEquals(7.0, root.path("score").asDouble());
+    }
+
+    @Test
+    void testRehydrateCachedResultSetsStudentTextFiltersEvidenceAndPreservesScores() throws Exception {
+        String cached = """
+        {
+          "score": 7.0,
+          "overall_score": 7.0,
+          "raw_score": 22.0,
+          "raw_score_max": 30.0,
+          "task_type": "Q53",
+          "summary": "Good",
+          "rubric_scores": [
+            {"name": "A", "score": 7.0, "feedback": "A"},
+            {"name": "B", "score": 7.0, "feedback": "B"},
+            {"name": "C", "score": 7.0, "feedback": "C"}
+          ],
+          "strengths": [
+            {"criterionId": "W_ADVANCED_GRAMMAR_STRUCTURES", "evidence": "공부합니다", "explanationVi": "Good", "correction": ""},
+            {"criterionId": "W_NATURAL_KOREAN_EXPRESSIONS", "evidence": "없는증거", "explanationVi": "Bad", "correction": ""}
+          ],
+          "needs_improvement": [
+            {"criterionId": "W_GRAMMAR_ERRORS", "evidence": "한국어를", "explanationVi": "Need", "correction": "한국어를 더"},
+            {"criterionId": "W_GRAMMAR_ERRORS", "evidence": "없는오류", "explanationVi": "Bad", "correction": "수정"}
+          ],
+          "annotations": [
+            {"id": "stale", "evidence": "없는증거"}
+          ],
+          "sentence_rewrites": [
+            {"original": "한국어를", "upgraded": "한국어를 더", "reason": "Better"},
+            {"original": "없는문장", "upgraded": "수정", "reason": "Bad"}
+          ],
+          "engine": "KSH_WRITING_EVALUATOR_V2"
+        }
+        """;
+
+        JsonNode root = objectMapper.readTree(normalizer.rehydrateCachedResult(cached, "한국어를 공부합니다"));
+
+        assertEquals("한국어를 공부합니다", root.path("student_text").asText());
+        assertEquals(7.0, root.path("score").asDouble());
+        assertEquals(22.0, root.path("raw_score").asDouble());
+        assertEquals(30.0, root.path("raw_score_max").asDouble());
+        assertEquals(3, root.path("rubric_scores").size());
+        assertEquals(1, root.path("strengths").size());
+        assertEquals("공부합니다", root.path("strengths").get(0).path("evidence").asText());
+        assertEquals(1, root.path("needs_improvement").size());
+        assertEquals("한국어를", root.path("needs_improvement").get(0).path("evidence").asText());
+        assertEquals(1, root.path("sentence_rewrites").size());
+        assertEquals("한국어를", root.path("sentence_rewrites").get(0).path("original").asText());
+        assertEquals(2, root.path("annotations").size());
+        assertNotEquals("stale", root.path("annotations").get(0).path("id").asText());
+    }
+
+    @Test
+    void testCacheabilityRejectsFallback() {
+        assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_FALLBACK\",\"raw_score\":1.0,\"raw_score_max\":100.0}"));
+        assertTrue(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"raw_score\":1.0,\"raw_score_max\":100.0}"));
+    }
+
     // ---- Task-specific raw max and score validation ----
 
     @Test
