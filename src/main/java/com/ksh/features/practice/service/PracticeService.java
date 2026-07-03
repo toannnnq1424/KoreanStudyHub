@@ -51,9 +51,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
 @Service
 public class PracticeService {
@@ -158,6 +160,13 @@ public class PracticeService {
 
         Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
 
+        if ("WRITING".equals(attempt.getSkill())) {
+            gradeWritingSection(attempt, sectionQuestions, submittedAnswers, true);
+            attemptRepository.save(attempt);
+            log.info("[PracticeService] Re-evaluated WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
+            return attempt.getId();
+        }
+
         BigDecimal score = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
         String aiFeedback = null;
@@ -231,6 +240,10 @@ public class PracticeService {
                 : List.of();
         List<PracticeAnswerReviewRow> answerReviews = answerReviewRows(questions, attempt.getAnswersJson());
 
+        List<PracticeQuestionFeedbackRow> questionFeedbacks = "WRITING".equals(section.getSkill())
+                ? buildQuestionFeedbackRows(sectionQuestions, attempt.getAnswersJson(), attempt.getAiFeedbackJson())
+                : List.of();
+
         return new PracticeResultView(
                 attempt.getId(),
                 toSetRow(set),
@@ -241,8 +254,124 @@ public class PracticeService {
                 attempt.getAiFeedbackJson(),
                 questions,
                 answerReviews,
-                answerExplanations
+                answerExplanations,
+                questionFeedbacks
         );
+    }
+
+    public static final Comparator<PracticeQuestion> QUESTION_ORDER =
+            Comparator.comparing(PracticeQuestion::getDisplayOrder, Comparator.nullsLast(Integer::compareTo))
+                    .thenComparing(PracticeQuestion::getQuestionNo, Comparator.nullsLast(Integer::compareTo))
+                    .thenComparing(PracticeQuestion::getId, Comparator.nullsLast(Long::compareTo));
+    public final Comparator<PracticeQuestion> questionComparator = QUESTION_ORDER;
+
+    public List<PracticeQuestionFeedbackRow> buildQuestionFeedbackRows(
+            List<PracticeQuestion> questions,
+            String answersJson,
+            String aiFeedbackJson
+    ) {
+        Map<String, String> answers = new LinkedHashMap<>();
+        if (answersJson != null && !answersJson.isBlank()) {
+            try {
+                answers = objectMapper.readValue(answersJson, new TypeReference<Map<String, String>>() {});
+            } catch (Exception e) {
+                log.warn("[PracticeService] Failed to parse answersJson in buildQuestionFeedbackRows", e);
+            }
+        }
+
+        com.fasterxml.jackson.databind.JsonNode rootNode = null;
+        if (aiFeedbackJson != null && !aiFeedbackJson.isBlank()) {
+            try {
+                rootNode = objectMapper.readTree(aiFeedbackJson);
+            } catch (Exception e) {
+                log.warn("[PracticeService] Failed to parse aiFeedbackJson in buildQuestionFeedbackRows", e);
+            }
+        }
+
+        List<PracticeQuestion> orderedQuestions = questions.stream()
+                .sorted(QUESTION_ORDER)
+                .toList();
+        List<PracticeQuestionFeedbackRow> rows = new ArrayList<>();
+        List<PracticeQuestion> essayQuestions = orderedQuestions.stream()
+                .filter(q -> PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType()))
+                .toList();
+
+        boolean isLegacy = rootNode != null && isLegacySingleFeedback(rootNode);
+
+        for (PracticeQuestion q : orderedQuestions) {
+            String qIdStr = String.valueOf(q.getId());
+            String answer = answers.getOrDefault(qIdStr, "");
+            com.fasterxml.jackson.databind.JsonNode feedbackNode = null;
+
+            if (rootNode != null) {
+                if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
+                    if (isLegacy) {
+                        String legacyStudentText = rootNode.path("student_text").asText("");
+                        if (essayQuestions.size() == 1) {
+                            feedbackNode = rootNode;
+                        } else {
+                            List<PracticeQuestion> matchingEssays = new ArrayList<>();
+                            for (PracticeQuestion eq : essayQuestions) {
+                                String eqAns = answers.getOrDefault(String.valueOf(eq.getId()), "");
+                                if (!eqAns.isBlank() && eqAns.equals(legacyStudentText)) {
+                                    matchingEssays.add(eq);
+                                }
+                            }
+                            if (matchingEssays.size() == 1) {
+                                if (matchingEssays.get(0).getId().equals(q.getId())) {
+                                    feedbackNode = rootNode;
+                                }
+                            } else if (matchingEssays.size() > 1) {
+                                matchingEssays.sort(QUESTION_ORDER);
+                                PracticeQuestion lastMatching = matchingEssays.get(matchingEssays.size() - 1);
+                                if (lastMatching.getId().equals(q.getId())) {
+                                    feedbackNode = rootNode;
+                                }
+                            } else {
+                                if (!essayQuestions.isEmpty()) {
+                                    PracticeQuestion lastEssay = essayQuestions.get(essayQuestions.size() - 1);
+                                    if (lastEssay.getId().equals(q.getId())) {
+                                        feedbackNode = rootNode;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        com.fasterxml.jackson.databind.JsonNode node = rootNode.path(qIdStr);
+                        if (!node.isMissingNode() && !node.isNull()) {
+                            if (node.isTextual()) {
+                                try {
+                                    JsonNode parsedNode = objectMapper.readTree(node.asText());
+                                    feedbackNode = parsedNode != null && parsedNode.isObject() ? parsedNode : null;
+                                } catch (Exception e) {
+                                    feedbackNode = null;
+                                }
+                            } else {
+                                feedbackNode = node.isObject() ? node : null;
+                            }
+                        }
+                    }
+                }
+            }
+
+            rows.add(new PracticeQuestionFeedbackRow(
+                    q.getId(),
+                    q.getQuestionNo(),
+                    q.getQuestionType(),
+                    q.getPrompt(),
+                    answer,
+                    feedbackNode
+            ));
+        }
+        return rows;
+    }
+
+    private boolean isLegacySingleFeedback(com.fasterxml.jackson.databind.JsonNode root) {
+        return root.has("student_text")
+                || root.has("raw_score")
+                || root.has("rubric_scores")
+                || root.has("task_type")
+                || root.has("score");
     }
 
 
@@ -1572,6 +1701,13 @@ public class PracticeService {
             }
         }
 
+        if ("WRITING".equals(skill)) {
+            gradeWritingSection(attempt, sectionQuestions, answers, false);
+            attemptRepository.save(attempt);
+            log.info("[PracticeService] Submitted WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
+            return attempt.getId();
+        }
+
         BigDecimal score = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
         String aiFeedback = null;
@@ -1931,5 +2067,110 @@ public class PracticeService {
 
     private String getOptionLabelMode(PracticeSet set) {
         return PracticeDtos.getOptionLabelMode(set.getTitle(), set.getMetadataJson());
+    }
+
+    private void gradeWritingSection(
+            PracticeAttempt attempt,
+            List<PracticeQuestion> sectionQuestions,
+            Map<String, String> answers,
+            boolean isReEvaluate
+    ) {
+        List<PracticeQuestion> orderedQuestions = sectionQuestions.stream()
+                .sorted(QUESTION_ORDER)
+                .toList();
+
+        for (PracticeQuestion q : orderedQuestions) {
+            if (q.getPoints() == null || q.getPoints().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Invalid configured points for question ID: " + q.getId());
+            }
+        }
+
+        BigDecimal attemptTotalPoints = BigDecimal.ZERO;
+        BigDecimal attemptEarnedPoints = BigDecimal.ZERO;
+
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
+
+        for (PracticeQuestion q : orderedQuestions) {
+            BigDecimal configuredPoints = q.getPoints();
+            attemptTotalPoints = attemptTotalPoints.add(configuredPoints);
+            String answer = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
+
+            if (PracticeQuestion.TYPE_MCQ.equals(q.getQuestionType()) || isAutoScoredByKey(q.getQuestionType())) {
+                if (answersMatch(answer, q.getAnswerKey())) {
+                    attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
+                }
+            } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
+                String singleFeedback = evaluationClient.evaluate(q.getPrompt(), answer, isReEvaluate);
+                com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.getId(), singleFeedback);
+
+                BigDecimal rawScore = requiredDecimal(node, "raw_score", q.getId());
+                BigDecimal rawScoreMax = requiredDecimal(node, "raw_score_max", q.getId());
+                if (rawScoreMax.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalStateException("Invalid raw_score_max for question ID: " + q.getId());
+                }
+                rawScore = clamp(rawScore, BigDecimal.ZERO, rawScoreMax);
+
+                BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
+                        .divide(rawScoreMax, java.math.MathContext.DECIMAL128);
+
+                attemptEarnedPoints = attemptEarnedPoints.add(earnedQuestionPoints);
+
+                feedbackMap.set(String.valueOf(q.getId()), node);
+            } else {
+                throw new IllegalStateException("Unsupported WRITING question type for question ID " + q.getId()
+                        + ": " + q.getQuestionType());
+            }
+        }
+
+        BigDecimal attemptScore = BigDecimal.ZERO;
+        if (attemptTotalPoints.compareTo(BigDecimal.ZERO) > 0) {
+            attemptScore = attemptEarnedPoints.multiply(BigDecimal.valueOf(100))
+                    .divide(attemptTotalPoints, 2, RoundingMode.HALF_UP);
+        }
+        attemptScore = clamp(attemptScore, BigDecimal.ZERO, BigDecimal.valueOf(100));
+        if (attemptScore.compareTo(BigDecimal.ZERO) == 0) {
+            attemptScore = BigDecimal.ZERO;
+        }
+
+        String feedbackJson = "{}";
+        try {
+            feedbackJson = objectMapper.writeValueAsString(feedbackMap);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize writing feedback map", e);
+        }
+
+        attempt.markGraded(attemptScore, attemptTotalPoints, writeJson(answers), feedbackJson);
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode readWritingFeedbackObject(Long questionId, String feedbackJson) {
+        try {
+            JsonNode node = objectMapper.readTree(feedbackJson);
+            if (node == null || !node.isObject()) {
+                throw new IllegalStateException("AI feedback root must be an object for question ID: " + questionId);
+            }
+            return (com.fasterxml.jackson.databind.node.ObjectNode) node;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid AI feedback JSON for question ID: " + questionId, e);
+        }
+    }
+
+    private BigDecimal requiredDecimal(JsonNode node, String fieldName, Long questionId) {
+        JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull() || !value.isNumber()) {
+            throw new IllegalStateException("AI feedback missing numeric " + fieldName + " for question ID: " + questionId);
+        }
+        return value.decimalValue();
+    }
+
+    private BigDecimal clamp(BigDecimal value, BigDecimal min, BigDecimal max) {
+        if (value.compareTo(min) < 0) {
+            return min;
+        }
+        if (value.compareTo(max) > 0) {
+            return max;
+        }
+        return value;
     }
 }

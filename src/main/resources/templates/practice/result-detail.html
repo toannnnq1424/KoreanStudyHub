@@ -7,11 +7,14 @@
 </head>
 <body class="prd-body">
 
-<!-- Pass data from Thymeleaf -->
-<script id="ai-feedback-json" type="application/json" th:utext="${result.aiFeedbackJson()}"></script>
-<script id="prd-skill" type="text/plain" th:text="${result.set().skill()}"></script>
-<script id="prd-attempt-id" type="text/plain" th:text="${result.submissionId()}"></script>
-<script id="prd-questions-json" type="application/json" th:utext="${questionsJson}"></script>
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
+  const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
+  const attemptId = /*[[${result.submissionId()}]]*/ '';
+  const rawAiFeedbackJson = /*[[${result.aiFeedbackJson()}]]*/ '{}';
+  /*]]>*/
+</script>
 
 <!-- Header fixed top bar -->
 <header class="prd-header">
@@ -161,59 +164,72 @@
 
 <script>
 (function() {
-  // ════ Parse Data ════
+  let selectorQuestions = questions;
+  if (setSkill === 'WRITING') {
+    selectorQuestions = questions.filter(q => q.questionType === 'ESSAY');
+  }
+
+  if (selectorQuestions.length === 0) {
+    return;
+  }
+
+  let currentQ = selectorQuestions[0] || {};
   let aiData = {};
-  let questions = [];
-  let skill = '';
-  let attemptId = '';
+  let strengths = [];
+  let needs = [];
+  let annotations = [];
+  let rubricScores = [];
 
-  try {
-    const src = document.getElementById('ai-feedback-json');
-    if (src) aiData = JSON.parse(src.textContent || '{}');
-  } catch(e) {}
-  try {
-    const src = document.getElementById('prd-questions-json');
-    if (src) questions = JSON.parse(src.textContent || '[]');
-  } catch(e) {}
-  try {
-    skill = document.getElementById('prd-skill').textContent.trim();
-    attemptId = document.getElementById('prd-attempt-id').textContent.trim();
-  } catch(e) {}
-
-  const strengths = Array.isArray(aiData.strengths) ? aiData.strengths : [];
-  const needs = Array.isArray(aiData.needs_improvement) ? aiData.needs_improvement : [];
-  const annotations = Array.isArray(aiData.annotations) ? aiData.annotations : [];
-  const rubricScores = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
-
-  // ════ Render Task Name & Prompt ════
-  let currentQ = questions[0] || {};
   const taskNameEl = document.getElementById('prd-task-name');
   const promptEl = document.getElementById('prd-prompt-text');
 
+  function updateActiveQuestionData() {
+    if (setSkill === 'WRITING') {
+      aiData = currentQ.feedbackNode || {};
+    } else {
+      try {
+        aiData = JSON.parse(rawAiFeedbackJson || '{}');
+      } catch (e) {
+        aiData = {};
+      }
+    }
+
+    strengths = Array.isArray(aiData.strengths) ? aiData.strengths : [];
+    needs = Array.isArray(aiData.needs_improvement) ? aiData.needs_improvement : [];
+    annotations = Array.isArray(aiData.annotations) ? aiData.annotations : [];
+    rubricScores = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
+
+    const activeTabBtn = document.querySelector('.prd-tab-btn.active');
+    const activeTab = activeTabBtn ? activeTabBtn.dataset.tab : 'overview';
+    activateTab(activeTab);
+  }
+
   function setQuestion(idx) {
-    currentQ = questions[idx] || {};
+    currentQ = selectorQuestions[idx] || {};
     let currentSkillLabel = '말하기 (Nói)';
     if (currentQ.questionType === 'ESSAY') {
       currentSkillLabel = '쓰기 (Viết)';
     } else if (currentQ.questionType === 'SPEAKING') {
       currentSkillLabel = '말하기 (Nói)';
-    } else if (skill === 'WRITING') {
+    } else if (setSkill === 'WRITING') {
       currentSkillLabel = '쓰기 (Viết)';
-    } else if (skill === 'SPEAKING') {
+    } else if (setSkill === 'SPEAKING') {
       currentSkillLabel = '말하기 (Nói)';
     }
     if (taskNameEl) taskNameEl.textContent = currentSkillLabel + ' ' + (currentQ.questionNo || (idx + 1));
     if (promptEl) promptEl.textContent = currentQ.prompt || 'Không có đề bài.';
-    renderAnnotatedText(currentQ.learnerAnswer || '');
+    
+    updateActiveQuestionData();
   }
 
-  // Render nav if multiple questions
+  // Render nav
   const navEl = document.getElementById('prd-task-nav');
-  if (questions.length > 1 && navEl) {
-    questions.forEach((q, idx) => {
+  if (selectorQuestions.length > 1 && navEl) {
+    navEl.innerHTML = '';
+    selectorQuestions.forEach((q, idx) => {
       const btn = document.createElement('button');
       btn.className = 'prd-task-nav-btn' + (idx === 0 ? ' active' : '');
-      btn.textContent = idx === 0 ? '← Trước' : 'Tiếp →';
+      btn.textContent = `Câu ${q.questionNo || (idx + 1)}`;
       btn.addEventListener('click', () => {
         setQuestion(idx);
         document.querySelectorAll('.prd-task-nav-btn').forEach(b => b.classList.remove('active'));
@@ -222,8 +238,6 @@
       navEl.appendChild(btn);
     });
   }
-
-  setQuestion(0);
 
   // ════ Annotated Text Renderer ════
   function escHtml(s) {
@@ -235,7 +249,6 @@
     if (!el) return;
     if (!text) { el.innerHTML = '<em class="prd-empty">Không có bài làm.</em>'; return; }
 
-    // Filter valid annotations
     let validAnn = annotations.filter(a =>
       a.start >= 0 && a.end >= 0 && a.end > a.start &&
       a.end <= text.length
@@ -244,7 +257,6 @@
       validAnn = validAnn.filter(a => !a.category || a.category === activeCategory || a.kind === 'strength' || a.kind === 'need');
     }
 
-    // Sort by start, de-overlap (needs win over strengths)
     validAnn.sort((a, b) => a.start - b.start);
     const merged = [];
     let lastEnd = 0;
@@ -278,7 +290,6 @@
     if (pos < text.length) html += escHtml(text.slice(pos));
     el.innerHTML = html;
 
-    // Hover tooltip
     el.querySelectorAll('.prd-ann').forEach(span => {
       span.addEventListener('mouseenter', (e) => showTooltip(e, span, merged));
       span.addEventListener('mouseleave', () => hideTooltip());
@@ -313,8 +324,10 @@
     primaryTabs.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
     panels.forEach(p => p.classList.toggle('active', p.id === 'tab-' + tabId));
 
-    // Reset annotation highlights
-    if (tabId === 'overview') renderAnnotatedText(currentQ.learnerAnswer || '');
+    if (tabId === 'overview') {
+      renderOverview();
+      renderAnnotatedText(currentQ.learnerAnswer || '');
+    }
     if (tabId === 'strengths') {
       renderStrengthsPanel();
       renderAnnotatedText(currentQ.learnerAnswer || '');
@@ -334,28 +347,32 @@
     const scoreMaxEl = document.getElementById('ov-score-max');
     const summaryEl = document.getElementById('ov-summary-text');
 
-    const rawScore = parseFloat(aiData.raw_score || aiData.score || 0);
-    const rawMax = parseFloat(aiData.raw_score_max || 100);
-    if (scoreEl) scoreEl.textContent = rawScore.toFixed(0);
-    if (scoreMaxEl) scoreMaxEl.textContent = '/ ' + rawMax.toFixed(0);
+    const hasRawScore = aiData.raw_score !== undefined || aiData.score !== undefined;
+    const hasRawMax = aiData.raw_score_max !== undefined;
+    const rawScore = hasRawScore ? parseFloat(aiData.raw_score || aiData.score || 0) : null;
+    const rawMax = hasRawMax ? parseFloat(aiData.raw_score_max) : null;
+    if (scoreEl) scoreEl.textContent = rawScore === null || Number.isNaN(rawScore) ? '--' : rawScore.toFixed(0);
+    if (scoreMaxEl) scoreMaxEl.textContent = rawMax === null || Number.isNaN(rawMax) ? '' : '/ ' + rawMax.toFixed(0);
     if (summaryEl) summaryEl.textContent = aiData.summary_vi || aiData.summary || 'Chưa có nhận xét.';
 
-    // Rubric chips
     const chipsEl = document.getElementById('prd-rubric-chips');
-    if (chipsEl && rubricScores.length > 0) {
-      chipsEl.innerHTML = rubricScores.map(r => {
-        const pct = Math.round((r.score / 10.0) * 100);
-        const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
-        return `<div class="prd-rubric-chip ${cls}">
-          <div class="prd-chip-name">${escHtml(r.name)}</div>
-          <div class="prd-chip-score">${r.score}/10</div>
-          <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
-          <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
-        </div>`;
-      }).join('');
+    if (chipsEl) {
+      if (rubricScores.length > 0) {
+        chipsEl.innerHTML = rubricScores.map(r => {
+          const pct = Math.round((r.score / 10.0) * 100);
+          const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
+          return `<div class="prd-rubric-chip ${cls}">
+            <div class="prd-chip-name">${escHtml(r.name)}</div>
+            <div class="prd-chip-score">${r.score}/10</div>
+            <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
+            <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
+          </div>`;
+        }).join('');
+      } else {
+        chipsEl.innerHTML = '';
+      }
     }
   }
-  renderOverview();
 
   // ════ Strengths Tab ════
   let activeStrengthCat = null;
@@ -363,7 +380,6 @@
     const subcatsEl = document.getElementById('strengths-subcats');
     const listEl = document.getElementById('strengths-list');
 
-    // Group by category
     const catMap = {};
     strengths.forEach(s => {
       const cat = s.category || s.vietnameseLabel || 'Khác';
@@ -375,22 +391,24 @@
     if (!filterCat || !catMap[filterCat]) filterCat = cats[0] || null;
     activeStrengthCat = filterCat;
 
-    // Pills
     if (subcatsEl) {
-      subcatsEl.innerHTML = cats.map(cat =>
-        `<button class="prd-subcat-pill prd-subcat-strength ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
-          ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
-        </button>`
-      ).join('');
-      subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-          renderStrengthsPanel(btn.dataset.cat);
-          renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+      if (cats.length > 0) {
+        subcatsEl.innerHTML = cats.map(cat =>
+          `<button class="prd-subcat-pill prd-subcat-strength ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
+            ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
+          </button>`
+        ).join('');
+        subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
+          btn.addEventListener('click', () => {
+            renderStrengthsPanel(btn.dataset.cat);
+            renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+          });
         });
-      });
+      } else {
+        subcatsEl.innerHTML = '';
+      }
     }
 
-    // Findings
     const filtered = filterCat ? (catMap[filterCat] || strengths) : strengths;
     if (listEl) {
       if (filtered.length === 0) {
@@ -421,7 +439,6 @@
     const subcatsEl = document.getElementById('needs-subcats');
     const listEl = document.getElementById('needs-list');
 
-    // Group by category
     const catMap = {};
     needs.forEach(n => {
       const cat = n.category || n.vietnameseLabel || 'Khác';
@@ -433,19 +450,22 @@
     if (!filterCat || !catMap[filterCat]) filterCat = cats[0] || null;
     activeNeedCat = filterCat;
 
-    // Pills
     if (subcatsEl) {
-      subcatsEl.innerHTML = cats.map(cat =>
-        `<button class="prd-subcat-pill prd-subcat-need ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
-          ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
-        </button>`
-      ).join('');
-      subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-          renderNeedsPanel(btn.dataset.cat);
-          renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+      if (cats.length > 0) {
+        subcatsEl.innerHTML = cats.map(cat =>
+          `<button class="prd-subcat-pill prd-subcat-need ${cat === filterCat ? 'active' : ''}" data-cat="${escHtml(cat)}">
+            ${escHtml(cat)} <span class="prd-subcat-count">${catMap[cat].length}</span>
+          </button>`
+        ).join('');
+        subcatsEl.querySelectorAll('.prd-subcat-pill').forEach(btn => {
+          btn.addEventListener('click', () => {
+            renderNeedsPanel(btn.dataset.cat);
+            renderAnnotatedText(currentQ.learnerAnswer || '', btn.dataset.cat);
+          });
         });
-      });
+      } else {
+        subcatsEl.innerHTML = '';
+      }
     }
 
     const filtered = filterCat ? (catMap[filterCat] || needs) : needs;
@@ -519,9 +539,7 @@
     }
   }
 
-  // ════ Init ════
-  renderAnnotatedText(currentQ.learnerAnswer || '');
-
+  setQuestion(0);
 })();
 </script>
 

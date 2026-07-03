@@ -144,12 +144,13 @@ public class PracticeController {
                                  @RequestParam("testId") Long testId,
                                  @AuthenticationPrincipal KshUserDetails user,
                                  RedirectAttributes redirectAttributes) {
-        try {
-            practiceService.discardAttempt(attemptId, user.getId());
-            redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Lỗi hủy lượt làm bài: " + e.getMessage());
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Chỉ có thể hủy lượt làm bài chưa hoàn thành.");
         }
+        practiceService.discardAttempt(attemptId, user.getId());
+        redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
         return "redirect:/practice/sets/" + setId + "/tests/" + testId;
     }
 
@@ -171,6 +172,12 @@ public class PracticeController {
                                 @AuthenticationPrincipal KshUserDetails user) {
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
         return "redirect:/practice/attempts/" + attemptId + "?mode=" + mode;
+    }
+
+    @GetMapping("/sets/{setId}/tests/{testId}/attempts")
+    public String attemptsGetFallback(@PathVariable Long setId,
+                                      @PathVariable Long testId) {
+        return "redirect:/practice/sets/" + setId + "/tests/" + testId;
     }
 
     @GetMapping(Routes.ATTEMPT)
@@ -214,135 +221,92 @@ public class PracticeController {
     @PostMapping("/attempts/{attemptId}/submit")
     public String submitAttempt(@PathVariable Long attemptId,
                                 @RequestParam(value = "mode", defaultValue = "practice") String mode,
-                                @RequestParam(value = "sectionIndex", defaultValue = "0") int sectionIndex,
                                 @RequestParam Map<String, String> form,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 RedirectAttributes redirectAttributes) {
-        PracticeSubmission submission = practiceService.getPracticeSubmission(attemptId, user.getId());
-        List<com.ksh.entities.PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(submission.getSetId());
-
-        if (!sections.isEmpty() && sectionIndex < sections.size() - 1) {
-            // Save in-progress answers for this section and advance to rest period
-            practiceService.saveInProgressAnswers(attemptId, user.getId(), form);
-            return "redirect:/practice/attempts/" + attemptId + "/rest?mode=" + mode + "&nextSectionIndex=" + (sectionIndex + 1);
-        } else {
-            // Last section: Merge and submit final
-            Long submissionId = practiceService.submitAttempt(attemptId, user.getId(), form);
-            redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
-            return "redirect:/practice/attempts/" + submissionId + "/result";
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Lượt làm bài đã được nộp hoặc chấm điểm.");
         }
-    }
-
-    @GetMapping("/attempts/{attemptId}/rest")
-    public String restPeriod(@PathVariable Long attemptId,
-                             @RequestParam(value = "mode", defaultValue = "practice") String mode,
-                             @RequestParam("nextSectionIndex") int nextSectionIndex,
-                             @AuthenticationPrincipal KshUserDetails user,
-                             Model model) {
-        PracticeSubmission submission = practiceService.getPracticeSubmission(attemptId, user.getId());
-        List<com.ksh.entities.PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(submission.getSetId());
-
-        if (nextSectionIndex < 0 || nextSectionIndex >= sections.size()) {
-            return "redirect:/practice/attempts/" + attemptId + "?mode=" + mode;
-        }
-
-        com.ksh.entities.PracticeSection nextSec = sections.get(nextSectionIndex);
-        model.addAttribute("attemptId", attemptId);
-        model.addAttribute("mode", mode);
-        model.addAttribute("nextSectionIndex", nextSectionIndex);
-        model.addAttribute("nextSectionTitle", nextSec.getTitle());
-
-        // Translate the skill to Korean/Vietnamese
-        String KoreanSkill = switch (nextSec.getSkill()) {
-            case "READING" -> "읽기 (Đọc)";
-            case "LISTENING" -> "듣기 (Nghe)";
-            case "WRITING" -> "쓰기 (Viết)";
-            case "SPEAKING" -> "말하기 (Nói)";
-            default -> nextSec.getSkill();
-        };
-        model.addAttribute("nextSectionSkill", KoreanSkill);
-        model.addAttribute("nextSectionDuration", nextSec.getDurationMinutes());
-
-        return "practice/rest";
+        practiceService.submitAttempt(attemptId, user.getId(), form);
+        redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
+        return "redirect:/practice/attempts/" + attemptId + "/result";
     }
 
     @GetMapping(Routes.RESULT)
     public String attemptResult(@PathVariable Long attemptId,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 Model model) {
-        PracticeAttemptResultView result = practiceService.getAttemptResult(attemptId, user.getId());
-        if (result.sections() != null && result.sections().size() == 1) {
-            String skill = result.sections().get(0).skill();
-            if ("READING".equals(skill) || "LISTENING".equals(skill)) {
-                com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
-                        practiceService.getReadingListeningResult(attemptId, user.getId());
-                model.addAttribute("result", rlResult);
-                model.addAttribute("attemptId", attemptId);
-                return "practice/rl-result";
-            } else {
-                PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-                model.addAttribute("result", standardResult);
-                model.addAttribute("attemptId", attemptId);
-                return "practice/result";
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        PracticeSection section = practiceService.getSection(attempt.getSectionId());
+        String skill = section.getSkill();
+
+        if ("READING".equals(skill) || "LISTENING".equals(skill)) {
+            com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
+                    practiceService.getReadingListeningResult(attemptId, user.getId());
+            model.addAttribute("result", rlResult);
+            model.addAttribute("attemptId", attemptId);
+            return "practice/rl-result";
+        } else {
+            PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
+            model.addAttribute("result", standardResult);
+            model.addAttribute("attemptId", attemptId);
+            try {
+                String questionsJson = objectMapper.writeValueAsString(standardResult.questionFeedbacks());
+                model.addAttribute("questionsJson", questionsJson);
+            } catch (Exception e) {
+                model.addAttribute("questionsJson", "[]");
             }
+            return "practice/result";
         }
-        model.addAttribute("result", result);
-        model.addAttribute("attemptId", attemptId);
-        return "practice/result-shell";
     }
 
     @GetMapping(Routes.RESULT_DETAIL)
     public String attemptResultDetail(@PathVariable Long attemptId,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
-        PracticeAttemptResultView result = practiceService.getAttemptResult(attemptId, user.getId());
-        if (result.sections() != null && result.sections().size() == 1) {
-            String skill = result.sections().get(0).skill();
-            if ("READING".equals(skill) || "LISTENING".equals(skill)) {
-                com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
-                        practiceService.getReadingListeningResult(attemptId, user.getId());
-                model.addAttribute("result", rlResult);
-                model.addAttribute("attemptId", attemptId);
-                try {
-                    String groupsJson = objectMapper.writeValueAsString(rlResult.groups());
-                    model.addAttribute("groupsJson", groupsJson);
-                } catch (Exception e) {
-                    model.addAttribute("groupsJson", "[]");
-                }
-                return "practice/rl-result-detail";
-            } else {
-                PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-                model.addAttribute("result", standardResult);
-                model.addAttribute("attemptId", attemptId);
-                try {
-                    String questionsJson = objectMapper.writeValueAsString(
-                        standardResult.answerReviews().stream()
-                            .map(q -> {
-                                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-                                m.put("questionId", q.questionId());
-                                m.put("questionNo", q.questionNo());
-                                m.put("questionType", q.questionType());
-                                m.put("prompt", q.prompt());
-                                m.put("learnerAnswer", q.learnerAnswer() == null ? "" : q.learnerAnswer());
-                                return m;
-                            }).toList()
-                    );
-                    model.addAttribute("questionsJson", questionsJson);
-                } catch (Exception e) {
-                    model.addAttribute("questionsJson", "[]");
-                }
-                return "practice/result-detail";
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        PracticeSection section = practiceService.getSection(attempt.getSectionId());
+        String skill = section.getSkill();
+
+        if ("READING".equals(skill) || "LISTENING".equals(skill)) {
+            com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
+                    practiceService.getReadingListeningResult(attemptId, user.getId());
+            model.addAttribute("result", rlResult);
+            model.addAttribute("attemptId", attemptId);
+            try {
+                String groupsJson = objectMapper.writeValueAsString(rlResult.groups());
+                model.addAttribute("groupsJson", groupsJson);
+            } catch (Exception e) {
+                model.addAttribute("groupsJson", "[]");
             }
+            return "practice/rl-result-detail";
+        } else {
+            PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
+            model.addAttribute("result", standardResult);
+            model.addAttribute("attemptId", attemptId);
+            try {
+                String questionsJson = "WRITING".equals(skill)
+                        ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
+                        : objectMapper.writeValueAsString(
+                            standardResult.answerReviews().stream()
+                                .map(q -> {
+                                    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                                    m.put("questionId", q.questionId());
+                                    m.put("questionNo", q.questionNo());
+                                    m.put("questionType", q.questionType());
+                                    m.put("prompt", q.prompt());
+                                    m.put("learnerAnswer", q.learnerAnswer() == null ? "" : q.learnerAnswer());
+                                    return m;
+                                }).toList()
+                        );
+                model.addAttribute("questionsJson", questionsJson);
+            } catch (Exception e) {
+                model.addAttribute("questionsJson", "[]");
+            }
+            return "practice/result-detail";
         }
-        model.addAttribute("result", result);
-        model.addAttribute("attemptId", attemptId);
-        try {
-            String sectionsJson = objectMapper.writeValueAsString(result.sections());
-            model.addAttribute("sectionsJson", sectionsJson);
-        } catch (Exception e) {
-            model.addAttribute("sectionsJson", "[]");
-        }
-        return "practice/result-shell-detail";
     }
 
     @PostMapping("/attempts/{attemptId}/re-evaluate")

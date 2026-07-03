@@ -132,55 +132,48 @@
 
 </div>
 
-<!-- Pass data to JS -->
-<script id="ai-feedback-json" type="application/json" th:utext="${result.aiFeedbackJson()}"></script>
-<script id="set-skill-val" type="text/plain" th:text="${result.set().skill()}"></script>
-<script id="set-title-val" type="text/plain" th:text="${result.set().title()}"></script>
-<script id="set-overall-score" type="text/plain" th:text="${result.score()}"></script>
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
+  const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
+  const setTitle = /*[[${result.set().title()}]]*/ '';
+  const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
+  const rawAiFeedbackJson = /*[[${result.aiFeedbackJson()}]]*/ '{}';
+  /*]]>*/
+</script>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const aiJson = document.getElementById('ai-feedback-json').textContent;
-    const skill = document.getElementById('set-skill-val').textContent.trim();
-    const title = document.getElementById('set-title-val').textContent.trim();
-    const overallScore = parseFloat(document.getElementById('set-overall-score').textContent.trim() || '0');
-
-    let aiData = {};
+    let aiDataGlobal = {};
     try {
-      aiData = JSON.parse(aiJson || '{}');
+      aiDataGlobal = JSON.parse(rawAiFeedbackJson || '{}');
     } catch (e) {
-      console.warn("Could not parse AI JSON feedback", e);
+      console.warn("Could not parse global AI JSON feedback", e);
     }
 
-    // Determine active tabs
     let parts = [];
-    if (skill === 'WRITING') {
-      parts = [
-        { id: 'Q51', label: 'Câu 51', active: false },
-        { id: 'Q52', label: 'Câu 52', active: false },
-        { id: 'Q53', label: 'Câu 53', active: false },
-        { id: 'Q54', label: 'Câu 54', active: false },
-        { id: 'GENERAL', label: 'Tổng quan', active: true }
-      ];
+    let rubrics = [];
 
-      // Auto-detect based on title
-      if (title.includes('51') && title.includes('52')) {
-        parts.find(p => p.id === 'Q51').active = true;
-        parts.find(p => p.id === 'Q52').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('51')) {
-        parts.find(p => p.id === 'Q51').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('52')) {
-        parts.find(p => p.id === 'Q52').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('53')) {
-        parts.find(p => p.id === 'Q53').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('54')) {
-        parts.find(p => p.id === 'Q54').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
+    if (setSkill === 'WRITING') {
+      const essayQuestions = questions.filter(q => q.questionType === 'ESSAY');
+      if (essayQuestions.length === 0) {
+        const card = document.getElementById('pi-overview-analysis-card');
+        if (card) card.style.display = 'none';
+        return;
       }
+
+      parts = essayQuestions.map((q, idx) => ({
+        id: String(q.questionId),
+        label: `Câu ${q.questionNo}`,
+        active: idx === 0,
+        question: q
+      }));
+
+      rubrics = [
+        { id: 'content', label: 'Hoàn thành nhiệm vụ & Nội dung', metrics: ['Mức độ hoàn thành yêu cầu', 'Độ rõ ràng', 'Phát triển ý'] },
+        { id: 'structure', label: 'Cấu trúc & Bố cục', metrics: ['Tính mạch lạc', 'Sử dụng từ liên kết', 'Phân chia đoạn văn'] },
+        { id: 'language', label: 'Sử dụng ngôn ngữ & Chính tả', metrics: ['Độ chính xác ngữ pháp', 'Từ vựng phù hợp', 'Quy tắc khoảng cách (띄어쓰기)'] }
+      ];
     } else {
       // SPEAKING
       parts = [
@@ -190,30 +183,20 @@
         { id: 'Q4', label: 'Câu 4', active: false },
         { id: 'GENERAL', label: 'Tổng quan', active: true }
       ];
-      if (title.includes('Câu 1') || title.includes('Part 1')) {
+      if (setTitle.includes('Câu 1') || setTitle.includes('Part 1')) {
         parts.find(p => p.id === 'Q1').active = true;
         parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('Câu 2')) {
+      } else if (setTitle.includes('Câu 2')) {
         parts.find(p => p.id === 'Q2').active = true;
         parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('Câu 3')) {
+      } else if (setTitle.includes('Câu 3')) {
         parts.find(p => p.id === 'Q3').active = true;
         parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (title.includes('Câu 4')) {
+      } else if (setTitle.includes('Câu 4')) {
         parts.find(p => p.id === 'Q4').active = true;
         parts.find(p => p.id === 'GENERAL').active = false;
       }
-    }
 
-    // Rubrics mapping
-    let rubrics = [];
-    if (skill === 'WRITING') {
-      rubrics = [
-        { id: 'content', label: 'Hoàn thành nhiệm vụ & Nội dung', metrics: ['Mức độ hoàn thành yêu cầu', 'Độ rõ ràng', 'Phát triển ý'] },
-        { id: 'structure', label: 'Cấu trúc & Bố cục', metrics: ['Tính mạch lạc', 'Sử dụng từ liên kết', 'Phân chia đoạn văn'] },
-        { id: 'language', label: 'Sử dụng ngôn ngữ & Chính tả', metrics: ['Độ chính xác ngữ pháp', 'Từ vựng phù hợp', 'Quy tắc khoảng cách (띄어쓰기)'] }
-      ];
-    } else {
       rubrics = [
         { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Đáp ứng yêu cầu đề', 'Độ dài tối thiểu'] },
         { id: 'fluency', label: 'Lưu loát & Mạch lạc', metrics: ['Tốc độ nói', 'Độ ngập ngừng', 'Từ liên kết nói'] },
@@ -227,8 +210,7 @@
     const partsContainer = document.getElementById('pi-part-tabs-container');
     partsContainer.innerHTML = parts.map(p => `
       <button class="pi-part-tab-btn ${p.active ? 'active' : ''}" 
-              data-id="${p.id}" 
-              ${!p.active && parts.some(item => item.active && item.id !== 'GENERAL') ? 'disabled' : ''}>
+              data-id="${p.id}">
         ${p.label}
       </button>
     `).join('');
@@ -248,7 +230,6 @@
     const partButtons = document.querySelectorAll('.pi-part-tab-btn');
     partButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        if (btn.disabled) return;
         partButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentPart = btn.dataset.id;
@@ -266,17 +247,22 @@
       });
     });
 
-    // Function to calculate and render metrics and score
     function updateFeedback() {
       const activeRubricObj = rubrics.find(r => r.id === currentRubric);
       
-      // Attempt to extract scores from actual data, otherwise mock them realistically
+      let aiData = aiDataGlobal;
+      if (setSkill === 'WRITING') {
+        const activePartObj = parts.find(p => p.id === currentPart);
+        if (activePartObj && activePartObj.question) {
+          aiData = activePartObj.question.feedbackNode || {};
+        }
+      }
+
       let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
       let matchedScore = null;
       let feedbackText = "";
 
       if (rubricList.length > 0) {
-        // Map criteria matching
         let targetIdx = 0;
         if (currentRubric === 'structure') targetIdx = 1;
         else if (currentRubric === 'language') targetIdx = 2;
@@ -288,15 +274,9 @@
         }
       }
 
-      // Fallbacks if no matching data
-      if (matchedScore === null) {
-        matchedScore = overallScore > 0 ? (overallScore / 10.0) : 7.5;
-        // Vary slight score per rubric
-        if (currentRubric === 'structure') matchedScore = Math.max(1.0, matchedScore - 0.5);
-        else if (currentRubric === 'language') matchedScore = Math.max(1.0, matchedScore - 0.8);
-      }
+      const hasStoredFeedback = matchedScore !== null || !!feedbackText;
 
-      if (!feedbackText) {
+      if (!feedbackText && false) {
         if (currentRubric === 'content') {
           feedbackText = "Nội dung bài viết cơ bản hoàn thành tốt và đầy đủ các yêu cầu đề ra. Các luận điểm chính được thể hiện rõ nét.";
         } else if (currentRubric === 'structure') {
@@ -306,15 +286,20 @@
         }
       }
 
-      // Update values
-      document.getElementById('rubric-score-val').textContent = (matchedScore * 10).toFixed(0);
-      document.getElementById('rubric-score-scale').textContent = "/ 100";
+      if (!feedbackText) {
+        feedbackText = "Không có nhận xét được lưu cho câu này.";
+      }
+
+      document.getElementById('rubric-score-val').textContent = matchedScore === null ? "--" : (matchedScore * 10).toFixed(0);
+      document.getElementById('rubric-score-scale').textContent = matchedScore === null ? "" : "/ 100";
       document.getElementById('rubric-feedback-text').textContent = feedbackText;
 
-      // Update Sliders
       const slidersContainer = document.getElementById('pi-metric-sliders-container');
+      if (!activeRubricObj || matchedScore === null) {
+        slidersContainer.innerHTML = "";
+        return;
+      }
       slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
-        // Compute slider value (percentage) based on rubric score, with slight variations
         const rawPercent = matchedScore * 10; 
         const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
         const finalValue = Math.min(100, Math.max(20, rawPercent + variation));
@@ -333,7 +318,6 @@
       }).join('');
     }
 
-    // Initial update
     updateFeedback();
   });
 </script>

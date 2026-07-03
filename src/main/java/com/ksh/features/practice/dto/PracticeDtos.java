@@ -173,7 +173,8 @@ public final class PracticeDtos {
                                      String aiFeedbackJson,
                                      List<PracticeQuestionRow> questions,
                                      List<PracticeAnswerReviewRow> answerReviews,
-                                     List<PracticeAnswerExplanationRow> answerExplanations) {
+                                     List<PracticeAnswerExplanationRow> answerExplanations,
+                                     List<PracticeQuestionFeedbackRow> questionFeedbacks) {
         public boolean hasAiFeedback() {
             return aiFeedbackJson != null && !aiFeedbackJson.isBlank();
         }
@@ -186,6 +187,16 @@ public final class PracticeDtos {
             return answerExplanations != null && !answerExplanations.isEmpty();
         }
     }
+
+    public record PracticeQuestionFeedbackRow(
+            Long questionId,
+            Integer questionNo,
+            String questionType,
+            String prompt,
+            String learnerAnswer,
+            com.fasterxml.jackson.databind.JsonNode feedbackNode
+    ) {}
+
 
     public record ReadingListeningResultView(
             Long submissionId,
@@ -250,7 +261,17 @@ public final class PracticeDtos {
 
     public record PracticeResultSummary(Long id, String title, String skill,
                                         BigDecimal score, BigDecimal totalPoints,
-                                        LocalDateTime submittedAt) {
+                                        LocalDateTime submittedAt,
+                                        LocalDateTime activityAt,
+                                        String status,
+                                        Long setId,
+                                        Long testId,
+                                        Long sectionId) {
+        public PracticeResultSummary(Long id, String title, String skill,
+                                     BigDecimal score, BigDecimal totalPoints,
+                                     LocalDateTime submittedAt) {
+            this(id, title, skill, score, totalPoints, submittedAt, submittedAt, null, null, null, null);
+        }
     }
 
     public record PracticePdfImportResult(Long setId, String title, int questionCount) {
@@ -408,5 +429,4 @@ public final class PracticeDtos {
         }
     }
 }
-
 

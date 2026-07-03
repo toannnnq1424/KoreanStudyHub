@@ -27,8 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -98,6 +103,9 @@ class PracticeIntegrationTest {
 
         attemptRepository.deleteAll();
         submissionRepository.deleteAll();
+
+        when(writingEvaluationClient.evaluate(anyString(), anyString(), anyBoolean()))
+                .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
 
         // Seed a published practice set
         practiceSet = new PracticeSet(
@@ -897,6 +905,128 @@ class PracticeIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/rl-result-detail"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Không tìm thấy dữ liệu câu hỏi cho lượt làm này.")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testMultipleSectionsIsolatesScoring() throws Exception {
+        // Seed a published WRITING set
+        PracticeSet writingSet = new PracticeSet(
+                "Multi-Section Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", lecturer.getId()
+        );
+        writingSet = setRepository.saveAndFlush(writingSet);
+
+        PracticeTest test = new PracticeTest(writingSet.getId(), "Test 1", "Desc", 1, 40);
+        test = testRepository.saveAndFlush(test);
+
+        // Section A (Points = 10)
+        PracticeSection sectionA = new PracticeSection(writingSet.getId(), "Section A", "WRITING", "ESSAY", "Desc", 50, BigDecimal.TEN, 1);
+        sectionA.setTestId(test.getId());
+        sectionA = sectionRepository.saveAndFlush(sectionA);
+
+        // Section B (Points = 20)
+        PracticeSection sectionB = new PracticeSection(writingSet.getId(), "Section B", "WRITING", "ESSAY", "Desc", 50, BigDecimal.valueOf(20.0), 2);
+        sectionB.setTestId(test.getId());
+        sectionB = sectionRepository.saveAndFlush(sectionB);
+
+        // Group A and Question A
+        PracticeQuestionGroup groupA = new PracticeQuestionGroup(writingSet.getId(), "Group A", 1, 1, "Desc", null, null, 1);
+        groupA.setSectionId(sectionA.getId());
+        groupA = groupRepository.saveAndFlush(groupA);
+
+        PracticeQuestion qA = new PracticeQuestion(writingSet.getId(), 51, "ESSAY", "Prompt A", "[]", "", "Explain", BigDecimal.valueOf(10.0), 0);
+        qA.setGroupId(groupA.getId());
+        qA = questionRepository.saveAndFlush(qA);
+
+        // Group B and Question B
+        PracticeQuestionGroup groupB = new PracticeQuestionGroup(writingSet.getId(), "Group B", 2, 2, "Desc", null, null, 2);
+        groupB.setSectionId(sectionB.getId());
+        groupB = groupRepository.saveAndFlush(groupB);
+
+        PracticeQuestion qB = new PracticeQuestion(writingSet.getId(), 52, "ESSAY", "Prompt B", "[]", "", "Explain", BigDecimal.valueOf(20.0), 0);
+        qB.setGroupId(groupB.getId());
+        qB = questionRepository.saveAndFlush(qB);
+
+        // Start attempt on Section A
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", sectionA.getId());
+        attempt.setStatus("IN_PROGRESS");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        // Mock evaluation client for Question A
+        when(writingEvaluationClient.evaluate(eq("Prompt A"), anyString(), anyBoolean()))
+                .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}"); // 80% earned points
+
+        // Submit for Section A attempt
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
+                        .with(csrf())
+                        .param("answer_" + qA.getId(), "Student Answer A"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
+
+        // Verify attempt points are isolated:
+        // Total points should be 10.0 (Question A only), score = 8.0 (80% of 10.0) -> attempt score = 80.00%
+        PracticeAttempt gradedAttempt = attemptRepository.findById(attempt.getId()).orElseThrow();
+        assertEquals(0, gradedAttempt.getTotalPoints().compareTo(BigDecimal.valueOf(10.0)));
+        assertEquals(0, gradedAttempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testResultRenderSecurityEscaping() throws Exception {
+        // Seed a published WRITING set
+        PracticeSet writingSet = new PracticeSet(
+                "Security Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", lecturer.getId()
+        );
+        writingSet = setRepository.saveAndFlush(writingSet);
+
+        PracticeTest test = new PracticeTest(writingSet.getId(), "Test 1", "Desc", 1, 40);
+        test = testRepository.saveAndFlush(test);
+
+        PracticeSection section = new PracticeSection(writingSet.getId(), "Section 1", "WRITING", "ESSAY", "Desc", 50, BigDecimal.TEN, 1);
+        section.setTestId(test.getId());
+        section = sectionRepository.saveAndFlush(section);
+
+        PracticeQuestionGroup group = new PracticeQuestionGroup(writingSet.getId(), "Group 1", 1, 1, "Desc", null, null, 1);
+        group.setSectionId(section.getId());
+        group = groupRepository.saveAndFlush(group);
+
+        PracticeQuestion q = new PracticeQuestion(writingSet.getId(), 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.valueOf(10.0), 0);
+        q.setGroupId(group.getId());
+        q = questionRepository.saveAndFlush(q);
+
+        // Malicious input payload containing characters to escape
+        String maliciousAnswer = "Tôi học tiếng Hàn 한국어 </script> <script>alert('hack')</script> \"quotes\" \\ backslash \n newline";
+
+        // Create Graded Attempt with malicious answer and JSON feedback mapping
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", section.getId());
+        attempt.setStatus("GRADED");
+        
+        // Write the structures
+        Map<String, String> answersMap = Map.of(String.valueOf(q.getId()), maliciousAnswer);
+        String answersJson = objectMapper.writeValueAsString(answersMap);
+
+        java.util.Map<String, Object> qFeedback = new java.util.LinkedHashMap<>();
+        qFeedback.put("raw_score", 8.0);
+        qFeedback.put("raw_score_max", 10.0);
+        qFeedback.put("summary_vi", "Bài tốt </script> <script>alert(1)</script> \"nháy\" \\ gạch");
+        qFeedback.put("upgraded_answer", "Nâng cấp </script> <script>alert(2)</script>");
+
+        java.util.Map<String, Object> feedbackMap = new java.util.LinkedHashMap<>();
+        feedbackMap.put(String.valueOf(q.getId()), qFeedback);
+        String aiFeedbackJson = objectMapper.writeValueAsString(feedbackMap);
+
+        attempt.markGraded(BigDecimal.valueOf(80.00), BigDecimal.valueOf(10.0), answersJson, aiFeedbackJson);
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        // Load result detail page
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                // Assert no plain executable <script>alert tag is rendered in response (since HTML tags inside inline JSON string variables are escaped)
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("</script> <script>alert"))))
+                // Thymeleaf JS Inlining escapes solidus and closing tag as <\/script>
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<\\/script> <script>alert")))
+                // HTML structure is still HTTP 200 OK and render successful
+                .andExpect(view().name("practice/result-detail"));
     }
 
     @Test
