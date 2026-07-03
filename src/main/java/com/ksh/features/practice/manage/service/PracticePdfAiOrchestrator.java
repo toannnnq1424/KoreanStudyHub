@@ -128,7 +128,8 @@ public class PracticePdfAiOrchestrator {
             } catch (HttpStatusCodeException ex) {
                 int status = ex.getStatusCode().value();
                 boolean retryable = (status == 429 || status == 500 || status == 502 || status == 503 || status == 504) && attempt <= maxRetries;
-                log.warn("[PdfAiOrchestrator] Attempt={} failed status={} body={}", attempt, status, ex.getResponseBodyAsString());
+                log.warn("[PdfAiOrchestrator] operation=provider-call model={} attempt={} status={} retryable={} exception={}",
+                        properties.evaluatorModel(), attempt, status, retryable, ex.getClass().getSimpleName());
                 if (retryable) {
                     try {
                         Thread.sleep(backoffMs);
@@ -138,10 +139,11 @@ public class PracticePdfAiOrchestrator {
                     backoffMs *= 2;
                     continue;
                 }
-                throw new IllegalStateException("AI provider trả lỗi " + status + ": " + ex.getResponseBodyAsString(), ex);
+                throw new IllegalStateException("AI provider trả lỗi " + status + ".");
             } catch (Exception ex) {
-                log.error("[PdfAiOrchestrator] Non-HTTP error during execution", ex);
-                throw new IllegalStateException("Không gọi được AI: " + ex.getMessage(), ex);
+                log.warn("[PdfAiOrchestrator] operation=provider-call model={} exception={}",
+                        properties.evaluatorModel(), ex.getClass().getSimpleName());
+                throw new IllegalStateException("Không gọi được AI.");
             }
         }
         throw new IllegalStateException("Đã thử lại nhiều lần gọi AI nhưng không thành công.");

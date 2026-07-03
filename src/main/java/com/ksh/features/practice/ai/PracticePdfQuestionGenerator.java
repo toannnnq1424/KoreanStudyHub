@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ksh.entities.PracticeQuestion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,9 +47,9 @@ public class PracticePdfQuestionGenerator {
         }
 
         String truncatedText = truncate(pdfText, MAX_TEXT_CHARS);
-        log.info("[PracticePdfAI] mode=text model={} baseUrl={} skill={} topikLevel={} examTemplate={} textChars={} sentChars={} apiKey={}",
-                properties.evaluatorModel(), properties.baseUrl(), skill, topikLevel, examTemplate,
-                pdfText.length(), truncatedText.length(), maskedApiKey());
+        log.info("[PracticePdfAI] mode=text model={} baseUrl={} skill={} topikLevel={} examTemplate={} textChars={} sentChars={}",
+                properties.evaluatorModel(), properties.baseUrl(), skill, topikLevel, safeExamTemplateForLog(examTemplate),
+                pdfText.length(), truncatedText.length());
 
         Map<String, Object> request = baseRequest(List.of(
                 message("system", systemPrompt()),
@@ -68,9 +69,9 @@ public class PracticePdfQuestionGenerator {
         }
 
         long totalImageChars = pageImageDataUrls.stream().mapToLong(String::length).sum();
-        log.info("[PracticePdfAI] mode=image_multimodal model={} baseUrl={} skill={} topikLevel={} examTemplate={} pages={} imagePayloadChars={} apiKey={}",
-                properties.evaluatorModel(), properties.baseUrl(), skill, topikLevel, examTemplate,
-                pageImageDataUrls.size(), totalImageChars, maskedApiKey());
+        log.info("[PracticePdfAI] mode=image_multimodal model={} baseUrl={} skill={} topikLevel={} examTemplate={} pages={} imagePayloadChars={}",
+                properties.evaluatorModel(), properties.baseUrl(), skill, topikLevel, safeExamTemplateForLog(examTemplate),
+                pageImageDataUrls.size(), totalImageChars);
 
         Map<String, Object> request = baseRequest(List.of(
                 message("system", systemPrompt()),
@@ -101,8 +102,7 @@ public class PracticePdfQuestionGenerator {
             log.info("[PracticePdfAI] mode={} rawResponseChars={}", mode, raw == null ? 0 : raw.length());
 
             String content = extractOutputText(objectMapper.readTree(raw), raw);
-            log.info("[PracticePdfAI] mode={} contentChars={} contentPreview={}",
-                    mode, content == null ? 0 : content.length(), preview(content, 400));
+            log.info("[PracticePdfAI] mode={} contentChars={}", mode, content == null ? 0 : content.length());
 
             JsonNode root = objectMapper.readTree(content);
             List<GeneratedGroup> groups = new ArrayList<>();
@@ -125,12 +125,17 @@ public class PracticePdfQuestionGenerator {
             }
             return groups;
         } catch (HttpStatusCodeException ex) {
-            log.warn("[PracticePdfAI] mode={} failed status={} body={}",
-                    mode, ex.getStatusCode().value(), preview(ex.getResponseBodyAsString(), 1200));
-            throw new IllegalStateException(providerMessage(ex), ex);
-        } catch (Exception ex) {
-            log.warn("[PracticePdfAI] mode={} failed type={} message={}",
-                    mode, ex.getClass().getSimpleName(), ex.getMessage(), ex);
+            int status = ex.getStatusCode().value();
+            log.warn("[PracticePdfAI] operation=provider-call mode={} model={} status={} retryable={} exception={}",
+                    mode, properties.evaluatorModel(), status, isRetryable(status), ex.getClass().getSimpleName());
+            throw new IllegalStateException(providerMessage(ex));
+        } catch (JsonProcessingException ex) {
+            log.warn("[PracticePdfAI] operation=provider-parse mode={} model={} exception={}",
+                    mode, properties.evaluatorModel(), ex.getClass().getSimpleName());
+            throw new IllegalStateException("AI chưa tạo được câu hỏi từ PDF. Vui lòng xem log chi tiết ở console.");
+        } catch (RuntimeException ex) {
+            log.error("[PracticePdfAI] operation=provider-parse mode={} model={} exception={}",
+                    mode, properties.evaluatorModel(), ex.getClass().getSimpleName(), ex);
             throw new IllegalStateException("AI chưa tạo được câu hỏi từ PDF. Vui lòng xem log chi tiết ở console.", ex);
         }
     }
@@ -153,8 +158,8 @@ public class PracticePdfQuestionGenerator {
             } catch (HttpStatusCodeException ex) {
                 int status = ex.getStatusCode().value();
                 boolean retryable = isRetryable(status) && attempt <= maxRetries;
-                log.warn("[PracticePdfAI] mode={} attempt={} status={} retryable={} body={}",
-                        mode, attempt, status, retryable, preview(ex.getResponseBodyAsString(), 900));
+                log.warn("[PracticePdfAI] operation=provider-call mode={} model={} attempt={} status={} retryable={} exception={}",
+                        mode, properties.evaluatorModel(), attempt, status, retryable, ex.getClass().getSimpleName());
                 if (retryable) {
                     log.info("[PracticePdfAI] mode={} sleepingMs={} beforeRetryAttempt={}",
                             mode, backoffMs, attempt + 1);
@@ -367,30 +372,21 @@ public class PracticePdfQuestionGenerator {
         if (status == 429) {
             return "Model AI đang bị giới hạn lượt gọi (429). Backend đã retry nhưng chưa thành công.";
         }
-        return "AI provider trả lỗi " + status + ". Xem console để biết response body.";
-    }
-
-    private String maskedApiKey() {
-        String key = properties.apiKey();
-        if (key == null || key.isBlank()) {
-            return "<empty>";
-        }
-        if (key.length() <= 10) {
-            return "***";
-        }
-        return key.substring(0, 6) + "..." + key.substring(key.length() - 4);
+        return "AI provider trả lỗi " + status + ".";
     }
 
     private static String truncate(String value, int maxChars) {
         return value.length() <= maxChars ? value : value.substring(0, maxChars);
     }
 
-    private static String preview(String value, int maxChars) {
-        if (value == null) {
-            return "";
+    private static String safeExamTemplateForLog(String examTemplate) {
+        if (examTemplate == null || examTemplate.isBlank()) {
+            return "TOPIK_MCQ";
         }
-        String compact = value.replaceAll("\\s+", " ").trim();
-        return compact.length() <= maxChars ? compact : compact.substring(0, maxChars) + "...";
+        return switch (examTemplate) {
+            case "TOPIK_WRITING", "GENERAL_EXTENDED", "GENERAL_SPEAKING" -> examTemplate;
+            default -> "OTHER";
+        };
     }
 
     private static void sleep(long backoffMs) {

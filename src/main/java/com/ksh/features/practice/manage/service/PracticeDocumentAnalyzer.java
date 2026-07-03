@@ -40,7 +40,7 @@ public class PracticeDocumentAnalyzer {
         }
 
         String truncated = pdfText.length() <= MAX_TEXT_CHARS ? pdfText : pdfText.substring(0, MAX_TEXT_CHARS);
-        log.info("[DocumentAnalyzer] Start text analysis. Model={} Chars={} Hint={}", properties.evaluatorModel(), truncated.length(), categoryHint);
+        log.info("[DocumentAnalyzer] Start text analysis. Model={} Chars={}", properties.evaluatorModel(), truncated.length());
 
         Map<String, Object> request = baseRequest(List.of(
                 message("system", systemPrompt()),
@@ -99,24 +99,32 @@ public class PracticeDocumentAnalyzer {
                 }
                 return responseBody;
             } catch (HttpStatusCodeException ex) {
-                log.warn("[DocumentAnalyzer] API error. Retry {}/{} Status={} Body={}", i, maxRetries, ex.getStatusCode(), ex.getResponseBodyAsString());
+                log.warn("[DocumentAnalyzer] operation=provider-call model={} attempt={}/{} status={} retryable={} exception={}",
+                        properties.evaluatorModel(), i, maxRetries, ex.getStatusCode().value(),
+                        ex.getStatusCode().value() == 429 && i < maxRetries, ex.getClass().getSimpleName());
                 if (ex.getStatusCode().value() == 429 && i < maxRetries) {
                     sleep(backoff);
                     backoff *= 2;
                 } else {
-                    throw ex;
+                    throw sanitizedHttpException(ex);
                 }
             } catch (Exception ex) {
-                log.warn("[DocumentAnalyzer] Call error. Retry {}/{}", i, maxRetries, ex);
+                log.warn("[DocumentAnalyzer] operation=provider-call model={} attempt={}/{} exception={}",
+                        properties.evaluatorModel(), i, maxRetries, ex.getClass().getSimpleName());
                 if (i < maxRetries) {
                     sleep(backoff);
                     backoff *= 2;
                 } else {
-                    throw new RuntimeException("AI analyzer call failed", ex);
+                    throw new RuntimeException("AI analyzer call failed");
                 }
             }
         }
         throw new RuntimeException("AI analyzer retries exceeded");
+    }
+
+    private static HttpStatusCodeException sanitizedHttpException(HttpStatusCodeException ex) {
+        return new HttpStatusCodeException(ex.getStatusCode(), ex.getStatusText()) {
+        };
     }
 
     private void sleep(long ms) {
