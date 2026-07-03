@@ -389,13 +389,23 @@ class PracticeIntegrationTest {
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/result"))
-                .andExpect(model().attributeExists("result"));
+                .andExpect(model().attributeExists("result"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("activePartObj.question.writingFeedback || {}")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("const rawAiFeedbackJson = \"{}\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))));
 
         // Perform GET detailed result view -> should redirect to result-detail template for WRITING
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/result-detail"))
-                .andExpect(model().attributeExists("result"));
+                .andExpect(model().attributeExists("result"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("currentQ.writingFeedback || {}")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("const rawAiFeedbackJson = \"{}\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))));
     }
 
     @Test
@@ -1347,6 +1357,9 @@ class PracticeIntegrationTest {
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("currentQ.writingFeedback || {}")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("target only")));
         } finally {
             deleteWritingAttemptFixture(fixture);
@@ -1370,7 +1383,10 @@ class PracticeIntegrationTest {
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"questionId\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("Chấm lại câu này")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"reEvaluatable\\\":true")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionIndex = selectorQuestions.findIndex")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("String(question.questionId) === String(activeQuestionId)")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("setQuestion(initialQuestionIndex);")))

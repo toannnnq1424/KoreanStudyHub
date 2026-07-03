@@ -138,7 +138,7 @@
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const setTitle = /*[[${result.set().title()}]]*/ '';
   const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
-  const rawAiFeedbackJson = /*[[${result.aiFeedbackJson()}]]*/ '{}';
+  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
   /*]]>*/
 </script>
 
@@ -254,7 +254,7 @@
       if (setSkill === 'WRITING') {
         const activePartObj = parts.find(p => p.id === currentPart);
         if (activePartObj && activePartObj.question) {
-          aiData = activePartObj.question.feedbackNode || {};
+          aiData = activePartObj.question.writingFeedback || {};
         }
       }
 

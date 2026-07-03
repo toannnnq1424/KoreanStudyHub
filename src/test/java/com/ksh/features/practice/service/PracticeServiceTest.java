@@ -930,9 +930,7 @@ class PracticeServiceTest {
         // Rule 1: Match student_text exactly
         String aiFeedbackJson1 = "{\"rubric_scores\":[],\"student_text\":\"Answer one\",\"raw_score\":8.0,\"raw_score_max\":10.0}";
         List<PracticeQuestionFeedbackRow> feedbacks1 = practiceService.buildQuestionFeedbackRows(questions, answersJson, aiFeedbackJson1);
-        assertNotNull(feedbacks1.get(0).feedbackNode());
         assertNotNull(feedbacks1.get(0).writingFeedback());
-        assertNull(feedbacks1.get(1).feedbackNode());
         assertNull(feedbacks1.get(1).writingFeedback());
         assertEquals("Answer one", feedbacks1.get(0).learnerAnswer());
         assertFalse(feedbacks1.get(0).reEvaluatable());
@@ -942,9 +940,7 @@ class PracticeServiceTest {
         String answersJsonDup = "{\"101\":\"Same answer\",\"102\":\"Same answer\"}";
         String aiFeedbackJsonDup = "{\"rubric_scores\":[],\"student_text\":\"Same answer\",\"raw_score\":8.0,\"raw_score_max\":10.0}";
         List<PracticeQuestionFeedbackRow> feedbacksDup = practiceService.buildQuestionFeedbackRows(questions, answersJsonDup, aiFeedbackJsonDup);
-        assertNull(feedbacksDup.get(0).feedbackNode());
         assertNull(feedbacksDup.get(0).writingFeedback());
-        assertNotNull(feedbacksDup.get(1).feedbackNode()); // matched last ordered (q2)
         assertNotNull(feedbacksDup.get(1).writingFeedback());
         assertFalse(feedbacksDup.get(0).reEvaluatable());
         assertFalse(feedbacksDup.get(1).reEvaluatable());
@@ -952,9 +948,7 @@ class PracticeServiceTest {
         // Rule 3: No match -> map to last ordered essay
         String aiFeedbackJsonNoMatch = "{\"rubric_scores\":[],\"student_text\":\"Different answer\",\"raw_score\":7.0,\"raw_score_max\":10.0}";
         List<PracticeQuestionFeedbackRow> feedbacksNoMatch = practiceService.buildQuestionFeedbackRows(questions, answersJson, aiFeedbackJsonNoMatch);
-        assertNull(feedbacksNoMatch.get(0).feedbackNode());
         assertNull(feedbacksNoMatch.get(0).writingFeedback());
-        assertNotNull(feedbacksNoMatch.get(1).feedbackNode()); // fallback to last ordered essay (q2)
         assertNotNull(feedbacksNoMatch.get(1).writingFeedback());
         assertFalse(feedbacksNoMatch.get(0).reEvaluatable());
         assertFalse(feedbacksNoMatch.get(1).reEvaluatable());
@@ -962,7 +956,6 @@ class PracticeServiceTest {
         // Rule 4: Only one essay -> map to single essay question
         List<PracticeQuestion> singleList = List.of(q1);
         List<PracticeQuestionFeedbackRow> feedbacksSingle = practiceService.buildQuestionFeedbackRows(singleList, answersJson, aiFeedbackJsonNoMatch);
-        assertNotNull(feedbacksSingle.get(0).feedbackNode()); // mapped to single essay
         assertNotNull(feedbacksSingle.get(0).writingFeedback());
         assertTrue(feedbacksSingle.get(0).reEvaluatable());
     }
@@ -1007,8 +1000,6 @@ class PracticeServiceTest {
                 answersJson,
                 feedbackJson);
 
-        assertNotNull(rows.get(0).feedbackNode());
-        assertNotNull(rows.get(1).feedbackNode());
         assertNotNull(rows.get(0).writingFeedback());
         assertNotNull(rows.get(1).writingFeedback());
         assertFalse(rows.get(0).reEvaluatable());
@@ -1030,8 +1021,6 @@ class PracticeServiceTest {
                 answersJson,
                 feedbackJson);
 
-        assertNotNull(rows.get(0).feedbackNode());
-        assertNull(rows.get(1).feedbackNode());
         assertNotNull(rows.get(0).writingFeedback());
         assertNull(rows.get(1).writingFeedback());
         assertFalse(rows.get(0).reEvaluatable());
@@ -1053,8 +1042,6 @@ class PracticeServiceTest {
                 answersJson,
                 feedbackJson);
 
-        assertNotNull(rows.get(0).feedbackNode());
-        assertNotNull(rows.get(1).feedbackNode());
         assertNotNull(rows.get(0).writingFeedback());
         assertNotNull(rows.get(1).writingFeedback());
         assertNull(rows.get(0).writingFeedback().rawScore());
@@ -1078,7 +1065,6 @@ class PracticeServiceTest {
                 feedbackJson);
 
         PracticeQuestionFeedbackRow row = rows.get(0);
-        assertNotNull(row.feedbackNode());
         assertNotNull(row.writingFeedback());
         assertEquals("first", row.writingFeedback().rubricScores().get(0).name());
         assertEquals("second", row.writingFeedback().rubricScores().get(1).name());

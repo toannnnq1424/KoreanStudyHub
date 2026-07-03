@@ -366,14 +366,14 @@ public class PracticeService {
         for (PracticeQuestion q : orderedQuestions) {
             String qIdStr = String.valueOf(q.getId());
             String answer = answers.getOrDefault(qIdStr, "");
-            com.fasterxml.jackson.databind.JsonNode feedbackNode = null;
+            com.fasterxml.jackson.databind.JsonNode selectedFeedbackEntry = null;
 
             if (rootNode != null) {
                 if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
                     if (isLegacy) {
                         String legacyStudentText = rootNode.path("student_text").asText("");
                         if (essayQuestions.size() == 1) {
-                            feedbackNode = rootNode;
+                            selectedFeedbackEntry = rootNode;
                         } else {
                             List<PracticeQuestion> matchingEssays = new ArrayList<>();
                             for (PracticeQuestion eq : essayQuestions) {
@@ -384,19 +384,19 @@ public class PracticeService {
                             }
                             if (matchingEssays.size() == 1) {
                                 if (matchingEssays.get(0).getId().equals(q.getId())) {
-                                    feedbackNode = rootNode;
+                                    selectedFeedbackEntry = rootNode;
                                 }
                             } else if (matchingEssays.size() > 1) {
                                 matchingEssays.sort(QUESTION_ORDER);
                                 PracticeQuestion lastMatching = matchingEssays.get(matchingEssays.size() - 1);
                                 if (lastMatching.getId().equals(q.getId())) {
-                                    feedbackNode = rootNode;
+                                    selectedFeedbackEntry = rootNode;
                                 }
                             } else {
                                 if (!essayQuestions.isEmpty()) {
                                     PracticeQuestion lastEssay = essayQuestions.get(essayQuestions.size() - 1);
                                     if (lastEssay.getId().equals(q.getId())) {
-                                        feedbackNode = rootNode;
+                                        selectedFeedbackEntry = rootNode;
                                     }
                                 }
                             }
@@ -407,12 +407,12 @@ public class PracticeService {
                             if (node.isTextual()) {
                                 try {
                                     JsonNode parsedNode = objectMapper.readTree(node.asText());
-                                    feedbackNode = parsedNode != null && parsedNode.isObject() ? parsedNode : null;
+                                    selectedFeedbackEntry = parsedNode != null && parsedNode.isObject() ? parsedNode : null;
                                 } catch (Exception e) {
-                                    feedbackNode = null;
+                                    selectedFeedbackEntry = null;
                                 }
                             } else {
-                                feedbackNode = node.isObject() ? node : null;
+                                selectedFeedbackEntry = node.isObject() ? node : null;
                             }
                         }
                     }
@@ -425,8 +425,7 @@ public class PracticeService {
                     q.getQuestionType(),
                     q.getPrompt(),
                     answer,
-                    feedbackNode,
-                    writingFeedbackViewMapper.map(feedbackNode),
+                    writingFeedbackViewMapper.map(selectedFeedbackEntry),
                     isQuestionReEvaluatable(q, essayQuestions, isLegacy, currentMapReEvaluatable)
             ));
         }

@@ -12,7 +12,7 @@
   const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const attemptId = /*[[${result.submissionId()}]]*/ '';
-  const rawAiFeedbackJson = /*[[${result.aiFeedbackJson()}]]*/ '{}';
+  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
   const activeQuestionId = /*[[${activeQuestionId}]]*/ null;
   /*]]>*/
 </script>
@@ -248,7 +248,7 @@
 
   function updateActiveQuestionData() {
     if (setSkill === 'WRITING') {
-      aiData = currentQ.feedbackNode || {};
+      aiData = currentQ.writingFeedback || {};
     } else {
       try {
         aiData = JSON.parse(rawAiFeedbackJson || '{}');

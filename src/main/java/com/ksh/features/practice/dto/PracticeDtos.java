@@ -195,7 +195,6 @@ public final class PracticeDtos {
             String questionType,
             String prompt,
             String learnerAnswer,
-            com.fasterxml.jackson.databind.JsonNode feedbackNode,
             WritingFeedbackView writingFeedback,
             boolean reEvaluatable
     ) {}
