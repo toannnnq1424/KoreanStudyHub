@@ -348,6 +348,7 @@ public class PracticeService {
                 .toList();
 
         boolean isLegacy = rootNode != null && isLegacySingleFeedback(rootNode);
+        boolean currentMapReEvaluatable = !isLegacy && supportsPerQuestionWritingReEvaluation(rootNode, essayQuestions);
 
         for (PracticeQuestion q : orderedQuestions) {
             String qIdStr = String.valueOf(q.getId());
@@ -411,10 +412,62 @@ public class PracticeService {
                     q.getQuestionType(),
                     q.getPrompt(),
                     answer,
-                    feedbackNode
+                    feedbackNode,
+                    isQuestionReEvaluatable(q, essayQuestions, isLegacy, currentMapReEvaluatable)
             ));
         }
         return rows;
+    }
+
+    private boolean isQuestionReEvaluatable(
+            PracticeQuestion question,
+            List<PracticeQuestion> essayQuestions,
+            boolean isLegacy,
+            boolean currentMapReEvaluatable
+    ) {
+        if (question.getId() == null || !PracticeQuestion.TYPE_ESSAY.equals(question.getQuestionType())) {
+            return false;
+        }
+        if (isLegacy) {
+            return essayQuestions.size() == 1 && essayQuestions.get(0).getId().equals(question.getId());
+        }
+        return currentMapReEvaluatable;
+    }
+
+    private boolean supportsPerQuestionWritingReEvaluation(
+            com.fasterxml.jackson.databind.JsonNode rootNode,
+            List<PracticeQuestion> essayQuestions
+    ) {
+        if (rootNode == null || !rootNode.isObject() || essayQuestions.isEmpty()) {
+            return false;
+        }
+        for (PracticeQuestion essay : essayQuestions) {
+            if (essay.getId() == null) {
+                return false;
+            }
+            JsonNode entry = rootNode.get(String.valueOf(essay.getId()));
+            if (!hasValidStoredWritingFeedbackScore(entry)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasValidStoredWritingFeedbackScore(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return false;
+        }
+        JsonNode rawScoreNode = node.get("raw_score");
+        JsonNode rawScoreMaxNode = node.get("raw_score_max");
+        if (rawScoreNode == null || rawScoreMaxNode == null
+                || !rawScoreNode.isNumber() || !rawScoreMaxNode.isNumber()) {
+            return false;
+        }
+        BigDecimal rawScore = rawScoreNode.decimalValue();
+        BigDecimal rawScoreMax = rawScoreMaxNode.decimalValue();
+        return rawScore.compareTo(BigDecimal.ZERO) >= 0
+                && rawScoreMax.compareTo(BigDecimal.ZERO) > 0
+                && rawScore.compareTo(rawScoreMax) <= 0;
     }
 
     private boolean isLegacySingleFeedback(com.fasterxml.jackson.databind.JsonNode root) {

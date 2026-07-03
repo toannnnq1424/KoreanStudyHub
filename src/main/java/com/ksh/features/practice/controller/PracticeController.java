@@ -6,6 +6,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
+import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.User;
@@ -314,11 +315,28 @@ public class PracticeController {
                                     @RequestParam(value = "questionId", required = false) Long questionId,
                                     @AuthenticationPrincipal KshUserDetails user,
                                     RedirectAttributes redirectAttributes) {
-        Long refreshedSubmissionId = questionId == null
-                ? practiceService.reEvaluate(attemptId, user.getId())
-                : practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
-        redirectAttributes.addFlashAttribute("success", "Đã chấm lại bài viết bằng Audit Mode.");
-        return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result";
+        if (questionId == null) {
+            Long refreshedSubmissionId = practiceService.reEvaluate(attemptId, user.getId());
+            redirectAttributes.addFlashAttribute("success", "Đã chấm lại bài viết bằng Audit Mode.");
+            return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result";
+        }
+
+        try {
+            Long refreshedSubmissionId = practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
+            redirectAttributes.addFlashAttribute("success", "Đã chấm lại câu đã chọn.");
+            return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result/detail";
+        } catch (PracticeAttemptConflictException ex) {
+            redirectAttributes.addFlashAttribute("error", safeReEvaluationError(ex));
+            return "redirect:/practice/attempts/" + attemptId + "/result/detail";
+        }
+    }
+
+    private String safeReEvaluationError(PracticeAttemptConflictException ex) {
+        String message = ex.getMessage();
+        if (message != null && message.contains("Du lieu phan hoi cu khong ho tro cham lai tung cau")) {
+            return "Dữ liệu phản hồi cũ không hỗ trợ chấm lại từng câu. Vui lòng chấm lại toàn bài.";
+        }
+        return "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại.";
     }
 
 

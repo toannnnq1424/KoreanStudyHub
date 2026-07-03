@@ -194,7 +194,8 @@ public final class PracticeDtos {
             String questionType,
             String prompt,
             String learnerAnswer,
-            com.fasterxml.jackson.databind.JsonNode feedbackNode
+            com.fasterxml.jackson.databind.JsonNode feedbackNode,
+            boolean reEvaluatable
     ) {}
 
 
@@ -429,4 +430,3 @@ public final class PracticeDtos {
         }
     }
 }
-

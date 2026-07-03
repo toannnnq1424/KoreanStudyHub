@@ -33,12 +33,27 @@
 
 <!-- Main shell -->
 <div class="prd-shell">
+  <div th:if="${success}" class="prd-flash prd-flash-success" th:text="${success}"></div>
+  <div th:if="${error}" class="prd-flash prd-flash-error" th:text="${error}"></div>
 
   <!-- Task navigation row -->
   <div class="prd-task-row" id="prd-task-row">
     <div class="prd-task-name" id="prd-task-name">Đang tải...</div>
     <div class="prd-task-nav" id="prd-task-nav"></div>
   </div>
+
+  <form id="questionReEvaluateForm"
+        class="prd-reevaluate-form"
+        method="post"
+        th:if="${result.set().skill() == 'WRITING'}"
+        th:action="@{/practice/attempts/{attemptId}/re-evaluate(attemptId=${attemptId})}"
+        hidden>
+    <input id="questionReEvaluateQuestionId" type="hidden" name="questionId" value="">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+    <button id="questionReEvaluateButton" class="prd-reevaluate-btn" type="submit" disabled>
+      Chấm lại câu này
+    </button>
+  </form>
 
   <!-- Two-column card -->
   <div class="prd-card">
@@ -182,6 +197,23 @@
 
   const taskNameEl = document.getElementById('prd-task-name');
   const promptEl = document.getElementById('prd-prompt-text');
+  const reEvaluateForm = document.getElementById('questionReEvaluateForm');
+  const reEvaluateQuestionIdInput = document.getElementById('questionReEvaluateQuestionId');
+  const reEvaluateButton = document.getElementById('questionReEvaluateButton');
+
+  function updateReEvaluateForm() {
+    if (!reEvaluateForm || !reEvaluateQuestionIdInput || !reEvaluateButton) return;
+    const canReEvaluate = currentQ && currentQ.reEvaluatable === true && currentQ.questionId != null;
+    if (canReEvaluate) {
+      reEvaluateQuestionIdInput.value = String(currentQ.questionId);
+      reEvaluateButton.disabled = false;
+      reEvaluateForm.hidden = false;
+    } else {
+      reEvaluateQuestionIdInput.value = '';
+      reEvaluateButton.disabled = true;
+      reEvaluateForm.hidden = true;
+    }
+  }
 
   function updateActiveQuestionData() {
     if (setSkill === 'WRITING') {
@@ -218,6 +250,7 @@
     }
     if (taskNameEl) taskNameEl.textContent = currentSkillLabel + ' ' + (currentQ.questionNo || (idx + 1));
     if (promptEl) promptEl.textContent = currentQ.prompt || 'Không có đề bài.';
+    updateReEvaluateForm();
     
     updateActiveQuestionData();
   }

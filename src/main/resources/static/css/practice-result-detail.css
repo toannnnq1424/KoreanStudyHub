@@ -138,6 +138,54 @@
 }
 
 /* ─── Main two-column card ─── */
+.prd-flash {
+  padding: 12px 32px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.prd-flash-success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.prd-flash-error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.prd-reevaluate-form {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 32px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+}
+
+.prd-reevaluate-btn {
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prd-reevaluate-btn:hover:not(:disabled),
+.prd-reevaluate-btn:focus-visible {
+  border-color: var(--ksh-blue);
+  color: var(--ksh-blue);
+}
+
+.prd-reevaluate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .prd-card {
   flex: 1;
   display: flex;

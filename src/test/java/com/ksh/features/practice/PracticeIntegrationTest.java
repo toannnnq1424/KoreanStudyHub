@@ -1331,7 +1331,8 @@ class PracticeIntegrationTest {
                             .with(csrf())
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().is3xxRedirection())
-                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result"));
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(flash().attribute("success", "Đã chấm lại câu đã chọn."));
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals("GRADED", attempt.getStatus());
@@ -1341,6 +1342,128 @@ class PracticeIntegrationTest {
             assertEquals("target only", feedback.get(String.valueOf(fixture.questionId())).path("summary").asText());
             verify(writingEvaluationClient, times(1))
                     .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
+
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("target only")));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingResultDetailRendersPerQuestionReEvaluateForm() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate UI", true);
+        try {
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"questionReEvaluateForm\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("method=\"post\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"questionId\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Chấm lại câu này")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"reEvaluatable\\\":true")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateQuestionIdInput.value = '';")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateButton.disabled = true;")));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testReadingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
+        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        readingAttempt.setStatus("SUBMITTED");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result-detail"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testListeningResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
+        ListeningAttemptFixture fixture = createListeningAttemptFixture("Listening Reevaluate UI");
+        try {
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/rl-result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
+        } finally {
+            deleteListeningAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testSpeakingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
+        SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking Reevaluate UI");
+        try {
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
+        } finally {
+            deleteSpeakingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingQuestionReEvaluateConflictRedirectsDetailWithFlashError() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Conflict UI", true);
+        try {
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+                    .thenAnswer(invocation -> {
+                        TransactionTemplate template = new TransactionTemplate(transactionManager);
+                        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                        template.execute(status -> {
+                            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+                            attempt.setAnswersJson("{\"" + fixture.questionId() + "\":\"Changed after snapshot\"}");
+                            attemptRepository.saveAndFlush(attempt);
+                            return null;
+                        });
+                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    });
+
+            mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
+                            .with(csrf())
+                            .param("questionId", String.valueOf(fixture.questionId())))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(flash().attribute("error", "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
+
+            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertEquals("GRADED", attempt.getStatus());
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+            assertEquals(objectMapper.readTree(fixture.oldFeedbackJson()), objectMapper.readTree(attempt.getAiFeedbackJson()));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testWritingQuestionReEvaluateRequiresCsrf() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate CSRF", true);
+        try {
+            mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
+                            .param("questionId", String.valueOf(fixture.questionId())))
+                    .andExpect(status().isForbidden());
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -1519,6 +1642,106 @@ class PracticeIntegrationTest {
             Long attemptId,
             String prompt,
             String oldFeedbackJson
+    ) {
+    }
+
+    private ListeningAttemptFixture createListeningAttemptFixture(String title) {
+        PracticeSet listeningSet = setRepository.saveAndFlush(new PracticeSet(
+                title, "Desc", "LISTENING", "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
+        ));
+        PracticeTest test = testRepository.saveAndFlush(new PracticeTest(listeningSet.getId(), "Test 1", "Desc", 1, 40));
+        PracticeSection section = new PracticeSection(listeningSet.getId(), "Listening Section", "LISTENING", "MCQ", "Desc", 50, BigDecimal.TEN, 1);
+        section.setTestId(test.getId());
+        section = sectionRepository.saveAndFlush(section);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(listeningSet.getId(), "Group 1", 1, 1, "Desc", null, null, 1);
+        group.setSectionId(section.getId());
+        group = groupRepository.saveAndFlush(group);
+        PracticeQuestion question = new PracticeQuestion(listeningSet.getId(), 1, "MCQ", "Prompt " + title, "[\"A\",\"B\"]", "1", "Explain", BigDecimal.TEN, 0);
+        question.setGroupId(group.getId());
+        question = questionRepository.saveAndFlush(question);
+
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), listeningSet.getId(), test.getId(), "LISTENING", section.getId());
+        attempt.markSubmitted(BigDecimal.TEN, BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        return new ListeningAttemptFixture(
+                listeningSet.getId(),
+                test.getId(),
+                section.getId(),
+                group.getId(),
+                question.getId(),
+                attempt.getId()
+        );
+    }
+
+    private void deleteListeningAttemptFixture(ListeningAttemptFixture fixture) {
+        attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
+        groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
+        sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
+        testRepository.findById(fixture.testId()).ifPresent(testRepository::delete);
+        setRepository.findById(fixture.setId()).ifPresent(setRepository::delete);
+    }
+
+    private record ListeningAttemptFixture(
+            Long setId,
+            Long testId,
+            Long sectionId,
+            Long groupId,
+            Long questionId,
+            Long attemptId
+    ) {
+    }
+
+    private SpeakingAttemptFixture createSpeakingAttemptFixture(String title) {
+        PracticeSet speakingSet = setRepository.saveAndFlush(new PracticeSet(
+                title, "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
+        ));
+        PracticeTest test = testRepository.saveAndFlush(new PracticeTest(speakingSet.getId(), "Test 1", "Desc", 1, 40));
+        PracticeSection section = new PracticeSection(speakingSet.getId(), "Speaking Section", "SPEAKING", "ORAL", "Desc", 50, BigDecimal.TEN, 1);
+        section.setTestId(test.getId());
+        section = sectionRepository.saveAndFlush(section);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(speakingSet.getId(), "Group 1", 1, 1, "Desc", null, null, 1);
+        group.setSectionId(section.getId());
+        group = groupRepository.saveAndFlush(group);
+        PracticeQuestion question = new PracticeQuestion(speakingSet.getId(), 1, "SPEAKING", "Prompt " + title, "[]", "", "Explain", BigDecimal.TEN, 0);
+        question.setGroupId(group.getId());
+        question = questionRepository.saveAndFlush(question);
+
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), speakingSet.getId(), test.getId(), "SPEAKING", section.getId());
+        attempt.markGraded(
+                BigDecimal.valueOf(80.00),
+                BigDecimal.TEN,
+                "{\"" + question.getId() + "\":\"Existing spoken answer\"}",
+                "{\"raw_score\":8.0,\"raw_score_max\":10.0}");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        return new SpeakingAttemptFixture(
+                speakingSet.getId(),
+                test.getId(),
+                section.getId(),
+                group.getId(),
+                question.getId(),
+                attempt.getId()
+        );
+    }
+
+    private void deleteSpeakingAttemptFixture(SpeakingAttemptFixture fixture) {
+        attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
+        groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
+        sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
+        testRepository.findById(fixture.testId()).ifPresent(testRepository::delete);
+        setRepository.findById(fixture.setId()).ifPresent(setRepository::delete);
+    }
+
+    private record SpeakingAttemptFixture(
+            Long setId,
+            Long testId,
+            Long sectionId,
+            Long groupId,
+            Long questionId,
+            Long attemptId
     ) {
     }
 }

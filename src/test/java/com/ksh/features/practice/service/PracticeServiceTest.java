@@ -933,6 +933,8 @@ class PracticeServiceTest {
         assertNotNull(feedbacks1.get(0).feedbackNode());
         assertNull(feedbacks1.get(1).feedbackNode());
         assertEquals("Answer one", feedbacks1.get(0).learnerAnswer());
+        assertFalse(feedbacks1.get(0).reEvaluatable());
+        assertFalse(feedbacks1.get(1).reEvaluatable());
 
         // Rule 2: Match multiple student_text (same answer) -> match last ordered matching
         String answersJsonDup = "{\"101\":\"Same answer\",\"102\":\"Same answer\"}";
@@ -940,17 +942,107 @@ class PracticeServiceTest {
         List<PracticeQuestionFeedbackRow> feedbacksDup = practiceService.buildQuestionFeedbackRows(questions, answersJsonDup, aiFeedbackJsonDup);
         assertNull(feedbacksDup.get(0).feedbackNode());
         assertNotNull(feedbacksDup.get(1).feedbackNode()); // matched last ordered (q2)
+        assertFalse(feedbacksDup.get(0).reEvaluatable());
+        assertFalse(feedbacksDup.get(1).reEvaluatable());
 
         // Rule 3: No match -> map to last ordered essay
         String aiFeedbackJsonNoMatch = "{\"rubric_scores\":[],\"student_text\":\"Different answer\",\"raw_score\":7.0,\"raw_score_max\":10.0}";
         List<PracticeQuestionFeedbackRow> feedbacksNoMatch = practiceService.buildQuestionFeedbackRows(questions, answersJson, aiFeedbackJsonNoMatch);
         assertNull(feedbacksNoMatch.get(0).feedbackNode());
         assertNotNull(feedbacksNoMatch.get(1).feedbackNode()); // fallback to last ordered essay (q2)
+        assertFalse(feedbacksNoMatch.get(0).reEvaluatable());
+        assertFalse(feedbacksNoMatch.get(1).reEvaluatable());
 
         // Rule 4: Only one essay -> map to single essay question
         List<PracticeQuestion> singleList = List.of(q1);
         List<PracticeQuestionFeedbackRow> feedbacksSingle = practiceService.buildQuestionFeedbackRows(singleList, answersJson, aiFeedbackJsonNoMatch);
         assertNotNull(feedbacksSingle.get(0).feedbackNode()); // mapped to single essay
+        assertTrue(feedbacksSingle.get(0).reEvaluatable());
+    }
+
+    @Test
+    void testCurrentWritingFeedbackMapMarksOnlySupportedEssayRowsReEvaluatable() {
+        PracticeQuestion mcq = new PracticeQuestion(1L, 50, "MCQ", "Prompt 0", "[\"1\",\"2\"]", "1", "Explain", BigDecimal.TEN, 0);
+        setEntityId(mcq, 100L);
+        PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q1, 101L);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 52, "ESSAY", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 2);
+        setEntityId(q2, 102L);
+
+        String answersJson = "{\"100\":\"1\",\"101\":\"Answer one\",\"102\":\"Answer two\"}";
+        String feedbackJson = "{\"101\":{\"raw_score\":8.0,\"raw_score_max\":10.0},\"102\":{\"raw_score\":7.0,\"raw_score_max\":10.0}}";
+
+        List<PracticeQuestionFeedbackRow> rows = practiceService.buildQuestionFeedbackRows(
+                List.of(mcq, q1, q2),
+                answersJson,
+                feedbackJson);
+
+        assertFalse(rows.get(0).reEvaluatable());
+        assertTrue(rows.get(1).reEvaluatable());
+        assertTrue(rows.get(2).reEvaluatable());
+    }
+
+    @Test
+    void testMalformedWritingFeedbackMapDisablesReEvaluateWithoutBreakingRows() {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q1, 101L);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 52, "ESSAY", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q2, 102L);
+
+        String answersJson = "{\"101\":\"Answer one\",\"102\":\"Answer two\"}";
+        String feedbackJson = "{\"101\":{\"raw_score\":8.0,\"raw_score_max\":10.0},\"102\":{\"raw_score\":7.0,\"raw_score_max\":0}}";
+
+        List<PracticeQuestionFeedbackRow> rows = practiceService.buildQuestionFeedbackRows(
+                List.of(q1, q2),
+                answersJson,
+                feedbackJson);
+
+        assertNotNull(rows.get(0).feedbackNode());
+        assertNotNull(rows.get(1).feedbackNode());
+        assertFalse(rows.get(0).reEvaluatable());
+        assertFalse(rows.get(1).reEvaluatable());
+    }
+
+    @Test
+    void testIncompleteWritingFeedbackMapDisablesReEvaluateWithoutBreakingRows() {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q1, 101L);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 52, "ESSAY", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q2, 102L);
+
+        String answersJson = "{\"101\":\"Answer one\",\"102\":\"Answer two\"}";
+        String feedbackJson = "{\"101\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
+
+        List<PracticeQuestionFeedbackRow> rows = practiceService.buildQuestionFeedbackRows(
+                List.of(q1, q2),
+                answersJson,
+                feedbackJson);
+
+        assertNotNull(rows.get(0).feedbackNode());
+        assertNull(rows.get(1).feedbackNode());
+        assertFalse(rows.get(0).reEvaluatable());
+        assertFalse(rows.get(1).reEvaluatable());
+    }
+
+    @Test
+    void testNonNumericWritingFeedbackScoreDisablesReEvaluateWithoutBreakingRows() {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q1, 101L);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 52, "ESSAY", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q2, 102L);
+
+        String answersJson = "{\"101\":\"Answer one\",\"102\":\"Answer two\"}";
+        String feedbackJson = "{\"101\":{\"raw_score\":\"bad\",\"raw_score_max\":10.0},\"102\":{\"raw_score\":7.0,\"raw_score_max\":10.0}}";
+
+        List<PracticeQuestionFeedbackRow> rows = practiceService.buildQuestionFeedbackRows(
+                List.of(q1, q2),
+                answersJson,
+                feedbackJson);
+
+        assertNotNull(rows.get(0).feedbackNode());
+        assertNotNull(rows.get(1).feedbackNode());
+        assertFalse(rows.get(0).reEvaluatable());
+        assertFalse(rows.get(1).reEvaluatable());
     }
 
     @Test
