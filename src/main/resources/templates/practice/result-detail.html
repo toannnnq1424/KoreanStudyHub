@@ -13,6 +13,7 @@
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const attemptId = /*[[${result.submissionId()}]]*/ '';
   const rawAiFeedbackJson = /*[[${result.aiFeedbackJson()}]]*/ '{}';
+  const activeQuestionId = /*[[${activeQuestionId}]]*/ null;
   /*]]>*/
 </script>
 
@@ -188,12 +189,20 @@
     return;
   }
 
-  let currentQ = selectorQuestions[0] || {};
+  const activeQuestionIndex = selectorQuestions.findIndex(question =>
+    question.questionId != null &&
+    activeQuestionId != null &&
+    String(question.questionId) === String(activeQuestionId)
+  );
+  const initialQuestionIndex = activeQuestionIndex >= 0 ? activeQuestionIndex : 0;
+
+  let currentQ = selectorQuestions[initialQuestionIndex] || {};
   let aiData = {};
   let strengths = [];
   let needs = [];
   let annotations = [];
   let rubricScores = [];
+  let reEvaluateSubmitting = false;
 
   const taskNameEl = document.getElementById('prd-task-name');
   const promptEl = document.getElementById('prd-prompt-text');
@@ -203,16 +212,38 @@
 
   function updateReEvaluateForm() {
     if (!reEvaluateForm || !reEvaluateQuestionIdInput || !reEvaluateButton) return;
+    if (reEvaluateSubmitting) return;
     const canReEvaluate = currentQ && currentQ.reEvaluatable === true && currentQ.questionId != null;
     if (canReEvaluate) {
       reEvaluateQuestionIdInput.value = String(currentQ.questionId);
       reEvaluateButton.disabled = false;
       reEvaluateForm.hidden = false;
+      reEvaluateButton.textContent = 'Chấm lại câu này';
+      reEvaluateButton.removeAttribute('aria-busy');
     } else {
       reEvaluateQuestionIdInput.value = '';
       reEvaluateButton.disabled = true;
       reEvaluateForm.hidden = true;
+      reEvaluateButton.textContent = 'Chấm lại câu này';
+      reEvaluateButton.removeAttribute('aria-busy');
     }
+  }
+
+  if (reEvaluateForm) {
+    reEvaluateForm.addEventListener('submit', (event) => {
+      if (reEvaluateSubmitting) {
+        event.preventDefault();
+        return;
+      }
+      if (!reEvaluateQuestionIdInput || !reEvaluateQuestionIdInput.value || !reEvaluateButton || reEvaluateButton.disabled) {
+        event.preventDefault();
+        return;
+      }
+      reEvaluateSubmitting = true;
+      reEvaluateButton.disabled = true;
+      reEvaluateButton.textContent = 'Đang chấm lại...';
+      reEvaluateButton.setAttribute('aria-busy', 'true');
+    });
   }
 
   function updateActiveQuestionData() {
@@ -261,7 +292,7 @@
     navEl.innerHTML = '';
     selectorQuestions.forEach((q, idx) => {
       const btn = document.createElement('button');
-      btn.className = 'prd-task-nav-btn' + (idx === 0 ? ' active' : '');
+      btn.className = 'prd-task-nav-btn' + (idx === initialQuestionIndex ? ' active' : '');
       btn.textContent = `Câu ${q.questionNo || (idx + 1)}`;
       btn.addEventListener('click', () => {
         setQuestion(idx);
@@ -572,7 +603,7 @@
     }
   }
 
-  setQuestion(0);
+  setQuestion(initialQuestionIndex);
 })();
 </script>
 

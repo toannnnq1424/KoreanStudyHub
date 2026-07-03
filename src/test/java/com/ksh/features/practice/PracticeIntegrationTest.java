@@ -1331,7 +1331,7 @@ class PracticeIntegrationTest {
                             .with(csrf())
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().is3xxRedirection())
-                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail?questionId=" + fixture.questionId()))
                     .andExpect(flash().attribute("success", "Đã chấm lại câu đã chọn."));
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
@@ -1343,7 +1343,8 @@ class PracticeIntegrationTest {
             verify(writingEvaluationClient, times(1))
                     .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
 
-            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
+                            .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("target only")));
@@ -1358,9 +1359,11 @@ class PracticeIntegrationTest {
     void testWritingResultDetailRendersPerQuestionReEvaluateForm() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate UI", true);
         try {
-            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
+                            .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = " + fixture.questionId())))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"questionReEvaluateForm\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("method=\"post\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")))
@@ -1368,8 +1371,91 @@ class PracticeIntegrationTest {
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("Chấm lại câu này")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"reEvaluatable\\\":true")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionIndex = selectorQuestions.findIndex")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("String(question.questionId) === String(activeQuestionId)")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("setQuestion(initialQuestionIndex);")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("let reEvaluateSubmitting = false;")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("event.preventDefault();")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chấm lại...")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-busy")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateQuestionIdInput.value = '';")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateButton.disabled = true;")));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingResultDetailInvalidQuestionIdFallsBackToFirstQuestion() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Invalid Active Question UI", true);
+        try {
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
+                            .param("questionId", "999999999"))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const initialQuestionIndex = activeQuestionIndex >= 0 ? activeQuestionIndex : 0;")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("setQuestion(initialQuestionIndex);")));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingResultDetailDoesNotRestoreMcqQuestionId() throws Exception {
+        WritingMixedAttemptFixture fixture = createWritingMixedAttemptFixture("MCQ Active Question UI");
+        try {
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
+                            .param("questionId", String.valueOf(fixture.mcqQuestionId())))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.mcqQuestionId())))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.essayQuestionId())));
+        } finally {
+            deleteWritingMixedAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingResultDetailForeignQuestionIdFallsBackWithoutLeak() throws Exception {
+        WritingAttemptFixture target = createWritingAttemptFixture("Target Active Question UI", true);
+        WritingAttemptFixture foreign = createWritingAttemptFixture("Foreign Active Question UI", true);
+        try {
+            mockMvc.perform(get("/practice/attempts/" + target.attemptId() + "/result/detail")
+                            .param("questionId", String.valueOf(foreign.questionId())))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Prompt Foreign Active Question UI"))));
+        } finally {
+            deleteWritingAttemptFixture(target);
+            deleteWritingAttemptFixture(foreign);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingFullReEvaluateEndpointWithoutQuestionIdStillRedirectsOverview() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Full Reevaluate Regression UI", true);
+        try {
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true)))
+                    .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"full\",\"rubric_scores\":[]}");
+
+            mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
+                            .with(csrf()))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result"));
+
+            verify(writingEvaluationClient, times(1))
+                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -1414,8 +1500,7 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))));
         } finally {
             deleteSpeakingAttemptFixture(fixture);
         }
@@ -1444,13 +1529,21 @@ class PracticeIntegrationTest {
                             .with(csrf())
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().is3xxRedirection())
-                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail?questionId=" + fixture.questionId()))
                     .andExpect(flash().attribute("error", "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals("GRADED", attempt.getStatus());
             assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
             assertEquals(objectMapper.readTree(fixture.oldFeedbackJson()), objectMapper.readTree(attempt.getAiFeedbackJson()));
+
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
+                            .param("questionId", String.valueOf(fixture.questionId())))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = " + fixture.questionId())))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":9.0"))));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -1642,6 +1735,64 @@ class PracticeIntegrationTest {
             Long attemptId,
             String prompt,
             String oldFeedbackJson
+    ) {
+    }
+
+    private WritingMixedAttemptFixture createWritingMixedAttemptFixture(String title) {
+        PracticeSet writingSet = setRepository.saveAndFlush(new PracticeSet(
+                title, "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
+        ));
+        PracticeTest test = testRepository.saveAndFlush(new PracticeTest(writingSet.getId(), "Test 1", "Desc", 1, 40));
+        PracticeSection section = new PracticeSection(writingSet.getId(), "Writing Section", "WRITING", "MIXED", "Desc", 50, BigDecimal.valueOf(20), 1);
+        section.setTestId(test.getId());
+        section = sectionRepository.saveAndFlush(section);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(writingSet.getId(), "Group 1", 1, 1, "Desc", null, null, 1);
+        group.setSectionId(section.getId());
+        group = groupRepository.saveAndFlush(group);
+
+        PracticeQuestion mcq = new PracticeQuestion(writingSet.getId(), 50, "MCQ", "Prompt MCQ " + title, "[\"A\",\"B\"]", "1", "Explain", BigDecimal.TEN, 0);
+        mcq.setGroupId(group.getId());
+        mcq = questionRepository.saveAndFlush(mcq);
+
+        PracticeQuestion essay = new PracticeQuestion(writingSet.getId(), 51, "ESSAY", "Prompt Essay " + title, "[]", "", "Explain", BigDecimal.TEN, 1);
+        essay.setGroupId(group.getId());
+        essay = questionRepository.saveAndFlush(essay);
+
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", section.getId());
+        String answersJson = "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}";
+        String feedbackJson = "{\"" + essay.getId() + "\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
+        attempt.markGraded(BigDecimal.valueOf(90.00), BigDecimal.valueOf(20), answersJson, feedbackJson);
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        return new WritingMixedAttemptFixture(
+                writingSet.getId(),
+                test.getId(),
+                section.getId(),
+                group.getId(),
+                mcq.getId(),
+                essay.getId(),
+                attempt.getId()
+        );
+    }
+
+    private void deleteWritingMixedAttemptFixture(WritingMixedAttemptFixture fixture) {
+        attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        questionRepository.findById(fixture.mcqQuestionId()).ifPresent(questionRepository::delete);
+        questionRepository.findById(fixture.essayQuestionId()).ifPresent(questionRepository::delete);
+        groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
+        sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
+        testRepository.findById(fixture.testId()).ifPresent(testRepository::delete);
+        setRepository.findById(fixture.setId()).ifPresent(setRepository::delete);
+    }
+
+    private record WritingMixedAttemptFixture(
+            Long setId,
+            Long testId,
+            Long sectionId,
+            Long groupId,
+            Long mcqQuestionId,
+            Long essayQuestionId,
+            Long attemptId
     ) {
     }
 

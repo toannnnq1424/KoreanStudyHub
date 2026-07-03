@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.ksh.entities.PracticeSubmission;
 import java.io.IOException;
@@ -265,6 +266,7 @@ public class PracticeController {
 
     @GetMapping(Routes.RESULT_DETAIL)
     public String attemptResultDetail(@PathVariable Long attemptId,
+                                      @RequestParam(value = "questionId", required = false) Long questionId,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
@@ -287,6 +289,8 @@ public class PracticeController {
             PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
             model.addAttribute("result", standardResult);
             model.addAttribute("attemptId", attemptId);
+            Long activeQuestionId = activeWritingQuestionId(skill, standardResult, questionId);
+            model.addAttribute("activeQuestionId", activeQuestionId);
             try {
                 String questionsJson = "WRITING".equals(skill)
                         ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
@@ -324,11 +328,32 @@ public class PracticeController {
         try {
             Long refreshedSubmissionId = practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Đã chấm lại câu đã chọn.");
-            return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result/detail";
+            return redirectToResultDetail(refreshedSubmissionId, questionId);
         } catch (PracticeAttemptConflictException ex) {
             redirectAttributes.addFlashAttribute("error", safeReEvaluationError(ex));
-            return "redirect:/practice/attempts/" + attemptId + "/result/detail";
+            return redirectToResultDetail(attemptId, questionId);
         }
+    }
+
+    private String redirectToResultDetail(Long attemptId, Long questionId) {
+        String path = UriComponentsBuilder
+                .fromPath("/practice/attempts/{attemptId}/result/detail")
+                .queryParam("questionId", questionId)
+                .buildAndExpand(attemptId)
+                .toUriString();
+        return "redirect:" + path;
+    }
+
+    private Long activeWritingQuestionId(String skill, PracticeResultView result, Long requestedQuestionId) {
+        if (!"WRITING".equals(skill) || requestedQuestionId == null || result.questionFeedbacks() == null) {
+            return null;
+        }
+        return result.questionFeedbacks().stream()
+                .filter(row -> requestedQuestionId.equals(row.questionId()))
+                .filter(row -> "ESSAY".equals(row.questionType()))
+                .findFirst()
+                .map(row -> requestedQuestionId)
+                .orElse(null);
     }
 
     private String safeReEvaluationError(PracticeAttemptConflictException ex) {
