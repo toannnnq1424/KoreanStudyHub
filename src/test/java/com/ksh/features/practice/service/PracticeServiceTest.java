@@ -1,5 +1,8 @@
 package com.ksh.features.practice.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
@@ -16,6 +19,7 @@ import com.ksh.features.practice.repository.PracticeSubmissionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -352,6 +356,24 @@ class PracticeServiceTest {
         }
     }
 
+    private static String captureLogs(Class<?> loggerClass, Runnable action) {
+        Logger logger = (Logger) LoggerFactory.getLogger(loggerClass);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            action.run();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+        StringBuilder logs = new StringBuilder();
+        for (ILoggingEvent event : appender.list) {
+            logs.append(event.getFormattedMessage()).append('\n');
+        }
+        return logs.toString();
+    }
+
     private PracticeAttempt arrangeObjectiveAttempt(String skill, String status, String existingAiFeedbackJson) {
         PracticeSet set = new PracticeSet(skill + " Set", "Desc", skill, "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
@@ -409,6 +431,34 @@ class PracticeServiceTest {
 
         Long attemptId = practiceService.startAttempt(1L, 10L, 20L, 2L);
         assertEquals(99L, attemptId);
+    }
+
+    @Test
+    void startAttemptLifecycleLogOmitsRawUserId() {
+        Long privateUserId = 987654321L;
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(attemptRepository.save(any(PracticeAttempt.class))).thenAnswer(invocation -> {
+            PracticeAttempt att = invocation.getArgument(0);
+            setEntityId(att, 99L);
+            return att;
+        });
+
+        String logs = captureLogs(PracticeService.class, () ->
+                assertEquals(99L, practiceService.startAttempt(1L, 10L, 20L, privateUserId)));
+
+        assertFalse(logs.contains(String.valueOf(privateUserId)));
+        assertTrue(logs.contains("PracticeAttempt id=99"));
     }
 
     @Test

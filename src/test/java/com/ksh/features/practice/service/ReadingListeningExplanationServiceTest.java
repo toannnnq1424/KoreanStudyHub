@@ -1,5 +1,8 @@
 package com.ksh.features.practice.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.QuestionExplanationCache;
@@ -9,6 +12,7 @@ import com.ksh.features.practice.ai.ReadingListeningMockExplanationService;
 import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -272,6 +276,23 @@ class ReadingListeningExplanationServiceTest {
     }
 
     @Test
+    void cacheReadFailureLogOmitsCacheKeyAndSensitiveExceptionMessage() {
+        PracticeQuestion question = question(51L, "PRIVATE_PROMPT_TEXT", "[\"a\"]", "1", "MCQ");
+        when(repository.findByCacheKey(anyString()))
+                .thenThrow(new RuntimeException("PRIVATE_CACHE_JSON cache key leaked"));
+        when(client.explain(question, "passage", "READING", "NUMERIC")).thenReturn(VALID_JSON);
+
+        String logs = captureLogs(ReadingListeningExplanationService.class, () ->
+                service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC"));
+
+        assertThat(logs).doesNotContain("PRIVATE_CACHE_JSON");
+        assertThat(logs).doesNotContain("PRIVATE_PROMPT_TEXT");
+        assertThat(logs).contains("operation=cache-read");
+        assertThat(logs).contains("questionId=51");
+        assertThat(logs).contains("exception=RuntimeException");
+    }
+
+    @Test
     void cacheWriteFailureStillReturnsValidProviderExplanation() {
         PracticeQuestion question = question(51L, "prompt", "[\"a\"]", "1", "MCQ");
         when(client.explain(question, "passage", "READING", "NUMERIC")).thenReturn(VALID_JSON);
@@ -281,6 +302,31 @@ class ReadingListeningExplanationServiceTest {
         String result = service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC");
 
         assertThat(result).isEqualTo(VALID_JSON);
+    }
+
+    @Test
+    void cacheWriteFailureLogOmitsExplanationJson() {
+        PracticeQuestion question = question(51L, "prompt", "[\"a\"]", "1", "MCQ");
+        String privateExplanation = """
+                {
+                  "meaningVi": "PRIVATE_CACHE_JSON",
+                  "evidenceQuote": "quote",
+                  "correctReasonVi": "reason",
+                  "relatedTranslationVi": "translation",
+                  "eliminatedOptions": []
+                }
+                """;
+        when(client.explain(question, "passage", "READING", "NUMERIC")).thenReturn(privateExplanation);
+        doThrow(new RuntimeException("PRIVATE_CACHE_JSON write failed")).when(repository).upsert(anyString(), anyLong(), anyLong(),
+                anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+
+        String logs = captureLogs(ReadingListeningExplanationService.class, () ->
+                service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC"));
+
+        assertThat(logs).doesNotContain("PRIVATE_CACHE_JSON");
+        assertThat(logs).contains("operation=cache-write");
+        assertThat(logs).contains("questionId=51");
+        assertThat(logs).contains("exception=RuntimeException");
     }
 
     @Test
@@ -313,6 +359,28 @@ class ReadingListeningExplanationServiceTest {
         String result = service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC");
 
         assertThat(result).isEqualTo(VALID_JSON);
+    }
+
+    @Test
+    void cacheDeleteFailureLogOmitsCorrectAnswerPromptAndExceptionMessage() {
+        PracticeQuestion question = question(51L, "PRIVATE_PROMPT_TEXT", "[\"a\"]", "PRIVATE_CORRECT_ANSWER", "MCQ");
+        ReadingListeningExplanationService.CacheKeyParts keyParts =
+                service.buildCacheKeyParts(question, "passage", "READING", "NUMERIC");
+        when(repository.findByCacheKey(keyParts.cacheKey()))
+                .thenReturn(Optional.of(cacheRow(keyParts, question, "not-json")))
+                .thenReturn(Optional.empty());
+        doThrow(new RuntimeException("PRIVATE_CACHE_JSON delete failed")).when(repository).deleteByCacheKey(keyParts.cacheKey());
+        when(client.explain(question, "passage", "READING", "NUMERIC")).thenReturn(VALID_JSON);
+
+        String logs = captureLogs(ReadingListeningExplanationService.class, () ->
+                service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC"));
+
+        assertThat(logs).doesNotContain("PRIVATE_CACHE_JSON");
+        assertThat(logs).doesNotContain("PRIVATE_PROMPT_TEXT");
+        assertThat(logs).doesNotContain("PRIVATE_CORRECT_ANSWER");
+        assertThat(logs).contains("operation=cache-delete");
+        assertThat(logs).contains("questionId=51");
+        assertThat(logs).contains("exception=RuntimeException");
     }
 
     @Test
@@ -377,5 +445,23 @@ class ReadingListeningExplanationServiceTest {
                 keyParts.schemaVersion(),
                 keyParts.language()
         );
+    }
+
+    private static String captureLogs(Class<?> loggerClass, Runnable action) {
+        Logger logger = (Logger) LoggerFactory.getLogger(loggerClass);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            action.run();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+        StringBuilder logs = new StringBuilder();
+        for (ILoggingEvent event : appender.list) {
+            logs.append(event.getFormattedMessage()).append('\n');
+        }
+        return logs.toString();
     }
 }

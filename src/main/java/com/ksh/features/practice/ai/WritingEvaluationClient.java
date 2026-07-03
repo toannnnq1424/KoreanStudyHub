@@ -102,7 +102,8 @@ public class WritingEvaluationClient {
                     }
                 }
             } catch (Exception ex) {
-                log.warn("KSH writing evaluation cache read failed; treating as miss: {}", ex.getMessage());
+                log.warn("KSH writing evaluation cache read failed; treating as miss: operation=cache-read taskType={} exception={}",
+                        ruleAnalysis.taskType(), exceptionCategory(ex));
             }
         }
 
@@ -122,19 +123,17 @@ public class WritingEvaluationClient {
             log.info("KSH writing evaluation unified call complete: taskType={}",
                     ruleAnalysis.taskType());
         } catch (org.springframework.web.client.RestClientResponseException ex) {
-            String rawBody = ex.getResponseBodyAsString();
-            String redactedBody = rawBody != null && rawBody.length() > 500 ? rawBody.substring(0, 500) + "..."
-                    : rawBody;
-            log.warn("Writing AI evaluation failed [HTTP {}] [{}]: {}", ex.getStatusCode().value(),
-                    ex.getClass().getName(), redactedBody, ex);
+            int status = ex.getStatusCode().value();
+            log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
+                    status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
             return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
         } catch (org.springframework.web.client.ResourceAccessException ex) {
-            String rootCause = ex.getCause() != null ? ex.getCause().getMessage() : "none";
-            log.warn("Writing AI evaluation failed [Connection Error] [{}]: {}", ex.getClass().getName(), rootCause,
-                    ex);
+            log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
+                    properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
             return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
         } catch (Exception ex) {
-            log.warn("Writing AI evaluation failed [Provider Unexpected Exception] [{}]: {}", ex.getClass().getName(), ex.getMessage(), ex);
+            log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
+                    properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
             return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
         }
 
@@ -161,7 +160,8 @@ public class WritingEvaluationClient {
                         WritingPromptRules.EVALUATION_SCHEMA_VERSION,
                         normalizer.sanitizeForCache(normalized));
             } catch (Exception ex) {
-                log.warn("KSH writing evaluation cache write failed; returning provider result: {}", ex.getMessage());
+                log.warn("KSH writing evaluation cache write failed; returning provider result: operation=cache-write taskType={} exception={}",
+                        ruleAnalysis.taskType(), exceptionCategory(ex));
             }
         }
 
@@ -176,7 +176,8 @@ public class WritingEvaluationClient {
                     WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                     WritingPromptRules.EVALUATION_SCHEMA_VERSION);
         } catch (Exception ex) {
-            log.warn("KSH writing evaluation malformed cache cleanup failed: {}", ex.getMessage());
+            log.warn("KSH writing evaluation malformed cache cleanup failed: operation=cache-delete taskType={} exception={}",
+                    ruleAnalysis.taskType(), exceptionCategory(ex));
         }
     }
 
@@ -184,6 +185,10 @@ public class WritingEvaluationClient {
         log.info("KSH writing evaluation falling back to mock: {}", reason);
         String mockJson = mockEvaluatorService.evaluate(prompt, learnerAnswer, ruleAnalysis, reason);
         return normalizer.normalize(mockJson, ruleAnalysis.taskType(), learnerAnswer, ruleAnalysis);
+    }
+
+    private static String exceptionCategory(Exception ex) {
+        return ex == null ? "unknown" : ex.getClass().getSimpleName();
     }
 
     // ---- Spam detection — task-aware ----

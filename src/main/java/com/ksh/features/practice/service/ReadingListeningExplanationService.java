@@ -58,7 +58,7 @@ public class ReadingListeningExplanationService {
                                          String skillType, Long testId, String optionLabelMode) {
         CacheKeyParts keyParts = buildCacheKeyParts(question, passageText, skillType, optionLabelMode);
 
-        Optional<String> cached = readValidCache(keyParts);
+        Optional<String> cached = readValidCache(keyParts, question, skillType);
         if (cached.isPresent()) {
             log.info("[ReadingListeningCache] Hit questionId={}", question.getId());
             return cached.get();
@@ -67,7 +67,7 @@ public class ReadingListeningExplanationService {
         Object lock = cacheLocks.computeIfAbsent(keyParts.cacheKey(), k -> new Object());
         synchronized (lock) {
             try {
-                cached = readValidCache(keyParts);
+                cached = readValidCache(keyParts, question, skillType);
                 if (cached.isPresent()) {
                     log.info("[ReadingListeningCache] Hit (double-check) questionId={}", question.getId());
                     return cached.get();
@@ -91,7 +91,7 @@ public class ReadingListeningExplanationService {
         }
     }
 
-    Optional<String> readValidCache(CacheKeyParts keyParts) {
+    Optional<String> readValidCache(CacheKeyParts keyParts, PracticeQuestion question, String skillType) {
         try {
             Optional<QuestionExplanationCache> row = cacheRepository.findByCacheKey(keyParts.cacheKey());
             if (row.isEmpty()) {
@@ -99,17 +99,21 @@ public class ReadingListeningExplanationService {
             }
             QuestionExplanationCache cache = row.get();
             if (!metadataMatches(cache, keyParts)) {
-                log.warn("[ReadingListeningCache] Metadata mismatch for cached explanation; ignoring");
+                log.warn("[ReadingListeningCache] Metadata mismatch for cached explanation; ignoring questionId={} skill={}",
+                        question.getId(), normalize(skillType));
                 return Optional.empty();
             }
             String explanationJson = cache.getExplanationJson();
             if (isValidExplanationJson(explanationJson)) {
                 return Optional.of(explanationJson);
             }
-            deleteCache(keyParts.cacheKey(), "malformed cached explanation");
+            log.warn("[ReadingListeningCache] Malformed cached explanation ignored questionId={} skill={} category=malformed-cache",
+                    question.getId(), normalize(skillType));
+            deleteCache(keyParts.cacheKey(), question.getId(), skillType, "malformed-cache");
             return Optional.empty();
         } catch (Exception ex) {
-            log.warn("[ReadingListeningCache] Read failed; treating as miss: {}", ex.getMessage());
+            log.warn("[ReadingListeningCache] Read failed; treating as miss operation=cache-read questionId={} skill={} exception={}",
+                    question.getId(), normalize(skillType), exceptionCategory(ex));
             return Optional.empty();
         }
     }
@@ -133,16 +137,19 @@ public class ReadingListeningExplanationService {
             );
             log.info("[ReadingListeningCache] Cached questionId={}", question.getId());
         } catch (Exception ex) {
-            log.warn("[ReadingListeningCache] Write failed; returning provider explanation: {}", ex.getMessage());
+            log.warn("[ReadingListeningCache] Write failed; returning provider explanation operation=cache-write questionId={} skill={} exception={}",
+                    question.getId(), normalize(skillType), exceptionCategory(ex));
         }
     }
 
-    private void deleteCache(String cacheKey, String reason) {
+    private void deleteCache(String cacheKey, Long questionId, String skillType, String reason) {
         try {
             cacheRepository.deleteByCacheKey(cacheKey);
-            log.warn("[ReadingListeningCache] Deleted cache entry: {}", reason);
+            log.warn("[ReadingListeningCache] Deleted cache entry operation=cache-delete questionId={} skill={} category={}",
+                    questionId, normalize(skillType), reason);
         } catch (Exception ex) {
-            log.warn("[ReadingListeningCache] Delete failed after {}: {}", reason, ex.getMessage());
+            log.warn("[ReadingListeningCache] Delete failed operation=cache-delete questionId={} skill={} category={} exception={}",
+                    questionId, normalize(skillType), reason, exceptionCategory(ex));
         }
     }
 
@@ -248,6 +255,10 @@ public class ReadingListeningExplanationService {
         } catch (Exception ex) {
             throw new IllegalStateException("SHA-256 unavailable", ex);
         }
+    }
+
+    private static String exceptionCategory(Exception ex) {
+        return ex == null ? "unknown" : ex.getClass().getSimpleName();
     }
 
     record CacheKeyParts(String cacheKey, String questionHash, String model,

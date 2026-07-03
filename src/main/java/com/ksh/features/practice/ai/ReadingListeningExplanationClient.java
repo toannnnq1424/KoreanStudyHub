@@ -64,9 +64,9 @@ public class ReadingListeningExplanationClient {
                 message("user", userPayload(question, passageText, skillType, optionLabelMode))
         ));
 
-        log.info("[ReadingListeningAI] start model={} questionId={} no={} type={}",
-                properties.evaluatorModel(), question.getId(), question.getQuestionNo(), question.getQuestionType());
-        String raw = callWithRetry(request);
+        log.info("[ReadingListeningAI] start model={} skill={} questionId={} no={} type={}",
+                properties.evaluatorModel(), skillType, question.getId(), question.getQuestionNo(), question.getQuestionType());
+        String raw = callWithRetry(request, skillType);
         if (raw == null) {
             // callWithRetry already logged the reason; signal caller to use mock
             return null;
@@ -77,8 +77,8 @@ public class ReadingListeningExplanationClient {
             log.info("[ReadingListeningAI] completed questionId={}", question.getId());
             return cleanAndValidateJson(content, question, optionLabelMode);
         } catch (Exception ex) {
-            log.warn("[ReadingListeningAI] JSON parse failed questionId={}: {}",
-                    question.getId(), ex.getMessage());
+            log.warn("[ReadingListeningAI] JSON parse failed questionId={} model={} exception={}",
+                    question.getId(), properties.evaluatorModel(), exceptionCategory(ex));
             return null;
         }
     }
@@ -155,7 +155,8 @@ public class ReadingListeningExplanationClient {
             
             return objectMapper.writeValueAsString(cleaned);
         } catch (Exception e) {
-            log.warn("[ReadingListeningAI] cleaning JSON failed: {}", e.getMessage());
+            log.warn("[ReadingListeningAI] cleaning JSON failed questionId={} model={} exception={}",
+                    question.getId(), properties.evaluatorModel(), exceptionCategory(e));
             return aiJson;
         }
     }
@@ -316,7 +317,7 @@ public class ReadingListeningExplanationClient {
         return List.of(values);
     }
 
-    private String callWithRetry(Map<String, Object> request) {
+    private String callWithRetry(Map<String, Object> request, String skillType) {
         int maxRetries = 3;
         long backoffMs = 1500;
         for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
@@ -334,8 +335,8 @@ public class ReadingListeningExplanationClient {
             } catch (HttpStatusCodeException ex) {
                 int status = ex.getStatusCode().value();
                 boolean retryable = isRetryable(status) && attempt <= maxRetries;
-                log.warn("[ReadingListeningAI] attempt={} status={} retryable={}",
-                        attempt, status, retryable);
+                log.warn("[ReadingListeningAI] attempt={} status={} model={} skill={} retryable={}",
+                        attempt, status, properties.evaluatorModel(), skillType, retryable);
                 if (retryable) {
                     sleep(backoffMs);
                     backoffMs *= 2;
@@ -344,8 +345,8 @@ public class ReadingListeningExplanationClient {
                 return null;
             } catch (Exception ex) {
                 boolean retryable = attempt <= maxRetries;
-                log.warn("[ReadingListeningAI] attempt={} failed message={} retryable={}",
-                        attempt, ex.getMessage(), retryable);
+                log.warn("[ReadingListeningAI] attempt={} failed model={} skill={} exception={} retryable={}",
+                        attempt, properties.evaluatorModel(), skillType, exceptionCategory(ex), retryable);
                 if (retryable) {
                     sleep(backoffMs);
                     backoffMs *= 2;
@@ -367,6 +368,10 @@ public class ReadingListeningExplanationClient {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static String exceptionCategory(Exception ex) {
+        return ex == null ? "unknown" : ex.getClass().getSimpleName();
     }
 
 }

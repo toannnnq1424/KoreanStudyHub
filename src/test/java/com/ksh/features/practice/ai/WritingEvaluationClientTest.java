@@ -2,10 +2,16 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -157,6 +163,59 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         verify(mockEvaluator, times(1)).evaluate(any(), any(), any(), any());
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void httpErrorLogOmitsProviderBodyPromptAndLearnerAnswerButKeepsSafeMetadata() {
+        String prompt = "PRIVATE_PROMPT_TEXT 쓰기 문제";
+        String learnerAnswer = "LEARNER_PRIVATE_ANSWER 한국어";
+        String providerBody = "PRIVATE_PROVIDER_RESPONSE " + prompt + " " + learnerAnswer;
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, learnerAnswer));
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("SECRET_API_KEY_VALUE", "safe-model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, httpErrorRestClient(providerBody)
+        );
+
+        String logs = captureLogs(WritingEvaluationClient.class, () ->
+                client.evaluate(USER_ID, prompt, learnerAnswer, false));
+
+        assertFalse(logs.contains("PRIVATE_PROVIDER_RESPONSE"));
+        assertFalse(logs.contains("PRIVATE_PROMPT_TEXT"));
+        assertFalse(logs.contains("LEARNER_PRIVATE_ANSWER"));
+        assertFalse(logs.contains("SECRET_API_KEY_VALUE"));
+        assertTrue(logs.contains("status=400"));
+        assertTrue(logs.contains("model=safe-model"));
+        assertTrue(logs.contains("taskType="));
+    }
+
+    @Test
+    void transportFailureLogOmitsExceptionMessageButKeepsSafeMetadata() {
+        String prompt = "PRIVATE_PROMPT_TEXT 쓰기 문제";
+        String learnerAnswer = "LEARNER_PRIVATE_ANSWER 한국어";
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, learnerAnswer));
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("SECRET_API_KEY_VALUE", "safe-model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, resourceAccessErrorRestClient("PRIVATE_PROVIDER_RESPONSE " + prompt + " " + learnerAnswer)
+        );
+
+        String logs = captureLogs(WritingEvaluationClient.class, () ->
+                client.evaluate(USER_ID, prompt, learnerAnswer, false));
+
+        assertFalse(logs.contains("PRIVATE_PROVIDER_RESPONSE"));
+        assertFalse(logs.contains("PRIVATE_PROMPT_TEXT"));
+        assertFalse(logs.contains("LEARNER_PRIVATE_ANSWER"));
+        assertFalse(logs.contains("SECRET_API_KEY_VALUE"));
+        assertTrue(logs.contains("category=transport"));
+        assertTrue(logs.contains("model=safe-model"));
+        assertTrue(logs.contains("taskType="));
     }
 
     @Test
@@ -328,6 +387,42 @@ class WritingEvaluationClientTest {
         };
     }
 
+    private RestClient resourceAccessErrorRestClient(String message) {
+        return new RestClient() {
+            @Override public RequestBodyUriSpec post() { throw new org.springframework.web.client.ResourceAccessException(message); }
+            @Override public RequestHeadersUriSpec<?> get() { return null; }
+            @Override public RequestHeadersUriSpec<?> head() { return null; }
+            @Override public RequestBodyUriSpec put() { return null; }
+            @Override public RequestBodyUriSpec patch() { return null; }
+            @Override public RequestHeadersUriSpec<?> delete() { return null; }
+            @Override public RequestHeadersUriSpec<?> options() { return null; }
+            @Override public RequestBodyUriSpec method(org.springframework.http.HttpMethod m) { return null; }
+            @Override public Builder mutate() { return null; }
+        };
+    }
+
+    private RestClient httpErrorRestClient(String responseBody) {
+        RestClient restClient = mock(RestClient.class);
+        RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
+        RestClient.RequestBodySpec requestBodySpec = mock(RestClient.RequestBodySpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+
+        when(restClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any(Object.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.body(any(), any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(any(Class.class))).thenThrow(new org.springframework.web.client.HttpClientErrorException(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                responseBody.getBytes(StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8
+        ));
+        return restClient;
+    }
+
     private RestClient setupMockRestClient(String responseJson, AtomicInteger postCallCount) {
         RestClient restClient = mock(RestClient.class);
         RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
@@ -352,5 +447,23 @@ class WritingEvaluationClientTest {
         });
 
         return restClient;
+    }
+
+    private static String captureLogs(Class<?> loggerClass, Runnable action) {
+        Logger logger = (Logger) LoggerFactory.getLogger(loggerClass);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            action.run();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+        StringBuilder logs = new StringBuilder();
+        for (ILoggingEvent event : appender.list) {
+            logs.append(event.getFormattedMessage()).append('\n');
+        }
+        return logs.toString();
     }
 }

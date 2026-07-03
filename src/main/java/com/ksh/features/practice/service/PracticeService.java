@@ -263,7 +263,8 @@ public class PracticeService {
             try {
                 answers = objectMapper.readValue(answersJson, new TypeReference<Map<String, String>>() {});
             } catch (Exception e) {
-                log.warn("[PracticeService] Failed to parse answersJson in buildQuestionFeedbackRows", e);
+                log.warn("[PracticeService] Failed to parse answersJson in buildQuestionFeedbackRows exception={}",
+                        exceptionCategory(e));
             }
         }
 
@@ -272,7 +273,8 @@ public class PracticeService {
             try {
                 rootNode = objectMapper.readTree(aiFeedbackJson);
             } catch (Exception e) {
-                log.warn("[PracticeService] Failed to parse aiFeedbackJson in buildQuestionFeedbackRows", e);
+                log.warn("[PracticeService] Failed to parse aiFeedbackJson in buildQuestionFeedbackRows exception={}",
+                        exceptionCategory(e));
             }
         }
 
@@ -1620,7 +1622,7 @@ public class PracticeService {
                 skill.equals(attempt.getSkill()) &&
                 userId.equals(attempt.getUserId()) &&
                 PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-                log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={} for user={}", attempt.getId(), userId);
+                log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={}", attempt.getId());
                 return attempt.getId();
             }
         }
@@ -1628,7 +1630,7 @@ public class PracticeService {
         PracticeAttempt attempt = new PracticeAttempt(userId, setId, testId, skill, sectionId);
         attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
         PracticeAttempt saved = attemptRepository.save(attempt);
-        log.info("[PracticeService] Created new PracticeAttempt id={} for user={} section={}", saved.getId(), userId, sectionId);
+        log.info("[PracticeService] Created new PracticeAttempt id={} section={}", saved.getId(), sectionId);
         return saved.getId();
     }
 
@@ -1676,7 +1678,8 @@ public class PracticeService {
                 Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
                 answers.putAll(prev);
             } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers", e);
+                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
+                        exceptionCategory(e));
             }
         }
 
@@ -1746,7 +1749,8 @@ public class PracticeService {
             try {
                 currentAnswers.putAll(objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {}));
             } catch (Exception e) {
-                log.warn("[saveInProgress] Failed to parse previous answers JSON", e);
+                log.warn("[saveInProgress] Failed to parse previous answers JSON exception={}",
+                        exceptionCategory(e));
             }
         }
 
@@ -1771,7 +1775,7 @@ public class PracticeService {
             throw new IllegalStateException("Chỉ có thể hủy lượt làm bài chưa hoàn thành.");
         }
         attemptRepository.delete(attempt);
-        log.info("[PracticeService] Discarded in-progress PracticeAttempt id={} for user={}", attemptId, userId);
+        log.info("[PracticeService] Discarded in-progress PracticeAttempt id={}", attemptId);
     }
 
     @Transactional(readOnly = true)
@@ -1867,7 +1871,8 @@ public class PracticeService {
                                     pq, g.instruction(), skill, set.getId(), optionLabelMode);
                         }
                     } catch (Exception e) {
-                        log.warn("[PracticeService] Failed to get explanation for question id={}: {}", q.id(), e.getMessage());
+                        log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
+                                q.id(), exceptionCategory(e));
                     }
                     qRows.add(new ReviewQuestionRow(q.id(), q.questionNo(), q.questionType(),
                             q.prompt(), q.options(), q.answerKey() != null ? q.answerKey() : "",
@@ -1985,7 +1990,8 @@ public class PracticeService {
                         );
                     }
                 } catch (Exception e) {
-                    log.warn("[PracticeService] Failed to get explanation for question id={}: {}", q.id(), e.getMessage());
+                    log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
+                            q.id(), exceptionCategory(e));
                 }
                 questions.add(new ReviewQuestionRow(
                         q.id(),
@@ -2146,5 +2152,9 @@ public class PracticeService {
             return max;
         }
         return value;
+    }
+
+    private static String exceptionCategory(Exception ex) {
+        return ex == null ? "unknown" : ex.getClass().getSimpleName();
     }
 }
