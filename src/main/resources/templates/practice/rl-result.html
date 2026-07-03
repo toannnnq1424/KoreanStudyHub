@@ -44,7 +44,7 @@
           <!-- Scores row -->
           <div class="rl-res-cert-score-row">
             <div class="rl-res-cert-score-block">
-              <strong th:text="${result.score().stripTrailingZeros().toPlainString()}">38</strong>
+              <strong th:text="${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}">38</strong>
               <span>Điểm số</span>
             </div>
             

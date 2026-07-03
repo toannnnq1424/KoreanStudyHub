@@ -36,3 +36,10 @@ DB_PASSWORD=your_password_here
 # ===== Base URL (dung trong link reset password) =====
 # Prod: dat URL that, vi du https://ksh.edu.vn
 #APP_BASE_URL=http://localhost:8080
+
+# ===== AI evaluator (OpenAI-compatible Gemini endpoint) =====
+# Lay API key tu https://makersuite.google.com/app/apikey
+OPENAI_API_KEY=your-gemini-api-key-here
+OPENAI_EVALUATOR_MODEL=models/gemini-2.5-flash
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai

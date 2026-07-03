@@ -177,21 +177,30 @@
           <div class="pp-timeline" th:unless="${#lists.isEmpty(overview.recentHistory())}">
             <div class="pp-timeline-item" th:each="row : ${overview.recentHistory()}">
               <div class="pp-timeline-dot"></div>
-              <a class="pp-timeline-content" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">
+              <div class="pp-timeline-content">
                 <div class="pp-timeline-left">
                   <span class="pp-timeline-skill-tag" 
                         th:classappend="${#strings.toLowerCase(row.skill())}" 
                         th:text="${row.skill() == 'READING' ? 'Đọc' : (row.skill() == 'LISTENING' ? 'Nghe' : (row.skill() == 'WRITING' ? 'Viết' : 'Nói'))}">READING</span>
                   <div class="pp-timeline-details">
                     <h4 th:text="${row.title()}">Tên đề luyện tập</h4>
-                    <span th:text="${#temporals.format(row.submittedAt(), 'dd/MM/yyyy HH:mm')}">01/01/2026</span>
+                    <span th:text="${row.activityAt() != null ? #temporals.format(row.activityAt(), 'dd/MM/yyyy HH:mm') : '--'}">01/01/2026</span>
                   </div>
                 </div>
                 <div class="pp-timeline-right">
-                  <span class="pp-timeline-score" th:text="${row.score()} + ' / ' + ${row.totalPoints()}">0 / 0</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  <span class="pp-timeline-score"
+                        th:text="${row.score() != null ? row.score() + ' / ' + (row.totalPoints() != null ? row.totalPoints() : '-') : row.status()}">0 / 0</span>
+                  <a th:if="${row.status() == 'IN_PROGRESS'}" th:href="@{/practice/attempts/{id}(id=${row.id()})}">Continue</a>
+                  <a th:if="${row.status() != 'IN_PROGRESS'}" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">View result</a>
+                  <form th:if="${row.status() != 'IN_PROGRESS'}" method="post"
+                        th:action="@{|/practice/sets/${row.setId()}/tests/${row.testId()}/attempts|}">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <input type="hidden" name="sectionId" th:value="${row.sectionId()}">
+                    <input type="hidden" name="mode" value="practice">
+                    <button type="submit">Retake</button>
+                  </form>
                 </div>
-              </a>
+              </div>
             </div>
           </div>
         </div>
@@ -301,21 +310,30 @@
           <div class="pp-timeline" th:unless="${#lists.isEmpty(analytics.history())}">
             <div class="pp-timeline-item" th:each="row : ${analytics.history()}">
               <div class="pp-timeline-dot"></div>
-              <a class="pp-timeline-content" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">
+              <div class="pp-timeline-content">
                 <div class="pp-timeline-left">
                   <span class="pp-timeline-skill-tag" 
                         th:classappend="${#strings.toLowerCase(row.skill())}" 
                         th:text="${row.skill() == 'READING' ? 'Đọc' : (row.skill() == 'LISTENING' ? 'Nghe' : (row.skill() == 'WRITING' ? 'Viết' : 'Nói'))}">READING</span>
                   <div class="pp-timeline-details">
                     <h4 th:text="${row.title()}">Tên đề luyện tập</h4>
-                    <span th:text="${#temporals.format(row.submittedAt(), 'dd/MM/yyyy HH:mm')}">01/01/2026</span>
+                    <span th:text="${row.activityAt() != null ? #temporals.format(row.activityAt(), 'dd/MM/yyyy HH:mm') : '--'}">01/01/2026</span>
                   </div>
                 </div>
                 <div class="pp-timeline-right">
-                  <span class="pp-timeline-score" th:text="${row.score()} + ' / ' + ${row.totalPoints()}">0 / 0</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  <span class="pp-timeline-score"
+                        th:text="${row.score() != null ? row.score() + ' / ' + (row.totalPoints() != null ? row.totalPoints() : '-') : row.status()}">0 / 0</span>
+                  <a th:if="${row.status() == 'IN_PROGRESS'}" th:href="@{/practice/attempts/{id}(id=${row.id()})}">Continue</a>
+                  <a th:if="${row.status() != 'IN_PROGRESS'}" th:href="@{/practice/attempts/{id}/result(id=${row.id()})}">View result</a>
+                  <form th:if="${row.status() != 'IN_PROGRESS'}" method="post"
+                        th:action="@{|/practice/sets/${row.setId()}/tests/${row.testId()}/attempts|}">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <input type="hidden" name="sectionId" th:value="${row.sectionId()}">
+                    <input type="hidden" name="mode" value="practice">
+                    <button type="submit">Retake</button>
+                  </form>
                 </div>
-              </a>
+              </div>
             </div>
           </div>
         </div>

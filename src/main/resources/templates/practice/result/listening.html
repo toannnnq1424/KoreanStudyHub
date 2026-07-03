@@ -1,0 +1,33 @@
+<div th:fragment="content(sec)">
+  <div class="rl-res-perf-card" style="margin-top: 16px;">
+    <h3 class="rl-res-perf-title" style="margin-bottom: 16px; font-weight: 700;">Kết quả chi tiết Phần Nghe (Listening)</h3>
+    <div class="rl-res-table-wrapper">
+      <table class="rl-res-perf-table">
+        <thead>
+          <tr>
+            <th>Dạng câu hỏi</th>
+            <th>Tổng số câu</th>
+            <th>Số câu đúng</th>
+            <th>Số câu sai</th>
+            <th>Tỷ lệ chính xác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="row : ${sec.performanceByType()}">
+            <td class="question-type-cell" th:text="${row.label()}">Listening MCQ</td>
+            <td class="number-cell font-bold" th:text="${row.total()}">13</td>
+            <td class="number-cell text-success font-bold" th:text="${row.correct()}">10</td>
+            <td class="number-cell text-danger font-bold" th:text="${row.incorrect()}">3</td>
+            <td class="number-cell">
+              <span class="rl-res-accuracy-badge" 
+                    th:text="${row.accuracyPct()}"
+                    th:classappend="${#strings.replace(row.accuracyPct(), '%', '')} == '0' ? 'zero' : (${#strings.replace(row.accuracyPct(), '%', '')} >= '70' ? 'good' : 'avg')">
+                76%
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
