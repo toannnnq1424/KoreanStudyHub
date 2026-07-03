@@ -20,8 +20,9 @@ class WritingMockEvaluatorServiceTest {
         String resultJson = mockEvaluator.evaluate("Prompt Q53", "asdf", analysis, "No API Key");
         
         JsonNode root = objectMapper.readTree(resultJson);
-        assertEquals(1.0, root.path("score").asDouble());
-        assertTrue(root.path("summary").asText().contains("SPAM_DETECTED"));
+        assertFalse(root.has("score"), "Mock JSON should not contain top-level score");
+        assertFalse(root.has("raw_score"), "Mock JSON should not contain top-level raw_score");
+        assertTrue(root.path("summary").asText().contains("[MOCK_EVALUATION]"));
     }
 
     @Test
@@ -37,59 +38,84 @@ class WritingMockEvaluatorServiceTest {
         );
         
         JsonNode root = objectMapper.readTree(resultJson);
-        assertTrue(root.path("score").asDouble() > 1.0);
+        assertFalse(root.has("score"), "Mock JSON should not contain top-level score");
         assertEquals("Q53", root.path("task_type").asText());
         assertFalse(root.path("strengths").isEmpty());
         assertFalse(root.path("needs_improvement").isEmpty());
     }
 
     @Test
-    void testMockOutputNormalizesWithUnifiedNormalizer() throws Exception {
-        WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
-                "Q53", 250, "OK: length fits", List.of()
-        );
-        String mockOutput = mockEvaluator.evaluate(
-                "Prompt Q53", "한국어를 공부합니다. 재미있다.", analysis, "Test"
-        );
+    void testTaskAwareMockNormalization() throws Exception {
+        // Test Q53
+        {
+            WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
+                    "Q53", 250, "OK: length fits", List.of()
+            );
+            String mockOutput = mockEvaluator.evaluate(
+                    "Prompt Q53", "제시된 자료에 따르면 한국어 수치는 일정한 변화 양상을 보인다.", analysis, "Test"
+            );
+            String normalized = normalizer.normalize(mockOutput, "Q53", "제시된 자료에 따르면 한국어 수치는 일정한 변화 양상을 보인다.", analysis);
+            JsonNode root = objectMapper.readTree(normalized);
+            assertEquals(30.0, root.path("raw_score_max").asDouble(), "Q53 raw_score_max must be 30");
+        }
 
-        // Use backward-compatible normalize(String) — must not crash
-        String normalized = normalizer.normalize(mockOutput);
-        JsonNode root = objectMapper.readTree(normalized);
+        // Test Q54
+        {
+            WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
+                    "Q54", 450, "OK: length fits", List.of()
+            );
+            String mockOutput = mockEvaluator.evaluate(
+                    "Prompt Q54", "현대 사회에서는 다양한 사회적 변화로 인해 새로운 문제가 나타나고 있다.", analysis, "Test"
+            );
+            String normalized = normalizer.normalize(mockOutput, "Q54", "현대 사회에서는 다양한 사회적 변화로 인해 새로운 문제가 나타나고 있다.", analysis);
+            JsonNode root = objectMapper.readTree(normalized);
+            assertEquals(50.0, root.path("raw_score_max").asDouble(), "Q54 raw_score_max must be 50");
+        }
 
-        assertTrue(root.path("score").asDouble() >= 1.0);
-        assertTrue(root.path("score").asDouble() <= 9.0);
-        assertEquals(3, root.path("rubric_scores").size());
-        assertTrue(root.has("engine"));
-        assertTrue(root.has("raw_score"));
-        assertTrue(root.has("raw_score_max"));
-        assertTrue(root.has("band_label"));
+        // Test Q51_52
+        {
+            WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
+                    "Q51_52", 15, "OK: short answer", List.of()
+            );
+            String mockOutput = mockEvaluator.evaluate(
+                    "Prompt Q51_52", "열심히 공부할 계획이다", analysis, "Test"
+            );
+            String normalized = normalizer.normalize(mockOutput, "Q51_52", "열심히 공부할 계획이다", analysis);
+            JsonNode root = objectMapper.readTree(normalized);
+            assertEquals(10.0, root.path("raw_score_max").asDouble(), "Q51_52 raw_score_max must be 10");
+        }
     }
 
     @Test
-    void testMockEvaluatorQ51_52Compatibility() throws Exception {
+    void testEvidenceValidationAndFiltering() throws Exception {
+        // If evidence does not exist in student text, it should be filtered out by full normalizer overload
+        WritingRuleEngine.RuleViolation violation = new WritingRuleEngine.RuleViolation(
+                "해요", "-ㄴ다", "Use formal Korean in writing"
+        );
         WritingRuleEngine.RuleAnalysis analysis = new WritingRuleEngine.RuleAnalysis(
-                "Q51_52", 15, "글자 수: 15자.", List.of()
+                "Q53", 250, "OK: length fits", List.of(violation)
         );
+        
+        // Mock evaluator generates mock JSON
         String mockOutput = mockEvaluator.evaluate(
-                "Prompt Q51_52", "한국어를 공부하다", analysis, "Test Q51_52 compatibility"
+                "Prompt Q53", "한국어를 공부합니다. 재미있다.", analysis, "Test"
         );
-
-        String normalized = normalizer.normalize(mockOutput);
-        JsonNode root = objectMapper.readTree(normalized);
-
-        // Score must not be fallback 1.0
-        assertTrue(root.path("score").asDouble() > 1.0, "Score should not fallback to 1.0");
-        assertEquals("Q51_52", root.path("task_type").asText());
-
-        JsonNode rubrics = root.path("rubric_scores");
-        assertEquals(3, rubrics.size());
-
-        assertEquals(WritingPromptRules.RUBRIC_Q51_52_CONTENT, rubrics.get(0).path("name").asText());
-        assertEquals(WritingPromptRules.RUBRIC_Q51_52_GRAMMAR, rubrics.get(1).path("name").asText());
-        assertEquals(WritingPromptRules.RUBRIC_Q51_52_VOCAB, rubrics.get(2).path("name").asText());
-
-        assertTrue(rubrics.get(0).path("score").asDouble() > 1.0);
-        assertTrue(rubrics.get(1).path("score").asDouble() > 1.0);
-        assertTrue(rubrics.get(2).path("score").asDouble() > 1.0);
+        
+        // Validate mockOutput strengths & needs_improvement has evidence from learnerAnswer
+        JsonNode mockRoot = objectMapper.readTree(mockOutput);
+        
+        // Learner answer for normalization does NOT contain "해요"
+        String learnerAnswer = "한국어를 공부합니다. 재미있다.";
+        String normalized = normalizer.normalize(mockOutput, "Q53", learnerAnswer, analysis);
+        JsonNode normRoot = objectMapper.readTree(normalized);
+        
+        // Any need_improvement with evidence "해요" should be excluded because it does not exist in learnerAnswer
+        JsonNode needs = normRoot.path("needs_improvement");
+        for (JsonNode need : needs) {
+            String evidence = need.path("evidence").asText();
+            if (!evidence.isEmpty()) {
+                assertTrue(learnerAnswer.contains(evidence), "Evidence must exist in learner answer: " + evidence);
+            }
+        }
     }
 }

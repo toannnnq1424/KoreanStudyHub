@@ -255,13 +255,20 @@ class PracticeServiceTest {
 
     @Test
     void testGetLearningProgressOverview() {
-        PracticeSubmission sub1 = new PracticeSubmission(1L, 2L, BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{}", "{}");
-        sub1.setSubmittedAt(java.time.LocalDateTime.now());
-        when(submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString()))
-                .thenReturn(List.of(sub1));
-
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        when(setRepository.findById(any())).thenReturn(Optional.of(set));
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.markGraded(BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{}", "{}");
+        setEntityId(attempt, 99L);
+        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        when(setRepository.findAllById(any())).thenReturn(List.of(
+                new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L)));
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        when(testRepository.findAllById(any())).thenReturn(List.of(test));
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findAllById(any())).thenReturn(List.of(section));
 
         LearningProgressOverview overview = practiceService.getLearningProgressOverview(2L, "Toan", "avatar.jpg");
         assertNotNull(overview);
@@ -274,17 +281,27 @@ class PracticeServiceTest {
                 .filter(m -> "READING".equals(m.skill())).findFirst();
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
+        assertEquals("READING", overview.recentHistory().get(0).skill());
+        verify(submissionRepository, never()).findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString());
     }
 
     @Test
     void testGetPracticeAnalytics() {
-        PracticeSubmission sub1 = new PracticeSubmission(1L, 2L, BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{}", "{}");
-        sub1.setSubmittedAt(java.time.LocalDateTime.now());
-        when(submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString()))
-                .thenReturn(List.of(sub1));
-
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        when(setRepository.findById(any())).thenReturn(Optional.of(set));
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.markGraded(BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{\"100\":\"1\"}", "{}");
+        setEntityId(attempt, 99L);
+        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        when(setRepository.findAllById(any())).thenReturn(List.of(set));
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        when(testRepository.findAllById(any())).thenReturn(List.of(test));
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findAllById(any())).thenReturn(List.of(section));
 
         PracticeQuestion q1 = mock(PracticeQuestion.class);
         when(q1.getId()).thenReturn(100L);
@@ -302,6 +319,30 @@ class PracticeServiceTest {
                 .filter(m -> "READING".equals(m.skill())).findFirst();
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
+        assertEquals("READING", analytics.history().get(0).skill());
+        verify(submissionRepository, never()).findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString());
+    }
+
+    @Test
+    void testProgressAnalyticsUsesAllAttemptsNotTop100ForAverage() {
+        List<PracticeAttempt> allAttempts = new ArrayList<>();
+        for (long i = 1; i <= 101; i++) {
+            PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+            BigDecimal score = i == 101 ? BigDecimal.valueOf(100) : BigDecimal.valueOf(50);
+            attempt.markGraded(score, BigDecimal.valueOf(100), "{}", "{}");
+            setEntityId(attempt, i);
+            allAttempts.add(attempt);
+        }
+        List<PracticeAttempt> recent100 = allAttempts.subList(0, 100);
+        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(allAttempts);
+        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(recent100);
+
+        LearningProgressOverview overview = practiceService.getLearningProgressOverview(2L, "Toan", "");
+
+        assertEquals(101, overview.totalAttempts());
+        assertEquals(101, overview.totalCompletedTests());
+        assertEquals(50.5, overview.recentAverageScore());
+        assertEquals(8, overview.recentHistory().size());
     }
     private void setEntityId(Object entity, Long id) {
         try {
@@ -681,4 +722,3 @@ class PracticeServiceTest {
         assertEquals("Group 1", result.sections().get(0).groups().get(0).groupLabel());
     }
 }
-

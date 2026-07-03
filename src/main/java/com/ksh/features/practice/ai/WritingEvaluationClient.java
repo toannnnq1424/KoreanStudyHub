@@ -31,21 +31,21 @@ public class WritingEvaluationClient {
 
     @Autowired
     public WritingEvaluationClient(OpenAiProperties properties,
-                                   ObjectMapper objectMapper,
-                                   WritingEvaluationNormalizer normalizer,
-                                   WritingRuleEngine ruleEngine,
-                                   WritingEvaluationCacheService cacheService,
-                                   WritingMockEvaluatorService mockEvaluatorService) {
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService) {
         this(properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluatorService, null);
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
-                            ObjectMapper objectMapper,
-                            WritingEvaluationNormalizer normalizer,
-                            WritingRuleEngine ruleEngine,
-                            WritingEvaluationCacheService cacheService,
-                            WritingMockEvaluatorService mockEvaluatorService,
-                            RestClient restClient) {
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService,
+            RestClient restClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
@@ -93,77 +93,74 @@ public class WritingEvaluationClient {
 
         // 3. Mock mode when API key is missing
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
-            log.info("KSH writing evaluation switched to mock mode: missing API key");
-            return normalizer.normalize(mockEvaluatorService.evaluate(
-                    prompt,
-                    learnerAnswer,
-                    ruleAnalysis,
-                    "chưa cấu hình OPENAI_API_KEY."
-            ));
+            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "missing API key");
         }
 
         // 4. Single unified provider call
+        JsonNode response;
         try {
             String systemPrompt = WritingPromptRules.buildUnifiedPrompt(
                     ruleAnalysis.taskType(), isReEvaluation);
             String userPayload = userPayload(prompt, learnerAnswer, ruleAnalysis, isReEvaluation);
 
-            JsonNode response = callPass("unified", systemPrompt, userPayload, unifiedResponseFormat());
+            response = callPass("unified", systemPrompt, userPayload, unifiedResponseFormat());
             log.info("KSH writing evaluation unified call complete: taskType={}",
                     ruleAnalysis.taskType());
-
-            // 5. Normalize — normalizer is sole source of score/raw_score/raw_score_max
-            String normalized = normalizer.normalize(
-                    objectMapper.writeValueAsString(response),
-                    ruleAnalysis.taskType(),
-                    learnerAnswer,
-                    ruleAnalysis);
-
-            // 6. Cache result (both submit and re-evaluate overwrite cache)
-            cacheService.put(prompt, learnerAnswer,
-                    ruleAnalysis.taskType(), properties.evaluatorModel(),
-                    WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                    WritingPromptRules.EVALUATION_SCHEMA_VERSION,
-                    normalized);
-
-            return normalized;
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             String rawBody = ex.getResponseBodyAsString();
-            String redactedBody = rawBody != null && rawBody.length() > 500 ? rawBody.substring(0, 500) + "..." : rawBody;
-            log.warn("Writing AI evaluation failed [HTTP {}] [{}]: {}", ex.getStatusCode().value(), ex.getClass().getName(), redactedBody, ex);
-            return normalizer.normalize(mockEvaluatorService.evaluate(
-                    prompt,
-                    learnerAnswer,
-                    ruleAnalysis,
-                    "lỗi HTTP " + ex.getStatusCode().value() + " (" + redactedBody + ")"
-            ));
+            String redactedBody = rawBody != null && rawBody.length() > 500 ? rawBody.substring(0, 500) + "..."
+                    : rawBody;
+            log.warn("Writing AI evaluation failed [HTTP {}] [{}]: {}", ex.getStatusCode().value(),
+                    ex.getClass().getName(), redactedBody, ex);
+            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             String rootCause = ex.getCause() != null ? ex.getCause().getMessage() : "none";
-            log.warn("Writing AI evaluation failed [Connection Error] [{}]: {}", ex.getClass().getName(), rootCause, ex);
-            return normalizer.normalize(mockEvaluatorService.evaluate(
-                    prompt,
-                    learnerAnswer,
-                    ruleAnalysis,
-                    "lỗi kết nối mạng (" + rootCause + ")"
-            ));
+            log.warn("Writing AI evaluation failed [Connection Error] [{}]: {}", ex.getClass().getName(), rootCause,
+                    ex);
+            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
         } catch (Exception ex) {
-            log.warn("Writing AI evaluation failed [Exception] [{}]: {}", ex.getClass().getName(), ex.getMessage(), ex);
-            String errorDetail = ex.getMessage() != null ? ex.getMessage() : ex.toString();
-            return normalizer.normalize(mockEvaluatorService.evaluate(
-                    prompt,
-                    learnerAnswer,
-                    ruleAnalysis,
-                    "lỗi xử lý (" + errorDetail + ")"
-            ));
+            log.warn("Writing AI evaluation failed [Provider Unexpected Exception] [{}]: {}", ex.getClass().getName(), ex.getMessage(), ex);
+            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
         }
+
+        // 5. Normalize — normalizer is sole source of score/raw_score/raw_score_max
+        String responseJson;
+        try {
+            responseJson = objectMapper.writeValueAsString(response);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Internal error serializing JSON response", e);
+        }
+
+        String normalized = normalizer.normalize(
+                responseJson,
+                ruleAnalysis.taskType(),
+                learnerAnswer,
+                ruleAnalysis);
+
+        // 6. Cache result (both submit and re-evaluate overwrite cache)
+        cacheService.put(prompt, learnerAnswer,
+                ruleAnalysis.taskType(), properties.evaluatorModel(),
+                WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
+                WritingPromptRules.EVALUATION_SCHEMA_VERSION,
+                normalized);
+
+        return normalized;
+    }
+
+    private String fallbackToMock(String prompt, String learnerAnswer, WritingRuleEngine.RuleAnalysis ruleAnalysis, String reason) {
+        log.info("KSH writing evaluation falling back to mock: {}", reason);
+        String mockJson = mockEvaluatorService.evaluate(prompt, learnerAnswer, ruleAnalysis, reason);
+        return normalizer.normalize(mockJson, ruleAnalysis.taskType(), learnerAnswer, ruleAnalysis);
     }
 
     // ---- Spam detection — task-aware ----
 
     /**
      * Deterministic check for clearly invalid answers.
-     * Task-aware: Q51/Q52 allows short answers, so length alone does not disqualify.
-     * Only short-circuits when answer is empty/whitespace-only, or contains no Hangul at all.
+     * Task-aware: Q51/Q52 allows short answers, so length alone does not
+     * disqualify.
+     * Only short-circuits when answer is empty/whitespace-only, or contains no
+     * Hangul at all.
      */
     static boolean isDefinitelyInvalid(String answer, WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         if (answer == null || answer.trim().isEmpty()) {
@@ -181,9 +178,9 @@ public class WritingEvaluationClient {
     // ---- Provider call ----
 
     private JsonNode callPass(String passName,
-                              String systemPrompt,
-                              String userPayload,
-                              Map<String, Object> responseFormat) throws Exception {
+            String systemPrompt,
+            String userPayload,
+            Map<String, Object> responseFormat) throws Exception {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("model", properties.evaluatorModel());
         request.put("temperature", 0.0);
@@ -192,8 +189,7 @@ public class WritingEvaluationClient {
         request.put("response_format", responseFormat);
         request.put("messages", List.of(
                 message("system", systemPrompt),
-                message("user", userPayload)
-        ));
+                message("user", userPayload)));
 
         log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
         String raw = callWithRetry(request);
@@ -246,9 +242,9 @@ public class WritingEvaluationClient {
     // ---- Payload ----
 
     private String userPayload(String prompt,
-                               String learnerAnswer,
-                               WritingRuleEngine.RuleAnalysis ruleAnalysis,
-                               boolean isReEvaluation) {
+            String learnerAnswer,
+            WritingRuleEngine.RuleAnalysis ruleAnalysis,
+            boolean isReEvaluation) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "WRITING");
         payload.put("platform", "KSH Korean Study Hub");
@@ -282,8 +278,7 @@ public class WritingEvaluationClient {
                     "koreanLabel", criterion.koreanLabel(),
                     "polarity", criterion.polarity().name(),
                     "weight", criterion.weight(),
-                    "rule", criterion.rule()
-            ));
+                    "rule", criterion.rule()));
         }
         return rows;
     }
@@ -310,8 +305,7 @@ public class WritingEvaluationClient {
                 "sample_answer", typed("string"),
                 "sentence_rewrites", arrayOf(objectSchema(
                         list("original", "upgraded", "reason"),
-                        prop("original", typed("string"), "upgraded", typed("string"), "reason", typed("string"))))
-        ));
+                        prop("original", typed("string"), "upgraded", typed("string"), "reason", typed("string"))))));
         return schema;
     }
 

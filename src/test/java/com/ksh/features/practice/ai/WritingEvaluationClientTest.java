@@ -18,6 +18,21 @@ class WritingEvaluationClientTest {
     private final WritingRuleEngine ruleEngine = new WritingRuleEngine();
     private final WritingEvaluationNormalizer normalizer = new WritingEvaluationNormalizer(objectMapper);
 
+    private static final String MOCK_JSON_TEMPLATE = "{" +
+            "\"task_type\":\"Q53\"," +
+            "\"student_text\":\"%s\"," +
+            "\"summary\":\"[MOCK_EVALUATION] Mocked fallback\"," +
+            "\"rubric_scores\":[" +
+            "  {\"name\":\"Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)\",\"score\":4.0,\"feedback\":\"\"}," +
+            "  {\"name\":\"Cấu trúc & Bố cục đoạn văn (글의 전개 구조)\",\"score\":4.0,\"feedback\":\"\"}," +
+            "  {\"name\":\"Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)\",\"score\":4.0,\"feedback\":\"\"}" +
+            "]," +
+            "\"strengths\":[]," +
+            "\"needs_improvement\":[]," +
+            "\"upgraded_answer\":\"\"," +
+            "\"sample_answer\":\"\"" +
+            "}";
+
     // ---- Spam short-circuit ----
 
     @Test
@@ -164,7 +179,7 @@ class WritingEvaluationClientTest {
         when(properties.apiKey()).thenReturn(""); // Empty API Key!
 
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn("{\"score\":5.0,\"student_text\":\"한국어\"}");
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
 
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, null
@@ -202,7 +217,7 @@ class WritingEvaluationClientTest {
         };
 
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn("{\"score\":3.0,\"student_text\":\"한국어\"}");
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
 
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, restClient
@@ -275,14 +290,18 @@ class WritingEvaluationClientTest {
 
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         String mockOutput = "{" +
-                "\"task_type\":\"GENERAL\"," +
-                "\"score\":4.0," +
-                "\"overall_score\":4.0," +
+                "\"task_type\":\"Q53\"," +
+                "\"student_text\":\"한국어\"," +
+                "\"summary\":\"[MOCK_EVALUATION] ...\"," +
                 "\"rubric_scores\":[" +
-                "  {\"name\":\"Hoàn thành nhiệm vụ & Nội dung (태도 및 내용)\",\"score\":4.0,\"feedback\":\"\"}," +
-                "  {\"name\":\"Cấu trúc & Bố cục đoạn văn (구조 및 조직)\",\"score\":4.0,\"feedback\":\"\"}," +
+                "  {\"name\":\"Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)\",\"score\":4.0,\"feedback\":\"\"}," +
+                "  {\"name\":\"Cấu trúc & Bố cục đoạn văn (글의 전개 구조)\",\"score\":4.0,\"feedback\":\"\"}," +
                 "  {\"name\":\"Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)\",\"score\":4.0,\"feedback\":\"\"}" +
-                "]" +
+                "]," +
+                "\"strengths\":[]," +
+                "\"needs_improvement\":[]," +
+                "\"upgraded_answer\":\"\"," +
+                "\"sample_answer\":\"\"" +
                 "}";
         when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(mockOutput);
 
@@ -291,7 +310,7 @@ class WritingEvaluationClientTest {
         );
 
         String result = client.evaluate("Bài 53 viết", "한국어", true);
-        assertTrue(result.contains("\"score\":4.0"), "Should return fallback output");
+        assertTrue(result.contains("\"score\":4.0"), "Should return fallback output normalized score");
 
         Optional<String> cached = cacheService.get("Bài 53 viết", "한국어", "Q53", "model", "v2.0", "v2.0", "v2.0");
         assertTrue(cached.isPresent());
@@ -352,7 +371,7 @@ class WritingEvaluationClientTest {
 
         String result2 = client.evaluate("Bài 53 viết", "한국어", false);
         assertEquals(result1, result2);
-        assertEquals(1, callCount.get()); 
+        assertEquals(1, callCount.get());
     }
 
     // ---- Helpers ----
@@ -373,7 +392,7 @@ class WritingEvaluationClientTest {
         when(responseSpec.body(any(Class.class))).thenAnswer(inv -> {
             postCallCount.incrementAndGet();
             try {
-                return "{\"choices\":[{\"message\":{\"content\":" 
+                return "{\"choices\":[{\"message\":{\"content\":"
                         + objectMapper.writeValueAsString(responseJson) + "}}]}";
             } catch (Exception e) {
                 throw new RuntimeException(e);

@@ -171,12 +171,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                try {
-                    aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer, true);
-                } catch (Exception ex) {
-                    log.warn("[PracticeService] AI essay re-evaluation failed, falling back to mock: {}", ex.getMessage());
-                    aiFeedback = mockWritingFeedback(q.getPrompt(), answer);
-                }
+                aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer, true);
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -264,6 +259,393 @@ public class PracticeService {
         }
         return 0.0;
     }
+
+    private double getNormalizedAttemptScore(PracticeAttempt attempt) {
+        if (attempt.getScore() == null) return 0.0;
+        if ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill())) {
+            return attempt.getScore().doubleValue();
+        }
+        if (attempt.getTotalPoints() != null && attempt.getTotalPoints().compareTo(BigDecimal.ZERO) > 0) {
+            return attempt.getScore().multiply(BigDecimal.valueOf(100))
+                    .divide(attempt.getTotalPoints(), 2, RoundingMode.HALF_UP).doubleValue();
+        }
+        return 0.0;
+    }
+
+    private boolean isCompletedProgressAttempt(PracticeAttempt attempt) {
+        return PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
+                || PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus());
+    }
+
+    private boolean hasValidProgressScore(PracticeAttempt attempt) {
+        return isCompletedProgressAttempt(attempt) && attempt.getScore() != null;
+    }
+
+    private List<PracticeAttempt> attemptsBySkill(List<PracticeAttempt> attempts, String skill) {
+        return attempts.stream()
+                .filter(a -> skill.equals(a.getSkill()))
+                .toList();
+    }
+
+    private java.time.LocalDateTime progressActivityAt(PracticeAttempt attempt) {
+        if (attempt.getSubmittedAt() != null) return attempt.getSubmittedAt();
+        if (attempt.getUpdatedAt() != null) return attempt.getUpdatedAt();
+        return attempt.getCreatedAt();
+    }
+
+    private PracticeResultSummary toAttemptSummary(PracticeAttempt attempt,
+                                                   Map<Long, PracticeSet> setsById,
+                                                   Map<Long, PracticeTest> testsById,
+                                                   Map<Long, PracticeSection> sectionsById) {
+        PracticeSet set = setsById.get(attempt.getSetId());
+        PracticeTest test = testsById.get(attempt.getTestId());
+        PracticeSection section = sectionsById.get(attempt.getSectionId());
+
+        String title = set != null ? set.getTitle() : "Lượt luyện tập";
+        if (test != null && test.getTitle() != null && !test.getTitle().isBlank()) {
+            title += " - " + test.getTitle();
+        }
+        if (section != null && section.getTitle() != null && !section.getTitle().isBlank()) {
+            title += " - " + section.getTitle();
+        }
+
+        return new PracticeResultSummary(
+                attempt.getId(),
+                title,
+                attempt.getSkill(),
+                attempt.getScore(),
+                attempt.getTotalPoints(),
+                attempt.getSubmittedAt(),
+                progressActivityAt(attempt),
+                attempt.getStatus(),
+                attempt.getSetId(),
+                attempt.getTestId(),
+                attempt.getSectionId());
+    }
+
+    private Map<Long, PracticeSet> loadSetsById(List<PracticeAttempt> attempts) {
+        List<Long> ids = attempts.stream()
+                .map(PracticeAttempt::getSetId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, PracticeSet> result = new LinkedHashMap<>();
+        for (PracticeSet set : setRepository.findAllById(ids)) {
+            result.put(set.getId(), set);
+        }
+        return result;
+    }
+
+    private Map<Long, PracticeTest> loadTestsById(List<PracticeAttempt> attempts) {
+        List<Long> ids = attempts.stream()
+                .map(PracticeAttempt::getTestId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, PracticeTest> result = new LinkedHashMap<>();
+        for (PracticeTest test : testRepository.findAllById(ids)) {
+            result.put(test.getId(), test);
+        }
+        return result;
+    }
+
+    private Map<Long, PracticeSection> loadSectionsById(List<PracticeAttempt> attempts) {
+        List<Long> ids = attempts.stream()
+                .map(PracticeAttempt::getSectionId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, PracticeSection> result = new LinkedHashMap<>();
+        for (PracticeSection section : sectionRepository.findAllById(ids)) {
+            result.put(section.getId(), section);
+        }
+        return result;
+    }
+
+    private com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview buildAttemptProgressOverview(
+            Long userId, String displayName, String avatarUrl) {
+        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<PracticeAttempt> recentAttempts = attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(userId);
+        String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
+
+        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> skillMetrics = new ArrayList<>();
+        for (String skill : skills) {
+            List<PracticeAttempt> skillAttempts = attemptsBySkill(allAttempts, skill);
+            List<PracticeAttempt> scoredSkillAttempts = skillAttempts.stream()
+                    .filter(this::hasValidProgressScore)
+                    .toList();
+            double avgScore = 0.0;
+            if (!scoredSkillAttempts.isEmpty()) {
+                double sum = 0.0;
+                for (PracticeAttempt attempt : scoredSkillAttempts) {
+                    sum += getNormalizedAttemptScore(attempt);
+                }
+                avgScore = Math.round((sum / scoredSkillAttempts.size()) * 100.0) / 100.0;
+            }
+            skillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
+                    skill, PracticeDtos.getSkillLabel(skill), avgScore, skillAttempts.size(), 0.0));
+        }
+
+        if (allAttempts.isEmpty()) {
+            return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
+                    displayName, avatarUrl, "TOPIK II", 0, 0, 0, 0.0,
+                    skillMetrics, List.of(), List.of());
+        }
+
+        int totalAttempts = allAttempts.size();
+        int totalCompleted = (int) allAttempts.stream()
+                .filter(this::isCompletedProgressAttempt)
+                .count();
+
+        int totalPracticeMinutes = 0;
+        for (PracticeAttempt attempt : allAttempts) {
+            java.time.LocalDateTime activityAt = progressActivityAt(attempt);
+            if (attempt.getStartedAt() != null && activityAt != null) {
+                long diff = java.time.temporal.ChronoUnit.MINUTES.between(attempt.getStartedAt(), activityAt);
+                totalPracticeMinutes += (diff > 0 && diff < 240) ? (int) diff : 30;
+            } else {
+                totalPracticeMinutes += 30;
+            }
+        }
+
+        List<PracticeAttempt> scoredAttempts = allAttempts.stream()
+                .filter(this::hasValidProgressScore)
+                .toList();
+        double averageSum = 0.0;
+        for (PracticeAttempt attempt : scoredAttempts) {
+            averageSum += getNormalizedAttemptScore(attempt);
+        }
+        double recentAverageScore = scoredAttempts.isEmpty()
+                ? 0.0
+                : Math.round((averageSum / scoredAttempts.size()) * 100.0) / 100.0;
+
+        Map<java.time.LocalDate, Integer> counts = new LinkedHashMap<>();
+        Map<java.time.LocalDate, Integer> mins = new LinkedHashMap<>();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        for (int i = 83; i >= 0; i--) {
+            java.time.LocalDate d = today.minusDays(i);
+            counts.put(d, 0);
+            mins.put(d, 0);
+        }
+
+        for (PracticeAttempt attempt : allAttempts) {
+            java.time.LocalDateTime activityAt = progressActivityAt(attempt);
+            if (activityAt == null) continue;
+            java.time.LocalDate date = activityAt.toLocalDate();
+            if (!counts.containsKey(date)) continue;
+            counts.put(date, counts.get(date) + 1);
+            long diff = attempt.getStartedAt() != null
+                    ? java.time.temporal.ChronoUnit.MINUTES.between(attempt.getStartedAt(), activityAt)
+                    : 30;
+            int minutes = (diff > 0 && diff < 240) ? (int) diff : 30;
+            mins.put(date, mins.get(date) + minutes);
+        }
+
+        List<com.ksh.features.practice.dto.PracticeDtos.HeatmapCell> heatmap = new ArrayList<>();
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        for (java.time.LocalDate d : counts.keySet()) {
+            heatmap.add(new com.ksh.features.practice.dto.PracticeDtos.HeatmapCell(
+                    d.format(fmt), counts.get(d), mins.get(d)));
+        }
+
+        Map<Long, PracticeSet> setsById = loadSetsById(recentAttempts);
+        Map<Long, PracticeTest> testsById = loadTestsById(recentAttempts);
+        Map<Long, PracticeSection> sectionsById = loadSectionsById(recentAttempts);
+        List<PracticeAttempt> recent8 = recentAttempts.subList(0, Math.min(8, recentAttempts.size()));
+        List<PracticeResultSummary> recentHistory = new ArrayList<>();
+        for (PracticeAttempt attempt : recent8) {
+            recentHistory.add(toAttemptSummary(attempt, setsById, testsById, sectionsById));
+        }
+
+        String currentLevel = "TOPIK II Cáº¥p 3";
+        if (recentAverageScore >= 80.0) {
+            currentLevel = "TOPIK II Cáº¥p 6";
+        } else if (recentAverageScore >= 70.0) {
+            currentLevel = "TOPIK II Cáº¥p 5";
+        } else if (recentAverageScore >= 60.0) {
+            currentLevel = "TOPIK II Cáº¥p 4";
+        } else if (recentAverageScore < 40.0) {
+            currentLevel = "TOPIK I Cáº¥p 1";
+        } else if (recentAverageScore < 50.0) {
+            currentLevel = "TOPIK I Cáº¥p 2";
+        }
+
+        return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
+                displayName, avatarUrl, currentLevel, totalAttempts, totalCompleted,
+                totalPracticeMinutes, recentAverageScore, skillMetrics, heatmap, recentHistory);
+    }
+
+    private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics buildAttemptPracticeAnalytics(Long userId) {
+        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<PracticeAttempt> recentAttempts = attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(userId);
+
+        if (allAttempts.isEmpty()) {
+            return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
+                    List.of(), List.of(), List.of(), List.of(), List.of());
+        }
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime startOfThisWeek = now.minusDays(7);
+        java.time.LocalDateTime startOfLastWeek = now.minusDays(14);
+        String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
+        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> weeklySkillMetrics = new ArrayList<>();
+
+        for (String skill : skills) {
+            double thisWeekSum = 0.0;
+            int thisWeekCount = 0;
+            double lastWeekSum = 0.0;
+            int lastWeekCount = 0;
+            for (PracticeAttempt attempt : allAttempts) {
+                if (!skill.equals(attempt.getSkill()) || !hasValidProgressScore(attempt)) continue;
+                java.time.LocalDateTime activityAt = progressActivityAt(attempt);
+                if (activityAt == null) continue;
+                double norm = getNormalizedAttemptScore(attempt);
+                if (activityAt.isAfter(startOfThisWeek)) {
+                    thisWeekSum += norm;
+                    thisWeekCount++;
+                } else if (activityAt.isAfter(startOfLastWeek)) {
+                    lastWeekSum += norm;
+                    lastWeekCount++;
+                }
+            }
+            double thisWeekAvg = thisWeekCount == 0 ? 0.0 : thisWeekSum / thisWeekCount;
+            double lastWeekAvg = lastWeekCount == 0 ? 0.0 : lastWeekSum / lastWeekCount;
+            double delta = thisWeekCount == 0 || lastWeekCount == 0
+                    ? 0.0
+                    : Math.round((thisWeekAvg - lastWeekAvg) * 100.0) / 100.0;
+            weeklySkillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
+                    skill, PracticeDtos.getSkillLabel(skill),
+                    Math.round(thisWeekAvg * 100.0) / 100.0, thisWeekCount, delta));
+        }
+
+        List<PracticeAttempt> scoredRecent = recentAttempts.stream()
+                .filter(this::hasValidProgressScore)
+                .toList();
+        List<PracticeAttempt> last30Scored = scoredRecent.subList(0, Math.min(30, scoredRecent.size()));
+        Map<Long, PracticeSet> setsById = loadSetsById(recentAttempts);
+        Map<Long, PracticeTest> testsById = loadTestsById(recentAttempts);
+        Map<Long, PracticeSection> sectionsById = loadSectionsById(recentAttempts);
+
+        List<com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint> scoreTrend = new ArrayList<>();
+        java.time.format.DateTimeFormatter trendFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        for (int i = last30Scored.size() - 1; i >= 0; i--) {
+            PracticeAttempt attempt = last30Scored.get(i);
+            PracticeResultSummary summary = toAttemptSummary(attempt, setsById, testsById, sectionsById);
+            java.time.LocalDateTime activityAt = progressActivityAt(attempt);
+            scoreTrend.add(new com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint(
+                    activityAt != null ? activityAt.format(trendFmt) : "",
+                    attempt.getSkill(),
+                    getNormalizedAttemptScore(attempt),
+                    summary.title()));
+        }
+
+        List<Long> setIds = last30Scored.stream().map(PracticeAttempt::getSetId).distinct().toList();
+        List<PracticeQuestion> questions = setIds.isEmpty() ? List.of() : questionRepository.findBySetIdIn(setIds);
+        Map<Long, List<PracticeQuestion>> questionsBySetId = questions.stream()
+                .collect(java.util.stream.Collectors.groupingBy(PracticeQuestion::getSetId));
+        Map<String, List<Double>> scoresByType = new LinkedHashMap<>();
+        Map<String, java.time.LocalDateTime> lastPracticedByType = new LinkedHashMap<>();
+        Map<String, String> skillByType = new LinkedHashMap<>();
+
+        for (PracticeAttempt attempt : last30Scored) {
+            Map<String, String> answers = readAnswers(attempt.getAnswersJson());
+            List<PracticeQuestion> setQuestions = questionsBySetId.getOrDefault(attempt.getSetId(), List.of());
+            for (PracticeQuestion q : setQuestions) {
+                String type = q.getQuestionType();
+                if ("WRITING".equals(attempt.getSkill())) {
+                    if (q.getQuestionNo() != null) {
+                        int qNo = q.getQuestionNo();
+                        if (qNo == 51) type = "Q51";
+                        else if (qNo == 52) type = "Q52";
+                        else if (qNo == 53) type = "Q53";
+                        else if (qNo == 54) type = "Q54";
+                        else type = "GENERAL";
+                    } else {
+                        type = "GENERAL";
+                    }
+                }
+                String ans = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
+                double qScore = ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill()))
+                        ? attempt.getScore().doubleValue()
+                        : (answersMatch(ans, q.getAnswerKey()) ? 100.0 : 0.0);
+                scoresByType.computeIfAbsent(type, k -> new ArrayList<>()).add(qScore);
+                skillByType.putIfAbsent(type, attempt.getSkill());
+                java.time.LocalDateTime activityAt = progressActivityAt(attempt);
+                if (activityAt != null) {
+                    java.time.LocalDateTime currentLast = lastPracticedByType.get(type);
+                    if (currentLast == null || activityAt.isAfter(currentLast)) {
+                        lastPracticedByType.put(type, activityAt);
+                    }
+                }
+            }
+        }
+
+        List<com.ksh.features.practice.dto.PracticeDtos.QuestionTypePerf> questionTypePerf = new ArrayList<>();
+        java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        for (Map.Entry<String, List<Double>> entry : scoresByType.entrySet()) {
+            String type = entry.getKey();
+            List<Double> qScores = entry.getValue();
+            double avg = qScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+            double max = qScores.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+            java.time.LocalDateTime lastDt = lastPracticedByType.get(type);
+            questionTypePerf.add(new com.ksh.features.practice.dto.PracticeDtos.QuestionTypePerf(
+                    skillByType.getOrDefault(type, "READING"), type, getQuestionTypeLabel(type), qScores.size(),
+                    Math.round(avg * 10.0) / 10.0, Math.round(max * 10.0) / 10.0,
+                    lastDt != null ? lastDt.format(dtFmt) : ""));
+        }
+
+        List<com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight> highlights = new ArrayList<>();
+        String mostPracticedSkill = "";
+        int maxAttempts = 0;
+        String needsWorkSkill = "";
+        double minAvgScore = 101.0;
+        List<PracticeAttempt> scoredAll = allAttempts.stream().filter(this::hasValidProgressScore).toList();
+        for (String skill : skills) {
+            List<PracticeAttempt> skillAttempts = attemptsBySkill(scoredAll, skill);
+            if (skillAttempts.isEmpty()) continue;
+            if (skillAttempts.size() > maxAttempts) {
+                maxAttempts = skillAttempts.size();
+                mostPracticedSkill = skill;
+            }
+            double sum = 0.0;
+            for (PracticeAttempt attempt : skillAttempts) {
+                sum += getNormalizedAttemptScore(attempt);
+            }
+            double avg = sum / skillAttempts.size();
+            if (avg < minAvgScore) {
+                minAvgScore = avg;
+                needsWorkSkill = skill;
+            }
+        }
+        if (maxAttempts >= 3 && !mostPracticedSkill.isEmpty()) {
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
+                    "MOST_PRACTICED", "Luyá»‡n nhiá»u nháº¥t",
+                    PracticeDtos.getSkillLabel(mostPracticedSkill), maxAttempts, 0.0, true));
+        } else {
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_PRACTICED", "Luyá»‡n nhiá»u nháº¥t", "", 0, 0.0, false));
+        }
+        if (minAvgScore <= 100.0 && !needsWorkSkill.isEmpty()) {
+            List<PracticeAttempt> skillAttempts = attemptsBySkill(scoredAll, needsWorkSkill);
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
+                    "NEEDS_WORK", "Cáº§n cáº£i thiá»‡n",
+                    PracticeDtos.getSkillLabel(needsWorkSkill), skillAttempts.size(),
+                    Math.round(minAvgScore * 10.0) / 10.0, true));
+        } else {
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("NEEDS_WORK", "Cáº§n cáº£i thiá»‡n", "", 0, 0.0, false));
+        }
+        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_STABLE", "á»”n Ä‘á»‹nh nháº¥t", "", 0, 0.0, false));
+        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_IMPROVED", "Tiáº¿n bá»™ nháº¥t", "", 0, 0.0, false));
+
+        List<PracticeResultSummary> history = new ArrayList<>();
+        List<PracticeAttempt> historyAttempts = recentAttempts.subList(0, Math.min(30, recentAttempts.size()));
+        for (PracticeAttempt attempt : historyAttempts) {
+            history.add(toAttemptSummary(attempt, setsById, testsById, sectionsById));
+        }
+
+        return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
+                weeklySkillMetrics, scoreTrend, questionTypePerf, highlights, history);
+    }
+
     private List<PracticeSubmission> subsBySkill(List<PracticeSubmission> subs, String skill) {
         List<PracticeSubmission> res = new ArrayList<>();
         for (PracticeSubmission s : subs) {
@@ -286,7 +668,11 @@ public class PracticeService {
     @Transactional(readOnly = true)
     public com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview getLearningProgressOverview(
             Long userId, String displayName, String avatarUrl) {
-        
+        return buildAttemptProgressOverview(userId, displayName, avatarUrl);
+    }
+
+    private com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview legacySubmissionProgressOverview(
+            Long userId, String displayName, String avatarUrl) {
         List<PracticeSubmission> submissions = submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
                 userId, PracticeSubmission.STATUS_IN_PROGRESS);
 
@@ -433,6 +819,10 @@ public class PracticeService {
 
     @Transactional(readOnly = true)
     public com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics getPracticeAnalytics(Long userId) {
+        return buildAttemptPracticeAnalytics(userId);
+    }
+
+    private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics legacySubmissionPracticeAnalytics(Long userId) {
         List<PracticeSubmission> submissions = submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
                 userId, PracticeSubmission.STATUS_IN_PROGRESS);
 
@@ -940,176 +1330,7 @@ public class PracticeService {
         return skillLbl + " · " + catLbl;
     }
 
-    private String mockWritingFeedback(String prompt, String answer) {
-        Map<String, Object> feedback = new LinkedHashMap<>();
-        int length = answer == null ? 0 : answer.trim().length();
-        double score = length < 50 ? 3.5 : length < 150 ? 5.5 : length < 300 ? 7.5 : 8.5;
-        double rawScore = score * 10.0;
 
-        feedback.put("score", score);
-        feedback.put("overall_score", score);
-        feedback.put("raw_score", rawScore);
-        feedback.put("raw_score_max", 100.0);
-        feedback.put("task_type", "GENERAL");
-        feedback.put("student_text", answer == null ? "" : answer);
-        feedback.put("summary_vi", "Bài viết đã đáp ứng được yêu cầu cơ bản của đề. Bố cục tương đối rõ ràng, có sử dụng một số từ liên kết. Tuy nhiên, cần cải thiện cấu trúc ngữ pháp và chính tả để đạt điểm cao hơn trong TOPIK.");
-
-        // rubric_scores: 3 entries, fine with Map.of
-        feedback.put("rubric_scores", List.of(
-            buildMap("name", "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score", score, "feedback", "Nội dung trả lời đúng chủ đề, có lập luận cơ bản."),
-            buildMap("name", "Cấu trúc & Bố cục đoạn văn (글의 전개 구조)", "score", Math.max(1.0, score - 0.5), "feedback", "Bố cục mở-thân-kết nhận ra được, nhưng cần dùng từ nối phong phú hơn."),
-            buildMap("name", "Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)", "score", Math.max(1.0, score - 1.0), "feedback", "Một số lỗi đuôi câu và khoảng cách chữ (띄어쓰기) cần khắc phục.")
-        ));
-
-        // Strengths with full schema (12 keys — must use LinkedHashMap)
-        String evidenceStr1 = (answer != null && answer.length() > 30)
-            ? answer.substring(0, Math.min(answer.length(), 35)) : "한국어를 배우는";
-        String evidenceStr2 = (answer != null && answer.contains("때문"))
-            ? "때문" : (answer != null && answer.length() > 60 ? answer.substring(30, Math.min(answer.length(), 55)) : "한국 문화");
-
-        Map<String, Object> s1 = new LinkedHashMap<>();
-        s1.put("criterionId", "W_NATURAL_KOREAN_EXPRESSIONS");
-        s1.put("category", "Diễn đạt tự nhiên");
-        s1.put("subcategory", "Paraphrase đề tự nhiên");
-        s1.put("evidence", evidenceStr1);
-        s1.put("explanationVi", "Bạn đã diễn đạt lại chủ đề bằng từ ngữ tự nhiên, không chép nguyên văn đề bài.");
-        s1.put("correction", "");
-        s1.put("severity", "LOW");
-        s1.put("displayType", "PHRASE");
-        s1.put("uiLabel", "Diễn đạt tự nhiên");
-        s1.put("errorType", "");
-        s1.put("whyItIsGood", "Khả năng paraphrase thể hiện vốn từ chủ động và sự hiểu biết sâu về chủ đề.");
-        s1.put("topikTip", "TOPIK chấm cao những bài dùng từ thay thế phong phú thay vì chép lại đề.");
-
-        Map<String, Object> s2 = new LinkedHashMap<>();
-        s2.put("criterionId", "W_APPROPRIATE_VOCABULARY_USAGE");
-        s2.put("category", "Từ vựng phù hợp");
-        s2.put("subcategory", "Tránh khẩu ngữ");
-        s2.put("evidence", evidenceStr2);
-        s2.put("explanationVi", "Từ dùng phù hợp văn phong viết, tránh được khẩu ngữ thông thường.");
-        s2.put("correction", "");
-        s2.put("severity", "LOW");
-        s2.put("displayType", "PHRASE");
-        s2.put("uiLabel", "Từ vựng văn viết");
-        s2.put("errorType", "");
-        s2.put("whyItIsGood", "Dùng từ văn viết trang trọng thể hiện trình độ tiếng Hàn nâng cao.");
-        s2.put("topikTip", "Thay 좋다, 많다 bằng các từ như 우수하다, 다양하다 để tăng điểm từ vựng.");
-
-        feedback.put("strengths", List.of(s1, s2));
-
-        // Needs improvement with full schema
-        Map<String, Object> n1 = new LinkedHashMap<>();
-        n1.put("criterionId", "W_SPELLING_SPACING_ERRORS");
-        n1.put("category", "Lỗi chính tả & cách chữ");
-        n1.put("subcategory", "Lỗi 받침 / đuôi phụ âm");
-        n1.put("evidence", answer != null && answer.contains("배운") ? "배운" : "있습니다");
-        n1.put("explanationVi", "Lỗi chính tả khi ghép phụ âm cuối. Cần kiểm tra lại quy tắc 받침 trong văn viết.");
-        n1.put("correction", answer != null && answer.contains("배운") ? "배우는" : "있습니다");
-        n1.put("severity", "MEDIUM");
-        n1.put("displayType", "WORD");
-        n1.put("uiLabel", "Lỗi 받침");
-        n1.put("errorType", "띄어쓰기 오류");
-        n1.put("whyItIsGood", "");
-        n1.put("topikTip", "Trong TOPIK, lỗi chính tả bị trừ điểm trực tiếp ở tiêu chí 언어 사용.");
-
-        Map<String, Object> n2 = new LinkedHashMap<>();
-        n2.put("criterionId", "W_GRAMMAR_ERRORS");
-        n2.put("category", "Lỗi ngữ pháp");
-        n2.put("subcategory", "Sai đuôi chỉ nguyên nhân");
-        n2.put("evidence", answer != null && answer.contains("하여서") ? "하여서" : "공부해서");
-        n2.put("explanationVi", "Văn viết TOPIK nên dùng -(으)므로 hoặc -기 때문에 thay vì -여서/-아서 trong văn nghị luận.");
-        n2.put("correction", answer != null && answer.contains("하여서") ? "하므로" : "공부하므로");
-        n2.put("severity", "MEDIUM");
-        n2.put("displayType", "WORD");
-        n2.put("uiLabel", "Sai đuôi nguyên nhân");
-        n2.put("errorType", "호응 오류");
-        n2.put("whyItIsGood", "");
-        n2.put("topikTip", "Câu 54 TOPIK yêu cầu văn phong nghị luận: -(으)므로, -기 때문에 trang trọng hơn -아서.");
-
-        Map<String, Object> n3 = new LinkedHashMap<>();
-        n3.put("criterionId", "W_REGISTER_CONSISTENCY_ISSUES");
-        n3.put("category", "Văn phong");
-        n3.put("subcategory", "Trộn văn nói & văn viết");
-        n3.put("evidence", answer != null && answer.contains("해요") ? "해요" : (answer != null && answer.contains("좋아해") ? "좋아해" : "합니다"));
-        n3.put("explanationVi", "Đuôi 해요체 không phù hợp trong bài viết nghị luận TOPIK. Nên thống nhất dùng 합니다체 hoặc 해라체.");
-        n3.put("correction", answer != null && answer.contains("해요") ? "합니다" : "좋아합니다");
-        n3.put("severity", "HIGH");
-        n3.put("displayType", "WORD");
-        n3.put("uiLabel", "Trộn văn nói");
-        n3.put("errorType", "존칭 오류");
-        n3.put("whyItIsGood", "");
-        n3.put("topikTip", "Bài nghị luận TOPIK phải nhất quán 해라체. Tránh tuyệt đối 해요체.");
-
-        feedback.put("needs_improvement", List.of(n1, n2, n3));
-
-        // Build annotations manually for mock
-        String studentText = answer == null ? "" : answer;
-        List<Map<String, Object>> annotations = new ArrayList<>();
-        if (!studentText.isBlank()) {
-            if (studentText.length() > 10) {
-                String ev1 = studentText.substring(0, Math.min(studentText.length(), 35));
-                Map<String, Object> ann1 = new LinkedHashMap<>();
-                ann1.put("id", "ann_s1");
-                ann1.put("kind", "strength");
-                ann1.put("criterionId", "W_NATURAL_KOREAN_EXPRESSIONS");
-                ann1.put("category", "Diễn đạt tự nhiên");
-                ann1.put("evidence", ev1);
-                ann1.put("start", 0);
-                ann1.put("end", ev1.length());
-                ann1.put("explanationVi", "Diễn đạt lại chủ đề tự nhiên.");
-                ann1.put("correction", "");
-                ann1.put("severity", "LOW");
-                ann1.put("displayType", "PHRASE");
-                ann1.put("index", 1);
-                annotations.add(ann1);
-            }
-            int needIdx = studentText.contains("배운") ? studentText.indexOf("배운")
-                         : studentText.contains("있습니다") ? studentText.indexOf("있습니다") : -1;
-            if (needIdx >= 0) {
-                String ev2 = studentText.contains("배운") ? "배운" : "있습니다";
-                Map<String, Object> ann2 = new LinkedHashMap<>();
-                ann2.put("id", "ann_n1");
-                ann2.put("kind", "need");
-                ann2.put("criterionId", "W_SPELLING_SPACING_ERRORS");
-                ann2.put("category", "Lỗi chính tả & cách chữ");
-                ann2.put("evidence", ev2);
-                ann2.put("start", needIdx);
-                ann2.put("end", needIdx + ev2.length());
-                ann2.put("explanationVi", "Lỗi 받침.");
-                ann2.put("correction", studentText.contains("배운") ? "배우는" : "있습니다");
-                ann2.put("severity", "MEDIUM");
-                ann2.put("displayType", "WORD");
-                ann2.put("index", 1);
-                annotations.add(ann2);
-            }
-        }
-        feedback.put("annotations", annotations);
-        feedback.put("upgraded_annotations", List.of());
-
-        String upgradedBase = (answer == null || answer.isBlank()) ? "한국어를 열심히 공부하겠습니다." : answer;
-        feedback.put("upgraded_answer", upgradedBase + " 앞으로도 꾸준히 연습하여 TOPIK 쓰기 영역에서 높은 점수를 획득하고자 한다.");
-        feedback.put("upgraded_answer_annotated", "");
-        feedback.put("sentence_rewrites", List.of(
-            buildMap(
-                "original", answer != null && answer.contains("배운는") ? "배운는" : "열심히 공부해요",
-                "upgraded", answer != null && answer.contains("배운는") ? "배우는" : "열심히 공부한다",
-                "reason", "Sửa đuôi câu sang văn phong viết nhất quán 해라체 phù hợp TOPIK."
-            )
-        ));
-        feedback.put("sample_answer", "한국어를 배우는 이유는 한국 문화에 대한 깊은 관심 때문이다. 특히 한국 드라마, 영화, K-POP 등 한류 콘텐츠를 자막 없이 즐기고 싶으며, 한국인들과 직접 소통하고 그들의 생활 방식을 이해하고 싶다. 앞으로는 문법과 어휘를 꾸준히 학습하여 TOPIK II 5급 이상을 목표로 실력을 쌓아 나갈 계획이다.");
-
-        return writeJson(feedback);
-    }
-
-    /** Helper: create a Map from alternating key-value pairs (max 10 pairs = 20 args fine with varargs) */
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> buildMap(Object... kvPairs) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        for (int i = 0; i + 1 < kvPairs.length; i += 2) {
-            m.put((String) kvPairs[i], kvPairs[i + 1]);
-        }
-        return m;
-    }
 
 
 
@@ -1364,12 +1585,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                try {
-                    aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer);
-                } catch (Exception ex) {
-                    log.warn("[PracticeService] AI essay submit evaluation failed, falling back to mock: {}", ex.getMessage());
-                    aiFeedback = mockWritingFeedback(q.getPrompt(), answer);
-                }
+                aiFeedback = evaluationClient.evaluate(q.getPrompt(), answer);
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -1717,4 +1933,3 @@ public class PracticeService {
         return PracticeDtos.getOptionLabelMode(set.getTitle(), set.getMetadataJson());
     }
 }
-
