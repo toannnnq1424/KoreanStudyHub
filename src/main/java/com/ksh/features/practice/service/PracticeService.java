@@ -182,6 +182,13 @@ public class PracticeService {
         return executeWrite(() -> reEvaluateInTransaction(attemptId, userId));
     }
 
+    public Long reEvaluateQuestion(Long attemptId, Long questionId, Long userId) {
+        WritingQuestionReEvaluationSnapshot snapshot = executeRead(
+                () -> loadWritingQuestionReEvaluationSnapshot(attemptId, questionId, userId));
+        WritingGradingResult result = executeNonTransactional(() -> gradeWritingQuestionSnapshot(snapshot));
+        return executeWrite(() -> persistWritingQuestionReEvaluationResult(snapshot, result));
+    }
+
     private Long reEvaluateInTransaction(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
@@ -2213,6 +2220,48 @@ public class PracticeService {
         );
     }
 
+    private WritingQuestionReEvaluationSnapshot loadWritingQuestionReEvaluationSnapshot(
+            Long attemptId,
+            Long questionId,
+            Long userId
+    ) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Ket qua khong ton tai"));
+
+        if (!"WRITING".equals(attempt.getSkill())) {
+            throw new IllegalArgumentException("Chi co the cham lai tung cau cho bai Writing.");
+        }
+
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section khong ton tai"));
+        validateAttemptSection(attempt, section);
+        loadPublished(attempt.getSetId());
+
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt.getSetId(), section.getId());
+        validateWritingQuestionPoints(questions);
+        QuestionSnapshot target = questions.stream()
+                .filter(q -> q.questionId().equals(questionId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Cau hoi khong thuoc bai lam nay."));
+        if (!PracticeQuestion.TYPE_ESSAY.equals(target.questionType())) {
+            throw new IllegalArgumentException("Chi co the cham lai cau Writing ESSAY.");
+        }
+
+        return new WritingQuestionReEvaluationSnapshot(
+                attempt.getId(),
+                attempt.getUserId(),
+                attempt.getSectionId(),
+                attempt.getSkill(),
+                attempt.getStatus(),
+                attempt.getLockVersion(),
+                attempt.getAnswersJson(),
+                attempt.getAiFeedbackJson(),
+                readAnswers(attempt.getAnswersJson()),
+                questions,
+                target
+        );
+    }
+
     private List<QuestionSnapshot> loadQuestionSnapshots(Long setId, Long sectionId) {
         List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(setId, sectionId);
         List<Long> sectionQuestionIds = groupRows.stream()
@@ -2287,15 +2336,7 @@ public class PracticeService {
             }
         }
 
-        BigDecimal attemptScore = BigDecimal.ZERO;
-        if (attemptTotalPoints.compareTo(BigDecimal.ZERO) > 0) {
-            attemptScore = attemptEarnedPoints.multiply(BigDecimal.valueOf(100))
-                    .divide(attemptTotalPoints, 2, RoundingMode.HALF_UP);
-        }
-        attemptScore = clamp(attemptScore, BigDecimal.ZERO, BigDecimal.valueOf(100));
-        if (attemptScore.compareTo(BigDecimal.ZERO) == 0) {
-            attemptScore = BigDecimal.ZERO;
-        }
+        BigDecimal attemptScore = toWritingAttemptPercentage(attemptEarnedPoints, attemptTotalPoints);
 
         String feedbackJson;
         try {
@@ -2305,6 +2346,152 @@ public class PracticeService {
         }
 
         return new WritingGradingResult(attemptScore, attemptTotalPoints, snapshot.answersToPersistJson(), feedbackJson);
+    }
+
+    private WritingGradingResult gradeWritingQuestionSnapshot(WritingQuestionReEvaluationSnapshot snapshot) {
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = buildValidatedFeedbackMapBeforeTargetEvaluation(snapshot);
+
+        String targetAnswer = snapshot.answers().getOrDefault(String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
+        String targetFeedback = evaluationClient.evaluate(
+                snapshot.userId(),
+                snapshot.targetQuestion().prompt(),
+                targetAnswer,
+                true);
+        com.fasterxml.jackson.databind.node.ObjectNode targetNode =
+                readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
+        validateStoredWritingFeedbackScore(targetNode, snapshot.targetQuestion().questionId());
+        feedbackMap.set(String.valueOf(snapshot.targetQuestion().questionId()), targetNode);
+
+        WritingScoreAggregate aggregate = aggregateWritingScore(snapshot.questions(), snapshot.answers(), feedbackMap);
+        String feedbackJson;
+        try {
+            feedbackJson = objectMapper.writeValueAsString(feedbackMap);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize writing feedback map", e);
+        }
+        return new WritingGradingResult(aggregate.score(), aggregate.totalPoints(), snapshot.expectedAnswersJson(), feedbackJson);
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode buildValidatedFeedbackMapBeforeTargetEvaluation(
+            WritingQuestionReEvaluationSnapshot snapshot
+    ) {
+        List<QuestionSnapshot> essayQuestions = snapshot.questions().stream()
+                .filter(q -> PracticeQuestion.TYPE_ESSAY.equals(q.questionType()))
+                .toList();
+        JsonNode root = readExistingWritingFeedbackRoot(snapshot.expectedAiFeedbackJson());
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
+
+        if (isLegacySingleFeedback(root)) {
+            if (essayQuestions.size() != 1 || !essayQuestions.get(0).questionId().equals(snapshot.targetQuestion().questionId())) {
+                throw unsupportedPerQuestionFeedback();
+            }
+            return feedbackMap;
+        }
+
+        if (!root.isObject()) {
+            throw unsupportedPerQuestionFeedback();
+        }
+
+        com.fasterxml.jackson.databind.node.ObjectNode rootObject = (com.fasterxml.jackson.databind.node.ObjectNode) root;
+        feedbackMap = rootObject.deepCopy();
+        for (QuestionSnapshot q : essayQuestions) {
+            if (q.questionId().equals(snapshot.targetQuestion().questionId())) {
+                continue;
+            }
+            JsonNode entry = feedbackMap.get(String.valueOf(q.questionId()));
+            if (entry == null || entry.isNull() || !entry.isObject()) {
+                throw unsupportedPerQuestionFeedback();
+            }
+            validateStoredWritingFeedbackScore(entry, q.questionId());
+        }
+        return feedbackMap;
+    }
+
+    private JsonNode readExistingWritingFeedbackRoot(String feedbackJson) {
+        if (feedbackJson == null || feedbackJson.isBlank()) {
+            throw unsupportedPerQuestionFeedback();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(feedbackJson);
+            if (root == null || !root.isObject()) {
+                throw unsupportedPerQuestionFeedback();
+            }
+            return root;
+        } catch (PracticeAttemptConflictException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw unsupportedPerQuestionFeedback();
+        }
+    }
+
+    private WritingScoreAggregate aggregateWritingScore(
+            List<QuestionSnapshot> questions,
+            Map<String, String> answers,
+            com.fasterxml.jackson.databind.node.ObjectNode feedbackMap
+    ) {
+        BigDecimal attemptTotalPoints = BigDecimal.ZERO;
+        BigDecimal attemptEarnedPoints = BigDecimal.ZERO;
+
+        for (QuestionSnapshot q : questions) {
+            BigDecimal configuredPoints = q.points();
+            attemptTotalPoints = attemptTotalPoints.add(configuredPoints);
+            String answer = answers.getOrDefault(String.valueOf(q.questionId()), "").trim();
+
+            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType()) || isAutoScoredByKey(q.questionType())) {
+                if (answersMatch(answer, q.answerKey())) {
+                    attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
+                }
+            } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
+                JsonNode node = feedbackMap.get(String.valueOf(q.questionId()));
+                if (node == null || node.isNull() || !node.isObject()) {
+                    throw unsupportedPerQuestionFeedback();
+                }
+                StoredWritingScore storedScore = validateStoredWritingFeedbackScore(node, q.questionId());
+                BigDecimal rawScore = clamp(storedScore.rawScore(), BigDecimal.ZERO, storedScore.rawScoreMax());
+                BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
+                        .divide(storedScore.rawScoreMax(), java.math.MathContext.DECIMAL128);
+                attemptEarnedPoints = attemptEarnedPoints.add(earnedQuestionPoints);
+            } else {
+                throw new IllegalStateException("Unsupported WRITING question type for question ID " + q.questionId()
+                        + ": " + q.questionType());
+            }
+        }
+
+        return new WritingScoreAggregate(toWritingAttemptPercentage(attemptEarnedPoints, attemptTotalPoints), attemptTotalPoints);
+    }
+
+    private BigDecimal toWritingAttemptPercentage(BigDecimal earnedPoints, BigDecimal totalPoints) {
+        BigDecimal attemptScore = BigDecimal.ZERO;
+        if (totalPoints.compareTo(BigDecimal.ZERO) > 0) {
+            attemptScore = earnedPoints.multiply(BigDecimal.valueOf(100))
+                    .divide(totalPoints, 2, RoundingMode.HALF_UP);
+        }
+        attemptScore = clamp(attemptScore, BigDecimal.ZERO, BigDecimal.valueOf(100));
+        if (attemptScore.compareTo(BigDecimal.ZERO) == 0) {
+            attemptScore = BigDecimal.ZERO;
+        }
+        return attemptScore;
+    }
+
+    private StoredWritingScore validateStoredWritingFeedbackScore(JsonNode node, Long questionId) {
+        if (node == null || !node.isObject()) {
+            throw unsupportedPerQuestionFeedback();
+        }
+        BigDecimal rawScore = storedDecimal(node, "raw_score", questionId);
+        BigDecimal rawScoreMax = storedDecimal(node, "raw_score_max", questionId);
+        if (rawScore.compareTo(BigDecimal.ZERO) < 0 || rawScoreMax.compareTo(BigDecimal.ZERO) <= 0
+                || rawScore.compareTo(rawScoreMax) > 0) {
+            throw unsupportedPerQuestionFeedback();
+        }
+        return new StoredWritingScore(rawScore, rawScoreMax);
+    }
+
+    private BigDecimal storedDecimal(JsonNode node, String fieldName, Long questionId) {
+        JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull() || !value.isNumber()) {
+            throw unsupportedPerQuestionFeedback();
+        }
+        return value.decimalValue();
     }
 
     private Long persistWritingSubmitResult(WritingGradingSnapshot snapshot, WritingGradingResult result) {
@@ -2339,7 +2526,36 @@ public class PracticeService {
         return attempt.getId();
     }
 
+    private Long persistWritingQuestionReEvaluationResult(
+            WritingQuestionReEvaluationSnapshot snapshot,
+            WritingGradingResult result
+    ) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
+                .orElseThrow(() -> new EntityNotFoundException("Bai lam da thay doi trong luc cham. Vui long tai lai va thu lai."));
+        if (!Objects.equals(snapshot.expectedStatus(), attempt.getStatus())) {
+            throw conflict();
+        }
+        if (!Objects.equals(snapshot.expectedAnswersJson(), attempt.getAnswersJson())) {
+            throw conflict();
+        }
+        if (!Objects.equals(snapshot.expectedAiFeedbackJson(), attempt.getAiFeedbackJson())) {
+            throw conflict();
+        }
+        verifyQuestionSnapshotVersion(attempt, snapshot);
+        attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
+        flushAttempt(attempt);
+        log.info("[PracticeService] Re-evaluated WRITING question PracticeAttempt id={} questionId={} score={} / {}",
+                attempt.getId(), snapshot.targetQuestion().questionId(), attempt.getScore(), attempt.getTotalPoints());
+        return attempt.getId();
+    }
+
     private void verifySnapshotVersion(PracticeAttempt attempt, WritingGradingSnapshot snapshot) {
+        if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
+            throw conflict();
+        }
+    }
+
+    private void verifyQuestionSnapshotVersion(PracticeAttempt attempt, WritingQuestionReEvaluationSnapshot snapshot) {
         if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
             throw conflict();
         }
@@ -2355,6 +2571,10 @@ public class PracticeService {
 
     private PracticeAttemptConflictException conflict() {
         return new PracticeAttemptConflictException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại.");
+    }
+
+    private PracticeAttemptConflictException unsupportedPerQuestionFeedback() {
+        return new PracticeAttemptConflictException("Du lieu phan hoi cu khong ho tro cham lai tung cau. Vui long cham lai toan bai.");
     }
 
     private String normalizeJsonForCompare(String value) {
@@ -2375,6 +2595,21 @@ public class PracticeService {
     ) {
     }
 
+    private record WritingQuestionReEvaluationSnapshot(
+            Long attemptId,
+            Long userId,
+            Long sectionId,
+            String skill,
+            String expectedStatus,
+            Long lockVersion,
+            String expectedAnswersJson,
+            String expectedAiFeedbackJson,
+            Map<String, String> answers,
+            List<QuestionSnapshot> questions,
+            QuestionSnapshot targetQuestion
+    ) {
+    }
+
     private record QuestionSnapshot(
             Long questionId,
             Integer questionNo,
@@ -2383,6 +2618,18 @@ public class PracticeService {
             String questionType,
             String answerKey,
             BigDecimal points
+    ) {
+    }
+
+    private record StoredWritingScore(
+            BigDecimal rawScore,
+            BigDecimal rawScoreMax
+    ) {
+    }
+
+    private record WritingScoreAggregate(
+            BigDecimal score,
+            BigDecimal totalPoints
     ) {
     }
 
@@ -2447,15 +2694,7 @@ public class PracticeService {
             }
         }
 
-        BigDecimal attemptScore = BigDecimal.ZERO;
-        if (attemptTotalPoints.compareTo(BigDecimal.ZERO) > 0) {
-            attemptScore = attemptEarnedPoints.multiply(BigDecimal.valueOf(100))
-                    .divide(attemptTotalPoints, 2, RoundingMode.HALF_UP);
-        }
-        attemptScore = clamp(attemptScore, BigDecimal.ZERO, BigDecimal.valueOf(100));
-        if (attemptScore.compareTo(BigDecimal.ZERO) == 0) {
-            attemptScore = BigDecimal.ZERO;
-        }
+        BigDecimal attemptScore = toWritingAttemptPercentage(attemptEarnedPoints, attemptTotalPoints);
 
         String feedbackJson = "{}";
         try {

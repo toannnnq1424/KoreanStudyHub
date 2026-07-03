@@ -1,5 +1,6 @@
 package com.ksh.features.practice;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
@@ -1312,6 +1313,147 @@ class PracticeIntegrationTest {
         assertEquals(objectMapper.readTree(fixture.oldFeedbackJson()), objectMapper.readTree(attempt.getAiFeedbackJson()));
         assertTrue(attempt.getAnswersJson().contains("Changed after snapshot"));
         } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingQuestionReEvaluateEndpointUsesQuestionIdParameter() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Writing", true);
+        try {
+            String beforeAnswersJson = attemptRepository.findById(fixture.attemptId()).orElseThrow().getAnswersJson();
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true)))
+                    .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"target only\",\"rubric_scores\":[]}");
+
+            mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
+                            .with(csrf())
+                            .param("questionId", String.valueOf(fixture.questionId())))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result"));
+
+            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertEquals("GRADED", attempt.getStatus());
+            assertEquals(beforeAnswersJson, attempt.getAnswersJson());
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(90.00)));
+            JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+            assertEquals("target only", feedback.get(String.valueOf(fixture.questionId())).path("summary").asText());
+            verify(writingEvaluationClient, times(1))
+                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingQuestionReEvaluateStaleAnswersConflictPreservesOldResultAndRunsOutsideTransaction() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Stale Answers", true);
+        final boolean[] evaluatorSawTransaction = {true};
+        try {
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+                    .thenAnswer(invocation -> {
+                        evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
+                        TransactionTemplate template = new TransactionTemplate(transactionManager);
+                        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                        template.execute(status -> {
+                            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+                            attempt.setAnswersJson("{\"" + fixture.questionId() + "\":\"Changed after snapshot\"}");
+                            attemptRepository.saveAndFlush(attempt);
+                            return null;
+                        });
+                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    });
+
+            assertThrows(PracticeAttemptConflictException.class,
+                    () -> practiceService.reEvaluateQuestion(fixture.attemptId(), fixture.questionId(), student.getId()));
+
+            assertFalse(evaluatorSawTransaction[0]);
+            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertEquals("GRADED", attempt.getStatus());
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+            assertEquals(objectMapper.readTree(fixture.oldFeedbackJson()), objectMapper.readTree(attempt.getAiFeedbackJson()));
+            assertTrue(attempt.getAnswersJson().contains("Changed after snapshot"));
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testWritingQuestionReEvaluateAfterDiscardDoesNotRecreateAttempt() {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Discard", true);
+        try {
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+                    .thenAnswer(invocation -> {
+                        TransactionTemplate template = new TransactionTemplate(transactionManager);
+                        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                        template.execute(status -> {
+                            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+                            attemptRepository.delete(attempt);
+                            attemptRepository.flush();
+                            return null;
+                        });
+                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    });
+
+            assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                    () -> practiceService.reEvaluateQuestion(fixture.attemptId(), fixture.questionId(), student.getId()));
+
+            assertTrue(attemptRepository.findById(fixture.attemptId()).isEmpty());
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testConcurrentWritingQuestionReEvaluateSameTargetOnlyOneCommit() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Concurrent Question Reevaluate Writing", true);
+        CyclicBarrier evaluatorBarrier = new CyclicBarrier(2);
+        AtomicInteger evaluatorCalls = new AtomicInteger();
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+                .thenAnswer(invocation -> {
+                    evaluatorCalls.incrementAndGet();
+                    evaluatorBarrier.await(5, TimeUnit.SECONDS);
+                    return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                });
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<Object> reEvaluateQuestion = () -> {
+                try {
+                    return practiceService.reEvaluateQuestion(fixture.attemptId(), fixture.questionId(), student.getId());
+                } catch (Exception ex) {
+                    return ex;
+                }
+            };
+
+            Future<Object> first = executor.submit(reEvaluateQuestion);
+            Future<Object> second = executor.submit(reEvaluateQuestion);
+            Object firstResult = first.get(10, TimeUnit.SECONDS);
+            Object secondResult = second.get(10, TimeUnit.SECONDS);
+
+            long successes = List.of(firstResult, secondResult).stream()
+                    .filter(result -> result instanceof Long)
+                    .count();
+            long conflicts = List.of(firstResult, secondResult).stream()
+                    .filter(result -> result instanceof PracticeAttemptConflictException)
+                    .count();
+
+            assertEquals(1, successes);
+            assertEquals(1, conflicts);
+            assertEquals(2, evaluatorCalls.get());
+
+            PracticeAttempt finalAttempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertEquals("GRADED", finalAttempt.getStatus());
+            assertEquals(0, finalAttempt.getScore().compareTo(BigDecimal.valueOf(90.00)));
+            JsonNode feedback = objectMapper.readTree(finalAttempt.getAiFeedbackJson());
+            assertTrue(feedback.has(String.valueOf(fixture.questionId())));
+            assertEquals(9.0, feedback.get(String.valueOf(fixture.questionId())).path("raw_score").asDouble());
+        } finally {
+            executor.shutdownNow();
             deleteWritingAttemptFixture(fixture);
         }
     }

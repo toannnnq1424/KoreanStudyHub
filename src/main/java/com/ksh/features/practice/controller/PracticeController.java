@@ -311,9 +311,12 @@ public class PracticeController {
 
     @PostMapping("/attempts/{attemptId}/re-evaluate")
     public String reEvaluateAttempt(@PathVariable Long attemptId,
+                                    @RequestParam(value = "questionId", required = false) Long questionId,
                                     @AuthenticationPrincipal KshUserDetails user,
                                     RedirectAttributes redirectAttributes) {
-        Long refreshedSubmissionId = practiceService.reEvaluate(attemptId, user.getId());
+        Long refreshedSubmissionId = questionId == null
+                ? practiceService.reEvaluate(attemptId, user.getId())
+                : practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
         redirectAttributes.addFlashAttribute("success", "Đã chấm lại bài viết bằng Audit Mode.");
         return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result";
     }

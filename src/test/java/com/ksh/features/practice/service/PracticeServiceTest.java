@@ -3,6 +3,7 @@ package com.ksh.features.practice.service;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
@@ -1149,5 +1150,236 @@ class PracticeServiceTest {
 
         assertThrows(PracticeAttemptConflictException.class,
                 () -> practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1")));
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateReplacesTargetOnlyAndRecomputesScore() throws Exception {
+        PracticeAttempt attempt = arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0,\"summary\":\"keep\"},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0,\"summary\":\"old\"}}",
+                true);
+        JsonNode oldNonTarget = objectMapper.readTree(attempt.getAiFeedbackJson()).get("102");
+
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+                .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0,\"summary\":\"new\",\"rubric_scores\":[]}");
+
+        Long result = practiceService.reEvaluateQuestion(99L, 103L, 2L);
+
+        assertEquals(99L, result);
+        assertEquals("GRADED", attempt.getStatus());
+        assertEquals("{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}", attempt.getAnswersJson());
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(76.00)));
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(50.0)));
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals(oldNonTarget, feedback.get("102"));
+        assertEquals("new", feedback.get("103").path("summary").asText());
+        assertTrue(feedback.get("103").isObject());
+        assertFalse(feedback.get("103").isTextual());
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true));
+        verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateBlocksLegacyFlatMultiEssayBeforeEvaluator() {
+        arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}",
+                true);
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 102L, 2L));
+
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateConvertsLegacyFlatSingleEssayToCurrentMap() throws Exception {
+        PracticeAttempt attempt = arrangeSingleEssayWritingQuestionReEvaluationAttempt(
+                "{\"102\":\"A1\"}",
+                "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}");
+        when(evaluationClient.evaluate(eq(2L), eq("Q1"), eq("A1"), eq(true)))
+                .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0,\"summary\":\"new\"}");
+
+        practiceService.reEvaluateQuestion(99L, 102L, 2L);
+
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertTrue(feedback.has("102"));
+        assertFalse(feedback.has("raw_score"));
+        assertEquals("new", feedback.get("102").path("summary").asText());
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateBlocksMalformedNonTargetBeforeEvaluator() {
+        arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"summary\":\"missing raw\"},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0}}",
+                true);
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 103L, 2L));
+
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateBlocksZeroRawScoreMaxBeforeEvaluator() {
+        arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":0},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0}}",
+                true);
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 103L, 2L));
+
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateBlocksNonNumericRawScoreBeforeEvaluator() {
+        arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":\"six\",\"raw_score_max\":10.0},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0}}",
+                true);
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 103L, 2L));
+
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateTargetZeroScoreRecomputesWithoutDeltaDrift() throws Exception {
+        PracticeAttempt attempt = arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0,\"summary\":\"keep\"},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0,\"summary\":\"old\"}}",
+                true);
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+                .thenReturn("{\"raw_score\":0.0,\"raw_score_max\":30.0,\"summary\":\"invalid\"}");
+
+        practiceService.reEvaluateQuestion(99L, 103L, 2L);
+
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(28.00)));
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals(0.0, feedback.get("103").path("raw_score").asDouble());
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true));
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateFeedbackChangedBeforePhaseBConflictsAndPreservesOldResult() throws Exception {
+        PracticeAttempt snapshotAttempt = arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0}}",
+                false);
+        PracticeAttempt changedAttempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        changedAttempt.setStatus("GRADED");
+        changedAttempt.setLockVersion(0L);
+        changedAttempt.markGraded(
+                BigDecimal.valueOf(50.00),
+                BigDecimal.valueOf(50.0),
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0},\"103\":{\"raw_score\":20.0,\"raw_score_max\":30.0}}");
+        setEntityId(changedAttempt, 99L);
+        when(attemptRepository.findByIdAndUserId(99L, 2L))
+                .thenReturn(Optional.of(snapshotAttempt), Optional.of(changedAttempt));
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+                .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0}");
+
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 103L, 2L));
+
+        assertEquals(0, changedAttempt.getScore().compareTo(BigDecimal.valueOf(50.00)));
+        assertEquals(20.0, objectMapper.readTree(changedAttempt.getAiFeedbackJson()).get("103").path("raw_score").asDouble());
+        verify(attemptRepository, never()).saveAndFlush(changedAttempt);
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateRejectsWritingMcq() {
+        arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0}}",
+                true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> practiceService.reEvaluateQuestion(99L, 101L, 2L));
+
+        verifyNoInteractions(evaluationClient);
+    }
+
+    private PracticeAttempt arrangeWritingQuestionReEvaluationAttempt(
+            String answersJson,
+            String feedbackJson,
+            boolean stubAttemptLookup
+    ) {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(1L, "Group 1", 1, 3, "Instruction", null, null, 1);
+        group.setSectionId(20L);
+        setEntityId(group, 30L);
+
+        PracticeQuestion qMcq = new PracticeQuestion(1L, 10, "MCQ", "M1", "[\"1\",\"2\",\"3\"]", "3", "Explain", BigDecimal.valueOf(5.0), 0);
+        qMcq.setGroupId(30L);
+        setEntityId(qMcq, 101L);
+        PracticeQuestion qEssay1 = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.valueOf(15.0), 1);
+        qEssay1.setGroupId(30L);
+        setEntityId(qEssay1, 102L);
+        PracticeQuestion qEssay2 = new PracticeQuestion(1L, 53, "ESSAY", "Q2", "[]", "", "Explain", BigDecimal.valueOf(30.0), 2);
+        qEssay2.setGroupId(30L);
+        setEntityId(qEssay2, 103L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("GRADED");
+        attempt.setLockVersion(0L);
+        attempt.markGraded(BigDecimal.valueOf(50.00), BigDecimal.valueOf(50.0), answersJson, feedbackJson);
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(qMcq, qEssay1, qEssay2));
+        if (stubAttemptLookup) {
+            when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        }
+        return attempt;
+    }
+
+    private PracticeAttempt arrangeSingleEssayWritingQuestionReEvaluationAttempt(String answersJson, String feedbackJson) {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(1L, "Group 1", 1, 1, "Instruction", null, null, 1);
+        group.setSectionId(20L);
+        setEntityId(group, 30L);
+        PracticeQuestion qEssay = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        qEssay.setGroupId(30L);
+        setEntityId(qEssay, 102L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("GRADED");
+        attempt.setLockVersion(0L);
+        attempt.markGraded(BigDecimal.valueOf(60.00), BigDecimal.TEN, answersJson, feedbackJson);
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(qEssay));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        return attempt;
     }
 }
