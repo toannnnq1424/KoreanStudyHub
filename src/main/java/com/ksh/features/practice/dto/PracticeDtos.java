@@ -3,6 +3,7 @@ package com.ksh.features.practice.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public final class PracticeDtos {
     private PracticeDtos() {
@@ -195,7 +196,72 @@ public final class PracticeDtos {
             String prompt,
             String learnerAnswer,
             com.fasterxml.jackson.databind.JsonNode feedbackNode,
+            WritingFeedbackView writingFeedback,
             boolean reEvaluatable
+    ) {}
+
+    public record WritingFeedbackView(
+            @JsonProperty("raw_score") BigDecimal rawScore,
+            @JsonProperty("raw_score_max") BigDecimal rawScoreMax,
+            BigDecimal score,
+            String summary,
+            @JsonProperty("summary_vi") String summaryVi,
+            @JsonProperty("rubric_scores") List<WritingRubricScoreView> rubricScores,
+            List<WritingFindingView> strengths,
+            @JsonProperty("needs_improvement") List<WritingFindingView> needsImprovement,
+            List<WritingAnnotationView> annotations,
+            @JsonProperty("upgraded_answer") String upgradedAnswer,
+            @JsonProperty("sentence_rewrites") List<WritingSentenceRewriteView> sentenceRewrites,
+            @JsonProperty("sample_answer") String sampleAnswer
+    ) {
+        public WritingFeedbackView {
+            rubricScores = rubricScores == null ? List.of() : List.copyOf(rubricScores);
+            strengths = strengths == null ? List.of() : List.copyOf(strengths);
+            needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
+            annotations = annotations == null ? List.of() : List.copyOf(annotations);
+            sentenceRewrites = sentenceRewrites == null ? List.of() : List.copyOf(sentenceRewrites);
+        }
+    }
+
+    public record WritingRubricScoreView(
+            String name,
+            BigDecimal score,
+            String feedback
+    ) {}
+
+    public record WritingFindingView(
+            String category,
+            String vietnameseLabel,
+            String uiLabel,
+            String criterionId,
+            String evidence,
+            String explanationVi,
+            String correction,
+            String severity,
+            String errorType,
+            String whyItIsGood,
+            String topikTip
+    ) {}
+
+    public record WritingAnnotationView(
+            String id,
+            String kind,
+            String criterionId,
+            String category,
+            Integer start,
+            Integer end,
+            String severity,
+            String displayType,
+            Integer index,
+            String explanationVi,
+            String correction,
+            String evidence
+    ) {}
+
+    public record WritingSentenceRewriteView(
+            String original,
+            String upgraded,
+            String reason
     ) {}
 
 

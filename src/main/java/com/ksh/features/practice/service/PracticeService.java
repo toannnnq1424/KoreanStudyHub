@@ -14,6 +14,7 @@ import com.ksh.features.practice.dto.PracticeDtos.ExampleBox;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
 import com.ksh.features.practice.ai.WritingEvaluationResult;
 import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
@@ -79,6 +80,7 @@ public class PracticeService {
     private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
     private final WritingFeedbackCompatibilityReader writingFeedbackReader;
+    private final WritingFeedbackViewMapper writingFeedbackViewMapper;
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private final ObjectMapper objectMapper;
@@ -96,6 +98,7 @@ public class PracticeService {
                            PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
                            WritingFeedbackCompatibilityReader writingFeedbackReader,
+                           WritingFeedbackViewMapper writingFeedbackViewMapper,
                            ReadingListeningExplanationService readingListeningExplanationService,
                            AudioStorageService audioStorageService,
                            ObjectMapper objectMapper,
@@ -109,6 +112,7 @@ public class PracticeService {
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
         this.writingFeedbackReader = writingFeedbackReader;
+        this.writingFeedbackViewMapper = writingFeedbackViewMapper;
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -141,6 +145,7 @@ public class PracticeService {
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
         this.writingFeedbackReader = new WritingFeedbackCompatibilityReader(objectMapper);
+        this.writingFeedbackViewMapper = new WritingFeedbackViewMapper();
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -421,6 +426,7 @@ public class PracticeService {
                     q.getPrompt(),
                     answer,
                     feedbackNode,
+                    writingFeedbackViewMapper.map(feedbackNode),
                     isQuestionReEvaluatable(q, essayQuestions, isLegacy, currentMapReEvaluatable)
             ));
         }
