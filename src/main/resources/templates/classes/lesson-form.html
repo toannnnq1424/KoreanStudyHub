@@ -3,20 +3,21 @@
 <head th:replace="~{fragments/head ::
         head(${(mode == 'edit' ? 'Sửa bài giảng' : 'Tạo bài giảng') + ' | ' + clazz.name},
              ~{::link.page-css})}">
-  <!-- CSS load order matters: app-shell → class-detail → detail-page (design
-       system) → admin (base form-row input styles consumed by
-       .detail-form-grid) → classes → sections (lesson card / form rules
-       co-locate here so the same stylesheet covers the list page and the
-       form page) → quill snow theme (CDN). -->
-  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-attachments.css}">
-  <link class="page-css" rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+    <!-- CSS load order matters: app-shell → class-detail → detail-page (design
+         system) → admin (base form-row input styles consumed by
+         .detail-form-grid) → classes → sections (lesson card / form rules
+         co-locate here so the same stylesheet covers the list page and the
+         form page) → quill snow theme (CDN). -->
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/sections.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-attachments.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
+    <link class="page-css" rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
@@ -27,172 +28,332 @@
       style="display:none;"></span>
 
 <div class="class-detail-layout">
-  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
+    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
 
-  <main class="col detail-page">
+    <main class="col detail-page">
 
-    <!-- ═══ Sticky toolbar — Back + Save ═══════════════════════════════ -->
-    <div class="detail-toolbar">
-      <a th:href="@{${cancelUrl}}" class="toolbar-back">
-        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
-        </svg>
-        Quay lại
-      </a>
-      <span class="toolbar-spacer"></span>
-      <button type="submit" form="lessonForm" class="toolbar-save"
-              th:text="${mode == 'edit' ? 'Lưu thay đổi' : 'Tạo bài giảng'}">Tạo bài giảng</button>
-    </div>
+        <!-- ═══ Sticky toolbar — Back + Save ═══════════════════════════════ -->
+        <div class="detail-toolbar">
+            <a th:href="@{${cancelUrl}}" class="toolbar-back">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+                </svg>
+                Quay lại
+            </a>
+            <span class="toolbar-spacer"></span>
+            <button type="submit" form="lessonForm" class="toolbar-save"
+                    th:text="${mode == 'edit' ? 'Lưu thay đổi' : 'Tạo bài giảng'}">Tạo bài giảng</button>
+        </div>
 
-    <!-- ═══ Header (title + meta) ═══════════════════════════════════════ -->
-    <h1 class="detail-page-title"
-        th:text="${mode == 'edit' ? 'Sửa bài giảng' : 'Tạo bài giảng mới'}">Tạo bài giảng mới</h1>
-    <div class="detail-page-meta">
-      <div class="meta-badges">
+        <!-- ═══ Header (title + meta) ═══════════════════════════════════════ -->
+        <h1 class="detail-page-title"
+            th:text="${mode == 'edit' ? 'Sửa bài giảng' : 'Tạo bài giảng mới'}">Tạo bài giảng mới</h1>
+        <div class="detail-page-meta">
+            <div class="meta-badges">
         <span class="status-pill status-active"
               th:text="${mode == 'edit' ? 'CHỈNH SỬA' : 'TẠO MỚI'}">TẠO MỚI</span>
-      </div>
-      <span>Lớp:
+            </div>
+            <span>Lớp:
         <em th:text="${clazz.name}">Tên lớp</em>
       </span>
-      <span th:if="${section != null}">Chương:
+            <span th:if="${section != null}">Chương:
         <em th:text="${section.title}">—</em>
       </span>
-      <span th:if="${mode == 'edit' and lesson != null}">Bài giảng hiện tại:
+            <span th:if="${mode == 'edit' and lesson != null}">Bài giảng hiện tại:
         <em th:text="${lesson.title}">—</em>
       </span>
-    </div>
+        </div>
 
-    <!-- ═══ Tab pill strip — client-side toggle (edit mode only) ════════ -->
-    <nav class="detail-tabs" aria-label="Phần chỉnh sửa bài giảng"
-         role="tablist"
-         th:if="${mode == 'edit'}">
-      <button type="button" class="detail-tab"
-              role="tab"
-              data-tab-target="info"
-              th:classappend="${activeDetailTab == 'info'} ? 'active'"
-              th:attr="aria-selected=${activeDetailTab == 'info'} ? 'true' : 'false',
+        <!-- ═══ Tab pill strip — client-side toggle (edit mode only) ════════ -->
+        <nav class="detail-tabs" aria-label="Phần chỉnh sửa bài giảng"
+             role="tablist"
+             th:if="${mode == 'edit'}">
+            <button type="button" class="detail-tab"
+                    role="tab"
+                    data-tab-target="info"
+                    th:classappend="${activeDetailTab == 'info'} ? 'active'"
+                    th:attr="aria-selected=${activeDetailTab == 'info'} ? 'true' : 'false',
                        aria-controls='panel-info'">Thông tin</button>
-      <button type="button" class="detail-tab"
-              role="tab"
-              data-tab-target="history"
-              th:classappend="${activeDetailTab == 'history'} ? 'active'"
-              th:attr="aria-selected=${activeDetailTab == 'history'} ? 'true' : 'false',
+            <button type="button" class="detail-tab"
+                    role="tab"
+                    data-tab-target="history"
+                    th:classappend="${activeDetailTab == 'history'} ? 'active'"
+                    th:attr="aria-selected=${activeDetailTab == 'history'} ? 'true' : 'false',
                        aria-controls='panel-history'">Lịch sử</button>
-    </nav>
+        </nav>
 
-    <!-- ═══ Info panel — title + status + Quill body ════════════════════ -->
-    <div id="panel-info" class="section-tab-panel"
-         role="tabpanel"
-         aria-labelledby="tab-info"
-         th:attr="hidden=${mode == 'edit' and activeDetailTab != 'info'} ? 'hidden' : null">
-      <form id="lessonForm"
-            th:action="@{${formAction}}"
-            method="post"
-            th:object="${form}"
-            novalidate>
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <!-- Hidden field that JS populates from Quill on submit. -->
-        <input type="hidden" id="lessonContentHtml" name="contentHtml"
-               th:value="*{contentHtml}">
+        <!-- ═══ Info panel — title + status + Quill body ════════════════════ -->
+        <div id="panel-info" class="section-tab-panel"
+             role="tabpanel"
+             aria-labelledby="tab-info"
+             th:attr="hidden=${mode == 'edit' and activeDetailTab != 'info'} ? 'hidden' : null">
+            <form id="lessonForm"
+                  th:action="@{${formAction}}"
+                  method="post"
+                  th:object="${form}"
+                  novalidate>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <!-- Hidden field that JS populates from Quill on submit. -->
+                <input type="hidden" id="lessonContentHtml" name="contentHtml"
+                       th:value="*{contentHtml}">
 
-        <section class="detail-card">
-          <h2 class="detail-card-title">Thông tin bài giảng</h2>
-          <div class="detail-form-grid">
-            <div class="form-row span-2">
-              <label for="titleInput">
-                Tiêu đề bài giảng <span class="required" aria-hidden="true">*</span>
-              </label>
-              <input id="titleInput" type="text" th:field="*{title}"
-                     th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
-                     th:attr="aria-invalid=${#fields.hasErrors('title')} ? 'true' : 'false',
+                <section class="detail-card">
+                    <h2 class="detail-card-title">Thông tin bài giảng</h2>
+                    <div class="detail-form-grid">
+                        <div class="form-row span-2">
+                            <label for="titleInput">
+                                Tiêu đề bài giảng <span class="required" aria-hidden="true">*</span>
+                            </label>
+                            <input id="titleInput" type="text" th:field="*{title}"
+                                   th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
+                                   th:attr="aria-invalid=${#fields.hasErrors('title')} ? 'true' : 'false',
                               aria-describedby=${#fields.hasErrors('title')} ? 'title-error' : 'title-help'"
-                     maxlength="300" required aria-required="true"
-                     placeholder="Ví dụ: Bài 1 — Giới thiệu"
-                     autofocus>
-              <p id="title-error" class="field-error" role="alert"
-                 th:if="${#fields.hasErrors('title')}"
-                 th:errors="*{title}">Lỗi tiêu đề</p>
-              <p id="title-help" class="detail-field-help"
-                 th:if="${not #fields.hasErrors('title')}">Tối đa 300 ký tự.</p>
-            </div>
-            <div class="form-row span-1">
-              <label for="statusSelect">Trạng thái</label>
-              <select id="statusSelect" th:field="*{status}">
-                <option value="DRAFT">Nháp</option>
-                <option value="PUBLISHED">Xuất bản</option>
-              </select>
-              <p class="field-error" role="alert"
-                 th:if="${#fields.hasErrors('status')}"
-                 th:errors="*{status}">Lỗi trạng thái</p>
-            </div>
-          </div>
-        </section>
+                                   maxlength="300" required aria-required="true"
+                                   placeholder="Ví dụ: Bài 1 — Giới thiệu"
+                                   autofocus>
+                            <p id="title-error" class="field-error" role="alert"
+                               th:if="${#fields.hasErrors('title')}"
+                               th:errors="*{title}">Lỗi tiêu đề</p>
+                            <p id="title-help" class="detail-field-help"
+                               th:if="${not #fields.hasErrors('title')}">Tối đa 300 ký tự.</p>
+                        </div>
+                        <div class="form-row span-1">
+                            <label for="statusSelect">Trạng thái</label>
+                            <select id="statusSelect" th:field="*{status}">
+                                <option value="DRAFT">Nháp</option>
+                                <option value="PUBLISHED">Xuất bản</option>
+                            </select>
+                            <p class="field-error" role="alert"
+                               th:if="${#fields.hasErrors('status')}"
+                               th:errors="*{status}">Lỗi trạng thái</p>
+                        </div>
+                    </div>
+                </section>
 
-        <section class="detail-card">
-          <h2 class="detail-card-title">Nội dung bài giảng</h2>
-          <p class="detail-field-help">
-            Sử dụng trình soạn thảo để định dạng văn bản, danh sách, liên kết
-            và hình ảnh nhúng. Nội dung sẽ được làm sạch HTML phía máy chủ
-            trước khi lưu.
-          </p>
-          <div id="lessonContentEditor" class="lesson-editor"></div>
-        </section>
-      </form>
+                <section class="detail-card">
+                    <h2 class="detail-card-title">Loại nội dung</h2>
+                    <p class="detail-field-help">
+                        Chọn định dạng phù hợp với bài giảng. Khi đổi loại, dữ liệu của
+                        loại trước đó sẽ được xoá vĩnh viễn.
+                    </p>
+                    <div class="lct-picker" role="radiogroup" aria-label="Loại nội dung">
+                        <label class="lct-card">
+                            <input type="radio" th:field="*{contentType}" value="RICHTEXT">
+                            <span class="lct-card-body">
+                <span class="lct-card-title">Văn bản</span>
+                <span class="lct-card-desc">Soạn nội dung bằng trình soạn thảo</span>
+              </span>
+                        </label>
+                        <label class="lct-card">
+                            <input type="radio" th:field="*{contentType}" value="PDF">
+                            <span class="lct-card-body">
+                <span class="lct-card-title">PDF</span>
+                <span class="lct-card-desc">Tải tệp PDF chính cho học viên xem</span>
+              </span>
+                        </label>
+                        <label class="lct-card">
+                            <input type="radio" th:field="*{contentType}" value="VIDEO">
+                            <span class="lct-card-body">
+                <span class="lct-card-title">Video</span>
+                <span class="lct-card-desc">Dán URL YouTube/Vimeo hoặc tải MP4</span>
+              </span>
+                        </label>
+                    </div>
+                    <p class="field-error" role="alert"
+                       th:if="${#fields.hasErrors('contentType')}"
+                       th:errors="*{contentType}">Lỗi loại nội dung</p>
+                </section>
 
-      <!-- ═══ Attachments — edit-mode only (ksh-4.0c) ═══════════════════ -->
-      <section class="detail-card" th:if="${mode == 'edit' and lesson != null}"
-               id="lessonAttachmentsCard"
-               th:attr="data-lesson-id=${lesson.id},
+                <section class="detail-card" data-content-type-section="RICHTEXT">
+                    <h2 class="detail-card-title">Nội dung bài giảng</h2>
+                    <p class="detail-field-help">
+                        Sử dụng trình soạn thảo để định dạng văn bản, danh sách, liên kết
+                        và hình ảnh nhúng. Nội dung sẽ được làm sạch HTML phía máy chủ
+                        trước khi lưu.
+                    </p>
+                    <div id="lessonContentEditor" class="lesson-editor"></div>
+                </section>
+
+                <section class="detail-card" data-content-type-section="PDF"
+                         th:if="${mode == 'edit' and lesson != null}"
+                         th:attr="data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/pdf|}">
+                    <h2 class="detail-card-title">PDF chính</h2>
+                    <p class="detail-field-help"
+                       th:if="${lesson.pdfAttachmentId != null}">
+                        Đang dùng tệp PDF chính (id <span th:text="${lesson.pdfAttachmentId}">42</span>).
+                        Tải lên tệp mới sẽ thay thế.
+                    </p>
+                    <p class="detail-field-help lct-warn"
+                       th:if="${lesson.pdfAttachmentId == null}">
+                        Bạn cần tải PDF lên trước khi lưu với loại PDF.
+                    </p>
+                    <div class="lct-pdf-upload">
+                        <input id="lessonPdfInput" type="file" accept="application/pdf">
+                        <button type="button" class="btn-secondary" id="lessonPdfUploadBtn">
+                            Tải PDF lên
+                        </button>
+                        <span class="lct-pdf-status" id="lessonPdfStatus"></span>
+                    </div>
+                </section>
+
+                <section class="detail-card" data-content-type-section="PDF"
+                         th:if="${mode == 'create'}">
+                    <h2 class="detail-card-title">PDF chính</h2>
+                    <p class="detail-field-help lct-warn">
+                        Hãy tạo bài giảng dưới dạng nháp trước, sau đó tải PDF lên trong
+                        chế độ chỉnh sửa.
+                    </p>
+                </section>
+
+                <section class="detail-card" data-content-type-section="VIDEO"
+                         th:if="${mode == 'edit' and lesson != null}"
+                         th:attr="data-video-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video|},
+                          data-video-url-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/content/video-url|}">
+                    <h2 class="detail-card-title">Video bài giảng</h2>
+                    <div class="lct-video-providers" role="radiogroup" aria-label="Nguồn video">
+                        <label>
+                            <input type="radio" name="videoProviderUi" value="YOUTUBE"
+                                   th:checked="${form.videoProvider == 'YOUTUBE' or form.videoProvider == null}">
+                            YouTube
+                        </label>
+                        <label>
+                            <input type="radio" name="videoProviderUi" value="VIMEO"
+                                   th:checked="${form.videoProvider == 'VIMEO'}">
+                            Vimeo
+                        </label>
+                        <label>
+                            <input type="radio" name="videoProviderUi" value="UPLOAD"
+                                   th:checked="${form.videoProvider == 'UPLOAD'}">
+                            Tải MP4 lên
+                        </label>
+                    </div>
+                    <input type="hidden" th:field="*{videoProvider}">
+                    <div class="lct-video-url-block">
+                        <label for="lessonVideoUrlInput">URL video</label>
+                        <input id="lessonVideoUrlInput" type="url" th:field="*{videoUrl}"
+                               placeholder="https://www.youtube.com/watch?v=..." maxlength="500">
+                        <button type="button" class="btn-secondary" id="lessonVideoUrlSaveBtn">
+                            Lưu URL
+                        </button>
+                    </div>
+                    <div class="lct-video-upload-block">
+                        <label for="lessonVideoInput">Tải MP4 lên (tối đa 200MB)</label>
+                        <input id="lessonVideoInput" type="file" accept="video/mp4">
+                        <button type="button" class="btn-secondary" id="lessonVideoUploadBtn">
+                            Tải MP4
+                        </button>
+                        <progress id="lessonVideoProgress" max="100" value="0" hidden></progress>
+                    </div>
+                    <p class="lct-video-status" id="lessonVideoStatus"
+                       th:if="${lesson.videoUrl != null}"
+                       th:text="'Đã cấu hình: ' + ${lesson.videoProvider} + ' — ' + ${lesson.videoUrl}">
+                    </p>
+                </section>
+
+                <section class="detail-card" data-content-type-section="VIDEO"
+                         th:if="${mode == 'create'}">
+                    <h2 class="detail-card-title">Video bài giảng</h2>
+                    <p class="detail-field-help lct-warn">
+                        Hãy tạo bài giảng dưới dạng nháp trước, sau đó cấu hình video
+                        trong chế độ chỉnh sửa.
+                    </p>
+                </section>
+            </form>
+
+            <!-- ═══ Attachments — edit-mode only (ULP-4.0c) ═══════════════════ -->
+            <section class="detail-card latt-card" th:if="${mode == 'edit' and lesson != null}"
+                     id="lessonAttachmentsCard"
+                     th:attr="data-lesson-id=${lesson.id},
                         data-class-id=${clazz.id},
                         data-section-id=${section.id},
                         data-upload-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments|}">
-        <h2 class="detail-card-title">Tệp đính kèm</h2>
-        <p class="detail-field-help">
-          Chấp nhận PDF, DOCX, PPTX, XLSX, ZIP. Tối đa 20MB/tệp.
-        </p>
 
-        <!-- Drag-drop zone mirroring the import-excel uploader. Clicking the
-             zone forwards to the hidden file input below. -->
-        <div id="lessonAttachDrop" class="latt-drop" tabindex="0" role="button"
-             aria-label="Kéo thả tệp đính kèm vào đây hoặc bấm để chọn">
-          <span class="latt-drop-icon" aria-hidden="true">
+                <!-- Card header: icon + title + count badge -->
+                <header class="latt-header">
+          <span class="latt-header-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </span>
+                    <div class="latt-header-text">
+                        <h2 class="latt-title">Tệp đính kèm</h2>
+                        <p class="latt-subtitle">Tài liệu, slide, đề bài dành cho học viên</p>
+                    </div>
+                    <span class="latt-count" id="lessonAttachCount"
+                          th:text="${attachments == null ? 0 : #lists.size(attachments)}">0</span>
+                </header>
+
+                <!-- Format chips: visual whitelist of supported types -->
+                <div class="latt-formats" aria-hidden="true">
+                    <span class="latt-chip latt-chip-pdf">PDF</span>
+                    <span class="latt-chip latt-chip-doc">DOCX</span>
+                    <span class="latt-chip latt-chip-ppt">PPTX</span>
+                    <span class="latt-chip latt-chip-xls">XLSX</span>
+                    <span class="latt-chip latt-chip-zip">ZIP</span>
+                    <span class="latt-size-hint">≤ 20 MB/tệp</span>
+                </div>
+
+                <!-- Drag-drop zone — full-width hero with gradient and large prompt -->
+                <div id="lessonAttachDrop" class="latt-drop" tabindex="0" role="button"
+                     aria-label="Kéo thả tệp đính kèm vào đây hoặc bấm để chọn">
+          <span class="latt-drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </span>
-          <p class="latt-drop-title">
-            <strong>Kéo &amp; thả</strong> tệp vào đây, hoặc bấm để chọn từ máy
-          </p>
-          <p class="latt-drop-hint">PDF, DOCX, PPTX, XLSX, ZIP — tối đa 20MB</p>
-          <p class="latt-drop-meta" id="lessonAttachFileLabel">Chưa chọn tệp</p>
-          <input id="lessonAttachInput" type="file"
-                 accept=".pdf,.docx,.pptx,.xlsx,.zip" style="display:none;">
-        </div>
+                    <p class="latt-drop-title">
+                        <strong>Kéo &amp; thả</strong> hoặc <span class="latt-drop-cta">chọn tệp</span> từ máy
+                    </p>
+                    <p class="latt-drop-hint">Hệ thống sẽ tự quét và hiển thị tệp ngay sau khi tải lên</p>
+                    <p class="latt-drop-meta" id="lessonAttachFileLabel">Chưa chọn tệp</p>
+                    <input id="lessonAttachInput" type="file"
+                           accept=".pdf,.docx,.pptx,.xlsx,.zip" style="display:none;">
+                </div>
 
-        <!-- Progress strip surfaces during XHR upload. Hidden by default. -->
-        <div class="latt-progress" id="lessonAttachProgress" hidden>
-          <div class="latt-progress-bar"></div>
-        </div>
+                <!-- Progress strip surfaces during XHR upload. Hidden by default. -->
+                <div class="latt-progress" id="lessonAttachProgress" hidden>
+                    <div class="latt-progress-bar"></div>
+                </div>
 
-        <p class="latt-empty" id="lessonAttachEmpty"
-           th:if="${attachments == null or #lists.isEmpty(attachments)}">
-          Chưa có tệp đính kèm.
-        </p>
+                <!-- File list section header (only visible when at least 1 file). -->
+                <h3 class="latt-list-title"
+                    th:unless="${attachments == null or #lists.isEmpty(attachments)}">
+                    Tệp đã tải lên
+                </h3>
 
-        <ul class="latt-list" id="lessonAttachList"
-            th:attr="hidden=${attachments == null or #lists.isEmpty(attachments)} ? 'hidden' : null">
-          <li class="latt-item"
-              th:each="att : ${attachments}"
-              th:attr="data-attachment-id=${att.id()},
+                <p class="latt-empty" id="lessonAttachEmpty"
+                   th:if="${attachments == null or #lists.isEmpty(attachments)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                         class="latt-empty-icon" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    Chưa có tệp đính kèm nào.
+                </p>
+
+                <ul class="latt-list" id="lessonAttachList"
+                    th:attr="hidden=${attachments == null or #lists.isEmpty(attachments)} ? 'hidden' : null">
+                    <li class="latt-item"
+                        th:each="att : ${attachments}"
+                        th:attr="data-attachment-id=${att.id()},
                        data-delete-url=@{|/lecturer/classes/${clazz.id}/sections/${section.id}/lessons/${lesson.id}/attachments/${att.id()}|}">
-            <span class="latt-ext" aria-hidden="true"
-                  th:text="${#strings.substringAfter(att.originalFilename(), '.')}">PDF</span>
-            <span class="latt-meta">
+                        <th:block
+                                th:with="lname=${#strings.toLowerCase(att.originalFilename())},
+                         extKey=${#strings.endsWith(lname,'.pdf') ? 'ext-pdf'
+                                  : (#strings.endsWith(lname,'.docx') or #strings.endsWith(lname,'.doc') ? 'ext-doc'
+                                  : (#strings.endsWith(lname,'.xlsx') or #strings.endsWith(lname,'.xls') ? 'ext-xls'
+                                  : (#strings.endsWith(lname,'.pptx') or #strings.endsWith(lname,'.ppt') ? 'ext-ppt'
+                                  : (#strings.endsWith(lname,'.zip') ? 'ext-zip' : ''))))}">
+              <span class="latt-ext" th:classappend="${extKey}" aria-hidden="true"
+                    th:text="${#strings.substringAfter(att.originalFilename(), '.')}">PDF</span>
+                        </th:block>
+                        <span class="latt-meta">
               <a class="latt-name" th:href="@{${att.downloadUrl()}}"
                  th:text="${att.originalFilename()}"
                  th:title="${att.originalFilename()}">tệp.pdf</a>
@@ -200,155 +361,189 @@
                     th:text="${att.sizeBytes()}"
                     th:attr="data-size-bytes=${att.sizeBytes()}">—</span>
             </span>
-            <button type="button" class="latt-del"
-                    aria-label="Xoá tệp đính kèm">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-              </svg>
-            </button>
-          </li>
-        </ul>
-      </section>
-    </div>
+                        <a class="latt-action latt-download"
+                           th:href="@{${att.downloadUrl()}}"
+                           aria-label="Tải tệp"
+                           title="Tải tệp">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </a>
+                        <button type="button" class="latt-action latt-del"
+                                aria-label="Xoá tệp đính kèm" title="Xoá tệp">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                            </svg>
+                        </button>
+                    </li>
+                </ul>
+            </section>
+        </div>
 
-    <!-- ═══ History panel — paginated audit log ═════════════════════════ -->
-    <div id="panel-history" class="section-tab-panel"
-         role="tabpanel"
-         aria-labelledby="tab-history"
-         th:if="${mode == 'edit'}"
-         th:attr="hidden=${activeDetailTab != 'history'} ? 'hidden' : null">
-      <section class="detail-card">
-        <h2 class="detail-card-title">Lịch sử thay đổi</h2>
+        <!-- ═══ History panel — paginated audit log ═════════════════════════ -->
+        <div id="panel-history" class="section-tab-panel"
+             role="tabpanel"
+             aria-labelledby="tab-history"
+             th:if="${mode == 'edit'}"
+             th:attr="hidden=${activeDetailTab != 'history'} ? 'hidden' : null">
+            <section class="detail-card">
+                <h2 class="detail-card-title">Lịch sử thay đổi</h2>
 
-        <p class="detail-empty"
-           th:if="${activityPage == null or activityPage.empty}">
-          Chưa có hoạt động nào được ghi nhận.
-        </p>
+                <p class="detail-empty"
+                   th:if="${activityPage == null or activityPage.empty}">
+                    Chưa có hoạt động nào được ghi nhận.
+                </p>
 
-        <table class="detail-table"
-               th:if="${activityPage != null and not activityPage.empty}">
-          <thead>
-            <tr>
-              <th style="width: 140px;">Loại</th>
-              <th>Nội dung</th>
-              <th style="width: 180px;">Thời điểm</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr th:each="row : ${activityPage.content}">
-              <td>
-                <span class="detail-type-badge" th:text="${row.typeLabel()}">TYPE</span>
-              </td>
-              <td th:text="${row.description()}">message</td>
-              <td th:text="${row.createdAt() != null
+                <table class="detail-table"
+                       th:if="${activityPage != null and not activityPage.empty}">
+                    <thead>
+                    <tr>
+                        <th style="width: 140px;">Loại</th>
+                        <th>Nội dung</th>
+                        <th style="width: 180px;">Thời điểm</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${activityPage.content}">
+                        <td>
+                            <span class="detail-type-badge" th:text="${row.typeLabel()}">TYPE</span>
+                        </td>
+                        <td th:text="${row.description()}">message</td>
+                        <td th:text="${row.createdAt() != null
                             ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm')
                             : '—'}">—</td>
-            </tr>
-          </tbody>
-        </table>
+                    </tr>
+                    </tbody>
+                </table>
 
-        <nav class="detail-pagination"
-             aria-label="Phân trang lịch sử"
-             th:if="${activityPage != null and activityPage.totalPages > 1}">
-          <a class="page-link"
-             th:if="${!activityPage.first}"
-             th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number - 1})}">‹ Trước</a>
-          <span class="page-current"
-                th:text="'Trang ' + (${activityPage.number + 1}) + ' / ' + ${activityPage.totalPages}">—</span>
-          <a class="page-link"
-             th:if="${!activityPage.last}"
-             th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number + 1})}">Sau ›</a>
-        </nav>
-      </section>
-    </div>
-  </main>
+                <nav class="detail-pagination"
+                     aria-label="Phân trang lịch sử"
+                     th:if="${activityPage != null and activityPage.totalPages > 1}">
+                    <a class="page-link"
+                       th:if="${!activityPage.first}"
+                       th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number - 1})}">‹ Trước</a>
+                    <span class="page-current"
+                          th:text="'Trang ' + (${activityPage.number + 1}) + ' / ' + ${activityPage.totalPages}">—</span>
+                    <a class="page-link"
+                       th:if="${!activityPage.last}"
+                       th:href="@{${editBaseUrl}(tab='history', page=${activityPage.number + 1})}">Sau ›</a>
+                </nav>
+            </section>
+        </div>
+    </main>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/class-detail.js}"></script>
-<!-- Lesson attachments uploader (ksh-4.0c) — only active in edit mode. -->
+<!-- Lesson attachments uploader (ULP-4.0c) — only active in edit mode. -->
 <script th:if="${mode == 'edit'}" th:src="@{/js/lesson-attachments.js}" defer></script>
+<!-- Lesson content-type picker + sub-section toggling + confirm modal. -->
+<script th:src="@{/js/lesson-form-type.js}" defer
+        th:attr="data-original-type=${form.contentType ?: 'RICHTEXT'}"></script>
+
+<!-- Confirm modal — surfaces when the lecturer flips the type for a
+     persisted lesson. lesson-form-type.js binds the buttons. -->
+<div id="lessonTypeConfirmModal" class="lct-modal" hidden role="dialog"
+     aria-modal="true" aria-labelledby="lessonTypeConfirmTitle">
+    <div class="lct-modal-backdrop" data-modal-cancel></div>
+    <div class="lct-modal-panel">
+        <h3 id="lessonTypeConfirmTitle" class="lct-modal-title">
+            Đổi loại nội dung?
+        </h3>
+        <p class="lct-modal-body">
+            Khi đổi loại nội dung, dữ liệu của loại trước đó sẽ bị xoá vĩnh viễn
+            (bao gồm cả tệp đã tải lên trên máy chủ). Bạn có chắc muốn tiếp tục?
+        </p>
+        <div class="lct-modal-actions">
+            <button type="button" class="btn-secondary" data-modal-cancel>Huỷ</button>
+            <button type="button" class="btn-primary" data-modal-confirm>Đổi loại</button>
+        </div>
+    </div>
+</div>
 <!-- Quill 2.x from CDN — pinned to a minor version so the editor surface
      doesn't drift unannounced. -->
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 <!-- Tab toggle — same client-side pattern as section-form.html. -->
 <script th:if="${mode == 'edit'}">
-  (function () {
-    'use strict';
-    var tabs = document.querySelectorAll('[data-tab-target]');
-    var panels = document.querySelectorAll('.section-tab-panel');
-    if (!tabs.length || !panels.length) return;
+    (function () {
+        'use strict';
+        var tabs = document.querySelectorAll('[data-tab-target]');
+        var panels = document.querySelectorAll('.section-tab-panel');
+        if (!tabs.length || !panels.length) return;
 
-    function activate(name) {
-      tabs.forEach(function (t) {
-        var isActive = t.getAttribute('data-tab-target') === name;
-        t.classList.toggle('active', isActive);
-        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      });
-      panels.forEach(function (p) {
-        p.hidden = (p.id !== 'panel-' + name);
-      });
-      try {
-        var url = new URL(window.location.href);
-        url.searchParams.set('tab', name);
-        window.history.replaceState(null, '', url);
-      } catch (e) {
-        // Older browsers / file://; safe to ignore.
-      }
-    }
-    tabs.forEach(function (t) {
-      t.addEventListener('click', function () {
-        activate(t.getAttribute('data-tab-target'));
-      });
-    });
-    var initial = new URLSearchParams(window.location.search).get('tab');
-    activate(initial === 'history' ? 'history' : 'info');
-  })();
+        function activate(name) {
+            tabs.forEach(function (t) {
+                var isActive = t.getAttribute('data-tab-target') === name;
+                t.classList.toggle('active', isActive);
+                t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            panels.forEach(function (p) {
+                p.hidden = (p.id !== 'panel-' + name);
+            });
+            try {
+                var url = new URL(window.location.href);
+                url.searchParams.set('tab', name);
+                window.history.replaceState(null, '', url);
+            } catch (e) {
+                // Older browsers / file://; safe to ignore.
+            }
+        }
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function () {
+                activate(t.getAttribute('data-tab-target'));
+            });
+        });
+        var initial = new URLSearchParams(window.location.search).get('tab');
+        activate(initial === 'history' ? 'history' : 'info');
+    })();
 </script>
 <!-- Quill bootstrap — wait for the CDN script to load (defer keeps it
      after this inline block), then mount the editor and wire submit. -->
 <script>
-  (function () {
-    'use strict';
-    function bootstrap() {
-      if (!window.Quill) {
-        // Quill script is deferred; poll briefly until it lands.
-        return window.setTimeout(bootstrap, 30);
-      }
-      var editorEl = document.getElementById('lessonContentEditor');
-      var hidden = document.getElementById('lessonContentHtml');
-      var form = document.getElementById('lessonForm');
-      if (!editorEl || !hidden || !form) return;
+    (function () {
+        'use strict';
+        function bootstrap() {
+            if (!window.Quill) {
+                // Quill script is deferred; poll briefly until it lands.
+                return window.setTimeout(bootstrap, 30);
+            }
+            var editorEl = document.getElementById('lessonContentEditor');
+            var hidden = document.getElementById('lessonContentHtml');
+            var form = document.getElementById('lessonForm');
+            if (!editorEl || !hidden || !form) return;
 
-      var quill = new window.Quill(editorEl, {
-        theme: 'snow',
-        modules: {
-          toolbar: [
-            [{ header: [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['link', 'image'],
-            ['clean']
-          ]
+            var quill = new window.Quill(editorEl, {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link', 'image'],
+                        ['clean']
+                    ]
+                }
+            });
+            // Seed the editor with the server-rendered HTML so reload + validation
+            // re-render keep the lecturer's content.
+            var initial = hidden.value || '';
+            if (initial) quill.root.innerHTML = initial;
+
+            form.addEventListener('submit', function () {
+                hidden.value = quill.root.innerHTML;
+            });
         }
-      });
-      // Seed the editor with the server-rendered HTML so reload + validation
-      // re-render keep the lecturer's content.
-      var initial = hidden.value || '';
-      if (initial) quill.root.innerHTML = initial;
-
-      form.addEventListener('submit', function () {
-        hidden.value = quill.root.innerHTML;
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bootstrap);
-    } else {
-      bootstrap();
-    }
-  })();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bootstrap);
+        } else {
+            bootstrap();
+        }
+    })();
 </script>
 </body>
 </html>
