@@ -9,7 +9,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lesson-detail-shell">
-    <!-- Back link returns to the section-scoped list view (D5 of ULP-4.1) -->
+    <!-- Back link returns to the section-scoped list view (D5 of ksh-4.1) -->
     <a class="student-lesson-detail-back"
        th:href="@{|/my/classes/${lessonDetail.classId()}/lessons|(section=${lessonDetail.sectionId()})}">
         <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -51,7 +51,7 @@
             <li th:each="att : ${lessonDetail.attachments()}"
                 class="student-lesson-detail-attachment-item">
         <span class="student-lesson-detail-attachment-ext"
-              th:text="${#strings.toUpperCase(#strings.substringAfterLast(att.filename(), '.'))}">PDF</span>
+              th:text="${#strings.toUpperCase(#strings.replace(att.filename(), #strings.substring(att.filename(), 0, #strings.indexOf(att.filename(), '.')) + '.', ''))}">PDF</span>
                 <a class="student-lesson-detail-attachment-name"
                    th:href="${att.downloadUrl()}"
                    th:text="${att.filename()}"

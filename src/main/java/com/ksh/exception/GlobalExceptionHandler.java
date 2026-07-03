@@ -48,9 +48,9 @@ public class GlobalExceptionHandler {
      * @param model   the Spring MVC model to populate with the error message
      * @return the logical view name {@code "error"}
      */
-    @ExceptionHandler(EntityNotFoundException.class)
+    @ExceptionHandler({EntityNotFoundException.class, org.springframework.web.servlet.resource.NoResourceFoundException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public String handleNotFound(EntityNotFoundException ex, HttpServletRequest request, Model model) {
+    public String handleNotFound(Exception ex, HttpServletRequest request, Model model) {
         log.info("404 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
         model.addAttribute("message",
                 ex.getMessage() != null ? ex.getMessage() : "Không tìm thấy nội dung yêu cầu.");

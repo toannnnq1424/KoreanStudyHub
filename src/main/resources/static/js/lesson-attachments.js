@@ -67,6 +67,11 @@
     var count = list.querySelectorAll('.latt-item').length;
     list.hidden = count === 0;
     if (empty) empty.style.display = count === 0 ? '' : 'none';
+    // Update header counter badge and "Tệp đã tải lên" section title.
+    var counter = card.querySelector('#lessonAttachCount');
+    if (counter) counter.textContent = count;
+    var listTitle = card.querySelector('.latt-list-title');
+    if (listTitle) listTitle.style.display = count === 0 ? 'none' : '';
   }
 
   /**
@@ -106,18 +111,33 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'latt-del';
+    btn.className = 'latt-action latt-del';
     btn.setAttribute('aria-label', 'Xoá tệp đính kèm');
+    btn.title = 'Xoá tệp';
     // Mirror the inline trash SVG used in the server-rendered row so the
     // dynamic and static rows visually match.
     btn.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
-      '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
+        '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+
+    // Download icon link mirrors the server-rendered row.
+    var dl = document.createElement('a');
+    dl.className = 'latt-action latt-download';
+    dl.href = row.downloadUrl;
+    dl.setAttribute('aria-label', 'Tải tệp');
+    dl.title = 'Tải tệp';
+    dl.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
+        '<polyline points="7 10 12 15 17 10"/>' +
+        '<line x1="12" y1="15" x2="12" y2="3"/></svg>';
 
     li.appendChild(badge);
     li.appendChild(meta);
+    li.appendChild(dl);
     li.appendChild(btn);
     return li;
   }
@@ -176,8 +196,8 @@
       credentials: 'same-origin'
     }).then(function (res) {
       return res.json()
-        .catch(function () { return { ok: false, message: 'Phản hồi không hợp lệ' }; })
-        .then(function (json) { return { status: res.status, ok: res.ok && json.ok === true, message: json.message }; });
+          .catch(function () { return { ok: false, message: 'Phản hồi không hợp lệ' }; })
+          .then(function (json) { return { status: res.status, ok: res.ok && json.ok === true, message: json.message }; });
     }).then(function (result) {
       if (result.ok) {
         item.remove();
