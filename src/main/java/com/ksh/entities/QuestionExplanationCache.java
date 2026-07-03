@@ -16,6 +16,9 @@ public class QuestionExplanationCache {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "cache_key", nullable = false, length = 64, columnDefinition = "CHAR(64)")
+    private String cacheKey;
+
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
@@ -37,8 +40,17 @@ public class QuestionExplanationCache {
     @Column(name = "explanation_json", nullable = false, columnDefinition = "JSON")
     private String explanationJson;
 
-    @Column(name = "ai_model", length = 50)
+    @Column(name = "ai_model", nullable = false, length = 100)
     private String aiModel;
+
+    @Column(name = "prompt_version", nullable = false, length = 32)
+    private String promptVersion;
+
+    @Column(name = "schema_version", nullable = false, length = 32)
+    private String schemaVersion;
+
+    @Column(name = "explanation_language", nullable = false, length = 16)
+    private String explanationLanguage;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,8 +61,10 @@ public class QuestionExplanationCache {
     protected QuestionExplanationCache() {
     }
 
-    public QuestionExplanationCache(Long questionId, Long testId, String skillType, String questionType,
-                                    String questionHash, String correctAnswer, String explanationJson, String aiModel) {
+    public QuestionExplanationCache(String cacheKey, Long questionId, Long testId, String skillType, String questionType,
+                                    String questionHash, String correctAnswer, String explanationJson, String aiModel,
+                                    String promptVersion, String schemaVersion, String explanationLanguage) {
+        this.cacheKey = cacheKey;
         this.questionId = questionId;
         this.testId = testId;
         this.skillType = skillType;
@@ -59,10 +73,17 @@ public class QuestionExplanationCache {
         this.correctAnswer = correctAnswer;
         this.explanationJson = explanationJson;
         this.aiModel = aiModel;
+        this.promptVersion = promptVersion;
+        this.schemaVersion = schemaVersion;
+        this.explanationLanguage = explanationLanguage;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public String getCacheKey() {
+        return cacheKey;
     }
 
     public Long getQuestionId() {
@@ -99,6 +120,18 @@ public class QuestionExplanationCache {
 
     public String getAiModel() {
         return aiModel;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public String getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public String getExplanationLanguage() {
+        return explanationLanguage;
     }
 
     public LocalDateTime getCreatedAt() {

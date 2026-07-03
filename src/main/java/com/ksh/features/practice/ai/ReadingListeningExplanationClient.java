@@ -19,6 +19,9 @@ import java.util.Map;
 public class ReadingListeningExplanationClient {
 
     private static final Logger log = LoggerFactory.getLogger(ReadingListeningExplanationClient.class);
+    public static final String EXPLANATION_PROMPT_VERSION = "v2";
+    public static final String EXPLANATION_SCHEMA_VERSION = "v1";
+    public static final String EXPLANATION_LANGUAGE = "vi";
 
     private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
@@ -155,6 +158,22 @@ public class ReadingListeningExplanationClient {
             log.warn("[ReadingListeningAI] cleaning JSON failed: {}", e.getMessage());
             return aiJson;
         }
+    }
+
+    public String model() {
+        return properties.evaluatorModel();
+    }
+
+    public String promptVersion() {
+        return EXPLANATION_PROMPT_VERSION;
+    }
+
+    public String schemaVersion() {
+        return EXPLANATION_SCHEMA_VERSION;
+    }
+
+    public String explanationLanguage() {
+        return EXPLANATION_LANGUAGE;
     }
 
     private String userPayload(PracticeQuestion question, String passageText, String skillType, String optionLabelMode) {
@@ -315,8 +334,8 @@ public class ReadingListeningExplanationClient {
             } catch (HttpStatusCodeException ex) {
                 int status = ex.getStatusCode().value();
                 boolean retryable = isRetryable(status) && attempt <= maxRetries;
-                log.warn("[ReadingListeningAI] attempt={} status={} retryable={} body={}",
-                        attempt, status, retryable, preview(ex.getResponseBodyAsString(), 800));
+                log.warn("[ReadingListeningAI] attempt={} status={} retryable={}",
+                        attempt, status, retryable);
                 if (retryable) {
                     sleep(backoffMs);
                     backoffMs *= 2;
@@ -350,11 +369,4 @@ public class ReadingListeningExplanationClient {
         }
     }
 
-    private static String preview(String value, int maxChars) {
-        if (value == null) {
-            return "";
-        }
-        String compact = value.replaceAll("\\s+", " ").trim();
-        return compact.length() <= maxChars ? compact : compact.substring(0, maxChars) + "...";
-    }
 }

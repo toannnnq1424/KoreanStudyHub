@@ -11,6 +11,7 @@ import com.ksh.features.practice.repository.PracticeSubmissionRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
+import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.PracticeSection;
@@ -23,7 +24,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -72,6 +76,12 @@ class PracticeIntegrationTest {
     private PracticeSectionRepository sectionRepository;
 
     @Autowired
+    private QuestionExplanationCacheRepository questionExplanationCacheRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
     private com.ksh.features.practice.repository.PracticeDraftRepository draftRepository;
 
     @Autowired
@@ -88,6 +98,9 @@ class PracticeIntegrationTest {
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.ksh.features.practice.ai.WritingEvaluationClient writingEvaluationClient;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.ksh.features.practice.ai.ReadingListeningExplanationClient readingListeningExplanationClient;
 
     private User student;
     private User lecturer;
@@ -106,6 +119,12 @@ class PracticeIntegrationTest {
 
         when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
                 .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
+        when(readingListeningExplanationClient.model()).thenReturn("test-rl-model");
+        when(readingListeningExplanationClient.promptVersion()).thenReturn("prompt-v1");
+        when(readingListeningExplanationClient.schemaVersion()).thenReturn("schema-v1");
+        when(readingListeningExplanationClient.explanationLanguage()).thenReturn("vi");
+        when(readingListeningExplanationClient.explain(any(PracticeQuestion.class), nullable(String.class), anyString(), nullable(String.class)))
+                .thenReturn(null);
 
         // Seed a published practice set
         practiceSet = new PracticeSet(
@@ -247,6 +266,52 @@ class PracticeIntegrationTest {
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testReadingResultOverviewCreatesCacheAndDetailDoesNotRecallProvider() throws Exception {
+        String providerJson = """
+                {
+                  "meaningVi": "meaning",
+                  "evidenceQuote": "quote",
+                  "correctReasonVi": "reason",
+                  "relatedTranslationVi": "translation",
+                  "eliminatedOptions": [
+                    {"optionKey": "2", "reasonVi": "wrong"}
+                  ]
+                }
+                """;
+        when(readingListeningExplanationClient.explain(any(PracticeQuestion.class), nullable(String.class), eq("READING"), nullable(String.class)))
+                .thenReturn(providerJson);
+
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attempt.setStatus("SUBMITTED");
+        attempt = attemptRepository.saveAndFlush(attempt);
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result"));
+
+        long cacheRows = countExplanationCacheRowsForQuestion(question.getId());
+        assertThat(cacheRows).isEqualTo(1);
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/rl-result-detail"));
+
+        verify(readingListeningExplanationClient, times(1))
+                .explain(any(PracticeQuestion.class), nullable(String.class), eq("READING"), nullable(String.class));
+    }
+
+    private long countExplanationCacheRowsForQuestion(Long questionId) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template.execute(status ->
+                questionExplanationCacheRepository.findAll().stream()
+                        .filter(row -> questionId.equals(row.getQuestionId()))
+                        .count()
+        );
     }
 
     @Test

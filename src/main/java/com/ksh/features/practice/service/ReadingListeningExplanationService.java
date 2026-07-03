@@ -1,5 +1,7 @@
 package com.ksh.features.practice.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.QuestionExplanationCache;
 import com.ksh.features.practice.ai.OpenAiProperties;
@@ -9,6 +11,7 @@ import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -17,21 +20,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages per-question explanation lookup and caching for Reading/Listening skills.
- *
- * <h3>Cache strategy</h3>
- * <ul>
- *   <li>Cache <em>hit</em>  → return stored {@code explanation_json} immediately.</li>
- *   <li>Cache <em>miss</em> → call AI; if AI succeeds, persist to DB; return real JSON.</li>
- *   <li>AI <em>unavailable</em> (quota, network, timeout) → generate a mock explanation
- *       on the fly from question data. Mock is NOT cached, so the next page visit will
- *       retry the AI call and cache the result if it succeeds.</li>
- * </ul>
- *
- * <h3>Concurrency</h3>
- * Uses a {@link ConcurrentHashMap}-based per-questionId lock (instead of
- * {@link String#intern()}) to prevent concurrent duplicate AI calls for the
- * same question without risking intern-pool saturation.
+ * Manages shared per-question explanation lookup and caching for Reading/Listening skills.
  */
 @Service
 public class ReadingListeningExplanationService {
@@ -42,142 +31,226 @@ public class ReadingListeningExplanationService {
     private final ReadingListeningExplanationClient explanationClient;
     private final ReadingListeningMockExplanationService mockExplanationService;
     private final OpenAiProperties openAiProperties;
- 
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private ReadingListeningExplanationService self;
- 
-    /** Per-question-ID lock objects. Prevents thundering herd on cache miss. */
-    private final ConcurrentHashMap<Long, Object> questionLocks = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
+
+    /** Per-cache-key lock objects. Prevents duplicate provider calls in one JVM only. */
+    private final ConcurrentHashMap<String, Object> cacheLocks = new ConcurrentHashMap<>();
 
     public ReadingListeningExplanationService(QuestionExplanationCacheRepository cacheRepository,
                                               ReadingListeningExplanationClient explanationClient,
                                               ReadingListeningMockExplanationService mockExplanationService,
-                                              OpenAiProperties openAiProperties) {
+                                              OpenAiProperties openAiProperties,
+                                              ObjectMapper objectMapper) {
         this.cacheRepository = cacheRepository;
         this.explanationClient = explanationClient;
         this.mockExplanationService = mockExplanationService;
         this.openAiProperties = openAiProperties;
+        this.objectMapper = objectMapper;
     }
 
     /**
-     * Returns an explanation JSON for the given question.
-     *
-     * <p>The {@code @Transactional} scope is intentionally narrow: only the
-     * DB reads/writes are transactional. The AI HTTP call happens outside the
-     * try-catch of the transaction interceptor because {@link ReadingListeningExplanationClient#explain}
-     * never throws — it returns {@code null} on failure.
-     *
-     * @param question    the question to explain
-     * @param passageText the reading passage or listening transcript (may be empty)
-     * @param skillType   "READING" or "LISTENING"
-     * @param testId      the practice set ID (used for cache record)
-     * @return explanation JSON string, never null
+     * Returns an explanation JSON for the given question. Cache DB operations use repository-level
+     * REQUIRES_NEW transactions; the provider call and fallback generation do not rely on this method
+     * participating in the caller's result transaction.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String getOrCreateExplanation(PracticeQuestion question, String passageText,
                                          String skillType, Long testId, String optionLabelMode) {
-        String hash = buildQuestionHash(question, passageText, optionLabelMode);
-        String correctAnswer = question.getAnswerKey() != null ? question.getAnswerKey().trim() : "";
+        CacheKeyParts keyParts = buildCacheKeyParts(question, passageText, skillType, optionLabelMode);
 
-        // ── Fast-path: unsynchronized read ──────────────────────────────────
-        Optional<QuestionExplanationCache> cached = cacheRepository
-                .findByQuestionIdAndQuestionHashAndCorrectAnswer(question.getId(), hash, correctAnswer);
+        Optional<String> cached = readValidCache(keyParts);
         if (cached.isPresent()) {
             log.info("[ReadingListeningCache] Hit questionId={}", question.getId());
-            return cached.get().getExplanationJson();
+            return cached.get();
         }
 
-        // ── Slow-path: per-question lock to deduplicate concurrent requests ─
-        Object lock = questionLocks.computeIfAbsent(question.getId(), k -> new Object());
+        Object lock = cacheLocks.computeIfAbsent(keyParts.cacheKey(), k -> new Object());
         synchronized (lock) {
             try {
-                // Double-check inside lock
-                cached = cacheRepository.findByQuestionIdAndQuestionHashAndCorrectAnswer(
-                        question.getId(), hash, correctAnswer);
+                cached = readValidCache(keyParts);
                 if (cached.isPresent()) {
                     log.info("[ReadingListeningCache] Hit (double-check) questionId={}", question.getId());
-                    return cached.get().getExplanationJson();
+                    return cached.get();
                 }
 
-                // ── Call AI ─────────────────────────────────────────────────
-                log.info("[ReadingListeningCache] Miss questionId={}, calling AI...", question.getId());
-                // explain() returns null when AI is unavailable — never throws
+                log.info("[ReadingListeningCache] Miss questionId={}, calling AI", question.getId());
                 String aiJson = explanationClient.explain(question, passageText, skillType, optionLabelMode);
-
-                if (aiJson != null) {
-                    // AI succeeded → persist to cache so future visits are instant
-                    try {
-                        self.persistCache(question, testId, skillType, hash, correctAnswer, aiJson);
-                    } catch (Exception ex) {
-                        log.warn("[ReadingListeningCache] Miss-handled write propagation: {}", ex.getMessage());
-                    }
+                if (isValidExplanationJson(aiJson)) {
+                    writeCache(keyParts, question, testId, skillType, aiJson);
                     return aiJson;
                 }
 
-                // ── AI failed → use mock, do NOT cache ──────────────────────
                 String mockReason = (openAiProperties.apiKey() == null || openAiProperties.apiKey().isBlank())
-                        ? "chưa cấu hình API key"
-                        : "hạn ngạch API tạm thời đã hết — thử lại sau";
-                log.info("[ReadingListeningCache] AI unavailable for questionId={}, using mock (reason: {})",
-                        question.getId(), mockReason);
+                        ? "chua cau hinh API key"
+                        : "han ngach API tam thoi da het - thu lai sau";
+                log.info("[ReadingListeningCache] AI unavailable for questionId={}, using mock", question.getId());
                 return mockExplanationService.explain(question, passageText, skillType, optionLabelMode, mockReason);
-
             } finally {
-                // Remove the lock to avoid accumulating stale entries over time.
-                // Safe because the ConcurrentHashMap will create a new one if needed later.
-                questionLocks.remove(question.getId(), lock);
+                cacheLocks.remove(keyParts.cacheKey(), lock);
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public void persistCache(PracticeQuestion question, Long testId, String skillType,
-                               String hash, String correctAnswer, String aiJson) {
+    Optional<String> readValidCache(CacheKeyParts keyParts) {
         try {
-            QuestionExplanationCache record = new QuestionExplanationCache(
-                    question.getId(),
-                    testId,
-                    skillType,
-                    question.getQuestionType(),
-                    hash,
-                    correctAnswer,
-                    aiJson,
-                    openAiProperties.evaluatorModel()
-            );
-            cacheRepository.saveAndFlush(record);
-            log.info("[ReadingListeningCache] Cached questionId={}", question.getId());
+            Optional<QuestionExplanationCache> row = cacheRepository.findByCacheKey(keyParts.cacheKey());
+            if (row.isEmpty()) {
+                return Optional.empty();
+            }
+            QuestionExplanationCache cache = row.get();
+            if (!metadataMatches(cache, keyParts)) {
+                log.warn("[ReadingListeningCache] Metadata mismatch for cached explanation; ignoring");
+                return Optional.empty();
+            }
+            String explanationJson = cache.getExplanationJson();
+            if (isValidExplanationJson(explanationJson)) {
+                return Optional.of(explanationJson);
+            }
+            deleteCache(keyParts.cacheKey(), "malformed cached explanation");
+            return Optional.empty();
         } catch (Exception ex) {
-            // Non-fatal: log and continue. The explanation is still returned to the user.
-            log.warn("[ReadingListeningCache] Failed to save cache for questionId={}: {}",
-                    question.getId(), ex.getMessage());
+            log.warn("[ReadingListeningCache] Read failed; treating as miss: {}", ex.getMessage());
+            return Optional.empty();
         }
     }
 
-    private String buildQuestionHash(PracticeQuestion q, String passageText, String optionLabelMode) {
+    private void writeCache(CacheKeyParts keyParts, PracticeQuestion question, Long testId,
+                            String skillType, String explanationJson) {
         try {
-            final String EXPLANATION_PROMPT_VERSION = "v2";
-            String raw = (q.getPrompt() != null ? q.getPrompt() : "") + "|"
-                    + (q.getOptionsJson() != null ? q.getOptionsJson() : "") + "|"
-                    + (q.getAnswerKey() != null ? q.getAnswerKey() : "") + "|"
-                    + (passageText != null ? passageText : "") + "|"
-                    + (optionLabelMode != null ? optionLabelMode : "") + "|"
-                    + EXPLANATION_PROMPT_VERSION;
+            cacheRepository.upsert(
+                    keyParts.cacheKey(),
+                    question.getId(),
+                    testId,
+                    normalize(skillType),
+                    normalize(question.getQuestionType()),
+                    keyParts.questionHash(),
+                    normalize(question.getAnswerKey()),
+                    explanationJson,
+                    keyParts.model(),
+                    keyParts.promptVersion(),
+                    keyParts.schemaVersion(),
+                    keyParts.language()
+            );
+            log.info("[ReadingListeningCache] Cached questionId={}", question.getId());
+        } catch (Exception ex) {
+            log.warn("[ReadingListeningCache] Write failed; returning provider explanation: {}", ex.getMessage());
+        }
+    }
+
+    private void deleteCache(String cacheKey, String reason) {
+        try {
+            cacheRepository.deleteByCacheKey(cacheKey);
+            log.warn("[ReadingListeningCache] Deleted cache entry: {}", reason);
+        } catch (Exception ex) {
+            log.warn("[ReadingListeningCache] Delete failed after {}: {}", reason, ex.getMessage());
+        }
+    }
+
+    private boolean metadataMatches(QuestionExplanationCache cache, CacheKeyParts keyParts) {
+        return keyParts.cacheKey().equals(cache.getCacheKey())
+                && keyParts.questionHash().equals(cache.getQuestionHash())
+                && keyParts.model().equals(cache.getAiModel())
+                && keyParts.promptVersion().equals(cache.getPromptVersion())
+                && keyParts.schemaVersion().equals(cache.getSchemaVersion())
+                && keyParts.language().equals(cache.getExplanationLanguage());
+    }
+
+    boolean isValidExplanationJson(String explanationJson) {
+        if (explanationJson == null || explanationJson.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(explanationJson);
+            if (!root.isObject()) {
+                return false;
+            }
+            if (!isTextual(root, "meaningVi")
+                    || !isTextual(root, "evidenceQuote")
+                    || !isTextual(root, "correctReasonVi")
+                    || !isTextual(root, "relatedTranslationVi")) {
+                return false;
+            }
+            JsonNode eliminatedOptions = root.path("eliminatedOptions");
+            if (!eliminatedOptions.isArray()) {
+                return false;
+            }
+            for (JsonNode option : eliminatedOptions) {
+                if (!option.isObject() || !isTextual(option, "optionKey") || !isTextual(option, "reasonVi")) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private static boolean isTextual(JsonNode node, String fieldName) {
+        return node.has(fieldName) && node.get(fieldName).isTextual();
+    }
+
+    CacheKeyParts buildCacheKeyParts(PracticeQuestion question, String passageText,
+                                     String skillType, String optionLabelMode) {
+        String questionHash = sha256(framed(
+                normalize(question.getPrompt()),
+                normalize(question.getOptionsJson()),
+                normalize(question.getAnswerKey()),
+                normalize(passageText),
+                normalize(skillType),
+                normalize(question.getQuestionType()),
+                normalize(optionLabelMode)
+        ));
+        String model = normalize(explanationClient.model());
+        String promptVersion = normalize(explanationClient.promptVersion());
+        String schemaVersion = normalize(explanationClient.schemaVersion());
+        String language = normalize(explanationClient.explanationLanguage());
+        String cacheKey = sha256(framed(
+                normalize(String.valueOf(question.getId())),
+                questionHash,
+                model,
+                promptVersion,
+                schemaVersion,
+                language
+        ));
+        return new CacheKeyParts(cacheKey, questionHash, model, promptVersion, schemaVersion, language);
+    }
+
+    static String framed(String... values) {
+        StringBuilder builder = new StringBuilder();
+        for (String value : values) {
+            String normalized = value == null ? "" : value;
+            int byteLength = normalized.getBytes(StandardCharsets.UTF_8).length;
+            builder.append(byteLength).append(':').append(normalized);
+        }
+        return builder.toString();
+    }
+
+    static String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\r\n", "\n").replace('\r', '\n').trim();
+    }
+
+    static String sha256(String material) {
+        try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = digest.digest(material.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
                 hexString.append(hex);
             }
             return hexString.toString();
-        } catch (Exception e) {
-            return "default-hash-" + q.getId();
+        } catch (Exception ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
         }
+    }
+
+    record CacheKeyParts(String cacheKey, String questionHash, String model,
+                         String promptVersion, String schemaVersion, String language) {
     }
 }
