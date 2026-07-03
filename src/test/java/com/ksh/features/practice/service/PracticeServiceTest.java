@@ -7,7 +7,6 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
-import com.ksh.features.practice.ai.AnswerExplanationClient;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
 import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
@@ -35,7 +34,6 @@ class PracticeServiceTest {
     private com.ksh.features.practice.repository.PracticeAttemptRepository attemptRepository;
     private com.ksh.features.practice.repository.PracticeTestRepository testRepository;
     private WritingEvaluationClient evaluationClient;
-    private AnswerExplanationClient answerExplanationClient;
     private com.ksh.features.practice.service.ReadingListeningExplanationService readingListeningExplanationService;
     private com.ksh.common.storage.AudioStorageService audioStorageService;
     private ObjectMapper objectMapper;
@@ -52,7 +50,6 @@ class PracticeServiceTest {
         attemptRepository = mock(com.ksh.features.practice.repository.PracticeAttemptRepository.class);
         testRepository = mock(com.ksh.features.practice.repository.PracticeTestRepository.class);
         evaluationClient = mock(WritingEvaluationClient.class);
-        answerExplanationClient = mock(AnswerExplanationClient.class);
         readingListeningExplanationService = mock(com.ksh.features.practice.service.ReadingListeningExplanationService.class);
         audioStorageService = mock(com.ksh.common.storage.AudioStorageService.class);
         objectMapper = new ObjectMapper();
@@ -66,7 +63,6 @@ class PracticeServiceTest {
                 attemptRepository,
                 testRepository,
                 evaluationClient,
-                answerExplanationClient,
                 readingListeningExplanationService,
                 audioStorageService,
                 objectMapper
@@ -356,6 +352,39 @@ class PracticeServiceTest {
         }
     }
 
+    private PracticeAttempt arrangeObjectiveAttempt(String skill, String status, String existingAiFeedbackJson) {
+        PracticeSet set = new PracticeSet(skill + " Set", "Desc", skill, "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, skill + " Section", skill, "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, skill, 20L);
+        attempt.setStatus(status);
+        attempt.setAnswersJson("{\"101\":\"3\"}");
+        if (existingAiFeedbackJson != null) {
+            attempt.setAiFeedbackJson(existingAiFeedbackJson);
+        }
+        setEntityId(attempt, 99L);
+
+        PracticeQuestion q1 = new PracticeQuestion(
+                1L, 1, "MCQ", "Q",
+                "[]", "3", "Giai thich dap an dung",
+                BigDecimal.valueOf(5), 1
+        );
+        setEntityId(q1, 101L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
+        when(questionRepository.findById(101L)).thenReturn(Optional.of(q1));
+        return attempt;
+    }
+
     @Test
     void testStartAttemptValidationAndSuccess() {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
@@ -532,7 +561,7 @@ class PracticeServiceTest {
     }
 
     @Test
-    void testSubmitAttemptToleratesExplanationAiQuotaExceeded() {
+    void testSubmitReadingDoesNotGenerateLegacyObjectiveExplanation() {
         String metaJson = "{\"skills\":[\"READING\"]}";
         PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, metaJson, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
@@ -560,10 +589,6 @@ class PracticeServiceTest {
 
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
 
-        // Mock explanation client throwing exception
-        when(answerExplanationClient.explain(any(), any(), any()))
-                .thenThrow(new RuntimeException("Gemini quota exceeded 429"));
-
         Map<String, String> form = Map.of("answer_101", "3");
         Long attemptId = practiceService.submitAttempt(99L, 2L, form);
 
@@ -571,6 +596,49 @@ class PracticeServiceTest {
         assertEquals("SUBMITTED", attempt.getStatus());
         assertEquals(BigDecimal.valueOf(5), attempt.getScore());
         assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+        assertNull(attempt.getAiFeedbackJson());
+    }
+
+    @Test
+    void testSubmitListeningDoesNotGenerateLegacyObjectiveExplanation() {
+        PracticeAttempt attempt = arrangeObjectiveAttempt("LISTENING", "IN_PROGRESS", null);
+        Map<String, String> form = Map.of("answer_101", "3");
+
+        Long attemptId = practiceService.submitAttempt(99L, 2L, form);
+
+        assertEquals(99L, attemptId);
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+        assertNull(attempt.getAiFeedbackJson());
+    }
+
+    @Test
+    void testReEvaluateReadingDoesNotGenerateLegacyObjectiveExplanationAndPreservesLegacyFeedback() {
+        String legacyFeedback = "{\"items\":[{\"questionId\":\"101\",\"meaningVi\":\"legacy\"}]}";
+        PracticeAttempt attempt = arrangeObjectiveAttempt("READING", "SUBMITTED", legacyFeedback);
+
+        Long attemptId = practiceService.reEvaluate(99L, 2L);
+
+        assertEquals(99L, attemptId);
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+        assertEquals(legacyFeedback, attempt.getAiFeedbackJson());
+    }
+
+    @Test
+    void testReEvaluateListeningDoesNotGenerateLegacyObjectiveExplanationAndPreservesLegacyFeedback() {
+        String legacyFeedback = "{\"items\":[{\"questionId\":\"101\",\"meaningVi\":\"legacy\"}]}";
+        PracticeAttempt attempt = arrangeObjectiveAttempt("LISTENING", "SUBMITTED", legacyFeedback);
+
+        Long attemptId = practiceService.reEvaluate(99L, 2L);
+
+        assertEquals(99L, attemptId);
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertEquals(BigDecimal.valueOf(5), attempt.getScore());
+        assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
+        assertEquals(legacyFeedback, attempt.getAiFeedbackJson());
     }
 
     @Test

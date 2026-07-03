@@ -94,9 +94,6 @@ class PracticeIntegrationTest {
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private com.ksh.features.practice.ai.AnswerExplanationClient answerExplanationClient;
-
-    @org.springframework.boot.test.mock.mockito.MockBean
     private com.ksh.features.practice.ai.WritingEvaluationClient writingEvaluationClient;
 
     @org.springframework.boot.test.mock.mockito.MockBean

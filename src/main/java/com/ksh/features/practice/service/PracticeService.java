@@ -11,7 +11,6 @@ import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ExampleBox;
-import com.ksh.features.practice.ai.AnswerExplanationClient;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
@@ -70,7 +69,6 @@ public class PracticeService {
     private final PracticeAttemptRepository attemptRepository;
     private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
-    private final AnswerExplanationClient answerExplanationClient;
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private final ObjectMapper objectMapper;
@@ -83,7 +81,6 @@ public class PracticeService {
                            PracticeAttemptRepository attemptRepository,
                            PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
-                           AnswerExplanationClient answerExplanationClient,
                            ReadingListeningExplanationService readingListeningExplanationService,
                            AudioStorageService audioStorageService,
                            ObjectMapper objectMapper) {
@@ -95,7 +92,6 @@ public class PracticeService {
         this.attemptRepository = attemptRepository;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
-        this.answerExplanationClient = answerExplanationClient;
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -145,7 +141,7 @@ public class PracticeService {
             throw new IllegalArgumentException("Section metadata mismatch with attempt");
         }
 
-        PracticeSet set = loadPublished(attempt.getSetId());
+        loadPublished(attempt.getSetId());
 
         List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
         List<Long> sectionQuestionIds = groupRows.stream()
@@ -190,14 +186,6 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             }
-        }
-
-        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(sectionQuestions)) {
-            Map<String, Object> explanationAnswers = new LinkedHashMap<>();
-            for (Map.Entry<String, String> entry : submittedAnswers.entrySet()) {
-                explanationAnswers.put(entry.getKey(), entry.getValue());
-            }
-            aiFeedback = answerExplanationClient.explain(set, sectionQuestions, explanationAnswers);
         }
 
         if (aiFeedback == null) {
@@ -1668,7 +1656,7 @@ public class PracticeService {
             throw new IllegalArgumentException("Skill không hợp lệ");
         }
 
-        PracticeSet set = loadPublished(attempt.getSetId());
+        loadPublished(attempt.getSetId());
 
         // Re-use logic to load and grade only the questions of the current section
         List<PracticeQuestionGroupRow> groupRows = getQuestionGroupsForSection(attempt.getSetId(), section.getId());
@@ -1730,20 +1718,6 @@ public class PracticeService {
                 if (answersMatch(answer, q.getAnswerKey())) {
                     score = score.add(q.getPoints());
                 }
-            }
-        }
-
-        // Generate explanation only for objective Reading/Listening sections if requested
-        if (usesAnswerExplanations(set) && !hasWritingOrSpeaking(sectionQuestions)) {
-            Map<String, Object> explanationAnswers = new LinkedHashMap<>();
-            for (Map.Entry<String, String> entry : answers.entrySet()) {
-                explanationAnswers.put(entry.getKey(), entry.getValue());
-            }
-            try {
-                aiFeedback = answerExplanationClient.explain(set, sectionQuestions, explanationAnswers);
-            } catch (Exception ex) {
-                log.warn("[PracticeService] Gemini API key is out of quota or failed, skipping AI explanation: {}", ex.getMessage());
-                aiFeedback = null;
             }
         }
 
