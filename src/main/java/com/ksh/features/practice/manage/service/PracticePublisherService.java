@@ -7,6 +7,7 @@ import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeDraft;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
@@ -79,6 +80,8 @@ public class PracticePublisherService {
         if (category == null || category.isBlank() || "UNCLASSIFIED".equalsIgnoreCase(category)) {
             throw new IllegalStateException("Không thể xuất bản bản nháp chưa phân loại (UNCLASSIFIED). Vui lòng chọn phân loại bộ đề trước.");
         }
+
+        validateWritingTaskMetadata(root);
 
         // Create or update PracticeSet
         JsonNode sectionsNode = root.path("sections");
@@ -271,6 +274,11 @@ public class PracticePublisherService {
                                         BigDecimal.valueOf(qNode.path("points").asDouble(1.0)),
                                         qIdx
                                 );
+                                question.setWritingTaskType(resolveWritingTaskTypeForPublish(
+                                        sNode.path("skill").asText("READING"),
+                                        dbType,
+                                        qNode
+                                ));
                                 question.setGroupId(savedGroup.getId());
                                 questionRepository.save(question);
                                 sectionLocalQNo++;
@@ -450,5 +458,51 @@ public class PracticePublisherService {
             case "GAP_FILL" -> "FILL_BLANK";
             default -> uiType.toUpperCase();
         };
+    }
+
+    private void validateWritingTaskMetadata(JsonNode root) {
+        JsonNode sections = root.path("sections");
+        if (!sections.isArray()) {
+            return;
+        }
+        for (JsonNode section : sections) {
+            String skill = section.path("skill").asText("READING");
+            JsonNode groups = section.path("groups");
+            if (!groups.isArray()) {
+                continue;
+            }
+            for (JsonNode group : groups) {
+                JsonNode questions = group.path("questions");
+                if (!questions.isArray()) {
+                    continue;
+                }
+                for (JsonNode question : questions) {
+                    String dbType = mapUiTypeToDbType(question.path("questionType").asText("MCQ"));
+                    resolveWritingTaskTypeForPublish(skill, dbType, question);
+                }
+            }
+        }
+    }
+
+    private WritingTaskType resolveWritingTaskTypeForPublish(String skill, String questionType, JsonNode question) {
+        if (!"WRITING".equalsIgnoreCase(skill) || !PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+            return null;
+        }
+        JsonNode taskNode = question.get("essayTaskType");
+        if (taskNode == null || taskNode.isNull()) {
+            return null;
+        }
+        if (!taskNode.isTextual()) {
+            throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
+        }
+        String value = taskNode.asText();
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return WritingTaskType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
+        }
     }
 }

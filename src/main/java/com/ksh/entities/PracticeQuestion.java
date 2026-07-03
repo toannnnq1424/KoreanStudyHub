@@ -2,6 +2,8 @@ package com.ksh.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -57,6 +59,10 @@ public class PracticeQuestion {
 
     @Column(name = "group_id")
     private Long groupId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "writing_task_type", length = 20)
+    private WritingTaskType writingTaskType;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -128,5 +134,13 @@ public class PracticeQuestion {
 
     public void setGroupId(Long groupId) {
         this.groupId = groupId;
+    }
+
+    public WritingTaskType getWritingTaskType() {
+        return writingTaskType;
+    }
+
+    public void setWritingTaskType(WritingTaskType writingTaskType) {
+        this.writingTaskType = writingTaskType;
     }
 }
