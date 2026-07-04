@@ -3,9 +3,11 @@ package com.ksh.features.practice.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.WritingTaskType;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
@@ -424,12 +426,100 @@ class WritingEvaluationClientTest {
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
+    @Test
+    void cacheHitRecordsNoProviderMetric() {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        String cachedValue = "{\"score\":8.0,\"raw_score\":24.0,\"raw_score_max\":30.0,\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        when(cacheService.get(eq(USER_ID), anyString(), anyString(), anyString(), eq("model"), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(cachedValue));
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationClient client = clientWithMetrics(
+                properties("", "model"), cacheService, mock(WritingMockEvaluatorService.class),
+                setupMockRestClient("{}", new AtomicInteger()), registry);
+
+        String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
+
+        assertNotNull(result);
+        assertTrue(registry.find(PracticeAiMetrics.PROVIDER_OPERATIONS).meters().isEmpty());
+    }
+
+    @Test
+    void mockFallbackRecordsOneProviderFallbackMetric() {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationClient client = clientWithMetrics(
+                properties("", "model"), cacheService, mockEvaluator, null, registry);
+
+        client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
+
+        assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
+                "feature", "writing", "outcome", "fallback").count());
+        assertEquals(1L, registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
+                "feature", "writing", "outcome", "fallback").count());
+    }
+
+    @Test
+    void acceptedProviderOutputRecordsOneProviderSuccessMetric() {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationClient client = clientWithMetrics(
+                properties("valid-key", "model"), cacheService, mock(WritingMockEvaluatorService.class),
+                setupMockRestClient(aiResponse(), new AtomicInteger()), registry);
+
+        String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어를 공부합니다", false);
+
+        assertNotNull(result);
+        assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
+                "feature", "writing", "outcome", "success").count());
+        assertEquals(1L, registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
+                "feature", "writing", "outcome", "success").count());
+    }
+
+    @Test
+    void malformedCachedJsonRecordsParseMalformedMetric() {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of("{malformed"));
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationClient client = clientWithMetrics(
+                properties("valid-key", "model"), cacheService, mock(WritingMockEvaluatorService.class),
+                setupMockRestClient(aiResponse(), new AtomicInteger()), registry);
+
+        client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
+
+        assertEquals(1.0, registry.counter(PracticeAiMetrics.CACHE_OPERATIONS,
+                "cache", "writing", "operation", "parse", "outcome", "malformed").count());
+    }
+
     private OpenAiProperties properties(String apiKey, String model) {
         OpenAiProperties properties = mock(OpenAiProperties.class);
         when(properties.evaluatorModel()).thenReturn(model);
         when(properties.apiKey()).thenReturn(apiKey);
         when(properties.baseUrl()).thenReturn("http://localhost");
         return properties;
+    }
+
+    private WritingEvaluationClient clientWithMetrics(OpenAiProperties properties,
+                                                      WritingEvaluationCacheService cacheService,
+                                                      WritingMockEvaluatorService mockEvaluator,
+                                                      RestClient restClient,
+                                                      SimpleMeterRegistry registry) {
+        return new WritingEvaluationClient(
+                properties,
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                new WritingTaskResolver(),
+                cacheService,
+                mockEvaluator,
+                restClient,
+                new PracticeAiMetrics(registry));
     }
 
     private String aiResponse() {

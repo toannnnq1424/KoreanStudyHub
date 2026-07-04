@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai;
 
 import com.ksh.entities.WritingEvaluationCacheEntry;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import com.ksh.features.practice.repository.WritingEvaluationCacheRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
@@ -28,16 +29,28 @@ public class WritingEvaluationCacheService {
 
     private final WritingEvaluationCacheRepository repository;
     private final Clock clock;
+    private final PracticeAiMetrics metrics;
 
     @Autowired
+    public WritingEvaluationCacheService(WritingEvaluationCacheRepository repository,
+                                         PracticeAiMetrics metrics) {
+        this(repository, Clock.systemUTC(), metrics);
+    }
+
     public WritingEvaluationCacheService(WritingEvaluationCacheRepository repository) {
-        this(repository, Clock.systemUTC());
+        this(repository, Clock.systemUTC(), PracticeAiMetrics.noop());
     }
 
     /** Test-only constructor for injectable clock (avoids Thread.sleep in TTL tests). */
     WritingEvaluationCacheService(WritingEvaluationCacheRepository repository, Clock clock) {
+        this(repository, clock, PracticeAiMetrics.noop());
+    }
+
+    WritingEvaluationCacheService(WritingEvaluationCacheRepository repository, Clock clock,
+                                  PracticeAiMetrics metrics) {
         this.repository = repository;
         this.clock = clock;
+        this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -52,17 +65,101 @@ public class WritingEvaluationCacheService {
 
         String cacheKey = scopedKey(userId, prompt, learnerAnswer, taskType, model,
                 promptVersion, rubricVersion, schemaVersion);
-        Optional<WritingEvaluationCacheEntry> entry = repository.findById(cacheKey);
-        if (entry.isEmpty()) {
-            return Optional.empty();
-        }
+        long lookupStart = PracticeAiMetrics.startNanos();
+        boolean lookupRecorded = false;
+        try {
+            Optional<WritingEvaluationCacheEntry> entry = repository.findById(cacheKey);
+            if (entry.isEmpty()) {
+                recordLookup(PracticeAiMetrics.CacheOutcome.MISS, lookupStart);
+                return Optional.empty();
+            }
 
-        LocalDateTime now = now();
-        if (!entry.get().getExpiresAt().isAfter(now)) {
-            repository.deleteByCacheKey(cacheKey);
-            return Optional.empty();
+            LocalDateTime now = now();
+            if (!entry.get().getExpiresAt().isAfter(now)) {
+                recordLookup(PracticeAiMetrics.CacheOutcome.EXPIRED, lookupStart);
+                lookupRecorded = true;
+                deleteByCacheKeyWithMetrics(cacheKey);
+                return Optional.empty();
+            }
+            recordLookup(PracticeAiMetrics.CacheOutcome.HIT, lookupStart);
+            return Optional.of(entry.get().getResultJson());
+        } catch (RuntimeException ex) {
+            if (!lookupRecorded) {
+                recordLookup(PracticeAiMetrics.CacheOutcome.FAILURE, lookupStart);
+            }
+            throw ex;
         }
-        return Optional.of(entry.get().getResultJson());
+    }
+
+    private void recordLookup(PracticeAiMetrics.CacheOutcome outcome, long startNanos) {
+        metrics.recordCacheOperation(
+                PracticeAiMetrics.CacheType.WRITING,
+                PracticeAiMetrics.CacheOperation.LOOKUP,
+                outcome,
+                PracticeAiMetrics.elapsedSince(startNanos));
+    }
+
+    private void deleteByCacheKeyWithMetrics(String cacheKey) {
+        long deleteStart = PracticeAiMetrics.startNanos();
+        try {
+            repository.deleteByCacheKey(cacheKey);
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.DELETE,
+                    PracticeAiMetrics.CacheOutcome.SUCCESS,
+                    PracticeAiMetrics.elapsedSince(deleteStart));
+        } catch (RuntimeException ex) {
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.DELETE,
+                    PracticeAiMetrics.CacheOutcome.FAILURE,
+                    PracticeAiMetrics.elapsedSince(deleteStart));
+            throw ex;
+        }
+    }
+
+    private void deleteExpiredWithMetrics(LocalDateTime now) {
+        long deleteStart = PracticeAiMetrics.startNanos();
+        try {
+            repository.deleteExpired(now);
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.DELETE,
+                    PracticeAiMetrics.CacheOutcome.SUCCESS,
+                    PracticeAiMetrics.elapsedSince(deleteStart));
+        } catch (RuntimeException ex) {
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.DELETE,
+                    PracticeAiMetrics.CacheOutcome.FAILURE,
+                    PracticeAiMetrics.elapsedSince(deleteStart));
+            throw ex;
+        }
+    }
+
+    private void upsertWithMetrics(String cacheKey, String userScopeHash,
+                                   String taskType, String model, String promptVersion,
+                                   String rubricVersion, String schemaVersion,
+                                   String value, LocalDateTime expiresAt) {
+        long writeStart = PracticeAiMetrics.startNanos();
+        try {
+            repository.upsert(cacheKey, userScopeHash,
+                    nullToEmpty(taskType), nullToEmpty(model), nullToEmpty(promptVersion),
+                    nullToEmpty(rubricVersion), nullToEmpty(schemaVersion),
+                    value, expiresAt);
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.WRITE,
+                    PracticeAiMetrics.CacheOutcome.SUCCESS,
+                    PracticeAiMetrics.elapsedSince(writeStart));
+        } catch (RuntimeException ex) {
+            metrics.recordCacheOperation(
+                    PracticeAiMetrics.CacheType.WRITING,
+                    PracticeAiMetrics.CacheOperation.WRITE,
+                    PracticeAiMetrics.CacheOutcome.FAILURE,
+                    PracticeAiMetrics.elapsedSince(writeStart));
+            throw ex;
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -77,13 +174,12 @@ public class WritingEvaluationCacheService {
         }
 
         LocalDateTime now = now();
-        repository.deleteExpired(now);
+        deleteExpiredWithMetrics(now);
         String userScopeHash = userScopeHash(userId);
         String cacheKey = scopedKey(userScopeHash,
                 key(prompt, learnerAnswer, taskType, model, promptVersion, rubricVersion, schemaVersion));
-        repository.upsert(cacheKey, userScopeHash,
-                nullToEmpty(taskType), nullToEmpty(model), nullToEmpty(promptVersion),
-                nullToEmpty(rubricVersion), nullToEmpty(schemaVersion),
+        upsertWithMetrics(cacheKey, userScopeHash,
+                taskType, model, promptVersion, rubricVersion, schemaVersion,
                 value, now.plus(TTL));
     }
 
@@ -95,7 +191,7 @@ public class WritingEvaluationCacheService {
         if (userId == null) {
             return;
         }
-        repository.deleteByCacheKey(scopedKey(userId, prompt, learnerAnswer, taskType, model,
+        deleteByCacheKeyWithMetrics(scopedKey(userId, prompt, learnerAnswer, taskType, model,
                 promptVersion, rubricVersion, schemaVersion));
     }
 

@@ -3,6 +3,7 @@ package com.ksh.features.practice.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.WritingTaskType;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -30,6 +31,18 @@ public class WritingEvaluationClient {
     private final WritingTaskResolver taskResolver;
     private final WritingEvaluationCacheService cacheService;
     private final WritingMockEvaluatorService mockEvaluatorService;
+    private final PracticeAiMetrics metrics;
+
+    public WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
+                null, PracticeAiMetrics.noop());
+    }
 
     @Autowired
     public WritingEvaluationClient(OpenAiProperties properties,
@@ -38,8 +51,10 @@ public class WritingEvaluationClient {
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService, null);
+            WritingMockEvaluatorService mockEvaluatorService,
+            PracticeAiMetrics metrics) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
+                null, metrics);
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -50,7 +65,7 @@ public class WritingEvaluationClient {
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
         this(properties, objectMapper, normalizer, ruleEngine, new WritingTaskResolver(),
-                cacheService, mockEvaluatorService, restClient);
+                cacheService, mockEvaluatorService, restClient, PracticeAiMetrics.noop());
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -61,6 +76,19 @@ public class WritingEvaluationClient {
             WritingEvaluationCacheService cacheService,
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
+                mockEvaluatorService, restClient, PracticeAiMetrics.noop());
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService,
+            RestClient restClient,
+            PracticeAiMetrics metrics) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
@@ -68,6 +96,7 @@ public class WritingEvaluationClient {
         this.taskResolver = taskResolver;
         this.cacheService = cacheService;
         this.mockEvaluatorService = mockEvaluatorService;
+        this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
         if (restClient != null) {
             this.restClient = restClient;
         } else {
@@ -112,12 +141,18 @@ public class WritingEvaluationClient {
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         WritingPromptRules.EVALUATION_SCHEMA_VERSION);
                 if (cached.isPresent()) {
+                    long parseStart = PracticeAiMetrics.startNanos();
                     try {
                         String rehydrated = normalizer.rehydrateCachedResult(cached.get(), learnerAnswer);
                         log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
                                 ruleAnalysis.taskType(), ruleAnalysis.characterCount());
                         return rehydrated;
                     } catch (Exception ex) {
+                        metrics.recordCacheOperation(
+                                PracticeAiMetrics.CacheType.WRITING,
+                                PracticeAiMetrics.CacheOperation.PARSE,
+                                PracticeAiMetrics.CacheOutcome.MALFORMED,
+                                PracticeAiMetrics.elapsedSince(parseStart));
                         log.warn("KSH writing evaluation cache entry ignored because payload is malformed: taskType={}",
                                 ruleAnalysis.taskType());
                         deleteCacheEntry(userId, prompt, learnerAnswer, ruleAnalysis);
@@ -131,11 +166,15 @@ public class WritingEvaluationClient {
 
         // 3. Mock mode when API key is missing
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
-            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "missing API key");
+            long providerStart = PracticeAiMetrics.startNanos();
+            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "missing API key");
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
+            return fallback;
         }
 
         // 4. Single unified provider call
         JsonNode response;
+        long providerStart = PracticeAiMetrics.startNanos();
         try {
             String systemPrompt = WritingPromptRules.buildUnifiedPrompt(
                     ruleAnalysis.taskType(), isReEvaluation);
@@ -148,15 +187,21 @@ public class WritingEvaluationClient {
             int status = ex.getStatusCode().value();
             log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
                     status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
-            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
+            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
+            return fallback;
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
+            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
+            return fallback;
         } catch (Exception ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            return fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
+            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
+            return fallback;
         }
 
         // 5. Normalize — normalizer is sole source of score/raw_score/raw_score_max
@@ -164,6 +209,7 @@ public class WritingEvaluationClient {
         try {
             responseJson = objectMapper.writeValueAsString(response);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             throw new IllegalStateException("Internal error serializing JSON response", e);
         }
 
@@ -172,6 +218,9 @@ public class WritingEvaluationClient {
                 ruleAnalysis.taskType(),
                 learnerAnswer,
                 ruleAnalysis);
+        recordWritingProvider(normalizer.isCacheableAiResult(normalized)
+                ? PracticeAiMetrics.ProviderOutcome.SUCCESS
+                : PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
 
         // 6. Cache result (both submit and re-evaluate overwrite cache)
         if (normalizer.isCacheableAiResult(normalized)) {
@@ -207,6 +256,13 @@ public class WritingEvaluationClient {
         log.info("KSH writing evaluation falling back to mock: {}", reason);
         String mockJson = mockEvaluatorService.evaluate(prompt, learnerAnswer, ruleAnalysis, reason);
         return normalizer.normalize(mockJson, ruleAnalysis.taskType(), learnerAnswer, ruleAnalysis);
+    }
+
+    private void recordWritingProvider(PracticeAiMetrics.ProviderOutcome outcome, long startNanos) {
+        metrics.recordProviderOperation(
+                PracticeAiMetrics.ProviderFeature.WRITING,
+                outcome,
+                PracticeAiMetrics.elapsedSince(startNanos));
     }
 
     private static String exceptionCategory(Exception ex) {

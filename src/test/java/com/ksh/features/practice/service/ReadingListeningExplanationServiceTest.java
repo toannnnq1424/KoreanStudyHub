@@ -9,7 +9,9 @@ import com.ksh.entities.QuestionExplanationCache;
 import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.ai.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.ReadingListeningMockExplanationService;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,7 @@ class ReadingListeningExplanationServiceTest {
     private ReadingListeningMockExplanationService mockExplanationService;
     private OpenAiProperties properties;
     private ReadingListeningExplanationService service;
+    private SimpleMeterRegistry registry;
 
     @BeforeEach
     void setUp() {
@@ -59,12 +62,14 @@ class ReadingListeningExplanationServiceTest {
         client = mock(ReadingListeningExplanationClient.class);
         mockExplanationService = mock(ReadingListeningMockExplanationService.class);
         properties = mock(OpenAiProperties.class);
+        registry = new SimpleMeterRegistry();
         service = new ReadingListeningExplanationService(
                 repository,
                 client,
                 mockExplanationService,
                 properties,
-                new ObjectMapper()
+                new ObjectMapper(),
+                new PracticeAiMetrics(registry)
         );
 
         when(client.model()).thenReturn("model-a");
@@ -88,6 +93,8 @@ class ReadingListeningExplanationServiceTest {
 
         assertThat(result).contains("\"meaningVi\"");
         verify(client, never()).explain(any(), anyString(), anyString(), anyString());
+        assertCacheMetric("lookup", "hit", 1.0);
+        assertThat(registry.find(PracticeAiMetrics.PROVIDER_OPERATIONS).meters()).isEmpty();
     }
 
     @Test
@@ -198,6 +205,7 @@ class ReadingListeningExplanationServiceTest {
         assertThat(result).contains("mock");
         verify(repository, never()).upsert(anyString(), anyLong(), anyLong(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        assertProviderMetric("fallback", 1.0);
     }
 
     @Test
@@ -210,6 +218,9 @@ class ReadingListeningExplanationServiceTest {
         assertThat(result).isEqualTo(VALID_JSON);
         verify(repository).upsert(anyString(), eq(51L), eq(7L), eq("READING"), eq("MCQ"),
                 anyString(), eq("1"), eq(VALID_JSON), eq("model-a"), eq("prompt-v1"), eq("schema-v1"), eq("vi"));
+        assertCacheMetric("lookup", "miss", 2.0);
+        assertCacheMetric("write", "success", 1.0);
+        assertProviderMetric("success", 1.0);
     }
 
     @Test
@@ -273,6 +284,8 @@ class ReadingListeningExplanationServiceTest {
         String result = service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC");
 
         assertThat(result).isEqualTo(VALID_JSON);
+        assertCacheMetric("lookup", "failure", 2.0);
+        assertProviderMetric("success", 1.0);
     }
 
     @Test
@@ -302,6 +315,8 @@ class ReadingListeningExplanationServiceTest {
         String result = service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC");
 
         assertThat(result).isEqualTo(VALID_JSON);
+        assertCacheMetric("write", "failure", 1.0);
+        assertProviderMetric("success", 1.0);
     }
 
     @Test
@@ -343,6 +358,10 @@ class ReadingListeningExplanationServiceTest {
 
         assertThat(result).isEqualTo(VALID_JSON);
         verify(repository).deleteByCacheKey(keyParts.cacheKey());
+        assertCacheMetric("lookup", "hit", 1.0);
+        assertCacheMetric("parse", "malformed", 1.0);
+        assertCacheMetric("delete", "success", 1.0);
+        assertProviderMetric("success", 1.0);
     }
 
     @Test
@@ -359,6 +378,9 @@ class ReadingListeningExplanationServiceTest {
         String result = service.getOrCreateExplanation(question, "passage", "READING", 7L, "NUMERIC");
 
         assertThat(result).isEqualTo(VALID_JSON);
+        assertCacheMetric("parse", "malformed", 1.0);
+        assertCacheMetric("delete", "failure", 1.0);
+        assertProviderMetric("success", 1.0);
     }
 
     @Test
@@ -393,6 +415,7 @@ class ReadingListeningExplanationServiceTest {
         assertThat(result).contains("mock");
         verify(repository, never()).upsert(anyString(), anyLong(), anyLong(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        assertProviderMetric("fallback", 1.0);
     }
 
     @Test
@@ -410,6 +433,24 @@ class ReadingListeningExplanationServiceTest {
         String listening = service.buildCacheKeyParts(question, "passage", "LISTENING", "NUMERIC").cacheKey();
 
         assertThat(reading).isNotEqualTo(listening);
+    }
+
+    private void assertCacheMetric(String operation, String outcome, double expected) {
+        assertThat(registry.counter(PracticeAiMetrics.CACHE_OPERATIONS,
+                "cache", "rl_explanation", "operation", operation, "outcome", outcome).count())
+                .isEqualTo(expected);
+        assertThat(registry.timer(PracticeAiMetrics.CACHE_DURATION,
+                "cache", "rl_explanation", "operation", operation, "outcome", outcome).count())
+                .isEqualTo((long) expected);
+    }
+
+    private void assertProviderMetric(String outcome, double expected) {
+        assertThat(registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
+                "feature", "rl_explanation", "outcome", outcome).count())
+                .isEqualTo(expected);
+        assertThat(registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
+                "feature", "rl_explanation", "outcome", outcome).count())
+                .isEqualTo((long) expected);
     }
 
     private static PracticeQuestion question(Long id, String prompt, String optionsJson, String answerKey, String questionType) {

@@ -1,7 +1,9 @@
 package com.ksh.features.practice.ai;
 
 import com.ksh.entities.WritingEvaluationCacheEntry;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import com.ksh.features.practice.repository.WritingEvaluationCacheRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -39,6 +41,8 @@ class WritingEvaluationCacheServiceTest {
 
         assertTrue(result.isPresent());
         assertEquals(CACHED_VALUE, result.get());
+        assertMetric(fixture.registry, "writing", "write", "success", 1.0);
+        assertMetric(fixture.registry, "writing", "lookup", "hit", 1.0);
     }
 
     @Test
@@ -61,6 +65,7 @@ class WritingEvaluationCacheServiceTest {
         Optional<String> result = fixture.service.get(OTHER_USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION);
 
         assertTrue(result.isEmpty());
+        assertMetric(fixture.registry, "writing", "lookup", "miss", 1.0);
         assertNotEquals(
                 WritingEvaluationCacheService.scopedKey(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION),
                 WritingEvaluationCacheService.scopedKey(OTHER_USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION)
@@ -127,11 +132,60 @@ class WritingEvaluationCacheServiceTest {
         fixture.service.put(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION, CACHED_VALUE);
 
         var expiredService = new WritingEvaluationCacheService(fixture.repository,
-                Clock.fixed(base.plus(Duration.ofMinutes(31)), ZoneId.of("UTC")));
+                Clock.fixed(base.plus(Duration.ofMinutes(31)), ZoneId.of("UTC")),
+                new PracticeAiMetrics(fixture.registry));
         Optional<String> result = expiredService.get(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION);
 
         assertTrue(result.isEmpty());
         assertTrue(fixture.rows.isEmpty());
+        assertMetric(fixture.registry, "writing", "lookup", "expired", 1.0);
+        assertTrue(fixture.registry.counter(PracticeAiMetrics.CACHE_OPERATIONS,
+                "cache", "writing", "operation", "delete", "outcome", "success").count() >= 1.0);
+    }
+
+    @Test
+    void repositoryFailuresRecordFailureMetricsAndStillPropagateToCaller() {
+        WritingEvaluationCacheRepository repository = mock(WritingEvaluationCacheRepository.class);
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationCacheService service = new WritingEvaluationCacheService(
+                repository, Clock.systemUTC(), new PracticeAiMetrics(registry));
+        when(repository.findById(anyString())).thenThrow(new RuntimeException("db down"));
+
+        assertThrows(RuntimeException.class, () -> service.get(USER_ID, PROMPT, ANSWER, TASK_TYPE,
+                MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION));
+
+        assertMetric(registry, "writing", "lookup", "failure", 1.0);
+    }
+
+    @Test
+    void writeFailureRecordsMetricAndStillPropagatesToCaller() {
+        WritingEvaluationCacheRepository repository = mock(WritingEvaluationCacheRepository.class);
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationCacheService service = new WritingEvaluationCacheService(
+                repository, Clock.systemUTC(), new PracticeAiMetrics(registry));
+        when(repository.deleteExpired(any(LocalDateTime.class))).thenReturn(0);
+        when(repository.upsert(anyString(), anyString(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), any(LocalDateTime.class)))
+                .thenThrow(new RuntimeException("write down"));
+
+        assertThrows(RuntimeException.class, () -> service.put(USER_ID, PROMPT, ANSWER, TASK_TYPE,
+                MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION, CACHED_VALUE));
+
+        assertMetric(registry, "writing", "write", "failure", 1.0);
+    }
+
+    @Test
+    void deleteFailureRecordsMetricAndStillPropagatesToCaller() {
+        WritingEvaluationCacheRepository repository = mock(WritingEvaluationCacheRepository.class);
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WritingEvaluationCacheService service = new WritingEvaluationCacheService(
+                repository, Clock.systemUTC(), new PracticeAiMetrics(registry));
+        when(repository.deleteByCacheKey(anyString())).thenThrow(new RuntimeException("delete down"));
+
+        assertThrows(RuntimeException.class, () -> service.delete(USER_ID, PROMPT, ANSWER, TASK_TYPE,
+                MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION));
+
+        assertMetric(registry, "writing", "delete", "failure", 1.0);
     }
 
     @Test
@@ -187,11 +241,20 @@ class WritingEvaluationCacheServiceTest {
                     return 1;
                 });
 
-        return new Fixture(new WritingEvaluationCacheService(repository, clock), repository, rows);
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        return new Fixture(new WritingEvaluationCacheService(repository, clock, new PracticeAiMetrics(registry)),
+                repository, rows, registry);
+    }
+
+    private static void assertMetric(SimpleMeterRegistry registry, String cache,
+                                     String operation, String outcome, double expected) {
+        assertEquals(expected, registry.counter(PracticeAiMetrics.CACHE_OPERATIONS,
+                "cache", cache, "operation", operation, "outcome", outcome).count());
     }
 
     private record Fixture(WritingEvaluationCacheService service,
                            WritingEvaluationCacheRepository repository,
-                           Map<String, WritingEvaluationCacheEntry> rows) {
+                           Map<String, WritingEvaluationCacheEntry> rows,
+                           SimpleMeterRegistry registry) {
     }
 }
