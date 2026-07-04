@@ -18,6 +18,27 @@ class WritingRuleEngineTest {
     }
 
     @Test
+    void analyzeWithResolvedTaskDoesNotRedetectPrompt() {
+        WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
+                "Bài 54 nghị luận 600-700자",
+                "가".repeat(250),
+                "Q53");
+
+        assertEquals("Q53", analysis.taskType());
+        assertTrue(analysis.charCountWarning().contains("OK"));
+    }
+
+    @Test
+    void oldAnalyzeOverloadKeepsLegacyDetection() {
+        WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
+                "Bài 54 nghị luận 600-700자",
+                "가".repeat(250));
+
+        assertEquals("Q54", analysis.taskType());
+        assertTrue(analysis.charCountWarning().contains("CRITICAL"));
+    }
+
+    @Test
     void testAnalyzeSpokenLanguage() {
         WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze("Câu 53", "진짜 그리고 했어요");
         assertEquals("Q53", analysis.taskType());

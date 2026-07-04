@@ -11,6 +11,7 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
 import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
@@ -177,14 +178,15 @@ class PracticeServiceTest {
                 "[]", "", "Giải thích đáp án đúng",
                 BigDecimal.valueOf(50.0), 0
         );
+        q.setWritingTaskType(WritingTaskType.Q54);
         setEntityId(q, 10L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"score\":6.0,\"overall_score\":6.0,\"raw_score\":30.0,\"raw_score_max\":50.0}");
 
         practiceService.reEvaluate(1L, 2L);
-        verify(evaluationClient, times(1)).evaluate(eq(2L), anyString(), anyString(), anyBoolean());
+        verify(evaluationClient, times(1)).evaluate(eq(2L), anyString(), anyString(), anyBoolean(), eq(WritingTaskType.Q54));
     }
 
     @Test
@@ -213,7 +215,7 @@ class PracticeServiceTest {
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
         // Stub evaluate to return a contract-valid JSON with raw_score = 0.0 (spam/empty)
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"score\":0.0,\"overall_score\":0.0,\"raw_score\":0.0,\"raw_score_max\":50.0}");
 
         practiceService.reEvaluate(1L, 2L);
@@ -1118,7 +1120,7 @@ class PracticeServiceTest {
         // Total earned points = MCQ (5.0) + ESSAY (9.0) = 14.0 points.
         // Total possible points = 5.0 + 15.0 = 20.0 points.
         // Final percentage score = (14.0 / 20.0) * 100 = 70.00%
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean())).thenReturn("{\"raw_score\":6.0,\"raw_score_max\":10.0}");
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any())).thenReturn("{\"raw_score\":6.0,\"raw_score_max\":10.0}");
 
         Map<String, String> form = Map.of("answer_101", "3", "answer_102", "My essay");
         practiceService.submitAttempt(99L, 2L, form);
@@ -1153,9 +1155,9 @@ class PracticeServiceTest {
         setEntityId(q2, 102L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1, q2));
 
-        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
-        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":21.0,\"raw_score_max\":30.0,\"rubric_scores\":[]}");
 
         practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1", "answer_102", "A2"));
@@ -1192,9 +1194,9 @@ class PracticeServiceTest {
         setEntityId(q2, 102L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1, q2));
 
-        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":-5.0,\"raw_score_max\":10.0}");
-        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":40.0,\"raw_score_max\":30.0}");
 
         practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1", "answer_102", "A2"));
@@ -1230,16 +1232,17 @@ class PracticeServiceTest {
                 .thenReturn(Optional.of(snapshotAttempt), Optional.of(changedAttempt));
 
         PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        q.setWritingTaskType(WritingTaskType.Q53);
         setEntityId(q, 101L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}");
 
         PracticeAttemptConflictException ex = assertThrows(PracticeAttemptConflictException.class,
                 () -> practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1")));
 
         assertTrue(ex.getMessage().contains("Bài làm đã thay đổi"));
-        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q1"), eq("A1"), eq(false));
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q1"), eq("A1"), eq(false), eq(WritingTaskType.Q53));
         verify(attemptRepository, never()).saveAndFlush(any());
     }
 
@@ -1266,7 +1269,7 @@ class PracticeServiceTest {
         PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
         setEntityId(q, 101L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}");
         doThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(PracticeAttempt.class, 99L))
                 .when(attemptRepository).saveAndFlush(attempt);
@@ -1283,7 +1286,7 @@ class PracticeServiceTest {
                 true);
         JsonNode oldNonTarget = objectMapper.readTree(attempt.getAiFeedbackJson()).get("102");
 
-        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), any()))
                 .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0,\"summary\":\"new\",\"rubric_scores\":[]}");
 
         Long result = practiceService.reEvaluateQuestion(99L, 103L, 2L);
@@ -1298,8 +1301,8 @@ class PracticeServiceTest {
         assertEquals("new", feedback.get("103").path("summary").asText());
         assertTrue(feedback.get("103").isObject());
         assertFalse(feedback.get("103").isTextual());
-        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true));
-        verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean());
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q54));
+        verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean(), any());
     }
 
     @Test
@@ -1321,7 +1324,7 @@ class PracticeServiceTest {
         PracticeAttempt attempt = arrangeSingleEssayWritingQuestionReEvaluationAttempt(
                 "{\"102\":\"A1\"}",
                 "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}");
-        when(evaluationClient.evaluate(eq(2L), eq("Q1"), eq("A1"), eq(true)))
+        when(evaluationClient.evaluate(eq(2L), eq("Q1"), eq("A1"), eq(true), any()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0,\"summary\":\"new\"}");
 
         practiceService.reEvaluateQuestion(99L, 102L, 2L);
@@ -1381,7 +1384,7 @@ class PracticeServiceTest {
                 "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
                 "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0,\"summary\":\"keep\"},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0,\"summary\":\"old\"}}",
                 true);
-        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), any()))
                 .thenReturn("{\"raw_score\":0.0,\"raw_score_max\":30.0,\"summary\":\"invalid\"}");
 
         practiceService.reEvaluateQuestion(99L, 103L, 2L);
@@ -1389,7 +1392,7 @@ class PracticeServiceTest {
         assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(28.00)));
         JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
         assertEquals(0.0, feedback.get("103").path("raw_score").asDouble());
-        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true));
+        verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q54));
     }
 
     @Test
@@ -1409,7 +1412,7 @@ class PracticeServiceTest {
         setEntityId(changedAttempt, 99L);
         when(attemptRepository.findByIdAndUserId(99L, 2L))
                 .thenReturn(Optional.of(snapshotAttempt), Optional.of(changedAttempt));
-        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true)))
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), any()))
                 .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0}");
 
         assertThrows(PracticeAttemptConflictException.class,
@@ -1452,9 +1455,11 @@ class PracticeServiceTest {
         qMcq.setGroupId(30L);
         setEntityId(qMcq, 101L);
         PracticeQuestion qEssay1 = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.valueOf(15.0), 1);
+        qEssay1.setWritingTaskType(WritingTaskType.Q51);
         qEssay1.setGroupId(30L);
         setEntityId(qEssay1, 102L);
         PracticeQuestion qEssay2 = new PracticeQuestion(1L, 53, "ESSAY", "Q2", "[]", "", "Explain", BigDecimal.valueOf(30.0), 2);
+        qEssay2.setWritingTaskType(WritingTaskType.Q54);
         qEssay2.setGroupId(30L);
         setEntityId(qEssay2, 103L);
 
@@ -1487,6 +1492,7 @@ class PracticeServiceTest {
         group.setSectionId(20L);
         setEntityId(group, 30L);
         PracticeQuestion qEssay = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        qEssay.setWritingTaskType(WritingTaskType.Q53);
         qEssay.setGroupId(30L);
         setEntityId(qEssay, 102L);
 

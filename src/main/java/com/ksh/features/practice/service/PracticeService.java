@@ -7,6 +7,7 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.PracticeQuestionGroup;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow;
@@ -248,7 +249,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, true);
+                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, true, q.getWritingTaskType());
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -1809,7 +1810,7 @@ public class PracticeService {
                     score = score.add(q.getPoints());
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, false);
+                aiFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, false, q.getWritingTaskType());
                 score = extractAiScore(aiFeedback);
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 aiFeedback = mockSpeakingFeedback(q.getPrompt(), answer);
@@ -2308,7 +2309,8 @@ public class PracticeService {
                         q.getPrompt(),
                         q.getQuestionType(),
                         q.getAnswerKey(),
-                        q.getPoints()
+                        q.getPoints(),
+                        q.getWritingTaskType()
                 ))
                 .toList();
     }
@@ -2344,7 +2346,8 @@ public class PracticeService {
                     attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
-                String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer, isReEvaluate);
+                String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer,
+                        isReEvaluate, q.writingTaskType());
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
 
                 WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.questionId());
@@ -2382,7 +2385,8 @@ public class PracticeService {
                 snapshot.userId(),
                 snapshot.targetQuestion().prompt(),
                 targetAnswer,
-                true);
+                true,
+                snapshot.targetQuestion().writingTaskType());
         com.fasterxml.jackson.databind.node.ObjectNode targetNode =
                 readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
         readStoredWritingScore(targetNode, snapshot.targetQuestion().questionId());
@@ -2638,7 +2642,8 @@ public class PracticeService {
             String prompt,
             String questionType,
             String answerKey,
-            BigDecimal points
+            BigDecimal points,
+            WritingTaskType writingTaskType
     ) {
     }
 
@@ -2687,7 +2692,8 @@ public class PracticeService {
                     attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
                 }
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
-                String singleFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer, isReEvaluate);
+                String singleFeedback = evaluationClient.evaluate(attempt.getUserId(), q.getPrompt(), answer,
+                        isReEvaluate, q.getWritingTaskType());
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.getId(), singleFeedback);
 
                 WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.getId());

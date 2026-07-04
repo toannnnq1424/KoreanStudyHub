@@ -33,7 +33,11 @@ public class WritingRuleEngine {
     }
 
     public RuleAnalysis analyze(String prompt, String learnerAnswer) {
-        String taskType = detectTaskType(prompt);
+        return analyze(prompt, learnerAnswer, detectTaskType(prompt));
+    }
+
+    public RuleAnalysis analyze(String prompt, String learnerAnswer, String resolvedTaskType) {
+        String taskType = resolvedTaskType == null ? "GENERAL" : resolvedTaskType;
         String answer = learnerAnswer == null ? "" : learnerAnswer;
         int charCount = countChars(answer);
         List<RuleViolation> violations = detectSpokenLanguage(answer);

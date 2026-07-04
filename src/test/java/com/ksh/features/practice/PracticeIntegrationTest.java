@@ -128,7 +128,7 @@ class PracticeIntegrationTest {
         attemptRepository.deleteAll();
         submissionRepository.deleteAll();
 
-        when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean()))
+        when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
         when(readingListeningExplanationClient.model()).thenReturn("test-rl-model");
         when(readingListeningExplanationClient.promptVersion()).thenReturn("prompt-v1");
@@ -445,7 +445,7 @@ class PracticeIntegrationTest {
                 .orElseThrow();
 
         final boolean[] evaluatorSawTransaction = {true};
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt"), anyString(), eq(false)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt"), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
                     evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
                     return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
@@ -1105,7 +1105,7 @@ class PracticeIntegrationTest {
         attempt = attemptRepository.saveAndFlush(attempt);
 
         // Mock evaluation client for Question A
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt A"), anyString(), anyBoolean()))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt A"), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}"); // 80% earned points
 
         // Submit for Section A attempt
@@ -1187,7 +1187,7 @@ class PracticeIntegrationTest {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Concurrent Submit Writing", false);
         CyclicBarrier evaluatorBarrier = new CyclicBarrier(2);
         AtomicInteger evaluatorCalls = new AtomicInteger();
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
                     evaluatorCalls.incrementAndGet();
                     evaluatorBarrier.await(5, TimeUnit.SECONDS);
@@ -1240,7 +1240,7 @@ class PracticeIntegrationTest {
     void testWritingSubmitAutosaveConflictReturnsHttp409AndKeepsAutosavedAnswers() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Autosave Conflict Writing", false);
         try {
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
                     practiceService.saveInProgressAnswers(
                             fixture.attemptId(),
@@ -1273,7 +1273,7 @@ class PracticeIntegrationTest {
     void testWritingSubmitAfterDiscardDoesNotRecreateAttempt() {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Discard Conflict Writing", false);
         try {
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
                     practiceService.discardAttempt(fixture.attemptId(), student.getId());
                     return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
@@ -1298,7 +1298,7 @@ class PracticeIntegrationTest {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Reevaluate Conflict Writing", true);
         final boolean[] evaluatorSawTransaction = {true};
         try {
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
                 .thenAnswer(invocation -> {
                     evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
                     TransactionTemplate template = new TransactionTemplate(transactionManager);
@@ -1334,7 +1334,7 @@ class PracticeIntegrationTest {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Writing", true);
         try {
             String beforeAnswersJson = attemptRepository.findById(fixture.attemptId()).orElseThrow().getAnswersJson();
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true)))
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any()))
                     .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"target only\",\"rubric_scores\":[]}");
 
             mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
@@ -1351,7 +1351,7 @@ class PracticeIntegrationTest {
             JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
             assertEquals("target only", feedback.get(String.valueOf(fixture.questionId())).path("summary").asText());
             verify(writingEvaluationClient, times(1))
-                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
+                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any());
 
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.questionId())))
@@ -1462,7 +1462,7 @@ class PracticeIntegrationTest {
     void testWritingFullReEvaluateEndpointWithoutQuestionIdStillRedirectsOverview() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Full Reevaluate Regression UI", true);
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true)))
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any()))
                     .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"full\",\"rubric_scores\":[]}");
 
             mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
@@ -1471,7 +1471,7 @@ class PracticeIntegrationTest {
                     .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result"));
 
             verify(writingEvaluationClient, times(1))
-                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true));
+                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any());
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -1528,7 +1528,7 @@ class PracticeIntegrationTest {
     void testWritingQuestionReEvaluateConflictRedirectsDetailWithFlashError() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Conflict UI", true);
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
                         TransactionTemplate template = new TransactionTemplate(transactionManager);
                         template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -1584,7 +1584,7 @@ class PracticeIntegrationTest {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Stale Answers", true);
         final boolean[] evaluatorSawTransaction = {true};
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
                         evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
                         TransactionTemplate template = new TransactionTemplate(transactionManager);
@@ -1617,7 +1617,7 @@ class PracticeIntegrationTest {
     void testWritingQuestionReEvaluateAfterDiscardDoesNotRecreateAttempt() {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Discard", true);
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
                         TransactionTemplate template = new TransactionTemplate(transactionManager);
                         template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -1645,7 +1645,7 @@ class PracticeIntegrationTest {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Concurrent Question Reevaluate Writing", true);
         CyclicBarrier evaluatorBarrier = new CyclicBarrier(2);
         AtomicInteger evaluatorCalls = new AtomicInteger();
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true)))
+        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
                 .thenAnswer(invocation -> {
                     evaluatorCalls.incrementAndGet();
                     evaluatorBarrier.await(5, TimeUnit.SECONDS);

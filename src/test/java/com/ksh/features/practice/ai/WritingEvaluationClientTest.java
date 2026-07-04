@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.WritingTaskType;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -239,6 +240,83 @@ class WritingEvaluationClientTest {
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
+    }
+
+    @Test
+    void explicitMetadataOverridesConflictingPromptOnProviderSuccess() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), new AtomicInteger())
+        );
+
+        String result = client.evaluate(USER_ID, "Bài 51 điền chỗ trống", "한국어를 공부합니다", false,
+                WritingTaskType.Q53);
+        JsonNode root = objectMapper.readTree(result);
+
+        assertEquals("Q53", root.path("task_type").asText());
+        assertEquals(30.0, root.path("raw_score_max").asDouble());
+        verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
+                eq("v2.0"), eq("v2.0"), eq("v2.0"), anyString());
+    }
+
+    @Test
+    void explicitQ52UsesQ51_52ForCacheHit() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        String cachedValue = "{\"score\":8.0,\"raw_score\":8.9,\"raw_score_max\":10.0,\"task_type\":\"Q51_52\",\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q51_52"), eq("model"), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(cachedValue));
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, setupMockRestClient("{}", new AtomicInteger())
+        );
+
+        String result = client.evaluate(USER_ID, "Bài 53 biểu đồ", "있다", false, WritingTaskType.Q52);
+        JsonNode root = objectMapper.readTree(result);
+
+        assertEquals("Q51_52", root.path("task_type").asText());
+        assertEquals(10.0, root.path("raw_score_max").asDouble());
+        verifyNoInteractions(mockEvaluator);
+    }
+
+    @Test
+    void explicitMetadataControlsSpamShortcutProfile() throws Exception {
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                mock(WritingEvaluationCacheService.class), mock(WritingMockEvaluatorService.class), throwingRestClient()
+        );
+
+        String result = client.evaluate(USER_ID, "Bài viết chung", "asdf", false, WritingTaskType.Q54);
+        JsonNode root = objectMapper.readTree(result);
+
+        assertEquals("Q54", root.path("task_type").asText());
+        assertEquals(50.0, root.path("raw_score_max").asDouble());
+    }
+
+    @Test
+    void explicitMetadataControlsProviderFailureMockFallbackProfile() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, throwingRestClient()
+        );
+
+        String result = client.evaluate(USER_ID, "Bài 53 biểu đồ", "한국어", false, WritingTaskType.Q54);
+        JsonNode root = objectMapper.readTree(result);
+
+        assertEquals("Q54", root.path("task_type").asText());
+        assertEquals(50.0, root.path("raw_score_max").asDouble());
+        ArgumentCaptor<WritingRuleEngine.RuleAnalysis> analysisCaptor =
+                ArgumentCaptor.forClass(WritingRuleEngine.RuleAnalysis.class);
+        verify(mockEvaluator).evaluate(any(), any(), analysisCaptor.capture(), any());
+        assertEquals("Q54", analysisCaptor.getValue().taskType());
     }
 
     @Test

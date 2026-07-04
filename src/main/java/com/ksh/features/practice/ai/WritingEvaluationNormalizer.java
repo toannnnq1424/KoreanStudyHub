@@ -74,7 +74,7 @@ public class WritingEvaluationNormalizer {
             normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
-            return fallback("Không đọc được phản hồi AI. Hệ thống đã lưu bài làm, vui lòng chấm lại sau.");
+            return fallback("Không đọc được phản hồi AI. Hệ thống đã lưu bài làm, vui lòng chấm lại sau.", taskType);
         }
     }
 
@@ -192,26 +192,29 @@ public class WritingEvaluationNormalizer {
             normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
-            return fallback("[SPAM_DETECTED] Bài làm không hợp lệ.");
+            return fallback("[SPAM_DETECTED] Bài làm không hợp lệ.", taskType);
         }
     }
 
     public String fallback(String reason) {
+        return fallback(reason, "GENERAL");
+    }
+
+    public String fallback(String reason, String taskType) {
         try {
+            String effectiveTaskType = taskType == null ? "GENERAL" : taskType;
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("score", 1.0);
             normalized.put("overall_score", 1.0);
-            normalized.put("raw_score", 1.0);
-            normalized.put("raw_score_max", 100.0);
-            normalized.put("task_type", "GENERAL");
+            normalized.put("raw_score", WritingScoreMatrix.rawScoreFromNormalized(1.0, effectiveTaskType));
+            normalized.put("raw_score_max", WritingScoreMatrix.rawScoreMax(effectiveTaskType));
+            normalized.put("task_type", effectiveTaskType);
             normalized.put("band_label", WritingScoreMatrix.bandLabel(1.0));
             normalized.put("summary", reason);
             normalized.put("summary_vi", reason);
-            normalized.put("rubric_scores", List.of(
-                    rubric(WritingPromptRules.RUBRIC_CONTENT, 1.0, "Cần chấm lại khi AI khả dụng."),
-                    rubric(WritingPromptRules.RUBRIC_STRUCTURE, 1.0, "Cần chấm lại khi AI khả dụng."),
-                    rubric(WritingPromptRules.RUBRIC_LANGUAGE, 1.0, "Cần chấm lại khi AI khả dụng.")
-            ));
+            normalized.put("rubric_scores", WritingPromptRules.rubricNamesForTask(effectiveTaskType).stream()
+                    .map(name -> rubric(name, 1.0, "Cần chấm lại khi AI khả dụng."))
+                    .toList());
             normalized.put("strengths", List.of());
             normalized.put("needs_improvement", List.of());
             normalized.put("student_text", "");

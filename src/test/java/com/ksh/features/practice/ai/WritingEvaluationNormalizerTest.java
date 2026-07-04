@@ -325,6 +325,35 @@ class WritingEvaluationNormalizerTest {
         assertEquals("KSH_WRITING_EVALUATOR_FALLBACK", root.path("engine").asText());
     }
 
+    @Test
+    void testTaskAwareNormalizeFallbackOnError() throws Exception {
+        String invalidJson = "{ malformed json }";
+        String normalizedJson = normalizer.normalize(invalidJson, "Q54", "한국어", null);
+
+        JsonNode root = objectMapper.readTree(normalizedJson);
+
+        assertEquals("Q54", root.path("task_type").asText());
+        assertEquals(50.0, root.path("raw_score_max").asDouble());
+        assertEquals(3, root.path("rubric_scores").size());
+    }
+
+    @Test
+    void testTaskAwareFallbackKeepsProfileRawMaxAndRubrics() throws Exception {
+        assertFallbackProfile("Q51_52", 10.0);
+        assertFallbackProfile("Q53", 30.0);
+        assertFallbackProfile("Q54", 50.0);
+        assertFallbackProfile("GENERAL", 100.0);
+    }
+
+    private void assertFallbackProfile(String taskType, double rawScoreMax) throws Exception {
+        JsonNode root = objectMapper.readTree(normalizer.fallback("retry later", taskType));
+
+        assertEquals(taskType, root.path("task_type").asText());
+        assertEquals(rawScoreMax, root.path("raw_score_max").asDouble());
+        assertEquals(3, root.path("rubric_scores").size());
+        assertEquals("KSH_WRITING_EVALUATOR_FALLBACK", root.path("engine").asText());
+    }
+
     // ---- Regression: mock outputs normalize successfully ----
 
     @Test

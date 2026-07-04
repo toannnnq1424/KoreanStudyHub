@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.WritingTaskType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -26,6 +27,7 @@ public class WritingEvaluationClient {
     private final RestClient restClient;
     private final WritingEvaluationNormalizer normalizer;
     private final WritingRuleEngine ruleEngine;
+    private final WritingTaskResolver taskResolver;
     private final WritingEvaluationCacheService cacheService;
     private final WritingMockEvaluatorService mockEvaluatorService;
 
@@ -34,9 +36,10 @@ public class WritingEvaluationClient {
             ObjectMapper objectMapper,
             WritingEvaluationNormalizer normalizer,
             WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
             WritingMockEvaluatorService mockEvaluatorService) {
-        this(properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluatorService, null);
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService, null);
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -46,10 +49,23 @@ public class WritingEvaluationClient {
             WritingEvaluationCacheService cacheService,
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
+        this(properties, objectMapper, normalizer, ruleEngine, new WritingTaskResolver(),
+                cacheService, mockEvaluatorService, restClient);
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService,
+            RestClient restClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
         this.ruleEngine = ruleEngine;
+        this.taskResolver = taskResolver;
         this.cacheService = cacheService;
         this.mockEvaluatorService = mockEvaluatorService;
         if (restClient != null) {
@@ -71,7 +87,13 @@ public class WritingEvaluationClient {
     }
 
     public String evaluate(Long userId, String prompt, String learnerAnswer, boolean isReEvaluation) {
-        WritingRuleEngine.RuleAnalysis ruleAnalysis = ruleEngine.analyze(prompt, learnerAnswer);
+        return evaluate(userId, prompt, learnerAnswer, isReEvaluation, null);
+    }
+
+    public String evaluate(Long userId, String prompt, String learnerAnswer, boolean isReEvaluation,
+                           WritingTaskType explicitTaskType) {
+        String resolvedTaskType = taskResolver.resolve(explicitTaskType, prompt);
+        WritingRuleEngine.RuleAnalysis ruleAnalysis = ruleEngine.analyze(prompt, learnerAnswer, resolvedTaskType);
         log.info("KSH writing evaluation started: model={}, taskType={}, charCount={}, violations={}, reEvaluation={}",
                 properties.evaluatorModel(), ruleAnalysis.taskType(), ruleAnalysis.characterCount(),
                 ruleAnalysis.ruleViolations().size(), isReEvaluation);
