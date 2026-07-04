@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSet;
-import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.WritingTaskType;
@@ -17,7 +16,6 @@ import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
-import com.ksh.features.practice.repository.PracticeSubmissionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +32,6 @@ class PracticeServiceTest {
 
     private PracticeSetRepository setRepository;
     private PracticeQuestionRepository questionRepository;
-    private PracticeSubmissionRepository submissionRepository;
     private PracticeQuestionGroupRepository groupRepository;
     private com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
     private com.ksh.features.practice.repository.PracticeAttemptRepository attemptRepository;
@@ -50,7 +47,6 @@ class PracticeServiceTest {
     void setUp() {
         setRepository = mock(PracticeSetRepository.class);
         questionRepository = mock(PracticeQuestionRepository.class);
-        submissionRepository = mock(PracticeSubmissionRepository.class);
         groupRepository = mock(PracticeQuestionGroupRepository.class);
         sectionRepository = mock(com.ksh.features.practice.repository.PracticeSectionRepository.class);
         attemptRepository = mock(com.ksh.features.practice.repository.PracticeAttemptRepository.class);
@@ -63,7 +59,6 @@ class PracticeServiceTest {
         practiceService = new PracticeService(
                 setRepository,
                 questionRepository,
-                submissionRepository,
                 groupRepository,
                 sectionRepository,
                 attemptRepository,
@@ -287,7 +282,6 @@ class PracticeServiceTest {
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
         assertEquals("READING", overview.recentHistory().get(0).skill());
-        verify(submissionRepository, never()).findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString());
     }
 
     @Test
@@ -325,7 +319,6 @@ class PracticeServiceTest {
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
         assertEquals("READING", analytics.history().get(0).skill());
-        verify(submissionRepository, never()).findByUserIdAndStatusNotOrderByCreatedAtDesc(any(), anyString());
     }
 
     @Test
@@ -375,7 +368,6 @@ class PracticeServiceTest {
         assertEquals(103L, history.get(1).id());
         assertEquals("SUBMITTED", history.get(1).status());
         verify(attemptRepository).findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(1L, 2L);
-        verifyNoInteractions(submissionRepository);
     }
     private void setEntityId(Object entity, Long id) {
         try {

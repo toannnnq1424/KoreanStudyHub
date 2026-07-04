@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeSet;
-import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
@@ -37,7 +36,6 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
-import com.ksh.features.practice.repository.PracticeSubmissionRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.entities.PracticeAttempt;
@@ -75,7 +73,6 @@ public class PracticeService {
 
     private final PracticeSetRepository setRepository;
     private final PracticeQuestionRepository questionRepository;
-    private final PracticeSubmissionRepository submissionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeAttemptRepository attemptRepository;
@@ -93,7 +90,6 @@ public class PracticeService {
     @Autowired
     public PracticeService(PracticeSetRepository setRepository,
                            PracticeQuestionRepository questionRepository,
-                           PracticeSubmissionRepository submissionRepository,
                            PracticeQuestionGroupRepository groupRepository,
                            PracticeSectionRepository sectionRepository,
                            PracticeAttemptRepository attemptRepository,
@@ -107,7 +103,6 @@ public class PracticeService {
                            PlatformTransactionManager transactionManager) {
         this.setRepository = setRepository;
         this.questionRepository = questionRepository;
-        this.submissionRepository = submissionRepository;
         this.groupRepository = groupRepository;
         this.sectionRepository = sectionRepository;
         this.attemptRepository = attemptRepository;
@@ -129,7 +124,6 @@ public class PracticeService {
 
     PracticeService(PracticeSetRepository setRepository,
                     PracticeQuestionRepository questionRepository,
-                    PracticeSubmissionRepository submissionRepository,
                     PracticeQuestionGroupRepository groupRepository,
                     PracticeSectionRepository sectionRepository,
                     PracticeAttemptRepository attemptRepository,
@@ -140,7 +134,6 @@ public class PracticeService {
                     ObjectMapper objectMapper) {
         this.setRepository = setRepository;
         this.questionRepository = questionRepository;
-        this.submissionRepository = submissionRepository;
         this.groupRepository = groupRepository;
         this.sectionRepository = sectionRepository;
         this.attemptRepository = attemptRepository;
@@ -453,21 +446,6 @@ public class PracticeService {
         return essayQuestions.stream()
                 .map(PracticeQuestion::getId)
                 .toList();
-    }
-
-
-
-    private double getNormalizedScore(PracticeSubmission s, String skill) {
-        if (s.getScore() == null) return 0.0;
-        if ("WRITING".equals(skill) || "SPEAKING".equals(skill)) {
-            return s.getScore().doubleValue();
-        } else {
-            if (s.getTotalPoints() != null && s.getTotalPoints().compareTo(BigDecimal.ZERO) > 0) {
-                return s.getScore().multiply(BigDecimal.valueOf(100))
-                        .divide(s.getTotalPoints(), 2, RoundingMode.HALF_UP).doubleValue();
-            }
-        }
-        return 0.0;
     }
 
     private double getNormalizedAttemptScore(PracticeAttempt attempt) {
@@ -856,17 +834,6 @@ public class PracticeService {
                 weeklySkillMetrics, scoreTrend, questionTypePerf, highlights, history);
     }
 
-    private List<PracticeSubmission> subsBySkill(List<PracticeSubmission> subs, String skill) {
-        List<PracticeSubmission> res = new ArrayList<>();
-        for (PracticeSubmission s : subs) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null && skill.equals(set.getSkill())) {
-                res.add(s);
-            }
-        }
-        return res;
-    }
-
     private int getSkillIndex(String skill) {
         if ("READING".equals(skill)) return 0;
         if ("LISTENING".equals(skill)) return 1;
@@ -881,364 +848,10 @@ public class PracticeService {
         return buildAttemptProgressOverview(userId, displayName, avatarUrl);
     }
 
-    private com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview legacySubmissionProgressOverview(
-            Long userId, String displayName, String avatarUrl) {
-        List<PracticeSubmission> submissions = submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
-                userId, PracticeSubmission.STATUS_IN_PROGRESS);
-
-        if (submissions.isEmpty()) {
-            return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
-                    displayName, avatarUrl, "TOPIK II", 0, 0, 0, 0.0,
-                    List.of(
-                            new com.ksh.features.practice.dto.PracticeDtos.SkillMetric("READING", "Đọc", 0.0, 0, 0.0),
-                            new com.ksh.features.practice.dto.PracticeDtos.SkillMetric("LISTENING", "Nghe", 0.0, 0, 0.0),
-                            new com.ksh.features.practice.dto.PracticeDtos.SkillMetric("WRITING", "Viết", 0.0, 0, 0.0),
-                            new com.ksh.features.practice.dto.PracticeDtos.SkillMetric("SPEAKING", "Nói", 0.0, 0, 0.0)
-                    ),
-                    List.of(),
-                    List.of()
-            );
-        }
-
-        // Submissions statistics
-        int totalAttempts = submissions.size();
-        int totalCompleted = (int) submissions.stream()
-                .filter(s -> PracticeSubmission.STATUS_GRADED.equals(s.getStatus()) || PracticeSubmission.STATUS_SUBMITTED.equals(s.getStatus()))
-                .count();
-
-        // Compute total minutes (estimating duration if start/end are set)
-        int totalPracticeMinutes = 0;
-        for (PracticeSubmission s : submissions) {
-            if (s.getStartedAt() != null && s.getSubmittedAt() != null) {
-                long diff = java.time.temporal.ChronoUnit.MINUTES.between(s.getStartedAt(), s.getSubmittedAt());
-                if (diff > 0 && diff < 240) {
-                    totalPracticeMinutes += (int) diff;
-                } else {
-                    totalPracticeMinutes += 30; // default/fallback
-                }
-            } else {
-                totalPracticeMinutes += 30;
-            }
-        }
-
-        // Calculate average normalized score of recent 20 submissions
-        List<PracticeSubmission> recent20 = submissions.subList(0, Math.min(20, submissions.size()));
-        double recentAvgSum = 0.0;
-        int recentAvgCount = 0;
-        for (PracticeSubmission s : recent20) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null) {
-                recentAvgSum += getNormalizedScore(s, set.getSkill());
-                recentAvgCount++;
-            }
-        }
-        double recentAverageScore = recentAvgCount == 0 ? 0.0 : Math.round((recentAvgSum / recentAvgCount) * 100.0) / 100.0;
-
-        // Group by skill
-        Map<String, List<PracticeSubmission>> subsBySkillMap = new LinkedHashMap<>();
-        subsBySkillMap.put("READING", new ArrayList<>());
-        subsBySkillMap.put("LISTENING", new ArrayList<>());
-        subsBySkillMap.put("WRITING", new ArrayList<>());
-        subsBySkillMap.put("SPEAKING", new ArrayList<>());
-
-        for (PracticeSubmission s : submissions) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null && subsBySkillMap.containsKey(set.getSkill())) {
-                subsBySkillMap.get(set.getSkill()).add(s);
-            }
-        }
-
-        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> skillMetrics = new ArrayList<>();
-        String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
-        String[] skillLabels = {"Đọc", "Nghe", "Viết", "Nói"};
-        
-        for (int i = 0; i < skills.length; i++) {
-            String sk = skills[i];
-            String label = skillLabels[i];
-            List<PracticeSubmission> skillSubs = subsBySkillMap.get(sk);
-            double avgScore = 0.0;
-            if (!skillSubs.isEmpty()) {
-                double sum = 0.0;
-                for (PracticeSubmission s : skillSubs) {
-                    sum += getNormalizedScore(s, sk);
-                }
-                avgScore = Math.round((sum / skillSubs.size()) * 100.0) / 100.0;
-            }
-            skillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
-                    sk, label, avgScore, skillSubs.size(), 0.0));
-        }
-
-        // Build study frequency heatmap for the last 84 days (12 weeks)
-        Map<java.time.LocalDate, Integer> counts = new LinkedHashMap<>();
-        Map<java.time.LocalDate, Integer> mins = new LinkedHashMap<>();
-        java.time.LocalDate today = java.time.LocalDate.now();
-        for (int i = 83; i >= 0; i--) {
-            java.time.LocalDate d = today.minusDays(i);
-            counts.put(d, 0);
-            mins.put(d, 0);
-        }
-
-        for (PracticeSubmission s : submissions) {
-            if (s.getSubmittedAt() != null) {
-                java.time.LocalDate sDate = s.getSubmittedAt().toLocalDate();
-                if (counts.containsKey(sDate)) {
-                    counts.put(sDate, counts.get(sDate) + 1);
-                    long diff = java.time.temporal.ChronoUnit.MINUTES.between(s.getStartedAt(), s.getSubmittedAt());
-                    int m = (diff > 0 && diff < 240) ? (int) diff : 30;
-                    mins.put(sDate, mins.get(sDate) + m);
-                }
-            }
-        }
-
-        List<com.ksh.features.practice.dto.PracticeDtos.HeatmapCell> heatmap = new ArrayList<>();
-        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        for (java.time.LocalDate d : counts.keySet()) {
-            heatmap.add(new com.ksh.features.practice.dto.PracticeDtos.HeatmapCell(
-                    d.format(fmt), counts.get(d), mins.get(d)));
-        }
-
-        // Recent history: last 8 submissions
-        List<PracticeSubmission> recent8 = submissions.subList(0, Math.min(8, submissions.size()));
-        List<PracticeResultSummary> recentHistory = new ArrayList<>();
-        for (PracticeSubmission s : recent8) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null) {
-                recentHistory.add(new PracticeResultSummary(
-                        s.getId(), set.getTitle(), set.getSkill(), s.getScore(), s.getTotalPoints(), s.getSubmittedAt()));
-            }
-        }
-
-        // TOPIK level logic: predict level based on average score
-        String currentLevel = "TOPIK II Cấp 3";
-        if (recentAverageScore >= 80.0) {
-            currentLevel = "TOPIK II Cấp 6";
-        } else if (recentAverageScore >= 70.0) {
-            currentLevel = "TOPIK II Cấp 5";
-        } else if (recentAverageScore >= 60.0) {
-            currentLevel = "TOPIK II Cấp 4";
-        } else if (recentAverageScore < 40.0) {
-            currentLevel = "TOPIK I Cấp 1";
-        } else if (recentAverageScore < 50.0) {
-            currentLevel = "TOPIK I Cấp 2";
-        }
-
-        return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
-                displayName, avatarUrl, currentLevel, totalAttempts, totalCompleted,
-                totalPracticeMinutes, recentAverageScore, skillMetrics, heatmap, recentHistory);
-    }
-
     @Transactional(readOnly = true)
     public com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics getPracticeAnalytics(Long userId) {
         return buildAttemptPracticeAnalytics(userId);
     }
-
-    private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics legacySubmissionPracticeAnalytics(Long userId) {
-        List<PracticeSubmission> submissions = submissionRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
-                userId, PracticeSubmission.STATUS_IN_PROGRESS);
-
-        if (submissions.isEmpty()) {
-            return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
-                    List.of(), List.of(), List.of(), List.of(), List.of());
-        }
-
-        // 1. Weekly Skill Metrics: This week vs last week
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        java.time.LocalDateTime startOfThisWeek = now.minusDays(7);
-        java.time.LocalDateTime startOfLastWeek = now.minusDays(14);
-
-        String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
-        String[] skillLabels = {"Đọc", "Nghe", "Viết", "Nói"};
-        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> weeklySkillMetrics = new ArrayList<>();
-
-        for (int i = 0; i < skills.length; i++) {
-            String sk = skills[i];
-            String label = skillLabels[i];
-
-            double thisWeekSum = 0.0;
-            int thisWeekCount = 0;
-            double lastWeekSum = 0.0;
-            int lastWeekCount = 0;
-
-            for (PracticeSubmission s : submissions) {
-                if (s.getSubmittedAt() == null) continue;
-                PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-                if (set != null && sk.equals(set.getSkill())) {
-                    double norm = getNormalizedScore(s, sk);
-                    if (s.getSubmittedAt().isAfter(startOfThisWeek)) {
-                        thisWeekSum += norm;
-                        thisWeekCount++;
-                    } else if (s.getSubmittedAt().isAfter(startOfLastWeek)) {
-                        lastWeekSum += norm;
-                        lastWeekCount++;
-                    }
-                }
-            }
-
-            double thisWeekAvg = thisWeekCount == 0 ? 0.0 : thisWeekSum / thisWeekCount;
-            double lastWeekAvg = lastWeekCount == 0 ? 0.0 : lastWeekSum / lastWeekCount;
-            double delta = thisWeekCount == 0 || lastWeekCount == 0 ? 0.0 : Math.round((thisWeekAvg - lastWeekAvg) * 100.0) / 100.0;
-
-            weeklySkillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
-                    sk, label, Math.round(thisWeekAvg * 100.0) / 100.0, thisWeekCount, delta));
-        }
-
-        // 2. Score Trend: last 30 attempts, chronological order (oldest first)
-        List<PracticeSubmission> last30 = submissions.subList(0, Math.min(30, submissions.size()));
-        List<com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint> scoreTrend = new ArrayList<>();
-        java.time.format.DateTimeFormatter trendFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        for (int i = last30.size() - 1; i >= 0; i--) {
-            PracticeSubmission s = last30.get(i);
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null) {
-                scoreTrend.add(new com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint(
-                        s.getSubmittedAt() != null ? s.getSubmittedAt().format(trendFmt) : "",
-                        set.getSkill(),
-                        getNormalizedScore(s, set.getSkill()),
-                        set.getTitle()
-                ));
-            }
-        }
-
-        // 3. Question Type Performance / All-time Report
-        // Fetch all questions for the sets the user completed
-        List<Long> setIds = last30.stream().map(PracticeSubmission::getSetId).distinct().toList();
-        List<PracticeQuestion> questions = setIds.isEmpty() ? List.of() : questionRepository.findBySetIdIn(setIds);
-        Map<Long, List<PracticeQuestion>> questionsBySetId = questions.stream()
-                .collect(java.util.stream.Collectors.groupingBy(PracticeQuestion::getSetId));
-
-        Map<String, List<Double>> scoresByType = new LinkedHashMap<>();
-        Map<String, java.time.LocalDateTime> lastPracticedByType = new LinkedHashMap<>();
-
-        // Group by question type
-        for (PracticeSubmission s : last30) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set == null) continue;
-
-            Map<String, String> answers = readAnswers(s.getAnswersJson());
-            List<PracticeQuestion> setQuestions = questionsBySetId.getOrDefault(s.getSetId(), List.of());
-
-            for (PracticeQuestion q : setQuestions) {
-                String type = q.getQuestionType();
-                // Map Writing specific question numbers to Q51, Q52, Q53, Q54
-                if ("WRITING".equals(set.getSkill())) {
-                    if (q.getQuestionNo() != null) {
-                        int qNo = q.getQuestionNo();
-                        if (qNo == 51) type = "Q51";
-                        else if (qNo == 52) type = "Q52";
-                        else if (qNo == 53) type = "Q53";
-                        else if (qNo == 54) type = "Q54";
-                        else type = "GENERAL";
-                    } else {
-                        type = "GENERAL";
-                    }
-                }
-
-                String ans = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                double qScore = 0.0;
-                if ("WRITING".equals(set.getSkill()) || "SPEAKING".equals(set.getSkill())) {
-                    // For W/S, score is normalized overall. We approximate this question's score by set score.
-                    qScore = s.getScore() != null ? s.getScore().doubleValue() : 0.0;
-                } else {
-                    // MCQ
-                    boolean isCorrect = answersMatch(ans, q.getAnswerKey());
-                    qScore = isCorrect ? 100.0 : 0.0;
-                }
-
-                scoresByType.computeIfAbsent(type, k -> new ArrayList<>()).add(qScore);
-                if (s.getSubmittedAt() != null) {
-                    java.time.LocalDateTime currentLast = lastPracticedByType.get(type);
-                    if (currentLast == null || s.getSubmittedAt().isAfter(currentLast)) {
-                        lastPracticedByType.put(type, s.getSubmittedAt());
-                    }
-                }
-            }
-        }
-
-        List<com.ksh.features.practice.dto.PracticeDtos.QuestionTypePerf> questionTypePerf = new ArrayList<>();
-        java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
-        for (Map.Entry<String, List<Double>> entry : scoresByType.entrySet()) {
-            String type = entry.getKey();
-            List<Double> qScores = entry.getValue();
-            double avg = qScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-            double max = qScores.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
-            java.time.LocalDateTime lastDt = lastPracticedByType.get(type);
-
-            String skill = "READING";
-            if (type.startsWith("Q") || "GENERAL".equals(type)) {
-                skill = "WRITING";
-            } else if (PracticeQuestion.TYPE_SPEAKING.equals(type)) {
-                skill = "SPEAKING";
-            } else {
-                skill = "READING"; // fallback
-            }
-
-            questionTypePerf.add(new com.ksh.features.practice.dto.PracticeDtos.QuestionTypePerf(
-                    skill, type, getQuestionTypeLabel(type), qScores.size(),
-                    Math.round(avg * 10.0) / 10.0, Math.round(max * 10.0) / 10.0,
-                    lastDt != null ? lastDt.format(dtFmt) : ""
-            ));
-        }
-
-        // 4. Performance Highlights
-        List<com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight> highlights = new ArrayList<>();
-        String mostPracticedSkill = "";
-        int maxAttempts = 0;
-        String needsWorkSkill = "";
-        double minAvgScore = 101.0;
-
-        for (int i = 0; i < skills.length; i++) {
-            String sk = skills[i];
-            List<PracticeSubmission> skillSubs = subsBySkill(submissions, sk);
-            if (!skillSubs.isEmpty()) {
-                if (skillSubs.size() > maxAttempts) {
-                    maxAttempts = skillSubs.size();
-                    mostPracticedSkill = sk;
-                }
-                double sum = 0.0;
-                for (PracticeSubmission s : skillSubs) {
-                    sum += getNormalizedScore(s, sk);
-                }
-                double avg = sum / skillSubs.size();
-                if (avg < minAvgScore) {
-                    minAvgScore = avg;
-                    needsWorkSkill = sk;
-                }
-            }
-        }
-
-        if (maxAttempts >= 3 && !mostPracticedSkill.isEmpty()) {
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
-                    "MOST_PRACTICED", "Luyện nhiều nhất", skillLabels[getSkillIndex(mostPracticedSkill)], maxAttempts, 0.0, true));
-        } else {
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_PRACTICED", "Luyện nhiều nhất", "", 0, 0.0, false));
-        }
-
-        if (minAvgScore <= 100.0 && !needsWorkSkill.isEmpty()) {
-            List<PracticeSubmission> skillSubs = subsBySkill(submissions, needsWorkSkill);
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
-                    "NEEDS_WORK", "Cần cải thiện", skillLabels[getSkillIndex(needsWorkSkill)], skillSubs.size(), Math.round(minAvgScore * 10.0) / 10.0, true));
-        } else {
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("NEEDS_WORK", "Cần cải thiện", "", 0, 0.0, false));
-        }
-
-        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_STABLE", "Ổn định nhất", "", 0, 0.0, false));
-        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_IMPROVED", "Tiến bộ nhất", "", 0, 0.0, false));
-
-        // 5. History: last 30 completed submissions
-        List<PracticeResultSummary> history = new ArrayList<>();
-        for (PracticeSubmission s : last30) {
-            PracticeSet set = setRepository.findById(s.getSetId()).orElse(null);
-            if (set != null) {
-                history.add(new PracticeResultSummary(
-                        s.getId(), set.getTitle(), set.getSkill(), s.getScore(), s.getTotalPoints(), s.getSubmittedAt()));
-            }
-        }
-
-        return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
-                weeklySkillMetrics, scoreTrend, questionTypePerf, highlights, history);
-    }
-
 
     private PracticeSet loadPublished(Long setId) {
         PracticeSet set = setRepository.findById(setId)
@@ -1875,17 +1488,6 @@ public class PracticeService {
         }
         attemptRepository.delete(attempt);
         log.info("[PracticeService] Discarded in-progress PracticeAttempt id={}", attemptId);
-    }
-
-    @Transactional(readOnly = true)
-    public PracticeSubmission getPracticeSubmission(Long submissionId, Long userId) {
-        return submissionRepository.findByIdAndUserId(submissionId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Lượt làm bài không tồn tại"));
-    }
-
-    @Transactional(readOnly = true)
-    public List<PracticeSubmission> getAttempts(Long setId, Long userId) {
-        return submissionRepository.findBySetIdAndUserIdOrderByCreatedAtDesc(setId, userId);
     }
 
     @Transactional(readOnly = true)
