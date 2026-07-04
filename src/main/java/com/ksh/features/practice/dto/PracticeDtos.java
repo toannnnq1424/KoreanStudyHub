@@ -325,6 +325,17 @@ public final class PracticeDtos {
                                       BigDecimal averageScore) {
     }
 
+    public record PracticeAttemptHistoryRow(Long id,
+                                            BigDecimal score,
+                                            BigDecimal totalPoints,
+                                            String status,
+                                            LocalDateTime submittedAt,
+                                            LocalDateTime createdAt,
+                                            String skill,
+                                            Long testId,
+                                            Long sectionId) {
+    }
+
     public record PracticeResultSummary(Long id, String title, String skill,
                                         BigDecimal score, BigDecimal totalPoints,
                                         LocalDateTime submittedAt,

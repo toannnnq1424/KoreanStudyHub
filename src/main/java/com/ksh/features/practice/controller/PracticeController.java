@@ -29,7 +29,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.ksh.entities.PracticeSubmission;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -115,11 +114,8 @@ public class PracticeController {
                             @AuthenticationPrincipal KshUserDetails user,
                             Model model) {
         PracticeSetView view = practiceService.getPractice(setId);
-        List<PracticeSubmission> submissions = practiceService.getAttempts(setId, user.getId()).stream()
-                .filter(s -> !PracticeSubmission.STATUS_IN_PROGRESS.equals(s.getStatus()))
-                .toList();
         model.addAttribute("view", view);
-        model.addAttribute("submissions", submissions);
+        model.addAttribute("submissions", practiceService.getSetAttemptHistory(setId, user.getId()));
         return "practice/set-detail";
     }
 

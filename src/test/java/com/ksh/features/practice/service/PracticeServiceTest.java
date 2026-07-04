@@ -349,6 +349,34 @@ class PracticeServiceTest {
         assertEquals(50.5, overview.recentAverageScore());
         assertEquals(8, overview.recentHistory().size());
     }
+
+    @Test
+    void testSetDetailHistoryUsesPracticeAttemptsOnly() {
+        PracticeAttempt newest = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        newest.markGraded(BigDecimal.valueOf(90), BigDecimal.TEN, "{\"101\":\"A\"}", "{\"101\":{}}");
+        setEntityId(newest, 101L);
+        PracticeAttempt active = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        setEntityId(active, 102L);
+        PracticeAttempt older = new PracticeAttempt(2L, 1L, 10L, "READING", 21L);
+        older.markSubmitted(BigDecimal.valueOf(7), BigDecimal.TEN, "{\"201\":\"B\"}");
+        setEntityId(older, 103L);
+        PracticeAttempt unexpectedStatus = new PracticeAttempt(2L, 1L, 10L, "READING", 21L);
+        unexpectedStatus.setStatus("DISCARDED");
+        setEntityId(unexpectedStatus, 104L);
+        when(attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(1L, 2L))
+                .thenReturn(List.of(newest, active, unexpectedStatus, older));
+
+        List<PracticeAttemptHistoryRow> history = practiceService.getSetAttemptHistory(1L, 2L);
+
+        assertEquals(2, history.size());
+        assertEquals(101L, history.get(0).id());
+        assertEquals(BigDecimal.valueOf(90), history.get(0).score());
+        assertEquals("GRADED", history.get(0).status());
+        assertEquals(103L, history.get(1).id());
+        assertEquals("SUBMITTED", history.get(1).status());
+        verify(attemptRepository).findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(1L, 2L);
+        verifyNoInteractions(submissionRepository);
+    }
     private void setEntityId(Object entity, Long id) {
         try {
             java.lang.reflect.Field idField = entity.getClass().getDeclaredField("id");

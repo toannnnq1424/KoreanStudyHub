@@ -18,6 +18,7 @@ import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerReviewRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
@@ -1885,6 +1886,24 @@ public class PracticeService {
     @Transactional(readOnly = true)
     public List<PracticeSubmission> getAttempts(Long setId, Long userId) {
         return submissionRepository.findBySetIdAndUserIdOrderByCreatedAtDesc(setId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PracticeAttemptHistoryRow> getSetAttemptHistory(Long setId, Long userId) {
+        return attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(setId, userId).stream()
+                .filter(this::isCompletedProgressAttempt)
+                .map(attempt -> new PracticeAttemptHistoryRow(
+                        attempt.getId(),
+                        attempt.getScore(),
+                        attempt.getTotalPoints(),
+                        attempt.getStatus(),
+                        attempt.getSubmittedAt(),
+                        attempt.getCreatedAt(),
+                        attempt.getSkill(),
+                        attempt.getTestId(),
+                        attempt.getSectionId()
+                ))
+                .toList();
     }
 
     /**

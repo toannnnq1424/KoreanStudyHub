@@ -20,6 +20,7 @@ import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeService;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -194,6 +195,61 @@ class PracticeIntegrationTest {
                 .andExpect(view().name("practice/set-detail"))
                 .andExpect(model().attributeExists("view"))
                 .andExpect(model().attributeExists("submissions"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testSetDetailUsesAttemptHistoryAndIgnoresLegacySubmissions() throws Exception {
+        PracticeAttempt currentUserAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        currentUserAttempt.markSubmitted(BigDecimal.valueOf(8.5), BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}");
+        currentUserAttempt = attemptRepository.saveAndFlush(currentUserAttempt);
+        Long currentUserAttemptId = currentUserAttempt.getId();
+
+        PracticeAttempt otherUserAttempt = new PracticeAttempt(lecturer.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        otherUserAttempt.markSubmitted(BigDecimal.valueOf(9.5), BigDecimal.TEN, "{}");
+        attemptRepository.saveAndFlush(otherUserAttempt);
+
+        PracticeSet otherSet = setRepository.saveAndFlush(new PracticeSet(
+                "Other Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()));
+        PracticeAttempt otherSetAttempt = new PracticeAttempt(student.getId(), otherSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        otherSetAttempt.markSubmitted(BigDecimal.valueOf(7.5), BigDecimal.TEN, "{}");
+        attemptRepository.saveAndFlush(otherSetAttempt);
+
+        PracticeAttempt activeAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attemptRepository.saveAndFlush(activeAttempt);
+
+        PracticeAttempt newestCurrentUserAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        newestCurrentUserAttempt.markGraded(BigDecimal.valueOf(9.0), BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}", "{}");
+        newestCurrentUserAttempt = attemptRepository.saveAndFlush(newestCurrentUserAttempt);
+        Long newestCurrentUserAttemptId = newestCurrentUserAttempt.getId();
+
+        submissionRepository.saveAndFlush(new PracticeSubmission(
+                practiceSet.getId(), student.getId(), BigDecimal.valueOf(99.0), BigDecimal.TEN, "{}", null));
+
+        mockMvc.perform(get("/practice/sets/" + practiceSet.getId()))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/set-detail"))
+                .andExpect(result -> {
+                    @SuppressWarnings("unchecked")
+                    List<PracticeAttemptHistoryRow> rows = (List<PracticeAttemptHistoryRow>)
+                            result.getModelAndView().getModel().get("submissions");
+                    assertThat(rows).hasSize(2);
+                    assertThat(rows).extracting(PracticeAttemptHistoryRow::id)
+                            .containsExactly(newestCurrentUserAttemptId, currentUserAttemptId);
+                    assertThat(rows).extracting(PracticeAttemptHistoryRow::status)
+                            .containsExactly("GRADED", "SUBMITTED");
+                    assertThat(rows.get(0).score()).isEqualByComparingTo(BigDecimal.valueOf(9.0));
+                    assertThat(rows.get(1).score()).isEqualByComparingTo(BigDecimal.valueOf(8.5));
+                })
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("9.0")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testLegacySubmissionResultRedirectStillTargetsAttemptRoute() throws Exception {
+        mockMvc.perform(get("/practice/submissions/123"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/attempts/123/result"));
     }
 
     @Test
