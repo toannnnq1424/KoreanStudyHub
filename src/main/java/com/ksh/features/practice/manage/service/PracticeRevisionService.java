@@ -60,6 +60,7 @@ public class PracticeRevisionService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Dữ liệu JSON snapshot bị lỗi cú pháp.");
         }
+        validateWritingTaskMetadata(root);
 
         // Delete current entities
         questionRepository.deleteBySetId(setId);
@@ -150,6 +151,11 @@ public class PracticeRevisionService {
                                         BigDecimal.valueOf(qNode.path("points").asDouble(1.0)),
                                         qIdx
                                 );
+                                question.setWritingTaskType(resolveWritingTaskTypeForRestore(
+                                        sNode.path("skill").asText("READING"),
+                                        rawType,
+                                        qNode
+                                ));
                                 question.setGroupId(savedGroup.getId());
                                 questionRepository.save(question);
                             }
@@ -171,5 +177,54 @@ public class PracticeRevisionService {
         );
         editLogRepository.save(newLog);
         log.info("[Revision] Successfully restored Set ID={} to revision from logId={}", setId, logId);
+    }
+
+    private void validateWritingTaskMetadata(JsonNode root) {
+        JsonNode sections = root.path("sections");
+        if (!sections.isArray()) {
+            return;
+        }
+        for (JsonNode section : sections) {
+            String skill = section.path("skill").asText("READING");
+            JsonNode groups = section.path("groups");
+            if (!groups.isArray()) {
+                continue;
+            }
+            for (JsonNode group : groups) {
+                JsonNode questions = group.path("questions");
+                if (!questions.isArray()) {
+                    continue;
+                }
+                for (JsonNode question : questions) {
+                    resolveWritingTaskTypeForRestore(
+                            skill,
+                            question.path("questionType").asText("MCQ"),
+                            question
+                    );
+                }
+            }
+        }
+    }
+
+    private WritingTaskType resolveWritingTaskTypeForRestore(String skill, String questionType, JsonNode question) {
+        if (!"WRITING".equalsIgnoreCase(skill) || !PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+            return null;
+        }
+        JsonNode taskNode = question.get("essayTaskType");
+        if (taskNode == null || taskNode.isNull()) {
+            return null;
+        }
+        if (!taskNode.isTextual()) {
+            throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
+        }
+        String value = taskNode.asText();
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng chọn loại bài Writing cho câu tự luận.");
+        }
+        try {
+            return WritingTaskType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
+        }
     }
 }

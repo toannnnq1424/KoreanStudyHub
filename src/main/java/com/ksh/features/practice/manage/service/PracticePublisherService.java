@@ -61,12 +61,6 @@ public class PracticePublisherService {
         PracticeDraft draft = draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Bản nháp không tồn tại."));
 
-        // Validate
-        PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(draft.getDraftJson());
-        if (valRes.hasBlocking()) {
-            throw new IllegalStateException("Không thể xuất bản bản nháp do chứa lỗi nghiêm trọng (BLOCKING). Vui lòng kiểm tra lại cấu trúc đề.");
-        }
-
         // Parse JSON
         JsonNode root;
         try {
@@ -74,14 +68,19 @@ public class PracticePublisherService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Dữ liệu JSON bản nháp bị lỗi cú pháp.");
         }
+        validateWritingTaskMetadata(root);
+
+        // Validate
+        PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(draft.getDraftJson());
+        if (valRes.hasBlocking()) {
+            throw new IllegalStateException("Không thể xuất bản bản nháp do chứa lỗi nghiêm trọng (BLOCKING). Vui lòng kiểm tra lại cấu trúc đề.");
+        }
 
         // Validate category
         String category = draft.getCategory();
         if (category == null || category.isBlank() || "UNCLASSIFIED".equalsIgnoreCase(category)) {
             throw new IllegalStateException("Không thể xuất bản bản nháp chưa phân loại (UNCLASSIFIED). Vui lòng chọn phân loại bộ đề trước.");
         }
-
-        validateWritingTaskMetadata(root);
 
         // Create or update PracticeSet
         JsonNode sectionsNode = root.path("sections");
@@ -362,6 +361,11 @@ public class PracticePublisherService {
                                 qMap.put("points", q.getPoints());
                                 qMap.put("explanationVi", q.getExplanation());
                                 qMap.put("answerKey", q.getAnswerKey());
+                                if ("WRITING".equalsIgnoreCase(sec.getSkill())
+                                        && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())
+                                        && q.getWritingTaskType() != null) {
+                                    qMap.put("essayTaskType", q.getWritingTaskType().name());
+                                }
                                 
                                 if (q.getOptionsJson() != null) {
                                     try {
@@ -497,7 +501,7 @@ public class PracticePublisherService {
         }
         String value = taskNode.asText();
         if (value == null || value.isBlank()) {
-            return null;
+            throw new IllegalArgumentException("Vui lòng chọn loại bài Writing cho câu tự luận.");
         }
         try {
             return WritingTaskType.valueOf(value);

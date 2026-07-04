@@ -1,6 +1,7 @@
 package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticeEditLog;
 import com.ksh.entities.PracticeQuestion;
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +52,7 @@ class PracticePublisherServiceTest {
     private final List<PracticeSection> savedSections = new ArrayList<>();
     private final List<PracticeQuestionGroup> savedGroups = new ArrayList<>();
     private final List<PracticeQuestion> savedQuestions = new ArrayList<>();
+    private final List<PracticeEditLog> savedEditLogs = new ArrayList<>();
     private final AtomicReference<PracticeSet> savedSet = new AtomicReference<>();
     private final AtomicLong idSequence = new AtomicLong(1000L);
 
@@ -97,7 +100,11 @@ class PracticePublisherServiceTest {
             return question;
         });
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(savedQuestions);
-        when(editLogRepository.save(any(PracticeEditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(editLogRepository.save(any(PracticeEditLog.class))).thenAnswer(invocation -> {
+            PracticeEditLog log = invocation.getArgument(0);
+            savedEditLogs.add(log);
+            return log;
+        });
         when(draftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -149,10 +156,14 @@ class PracticePublisherServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "   "})
-    void publishTreatsBlankWritingEssayTaskMetadataAsNull(String taskValue) {
-        publish(newDraft(draftJson("WRITING", "ESSAY", taskValue)));
+    void publishBlocksBlankWritingEssayTaskMetadataBeforeGraphMutation(String taskValue) {
+        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", taskValue));
 
-        assertNull(savedQuestions.get(0).getWritingTaskType());
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> publish(draft));
+
+        assertEquals("Vui lòng chọn loại bài Writing cho câu tự luận.", exception.getMessage());
+        verify(setRepository, never()).save(any());
+        verify(questionRepository, never()).save(any());
     }
 
     @ParameterizedTest
@@ -212,10 +223,49 @@ class PracticePublisherServiceTest {
     }
 
     @Test
+    void lateBlankWritingEssayTaskMetadataFailsBeforeAnyDraftMutation() {
+        PracticeDraft draft = newDraft(draftJsonWithQuestions(
+                questionJson("WRITING", "ESSAY", "Q51"),
+                questionJson("WRITING", "ESSAY", "Q52"),
+                questionJson("WRITING", "ESSAY", "")
+        ));
+
+        assertThrows(IllegalArgumentException.class, () -> publish(draft));
+
+        verify(setRepository, never()).save(any());
+        verify(sectionRepository, never()).save(any());
+        verify(groupRepository, never()).save(any());
+        verify(questionRepository, never()).save(any());
+        verify(draftRepository, never()).save(any());
+        verify(editLogRepository, never()).save(any());
+    }
+
+    @Test
     void invalidRepublishMetadataDoesNotDeleteExistingGraph() {
         PracticeDraft draft = newDraft(draftJsonWithQuestions(
                 questionJson("WRITING", "ESSAY", "Q51"),
                 questionJson("WRITING", "ESSAY", "NOT_A_TASK")
+        ));
+        draft.setPublishedSetId(77L);
+        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
+                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
+        assignId(existingSet, 77L);
+        savedSet.set(existingSet);
+
+        assertThrows(IllegalArgumentException.class, () -> publish(draft));
+
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(groupRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).deleteBySetId(any());
+        verify(setRepository, never()).save(any());
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void blankRepublishMetadataDoesNotDeleteExistingGraph() {
+        PracticeDraft draft = newDraft(draftJsonWithQuestions(
+                questionJson("WRITING", "ESSAY", "Q51"),
+                questionJson("WRITING", "ESSAY", "")
         ));
         draft.setPublishedSetId(77L);
         PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
@@ -289,6 +339,36 @@ class PracticePublisherServiceTest {
         publish(draft);
 
         assertNull(savedQuestions.get(0).getWritingTaskType());
+    }
+
+    @Test
+    void publishSnapshotPreservesExplicitWritingTaskMetadata() throws Exception {
+        publish(newDraft(draftJson("WRITING", "ESSAY", "GENERAL")));
+
+        assertEquals(1, savedEditLogs.size());
+        JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
+        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
+        assertEquals("GENERAL", question.path("essayTaskType").asText());
+    }
+
+    @Test
+    void publishSnapshotOmitsNullWritingTaskMetadata() throws Exception {
+        publish(newDraft(draftJsonWithoutTask("WRITING", "ESSAY")));
+
+        JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
+        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
+        assertFalse(question.has("essayTaskType"));
+    }
+
+    @Test
+    void publishSnapshotOmitsStaleNonWritingTaskMetadata() throws Exception {
+        publish(newDraft(draftJsonWithQuestions(
+                questionJson("READING", "ESSAY", "Q54")
+        )));
+
+        JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
+        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
+        assertFalse(question.has("essayTaskType"));
     }
 
     private Long publish(PracticeDraft draft) {

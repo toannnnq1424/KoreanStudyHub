@@ -1,4 +1,4 @@
-import { editorState, normalizeDraftTree } from './manage-editor-state.js';
+import { applyWritingTaskState, editorState, normalizeDraftTree } from './manage-editor-state.js';
 import { updatePublishEligibilityBanner } from './manage-editor-validation.js';
 import { triggerAutosave } from './manage-editor-autosave.js';
 
@@ -667,8 +667,10 @@ export function renderOptionRows(q) {
 export function handleQuestionTypeChange() {
   if (!editorState.currentNode || editorState.currentNode.type !== 'question') return;
   const q = editorState.draft.sections[editorState.currentNode.sIdx].groups[editorState.currentNode.gIdx].questions[editorState.currentNode.qIdx];
+  const section = editorState.draft.sections[editorState.currentNode.sIdx];
   const type = document.getElementById('q-type').value;
   q.questionType = type;
+  applyWritingTaskState(section, q, { materializeBlank: type === 'ESSAY' && section?.skill === 'WRITING' });
 
   document.getElementById('options-area').style.display = 'none';
   document.getElementById('tfng-area').style.display = 'none';
@@ -692,11 +694,11 @@ export function handleQuestionTypeChange() {
   } else if (type === 'GAP_FILL' || type === 'FILL_BLANK') {
     document.getElementById('gapfill-area').style.display = 'block';
     document.getElementById('q-gap-key').value = (q.answer && q.answer.value) || q.answerKey || '';
-  } else if (type === 'ESSAY') {
+  } else if (type === 'ESSAY' && section?.skill === 'WRITING') {
     document.getElementById('essay-area').style.display = 'block';
     document.getElementById('q-essay-min').value = q.essayMinChars || '';
     document.getElementById('q-essay-max').value = q.essayMaxChars || '';
-    document.getElementById('q-essay-task').value = q.essayTaskType || 'Q53';
+    document.getElementById('q-essay-task').value = q.essayTaskType || '';
     document.getElementById('q-essay-sample').value = q.essaySample || '';
     document.getElementById('q-essay-rubric').value = q.essayRubric || '';
   } else if (type === 'SPEAKING') {
@@ -732,4 +734,3 @@ export function updateDraftSkillDisplay() {
   
   displayEl.textContent = targetSkillLabel;
 }
-

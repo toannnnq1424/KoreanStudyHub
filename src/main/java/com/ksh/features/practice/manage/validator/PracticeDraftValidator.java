@@ -2,6 +2,8 @@ package com.ksh.features.practice.manage.validator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeQuestion;
+import com.ksh.entities.WritingTaskType;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -87,6 +89,8 @@ public class PracticeDraftValidator {
                                         }
                                     }
 
+                                    validateWritingTaskMetadata(messages, skill, type, q, sIdx, gIdx, qIdx);
+
                                     String explanation = q.path("explanationVi").asText("");
                                     if (explanation.isBlank()) {
                                         messages.add(new ValidationMsg("WARNING", String.format("Câu hỏi số %d chưa có bài dịch hoặc giải thích tiếng Việt.", qNo), sIdx, gIdx, qIdx));
@@ -103,6 +107,39 @@ public class PracticeDraftValidator {
 
         boolean hasBlocking = messages.stream().anyMatch(m -> "BLOCKING".equals(m.type()));
         return new ValidationResult(hasBlocking, messages, sectionCount, groupCount, questionCount, totalPoints);
+    }
+
+    private void validateWritingTaskMetadata(List<ValidationMsg> messages,
+                                             String skill,
+                                             String questionType,
+                                             JsonNode question,
+                                             int sIdx,
+                                             int gIdx,
+                                             int qIdx) {
+        if (!"WRITING".equalsIgnoreCase(skill) || !PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+            return;
+        }
+        JsonNode taskNode = question.get("essayTaskType");
+        if (taskNode == null || taskNode.isNull()) {
+            messages.add(new ValidationMsg("WARNING",
+                    "Câu Writing này chưa có loại bài rõ ràng. Kết quả chấm có thể tiếp tục dùng cơ chế tương thích cũ.",
+                    sIdx, gIdx, qIdx));
+            return;
+        }
+        if (!taskNode.isTextual()) {
+            messages.add(new ValidationMsg("BLOCKING", "Loại bài Writing không hợp lệ.", sIdx, gIdx, qIdx));
+            return;
+        }
+        String value = taskNode.asText();
+        if (value.isBlank()) {
+            messages.add(new ValidationMsg("BLOCKING", "Vui lòng chọn loại bài Writing cho câu tự luận.", sIdx, gIdx, qIdx));
+            return;
+        }
+        try {
+            WritingTaskType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            messages.add(new ValidationMsg("BLOCKING", "Loại bài Writing không hợp lệ.", sIdx, gIdx, qIdx));
+        }
     }
 
     public record ValidationMsg(String type, String content, Integer sIdx, Integer gIdx, Integer qIdx) {

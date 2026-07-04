@@ -31,6 +31,30 @@ export function defaultOptionsForQuestionType(type) {
   return [];
 }
 
+export const WRITING_TASK_TYPES = ['Q51', 'Q52', 'Q53', 'Q54', 'GENERAL'];
+
+export function isWritingEssay(section, question) {
+  return section?.skill === 'WRITING' && question?.questionType === 'ESSAY';
+}
+
+export function hasValidWritingTask(question) {
+  return WRITING_TASK_TYPES.includes(question?.essayTaskType);
+}
+
+export function applyWritingTaskState(section, question, options = {}) {
+  if (!question || typeof question !== 'object') return;
+  const shouldMaterializeBlank = options.materializeBlank === true;
+  if (isWritingEssay(section, question)) {
+    if (hasValidWritingTask(question)) return;
+    if (Object.prototype.hasOwnProperty.call(question, 'essayTaskType') && question.essayTaskType === null && !shouldMaterializeBlank) return;
+    if (shouldMaterializeBlank) {
+      question.essayTaskType = '';
+    }
+  } else {
+    delete question.essayTaskType;
+  }
+}
+
 export function normalizeDraftTree(draft) {
   if (!draft || typeof draft !== 'object') draft = {};
   if (!draft.document || typeof draft.document !== 'object') draft.document = {};

@@ -92,4 +92,136 @@ public class PracticeDraftValidatorTest {
         assertTrue(result.hasBlocking());
         assertTrue(result.messages().stream().anyMatch(m -> m.content().contains("ít nhất 2 đáp án")));
     }
+    @Test
+    public void writingEssayBlankTaskIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("\"\""));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "BLOCKING".equals(m.type())
+                        && m.content().equals("Vui lòng chọn loại bài Writing cho câu tự luận.")));
+    }
+
+    @Test
+    public void writingEssayMissingTaskIsWarningOnly() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithoutTask());
+
+        assertFalse(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "WARNING".equals(m.type())
+                        && m.content().contains("chưa có loại bài rõ ràng")));
+    }
+
+    @Test
+    public void writingEssayNullTaskIsWarningOnly() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("null"));
+
+        assertFalse(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "WARNING".equals(m.type())
+                        && m.content().contains("chưa có loại bài rõ ràng")));
+    }
+
+    @Test
+    public void writingEssayGeneralTaskIsValid() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("\"GENERAL\""));
+
+        assertFalse(result.hasBlocking());
+        assertFalse(result.messages().stream().anyMatch(m -> m.content().contains("Writing")));
+    }
+
+    @Test
+    public void writingEssayInvalidTaskIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("\"Q51_52\""));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "BLOCKING".equals(m.type())
+                        && m.content().equals("Loại bài Writing không hợp lệ.")));
+    }
+
+    @Test
+    public void writingEssayNonTextTaskIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("53"));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "BLOCKING".equals(m.type())
+                        && m.content().equals("Loại bài Writing không hợp lệ.")));
+    }
+
+    @Test
+    public void nonWritingInvalidTaskIsIgnored() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(readingEssayWithTask("\"NOT_A_TASK\""));
+
+        assertFalse(result.hasBlocking());
+        assertFalse(result.messages().stream().anyMatch(m -> m.content().contains("Writing")));
+    }
+
+    private String writingDraftWithTask(String rawTaskValue) {
+        return writingDraft("""
+                    {
+                      "questionNo": 1,
+                      "questionType": "ESSAY",
+                      "prompt": "Prompt",
+                      "answer": { "value": "" },
+                      "explanationVi": "Explanation",
+                      "points": 10,
+                      "essayTaskType": %s
+                    }
+                """.formatted(rawTaskValue));
+    }
+
+    private String writingDraftWithoutTask() {
+        return writingDraft("""
+                    {
+                      "questionNo": 1,
+                      "questionType": "ESSAY",
+                      "prompt": "Prompt",
+                      "answer": { "value": "" },
+                      "explanationVi": "Explanation",
+                      "points": 10
+                    }
+                """);
+    }
+
+    private String readingEssayWithTask(String rawTaskValue) {
+        return draft("READING", """
+                    {
+                      "questionNo": 1,
+                      "questionType": "ESSAY",
+                      "prompt": "Prompt",
+                      "answer": { "value": "" },
+                      "explanationVi": "Explanation",
+                      "points": 10,
+                      "essayTaskType": %s
+                    }
+                """.formatted(rawTaskValue));
+    }
+
+    private String writingDraft(String questionJson) {
+        return draft("WRITING", questionJson);
+    }
+
+    private String draft(String skill, String questionJson) {
+        return """
+        {
+          "document": {
+            "detectedCategory": "TOPIK_II"
+          },
+          "sections": [
+            {
+              "title": "Writing",
+              "skill": "%s",
+              "groups": [
+                {
+                  "label": "1",
+                  "questions": [%s]
+                }
+              ]
+            }
+          ]
+        }
+        """.formatted(skill, questionJson);
+    }
 }

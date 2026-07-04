@@ -1,4 +1,4 @@
-import { editorState, normalizeDraftTree } from './manage-editor-state.js';
+import { editorState, normalizeDraftTree, WRITING_TASK_TYPES } from './manage-editor-state.js';
 
 export function calculateDraftValidation(draftData) {
   draftData = normalizeDraftTree(draftData);
@@ -89,6 +89,29 @@ export function calculateDraftValidation(draftData) {
                   messages.push({
                     type: "BLOCKING",
                     content: `Câu hỏi số ${qNo} chưa chọn đáp án đúng.`,
+                    sIdx: sIdx,
+                    gIdx: gIdx,
+                    qIdx: qIdx
+                  });
+                }
+              }
+
+              if (skill === "WRITING" && type === "ESSAY") {
+                if (!Object.prototype.hasOwnProperty.call(q, 'essayTaskType') || q.essayTaskType === null) {
+                  messages.push({
+                    type: "WARNING",
+                    content: "Câu Writing này chưa có loại bài rõ ràng. Kết quả chấm có thể tiếp tục dùng cơ chế tương thích cũ.",
+                    sIdx: sIdx,
+                    gIdx: gIdx,
+                    qIdx: qIdx
+                  });
+                } else if (typeof q.essayTaskType !== 'string' || q.essayTaskType.trim() !== q.essayTaskType || !WRITING_TASK_TYPES.includes(q.essayTaskType)) {
+                  const isBlankTask = typeof q.essayTaskType === 'string' && q.essayTaskType.trim() === '';
+                  messages.push({
+                    type: "BLOCKING",
+                    content: isBlankTask
+                      ? "Vui lòng chọn loại bài Writing cho câu tự luận."
+                      : "Loại bài Writing không hợp lệ.",
                     sIdx: sIdx,
                     gIdx: gIdx,
                     qIdx: qIdx

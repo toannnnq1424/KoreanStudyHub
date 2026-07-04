@@ -352,10 +352,12 @@
           <div style="margin-bottom:16px;">
             <label class="form-label">Câu hỏi luận TOPIK</label>
             <select id="q-essay-task" class="form-input" onchange="saveCurrentNode()">
+              <option value="">Chon loai bai Writing</option>
               <option value="Q51">Câu 51 (Điền cụm từ thư tín)</option>
               <option value="Q52">Câu 52 (Điền cụm từ giải thích)</option>
               <option value="Q53">Câu 53 (Viết biểu đồ - 200-300 từ)</option>
               <option value="Q54">Câu 54 (Viết luận văn - 600-700 từ)</option>
+              <option value="GENERAL">Bai viet tong quat</option>
             </select>
           </div>
           <div style="margin-bottom:16px;">
@@ -793,6 +795,46 @@
     return [];
   }
 
+  const WRITING_TASK_TYPES = ['Q51', 'Q52', 'Q53', 'Q54', 'GENERAL'];
+
+  function isWritingEssay(section, question) {
+    return section && section.skill === 'WRITING' && question && question.questionType === 'ESSAY';
+  }
+
+  function hasValidWritingTask(question) {
+    return WRITING_TASK_TYPES.includes(question && question.essayTaskType);
+  }
+
+  function applyWritingTaskState(section, question, options = {}) {
+    if (!question || typeof question !== 'object') return;
+    const shouldMaterializeBlank = options.materializeBlank === true;
+    if (isWritingEssay(section, question)) {
+      if (hasValidWritingTask(question)) return;
+      if (Object.prototype.hasOwnProperty.call(question, 'essayTaskType') && question.essayTaskType === null && !shouldMaterializeBlank) return;
+      if (shouldMaterializeBlank) {
+        question.essayTaskType = '';
+      }
+    } else {
+      delete question.essayTaskType;
+    }
+  }
+
+  function normalizeCopiedWritingTasks(section) {
+    if (!section || !Array.isArray(section.groups)) return;
+    section.groups.forEach(group => {
+      if (!group || !Array.isArray(group.questions)) return;
+      group.questions.forEach(question => applyWritingTaskState(section, question, { materializeBlank: true }));
+    });
+  }
+
+  function applySectionSkillTransition(section, previousSkill) {
+    if (!section || !Array.isArray(section.groups) || previousSkill === section.skill) return;
+    section.groups.forEach(group => {
+      if (!group || !Array.isArray(group.questions)) return;
+      group.questions.forEach(question => applyWritingTaskState(section, question, { materializeBlank: section.skill === 'WRITING' }));
+    });
+  }
+
   function normalizeDraftTree(draft) {
     if (!draft || typeof draft !== 'object') draft = {};
     if (!draft.document || typeof draft.document !== 'object') draft.document = {};
@@ -1094,6 +1136,7 @@
     if (!DRAFT_DATA.sections[sIdx]) return;
     const copy = JSON.parse(JSON.stringify(DRAFT_DATA.sections[sIdx]));
     refreshCopiedSectionIds(copy);
+    normalizeCopiedWritingTasks(copy);
     copy.title += " (Bản sao)";
     DRAFT_DATA.sections.splice(sIdx + 1, 0, copy);
     reNumberSectionQuestions(sIdx + 1);
@@ -1106,6 +1149,9 @@
     if (!DRAFT_DATA.sections[sIdx] || !DRAFT_DATA.sections[sIdx].groups[gIdx]) return;
     const copy = JSON.parse(JSON.stringify(DRAFT_DATA.sections[sIdx].groups[gIdx]));
     refreshCopiedGroupIds(copy);
+    if (Array.isArray(copy.questions)) {
+      copy.questions.forEach(question => applyWritingTaskState(DRAFT_DATA.sections[sIdx], question, { materializeBlank: true }));
+    }
     copy.label += " (Bản sao)";
     DRAFT_DATA.sections[sIdx].groups.splice(gIdx + 1, 0, copy);
     reNumberSectionQuestions(sIdx);
@@ -1119,6 +1165,7 @@
     const copy = JSON.parse(JSON.stringify(DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx]));
     refreshCopiedQuestionIds(copy);
     copy.questionNo += 1;
+    applyWritingTaskState(DRAFT_DATA.sections[sIdx], copy, { materializeBlank: true });
     DRAFT_DATA.sections[sIdx].groups[gIdx].questions.splice(qIdx + 1, 0, copy);
     reNumberSectionQuestions(sIdx);
     renderTree();
@@ -1668,8 +1715,10 @@
   function handleQuestionTypeChange() {
     if (!currentNode || currentNode.type !== 'question') return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
     const type = document.getElementById('q-type').value;
     q.questionType = type;
+    applyWritingTaskState(section, q, { materializeBlank: type === 'ESSAY' && section && section.skill === 'WRITING' });
 
     // Hide all area components
     document.getElementById('options-area').style.display = 'none';
@@ -1694,11 +1743,11 @@
     } else if (type === 'GAP_FILL' || type === 'FILL_BLANK') {
       document.getElementById('gapfill-area').style.display = 'block';
       document.getElementById('q-gap-key').value = (q.answer && q.answer.value) || q.answerKey || '';
-    } else if (type === 'ESSAY') {
+    } else if (type === 'ESSAY' && section && section.skill === 'WRITING') {
       document.getElementById('essay-area').style.display = 'block';
       document.getElementById('q-essay-min').value = q.essayMinChars || '';
       document.getElementById('q-essay-max').value = q.essayMaxChars || '';
-      document.getElementById('q-essay-task').value = q.essayTaskType || 'Q53';
+      document.getElementById('q-essay-task').value = q.essayTaskType || '';
       document.getElementById('q-essay-sample').value = q.essaySample || '';
       document.getElementById('q-essay-rubric').value = q.essayRubric || '';
     } else if (type === 'SPEAKING') {
@@ -1821,9 +1870,11 @@
     if (type === 'section') {
       const sec = DRAFT_DATA.sections[sIdx];
       if (!sec) return;
+      const previousSkill = sec.skill;
       sec.title = document.getElementById('sec-title').value;
       sec.skill = document.getElementById('sec-skill').value;
       sec.durationMinutes = parseInt(document.getElementById('sec-duration').value) || 40;
+      applySectionSkillTransition(sec, previousSkill);
     } else if (type === 'group') {
       const grp = DRAFT_DATA.sections[sIdx].groups[gIdx];
       if (!grp) return;
@@ -1840,22 +1891,32 @@
       q.explanationVi = document.getElementById('q-explanation').value;
       
       const typeSel = document.getElementById('q-type').value;
+      q.questionType = typeSel;
       if (typeSel === 'MATCHING' || typeSel === 'MATCHING_INFORMATION') {
+        applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
         q.answerKey = document.getElementById('q-answer-key').value;
       } else if (typeSel === 'GAP_FILL' || typeSel === 'FILL_BLANK') {
+        applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
         const val = document.getElementById('q-gap-key').value;
         q.answer = { type: "FILL", value: val };
         q.answerKey = val;
       } else if (typeSel === 'ESSAY') {
+        if (isWritingEssay(DRAFT_DATA.sections[sIdx], q)) {
+          q.essayTaskType = document.getElementById('q-essay-task').value;
+        } else {
+          applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
+        }
         q.essayMinChars = parseInt(document.getElementById('q-essay-min').value) || 0;
         q.essayMaxChars = parseInt(document.getElementById('q-essay-max').value) || 0;
-        q.essayTaskType = document.getElementById('q-essay-task').value;
         q.essaySample = document.getElementById('q-essay-sample').value;
         q.essayRubric = document.getElementById('q-essay-rubric').value;
       } else if (typeSel === 'SPEAKING') {
+        applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
         q.prepTimeSeconds = parseInt(document.getElementById('q-speak-prep').value) || 0;
         q.respTimeSeconds = parseInt(document.getElementById('q-speak-resp').value) || 0;
         q.speakingSample = document.getElementById('q-speak-sample').value;
+      } else {
+        applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
       }
       updateGroupQuestionRange(grp); // Update group range!
     }
@@ -2103,6 +2164,7 @@
       explanationVi: "",
       points: 2.0
     };
+    applyWritingTaskState(sec, newQ, { materializeBlank: true });
 
     if (!grp.questions) grp.questions = [];
     grp.questions.push(newQ);
@@ -2493,6 +2555,21 @@
 
           const type = q.questionType || defaultQuestionTypeForSkill(sec.skill);
           const answerVal = (q.answer && q.answer.value) || q.answerKey || '';
+          if (sec.skill === 'WRITING' && type === 'ESSAY') {
+            if (!Object.prototype.hasOwnProperty.call(q, 'essayTaskType') || q.essayTaskType === null) {
+              messages.push({ type: 'WARNING', content: 'Cau Writing nay chua co loai bai ro rang. Ket qua cham co the tiep tuc dung co che tuong thich cu.', sIdx, gIdx, qIdx });
+            } else if (typeof q.essayTaskType !== 'string' || q.essayTaskType.trim() !== q.essayTaskType || !WRITING_TASK_TYPES.includes(q.essayTaskType)) {
+              messages.push({
+                type: 'BLOCKING',
+                content: typeof q.essayTaskType === 'string' && q.essayTaskType.trim() === ''
+                  ? 'Vui long chon loai bai Writing cho cau tu luan.'
+                  : 'Loai bai Writing khong hop le.',
+                sIdx,
+                gIdx,
+                qIdx
+              });
+            }
+          }
           if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_CHOICE' || type === 'MCQ') {
             if (!Array.isArray(q.options) || q.options.length < 2) {
               messages.push({ type: 'BLOCKING', content: `Câu ${q.questionNo} cần ít nhất 2 phương án.`, sIdx, gIdx, qIdx });

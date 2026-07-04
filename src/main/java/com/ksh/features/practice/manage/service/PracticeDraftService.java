@@ -232,6 +232,11 @@ public class PracticeDraftService {
                                 qMap.put("points", q.getPoints());
                                 qMap.put("explanationVi", q.getExplanation());
                                 qMap.put("answerKey", q.getAnswerKey());
+                                if ("WRITING".equalsIgnoreCase(sec.getSkill())
+                                        && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())
+                                        && q.getWritingTaskType() != null) {
+                                    qMap.put("essayTaskType", q.getWritingTaskType().name());
+                                }
                                 
                                 if (q.getOptionsJson() != null) {
                                     try {

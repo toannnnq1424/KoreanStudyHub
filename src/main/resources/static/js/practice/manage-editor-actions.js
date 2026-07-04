@@ -1,4 +1,11 @@
-import { editorState, makeClientId, normalizeDraftTree, updateGroupQuestionRange } from './manage-editor-state.js';
+import {
+  applyWritingTaskState,
+  editorState,
+  isWritingEssay,
+  makeClientId,
+  normalizeDraftTree,
+  updateGroupQuestionRange
+} from './manage-editor-state.js';
 
 /**
  * Re-number all questions within a section sequentially (1, 2, 3, …)
@@ -72,6 +79,22 @@ function refreshCopiedSectionIds(section) {
     section.groups.forEach(refreshCopiedGroupIds);
   }
   return section;
+}
+
+function normalizeCopiedWritingTasks(section) {
+  if (!section || !Array.isArray(section.groups)) return;
+  section.groups.forEach(group => {
+    if (!group || !Array.isArray(group.questions)) return;
+    group.questions.forEach(question => applyWritingTaskState(section, question, { materializeBlank: true }));
+  });
+}
+
+function applySectionSkillTransition(section, previousSkill) {
+  if (!section || !Array.isArray(section.groups) || previousSkill === section.skill) return;
+  section.groups.forEach(group => {
+    if (!group || !Array.isArray(group.questions)) return;
+    group.questions.forEach(question => applyWritingTaskState(section, question, { materializeBlank: section.skill === 'WRITING' }));
+  });
 }
 
 export function addSectionBySkill(skill) {
@@ -238,6 +261,7 @@ export function addQuestionWrapper(event) {
     explanationVi: "",
     points: 2.0
   };
+  applyWritingTaskState(sec, newQ, { materializeBlank: true });
 
   if (!grp.questions) grp.questions = [];
   grp.questions.push(newQ);
@@ -362,6 +386,7 @@ export function duplicateSection(sIdx) {
   if (!editorState.draft.sections[sIdx]) return;
   const copy = JSON.parse(JSON.stringify(editorState.draft.sections[sIdx]));
   refreshCopiedSectionIds(copy);
+  normalizeCopiedWritingTasks(copy);
   copy.title += " (Bản sao)";
   editorState.draft.sections.splice(sIdx + 1, 0, copy);
   reNumberSectionQuestions(sIdx + 1);
@@ -374,6 +399,9 @@ export function duplicateGroup(sIdx, gIdx) {
   if (!editorState.draft.sections[sIdx] || !editorState.draft.sections[sIdx].groups[gIdx]) return;
   const copy = JSON.parse(JSON.stringify(editorState.draft.sections[sIdx].groups[gIdx]));
   refreshCopiedGroupIds(copy);
+  if (Array.isArray(copy.questions)) {
+    copy.questions.forEach(question => applyWritingTaskState(editorState.draft.sections[sIdx], question, { materializeBlank: true }));
+  }
   copy.label += " (Bản sao)";
   editorState.draft.sections[sIdx].groups.splice(gIdx + 1, 0, copy);
   reNumberSectionQuestions(sIdx);
@@ -387,6 +415,7 @@ export function duplicateQuestion(sIdx, gIdx, qIdx) {
   const copy = JSON.parse(JSON.stringify(editorState.draft.sections[sIdx].groups[gIdx].questions[qIdx]));
   refreshCopiedQuestionIds(copy);
   copy.questionNo += 1;
+  applyWritingTaskState(editorState.draft.sections[sIdx], copy, { materializeBlank: true });
   editorState.draft.sections[sIdx].groups[gIdx].questions.splice(qIdx + 1, 0, copy);
   reNumberSectionQuestions(sIdx);
   renderTree();
@@ -443,9 +472,11 @@ export function saveCurrentNode() {
   if (type === 'section') {
     const sec = editorState.draft.sections[sIdx];
     if (!sec) return;
+    const previousSkill = sec.skill;
     sec.title = document.getElementById('sec-title').value;
     sec.skill = document.getElementById('sec-skill').value;
     sec.durationMinutes = parseInt(document.getElementById('sec-duration').value) || 40;
+    applySectionSkillTransition(sec, previousSkill);
   } else if (type === 'group') {
     const grp = editorState.draft.sections[sIdx].groups[gIdx];
     if (!grp) return;
@@ -462,22 +493,32 @@ export function saveCurrentNode() {
     q.explanationVi = document.getElementById('q-explanation').value;
     
     const typeSel = document.getElementById('q-type').value;
+    q.questionType = typeSel;
     if (typeSel === 'MATCHING' || typeSel === 'MATCHING_INFORMATION') {
+      applyWritingTaskState(editorState.draft.sections[sIdx], q);
       q.answerKey = document.getElementById('q-answer-key').value;
     } else if (typeSel === 'GAP_FILL' || typeSel === 'FILL_BLANK') {
+      applyWritingTaskState(editorState.draft.sections[sIdx], q);
       const val = document.getElementById('q-gap-key').value;
       q.answer = { type: "FILL", value: val };
       q.answerKey = val;
     } else if (typeSel === 'ESSAY') {
+      if (isWritingEssay(editorState.draft.sections[sIdx], q)) {
+        q.essayTaskType = document.getElementById('q-essay-task').value;
+      } else {
+        applyWritingTaskState(editorState.draft.sections[sIdx], q);
+      }
       q.essayMinChars = parseInt(document.getElementById('q-essay-min').value) || 0;
       q.essayMaxChars = parseInt(document.getElementById('q-essay-max').value) || 0;
-      q.essayTaskType = document.getElementById('q-essay-task').value;
       q.essaySample = document.getElementById('q-essay-sample').value;
       q.essayRubric = document.getElementById('q-essay-rubric').value;
     } else if (typeSel === 'SPEAKING') {
+      applyWritingTaskState(editorState.draft.sections[sIdx], q);
       q.prepTimeSeconds = parseInt(document.getElementById('q-speak-prep').value) || 0;
       q.respTimeSeconds = parseInt(document.getElementById('q-speak-resp').value) || 0;
       q.speakingSample = document.getElementById('q-speak-sample').value;
+    } else {
+      applyWritingTaskState(editorState.draft.sections[sIdx], q);
     }
     updateGroupQuestionRange(grp);
   }
@@ -500,8 +541,10 @@ export function saveDraftMetadata() {
 export function handleQuestionTypeChange() {
   if (!editorState.currentNode || editorState.currentNode.type !== 'question') return;
   const q = editorState.draft.sections[editorState.currentNode.sIdx].groups[editorState.currentNode.gIdx].questions[editorState.currentNode.qIdx];
+  const section = editorState.draft.sections[editorState.currentNode.sIdx];
   const type = document.getElementById('q-type').value;
   q.questionType = type;
+  applyWritingTaskState(section, q, { materializeBlank: type === 'ESSAY' && section?.skill === 'WRITING' });
 
   document.getElementById('options-area').style.display = 'none';
   document.getElementById('tfng-area').style.display = 'none';
@@ -525,11 +568,11 @@ export function handleQuestionTypeChange() {
   } else if (type === 'GAP_FILL' || type === 'FILL_BLANK') {
     document.getElementById('gapfill-area').style.display = 'block';
     document.getElementById('q-gap-key').value = (q.answer && q.answer.value) || q.answerKey || '';
-  } else if (type === 'ESSAY') {
+  } else if (type === 'ESSAY' && section?.skill === 'WRITING') {
     document.getElementById('essay-area').style.display = 'block';
     document.getElementById('q-essay-min').value = q.essayMinChars || '';
     document.getElementById('q-essay-max').value = q.essayMaxChars || '';
-    document.getElementById('q-essay-task').value = q.essayTaskType || 'Q53';
+    document.getElementById('q-essay-task').value = q.essayTaskType || '';
     document.getElementById('q-essay-sample').value = q.essaySample || '';
     document.getElementById('q-essay-rubric').value = q.essayRubric || '';
   } else if (type === 'SPEAKING') {
