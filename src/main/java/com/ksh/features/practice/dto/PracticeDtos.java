@@ -398,6 +398,29 @@ public final class PracticeDtos {
     public record PracticePdfImportResult(Long setId, String title, int questionCount) {
     }
 
+    public record SpeakingMediaUploadResponse(
+            Long mediaId,
+            Long questionId,
+            String status,
+            Long byteSize,
+            Long durationMs,
+            String mimeType,
+            Long lockVersion
+    ) {
+    }
+
+    public record SpeakingMediaDeleteResponse(
+            Long mediaId,
+            String status
+    ) {
+    }
+
+    public record SpeakingMediaErrorResponse(
+            String code,
+            String message
+    ) {
+    }
+
     public record SkillMetric(
             String skill,
             String skillLabel,
