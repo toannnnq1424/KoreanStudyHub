@@ -26,17 +26,20 @@ public class PracticeSpeakingMediaService {
     private final PracticeSectionRepository sectionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeSpeakingMediaRepository mediaRepository;
+    private final PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
 
     public PracticeSpeakingMediaService(PracticeAttemptRepository attemptRepository,
                                         PracticeQuestionRepository questionRepository,
                                         PracticeSectionRepository sectionRepository,
                                         PracticeQuestionGroupRepository groupRepository,
-                                        PracticeSpeakingMediaRepository mediaRepository) {
+                                        PracticeSpeakingMediaRepository mediaRepository,
+                                        PracticeSpeakingMediaCleanupTaskService cleanupTaskService) {
         this.attemptRepository = attemptRepository;
         this.questionRepository = questionRepository;
         this.sectionRepository = sectionRepository;
         this.groupRepository = groupRepository;
         this.mediaRepository = mediaRepository;
+        this.cleanupTaskService = cleanupTaskService;
     }
 
     @Transactional
@@ -57,9 +60,9 @@ public class PracticeSpeakingMediaService {
         if (readyRows.size() > 1) {
             throw new IllegalStateException("Multiple READY speaking media rows detected.");
         }
-        Optional<SpeakingMediaCleanupHandle> supersededCleanup = readyRows.stream()
+        Optional<Long> supersededCleanupTaskId = readyRows.stream()
                 .findFirst()
-                .map(this::cleanupHandle);
+                .map(this::enqueueSupersededCleanup);
         readyRows.forEach(PracticeSpeakingMedia::markSuperseded);
 
         PracticeSpeakingMedia media = PracticeSpeakingMedia.ready(
@@ -74,7 +77,7 @@ public class PracticeSpeakingMediaService {
                 descriptor.durationMs(),
                 descriptor.contentHash());
         PracticeSpeakingMedia saved = mediaRepository.saveAndFlush(media);
-        return activationResult(saved, supersededCleanup);
+        return activationResult(saved, supersededCleanupTaskId);
     }
 
     @Transactional(readOnly = true)
@@ -103,13 +106,15 @@ public class PracticeSpeakingMediaService {
         validateQuestionScope(attempt, questionId);
         PracticeSpeakingMedia media = mediaRepository.findByIdAndAttemptIdAndQuestionId(mediaId, attemptId, questionId)
                 .orElseThrow(this::uploadTargetNotFound);
-        SpeakingMediaCleanupHandle cleanup = cleanupHandle(media);
         media.markDeleted();
+        Long cleanupTaskId = cleanupTaskService.enqueueLogicalDelete(
+                media.getStorageProvider(),
+                media.getStorageKey());
         mediaRepository.flush();
         return new SpeakingMediaDeletionResult(
                 media.getId(),
                 PracticeSpeakingMediaStatus.DELETED,
-                Optional.of(cleanup));
+                cleanupTaskId);
     }
 
     private PracticeAttempt loadOwnedAttempt(Long attemptId, Long userId) {
@@ -175,7 +180,7 @@ public class PracticeSpeakingMediaService {
 
     private SpeakingMediaActivationResult activationResult(
             PracticeSpeakingMedia media,
-            Optional<SpeakingMediaCleanupHandle> supersededCleanup) {
+            Optional<Long> supersededCleanupTaskId) {
         return new SpeakingMediaActivationResult(
                 media.getId(),
                 media.getQuestionId(),
@@ -184,12 +189,11 @@ public class PracticeSpeakingMediaService {
                 media.getDurationMs(),
                 media.getMimeType(),
                 media.getLockVersion(),
-                supersededCleanup);
+                supersededCleanupTaskId);
     }
 
-    private SpeakingMediaCleanupHandle cleanupHandle(PracticeSpeakingMedia media) {
-        return new SpeakingMediaCleanupHandle(
-                media.getId(),
+    private Long enqueueSupersededCleanup(PracticeSpeakingMedia media) {
+        return cleanupTaskService.enqueueSupersededRetention(
                 media.getStorageProvider(),
                 media.getStorageKey());
     }

@@ -4,6 +4,8 @@ import com.ksh.entities.PracticeSpeakingMediaStatus;
 import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.service.SpeakingAudioUploadService.SpeakingAudioDeletionResult;
 import com.ksh.features.practice.service.SpeakingAudioUploadService.SpeakingAudioUploadResult;
+import com.ksh.features.practice.service.PracticeSpeakingMediaCleanupProcessor.CleanupTaskProcessingResult;
+import com.ksh.features.practice.service.PracticeSpeakingMediaCleanupProcessor.CleanupTaskProcessingResult.Outcome;
 import com.ksh.features.practice.service.audio.PreparedSpeakingAudio;
 import com.ksh.features.practice.service.audio.SpeakingAudioPreparationService;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
@@ -42,6 +44,8 @@ class SpeakingAudioUploadServiceTest {
     private SpeakingAudioPreparationService preparationService;
     private PracticeSpeakingMediaService mediaService;
     private SpeakingAudioStorage storage;
+    private PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
+    private PracticeSpeakingMediaCleanupProcessor cleanupProcessor;
     private SpeakingAudioUploadService service;
 
     @BeforeEach
@@ -49,7 +53,10 @@ class SpeakingAudioUploadServiceTest {
         preparationService = mock(SpeakingAudioPreparationService.class);
         mediaService = mock(PracticeSpeakingMediaService.class);
         storage = mock(SpeakingAudioStorage.class);
-        service = new SpeakingAudioUploadService(preparationService, mediaService, storage);
+        cleanupTaskService = mock(PracticeSpeakingMediaCleanupTaskService.class);
+        cleanupProcessor = mock(PracticeSpeakingMediaCleanupProcessor.class);
+        service = new SpeakingAudioUploadService(
+                preparationService, mediaService, storage, cleanupTaskService, cleanupProcessor);
     }
 
     @Test
@@ -150,6 +157,8 @@ class SpeakingAudioUploadServiceTest {
                 .thenThrow(primary);
         doThrow(new IllegalStateException("LEARNER_AUDIO_PATH_SECRET_B2A/" + SECRET_KEY))
                 .when(storage).delete(SECRET_KEY);
+        when(cleanupTaskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY))
+                .thenReturn(900L);
 
         assertThatThrownBy(() -> upload(new byte[]{1}))
                 .isSameAs(primary)
@@ -161,6 +170,7 @@ class SpeakingAudioUploadServiceTest {
                             .doesNotContain(SECRET_HASH)
                             .doesNotContain("LEARNER_AUDIO_PATH_SECRET_B2A");
                 });
+        verify(cleanupTaskService).enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
     }
 
     @Test
@@ -184,6 +194,25 @@ class SpeakingAudioUploadServiceTest {
                 .satisfies(ex -> assertThat(ex.getMessage()).doesNotContain(CLEANUP_SECRET_KEY));
 
         verifyNoInteractions(storage);
+        verify(cleanupTaskService)
+                .enqueueCompensationOrphan(PracticeSpeakingStorageProvider.OBJECT_STORAGE, CLEANUP_SECRET_KEY);
+    }
+
+    @Test
+    void orphanTaskPersistenceFailureStillPreservesPrimaryActivationException() {
+        PreparedSpeakingAudio prepared = prepared(SECRET_KEY, SECRET_HASH);
+        RuntimeException primary = new IllegalStateException("activation failed safely");
+        when(preparationService.prepare(any(InputStream.class), anyLong(), anyString())).thenReturn(prepared);
+        when(mediaService.activateValidatedMediaForOwner(anyLong(), anyLong(), anyLong(), any()))
+                .thenThrow(primary);
+        doThrow(new IllegalStateException("LEARNER_AUDIO_PATH_SECRET_B3A1/" + SECRET_KEY))
+                .when(storage).delete(SECRET_KEY);
+        when(cleanupTaskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY))
+                .thenThrow(new IllegalStateException("LEARNER_AUDIO_ERROR_SECRET_B3A1"));
+
+        assertThatThrownBy(() -> upload(new byte[]{1}))
+                .isSameAs(primary)
+                .satisfies(ex -> assertThat(ex.getSuppressed()).isEmpty());
     }
 
     @Test
@@ -210,8 +239,7 @@ class SpeakingAudioUploadServiceTest {
                 .thenReturn(activated(201L, Optional.empty()));
         when(mediaService.activateValidatedMediaForOwner(
                 USER_ID, ATTEMPT_ID, QUESTION_ID, second.toDescriptor()))
-                .thenReturn(activated(202L, Optional.of(new SpeakingMediaCleanupHandle(
-                        201L, PracticeSpeakingStorageProvider.LOCAL, first.storageKey()))));
+                .thenReturn(activated(202L, Optional.of(701L)));
 
         assertThat(upload(new byte[]{1}).mediaId()).isEqualTo(201L);
         assertThat(upload(new byte[]{1}).mediaId()).isEqualTo(202L);
@@ -223,34 +251,31 @@ class SpeakingAudioUploadServiceTest {
 
     @Test
     void unsupportedDeleteProviderKeepsLogicalSuccessWithoutUsingLocalStorage() {
-        SpeakingMediaCleanupHandle cleanup = new SpeakingMediaCleanupHandle(
-                251L, PracticeSpeakingStorageProvider.OBJECT_STORAGE, CLEANUP_SECRET_KEY);
         when(mediaService.markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 251L))
                 .thenReturn(new SpeakingMediaDeletionResult(
-                        251L, PracticeSpeakingMediaStatus.DELETED, Optional.of(cleanup)));
+                        251L, PracticeSpeakingMediaStatus.DELETED, 801L));
 
         SpeakingAudioDeletionResult result = service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 251L);
 
         assertThat(result.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(result.toString()).doesNotContain(CLEANUP_SECRET_KEY);
         verifyNoInteractions(storage);
+        verify(cleanupProcessor).processTaskNow(801L);
     }
 
     @Test
     void deleteCommitsMetadataContractBeforePhysicalDeleteAndReturnsSafeResult() {
-        SpeakingMediaCleanupHandle cleanup = new SpeakingMediaCleanupHandle(
-                301L, PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
         when(mediaService.markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 301L))
                 .thenReturn(new SpeakingMediaDeletionResult(
-                        301L, PracticeSpeakingMediaStatus.DELETED, Optional.of(cleanup)));
+                        301L, PracticeSpeakingMediaStatus.DELETED, 901L));
 
         SpeakingAudioDeletionResult result = service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 301L);
 
         assertThat(result.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(result.toString()).doesNotContain(SECRET_KEY).doesNotContain(SECRET_HASH);
-        var ordered = inOrder(mediaService, storage);
+        var ordered = inOrder(mediaService, cleanupProcessor);
         ordered.verify(mediaService).markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 301L);
-        ordered.verify(storage).delete(SECRET_KEY);
+        ordered.verify(cleanupProcessor).processTaskNow(901L);
     }
 
     @Test
@@ -265,29 +290,28 @@ class SpeakingAudioUploadServiceTest {
 
         when(mediaService.markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 402L))
                 .thenReturn(new SpeakingMediaDeletionResult(
-                        402L, PracticeSpeakingMediaStatus.DELETED, Optional.empty()));
+                        402L, PracticeSpeakingMediaStatus.DELETED, null));
         assertThat(service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 402L).status())
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         verifyNoInteractions(storage);
+        verifyNoInteractions(cleanupProcessor);
     }
 
     @Test
     void physicalDeleteFailureKeepsLogicalDeleteSuccessfulAndAlreadyDeletedCanRetry() {
-        SpeakingMediaCleanupHandle cleanup = new SpeakingMediaCleanupHandle(
-                501L, PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
         SpeakingMediaDeletionResult deleted = new SpeakingMediaDeletionResult(
-                501L, PracticeSpeakingMediaStatus.DELETED, Optional.of(cleanup));
+                501L, PracticeSpeakingMediaStatus.DELETED, 1001L);
         when(mediaService.markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 501L))
                 .thenReturn(deleted, deleted);
-        doThrow(new IllegalStateException("LEARNER_AUDIO_PATH_SECRET_B2A"))
-                .doNothing()
-                .when(storage).delete(SECRET_KEY);
+        when(cleanupProcessor.processTaskNow(1001L))
+                .thenThrow(new IllegalStateException("LEARNER_AUDIO_PATH_SECRET_B2A"))
+                .thenReturn(new CleanupTaskProcessingResult(Outcome.COMPLETED));
 
         assertThat(service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 501L).status())
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 501L).status())
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
-        verify(storage, times(2)).delete(SECRET_KEY);
+        verify(cleanupProcessor, times(2)).processTaskNow(1001L);
     }
 
     @Test
@@ -323,7 +347,7 @@ class SpeakingAudioUploadServiceTest {
 
     private SpeakingMediaActivationResult activated(
             Long mediaId,
-            Optional<SpeakingMediaCleanupHandle> superseded) {
+            Optional<Long> supersededCleanupTaskId) {
         return new SpeakingMediaActivationResult(
                 mediaId,
                 QUESTION_ID,
@@ -332,6 +356,6 @@ class SpeakingAudioUploadServiceTest {
                 1200L,
                 "audio/webm",
                 0L,
-                superseded);
+                supersededCleanupTaskId);
     }
 }

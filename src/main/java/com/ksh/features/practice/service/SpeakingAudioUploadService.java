@@ -17,17 +17,24 @@ public class SpeakingAudioUploadService {
     private static final Logger log = LoggerFactory.getLogger(SpeakingAudioUploadService.class);
     private static final String COMPENSATION_FAILURE_EVENT = "Speaking audio activation compensation failed";
     private static final String PHYSICAL_DELETE_FAILURE_EVENT = "Speaking audio physical delete failed";
+    private static final String CLEANUP_INTENT_FAILURE_EVENT = "Speaking audio cleanup intent persistence failed";
 
     private final SpeakingAudioPreparationService preparationService;
     private final PracticeSpeakingMediaService mediaService;
     private final SpeakingAudioStorage storage;
+    private final PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
+    private final PracticeSpeakingMediaCleanupProcessor cleanupProcessor;
 
     public SpeakingAudioUploadService(SpeakingAudioPreparationService preparationService,
                                       PracticeSpeakingMediaService mediaService,
-                                      SpeakingAudioStorage storage) {
+                                      SpeakingAudioStorage storage,
+                                      PracticeSpeakingMediaCleanupTaskService cleanupTaskService,
+                                      PracticeSpeakingMediaCleanupProcessor cleanupProcessor) {
         this.preparationService = preparationService;
         this.mediaService = mediaService;
         this.storage = storage;
+        this.cleanupTaskService = cleanupTaskService;
+        this.cleanupProcessor = cleanupProcessor;
     }
 
     public SpeakingAudioUploadResult uploadOrReplaceForOwner(
@@ -59,7 +66,7 @@ public class SpeakingAudioUploadService {
             Long mediaId) {
         SpeakingMediaDeletionResult deleted = mediaService.markDeletedForOwner(
                 userId, attemptId, questionId, mediaId);
-        deleted.cleanup().ifPresent(this::deletePhysicalObjectBestEffort);
+        processCleanupTaskBestEffort(deleted.cleanupTaskId());
         return new SpeakingAudioDeletionResult(deleted.mediaId(), deleted.status());
     }
 
@@ -77,24 +84,33 @@ public class SpeakingAudioUploadService {
     private void compensatePreparedObject(PreparedSpeakingAudio prepared) {
         if (prepared.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
             log.warn(COMPENSATION_FAILURE_EVENT);
+            enqueueCompensationOrphanBestEffort(prepared);
             return;
         }
         try {
             storage.delete(prepared.storageKey());
         } catch (RuntimeException ignored) {
             log.warn(COMPENSATION_FAILURE_EVENT);
+            enqueueCompensationOrphanBestEffort(prepared);
         }
     }
 
-    private void deletePhysicalObjectBestEffort(SpeakingMediaCleanupHandle cleanup) {
-        if (cleanup.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
-            log.warn(PHYSICAL_DELETE_FAILURE_EVENT);
+    private void processCleanupTaskBestEffort(Long cleanupTaskId) {
+        if (cleanupTaskId == null) {
             return;
         }
         try {
-            storage.delete(cleanup.storageKey());
+            cleanupProcessor.processTaskNow(cleanupTaskId);
         } catch (RuntimeException ignored) {
             log.warn(PHYSICAL_DELETE_FAILURE_EVENT);
+        }
+    }
+
+    private void enqueueCompensationOrphanBestEffort(PreparedSpeakingAudio prepared) {
+        try {
+            cleanupTaskService.enqueueCompensationOrphan(prepared.storageProvider(), prepared.storageKey());
+        } catch (RuntimeException ignored) {
+            log.warn(CLEANUP_INTENT_FAILURE_EVENT);
         }
     }
 

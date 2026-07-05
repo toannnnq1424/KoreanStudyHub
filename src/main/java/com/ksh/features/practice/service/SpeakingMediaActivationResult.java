@@ -12,10 +12,10 @@ record SpeakingMediaActivationResult(
         Long durationMs,
         String mimeType,
         Long lockVersion,
-        Optional<SpeakingMediaCleanupHandle> supersededCleanup
+        Optional<Long> supersededCleanupTaskId
 ) {
     SpeakingMediaActivationResult {
-        supersededCleanup = supersededCleanup == null ? Optional.empty() : supersededCleanup;
+        supersededCleanupTaskId = supersededCleanupTaskId == null ? Optional.empty() : supersededCleanupTaskId;
     }
 
     @Override
@@ -27,7 +27,7 @@ record SpeakingMediaActivationResult(
                 + ", durationMs=" + durationMs
                 + ", mimeType='" + mimeType + '\''
                 + ", lockVersion=" + lockVersion
-                + ", superseded=" + supersededCleanup.isPresent()
+                + ", supersededCleanupTask=" + supersededCleanupTaskId.isPresent()
                 + '}';
     }
 }

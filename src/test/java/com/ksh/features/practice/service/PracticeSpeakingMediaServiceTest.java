@@ -5,6 +5,8 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeSpeakingMediaCleanupReason;
+import com.ksh.entities.PracticeSpeakingMediaCleanupStatus;
 import com.ksh.entities.PracticeSpeakingMedia;
 import com.ksh.entities.PracticeSpeakingMediaStatus;
 import com.ksh.entities.PracticeSpeakingStorageProvider;
@@ -16,6 +18,7 @@ import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.features.practice.service.audio.PreparedSpeakingAudio;
@@ -58,6 +61,12 @@ class PracticeSpeakingMediaServiceTest {
     private PracticeSpeakingMediaRepository mediaRepository;
 
     @Autowired
+    private PracticeSpeakingMediaCleanupTaskRepository cleanupTaskRepository;
+
+    @Autowired
+    private PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
+
+    @Autowired
     private PracticeSetRepository setRepository;
 
     @Autowired
@@ -84,6 +93,7 @@ class PracticeSpeakingMediaServiceTest {
     @BeforeEach
     @AfterEach
     void cleanupSyntheticSpeakingMedia() {
+        jdbcTemplate.update("DELETE FROM practice_speaking_media_cleanup_tasks WHERE storage_key LIKE 'learner-speaking/%'");
         jdbcTemplate.update("DELETE FROM practice_speaking_media WHERE storage_key LIKE 'learner-speaking/%'");
     }
 
@@ -372,13 +382,16 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThat(first.mediaId()).isNotEqualTo(second.mediaId());
         assertThat(first.status()).isEqualTo(PracticeSpeakingMediaStatus.READY);
-        assertThat(first.supersededCleanup()).isEmpty();
-        assertThat(second.supersededCleanup()).hasValueSatisfying(cleanup -> {
-            assertThat(cleanup.mediaId()).isEqualTo(first.mediaId());
-            assertThat(cleanup.storageProvider()).isEqualTo(PracticeSpeakingStorageProvider.LOCAL);
-            assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey());
-            assertThat(cleanup.storageKey()).isNotEqualTo(secondDescriptor.storageKey());
-            assertThat(cleanup.toString()).doesNotContain(cleanup.storageKey());
+        assertThat(first.supersededCleanupTaskId()).isEmpty();
+        assertThat(second.supersededCleanupTaskId()).hasValueSatisfying(taskId -> {
+            var task = cleanupTaskRepository.findById(taskId).orElseThrow();
+            assertThat(task.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.SUPERSEDED_RETENTION);
+            assertThat(task.getStorageProvider()).isEqualTo(PracticeSpeakingStorageProvider.LOCAL);
+            assertThat(task.getStorageKey()).isEqualTo(firstDescriptor.storageKey());
+            assertThat(task.getStorageKey()).isNotEqualTo(secondDescriptor.storageKey());
+            assertThat(task.getStatus()).isEqualTo(PracticeSpeakingMediaCleanupStatus.PENDING);
+            assertThat(task.getDueAt()).isEqualTo(task.getNextAttemptAt());
+            assertThat(task.toString()).doesNotContain(task.getStorageKey());
         });
         assertThat(second.toString())
                 .doesNotContain(firstDescriptor.storageKey())
@@ -525,12 +538,11 @@ class PracticeSpeakingMediaServiceTest {
         assertThat(supersededDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(repeatedDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(readyDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
-        assertThat(supersededDelete.cleanup()).hasValueSatisfying(cleanup ->
-                assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey()));
-        assertThat(repeatedDelete.cleanup()).hasValueSatisfying(cleanup ->
-                assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey()));
-        assertThat(readyDelete.cleanup()).hasValueSatisfying(cleanup ->
-                assertThat(cleanup.storageKey()).isEqualTo(secondDescriptor.storageKey()));
+        assertThat(cleanupTaskRepository.findById(supersededDelete.cleanupTaskId()).orElseThrow().getStorageKey())
+                .isEqualTo(firstDescriptor.storageKey());
+        assertThat(repeatedDelete.cleanupTaskId()).isEqualTo(supersededDelete.cleanupTaskId());
+        assertThat(cleanupTaskRepository.findById(readyDelete.cleanupTaskId()).orElseThrow().getStorageKey())
+                .isEqualTo(secondDescriptor.storageKey());
         assertThat(repeatedDelete.toString()).doesNotContain(firstDescriptor.storageKey());
 
         List<PracticeSpeakingMedia> deleted = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
@@ -676,7 +688,10 @@ class PracticeSpeakingMediaServiceTest {
                 storage,
                 prepared("learner-speaking/ready/transaction-boundary", "transaction-boundary"),
                 () -> {});
-        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(preparation, service, storage);
+        PracticeSpeakingMediaCleanupProcessor processor =
+                new PracticeSpeakingMediaCleanupProcessor(cleanupTaskService, storage);
+        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(
+                preparation, service, storage, cleanupTaskService, processor);
 
         assertThat(AopUtils.isAopProxy(service)).isTrue();
         SpeakingAudioUploadService.SpeakingAudioUploadResult uploaded = uploadService.uploadOrReplaceForOwner(
@@ -711,7 +726,10 @@ class PracticeSpeakingMediaServiceTest {
                     attempt.setStatus(PracticeAttempt.STATUS_SUBMITTED);
                     attemptRepository.saveAndFlush(attempt);
                 });
-        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(preparation, service, storage);
+        PracticeSpeakingMediaCleanupProcessor processor =
+                new PracticeSpeakingMediaCleanupProcessor(cleanupTaskService, storage);
+        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(
+                preparation, service, storage, cleanupTaskService, processor);
 
         assertThatThrownBy(() -> uploadService.uploadOrReplaceForOwner(
                 fixture.userId(),
