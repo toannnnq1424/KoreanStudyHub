@@ -12,7 +12,6 @@ import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +40,7 @@ public class PracticeSpeakingMediaService {
     }
 
     @Transactional
-    public SpeakingMediaIdentity activateValidatedMediaForOwner(
+    public SpeakingMediaActivationResult activateValidatedMediaForOwner(
             Long userId,
             Long attemptId,
             Long questionId,
@@ -58,6 +57,9 @@ public class PracticeSpeakingMediaService {
         if (readyRows.size() > 1) {
             throw new IllegalStateException("Multiple READY speaking media rows detected.");
         }
+        Optional<SpeakingMediaCleanupHandle> supersededCleanup = readyRows.stream()
+                .findFirst()
+                .map(this::cleanupHandle);
         readyRows.forEach(PracticeSpeakingMedia::markSuperseded);
 
         PracticeSpeakingMedia media = PracticeSpeakingMedia.ready(
@@ -72,7 +74,14 @@ public class PracticeSpeakingMediaService {
                 descriptor.durationMs(),
                 descriptor.contentHash());
         PracticeSpeakingMedia saved = mediaRepository.saveAndFlush(media);
-        return identity(saved);
+        return activationResult(saved, supersededCleanup);
+    }
+
+    @Transactional(readOnly = true)
+    public void validateUploadTargetForOwner(Long userId, Long attemptId, Long questionId) {
+        PracticeAttempt attempt = loadOwnedAttempt(attemptId, userId);
+        validateMutableAttempt(attempt);
+        validateQuestionScope(attempt, questionId);
     }
 
     @Transactional(readOnly = true)
@@ -87,32 +96,30 @@ public class PracticeSpeakingMediaService {
     }
 
     @Transactional
-    public void markDeletedForOwner(Long userId, Long attemptId, Long questionId) {
+    public SpeakingMediaDeletionResult markDeletedForOwner(
+            Long userId, Long attemptId, Long questionId, Long mediaId) {
         PracticeAttempt attempt = loadOwnedAttemptForUpdate(attemptId, userId);
         validateMutableAttempt(attempt);
         validateQuestionScope(attempt, questionId);
-        List<PracticeSpeakingMedia> rows = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
-                attemptId, questionId, PracticeSpeakingMediaStatus.READY);
-        rows.addAll(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
-                attemptId, questionId, PracticeSpeakingMediaStatus.SUPERSEDED));
-        rows.forEach(PracticeSpeakingMedia::markDeleted);
+        PracticeSpeakingMedia media = mediaRepository.findByIdAndAttemptIdAndQuestionId(mediaId, attemptId, questionId)
+                .orElseThrow(this::uploadTargetNotFound);
+        SpeakingMediaCleanupHandle cleanup = cleanupHandle(media);
+        media.markDeleted();
         mediaRepository.flush();
+        return new SpeakingMediaDeletionResult(
+                media.getId(),
+                PracticeSpeakingMediaStatus.DELETED,
+                Optional.of(cleanup));
     }
 
     private PracticeAttempt loadOwnedAttempt(Long attemptId, Long userId) {
-        return attemptRepository.findById(attemptId)
-                .map(attempt -> {
-                    if (!userId.equals(attempt.getUserId())) {
-                        throw new AccessDeniedException("Attempt is not accessible.");
-                    }
-                    return attempt;
-                })
-                .orElseThrow(() -> new EntityNotFoundException("Attempt not found."));
+        return attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(this::uploadTargetNotFound);
     }
 
     private PracticeAttempt loadOwnedAttemptForUpdate(Long attemptId, Long userId) {
         return attemptRepository.findByIdAndUserIdForUpdate(attemptId, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Attempt not found."));
+                .orElseThrow(this::uploadTargetNotFound);
     }
 
     private void validateMutableAttempt(PracticeAttempt attempt) {
@@ -129,25 +136,25 @@ public class PracticeSpeakingMediaService {
             throw new IllegalStateException("Only SPEAKING attempts can access learner speaking media.");
         }
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section not found."));
+                .orElseThrow(this::uploadTargetNotFound);
         if (!attempt.getSetId().equals(section.getSetId()) || !attempt.getTestId().equals(section.getTestId())) {
-            throw new IllegalStateException("Attempt section scope is inconsistent.");
+            throw uploadTargetNotFound();
         }
         PracticeQuestion question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new EntityNotFoundException("Question not found."));
+                .orElseThrow(this::uploadTargetNotFound);
         if (!attempt.getSetId().equals(question.getSetId())) {
-            throw new IllegalStateException("Question does not belong to the attempt set.");
+            throw uploadTargetNotFound();
         }
         if (!PracticeQuestion.TYPE_SPEAKING.equals(question.getQuestionType())) {
             throw new IllegalStateException("Only SPEAKING questions can have learner audio.");
         }
         if (question.getGroupId() == null) {
-            throw new IllegalStateException("Question is not scoped to the attempt section.");
+            throw uploadTargetNotFound();
         }
         PracticeQuestionGroup group = groupRepository.findById(question.getGroupId())
-                .orElseThrow(() -> new EntityNotFoundException("Question group not found."));
+                .orElseThrow(this::uploadTargetNotFound);
         if (!attempt.getSectionId().equals(group.getSectionId())) {
-            throw new IllegalStateException("Question does not belong to the attempt section.");
+            throw uploadTargetNotFound();
         }
     }
 
@@ -164,5 +171,30 @@ public class PracticeSpeakingMediaService {
                 media.getByteSize(),
                 media.getAttemptId(),
                 media.getQuestionId());
+    }
+
+    private SpeakingMediaActivationResult activationResult(
+            PracticeSpeakingMedia media,
+            Optional<SpeakingMediaCleanupHandle> supersededCleanup) {
+        return new SpeakingMediaActivationResult(
+                media.getId(),
+                media.getQuestionId(),
+                media.getStatus(),
+                media.getByteSize(),
+                media.getDurationMs(),
+                media.getMimeType(),
+                media.getLockVersion(),
+                supersededCleanup);
+    }
+
+    private SpeakingMediaCleanupHandle cleanupHandle(PracticeSpeakingMedia media) {
+        return new SpeakingMediaCleanupHandle(
+                media.getId(),
+                media.getStorageProvider(),
+                media.getStorageKey());
+    }
+
+    private EntityNotFoundException uploadTargetNotFound() {
+        return new EntityNotFoundException("Speaking media target not found.");
     }
 }

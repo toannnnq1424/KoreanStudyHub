@@ -18,6 +18,10 @@ import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
+import com.ksh.features.practice.service.audio.PreparedSpeakingAudio;
+import com.ksh.features.practice.service.audio.SpeakingAudioPreparationService;
+import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
+import com.ksh.features.practice.service.audio.StoredSpeakingAudioObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,8 +29,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -281,15 +290,101 @@ class PracticeSpeakingMediaServiceTest {
     }
 
     @Test
+    void preflightValidatesOwnerSkillStatusAndQuestionTypeWithoutMutation() {
+        Fixture fixture = createSpeakingFixture("preflight");
+        User outsider = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
+
+        service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId());
+
+        assertThat(mediaRepository.findByAttemptIdAndStatus(
+                fixture.attemptId(), PracticeSpeakingMediaStatus.READY)).isEmpty();
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                outsider.getId(), fixture.attemptId(), fixture.speakingQuestionId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
+
+        PracticeAttempt readingAttempt = attemptRepository.saveAndFlush(new PracticeAttempt(
+                fixture.userId(), fixture.setId(), fixture.testId(), "READING", fixture.sectionId()));
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), readingAttempt.getId(), fixture.speakingQuestionId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Only SPEAKING");
+
+        PracticeAttempt submitted = attemptRepository.saveAndFlush(new PracticeAttempt(
+                fixture.userId(), fixture.setId(), fixture.testId(), "SPEAKING", fixture.sectionId()));
+        submitted.setStatus(PracticeAttempt.STATUS_SUBMITTED);
+        attemptRepository.saveAndFlush(submitted);
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), submitted.getId(), fixture.speakingQuestionId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("before submit");
+
+        PracticeQuestion essay = new PracticeQuestion(
+                fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
+        essay.setGroupId(fixture.groupId());
+        essay = questionRepository.saveAndFlush(essay);
+        Long essayId = essay.getId();
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), essayId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SPEAKING questions");
+    }
+
+    @Test
+    void preflightRejectsQuestionOutsideExactSetAndSectionAsNotFound() {
+        Fixture fixture = createSpeakingFixture("preflight-scope");
+        Fixture otherSet = createSpeakingFixture("preflight-other-set");
+
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), otherSet.speakingQuestionId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
+
+        PracticeSection secondSection = new PracticeSection(
+                fixture.setId(), "Other section", "SPEAKING", "ORAL", "Instructions", 30, BigDecimal.TEN, 2);
+        secondSection.setTestId(fixture.testId());
+        secondSection = sectionRepository.saveAndFlush(secondSection);
+        PracticeQuestionGroup otherGroup = new PracticeQuestionGroup(
+                fixture.setId(), "2", 2, 2, "Instruction", null, null, 2);
+        otherGroup.setSectionId(secondSection.getId());
+        otherGroup = groupRepository.saveAndFlush(otherGroup);
+        PracticeQuestion otherSectionQuestion = speakingQuestion(fixture.setId(), otherGroup.getId(), 2);
+        otherSectionQuestion = questionRepository.saveAndFlush(otherSectionQuestion);
+        Long otherSectionQuestionId = otherSectionQuestion.getId();
+
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), otherSectionQuestionId))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
+    }
+
+    @Test
     void firstAndSecondActivationMaintainOneReadyMediaPerQuestion() {
         Fixture fixture = createSpeakingFixture("replace");
+        ValidatedSpeakingMediaDescriptor firstDescriptor = descriptor("replace-a.webm");
+        ValidatedSpeakingMediaDescriptor secondDescriptor = descriptor("replace-b.webm");
 
-        SpeakingMediaIdentity first = service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("replace-a.webm"));
-        SpeakingMediaIdentity second = service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("replace-b.webm"));
+        SpeakingMediaActivationResult first = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), firstDescriptor);
+        SpeakingMediaActivationResult second = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), secondDescriptor);
 
         assertThat(first.mediaId()).isNotEqualTo(second.mediaId());
+        assertThat(first.status()).isEqualTo(PracticeSpeakingMediaStatus.READY);
+        assertThat(first.supersededCleanup()).isEmpty();
+        assertThat(second.supersededCleanup()).hasValueSatisfying(cleanup -> {
+            assertThat(cleanup.mediaId()).isEqualTo(first.mediaId());
+            assertThat(cleanup.storageProvider()).isEqualTo(PracticeSpeakingStorageProvider.LOCAL);
+            assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey());
+            assertThat(cleanup.storageKey()).isNotEqualTo(secondDescriptor.storageKey());
+            assertThat(cleanup.toString()).doesNotContain(cleanup.storageKey());
+        });
+        assertThat(second.toString())
+                .doesNotContain(firstDescriptor.storageKey())
+                .doesNotContain(secondDescriptor.storageKey())
+                .doesNotContain(firstDescriptor.contentHash())
+                .doesNotContain(secondDescriptor.contentHash());
         List<PracticeSpeakingMedia> ready = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
                 fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.READY);
         List<PracticeSpeakingMedia> superseded = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
@@ -299,14 +394,15 @@ class PracticeSpeakingMediaServiceTest {
         assertThat(superseded).hasSize(1);
         assertThat(superseded.get(0).getId()).isEqualTo(first.mediaId());
         assertThat(service.findReadyMediaForOwner(
-                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId())).contains(second);
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId()))
+                .hasValueSatisfying(identity -> assertThat(identity.mediaId()).isEqualTo(second.mediaId()));
     }
 
     @Test
     void duplicateStorageIdentityFailureLeavesExistingReadyRowUntouched() {
         Fixture fixture = createSpeakingFixture("rollback");
         ValidatedSpeakingMediaDescriptor descriptor = descriptor("rollback-a.webm");
-        SpeakingMediaIdentity first = service.activateValidatedMediaForOwner(
+        SpeakingMediaActivationResult first = service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor);
 
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
@@ -326,7 +422,7 @@ class PracticeSpeakingMediaServiceTest {
     @Test
     void validationFailureLeavesExistingReadyRowUntouched() {
         Fixture fixture = createSpeakingFixture("validationrollback");
-        SpeakingMediaIdentity first = service.activateValidatedMediaForOwner(
+        SpeakingMediaActivationResult first = service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("validationrollback-a.webm"));
         PracticeQuestion essay = new PracticeQuestion(
                 fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
@@ -386,8 +482,8 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), otherFixture.speakingQuestionId(), descriptor("outside.webm")))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("attempt set");
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
 
         PracticeQuestion essay = new PracticeQuestion(
                 fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
@@ -410,27 +506,75 @@ class PracticeSpeakingMediaServiceTest {
     }
 
     @Test
-    void markDeleteSetsDeletedAtAndReadyLookupExcludesDeletedAndSuperseded() {
+    void exactMediaDeleteHandlesReadySupersededAndAlreadyDeletedIdempotently() {
         Fixture fixture = createSpeakingFixture("delete");
-        SpeakingMediaIdentity first = service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("delete-a.webm"));
-        service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("delete-b.webm"));
+        ValidatedSpeakingMediaDescriptor firstDescriptor = descriptor("delete-a.webm");
+        ValidatedSpeakingMediaDescriptor secondDescriptor = descriptor("delete-b.webm");
+        SpeakingMediaActivationResult first = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), firstDescriptor);
+        SpeakingMediaActivationResult second = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), secondDescriptor);
 
-        assertThat(mediaRepository.findById(first.mediaId()).orElseThrow().getStatus())
-                .isEqualTo(PracticeSpeakingMediaStatus.SUPERSEDED);
+        SpeakingMediaDeletionResult supersededDelete = service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), first.mediaId());
+        SpeakingMediaDeletionResult repeatedDelete = service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), first.mediaId());
+        SpeakingMediaDeletionResult readyDelete = service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), second.mediaId());
 
-        service.markDeletedForOwner(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId());
+        assertThat(supersededDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(repeatedDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(readyDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(supersededDelete.cleanup()).hasValueSatisfying(cleanup ->
+                assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey()));
+        assertThat(repeatedDelete.cleanup()).hasValueSatisfying(cleanup ->
+                assertThat(cleanup.storageKey()).isEqualTo(firstDescriptor.storageKey()));
+        assertThat(readyDelete.cleanup()).hasValueSatisfying(cleanup ->
+                assertThat(cleanup.storageKey()).isEqualTo(secondDescriptor.storageKey()));
+        assertThat(repeatedDelete.toString()).doesNotContain(firstDescriptor.storageKey());
 
-        List<PracticeSpeakingMedia> ready = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
-                fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.READY);
         List<PracticeSpeakingMedia> deleted = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
                 fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.DELETED);
-        assertThat(ready).isEmpty();
         assertThat(deleted).hasSize(2);
         assertThat(deleted).allSatisfy(media -> assertThat(media.getDeletedAt()).isNotNull());
         assertThat(service.findReadyMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId())).isEmpty();
+    }
+
+    @Test
+    void exactMediaDeleteRejectsWrongIdentityOwnerScopeAndCompletedAttempt() {
+        Fixture fixture = createSpeakingFixture("delete-scope");
+        Fixture other = createSpeakingFixture("delete-scope-other");
+        User outsider = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
+        SpeakingMediaActivationResult media = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("delete-a.webm"));
+
+        assertThatThrownBy(() -> service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), Long.MAX_VALUE))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+        assertThatThrownBy(() -> service.markDeletedForOwner(
+                fixture.userId(), other.attemptId(), other.speakingQuestionId(), media.mediaId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+        assertThatThrownBy(() -> service.markDeletedForOwner(
+                outsider.getId(), fixture.attemptId(), fixture.speakingQuestionId(), media.mediaId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+
+        PracticeQuestion secondQuestion = speakingQuestion(fixture.setId(), fixture.groupId(), 2);
+        secondQuestion = questionRepository.saveAndFlush(secondQuestion);
+        Long wrongQuestionId = secondQuestion.getId();
+        assertThatThrownBy(() -> service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), wrongQuestionId, media.mediaId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+
+        PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        attempt.setStatus(PracticeAttempt.STATUS_SUBMITTED);
+        attemptRepository.saveAndFlush(attempt);
+        assertThatThrownBy(() -> service.markDeletedForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), media.mediaId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("before submit");
+        assertThat(mediaRepository.findById(media.mediaId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeSpeakingMediaStatus.READY);
     }
 
     @Test
@@ -524,6 +668,72 @@ class PracticeSpeakingMediaServiceTest {
         assertThat(attempt.getAiFeedbackJson()).isNull();
     }
 
+    @Test
+    void orchestrationCrossesSpringTransactionBoundariesBeforePreparationAndPhysicalDelete() {
+        Fixture fixture = createSpeakingFixture("transaction-boundary");
+        TransactionObservingStorage storage = new TransactionObservingStorage();
+        TransactionObservingPreparation preparation = new TransactionObservingPreparation(
+                storage,
+                prepared("learner-speaking/ready/transaction-boundary", "transaction-boundary"),
+                () -> {});
+        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(preparation, service, storage);
+
+        assertThat(AopUtils.isAopProxy(service)).isTrue();
+        SpeakingAudioUploadService.SpeakingAudioUploadResult uploaded = uploadService.uploadOrReplaceForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                new ByteArrayInputStream(new byte[]{1}),
+                1L,
+                "audio/webm");
+        SpeakingAudioUploadService.SpeakingAudioDeletionResult deleted = uploadService.deleteForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), uploaded.mediaId());
+
+        assertThat(preparation.transactionActiveDuringPrepare).isFalse();
+        assertThat(storage.transactionActiveDuringDeletes).containsExactly(false);
+        assertThat(deleted.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(mediaRepository.findById(uploaded.mediaId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+    }
+
+    @Test
+    void statusChangeAfterPreflightRejectsActivationCompensatesNewObjectAndPreservesOldReady() {
+        Fixture fixture = createSpeakingFixture("status-race-integration");
+        SpeakingMediaActivationResult oldReady = service.activateValidatedMediaForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("status-race-old"));
+        String newKey = key("status-race-new");
+        TransactionObservingStorage storage = new TransactionObservingStorage();
+        TransactionObservingPreparation preparation = new TransactionObservingPreparation(
+                storage,
+                prepared(newKey, "status-race-new"),
+                () -> {
+                    PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+                    attempt.setStatus(PracticeAttempt.STATUS_SUBMITTED);
+                    attemptRepository.saveAndFlush(attempt);
+                });
+        SpeakingAudioUploadService uploadService = new SpeakingAudioUploadService(preparation, service, storage);
+
+        assertThatThrownBy(() -> uploadService.uploadOrReplaceForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                new ByteArrayInputStream(new byte[]{1}),
+                1L,
+                "audio/webm"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("before submit");
+
+        assertThat(preparation.transactionActiveDuringPrepare).isFalse();
+        assertThat(storage.deletedKeys).containsExactly(newKey);
+        assertThat(storage.transactionActiveDuringDeletes).containsExactly(false);
+        assertThat(mediaRepository.findById(oldReady.mediaId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeSpeakingMediaStatus.READY);
+        assertThat(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
+                fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.READY))
+                .extracting(PracticeSpeakingMedia::getId)
+                .containsExactly(oldReady.mediaId());
+    }
+
     private Fixture createSpeakingFixture(String label) {
         User student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         String suffix = label + "-" + System.nanoTime();
@@ -596,6 +806,18 @@ class PracticeSpeakingMediaServiceTest {
                 hash(keySuffix));
     }
 
+    private PreparedSpeakingAudio prepared(String storageKey, String hashSeed) {
+        return new PreparedSpeakingAudio(
+                PracticeSpeakingStorageProvider.LOCAL,
+                storageKey,
+                "audio/webm",
+                "webm",
+                "opus",
+                1L,
+                1000L,
+                hash(hashSeed));
+    }
+
     private String key(String name) {
         return "learner-speaking/" + System.nanoTime() + "/" + name;
     }
@@ -609,6 +831,62 @@ class PracticeSpeakingMediaServiceTest {
             barrier.await(10, TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static final class TransactionObservingPreparation extends SpeakingAudioPreparationService {
+        private final PreparedSpeakingAudio prepared;
+        private final Runnable beforeReturn;
+        private boolean transactionActiveDuringPrepare;
+
+        private TransactionObservingPreparation(
+                SpeakingAudioStorage storage,
+                PreparedSpeakingAudio prepared,
+                Runnable beforeReturn) {
+            super(storage, privateMediaPath -> {
+                throw new AssertionError("Inspector must not be called by the preparation test double");
+            });
+            this.prepared = prepared;
+            this.beforeReturn = beforeReturn;
+        }
+
+        @Override
+        public PreparedSpeakingAudio prepare(
+                InputStream content, Long declaredContentLength, String clientMimeType) {
+            transactionActiveDuringPrepare = TransactionSynchronizationManager.isActualTransactionActive();
+            beforeReturn.run();
+            return prepared;
+        }
+    }
+
+    private static final class TransactionObservingStorage implements SpeakingAudioStorage {
+        private final List<String> deletedKeys = new ArrayList<>();
+        private final List<Boolean> transactionActiveDuringDeletes = new ArrayList<>();
+
+        @Override
+        public StoredSpeakingAudioObject writeTemporary(InputStream content, Long declaredContentLength) {
+            throw new AssertionError("Storage write is owned by the preparation test double");
+        }
+
+        @Override
+        public String promoteTemporary(String temporaryKey) {
+            throw new AssertionError("Storage promotion is owned by the preparation test double");
+        }
+
+        @Override
+        public InputStream open(String storageKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean exists(String storageKey) {
+            return false;
+        }
+
+        @Override
+        public void delete(String storageKey) {
+            transactionActiveDuringDeletes.add(TransactionSynchronizationManager.isActualTransactionActive());
+            deletedKeys.add(storageKey);
         }
     }
 
