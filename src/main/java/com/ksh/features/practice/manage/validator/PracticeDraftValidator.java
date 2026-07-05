@@ -89,6 +89,7 @@ public class PracticeDraftValidator {
                                         }
                                     }
 
+                                    validateSpeakingQuestionType(messages, skill, type, sIdx, gIdx, qIdx);
                                     validateWritingTaskMetadata(messages, skill, type, q, sIdx, gIdx, qIdx);
 
                                     String explanation = q.path("explanationVi").asText("");
@@ -107,6 +108,23 @@ public class PracticeDraftValidator {
 
         boolean hasBlocking = messages.stream().anyMatch(m -> "BLOCKING".equals(m.type()));
         return new ValidationResult(hasBlocking, messages, sectionCount, groupCount, questionCount, totalPoints);
+    }
+
+    private void validateSpeakingQuestionType(List<ValidationMsg> messages,
+                                              String skill,
+                                              String questionType,
+                                              int sIdx,
+                                              int gIdx,
+                                              int qIdx) {
+        if ("SPEAKING".equalsIgnoreCase(skill) && PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "Câu Speaking mới phải dùng question type SPEAKING; không dùng ESSAY cho bài nói.",
+                    sIdx,
+                    gIdx,
+                    qIdx
+            ));
+        }
     }
 
     private void validateWritingTaskMetadata(List<ValidationMsg> messages,

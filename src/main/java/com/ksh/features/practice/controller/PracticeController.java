@@ -251,7 +251,11 @@ public class PracticeController {
             model.addAttribute("result", standardResult);
             model.addAttribute("attemptId", attemptId);
             try {
-                String questionsJson = objectMapper.writeValueAsString(standardResult.questionFeedbacks());
+                String questionsJson = "SPEAKING".equals(skill)
+                        ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks().isEmpty()
+                                ? standardResult.answerReviews()
+                                : standardResult.speakingQuestionFeedbacks())
+                        : objectMapper.writeValueAsString(standardResult.questionFeedbacks());
                 model.addAttribute("questionsJson", questionsJson);
             } catch (Exception e) {
                 model.addAttribute("questionsJson", "[]");
@@ -290,6 +294,8 @@ public class PracticeController {
             try {
                 String questionsJson = "WRITING".equals(skill)
                         ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
+                        : "SPEAKING".equals(skill) && !standardResult.speakingQuestionFeedbacks().isEmpty()
+                        ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks())
                         : objectMapper.writeValueAsString(
                             standardResult.answerReviews().stream()
                                 .map(q -> {

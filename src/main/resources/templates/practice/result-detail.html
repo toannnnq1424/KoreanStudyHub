@@ -12,7 +12,8 @@
   const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const attemptId = /*[[${result.submissionId()}]]*/ '';
-  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
+  const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
+  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' or (result.set().skill() == 'SPEAKING' and !#lists.isEmpty(result.speakingQuestionFeedbacks())) ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
   const activeQuestionId = /*[[${activeQuestionId}]]*/ null;
   /*]]>*/
 </script>
@@ -118,7 +119,8 @@
           <div class="prd-task-score-display">
             <strong id="ov-score">—</strong>
             <span id="ov-score-max">/ 100</span>
-            <div class="prd-task-score-label">Task Score</div>
+            <div class="prd-task-score-label"
+                 th:text="${result.set().skill() == 'SPEAKING' ? 'Điểm luyện tập tham khảo' : 'Task Score'}">Task Score</div>
           </div>
         </div>
 
@@ -249,6 +251,8 @@
   function updateActiveQuestionData() {
     if (setSkill === 'WRITING') {
       aiData = currentQ.writingFeedback || {};
+    } else if (setSkill === 'SPEAKING' && Object.prototype.hasOwnProperty.call(currentQ, 'speakingFeedback')) {
+      aiData = currentQ.speakingFeedback || currentQ.legacyEssayFeedback || {};
     } else {
       try {
         aiData = JSON.parse(rawAiFeedbackJson || '{}');
@@ -265,6 +269,10 @@
     const activeTabBtn = document.querySelector('.prd-tab-btn.active');
     const activeTab = activeTabBtn ? activeTabBtn.dataset.tab : 'overview';
     activateTab(activeTab);
+  }
+
+  function isActiveQuestionSpeakingFeedback() {
+    return setSkill === 'SPEAKING' && !!currentQ.speakingFeedback;
   }
 
   function setQuestion(idx) {
@@ -411,23 +419,28 @@
     const scoreMaxEl = document.getElementById('ov-score-max');
     const summaryEl = document.getElementById('ov-summary-text');
 
-    const hasRawScore = aiData.raw_score !== undefined || aiData.score !== undefined;
+    const hasRawScore = aiData.raw_score !== undefined || aiData.percentage !== undefined || aiData.score !== undefined;
     const hasRawMax = aiData.raw_score_max !== undefined;
-    const rawScore = hasRawScore ? parseFloat(aiData.raw_score || aiData.score || 0) : null;
+    const rawScore = isActiveQuestionSpeakingFeedback()
+      ? overallScore
+      : (hasRawScore ? parseFloat(aiData.raw_score || aiData.percentage || aiData.score || 0) : null);
     const rawMax = hasRawMax ? parseFloat(aiData.raw_score_max) : null;
     if (scoreEl) scoreEl.textContent = rawScore === null || Number.isNaN(rawScore) ? '--' : rawScore.toFixed(0);
-    if (scoreMaxEl) scoreMaxEl.textContent = rawMax === null || Number.isNaN(rawMax) ? '' : '/ ' + rawMax.toFixed(0);
+    if (scoreMaxEl) scoreMaxEl.textContent = isActiveQuestionSpeakingFeedback() && rawScore !== null && !Number.isNaN(rawScore)
+      ? '/ 100'
+      : (rawMax === null || Number.isNaN(rawMax) ? '' : '/ ' + rawMax.toFixed(0));
     if (summaryEl) summaryEl.textContent = aiData.summary_vi || aiData.summary || 'Chưa có nhận xét.';
 
     const chipsEl = document.getElementById('prd-rubric-chips');
     if (chipsEl) {
       if (rubricScores.length > 0) {
         chipsEl.innerHTML = rubricScores.map(r => {
-          const pct = Math.round((r.score / 10.0) * 100);
+          const rubricValue = isActiveQuestionSpeakingFeedback() ? r.percentage : r.score;
+          const pct = isActiveQuestionSpeakingFeedback() ? Math.round(rubricValue || 0) : Math.round((rubricValue / 10.0) * 100);
           const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
           return `<div class="prd-rubric-chip ${cls}">
             <div class="prd-chip-name">${escHtml(r.name)}</div>
-            <div class="prd-chip-score">${r.score}/10</div>
+            <div class="prd-chip-score">${rubricValue}${isActiveQuestionSpeakingFeedback() ? '/100' : '/10'}</div>
             <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
             <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
           </div>`;

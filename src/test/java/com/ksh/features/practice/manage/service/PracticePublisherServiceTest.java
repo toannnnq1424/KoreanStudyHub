@@ -287,7 +287,7 @@ class PracticePublisherServiceTest {
         publish(newDraft(draftJsonWithQuestions(
                 questionJson("WRITING", "SINGLE_CHOICE", "Q53"),
                 questionJson("READING", "ESSAY", "Q54"),
-                questionJson("SPEAKING", "ESSAY", "GENERAL")
+                questionJson("LISTENING", "ESSAY", "GENERAL")
         )));
 
         assertEquals(3, savedQuestions.size());
@@ -302,12 +302,27 @@ class PracticePublisherServiceTest {
                 questionJson("WRITING", "SINGLE_CHOICE", "Q51_52"),
                 questionJsonWithRawTask("WRITING", "SINGLE_CHOICE", "53"),
                 questionJson("READING", "ESSAY", "NOT_A_TASK"),
-                questionJsonWithRawTask("SPEAKING", "ESSAY", "{\"task\":\"Q54\"}"),
+                questionJsonWithRawTask("LISTENING", "ESSAY", "{\"task\":\"Q54\"}"),
                 questionJsonWithRawTask("LISTENING", "ESSAY", "[\"Q54\"]")
         )));
 
         assertEquals(5, savedQuestions.size());
         savedQuestions.forEach(question -> assertNull(question.getWritingTaskType()));
+    }
+
+    @Test
+    void speakingEssayDraftIsBlockedBeforePublishingMutation() {
+        PracticeDraft draft = newDraft(draftJsonWithQuestions(
+                questionJson("SPEAKING", "ESSAY", "GENERAL")
+        ));
+
+        assertThrows(IllegalStateException.class, () -> publish(draft));
+
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(groupRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).deleteBySetId(any());
+        verify(setRepository, never()).save(any());
+        verify(questionRepository, never()).save(any());
     }
 
     @Test

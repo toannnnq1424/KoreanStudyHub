@@ -158,6 +158,23 @@ public class PracticeDraftValidatorTest {
         assertFalse(result.messages().stream().anyMatch(m -> m.content().contains("Writing")));
     }
 
+    @Test
+    public void speakingQuestionTypeIsValidForSpeakingSection() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(speakingDraft("SPEAKING"));
+
+        assertFalse(result.hasBlocking());
+    }
+
+    @Test
+    public void speakingEssayIsBlockingForNewDrafts() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(speakingDraft("ESSAY"));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "BLOCKING".equals(m.type())
+                        && m.content().contains("question type SPEAKING")));
+    }
+
     private String writingDraftWithTask(String rawTaskValue) {
         return writingDraft("""
                     {
@@ -197,6 +214,19 @@ public class PracticeDraftValidatorTest {
                       "essayTaskType": %s
                     }
                 """.formatted(rawTaskValue));
+    }
+
+    private String speakingDraft(String questionType) {
+        return draft("SPEAKING", """
+                    {
+                      "questionNo": 1,
+                      "questionType": "%s",
+                      "prompt": "Prompt",
+                      "answer": { "value": "" },
+                      "explanationVi": "Explanation",
+                      "points": 10
+                    }
+                """.formatted(questionType));
     }
 
     private String writingDraft(String questionJson) {

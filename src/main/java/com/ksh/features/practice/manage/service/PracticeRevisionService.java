@@ -196,11 +196,11 @@ public class PracticeRevisionService {
                     continue;
                 }
                 for (JsonNode question : questions) {
-                    resolveWritingTaskTypeForRestore(
-                            skill,
-                            question.path("questionType").asText("MCQ"),
-                            question
-                    );
+                    String questionType = question.path("questionType").asText("MCQ");
+                    if ("SPEAKING".equalsIgnoreCase(skill) && PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+                        throw new IllegalArgumentException("Câu Speaking mới phải dùng question type SPEAKING; không dùng ESSAY cho bài nói.");
+                    }
+                    resolveWritingTaskTypeForRestore(skill, questionType, question);
                 }
             }
         }

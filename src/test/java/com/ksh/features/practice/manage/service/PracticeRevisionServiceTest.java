@@ -123,6 +123,7 @@ class PracticeRevisionServiceTest {
         verify(groupRepository, never()).deleteBySetId(any());
         verify(sectionRepository, never()).deleteBySetId(any());
         verify(questionRepository, never()).save(any());
+        verify(editLogRepository, never()).save(any());
     }
 
     @Test
@@ -134,6 +135,20 @@ class PracticeRevisionServiceTest {
                 () -> service.restoreRevision(7L, 99L));
 
         assertTrue(exception.getMessage().contains("Writing"));
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(groupRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).deleteBySetId(any());
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void restoreRevisionSpeakingEssayFailsBeforeDelete() throws Exception {
+        arrangeRestoreSnapshot(snapshot("SPEAKING", snapshotQuestionWithoutTask()));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.restoreRevision(7L, 99L));
+
+        assertTrue(exception.getMessage().contains("question type SPEAKING"));
         verify(questionRepository, never()).deleteBySetId(any());
         verify(groupRepository, never()).deleteBySetId(any());
         verify(sectionRepository, never()).deleteBySetId(any());

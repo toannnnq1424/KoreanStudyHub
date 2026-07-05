@@ -44,7 +44,7 @@
           <div class="pi-cert-score-row" style="display: flex; gap: 32px; align-items: baseline; margin-bottom: 24px;">
             <div class="pi-cert-score-block">
               <strong th:text="${result.score()}">5.5</strong>
-              <span>Overall Score</span>
+              <span th:text="${result.set().skill() == 'SPEAKING' ? 'Điểm luyện tập tham khảo' : 'Overall Score'}">Overall Score</span>
             </div>
             
             <div class="pi-cert-score-block" style="border-left: 1px solid #e2e8f0; padding-left: 32px;">
@@ -105,7 +105,8 @@
             <strong id="rubric-score-val">8.5</strong>
             <span id="rubric-score-scale">/ 10</span>
           </div>
-          <p class="pi-rubric-desc" id="rubric-feedback-text">
+          <p class="pi-rubric-desc" id="rubric-feedback-text"
+             th:text="${result.set().skill() == 'SPEAKING' ? 'Phản hồi mô phỏng dựa trên câu trả lời văn bản.' : 'Nhận xét chi tiết cho tiêu chí đánh giá này đang được cập nhật từ AI...'}">
             Nhận xét chi tiết cho tiêu chí đánh giá này đang được cập nhật từ AI...
           </p>
         </div>
@@ -138,7 +139,7 @@
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const setTitle = /*[[${result.set().title()}]]*/ '';
   const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
-  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
+  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' or (result.set().skill() == 'SPEAKING' and !#lists.isEmpty(result.speakingQuestionFeedbacks())) ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
   /*]]>*/
 </script>
 
@@ -198,11 +199,23 @@
       }
 
       rubrics = [
-        { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Đáp ứng yêu cầu đề', 'Độ dài tối thiểu'] },
-        { id: 'fluency', label: 'Lưu loát & Mạch lạc', metrics: ['Tốc độ nói', 'Độ ngập ngừng', 'Từ liên kết nói'] },
-        { id: 'vocab', label: 'Từ vựng', metrics: ['Độ đa dạng từ vựng', 'Độ tự nhiên cách dùng từ'] },
-        { id: 'grammar', label: 'Ngữ pháp', metrics: ['Cấu trúc ngữ pháp nói', 'Độ chính xác chia đuôi'] },
-        { id: 'pronunciation', label: 'Phát âm / Tự nhiên', metrics: ['Độ rõ âm', 'Ngữ điệu bản xứ'] }
+        { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Bám yêu cầu đề', 'Độ dài câu trả lời'] },
+        { id: 'structure', label: 'Mạch lạc văn bản', metrics: ['Mở ý', 'Giải thích', 'Kết luận'] },
+        { id: 'language', label: 'Ngôn ngữ tham khảo', metrics: ['Từ vựng', 'Ngữ pháp', 'Độ rõ ý'] }
+      ];
+    }
+
+    if (setSkill === 'SPEAKING' && questions.length > 0) {
+      parts = questions.map((q, idx) => ({
+        id: String(q.questionId),
+        label: `Câu ${q.questionNo || (idx + 1)}`,
+        active: idx === 0,
+        question: q
+      }));
+      rubrics = [
+        { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Bám yêu cầu đề', 'Độ dài câu trả lời'] },
+        { id: 'structure', label: 'Mạch lạc văn bản', metrics: ['Mở ý', 'Giải thích', 'Kết luận'] },
+        { id: 'language', label: 'Ngôn ngữ tham khảo', metrics: ['Từ vựng', 'Ngữ pháp', 'Độ rõ ý'] }
       ];
     }
 
@@ -251,10 +264,17 @@
       const activeRubricObj = rubrics.find(r => r.id === currentRubric);
       
       let aiData = aiDataGlobal;
+      let activeQuestionUsesSpeakingFeedback = false;
       if (setSkill === 'WRITING') {
         const activePartObj = parts.find(p => p.id === currentPart);
         if (activePartObj && activePartObj.question) {
           aiData = activePartObj.question.writingFeedback || {};
+        }
+      } else if (setSkill === 'SPEAKING' && questions.some(q => Object.prototype.hasOwnProperty.call(q, 'speakingFeedback'))) {
+        const activePartObj = parts.find(p => p.id === currentPart);
+        if (activePartObj && activePartObj.question) {
+          aiData = activePartObj.question.speakingFeedback || activePartObj.question.legacyEssayFeedback || {};
+          activeQuestionUsesSpeakingFeedback = !!activePartObj.question.speakingFeedback;
         }
       }
 
@@ -269,7 +289,7 @@
         
         const matched = rubricList[Math.min(targetIdx, rubricList.length - 1)];
         if (matched) {
-          matchedScore = matched.score;
+          matchedScore = activeQuestionUsesSpeakingFeedback ? matched.percentage : matched.score;
           feedbackText = matched.feedback;
         }
       }
@@ -290,8 +310,13 @@
         feedbackText = "Không có nhận xét được lưu cho câu này.";
       }
 
-      document.getElementById('rubric-score-val').textContent = matchedScore === null ? "--" : (matchedScore * 10).toFixed(0);
-      document.getElementById('rubric-score-scale').textContent = matchedScore === null ? "" : "/ 100";
+      const speakingScore = activeQuestionUsesSpeakingFeedback
+        ? parseFloat(aiData.percentage !== undefined ? aiData.percentage : overallScore)
+        : null;
+      document.getElementById('rubric-score-val').textContent = speakingScore !== null && !Number.isNaN(speakingScore) ? speakingScore.toFixed(0) : (matchedScore === null ? "--" : (matchedScore * 10).toFixed(0));
+      document.getElementById('rubric-score-scale').textContent = speakingScore !== null && !Number.isNaN(speakingScore)
+        ? "/ 100"
+        : (matchedScore === null ? "" : "/ 100");
       document.getElementById('rubric-feedback-text').textContent = feedbackText;
 
       const slidersContainer = document.getElementById('pi-metric-sliders-container');
@@ -300,7 +325,7 @@
         return;
       }
       slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
-        const rawPercent = matchedScore * 10; 
+        const rawPercent = activeQuestionUsesSpeakingFeedback ? matchedScore : matchedScore * 10;
         const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
         const finalValue = Math.min(100, Math.max(20, rawPercent + variation));
         

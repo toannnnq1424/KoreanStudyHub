@@ -175,7 +175,8 @@ public final class PracticeDtos {
                                      List<PracticeQuestionRow> questions,
                                      List<PracticeAnswerReviewRow> answerReviews,
                                      List<PracticeAnswerExplanationRow> answerExplanations,
-                                     List<PracticeQuestionFeedbackRow> questionFeedbacks) {
+                                     List<PracticeQuestionFeedbackRow> questionFeedbacks,
+                                     List<SpeakingQuestionFeedbackRow> speakingQuestionFeedbacks) {
         public boolean hasAiFeedback() {
             return aiFeedbackJson != null && !aiFeedbackJson.isBlank();
         }
@@ -197,6 +198,49 @@ public final class PracticeDtos {
             String learnerAnswer,
             WritingFeedbackView writingFeedback,
             boolean reEvaluatable
+    ) {}
+
+    public record SpeakingQuestionFeedbackRow(
+            Long questionId,
+            Integer questionNo,
+            String questionType,
+            String prompt,
+            String learnerAnswer,
+            SpeakingFeedbackView speakingFeedback,
+            WritingFeedbackView legacyEssayFeedback,
+            boolean feedbackAvailable,
+            boolean legacyFeedbackApplied
+    ) {}
+
+    public record SpeakingFeedbackView(
+            BigDecimal percentage,
+            String summary,
+            String summaryVi,
+            List<SpeakingRubricScoreView> rubricScores,
+            List<SpeakingFindingView> strengths,
+            List<SpeakingFindingView> needsImprovement,
+            String sampleAnswer,
+            String correctedVersion,
+            String engine,
+            String source
+    ) {
+        public SpeakingFeedbackView {
+            rubricScores = rubricScores == null ? List.of() : List.copyOf(rubricScores);
+            strengths = strengths == null ? List.of() : List.copyOf(strengths);
+            needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
+        }
+    }
+
+    public record SpeakingRubricScoreView(
+            String name,
+            BigDecimal percentage,
+            String feedback
+    ) {}
+
+    public record SpeakingFindingView(
+            String criterionId,
+            String explanationVi,
+            String correction
     ) {}
 
     public record WritingFeedbackView(

@@ -1008,6 +1008,280 @@ class PracticeServiceTest {
     }
 
     @Test
+    void speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers() throws Exception {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 2, "SPEAKING", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q1, 101L);
+        setEntityId(q2, 102L);
+
+        String answersJson = "{\"101\":\"SECRET ANSWER ONE\",\"102\":\"SECRET ANSWER TWO\"}";
+        String feedbackJson = """
+                {
+                  "101": {"score": 3.0, "percentage": 33.33, "summary_vi": "Short", "strengths": [{"criterionId":"S","explanationVi":"Generic"}]},
+                  "102": {"score": 7.0, "percentage": 77.78, "summary_vi": "Long", "needs_improvement": [{"criterionId":"N","explanationVi":"Generic"}]}
+                }
+                """;
+
+        List<SpeakingQuestionFeedbackRow> rows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(q2, q1), answersJson, feedbackJson);
+
+        assertEquals(List.of(101L, 102L), rows.stream().map(SpeakingQuestionFeedbackRow::questionId).toList());
+        assertEquals("SECRET ANSWER ONE", rows.get(0).learnerAnswer());
+        assertEquals("SECRET ANSWER TWO", rows.get(1).learnerAnswer());
+        assertEquals(0, rows.get(0).speakingFeedback().percentage().compareTo(new BigDecimal("33.33")));
+        assertEquals(0, rows.get(1).speakingFeedback().percentage().compareTo(new BigDecimal("77.78")));
+        assertFalse(rows.get(0).legacyFeedbackApplied());
+        assertFalse(rows.get(1).legacyFeedbackApplied());
+        String serializedFeedback = objectMapper.writeValueAsString(rows.get(0).speakingFeedback());
+        assertFalse(serializedFeedback.contains("SECRET ANSWER"));
+        assertFalse(serializedFeedback.contains("\"score\""));
+    }
+
+    @Test
+    void speakingFeedbackRowsUseDeterministicQuestionOrderIncludingNulls() {
+        PracticeQuestion first = new PracticeQuestion(1L, 3, "SPEAKING", "P1", "[]", "", "E", BigDecimal.ONE, 0);
+        PracticeQuestion second = new PracticeQuestion(1L, 3, "SPEAKING", "P2", "[]", "", "E", BigDecimal.ONE, 0);
+        PracticeQuestion third = new PracticeQuestion(1L, 2, "SPEAKING", "P3", "[]", "", "E", BigDecimal.ONE, 1);
+        PracticeQuestion nullOrder = new PracticeQuestion(1L, 1, "SPEAKING", "P4", "[]", "", "E", BigDecimal.ONE, null);
+        setEntityId(first, 101L);
+        setEntityId(second, 102L);
+        setEntityId(third, 103L);
+        setEntityId(nullOrder, 104L);
+
+        String feedback = "{\"101\":{\"score\":3},\"102\":{\"score\":3},\"103\":{\"score\":3},\"104\":{\"score\":3}}";
+        List<SpeakingQuestionFeedbackRow> rows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(nullOrder, third, second, first), "{}", feedback);
+
+        assertEquals(List.of(101L, 102L, 103L, 104L),
+                rows.stream().map(SpeakingQuestionFeedbackRow::questionId).toList());
+    }
+
+    @Test
+    void speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility() {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 2, "SPEAKING", "Prompt 2", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(q1, 101L);
+        setEntityId(q2, 102L);
+
+        List<SpeakingQuestionFeedbackRow> rows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(q1, q2),
+                "{\"101\":\"Answer one\",\"102\":\"Answer two\"}",
+                "{\"score\":7.0,\"summary_vi\":\"Legacy global\"}");
+
+        assertEquals(2, rows.size());
+        assertTrue(rows.get(0).legacyFeedbackApplied());
+        assertTrue(rows.get(1).legacyFeedbackApplied());
+        assertEquals("Legacy global", rows.get(0).speakingFeedback().summaryVi());
+        assertEquals(0, rows.get(0).speakingFeedback().percentage().compareTo(new BigDecimal("77.78")));
+    }
+
+    @Test
+    void speakingSubmitAggregatesMultipleQuestionsAndPersistsFeedbackMap() throws Exception {
+        PracticeSet set = new PracticeSet("Speaking Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Speaking Section", "SPEAKING", "ORAL", "Instruction", 30, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(30L);
+        when(group.getGroupLabel()).thenReturn("1-2");
+        when(group.getQuestionFrom()).thenReturn(0);
+        when(group.getQuestionTo()).thenReturn(2);
+        when(group.getInstruction()).thenReturn("Prompt group");
+        when(group.getSectionId()).thenReturn(20L);
+        when(group.getDisplayOrder()).thenReturn(0);
+
+        PracticeQuestion mcq = new PracticeQuestion(1L, 0, "MCQ", "MCQ", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.valueOf(5), 0);
+        PracticeQuestion q1 = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 2, "SPEAKING", "Prompt 2", "[]", "", "Explain", BigDecimal.valueOf(30), 1);
+        setEntityId(mcq, 100L);
+        setEntityId(q1, 101L);
+        setEntityId(q2, 102L);
+        mcq.setGroupId(30L);
+        q1.setGroupId(30L);
+        q2.setGroupId(30L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(mcq, q1, q2));
+
+        String privateAnswer = "SPEAKING_PRIVATE_SENTINEL_8B one two three four five six seven eight nine ten "
+                + "eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty "
+                + "twenty-one twenty-two twenty-three twenty-four twenty-five";
+
+        practiceService.submitAttempt(99L, 2L, Map.of(
+                "answer_100", "1",
+                "answer_101", "short",
+                "answer_102", privateAnswer
+        ));
+
+        JsonNode feedbackRoot = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertTrue(feedbackRoot.has("101"));
+        assertTrue(feedbackRoot.has("102"));
+        assertFalse(attempt.getAiFeedbackJson().contains("SPEAKING_PRIVATE_SENTINEL_8B"));
+        assertTrue(attempt.getAnswersJson().contains("SPEAKING_PRIVATE_SENTINEL_8B"));
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("70.37")));
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(45)));
+
+        String submittedFeedback = attempt.getAiFeedbackJson();
+        practiceService.reEvaluate(99L, 2L);
+
+        assertEquals(submittedFeedback, attempt.getAiFeedbackJson());
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("70.37")));
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(45)));
+
+        PracticeResultView result = practiceService.getResult(99L, 2L);
+        assertEquals("70.37%", result.scoreLabel());
+        assertEquals(privateAnswer, result.speakingQuestionFeedbacks().get(1).learnerAnswer());
+        verify(evaluationClient, never()).evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any());
+        verifyNoInteractions(readingListeningExplanationService, audioStorageService);
+    }
+
+    @Test
+    void mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder() throws Exception {
+        assertMixedLegacySpeakingEssayOrder(List.of("SPEAKING", "ESSAY"));
+        setUp();
+        assertMixedLegacySpeakingEssayOrder(List.of("ESSAY", "SPEAKING"));
+    }
+
+    private void assertMixedLegacySpeakingEssayOrder(List<String> order) throws Exception {
+        PracticeSet set = new PracticeSet("Mixed Speaking Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Mixed Speaking Section", "SPEAKING", "ORAL", "Instruction", 30, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(30L);
+        when(group.getGroupLabel()).thenReturn("1-3");
+        when(group.getQuestionFrom()).thenReturn(0);
+        when(group.getQuestionTo()).thenReturn(3);
+        when(group.getInstruction()).thenReturn("Prompt group");
+        when(group.getSectionId()).thenReturn(20L);
+        when(group.getDisplayOrder()).thenReturn(0);
+
+        PracticeQuestion mcq = new PracticeQuestion(1L, 0, "MCQ", "MCQ", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.valueOf(5), 0);
+        PracticeQuestion speaking = new PracticeQuestion(1L, 1, "SPEAKING", "Speaking prompt", "[]", "", "Explain", BigDecimal.TEN, 1);
+        PracticeQuestion essay = new PracticeQuestion(1L, 2, "ESSAY", "Essay prompt", "[]", "", "Explain", BigDecimal.valueOf(20), 2);
+        setEntityId(mcq, 100L);
+        setEntityId(speaking, 101L);
+        setEntityId(essay, 202L);
+        mcq.setGroupId(30L);
+        speaking.setGroupId(30L);
+        essay.setGroupId(30L);
+
+        List<PracticeQuestion> orderedQuestions = new ArrayList<>();
+        orderedQuestions.add(mcq);
+        for (String type : order) {
+            orderedQuestions.add("SPEAKING".equals(type) ? speaking : essay);
+        }
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(orderedQuestions);
+
+        String essayFeedback = "{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"summary_vi\":\"ESSAY_MIXED_FEEDBACK\"}";
+        when(evaluationClient.evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), eq(false), any()))
+                .thenReturn(essayFeedback);
+        when(evaluationClient.evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), eq(true), any()))
+                .thenReturn(essayFeedback);
+
+        practiceService.submitAttempt(99L, 2L, Map.of(
+                "answer_100", "1",
+                "answer_101", "SPEAKING_PRIVATE_SENTINEL_MIXED",
+                "answer_202", "ESSAY_PRIVATE_SENTINEL_MIXED"
+        ));
+
+        assertMixedEnvelope(attempt);
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("74.60")));
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(35)));
+
+        PracticeResultView result = practiceService.getResult(99L, 2L);
+        assertEquals(List.of(100L, 101L, 202L), result.speakingQuestionFeedbacks().stream()
+                .map(SpeakingQuestionFeedbackRow::questionId)
+                .toList());
+        SpeakingQuestionFeedbackRow speakingRow = result.speakingQuestionFeedbacks().get(1);
+        SpeakingQuestionFeedbackRow essayRow = result.speakingQuestionFeedbacks().get(2);
+        assertNotNull(speakingRow.speakingFeedback());
+        assertNull(speakingRow.legacyEssayFeedback());
+        assertNull(essayRow.speakingFeedback());
+        assertNotNull(essayRow.legacyEssayFeedback());
+        assertEquals("SPEAKING_PRIVATE_SENTINEL_MIXED", speakingRow.learnerAnswer());
+        assertEquals("ESSAY_PRIVATE_SENTINEL_MIXED", essayRow.learnerAnswer());
+
+        String submittedFeedback = attempt.getAiFeedbackJson();
+        practiceService.reEvaluate(99L, 2L);
+
+        assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("74.60")));
+        verify(evaluationClient, times(2)).evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), anyBoolean(), any());
+        verifyNoInteractions(readingListeningExplanationService, audioStorageService);
+    }
+
+    private void assertMixedEnvelope(PracticeAttempt attempt) throws Exception {
+        JsonNode root = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals("speaking_mixed_v1", root.path("_contract").asText());
+        assertTrue(root.path("speaking_feedback_by_question").path("101").isObject());
+        assertTrue(root.path("essay_feedback_by_question").path("202").isObject());
+        assertFalse(root.path("speaking_feedback_by_question").has("202"));
+        assertFalse(root.path("essay_feedback_by_question").has("101"));
+        assertFalse(attempt.getAiFeedbackJson().contains("SPEAKING_PRIVATE_SENTINEL_MIXED"));
+        assertFalse(attempt.getAiFeedbackJson().contains("ESSAY_PRIVATE_SENTINEL_MIXED"));
+        assertTrue(attempt.getAnswersJson().contains("SPEAKING_PRIVATE_SENTINEL_MIXED"));
+        assertTrue(attempt.getAnswersJson().contains("ESSAY_PRIVATE_SENTINEL_MIXED"));
+    }
+
+    @Test
+    void speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback() {
+        PracticeQuestion question = new PracticeQuestion(
+                1L, 1, "SPEAKING", "Prompt", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(question, 101L);
+
+        List<SpeakingQuestionFeedbackRow> emptyRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "{}");
+        List<SpeakingQuestionFeedbackRow> malformedRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "not-json");
+        List<SpeakingQuestionFeedbackRow> unknownRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "{\"unknown\":\"value\"}");
+        List<SpeakingQuestionFeedbackRow> invalidMapRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "{\"101\":\"not-an-object\"}");
+        List<SpeakingQuestionFeedbackRow> unknownContractRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "{\"_contract\":\"speaking_mixed_v2\",\"score\":7.0}");
+        List<SpeakingQuestionFeedbackRow> invalidMixedRows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(question), "{\"101\":\"Answer\"}", "{\"_contract\":\"speaking_mixed_v1\",\"speaking_feedback_by_question\":{\"101\":\"not-object\"},\"essay_feedback_by_question\":{}}");
+
+        assertFalse(emptyRows.get(0).feedbackAvailable());
+        assertNull(emptyRows.get(0).speakingFeedback());
+        assertFalse(malformedRows.get(0).feedbackAvailable());
+        assertNull(malformedRows.get(0).speakingFeedback());
+        assertFalse(unknownRows.get(0).feedbackAvailable());
+        assertFalse(invalidMapRows.get(0).feedbackAvailable());
+        assertFalse(unknownContractRows.get(0).feedbackAvailable());
+        assertFalse(invalidMixedRows.get(0).feedbackAvailable());
+    }
+
+    @Test
     void testMalformedWritingFeedbackMapDisablesReEvaluateWithoutBreakingRows() {
         PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
         setEntityId(q1, 101L);

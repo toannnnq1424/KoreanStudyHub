@@ -574,6 +574,40 @@ class PracticeIntegrationTest {
     }
 
     @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testPublishedLegacySpeakingEssayStillSubmitsRendersAndReEvaluates() throws Exception {
+        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
+                "Legacy Speaking Essay", false, true, "SPEAKING");
+        String submittedFeedback = "{\"score\":7.0,\"percentage\":77.78,\"summary_vi\":\"Legacy speaking essay\"}";
+        try {
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
+                    .thenReturn(submittedFeedback);
+
+            practiceService.submitAttempt(fixture.attemptId(), student.getId(), Map.of(
+                    "answer_" + fixture.mcqQuestionId(), "1",
+                    "answer_" + fixture.essayQuestionId(), "Legacy essay answer"));
+
+            PracticeAttempt submitted = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(submitted.getAiFeedbackJson()));
+            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Legacy speaking essay")));
+
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
+                    .thenReturn("{\"score\":8.0,\"percentage\":88.89,\"summary_vi\":\"Re-evaluated legacy essay\"}");
+            practiceService.reEvaluate(fixture.attemptId(), student.getId());
+
+            PracticeAttempt reEvaluated = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            assertTrue(reEvaluated.getAiFeedbackJson().contains("Re-evaluated legacy essay"));
+        } finally {
+            deleteNonWritingEssayAttemptFixture(fixture);
+        }
+    }
+
+    @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void testNonWritingEssaySubmitEvaluatorFailureDoesNotMutateAttempt() {
         NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
@@ -1742,9 +1776,11 @@ class PracticeIntegrationTest {
     void testSpeakingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
         SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking Reevaluate UI");
         try {
+            assertEquals("80%", practiceService.getResult(fixture.attemptId(), student.getId()).scoreLabel());
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Điểm luyện tập tham khảo")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))));
         } finally {
             deleteSpeakingAttemptFixture(fixture);
@@ -2043,11 +2079,20 @@ class PracticeIntegrationTest {
             boolean graded,
             boolean includeEssay
     ) {
+        return createNonWritingEssayAttemptFixture(title, graded, includeEssay, "READING");
+    }
+
+    private NonWritingEssayAttemptFixture createNonWritingEssayAttemptFixture(
+            String title,
+            boolean graded,
+            boolean includeEssay,
+            String skill
+    ) {
         PracticeSet readingSet = setRepository.saveAndFlush(new PracticeSet(
-                title, "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
+                title, "Desc", skill, "TOPIK_II", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
         ));
         PracticeTest test = testRepository.saveAndFlush(new PracticeTest(readingSet.getId(), "Test 1", "Desc", 1, 40));
-        PracticeSection section = new PracticeSection(readingSet.getId(), "Reading Section", "READING", "MIXED", "Desc", 40, BigDecimal.valueOf(15), 1);
+        PracticeSection section = new PracticeSection(readingSet.getId(), skill + " Section", skill, "MIXED", "Desc", 40, BigDecimal.valueOf(15), 1);
         section.setTestId(test.getId());
         section = sectionRepository.saveAndFlush(section);
         PracticeQuestionGroup group = new PracticeQuestionGroup(readingSet.getId(), "Group 1", 1, 2, "Desc", null, null, 1);
@@ -2065,7 +2110,7 @@ class PracticeIntegrationTest {
             essay = questionRepository.saveAndFlush(essay);
         }
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), readingSet.getId(), test.getId(), "READING", section.getId());
+        PracticeAttempt attempt = new PracticeAttempt(student.getId(), readingSet.getId(), test.getId(), skill, section.getId());
         String answersJson = includeEssay
                 ? "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}"
                 : "{\"" + mcq.getId() + "\":\"1\"}";
