@@ -36,11 +36,13 @@ public class WritingEvaluationNormalizer {
             List<Map<String, Object>> strengths = normalizeFindings(
                     root.path("strengths"),
                     WritingRubricCriterion.Polarity.STRENGTH,
-                    studentText);
+                    studentText,
+                    taskType);
             List<Map<String, Object>> needs = normalizeFindings(
                     root.path("needs_improvement"),
                     WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT,
-                    studentText);
+                    studentText,
+                    taskType);
 
             // Derive score from rubric average — sole source of truth
             double score = deriveScoreFromRubrics(rubricScores);
@@ -307,7 +309,8 @@ public class WritingEvaluationNormalizer {
 
     private List<Map<String, Object>> normalizeFindings(JsonNode array,
                                                         WritingRubricCriterion.Polarity polarity,
-                                                        String studentText) {
+                                                        String studentText,
+                                                        String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
         if (!array.isArray()) {
             return rows;
@@ -315,20 +318,32 @@ public class WritingEvaluationNormalizer {
         int index = 1;
         for (JsonNode node : array) {
             WritingRubricCriterion criterion = WritingRubricCriterion.parse(node.path("criterionId").asText(null));
-            if (criterion == null || criterion.polarity() != polarity) {
+            if (criterion == null || criterion.polarity() != polarity
+                    || !criterion.activeForProvider() || !criterion.appliesTo(taskType)) {
                 continue;
             }
-            String evidence = node.path("evidence").asText("").trim();
+            WritingRubricCriterion.EvidenceScope evidenceScope = parseEvidenceScope(
+                    node.path("evidenceScope").asText(null));
+            if (evidenceScope == null || !criterion.supports(evidenceScope)
+                    || evidenceScope == WritingRubricCriterion.EvidenceScope.TASK_METADATA) {
+                continue;
+            }
+            String evidence = node.path("evidence").asText("");
             String explanation = node.path("explanationVi").asText("").trim();
             String correction = node.path("correction").asText("").trim();
-            if (evidence.isBlank() || explanation.isBlank()) {
+            if (explanation.isBlank()) {
                 continue;
             }
-            // Evidence validation: must be exact substring of original learnerAnswer
-            if (!studentText.isEmpty() && !studentText.contains(evidence)) {
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && (evidence.isBlank() || !studentText.contains(evidence))) {
                 continue;
             }
-            if (polarity == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT && correction.isBlank()) {
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER) {
+                evidence = "";
+            }
+            if (polarity == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT
+                    && evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && correction.isBlank()) {
                 continue;
             }
             if (polarity == WritingRubricCriterion.Polarity.STRENGTH) {
@@ -336,10 +351,7 @@ public class WritingEvaluationNormalizer {
             }
 
             // --- Enriched fields ---
-            String category = node.path("category").asText(null);
-            if (category == null || category.isBlank()) {
-                category = criterion.vietnameseLabel();
-            }
+            String category = criterion.category().name();
             String subcategory = node.path("subcategory").asText("");
             String severity = node.path("severity").asText(
                     polarity == WritingRubricCriterion.Polarity.STRENGTH ? "LOW" : "MEDIUM");
@@ -355,6 +367,7 @@ public class WritingEvaluationNormalizer {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("index", index++);
             row.put("criterionId", criterion.id());
+            row.put("evidenceScope", evidenceScope.name());
             row.put("category", category);
             row.put("subcategory", subcategory);
             row.put("vietnameseLabel", criterion.vietnameseLabel());
@@ -413,8 +426,12 @@ public class WritingEvaluationNormalizer {
             return filtered;
         }
         for (JsonNode node : array) {
-            String evidence = node.path("evidence").asText("").trim();
-            if (!evidence.isBlank() && (studentText.isEmpty() || studentText.contains(evidence))) {
+            WritingRubricCriterion.EvidenceScope scope = parseEvidenceScope(
+                    node.path("evidenceScope").asText(null));
+            String evidence = node.path("evidence").asText("");
+            if (scope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
+                    || (scope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && !evidence.isBlank() && studentText.contains(evidence))) {
                 filtered.add(node);
             }
         }
@@ -443,6 +460,7 @@ public class WritingEvaluationNormalizer {
         for (JsonNode node : array) {
             Map<String, Object> row = new LinkedHashMap<>();
             node.fields().forEachRemaining(entry -> row.put(entry.getKey(), toPlainValue(entry.getValue())));
+            row.putIfAbsent("evidenceScope", WritingRubricCriterion.EvidenceScope.TEXT_SPAN.name());
             rows.add(row);
         }
         return rows;
@@ -504,6 +522,11 @@ public class WritingEvaluationNormalizer {
         Map<String, Integer> searchFrom = new java.util.HashMap<>();
         int findingIndex = 1;
         for (Map<String, Object> item : findings) {
+            if (!WritingRubricCriterion.EvidenceScope.TEXT_SPAN.name()
+                    .equals(item.get("evidenceScope"))) {
+                findingIndex++;
+                continue;
+            }
             String evidence = (String) item.get("evidence");
             String criterionId = (String) item.get("criterionId");
             if (evidence == null || evidence.isBlank() || criterionId == null || criterionId.isBlank()) {
@@ -535,6 +558,17 @@ public class WritingEvaluationNormalizer {
                 searchFrom.put(key, start + evidence.length());
             }
             findingIndex++;
+        }
+    }
+
+    private static WritingRubricCriterion.EvidenceScope parseEvidenceScope(String value) {
+        if (value == null || value.isBlank()) {
+            return WritingRubricCriterion.EvidenceScope.TEXT_SPAN;
+        }
+        try {
+            return WritingRubricCriterion.EvidenceScope.valueOf(value.trim());
+        } catch (IllegalArgumentException ignored) {
+            return null;
         }
     }
 

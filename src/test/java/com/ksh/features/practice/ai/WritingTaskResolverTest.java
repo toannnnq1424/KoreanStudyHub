@@ -10,9 +10,9 @@ class WritingTaskResolverTest {
     private final WritingTaskResolver resolver = new WritingTaskResolver();
 
     @Test
-    void explicitMetadataMapsToRuntimeProfiles() {
-        assertEquals("Q51_52", resolver.resolve(WritingTaskType.Q51, "Bài 54"));
-        assertEquals("Q51_52", resolver.resolve(WritingTaskType.Q52, "Bài 53"));
+    void explicitMetadataPreservesExactTaskIdentity() {
+        assertEquals("Q51", resolver.resolve(WritingTaskType.Q51, "Bài 54"));
+        assertEquals("Q52", resolver.resolve(WritingTaskType.Q52, "Bài 53"));
         assertEquals("Q53", resolver.resolve(WritingTaskType.Q53, "Bài 51"));
         assertEquals("Q54", resolver.resolve(WritingTaskType.Q54, "Bài viết chung"));
         assertEquals("GENERAL", resolver.resolve(WritingTaskType.GENERAL, "Bài 54"));

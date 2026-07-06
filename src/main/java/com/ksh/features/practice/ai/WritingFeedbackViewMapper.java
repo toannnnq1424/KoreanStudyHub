@@ -62,11 +62,18 @@ public class WritingFeedbackViewMapper {
             if (!item.isObject()) {
                 continue;
             }
+            String criterionId = text(item.get("criterionId"));
+            WritingRubricCriterion criterion = WritingRubricCriterion.parse(criterionId);
+            String category = firstPresent(text(item.get("category")),
+                    criterion == null ? null : criterion.category().name());
+            String vietnameseLabel = firstPresent(text(item.get("vietnameseLabel")),
+                    criterion == null ? null : criterion.vietnameseLabel());
             rows.add(new WritingFindingView(
-                    text(item.get("category")),
-                    text(item.get("vietnameseLabel")),
-                    text(item.get("uiLabel")),
-                    text(item.get("criterionId")),
+                    category,
+                    vietnameseLabel,
+                    firstPresent(text(item.get("uiLabel")), vietnameseLabel),
+                    criterionId,
+                    firstPresent(text(item.get("evidenceScope")), "TEXT_SPAN"),
                     text(item.get("evidence")),
                     text(item.get("explanationVi")),
                     text(item.get("correction")),
@@ -143,5 +150,9 @@ public class WritingFeedbackViewMapper {
             return null;
         }
         return node.asText();
+    }
+
+    private String firstPresent(String preferred, String fallback) {
+        return preferred == null || preferred.isBlank() ? fallback : preferred;
     }
 }

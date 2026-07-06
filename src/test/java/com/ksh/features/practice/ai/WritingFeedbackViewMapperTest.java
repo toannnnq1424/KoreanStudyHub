@@ -23,6 +23,20 @@ class WritingFeedbackViewMapperTest {
     private final WritingFeedbackViewMapper mapper = new WritingFeedbackViewMapper();
 
     @Test
+    void legacyCriterionWithoutLabelsOrEvidenceScopeRemainsReadable() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {"strengths":[{"criterionId":"W_SENTENCE_VARIETY","evidence":"답안","explanationVi":"ok","correction":""}]}
+                """);
+
+        WritingFeedbackView view = mapper.map(payload);
+
+        assertEquals("W_SENTENCE_VARIETY", view.strengths().get(0).criterionId());
+        assertEquals("LENGTH", view.strengths().get(0).category());
+        assertEquals("TEXT_SPAN", view.strengths().get(0).evidenceScope());
+        assertNotNull(view.strengths().get(0).vietnameseLabel());
+    }
+
+    @Test
     void mapsAllConfirmedFieldsAndPreservesOrder() throws Exception {
         JsonNode node = objectMapper.readTree("""
                 {

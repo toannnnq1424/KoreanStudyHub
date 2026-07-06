@@ -13,6 +13,92 @@ class WritingEvaluationNormalizerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WritingEvaluationNormalizer normalizer = new WritingEvaluationNormalizer(objectMapper);
 
+    @Test
+    void evidenceScopesEnforceTaskContractWithoutFakeHighlights() throws Exception {
+        String input = """
+                {
+                  "summary":"ok",
+                  "rubric_scores":[],
+                  "strengths":[
+                    {"criterionId":"W_LOGICAL_ORGANIZATION","evidenceScope":"WHOLE_ANSWER","evidence":"fabricated span","explanationVi":"Mạch lạc","correction":""},
+                    {"criterionId":"W_GRAMMAR_ERRORS","evidenceScope":"TEXT_SPAN","evidence":"không có","explanationVi":"Sai","correction":"sửa"},
+                    {"criterionId":"W_WON_GO_JI","evidenceScope":"TASK_METADATA","evidence":"","explanationVi":"Format","correction":""}
+                  ],
+                  "needs_improvement":[],
+                  "upgraded_answer":"","sample_answer":"","sentence_rewrites":[]
+                }
+                """;
+
+        JsonNode root = objectMapper.readTree(normalizer.normalize(input, "Q54", "Bài làm có mạch lạc.", null));
+
+        assertEquals(1, root.path("strengths").size());
+        assertEquals("WHOLE_ANSWER", root.path("strengths").get(0).path("evidenceScope").asText());
+        assertEquals("", root.path("strengths").get(0).path("evidence").asText());
+        assertTrue(root.path("annotations").isEmpty());
+    }
+
+    @Test
+    void normalizerDropsCriterionThatIsNotActiveForExactTask() throws Exception {
+        String input = """
+                {
+                  "summary":"ok",
+                  "rubric_scores":[],
+                  "strengths":[
+                    {"criterionId":"W_CLEAR_THESIS_OR_MAIN_IDEA","evidenceScope":"WHOLE_ANSWER","evidence":"","explanationVi":"Rõ","correction":""},
+                    {"criterionId":"W_CLOZE_CONTEXT_FIT","evidenceScope":"TEXT_SPAN","evidence":"있다","explanationVi":"Phù hợp","correction":""}
+                  ],
+                  "needs_improvement":[],
+                  "upgraded_answer":"","sample_answer":"","sentence_rewrites":[]
+                }
+                """;
+
+        JsonNode root = objectMapper.readTree(normalizer.normalize(input, "Q51", "있다", null));
+        assertEquals(1, root.path("strengths").size());
+        assertEquals("W_CLOZE_CONTEXT_FIT", root.path("strengths").get(0).path("criterionId").asText());
+    }
+
+    @Test
+    void textSpanMustMatchExactlyWithoutNormalizerTrimming() throws Exception {
+        String input = """
+                {
+                  "summary":"ok","rubric_scores":[],
+                  "strengths":[
+                    {"criterionId":"W_NATURAL_KOREAN_EXPRESSIONS","evidenceScope":"TEXT_SPAN","evidence":" 답안 ","explanationVi":"exact","correction":""}
+                  ],
+                  "needs_improvement":[],"upgraded_answer":"","sample_answer":"","sentence_rewrites":[]
+                }
+                """;
+
+        JsonNode rejected = objectMapper.readTree(normalizer.normalize(input, "GENERAL", "답안", null));
+        JsonNode accepted = objectMapper.readTree(normalizer.normalize(input, "GENERAL", "문장 답안 문장", null));
+
+        assertTrue(rejected.path("strengths").isEmpty());
+        assertEquals(" 답안 ", accepted.path("strengths").get(0).path("evidence").asText());
+    }
+
+    @Test
+    void newProviderFindingsEnforceCanonicalTaxonomyMatrix() throws Exception {
+        String input = """
+                {
+                  "summary":"ok","rubric_scores":[],
+                  "strengths":[
+                    {"criterionId":"UNKNOWN_ID","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"unknown","correction":""},
+                    {"criterionId":"W_SENTENCE_VARIETY","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"legacy","correction":""},
+                    {"criterionId":"W_GRAMMAR_ERRORS","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"wrong polarity","correction":""},
+                    {"criterionId":"W_NATURAL_KOREAN_EXPRESSIONS","evidenceScope":"WHOLE_ANSWER","evidence":"","explanationVi":"unsupported scope","correction":""},
+                    {"criterionId":"W_NATURAL_KOREAN_EXPRESSIONS","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"valid","correction":"","category":"PROVIDER_OVERRIDE"}
+                  ],
+                  "needs_improvement":[],"upgraded_answer":"","sample_answer":"","sentence_rewrites":[]
+                }
+                """;
+
+        JsonNode root = objectMapper.readTree(normalizer.normalize(input, "GENERAL", "답안", null));
+
+        assertEquals(1, root.path("strengths").size());
+        assertEquals("W_NATURAL_KOREAN_EXPRESSIONS", root.path("strengths").get(0).path("criterionId").asText());
+        assertEquals("GENERAL_LANGUAGE", root.path("strengths").get(0).path("category").asText());
+    }
+
     // ---- Happy path ----
 
     @Test

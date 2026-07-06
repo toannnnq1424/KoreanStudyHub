@@ -5,9 +5,9 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v2.0";
-    public static final String RUBRIC_VERSION = "v2.0";
-    public static final String EVALUATION_SCHEMA_VERSION = "v2.0";
+    public static final String PROMPT_VERSION = "v3.0";
+    public static final String RUBRIC_VERSION = "v3.0";
+    public static final String EVALUATION_SCHEMA_VERSION = "v3.0";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
@@ -26,7 +26,7 @@ public final class WritingPromptRules {
      * Returns the 3 rubric names appropriate for the given task type.
      */
     public static List<String> rubricNamesForTask(String taskType) {
-        if ("Q51_52".equals(taskType)) {
+        if (isClozeTask(taskType)) {
             return List.of(RUBRIC_Q51_52_CONTENT, RUBRIC_Q51_52_GRAMMAR, RUBRIC_Q51_52_VOCAB);
         }
         return List.of(RUBRIC_CONTENT, RUBRIC_STRUCTURE, RUBRIC_LANGUAGE);
@@ -90,22 +90,23 @@ public final class WritingPromptRules {
                 Dựa trên đề bài, bài làm, rule_violations và char_count_warning, hãy phân tích điểm mạnh và lỗi cần cải thiện.
 
                 [NGUYÊN TẮC VÀNG]
-                - Chỉ báo điểm mạnh/lỗi khi có evidence thật từ learner_answer.
-                - evidence PHẢI là chuỗi con CHÍNH XÁC xuất hiện trong learner_answer (giống ký tự từng chữ, kể cả khoảng trắng).
-                - evidence không được rỗng, không được chứa thêm ký tự bên ngoài đoạn trích.
+                - Mỗi finding phải dùng evidenceScope được liệt kê trong allowed_rubric.
+                - TEXT_SPAN: evidence PHẢI là chuỗi con CHÍNH XÁC trong learner_answer và không được rỗng.
+                - WHOLE_ANSWER: evidence phải là chuỗi rỗng; finding đánh giá toàn bài và không tạo highlight giả.
+                - TASK_METADATA: chỉ dùng khi allowed_rubric cho phép và payload có metadata có thẩm quyền.
                 - strengths correction luôn là chuỗi rỗng "".
                 - needs_improvement correction bắt buộc là từ/câu tiếng Hàn đã sửa chính xác.
                 - Chỉ dùng criterionId có trong allowed_rubric, không tự bịa ID.
                 - Quét tuần tự từ đầu đến cuối văn bản.
 
                 [STRENGTHS - WRITING]
-                1. W_ADVANCED_GRAMMAR_STRUCTURES: cách chữ đúng ở cụm khó như 할 수 있다, hoặc ngữ pháp trung-cao cấp đúng.
-                2. W_REGISTER_HONORIFIC_ACCURACY: đồng nhất văn phong viết 해라체/느냐체, không lẫn đuôi nói.
-                3. W_APPROPRIATE_VOCABULARY_USAGE: tránh khẩu ngữ, dùng từ trang trọng như 매우, 상당히, 다양한 측면에서.
+                1. W_ADVANCED_GRAMMAR_STRUCTURES: ngữ pháp trung-cao cấp được dùng đúng; không trộn với chính tả/cách chữ.
+                2. W_FORMAL_REGISTER_CONSISTENCY: văn phong viết nhất quán, không lẫn đuôi nói.
+                3. W_FORMAL_VOCABULARY_USAGE: từ vựng văn viết trang trọng và phù hợp ngữ cảnh.
                 4. W_TOPIC_SPECIFIC_EXPRESSIONS: từ Hán-Hàn/collocation đúng chủ đề như 소득 창출, 인구 감소 현상.
                 5. W_NATURAL_KOREAN_EXPRESSIONS: diễn đạt lại ý đề bài tự nhiên, không chép nguyên văn.
-                6. W_WON_GO_JI: chỉ dùng khi có bằng chứng về quy tắc 원고지.
-                7. W_SENTENCE_VARIETY: dung lượng/ký tự phù hợp yêu cầu câu hỏi.
+                6. W_ACCURATE_SPELLING_SPACING: chính tả và cách chữ chính xác trong evidence.
+                7. W_LENGTH_REQUIREMENT_MET: toàn bài đạt phạm vi ký tự; dùng evidenceScope WHOLE_ANSWER.
 
                 [NEEDS IMPROVEMENT - WRITING]
                 1. W_VOCABULARY_ERRORS: sai nghĩa, sai ngữ cảnh, hoặc quá sơ cấp ở vị trí cần từ học thuật.
@@ -121,11 +122,10 @@ public final class WritingPromptRules {
                 Trường rule_violations là sự thật kỹ thuật. Bắt buộc tạo W_REGISTER_CONSISTENCY_ISSUES cho mỗi vi phạm còn tìm thấy trong bài làm.
 
                 [QUY TẮC EVIDENCE — QUAN TRỌNG]
-                Backend sẽ tự tính start/end index trong learner_answer từ evidence bạn trả về.
-                Vì vậy:
-                - evidence phải là chuỗi con NGUYÊN VĂN, CHÍNH XÁC từng ký tự trong learner_answer.
-                - Không thêm/bớt ký tự, không thêm khoảng trắng thừa, không bọc bằng dấu ngoặc hay tag XML.
-                - Nếu evidence xuất hiện nhiều lần, chỉ báo cáo instance đầu tiên.
+                Backend chỉ tính start/end index cho TEXT_SPAN.
+                - TEXT_SPAN phải nguyên văn, không thêm/bớt ký tự hay khoảng trắng.
+                - WHOLE_ANSWER không có start/end và không được bịa đoạn trích.
+                - Không dùng TASK_METADATA khi payload không cung cấp metadata có thẩm quyền.
 
                 """ + taskDetailRules(taskType) + """
 
@@ -154,8 +154,8 @@ public final class WritingPromptRules {
                 Trả về JSON nghiêm ngặt gồm đúng các trường sau (KHÔNG trả score, raw_score, raw_score_max — backend tự tính):
                 - summary (string): nhận xét tổng quan
                 - rubric_scores (array): đúng 3 phần tử, mỗi phần tử có name, score (1.0-9.0), feedback
-                - strengths (array): mỗi phần tử có criterionId, evidence, explanationVi, correction
-                - needs_improvement (array): mỗi phần tử có criterionId, evidence, explanationVi, correction
+                - strengths (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
+                - needs_improvement (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
                 - upgraded_answer (string)
                 - upgraded_answer_annotated (string)
                 - sample_answer (string)
@@ -166,7 +166,7 @@ public final class WritingPromptRules {
     }
 
     private static String rubricInstruction(String taskType) {
-        if ("Q51_52".equals(taskType)) {
+        if (isClozeTask(taskType)) {
             return """
                     3 tiêu chí dành cho dạng hoàn thành câu/điền chỗ trống:
                     1. Hoàn thành đúng nội dung & ngữ cảnh (내용의 적절성):
@@ -196,7 +196,7 @@ public final class WritingPromptRules {
 
     static String taskSpecificRules(String taskType) {
         return switch (taskType == null ? "GENERAL" : taskType) {
-            case "Q51_52" -> """
+            case "Q51", "Q52", "Q51_52" -> """
                     [YÊU CẦU CÂU 51/52]
                     - Đây là dạng điền chỗ trống trong bài viết TOPIK.
                     - Đánh giá sự hòa hợp nghĩa trước/sau chỗ trống và độ chính xác của vĩ tố liên kết.
@@ -248,7 +248,7 @@ public final class WritingPromptRules {
         if ("Q54".equals(taskType)) {
             return "Với Q54, ưu tiên bắt lỗi thiếu ý gợi ý, thiếu mở-thân-kết, liên kết yếu, khẩu ngữ và dung lượng không đạt.";
         }
-        if ("Q51_52".equals(taskType)) {
+        if (isClozeTask(taskType)) {
             return "Với Q51/52, ưu tiên bắt lỗi hòa hợp nghĩa, vĩ tố liên kết, tiểu từ và ngữ pháp điền chỗ trống.";
         }
         return "Với bài chung, quét lần lượt toàn bài theo từng tiêu chí, không bỏ sót lỗi có evidence.";
@@ -261,7 +261,7 @@ public final class WritingPromptRules {
         if ("Q54".equals(taskType)) {
             return "Với Q54, bài nâng cấp phải có bố cục nghị luận rõ và trả lời đủ các ý gợi ý.";
         }
-        if ("Q51_52".equals(taskType)) {
+        if (isClozeTask(taskType)) {
             return "Với Q51/52, bài nâng cấp tập trung sửa câu điền chỗ trống ngắn gọn, đúng logic.";
         }
         return "Giữ sát đề và nâng cấp tự nhiên theo chuẩn văn viết TOPIK.";
@@ -277,5 +277,9 @@ public final class WritingPromptRules {
                 Không truyền hoặc dựa vào điểm cũ. Chỉ điều chỉnh điểm theo bài làm thực tế và rubric.
                 Summary phải giải thích ngắn gọn nhưng chặt chẽ vì sao điểm hiện tại là hợp lý.
                 """;
+    }
+
+    private static boolean isClozeTask(String taskType) {
+        return "Q51".equals(taskType) || "Q52".equals(taskType) || "Q51_52".equals(taskType);
     }
 }

@@ -374,7 +374,7 @@ public class WritingEvaluationClient {
         payload.put("audio_evidence_available", false);
         payload.put("is_re_evaluation", isReEvaluation);
         payload.put("audit_mode", isReEvaluation);
-        payload.put("allowed_rubric", allowedRubric());
+        payload.put("allowed_rubric", allowedRubric(ruleAnalysis.taskType()));
         payload.put("score_matrix", WritingScoreMatrix.bands());
         try {
             return objectMapper.writeValueAsString(payload);
@@ -385,15 +385,16 @@ public class WritingEvaluationClient {
 
     // ---- Rubric info ----
 
-    private static List<Map<String, Object>> allowedRubric() {
+    static List<Map<String, Object>> allowedRubric(String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (WritingRubricCriterion criterion : WritingRubricCriterion.values()) {
+        for (WritingRubricCriterion criterion : WritingRubricCriterion.activeForTask(taskType)) {
             rows.add(Map.of(
                     "criterionId", criterion.id(),
                     "vietnameseLabel", criterion.vietnameseLabel(),
                     "koreanLabel", criterion.koreanLabel(),
                     "polarity", criterion.polarity().name(),
-                    "weight", criterion.weight(),
+                    "category", criterion.category().name(),
+                    "evidenceScopes", criterion.evidenceScopes().stream().map(Enum::name).sorted().toList(),
                     "rule", criterion.rule()));
         }
         return rows;
@@ -427,8 +428,9 @@ public class WritingEvaluationClient {
 
     private Map<String, Object> findingSchema() {
         return objectSchema(
-                list("criterionId", "evidence", "explanationVi", "correction"),
+                list("criterionId", "evidenceScope", "evidence", "explanationVi", "correction"),
                 prop("criterionId", typed("string"),
+                        "evidenceScope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER", "TASK_METADATA"),
                         "evidence", typed("string"),
                         "explanationVi", typed("string"),
                         "correction", typed("string")));
@@ -485,6 +487,12 @@ public class WritingEvaluationClient {
     private static Map<String, Object> typed(String type) {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("type", type);
+        return node;
+    }
+
+    private static Map<String, Object> enumSchema(String... values) {
+        Map<String, Object> node = typed("string");
+        node.put("enum", List.of(values));
         return node;
     }
 

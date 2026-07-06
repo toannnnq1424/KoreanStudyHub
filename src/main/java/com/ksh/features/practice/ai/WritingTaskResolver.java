@@ -10,11 +10,6 @@ public class WritingTaskResolver {
         if (explicitTaskType == null) {
             return WritingRuleEngine.detectTaskType(prompt);
         }
-        return switch (explicitTaskType) {
-            case Q51, Q52 -> "Q51_52";
-            case Q53 -> "Q53";
-            case Q54 -> "Q54";
-            case GENERAL -> "GENERAL";
-        };
+        return explicitTaskType.name();
     }
 }

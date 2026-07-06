@@ -49,7 +49,7 @@ public final class WritingScoreMatrix {
 
     public static double rawScoreMax(String taskType) {
         return switch (taskType == null ? "GENERAL" : taskType) {
-            case "Q51_52" -> 10.0;
+            case "Q51", "Q52", "Q51_52" -> 10.0;
             case "Q53" -> 30.0;
             case "Q54" -> 50.0;
             default -> 100.0;

@@ -277,6 +277,7 @@ public final class PracticeDtos {
             String vietnameseLabel,
             String uiLabel,
             String criterionId,
+            String evidenceScope,
             String evidence,
             String explanationVi,
             String correction,

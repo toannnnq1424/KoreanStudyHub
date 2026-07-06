@@ -125,8 +125,7 @@ public class WritingMockEvaluatorService {
             rows.add(finding("W_TOPIC_SPECIFIC_EXPRESSIONS", "한국", "Bài có từ vựng liên quan đến Hàn Quốc.", ""));
         }
         if (ruleAnalysis.charCountWarning().startsWith("OK:")) {
-            rows.add(finding("W_SENTENCE_VARIETY",
-                    answer.substring(0, Math.min(answer.length(), 20)),
+            rows.add(wholeAnswerFinding("W_LENGTH_REQUIREMENT_MET",
                     "Dung lượng bài nằm trong vùng yêu cầu của dạng câu hỏi.",
                     ""));
         }
@@ -184,7 +183,7 @@ public class WritingMockEvaluatorService {
     }
 
     private static String sampleAnswer(String taskType) {
-        if ("Q51_52".equals(taskType)) {
+        if ("Q51".equals(taskType) || "Q52".equals(taskType) || "Q51_52".equals(taskType)) {
             return "(ㄱ) 열심히 공부할 계획이다\n(ㄴ) 시험에 합격하기를 바란다";
         }
         if ("Q53".equals(taskType)) {
@@ -222,9 +221,16 @@ public class WritingMockEvaluatorService {
     private static Map<String, Object> finding(String criterionId, String evidence, String explanation, String correction) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("criterionId", criterionId);
+        row.put("evidenceScope", "TEXT_SPAN");
         row.put("evidence", evidence);
         row.put("explanationVi", explanation);
         row.put("correction", correction);
+        return row;
+    }
+
+    private static Map<String, Object> wholeAnswerFinding(String criterionId, String explanation, String correction) {
+        Map<String, Object> row = finding(criterionId, "", explanation, correction);
+        row.put("evidenceScope", "WHOLE_ANSWER");
         return row;
     }
 }

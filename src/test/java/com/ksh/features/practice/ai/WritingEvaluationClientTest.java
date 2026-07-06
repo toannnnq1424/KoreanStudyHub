@@ -88,6 +88,14 @@ class WritingEvaluationClientTest {
     }
 
     @Test
+    void exactQ51AndQ52IdentityCreatesDifferentCacheKeys() {
+        String q51 = WritingEvaluationCacheService.key("same", "same", "Q51", "model", "v3.0", "v3.0", "v3.0");
+        String q52 = WritingEvaluationCacheService.key("same", "same", "Q52", "model", "v3.0", "v3.0", "v3.0");
+        assertNotEquals(q51, q52);
+        assertEquals(WritingPromptRules.rubricNamesForTask("Q51"), WritingPromptRules.rubricNamesForTask("Q52"));
+    }
+
+    @Test
     void testUnifiedPromptContainsAllSections() {
         String prompt = WritingPromptRules.buildUnifiedPrompt("Q53", false);
         assertTrue(prompt.contains("RUBRIC SCORES"));
@@ -108,6 +116,27 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+        assertEquals("v3.0", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v3.0", WritingPromptRules.RUBRIC_VERSION);
+        assertEquals("v3.0", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+    }
+
+    @Test
+    void providerAllowlistUsesExactTaskAndExcludesLegacyCriteria() {
+        List<String> q51 = WritingEvaluationClient.allowedRubric("Q51").stream()
+                .map(row -> (String) row.get("criterionId"))
+                .toList();
+        List<String> q54 = WritingEvaluationClient.allowedRubric("Q54").stream()
+                .map(row -> (String) row.get("criterionId"))
+                .toList();
+
+        assertTrue(q51.contains("W_CLOZE_CONTEXT_FIT"));
+        assertFalse(q51.contains("W_CLEAR_THESIS_OR_MAIN_IDEA"));
+        assertFalse(q51.contains("W_WON_GO_JI"));
+        assertTrue(q54.contains("W_CLEAR_THESIS_OR_MAIN_IDEA"));
+        assertFalse(q54.contains("W_Q53_DATA_FLOW_ISSUES"));
+        assertTrue(WritingEvaluationClient.allowedRubric("Q53").stream()
+                .allMatch(row -> row.containsKey("category") && row.containsKey("evidenceScopes")));
     }
 
     @Test
@@ -238,7 +267,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v2.0"), eq("v2.0"), eq("v2.0"), payload.capture());
+                eq("v3.0"), eq("v3.0"), eq("v3.0"), payload.capture());
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
@@ -261,14 +290,14 @@ class WritingEvaluationClientTest {
         assertEquals("Q53", root.path("task_type").asText());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v2.0"), eq("v2.0"), eq("v2.0"), anyString());
+                eq("v3.0"), eq("v3.0"), eq("v3.0"), anyString());
     }
 
     @Test
-    void explicitQ52UsesQ51_52ForCacheHit() throws Exception {
+    void explicitQ52KeepsIdentityInCacheAndResult() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = "{\"score\":8.0,\"raw_score\":8.9,\"raw_score_max\":10.0,\"task_type\":\"Q51_52\",\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
-        when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q51_52"), eq("model"), anyString(), anyString(), anyString()))
+        String cachedValue = "{\"score\":8.0,\"raw_score\":8.9,\"raw_score_max\":10.0,\"task_type\":\"Q52\",\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q52"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         WritingEvaluationClient client = new WritingEvaluationClient(
@@ -279,7 +308,7 @@ class WritingEvaluationClientTest {
         String result = client.evaluate(USER_ID, "Bài 53 biểu đồ", "있다", false, WritingTaskType.Q52);
         JsonNode root = objectMapper.readTree(result);
 
-        assertEquals("Q51_52", root.path("task_type").asText());
+        assertEquals("Q52", root.path("task_type").asText());
         assertEquals(10.0, root.path("raw_score_max").asDouble());
         verifyNoInteractions(mockEvaluator);
     }
@@ -336,7 +365,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v2.0"), eq("v2.0"), eq("v2.0"), anyString());
+                eq("v3.0"), eq("v3.0"), eq("v3.0"), anyString());
     }
 
     @Test
@@ -405,7 +434,7 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v2.0"), eq("v2.0"), eq("v2.0"));
+                eq("v3.0"), eq("v3.0"), eq("v3.0"));
     }
 
     @Test
