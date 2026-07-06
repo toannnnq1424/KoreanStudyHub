@@ -75,7 +75,8 @@ public class StudentLessonsDtos {
             String filename,
             long sizeBytes,
             String mimeType,
-            String downloadUrl
+            String downloadUrl,
+            String viewUrl
     ) {
         /**
          * Human-readable size string (B / KB / MB). Mirrors the
@@ -146,6 +147,7 @@ public class StudentLessonsDtos {
             List<LessonAttachmentRow> attachments,
             String contentType,
             String pdfDownloadUrl,
+            String pdfViewerUrl,
             String videoUrl,
             String videoProvider
     ) { }
