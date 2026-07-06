@@ -25,13 +25,16 @@ public class StudentLessonsDtos {
      * @param publishedAt when the lesson was published (display only)
      * @param contentType RICHTEXT / PDF / VIDEO — lets the right-rail card
      *                    pick the matching thumb icon without a service hop
+     * @param completed   true when the viewing student has a COMPLETED
+     *                    learning-progress row for this lesson (ksh-4.5)
      */
     public record StudentLessonRow(
             Long id,
             String title,
             Long sectionId,
             LocalDateTime publishedAt,
-            String contentType
+            String contentType,
+            boolean completed
     ) { }
 
     /**
@@ -39,22 +42,49 @@ public class StudentLessonsDtos {
      *
      * <p>The lessons list MAY be empty — the page intentionally keeps
      * empty sections visible in the sidebar (see design D4).
+     *
+     * @param completedCount how many of this section's PUBLISHED lessons the
+     *                       student has completed; the published count is the
+     *                       size of {@link #lessons()} (ksh-4.5)
      */
     public record SectionWithLessons(
             Long sectionId,
             String title,
             short displayOrder,
-            List<StudentLessonRow> lessons
-    ) { }
+            List<StudentLessonRow> lessons,
+            int completedCount
+    ) {
+        /** Number of PUBLISHED lessons in this section (the denominator). */
+        public int publishedCount() {
+            return lessons.size();
+        }
+    }
 
     /**
      * Top-level view model for the page. Includes the class id (used to
-     * build per-lesson hrefs) and class name (rendered in the header).
+     * build per-lesson hrefs), class name, class join code and the owning
+     * lecturer's display name — all rendered in the left class-nav sidebar.
+     *
+     * @param classId      owning class id
+     * @param className    class display name
+     * @param classCode    class join code (shown as "Mã lớp")
+     * @param lecturerName owning lecturer's full name; null when the
+     *                     lecturer account is missing/deleted
+     * @param sections     ordered sections with their PUBLISHED lessons
+     * @param completedTotal class-wide count of COMPLETED published lessons
+     * @param publishedTotal class-wide count of PUBLISHED lessons (denominator)
+     * @param percent        integer completion percent (0 when no published
+     *                       lessons; rounded half-up) (ksh-4.5)
      */
     public record ClassLessonsView(
             Long classId,
             String className,
-            List<SectionWithLessons> sections
+            String classCode,
+            String lecturerName,
+            List<SectionWithLessons> sections,
+            int completedTotal,
+            int publishedTotal,
+            int percent
     ) { }
 
     /**
@@ -69,13 +99,16 @@ public class StudentLessonsDtos {
      * @param sizeBytes   file size in bytes
      * @param mimeType    resolved MIME type (from the extension whitelist)
      * @param downloadUrl absolute path to the existing download endpoint
+     * @param viewUrl     inline viewer URL, or null if the format is not
+     *                    supported (PDF → PDF.js; DOCX/PPTX/XLSX → MS Office)
      */
     public record LessonAttachmentRow(
             Long id,
             String filename,
             long sizeBytes,
             String mimeType,
-            String downloadUrl
+            String downloadUrl,
+            String viewUrl
     ) {
         /**
          * Human-readable size string (B / KB / MB). Mirrors the
@@ -130,7 +163,8 @@ public class StudentLessonsDtos {
      * @param publishedAt     timestamp the lesson was published
      * @param attachments     attachment rows in upload order; may be empty
      * @param contentType     RICHTEXT / PDF / VIDEO — selects the viewer
-     * @param pdfDownloadUrl  stream URL of the main PDF when type=PDF
+     * @param pdfDownloadUrl  download URL of the main PDF when type=PDF
+     * @param pdfViewerUrl    PDF.js iframe URL when type=PDF; null otherwise
      * @param videoUrl        embed URL (YOUTUBE/VIMEO) or stream URL (UPLOAD)
      * @param videoProvider   YOUTUBE / VIMEO / UPLOAD — null outside VIDEO
      */
@@ -146,6 +180,7 @@ public class StudentLessonsDtos {
             List<LessonAttachmentRow> attachments,
             String contentType,
             String pdfDownloadUrl,
+            String pdfViewerUrl,
             String videoUrl,
             String videoProvider
     ) { }

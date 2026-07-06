@@ -5,11 +5,9 @@ import com.ksh.entities.Enrollment;
 import com.ksh.entities.Lesson;
 import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.Section;
-import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
-import com.ksh.features.lessons.repository.LessonRepository;
-import com.ksh.features.lessons.repository.SectionRepository;
+import com.ksh.features.lessons.support.LessonAccessResolver;
 import com.ksh.features.lessons.support.VimeoEmbedUrl;
 import com.ksh.features.lessons.support.YouTubeEmbedUrl;
 import com.ksh.features.student.dto.StudentLessonsDtos.LessonAttachmentRow;
@@ -18,8 +16,12 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import static com.ksh.common.IConstant.CONTENT_TYPE_PDF;
 import static com.ksh.common.IConstant.CONTENT_TYPE_RICHTEXT;
@@ -53,30 +55,32 @@ import static com.ksh.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
 @Service
 public class StudentLessonDetailService {
 
-    /** Path template for the attachment download endpoint. */
     private static final String ATTACHMENT_DOWNLOAD_URL_FMT =
             "/api/lessons/%d/attachments/%d/download";
-
-    /** Path template for the MP4 video stream endpoint. */
     private static final String VIDEO_STREAM_URL_FMT =
             "/api/lessons/%d/video/stream";
+    private static final String FILE_VIEWER_URL_FMT =
+            "/file-viewer?type=%s&lessonId=%d&attachmentId=%d&filename=%s";
+    /** Lazy MS Office viewer redirect — mints the public token only on click. */
+    private static final String OFFICE_VIEWER_URL_FMT =
+            "/file-viewer/office?lessonId=%d&attachmentId=%d";
+
+    /** Extensions supported by the internal DOCX viewer (JSZip + docx-preview). */
+    private static final Set<String> DOCX_EXTENSIONS = Set.of("docx", "doc");
+    /** Extensions that still need MS Office Viewer (no client-side renderer). */
+    private static final Set<String> OFFICE_EXTENSIONS =
+            Set.of("pptx", "ppt", "xlsx", "xls");
 
     private final EnrollmentRepository enrollmentRepository;
-    private final ClassRepository classRepository;
-    private final SectionRepository sectionRepository;
-    private final LessonRepository lessonRepository;
     private final LessonAttachmentRepository lessonAttachmentRepository;
+    private final LessonAccessResolver lessonAccessResolver;
 
     public StudentLessonDetailService(EnrollmentRepository enrollmentRepository,
-                                      ClassRepository classRepository,
-                                      SectionRepository sectionRepository,
-                                      LessonRepository lessonRepository,
-                                      LessonAttachmentRepository lessonAttachmentRepository) {
+                                      LessonAttachmentRepository lessonAttachmentRepository,
+                                      LessonAccessResolver lessonAccessResolver) {
         this.enrollmentRepository = enrollmentRepository;
-        this.classRepository = classRepository;
-        this.sectionRepository = sectionRepository;
-        this.lessonRepository = lessonRepository;
         this.lessonAttachmentRepository = lessonAttachmentRepository;
+        this.lessonAccessResolver = lessonAccessResolver;
     }
 
     /**
@@ -99,28 +103,13 @@ public class StudentLessonDetailService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
 
-        // Gate 2: class must be live. @SQLRestriction filters soft-deletes.
-        ClassEntity clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-
-        // Gate 3: lesson + section lookup. SQLRestriction filters
-        // soft-deleted lessons; missing → 404.
-        Lesson lesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-        Section section = sectionRepository.findById(lesson.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Class not found or not accessible"));
-        // Cross-class guard: deny if the lesson lives in another class.
-        if (!classId.equals(section.getClassId())) {
-            throw new EntityNotFoundException("Class not found or not accessible");
-        }
-
-        // Gate 4: DRAFT lessons are lecturer-private — never visible here.
-        if (!Lesson.STATUS_PUBLISHED.equals(lesson.getStatus())) {
-            throw new EntityNotFoundException("Class not found or not accessible");
-        }
+        // Gates 2-4 (live class, section-belongs-to-class, PUBLISHED) resolve
+        // the trio via the shared resolver; failures collapse to 404.
+        LessonAccessResolver.ResolvedLesson resolved =
+                lessonAccessResolver.resolveInClass(classId, lessonId);
+        ClassEntity clazz = resolved.clazz();
+        Section section = resolved.section();
+        Lesson lesson = resolved.lesson();
 
         List<LessonAttachment> rawAttachments = lessonAttachmentRepository
                 .findByLessonIdOrderByUploadedAtAsc(lessonId);
@@ -137,12 +126,14 @@ public class StudentLessonDetailService {
                     a.getOriginalFilename(),
                     a.getSizeBytes(),
                     a.getMimeType(),
-                    attachmentDownloadUrl(lessonId, a.getId())));
+                    attachmentDownloadUrl(lessonId, a.getId()),
+                    buildAttachmentViewUrl(lessonId, a)));
         }
 
         String contentType = lesson.getContentType() == null
                 ? CONTENT_TYPE_RICHTEXT : lesson.getContentType();
         String pdfDownloadUrl = buildPdfDownloadUrl(lesson);
+        String pdfViewerUrl = buildPdfViewerUrl(lesson);
         String videoUrl = buildStudentVideoUrl(lesson);
 
         return new LessonDetailView(
@@ -157,6 +148,7 @@ public class StudentLessonDetailService {
                 attachments,
                 contentType,
                 pdfDownloadUrl,
+                pdfViewerUrl,
                 videoUrl,
                 lesson.getVideoProvider());
     }
@@ -168,6 +160,49 @@ public class StudentLessonDetailService {
             return null;
         }
         return attachmentDownloadUrl(lesson.getId(), lesson.getPdfAttachmentId());
+    }
+
+    /**
+     * Returns the PDF.js viewer page URL when type=PDF; null otherwise.
+     */
+    private String buildPdfViewerUrl(Lesson lesson) {
+        if (!CONTENT_TYPE_PDF.equals(lesson.getContentType())
+                || lesson.getPdfAttachmentId() == null) {
+            return null;
+        }
+        String pdfFilename = lessonAttachmentRepository.findById(lesson.getPdfAttachmentId())
+                .map(LessonAttachment::getOriginalFilename)
+                .orElse("tai-lieu.pdf");
+        return fileViewerUrl("pdf", lesson.getId(),
+                lesson.getPdfAttachmentId(), pdfFilename);
+    }
+
+    /**
+     * Builds an inline viewer URL for an accessory attachment.
+     * PDF → PDF.js; DOCX → JSZip + docx-preview; PPTX/XLSX → MS Office.
+     * The MS Office path routes through a lazy endpoint that mints the
+     * public token only when the student actually opens the file, so
+     * merely rendering the list has no write side-effect.
+     */
+    private String buildAttachmentViewUrl(Long lessonId, LessonAttachment a) {
+        String ext = extractExtension(a.getOriginalFilename());
+        String fname = a.getOriginalFilename();
+        if ("pdf".equals(ext)) {
+            return fileViewerUrl("pdf", lessonId, a.getId(), fname);
+        }
+        if (DOCX_EXTENSIONS.contains(ext)) {
+            return fileViewerUrl("docx", lessonId, a.getId(), fname);
+        }
+        if (OFFICE_EXTENSIONS.contains(ext)) {
+            return String.format(OFFICE_VIEWER_URL_FMT, lessonId, a.getId());
+        }
+        return null;
+    }
+
+    private static String fileViewerUrl(String type, Long lessonId,
+                                         Long attachmentId, String filename) {
+        return String.format(FILE_VIEWER_URL_FMT, type, lessonId, attachmentId,
+                URLEncoder.encode(filename != null ? filename : "tai-lieu", StandardCharsets.UTF_8));
     }
 
     /** Returns the iframe-embed URL or MP4 stream URL when type=VIDEO; null otherwise. */
@@ -193,4 +228,13 @@ public class StudentLessonDetailService {
     private static String attachmentDownloadUrl(Long lessonId, Long attachmentId) {
         return String.format(ATTACHMENT_DOWNLOAD_URL_FMT, lessonId, attachmentId);
     }
+
+    /** Extracts the lowercase file extension from a filename. */
+    private static String extractExtension(String filename) {
+        if (filename == null) return "";
+        int dot = filename.lastIndexOf('.');
+        if (dot < 0 || dot == filename.length() - 1) return "";
+        return filename.substring(dot + 1).toLowerCase(Locale.ROOT);
+    }
 }
+

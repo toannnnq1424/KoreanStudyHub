@@ -30,7 +30,7 @@ public final class LessonDtos {
     /**
      * Form payload used by the create / edit endpoints. {@code contentHtml}
      * is the raw Quill output — the service runs it through
-     * {@link com.ulp.common.HtmlSanitizer} before persistence.
+     * {@link com.ksh.common.HtmlSanitizer} before persistence.
      *
      * <p>{@code contentType} selects which body the lesson actually carries
      * once persisted: RICHTEXT uses {@code contentHtml}; PDF expects a
@@ -72,7 +72,7 @@ public final class LessonDtos {
 
     /**
      * One audit-log row as rendered in the lesson history tab. Maps a
-     * {@link com.ulp.entities.LessonActivity} entity onto the fields the
+     * {@link com.ksh.entities.LessonActivity} entity onto the fields the
      * Thymeleaf template consumes.
      */
     public record LessonActivityRow(

@@ -62,7 +62,7 @@ class EmailSettingsServiceTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "noreply@example.com",
                 "smtp.password", "real-secret",
-                "smtp.from_name", "ksh",
+                "smtp.from_name", "ULP",
                 "smtp.from_email", "noreply@example.com",
                 "smtp.reply_to", ""
         );
@@ -107,7 +107,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "new-host", 587, "tls", "u", "", "ksh", "from@example.com", "");
+                "new-host", 587, "tls", "u", "", "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         // Assert by content, not count — robust to adding/removing SMTP keys later.
@@ -125,7 +125,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "h", 587, "tls", "u", MASKED, "ksh", "from@example.com", "");
+                "h", 587, "tls", "u", MASKED, "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         ArgumentCaptor<SystemSetting> captor = ArgumentCaptor.forClass(SystemSetting.class);
@@ -142,7 +142,7 @@ class EmailSettingsServiceTest {
         ));
 
         EmailSettingsForm form = new EmailSettingsForm(
-                "h", 587, "tls", "u", "brand-new-pw", "ksh", "from@example.com", "");
+                "h", 587, "tls", "u", "brand-new-pw", "ULP", "from@example.com", "");
         service.save(form, 42L);
 
         ArgumentCaptor<SystemSetting> captor = ArgumentCaptor.forClass(SystemSetting.class);

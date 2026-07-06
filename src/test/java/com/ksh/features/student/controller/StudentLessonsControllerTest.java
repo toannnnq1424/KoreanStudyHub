@@ -38,8 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * security filter chain, controller wiring, and template selection
  * end-to-end via MockMvc.
  *
- * <p>Uses pre-seeded users from migrations (V5 for {@code student@ksh.edu.vn}
- * and V8 for {@code sv01@ksh.edu.vn}) because {@code @WithUserDetails}
+ * <p>Uses pre-seeded users from migrations (V5 for {@code student@ulp.edu.vn}
+ * and V8 for {@code sv01@ulp.edu.vn}) because {@code @WithUserDetails}
  * resolves the principal before {@code @BeforeEach} runs, so users
  * created in setup are not visible to {@code UserDetailsService}.
  *
@@ -53,9 +53,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StudentLessonsControllerTest {
 
     // Seeded by V5 — the enrolled-student account for tests.
-    private static final String STUDENT_EMAIL = "student@ksh.edu.vn";
+    private static final String STUDENT_EMAIL = "student@ulp.edu.vn";
     // Seeded by V8 — the not-enrolled student account.
-    private static final String OUTSIDER_EMAIL = "sv01@ksh.edu.vn";
+    private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -73,7 +73,7 @@ class StudentLessonsControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase(STUDENT_EMAIL).orElseThrow();
         clazz = saveClass("Controller class", lecturer.getId(), "STCTLC");
         section1 = sectionRepository.saveAndFlush(
@@ -149,7 +149,7 @@ class StudentLessonsControllerTest {
                 .andExpect(content().string(containsString("<p>Body</p>")));
     }
 
-    /** PDF lessons render an &lt;embed&gt; pointing at the stream URL. */
+    /** PDF lessons render a PDF.js &lt;iframe&gt; plus a download fallback link. */
     @Test
     @WithUserDetails(STUDENT_EMAIL)
     void class_lessons_renders_pdf_viewer_when_type_is_PDF() throws Exception {
@@ -163,13 +163,17 @@ class StudentLessonsControllerTest {
         pdfLesson.setPdfAttachmentId(main.getId());
         pdfLesson = lessonRepository.saveAndFlush(pdfLesson);
 
-        String expectedPdfUrl = "/api/lessons/" + pdfLesson.getId()
+        // Fallback download link still points at the raw stream endpoint.
+        String expectedDownloadUrl = "/api/lessons/" + pdfLesson.getId()
                 + "/attachments/" + main.getId() + "/download";
         mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), pdfLesson.getId())))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("<embed")))
-                .andExpect(content().string(containsString("type=\"application/pdf\"")))
-                .andExpect(content().string(containsString(expectedPdfUrl)));
+                // Viewer is now a PDF.js iframe, not a browser-native <embed>.
+                .andExpect(content().string(containsString("class=\"lesson-pdf-iframe\"")))
+                // iframe src is the file-viewer page carrying the real PDF filename.
+                .andExpect(content().string(containsString("/file-viewer?type=pdf")))
+                .andExpect(content().string(containsString("main.pdf")))
+                .andExpect(content().string(containsString(expectedDownloadUrl)));
     }
 
     /** VIDEO/YOUTUBE lessons render an iframe pointing at the embed URL. */

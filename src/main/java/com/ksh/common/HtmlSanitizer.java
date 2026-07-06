@@ -64,11 +64,11 @@ public final class HtmlSanitizer {
     private static Safelist buildSafelist() {
         Safelist list = new Safelist()
                 .addTags("h1", "h2", "h3", "h4", "h5", "h6",
-                        "p", "br", "hr",
-                        "strong", "b", "em", "i", "u", "s",
-                        "blockquote", "pre", "code",
-                        "ol", "ul", "li",
-                        "a", "img");
+                         "p", "br", "hr",
+                         "strong", "b", "em", "i", "u", "s",
+                         "blockquote", "pre", "code",
+                         "ol", "ul", "li",
+                         "a", "img");
 
         list.addAttributes("a", "href", "target", "rel");
         list.addProtocols("a", "href", "http", "https", "mailto");

@@ -210,12 +210,12 @@ class InviteCodeServiceTest {
     @Test
     void build_link_url_strips_trailing_slash_from_base_url() {
         InviteCodeService localService = new InviteCodeService(inviteRepository, generator,
-                activityWriter, classesService, "https://ksh.example.com/");
+                activityWriter, classesService, "https://ulp.example.com/");
 
         ClassInviteCode link = new ClassInviteCode(CLASS_ID, "tok",
                 ClassInviteCode.TYPE_LINK, OWNER_ID);
 
-        assertThat(localService.buildLinkUrl(link)).isEqualTo("https://ksh.example.com/j/tok");
+        assertThat(localService.buildLinkUrl(link)).isEqualTo("https://ulp.example.com/j/tok");
     }
 
     // ─────────── helpers ───────────
