@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,4 +43,10 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
 
     Optional<PracticeAttempt> findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
             Long userId, Long testId, Long sectionId, String status);
+
+    boolean existsBySetId(Long setId);
+
+    @Query(value = "SELECT id FROM practice_attempts WHERE set_id = :setId ORDER BY id LIMIT 1 FOR SHARE",
+            nativeQuery = true)
+    Optional<Long> findFirstIdBySetIdForShare(@Param("setId") Long setId);
 }

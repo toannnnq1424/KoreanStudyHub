@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.controller;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
+import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -121,6 +122,8 @@ public class PracticeManageController {
         try {
             revisionService.restoreRevision(logId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Khôi phục phiên bản lịch sử thành công!");
+        } catch (PublishedPracticeGraphMutationBlockedException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Lỗi khôi phục: " + e.getMessage());
         }

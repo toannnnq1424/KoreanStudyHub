@@ -48,6 +48,7 @@ class PracticePublisherServiceTest {
     private final PracticeQuestionGroupRepository groupRepository = mock(PracticeQuestionGroupRepository.class);
     private final PracticeQuestionRepository questionRepository = mock(PracticeQuestionRepository.class);
     private final PracticeEditLogRepository editLogRepository = mock(PracticeEditLogRepository.class);
+    private final PracticePublishedGraphMutationGuard mutationGuard = mock(PracticePublishedGraphMutationGuard.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<PracticeSection> savedSections = new ArrayList<>();
     private final List<PracticeQuestionGroup> savedGroups = new ArrayList<>();
@@ -67,6 +68,7 @@ class PracticePublisherServiceTest {
                 groupRepository,
                 questionRepository,
                 editLogRepository,
+                mutationGuard,
                 new PracticeDraftValidator(objectMapper),
                 objectMapper
         );
@@ -79,6 +81,8 @@ class PracticePublisherServiceTest {
         });
         when(setRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(savedSet.get()));
+        when(mutationGuard.lockAndAssertRepublishAllowed(any())).thenAnswer(invocation ->
+                Optional.ofNullable(savedSet.get()).orElseThrow());
         when(sectionRepository.save(any(PracticeSection.class))).thenAnswer(invocation -> {
             PracticeSection section = invocation.getArgument(0);
             assignIdIfMissing(section);
@@ -340,6 +344,37 @@ class PracticePublisherServiceTest {
         verify(questionRepository).deleteBySetId(77L);
         assertEquals(WritingTaskType.Q52, savedQuestions.get(0).getWritingTaskType());
         assertEquals(1, savedQuestions.get(0).getQuestionNo());
+    }
+
+    @Test
+    void republishWithLearnerHistoryBlocksBeforeGraphOrMetadataMutation() {
+        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q52"));
+        draft.setPublishedSetId(77L);
+        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
+                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
+        assignId(existingSet, 77L);
+        savedSet.set(existingSet);
+        when(mutationGuard.lockAndAssertRepublishAllowed(77L))
+                .thenThrow(PublishedPracticeGraphMutationBlockedException.forRepublish());
+
+        PublishedPracticeGraphMutationBlockedException exception = assertThrows(
+                PublishedPracticeGraphMutationBlockedException.class,
+                () -> publish(draft));
+
+        assertEquals(PublishedPracticeGraphMutationBlockedException.REPUBLISH_MESSAGE, exception.getMessage());
+        assertEquals("Old", existingSet.getTitle());
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(groupRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).deleteBySetId(any());
+        verify(editLogRepository, never()).save(any());
+    }
+
+    @Test
+    void firstPublishDoesNotInvokeHistoryGuardForNewSet() {
+        publish(newDraft(draftJson("WRITING", "ESSAY", "Q52")));
+
+        verify(mutationGuard, never()).lockAndAssertRepublishAllowed(any());
+        assertEquals(1, savedEditLogs.size());
     }
 
     @Test

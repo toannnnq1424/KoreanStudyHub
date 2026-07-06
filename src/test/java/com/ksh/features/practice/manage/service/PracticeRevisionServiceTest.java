@@ -39,6 +39,7 @@ class PracticeRevisionServiceTest {
     private final PracticeQuestionGroupRepository groupRepository = mock(PracticeQuestionGroupRepository.class);
     private final PracticeQuestionRepository questionRepository = mock(PracticeQuestionRepository.class);
     private final PracticeEditLogRepository editLogRepository = mock(PracticeEditLogRepository.class);
+    private final PracticePublishedGraphMutationGuard mutationGuard = mock(PracticePublishedGraphMutationGuard.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AtomicLong idSequence = new AtomicLong(100L);
     private final List<PracticeQuestion> savedQuestions = new ArrayList<>();
@@ -53,6 +54,7 @@ class PracticeRevisionServiceTest {
                 groupRepository,
                 questionRepository,
                 editLogRepository,
+                mutationGuard,
                 objectMapper
         );
         when(setRepository.save(any(PracticeSet.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -112,6 +114,34 @@ class PracticeRevisionServiceTest {
     }
 
     @Test
+    void restoreRevisionWithLearnerHistoryBlocksBeforeGraphMutation() throws Exception {
+        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
+        when(mutationGuard.lockAndAssertRestoreAllowed(10L))
+                .thenThrow(PublishedPracticeGraphMutationBlockedException.forRestore());
+
+        PublishedPracticeGraphMutationBlockedException exception = assertThrows(
+                PublishedPracticeGraphMutationBlockedException.class,
+                () -> service.restoreRevision(7L, 99L));
+
+        assertEquals(PublishedPracticeGraphMutationBlockedException.RESTORE_MESSAGE, exception.getMessage());
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(groupRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).deleteBySetId(any());
+        verify(questionRepository, never()).save(any());
+        verify(editLogRepository, never()).save(any());
+    }
+
+    @Test
+    void restoreRevisionAcquiresGuardBeforeSnapshotValidation() throws Exception {
+        arrangeRestoreQuestion(snapshotQuestion("\"Q51_52\""));
+
+        assertThrows(IllegalArgumentException.class, () -> service.restoreRevision(7L, 99L));
+
+        verify(mutationGuard).lockAndAssertRestoreAllowed(10L);
+        verify(questionRepository, never()).deleteBySetId(any());
+    }
+
+    @Test
     void restoreRevisionInvalidWritingTaskMetadataFailsBeforeDelete() throws Exception {
         arrangeRestoreQuestion(snapshotQuestion("\"Q51_52\""));
 
@@ -167,6 +197,7 @@ class PracticeRevisionServiceTest {
         setEntityId(set, 10L);
         when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
+        when(mutationGuard.lockAndAssertRestoreAllowed(10L)).thenReturn(set);
     }
 
     private String snapshotQuestion(String rawTaskValue) {

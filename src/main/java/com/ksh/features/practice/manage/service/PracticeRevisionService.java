@@ -23,19 +23,22 @@ public class PracticeRevisionService {
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
     private final PracticeEditLogRepository editLogRepository;
+    private final PracticePublishedGraphMutationGuard mutationGuard;
     private final ObjectMapper objectMapper;
 
     public PracticeRevisionService(PracticeSetRepository setRepository,
                                    PracticeSectionRepository sectionRepository,
-                                   PracticeQuestionGroupRepository groupRepository,
-                                   PracticeQuestionRepository questionRepository,
-                                   PracticeEditLogRepository editLogRepository,
-                                   ObjectMapper objectMapper) {
+                                    PracticeQuestionGroupRepository groupRepository,
+                                    PracticeQuestionRepository questionRepository,
+                                    PracticeEditLogRepository editLogRepository,
+                                    PracticePublishedGraphMutationGuard mutationGuard,
+                                    ObjectMapper objectMapper) {
         this.setRepository = setRepository;
         this.sectionRepository = sectionRepository;
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
         this.editLogRepository = editLogRepository;
+        this.mutationGuard = mutationGuard;
         this.objectMapper = objectMapper;
     }
 
@@ -50,8 +53,7 @@ public class PracticeRevisionService {
         }
 
         Long setId = logEntry.getSetId();
-        PracticeSet set = setRepository.findById(setId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Học liệu gốc không tồn tại."));
+        PracticeSet set = mutationGuard.lockAndAssertRestoreAllowed(setId);
 
         // Parse JSON snapshot
         JsonNode root;

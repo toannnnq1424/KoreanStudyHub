@@ -17,10 +17,17 @@ import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeQuestionGroup;
+import com.ksh.entities.PracticeSpeakingMedia;
+import com.ksh.entities.PracticeSpeakingMediaStatus;
+import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
+import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepository;
+import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
+import com.ksh.features.practice.manage.service.PracticePublisherService;
+import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,18 +41,25 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -96,6 +110,18 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeAttemptDiscardService attemptDiscardService;
+
+    @Autowired
+    private PracticePublisherService publisherService;
+
+    @Autowired
+    private PracticeSpeakingMediaRepository speakingMediaRepository;
+
+    @Autowired
+    private PracticeSpeakingMediaCleanupTaskRepository cleanupTaskRepository;
+
+    @Autowired
+    private DataSource dataSource;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -956,6 +982,358 @@ class PracticeIntegrationTest {
         List<PracticeQuestion> revertedQs = questionRepository.findBySetIdOrderByDisplayOrderAsc(publishedSet.getId());
         assertThat(revertedQs).isNotEmpty();
         assertThat(revertedQs.get(0).getPrompt()).isEqualTo("Câu 1 ban đầu");
+    }
+
+
+    @Test
+    void restoreRevisionWithLearnerAttemptBlocksBeforeGraphMutation() {
+        PracticeAttempt attempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attemptRepository.saveAndFlush(attempt);
+        String snapshotJson = """
+        {
+          "document": { "title": "Restored title" },
+          "sections": []
+        }
+        """;
+        com.ksh.entities.PracticeEditLog log = editLogRepository.saveAndFlush(
+                new com.ksh.entities.PracticeEditLog(
+                        practiceSet.getId(),
+                        lecturer.getId(),
+                        "unsafe restore",
+                        "{}",
+                        snapshotJson,
+                        "{}",
+                        "QUESTIONS"
+                )
+        );
+        long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()).size();
+        List<PracticeQuestion> questionsBefore = questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId());
+        String titleBefore = setRepository.findById(practiceSet.getId()).orElseThrow().getTitle();
+
+        assertThrows(
+                com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException.class,
+                () -> revisionService.restoreRevision(log.getId(), lecturer.getId())
+        );
+
+        assertThat(questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
+                .extracting(PracticeQuestion::getId)
+                .containsExactlyElementsOf(questionsBefore.stream().map(PracticeQuestion::getId).toList());
+        assertThat(setRepository.findById(practiceSet.getId()).orElseThrow().getTitle()).isEqualTo(titleBefore);
+        assertThat(editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId())).hasSize((int) logCountBefore);
+    }
+
+    @Test
+    void attemptHistoryExistenceIncludesEveryAttemptStatus() {
+        for (String status : List.of(
+                PracticeAttempt.STATUS_IN_PROGRESS,
+                PracticeAttempt.STATUS_SUBMITTED,
+                PracticeAttempt.STATUS_GRADED,
+                PracticeAttempt.STATUS_DISCARDED
+        )) {
+            attemptRepository.deleteAll();
+            PracticeAttempt attempt = new PracticeAttempt(
+                    student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+            if (PracticeAttempt.STATUS_DISCARDED.equals(status)) {
+                attempt.discard(java.time.LocalDateTime.now());
+            } else {
+                attempt.setStatus(status);
+            }
+            attemptRepository.saveAndFlush(attempt);
+
+            assertThat(attemptRepository.existsBySetId(practiceSet.getId())).isTrue();
+        }
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void republishWithLegacySubmissionBlocksBeforeGraphOrMetadataMutation() throws Exception {
+        submissionRepository.saveAndFlush(new PracticeSubmission(
+                practiceSet.getId(),
+                student.getId(),
+                null,
+                null,
+                "{}",
+                null
+        ));
+        String draftJson = """
+        {
+          "document": {
+            "detectedCategory": "TOPIK_II",
+            "title": "Changed title",
+            "confidence": 1.0
+          },
+          "sections": [
+            {
+              "title": "Reading",
+              "skill": "READING",
+              "durationMinutes": 40,
+              "groups": [
+                {
+                  "label": "1",
+                  "questionFrom": 1,
+                  "questionTo": 1,
+                  "instruction": "Instruction",
+                  "questions": [
+                    {
+                      "questionNo": 1,
+                      "questionType": "SINGLE_CHOICE",
+                      "prompt": "Prompt changed",
+                      "options": ["A", "B"],
+                      "answer": { "value": "1" },
+                      "explanationVi": "Because",
+                      "points": 5.0
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """;
+        com.ksh.entities.PracticeDraft draft = new com.ksh.entities.PracticeDraft(
+                "Changed title", "Desc", "TOPIK_II", "GLOBAL", null, "DRAFT", lecturer.getId(), draftJson
+        );
+        draft.setPublishedSetId(practiceSet.getId());
+        draft = draftRepository.saveAndFlush(draft);
+        long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()).size();
+        List<PracticeQuestion> questionsBefore = questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId());
+        String titleBefore = setRepository.findById(practiceSet.getId()).orElseThrow().getTitle();
+
+        mockMvc.perform(post("/practice/manage/drafts/" + draft.getId() + "/publish").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/manage/drafts/" + draft.getId()))
+                .andExpect(flash().attributeExists("error"));
+
+        assertThat(questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
+                .extracting(PracticeQuestion::getId)
+                .containsExactlyElementsOf(questionsBefore.stream().map(PracticeQuestion::getId).toList());
+        assertThat(setRepository.findById(practiceSet.getId()).orElseThrow().getTitle()).isEqualTo(titleBefore);
+        assertThat(editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId())).hasSize((int) logCountBefore);
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void setPessimisticLockBlocksSecondDatabaseTransactionUntilCommit() throws Exception {
+        CountDownLatch firstLockAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirstLock = new CountDownLatch(1);
+        AtomicReference<Connection> firstConnection = new AtomicReference<>();
+        AtomicReference<Connection> secondConnection = new AtomicReference<>();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> requiresNewTransaction().executeWithoutResult(status -> {
+                firstConnection.set(DataSourceUtils.getConnection(dataSource));
+                setRepository.findByIdForUpdate(practiceSet.getId()).orElseThrow();
+                firstLockAcquired.countDown();
+                awaitLatch(releaseFirstLock);
+            }));
+            assertTrue(firstLockAcquired.await(5, TimeUnit.SECONDS));
+
+            Future<?> second = executor.submit(() -> requiresNewTransaction().executeWithoutResult(status -> {
+                secondConnection.set(DataSourceUtils.getConnection(dataSource));
+                setRepository.findByIdForUpdate(practiceSet.getId()).orElseThrow();
+            }));
+
+            assertThrows(TimeoutException.class, () -> second.get(250, TimeUnit.MILLISECONDS));
+            releaseFirstLock.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+            assertNotSame(firstConnection.get(), secondConnection.get());
+        } finally {
+            releaseFirstLock.countDown();
+            shutdownExecutor(executor);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void startWinsAgainstRepublishAndGuardBlocksAfterLockRelease() throws Exception {
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Blocked republish");
+        List<Long> questionIdsBefore = questionIds(practiceSet.getId());
+        long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()).size();
+        CountDownLatch attemptCreated = new CountDownLatch(1);
+        CountDownLatch releaseStart = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Long> start = executor.submit(() -> requiresNewTransaction().execute(status -> {
+                Long attemptId = practiceService.startAttempt(
+                        practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+                attemptRepository.flush();
+                attemptCreated.countDown();
+                awaitLatch(releaseStart);
+                return attemptId;
+            }));
+            assertTrue(attemptCreated.await(5, TimeUnit.SECONDS));
+
+            Future<Long> republish = executor.submit(() -> publisherService.publish(draft.getId(), lecturer.getId()));
+            assertThrows(TimeoutException.class, () -> republish.get(250, TimeUnit.MILLISECONDS));
+            releaseStart.countDown();
+
+            Long attemptId = start.get(5, TimeUnit.SECONDS);
+            assertFutureCause(republish, PublishedPracticeGraphMutationBlockedException.class);
+            assertTrue(attemptRepository.existsById(attemptId));
+            assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(questionIdsBefore);
+            assertThat(editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()))
+                    .hasSize((int) logCountBefore);
+        } finally {
+            releaseStart.countDown();
+            shutdownExecutor(executor);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void restoreWinsAndStaleStartCannotCreateAttemptForDeletedSection() throws Exception {
+        Long oldSectionId = defaultSection.getId();
+        Long restoreLogId = createRestoreLog(practiceSet.getId(), "Restored graph").getId();
+        CountDownLatch mutationApplied = new CountDownLatch(1);
+        CountDownLatch releaseMutation = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> restore = executor.submit(() -> requiresNewTransaction().executeWithoutResult(status -> {
+                revisionService.restoreRevision(restoreLogId, lecturer.getId());
+                sectionRepository.flush();
+                mutationApplied.countDown();
+                awaitLatch(releaseMutation);
+            }));
+            assertTrue(mutationApplied.await(5, TimeUnit.SECONDS));
+
+            Future<Long> start = executor.submit(() -> practiceService.startAttempt(
+                    practiceSet.getId(), defaultTest.getId(), oldSectionId, student.getId()));
+            assertThrows(TimeoutException.class, () -> start.get(250, TimeUnit.MILLISECONDS));
+            releaseMutation.countDown();
+
+            restore.get(5, TimeUnit.SECONDS);
+            assertFutureCause(start, jakarta.persistence.EntityNotFoundException.class);
+            assertFalse(sectionRepository.existsById(oldSectionId));
+            assertThat(sectionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
+                    .extracting(PracticeSection::getId)
+                    .doesNotContain(oldSectionId);
+            assertFalse(attemptRepository.existsBySetId(practiceSet.getId()));
+        } finally {
+            releaseMutation.countDown();
+            shutdownExecutor(executor);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void resumeWinsAgainstRepublishAndReturnsExistingAttempt() throws Exception {
+        PracticeAttempt existing = attemptRepository.saveAndFlush(new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId()));
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Blocked resume republish");
+        List<Long> questionIdsBefore = questionIds(practiceSet.getId());
+        CountDownLatch resumed = new CountDownLatch(1);
+        CountDownLatch releaseResume = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Long> resume = executor.submit(() -> requiresNewTransaction().execute(status -> {
+                Long attemptId = practiceService.startAttempt(
+                        practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+                resumed.countDown();
+                awaitLatch(releaseResume);
+                return attemptId;
+            }));
+            assertTrue(resumed.await(5, TimeUnit.SECONDS));
+
+            Future<Long> republish = executor.submit(() -> publisherService.publish(draft.getId(), lecturer.getId()));
+            assertThrows(TimeoutException.class, () -> republish.get(250, TimeUnit.MILLISECONDS));
+            releaseResume.countDown();
+
+            assertEquals(existing.getId(), resume.get(5, TimeUnit.SECONDS));
+            assertFutureCause(republish, PublishedPracticeGraphMutationBlockedException.class);
+            assertEquals(1, attemptRepository.findAll().stream()
+                    .filter(a -> practiceSet.getId().equals(a.getSetId()))
+                    .count());
+            assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(questionIdsBefore);
+        } finally {
+            releaseResume.countDown();
+            shutdownExecutor(executor);
+        }
+    }
+
+    @Test
+    void readingResultRemainsIdenticalWhenRestoreIsBlocked() {
+        PracticeAttempt attempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        attempt.markSubmitted(BigDecimal.valueOf(2.5), BigDecimal.valueOf(2.5),
+                "{\"" + question.getId() + "\":\"1\"}");
+        attempt = attemptRepository.saveAndFlush(attempt);
+        var before = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
+        List<Long> idsBefore = questionIds(practiceSet.getId());
+        var log = createRestoreLog(practiceSet.getId(), "Unsafe reading restore");
+
+        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
+                () -> revisionService.restoreRevision(log.getId(), lecturer.getId()));
+
+        var after = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
+        assertEquals(before, after);
+        assertEquals(question.getId(), after.groups().get(0).questions().get(0).questionId());
+        assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
+        assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(idsBefore);
+    }
+
+    @Test
+    void listeningResultRemainsIdenticalWhenRepublishIsBlocked() {
+        ListeningAttemptFixture fixture = createListeningAttemptFixture("Listening history guard");
+        var before = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(fixture.setId(), "Unsafe listening republish");
+
+        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
+                () -> publisherService.publish(draft.getId(), lecturer.getId()));
+
+        var after = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
+        assertEquals(before, after);
+        assertEquals(fixture.questionId(), after.groups().get(0).questions().get(0).questionId());
+        assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
+        assertTrue(questionRepository.existsById(fixture.questionId()));
+    }
+
+    @Test
+    void writingResultRemainsIdenticalWhenRestoreIsBlocked() {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Writing history guard", true);
+        var before = practiceService.getResult(fixture.attemptId(), student.getId());
+        var log = createRestoreLog(fixture.setId(), "Unsafe writing restore");
+
+        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
+                () -> revisionService.restoreRevision(log.getId(), lecturer.getId()));
+
+        var after = practiceService.getResult(fixture.attemptId(), student.getId());
+        assertEquals(before, after);
+        assertEquals(fixture.questionId(), after.questionFeedbacks().get(0).questionId());
+        assertEquals(fixture.prompt(), after.questionFeedbacks().get(0).prompt());
+        assertEquals("Existing answer", after.questionFeedbacks().get(0).learnerAnswer());
+        assertEquals(fixture.oldFeedbackJson(), after.aiFeedbackJson());
+        assertTrue(questionRepository.existsById(fixture.questionId()));
+    }
+
+    @Test
+    void speakingMediaAndResultRemainIntactWhenRepublishIsBlockedBeforeForeignKeyDelete() {
+        SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking history guard");
+        PracticeSpeakingMedia media = speakingMediaRepository.saveAndFlush(PracticeSpeakingMedia.ready(
+                fixture.attemptId(), fixture.questionId(), PracticeSpeakingStorageProvider.LOCAL,
+                "test/guard-" + java.util.UUID.randomUUID() + ".webm", "audio/webm", "webm", "opus",
+                100L, 1000L, "a".repeat(64)));
+        var before = practiceService.getResult(fixture.attemptId(), student.getId());
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(fixture.setId(), "Unsafe speaking republish");
+        long cleanupCountBefore = cleanupTaskRepository.count();
+        long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(fixture.setId()).size();
+        String titleBefore = setRepository.findById(fixture.setId()).orElseThrow().getTitle();
+
+        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
+                () -> publisherService.publish(draft.getId(), lecturer.getId()));
+
+        var after = practiceService.getResult(fixture.attemptId(), student.getId());
+        assertEquals(before, after);
+        assertEquals(fixture.questionId(), after.speakingQuestionFeedbacks().get(0).questionId());
+        assertEquals("Existing spoken answer", after.speakingQuestionFeedbacks().get(0).learnerAnswer());
+        assertTrue(questionRepository.existsById(fixture.questionId()));
+        PracticeSpeakingMedia unchanged = speakingMediaRepository.findById(media.getId()).orElseThrow();
+        assertEquals(PracticeSpeakingMediaStatus.READY, unchanged.getStatus());
+        assertEquals(fixture.questionId(), unchanged.getQuestionId());
+        assertEquals(cleanupCountBefore, cleanupTaskRepository.count());
+        assertEquals(logCountBefore, editLogRepository.findBySetIdOrderByEditedAtDesc(fixture.setId()).size());
+        assertEquals(titleBefore, setRepository.findById(fixture.setId()).orElseThrow().getTitle());
     }
 
     @Test
@@ -2059,6 +2437,82 @@ class PracticeIntegrationTest {
     void testRestRouteReturns404() throws Exception {
         mockMvc.perform(get("/practice/attempts/1/rest").param("nextSectionIndex", "1"))
                 .andExpect(status().isNotFound());
+    }
+
+    private TransactionTemplate requiresNewTransaction() {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.setTimeout(10);
+        return template;
+    }
+
+    private void awaitLatch(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Timed out waiting for test coordination latch");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for test coordination latch", e);
+        }
+    }
+
+    private void shutdownExecutor(ExecutorService executor) throws InterruptedException {
+        executor.shutdownNow();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
+    private <T extends Throwable> T assertFutureCause(Future<?> future, Class<T> expectedType)
+            throws InterruptedException, TimeoutException {
+        ExecutionException exception = assertThrows(
+                ExecutionException.class,
+                () -> future.get(5, TimeUnit.SECONDS)
+        );
+        assertTrue(expectedType.isInstance(exception.getCause()),
+                () -> "Expected " + expectedType.getSimpleName() + " but got " + exception.getCause());
+        return expectedType.cast(exception.getCause());
+    }
+
+    private List<Long> questionIds(Long setId) {
+        return questionRepository.findBySetIdOrderByDisplayOrderAsc(setId).stream()
+                .map(PracticeQuestion::getId)
+                .toList();
+    }
+
+    private com.ksh.entities.PracticeDraft createRepublishDraft(Long setId, String title) {
+        String draftJson = """
+                {
+                  "document": {"detectedCategory":"TOPIK_II","title":"Replacement","confidence":1.0},
+                  "sections": [{
+                    "title":"Replacement section","skill":"READING","durationMinutes":40,
+                    "groups":[{"label":"1","questionFrom":1,"questionTo":1,"instruction":"Instruction",
+                      "questions":[{"questionNo":1,"questionType":"SINGLE_CHOICE","prompt":"Replacement prompt",
+                        "options":["A","B"],"answer":{"value":"1"},"explanationVi":"Because","points":5.0}]
+                    }]
+                  }]
+                }
+                """;
+        com.ksh.entities.PracticeDraft draft = new com.ksh.entities.PracticeDraft(
+                title, "Desc", "TOPIK_II", "GLOBAL", null, "DRAFT", lecturer.getId(), draftJson);
+        draft.setPublishedSetId(setId);
+        return draftRepository.saveAndFlush(draft);
+    }
+
+    private com.ksh.entities.PracticeEditLog createRestoreLog(Long setId, String title) {
+        String snapshot = """
+                {
+                  "document":{"title":"Restored","description":"Restored description","detectedCategory":"TOPIK_II"},
+                  "sections":[{
+                    "title":"Restored section","skill":"READING","durationMinutes":40,"totalPoints":5.0,
+                    "groups":[{"label":"1","instruction":"Instruction",
+                      "questions":[{"questionNo":1,"questionType":"MCQ","prompt":"Restored prompt",
+                        "options":["A","B"],"answerKey":"1","explanationVi":"Because","points":5.0}]
+                    }]
+                  }]
+                }
+                """;
+        return editLogRepository.saveAndFlush(new com.ksh.entities.PracticeEditLog(
+                setId, lecturer.getId(), title, "{}", snapshot, "{}", "QUESTIONS"));
     }
 
     private WritingAttemptFixture createWritingAttemptFixture(String title, boolean graded) {

@@ -55,6 +55,8 @@ class PracticeServiceTest {
         readingListeningExplanationService = mock(com.ksh.features.practice.service.ReadingListeningExplanationService.class);
         audioStorageService = mock(com.ksh.common.storage.AudioStorageService.class);
         objectMapper = new ObjectMapper();
+        when(setRepository.findByIdForUpdate(any())).thenAnswer(invocation ->
+                setRepository.findById(invocation.getArgument(0)));
 
         practiceService = new PracticeService(
                 setRepository,
@@ -429,6 +431,8 @@ class PracticeServiceTest {
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
@@ -448,6 +452,8 @@ class PracticeServiceTest {
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
 
         when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
@@ -475,6 +481,8 @@ class PracticeServiceTest {
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
         when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
         when(attemptRepository.save(any(PracticeAttempt.class))).thenAnswer(invocation -> {
@@ -505,12 +513,35 @@ class PracticeServiceTest {
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
 
         when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(2L, 10L, 20L, "IN_PROGRESS"))
                 .thenReturn(Optional.of(existingAttempt));
 
         Long attemptId = practiceService.startAttempt(1L, 10L, 20L, 2L);
         assertEquals(88L, attemptId);
+        verify(attemptRepository, never()).save(any());
+    }
+
+    @Test
+    void startAttemptRejectsWhenSectionDisappearsAfterSetLock() {
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection preLockSection = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        preLockSection.setTestId(10L);
+        setEntityId(preLockSection, 20L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(setRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(preLockSection));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> practiceService.startAttempt(1L, 10L, 20L, 2L));
+
         verify(attemptRepository, never()).save(any());
     }
 

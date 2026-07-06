@@ -16,4 +16,6 @@ public interface PracticeSubmissionRepository extends JpaRepository<PracticeSubm
     List<PracticeSubmission> findByUserIdAndStatusNotOrderByCreatedAtDesc(Long userId, String status);
 
     List<PracticeSubmission> findBySetIdAndUserIdOrderByCreatedAtDesc(Long setId, Long userId);
+
+    boolean existsBySetId(Long setId);
 }

@@ -35,16 +35,18 @@ public class PracticePublisherService {
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
     private final PracticeEditLogRepository editLogRepository;
+    private final PracticePublishedGraphMutationGuard mutationGuard;
     private final PracticeDraftValidator draftValidator;
     private final ObjectMapper objectMapper;
 
     public PracticePublisherService(PracticeDraftRepository draftRepository,
                                     PracticeSetRepository setRepository,
                                     PracticeSectionRepository sectionRepository,
-                                    PracticeQuestionGroupRepository groupRepository,
-                                    PracticeQuestionRepository questionRepository,
-                                    PracticeEditLogRepository editLogRepository,
-                                    PracticeDraftValidator draftValidator,
+                                     PracticeQuestionGroupRepository groupRepository,
+                                     PracticeQuestionRepository questionRepository,
+                                     PracticeEditLogRepository editLogRepository,
+                                     PracticePublishedGraphMutationGuard mutationGuard,
+                                     PracticeDraftValidator draftValidator,
                                     ObjectMapper objectMapper) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
@@ -52,6 +54,7 @@ public class PracticePublisherService {
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
         this.editLogRepository = editLogRepository;
+        this.mutationGuard = mutationGuard;
         this.draftValidator = draftValidator;
         this.objectMapper = objectMapper;
     }
@@ -116,8 +119,7 @@ public class PracticePublisherService {
         PracticeSet set;
         String beforeSnapshot = null;
         if (draft.getPublishedSetId() != null) {
-            set = setRepository.findById(draft.getPublishedSetId())
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Học liệu gốc không tồn tại."));
+            set = mutationGuard.lockAndAssertRepublishAllowed(draft.getPublishedSetId());
             
             // Capture before snapshot
             beforeSnapshot = captureSetSnapshot(set.getId());

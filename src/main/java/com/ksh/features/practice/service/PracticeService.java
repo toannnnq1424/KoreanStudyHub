@@ -1563,6 +1563,32 @@ public class PracticeService {
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Skill không hợp lệ");
         }
 
+        PracticeSet lockedSet = setRepository.findByIdForUpdate(setId)
+                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
+        if (!PracticeSet.STATUS_PUBLISHED.equals(lockedSet.getStatus())) {
+            throw new EntityNotFoundException("Bộ luyện tập chưa được xuất bản");
+        }
+        PracticeTest lockedTest = testRepository.findByIdForShare(testId)
+                .orElseThrow(() -> new EntityNotFoundException("Bài thi không tồn tại"));
+        if (!setId.equals(lockedTest.getSetId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Bài thi không thuộc bộ luyện tập này");
+        }
+        PracticeSection lockedSection = sectionRepository.findByIdForShare(sectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+        if (!setId.equals(lockedSection.getSetId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bộ luyện tập này");
+        }
+        if (!testId.equals(lockedSection.getTestId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bài thi này");
+        }
+        if (!skill.equals(lockedSection.getSkill())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Skill không hợp lệ");
+        }
+
         Optional<PracticeAttempt> existing = attemptRepository
                 .findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
                         userId, testId, sectionId, PracticeAttempt.STATUS_IN_PROGRESS);

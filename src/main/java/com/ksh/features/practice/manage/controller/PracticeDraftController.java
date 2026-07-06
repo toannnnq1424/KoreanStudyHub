@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.controller;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.manage.service.PracticeDraftService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
+import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -131,6 +132,9 @@ public class PracticeDraftController {
             Long setId = publisherService.publish(draftId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Xuất bản bộ luyện tập thành công!");
             return "redirect:/practice/sets/" + setId;
+        } catch (PublishedPracticeGraphMutationBlockedException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/practice/manage/drafts/" + draftId;
         } catch (Exception e) {
             log.error("[DraftPublish] Publish failed draftId={}", draftId, e);
             redirectAttributes.addFlashAttribute("error", "Lỗi xuất bản: " + e.getMessage());
