@@ -32,6 +32,9 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
 
     List<PracticeAttempt> findTop100ByUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<PracticeAttempt> findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+            Long userId, String status);
+
     List<PracticeAttempt> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<PracticeAttempt> findByUserIdAndStatusNotOrderByCreatedAtDesc(

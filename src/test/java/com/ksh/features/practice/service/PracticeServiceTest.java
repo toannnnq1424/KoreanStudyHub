@@ -258,8 +258,10 @@ class PracticeServiceTest {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.markGraded(BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{}", "{}");
         setEntityId(attempt, 99L);
-        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
-        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        when(attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
         when(setRepository.findAllById(any())).thenReturn(List.of(
                 new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L)));
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
@@ -289,8 +291,10 @@ class PracticeServiceTest {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.markGraded(BigDecimal.valueOf(8), BigDecimal.valueOf(10), "{\"100\":\"1\"}", "{}");
         setEntityId(attempt, 99L);
-        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
-        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(List.of(attempt));
+        when(attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         when(setRepository.findAllById(any())).thenReturn(List.of(set));
@@ -332,8 +336,10 @@ class PracticeServiceTest {
             allAttempts.add(attempt);
         }
         List<PracticeAttempt> recent100 = allAttempts.subList(0, 100);
-        when(attemptRepository.findByUserIdOrderByCreatedAtDesc(2L)).thenReturn(allAttempts);
-        when(attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(2L)).thenReturn(recent100);
+        when(attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(allAttempts);
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(recent100);
 
         LearningProgressOverview overview = practiceService.getLearningProgressOverview(2L, "Toan", "");
 
@@ -354,7 +360,7 @@ class PracticeServiceTest {
         older.markSubmitted(BigDecimal.valueOf(7), BigDecimal.TEN, "{\"201\":\"B\"}");
         setEntityId(older, 103L);
         PracticeAttempt unexpectedStatus = new PracticeAttempt(2L, 1L, 10L, "READING", 21L);
-        unexpectedStatus.setStatus("DISCARDED");
+        unexpectedStatus.discard(java.time.LocalDateTime.of(2026, 7, 5, 12, 0));
         setEntityId(unexpectedStatus, 104L);
         when(attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(1L, 2L))
                 .thenReturn(List.of(newest, active, unexpectedStatus, older));
@@ -568,29 +574,6 @@ class PracticeServiceTest {
 
         assertThrows(IllegalStateException.class, () -> {
             practiceService.saveInProgressAnswers(99L, 2L, Map.of());
-        });
-    }
-
-    @Test
-    void testDiscardAttemptSuccess() {
-        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        attempt.setStatus("IN_PROGRESS");
-
-        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
-
-        practiceService.discardAttempt(99L, 2L);
-        verify(attemptRepository).delete(attempt);
-    }
-
-    @Test
-    void testDiscardAttemptNotInProgressThrows() {
-        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        attempt.setStatus("SUBMITTED");
-
-        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
-
-        assertThrows(IllegalStateException.class, () -> {
-            practiceService.discardAttempt(99L, 2L);
         });
     }
 

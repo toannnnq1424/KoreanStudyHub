@@ -202,6 +202,51 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     }
 
     @Test
+    void discardEnqueueEscalatesRetentionButPreservesImmediateRetryBackoff() {
+        Long retentionTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(
+                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long discardTaskId = inTransaction(() -> taskService.enqueueDiscardAttempt(
+                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY, NOW));
+        assertThat(discardTaskId).isEqualTo(retentionTaskId);
+        var discardTask = repository.findById(discardTaskId).orElseThrow();
+        assertThat(discardTask.getCleanupReason())
+                .isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
+        assertThat(discardTask.getDueAt()).isEqualTo(NOW.plusHours(24));
+        assertThat(discardTask.getNextAttemptAt()).isEqualTo(NOW);
+
+        var discardSnapshot = taskService.processingSnapshot(discardTaskId).orElseThrow();
+        taskService.markRetry(
+                discardTaskId,
+                discardSnapshot.lockVersion(),
+                discardSnapshot.attemptCount(),
+                PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+        var retryBefore = repository.findById(discardTaskId).orElseThrow();
+        inTransaction(() -> taskService.enqueueDiscardAttempt(
+                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY, NOW));
+        var retryAfter = repository.findById(discardTaskId).orElseThrow();
+        assertThat(retryAfter.getAttemptCount()).isEqualTo(retryBefore.getAttemptCount());
+        assertThat(retryAfter.getNextAttemptAt()).isEqualTo(retryBefore.getNextAttemptAt());
+        assertThat(retryAfter.getLastErrorCode()).isEqualTo(retryBefore.getLastErrorCode());
+
+        Long logicalId = inTransaction(() -> taskService.enqueueLogicalDelete(
+                PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY));
+        var logicalSnapshot = taskService.processingSnapshot(logicalId).orElseThrow();
+        taskService.markRetry(
+                logicalId,
+                logicalSnapshot.lockVersion(),
+                logicalSnapshot.attemptCount(),
+                PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+        var logicalBefore = repository.findById(logicalId).orElseThrow();
+        inTransaction(() -> taskService.enqueueDiscardAttempt(
+                PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY, NOW));
+        var logicalAfter = repository.findById(logicalId).orElseThrow();
+        assertThat(logicalAfter.getCleanupReason())
+                .isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
+        assertThat(logicalAfter.getAttemptCount()).isEqualTo(logicalBefore.getAttemptCount());
+        assertThat(logicalAfter.getNextAttemptAt()).isEqualTo(logicalBefore.getNextAttemptAt());
+    }
+
+    @Test
     void requiresNewOrphanEnqueueSurvivesOuterTransactionRollback() {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
         assertThatThrownBy(() -> template.execute(status -> {

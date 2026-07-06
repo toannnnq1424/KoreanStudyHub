@@ -76,12 +76,21 @@ public class PracticeSpeakingMediaCleanupTask {
             PracticeSpeakingStorageProvider storageProvider,
             String storageKey,
             LocalDateTime dueAt) {
+        return pending(cleanupReason, storageProvider, storageKey, dueAt, dueAt);
+    }
+
+    public static PracticeSpeakingMediaCleanupTask pending(
+            PracticeSpeakingMediaCleanupReason cleanupReason,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageKey,
+            LocalDateTime dueAt,
+            LocalDateTime nextAttemptAt) {
         PracticeSpeakingMediaCleanupTask task = new PracticeSpeakingMediaCleanupTask();
         task.cleanupReason = require(cleanupReason, "cleanupReason");
         task.storageProvider = require(storageProvider, "storageProvider");
         task.storageKey = canonicalStorageKey(storageKey);
         task.dueAt = require(dueAt, "dueAt");
-        task.nextAttemptAt = dueAt;
+        task.nextAttemptAt = require(nextAttemptAt, "nextAttemptAt");
         task.status = PracticeSpeakingMediaCleanupStatus.PENDING;
         task.attemptCount = 0L;
         return task;

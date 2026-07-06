@@ -121,6 +121,10 @@ public class PracticeSpeakingMedia {
     }
 
     public void markDeleted() {
+        markDeleted(LocalDateTime.now());
+    }
+
+    public void markDeleted(LocalDateTime deletedAt) {
         if (status == PracticeSpeakingMediaStatus.DELETED) {
             return;
         }
@@ -128,7 +132,7 @@ public class PracticeSpeakingMedia {
             throw new IllegalStateException("Speaking media cannot be deleted from current state.");
         }
         status = PracticeSpeakingMediaStatus.DELETED;
-        deletedAt = LocalDateTime.now();
+        this.deletedAt = java.util.Objects.requireNonNull(deletedAt, "deletedAt");
     }
 
     public Long getId() { return id; }

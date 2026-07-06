@@ -74,6 +74,22 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 now());
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueDiscardAttempt(
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageKey,
+            LocalDateTime discardedAt) {
+        if (discardedAt == null) {
+            throw new IllegalArgumentException("discardedAt is required.");
+        }
+        return enqueue(
+                PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT,
+                storageProvider,
+                storageKey,
+                discardedAt.plusHours(24),
+                discardedAt);
+    }
+
     @Transactional(readOnly = true)
     public Optional<CleanupProcessingSnapshot> processingSnapshot(Long taskId) {
         return repository.findById(taskId).map(PracticeSpeakingMediaCleanupTask::toProcessingSnapshot);
@@ -120,13 +136,23 @@ public class PracticeSpeakingMediaCleanupTaskService {
                          PracticeSpeakingStorageProvider storageProvider,
                          String storageKey,
                          LocalDateTime dueAt) {
+        return enqueue(reason, storageProvider, storageKey, dueAt, dueAt);
+    }
+
+    private Long enqueue(PracticeSpeakingMediaCleanupReason reason,
+                         PracticeSpeakingStorageProvider storageProvider,
+                         String storageKey,
+                         LocalDateTime dueAt,
+                         LocalDateTime nextAttemptAt) {
         PracticeSpeakingMediaCleanupTask candidate =
-                PracticeSpeakingMediaCleanupTask.pending(reason, storageProvider, storageKey, dueAt);
+                PracticeSpeakingMediaCleanupTask.pending(
+                        reason, storageProvider, storageKey, dueAt, nextAttemptAt);
         repository.insertOrKeepExisting(
                 reason.name(),
                 storageProvider.name(),
                 candidate.getStorageKey(),
-                dueAt);
+                dueAt,
+                nextAttemptAt);
         return repository.findByStorageProviderAndStorageKey(storageProvider, candidate.getStorageKey())
                 .orElseThrow(() -> new IllegalStateException("Cleanup task was not persisted."))
                 .getId();

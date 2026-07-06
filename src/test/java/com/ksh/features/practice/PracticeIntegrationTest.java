@@ -19,6 +19,7 @@ import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,6 +93,9 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeService practiceService;
+
+    @Autowired
+    private PracticeAttemptDiscardService attemptDiscardService;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -1090,17 +1094,56 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testDiscardAttempt() throws Exception {
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), 1L, "READING", 1L);
+        PracticeAttempt attempt = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         attempt.setStatus("IN_PROGRESS");
         attempt = attemptRepository.saveAndFlush(attempt);
 
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/discard")
                         .with(csrf())
                         .param("setId", String.valueOf(practiceSet.getId()))
-                        .param("testId", "1"))
+                        .param("testId", String.valueOf(defaultTest.getId())))
                 .andExpect(status().is3xxRedirection());
 
-        assertThat(attemptRepository.findById(attempt.getId())).isEmpty();
+        PracticeAttempt discarded = attemptRepository.findById(attempt.getId()).orElseThrow();
+        assertThat(discarded.getStatus()).isEqualTo(PracticeAttempt.STATUS_DISCARDED);
+        assertThat(discarded.getDiscardedAt()).isNotNull();
+
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/discard")
+                        .with(csrf())
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", String.valueOf(defaultTest.getId())))
+                .andExpect(status().is3xxRedirection());
+        assertThat(attemptRepository.findById(attempt.getId()).orElseThrow().getDiscardedAt())
+                .isEqualTo(discarded.getDiscardedAt());
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
+                .andExpect(status().isNotFound());
+        assertThat(practiceService.getSetAttemptHistory(practiceSet.getId(), student.getId()))
+                .noneMatch(row -> row.id().equals(discarded.getId()));
+        assertThat(practiceService.getLearningProgressOverview(student.getId(), "Student", "").totalAttempts())
+                .isZero();
+
+        Long restartedId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        assertThat(restartedId).isNotEqualTo(attempt.getId());
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void testDiscardAttemptRequiresCsrf() throws Exception {
+        PracticeAttempt attempt = attemptRepository.saveAndFlush(new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId()));
+
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/discard")
+                        .param("setId", String.valueOf(practiceSet.getId()))
+                        .param("testId", String.valueOf(defaultTest.getId())))
+                .andExpect(status().isForbidden());
+
+        assertThat(attemptRepository.findById(attempt.getId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
     }
 
     @Test
@@ -1471,18 +1514,19 @@ class PracticeIntegrationTest {
         try {
         when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
-                    practiceService.discardAttempt(fixture.attemptId(), student.getId());
+                    attemptDiscardService.discardForOwner(fixture.attemptId(), student.getId());
                     return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
                 });
 
-        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+        assertThrows(PracticeAttemptConflictException.class,
                 () -> practiceService.submitAttempt(
                         fixture.attemptId(),
                         student.getId(),
                         Map.of("answer_" + fixture.questionId(), "Submitted answer")
                 ));
 
-        assertTrue(attemptRepository.findById(fixture.attemptId()).isEmpty());
+        assertEquals(PracticeAttempt.STATUS_DISCARDED,
+                attemptRepository.findById(fixture.attemptId()).orElseThrow().getStatus());
         } finally {
             deleteWritingAttemptFixture(fixture);
         }

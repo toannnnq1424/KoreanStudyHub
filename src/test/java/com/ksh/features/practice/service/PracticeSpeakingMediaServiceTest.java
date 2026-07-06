@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.aop.support.AopUtils;
@@ -50,6 +51,12 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 class PracticeSpeakingMediaServiceTest {
@@ -65,6 +72,18 @@ class PracticeSpeakingMediaServiceTest {
 
     @Autowired
     private PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
+
+    @Autowired
+    private PracticeAttemptDiscardTransactionService discardTransactionService;
+
+    @Autowired
+    private PracticeAttemptDiscardService discardService;
+
+    @Autowired
+    private PracticeService practiceService;
+
+    @MockBean
+    private PracticeSpeakingMediaCleanupProcessor cleanupProcessor;
 
     @Autowired
     private PracticeSetRepository setRepository;
@@ -95,6 +114,226 @@ class PracticeSpeakingMediaServiceTest {
     void cleanupSyntheticSpeakingMedia() {
         jdbcTemplate.update("DELETE FROM practice_speaking_media_cleanup_tasks WHERE storage_key LIKE 'learner-speaking/%'");
         jdbcTemplate.update("DELETE FROM practice_speaking_media WHERE storage_key LIKE 'learner-speaking/%'");
+    }
+
+    @Test
+    void discardMigrationAddsStatusTimestampReasonAndReadModelIndex() {
+        List<String> attemptColumns = jdbcTemplate.queryForList("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'practice_attempts'
+                """, String.class);
+        assertThat(attemptColumns).contains("discarded_at");
+
+        List<String> constraints = jdbcTemplate.queryForList("""
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE table_schema = DATABASE()
+                  AND table_name IN ('practice_attempts', 'practice_speaking_media_cleanup_tasks')
+                """, String.class);
+        assertThat(constraints).contains(
+                "chk_pa_status",
+                "chk_pa_discarded_at",
+                "chk_psm_cleanup_reason");
+
+        List<String> indexes = jdbcTemplate.queryForList("""
+                SELECT DISTINCT index_name
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'practice_attempts'
+                """, String.class);
+        assertThat(indexes).contains("idx_pa_user_status_created_id");
+    }
+
+    @Test
+    void discardMigrationEnforcesStatusTimestampAndCleanupReasonChecks() {
+        Fixture fixture = createSpeakingFixture("discard-checks");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE practice_attempts SET status = 'DISCARDED', discarded_at = NULL WHERE id = ?",
+                fixture.attemptId()))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE practice_attempts SET discarded_at = CURRENT_TIMESTAMP(6) WHERE id = ?",
+                fixture.attemptId()))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                INSERT INTO practice_speaking_media_cleanup_tasks
+                    (cleanup_reason, storage_provider, storage_key, due_at, next_attempt_at, status, attempt_count)
+                VALUES ('INVALID_REASON', 'LOCAL', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'PENDING', 0)
+                """, key("invalid-reason.webm")))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
+    @Test
+    void discardTombstonesAttemptClearsContentDeletesAllMediaAndIsIdempotent() {
+        Fixture fixture = createSpeakingFixture("discard-lifecycle");
+        PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        attempt.setAnswersJson("{\"answer\":\"secret\"}");
+        attempt.setAiFeedbackJson("{\"feedback\":\"secret\"}");
+        attempt.setScore(BigDecimal.TEN);
+        attempt.setTotalPoints(BigDecimal.TEN);
+        attempt.setAnalysisStatus(PracticeAttempt.ANALYSIS_PROCESSING);
+        attempt.setAnalysisRequestedAt(java.time.LocalDateTime.now().minusMinutes(1));
+        attemptRepository.saveAndFlush(attempt);
+
+        PracticeSpeakingMedia ready = mediaRepository.saveAndFlush(readyMedia(fixture, "discard-ready.webm"));
+        PracticeSpeakingMedia superseded = readyMedia(fixture, "discard-superseded.webm");
+        superseded.markSuperseded();
+        superseded = mediaRepository.saveAndFlush(superseded);
+        PracticeSpeakingMedia deleted = readyMedia(fixture, "discard-deleted.webm");
+        deleted.markDeleted();
+        deleted = mediaRepository.saveAndFlush(deleted);
+
+        PracticeAttemptDiscardResult first = discardTransactionService.discardForOwner(
+                fixture.attemptId(), fixture.userId());
+        PracticeAttempt discarded = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        assertThat(discarded.getStatus()).isEqualTo(PracticeAttempt.STATUS_DISCARDED);
+        assertThat(discarded.getDiscardedAt()).isEqualTo(first.discardedAt());
+        assertThat(discarded.getAnswersJson()).isNull();
+        assertThat(discarded.getAiFeedbackJson()).isNull();
+        assertThat(discarded.getScore()).isNull();
+        assertThat(discarded.getTotalPoints()).isNull();
+        assertThat(discarded.getAnalysisStatus()).isEqualTo(PracticeAttempt.ANALYSIS_NOT_REQUESTED);
+        assertThat(discarded.getAnalysisRequestedAt()).isNull();
+
+        assertThat(mediaRepository.findAllById(List.of(ready.getId(), superseded.getId(), deleted.getId())))
+                .extracting(PracticeSpeakingMedia::getStatus)
+                .containsOnly(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(first.cleanupTaskCount()).isEqualTo(3);
+        assertThat(first.immediateCleanupTaskIds()).hasSize(3);
+        var tasks = cleanupTaskRepository.findAll();
+        assertThat(tasks).filteredOn(task -> task.getStorageKey().contains("discard-"))
+                .allSatisfy(task -> {
+                    assertThat(task.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
+                    assertThat(task.getDueAt()).isEqualTo(first.discardedAt().plusHours(24));
+                    assertThat(task.getNextAttemptAt()).isEqualTo(first.discardedAt());
+                });
+
+        Long taskId = first.immediateCleanupTaskIds().get(0);
+        var snapshot = cleanupTaskService.processingSnapshot(taskId).orElseThrow();
+        cleanupTaskService.markRetry(
+                taskId,
+                snapshot.lockVersion(),
+                snapshot.attemptCount(),
+                com.ksh.entities.PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+        var retryBefore = cleanupTaskRepository.findById(taskId).orElseThrow();
+        var retryAt = retryBefore.getNextAttemptAt();
+        var discardedAt = discarded.getDiscardedAt();
+
+        PracticeAttemptDiscardResult repeated = discardTransactionService.discardForOwner(
+                fixture.attemptId(), fixture.userId());
+        var retryAfter = cleanupTaskRepository.findById(taskId).orElseThrow();
+        assertThat(repeated.discardedAt()).isEqualTo(discardedAt);
+        assertThat(repeated.immediateCleanupTaskIds()).doesNotContain(taskId);
+        assertThat(retryAfter.getAttemptCount()).isEqualTo(1L);
+        assertThat(retryAfter.getNextAttemptAt()).isEqualTo(retryAt);
+        assertThat(cleanupTaskRepository.findAll()).filteredOn(task -> task.getStorageKey().contains("discard-"))
+                .hasSize(3);
+
+        clearInvocations(cleanupProcessor);
+        discardService.discardForOwner(fixture.attemptId(), fixture.userId());
+        verify(cleanupProcessor, never()).processTaskNow(taskId);
+
+        Long restartedId = practiceService.startAttempt(
+                fixture.setId(), fixture.testId(), fixture.sectionId(), fixture.userId());
+        assertThat(restartedId).isNotEqualTo(fixture.attemptId());
+        assertThat(attemptRepository.findById(fixture.attemptId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeAttempt.STATUS_DISCARDED);
+        assertThatThrownBy(() -> practiceService.getPracticeAttempt(fixture.attemptId(), fixture.userId()))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+    }
+
+    @Test
+    void discardEnqueueFailureRollsBackAttemptContentAndMedia() {
+        Fixture fixture = createSpeakingFixture("discard-rollback");
+        PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        attempt.setAnswersJson("{\"answer\":\"preserved\"}");
+        attemptRepository.saveAndFlush(attempt);
+        PracticeSpeakingMedia invalid = PracticeSpeakingMedia.ready(
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                PracticeSpeakingStorageProvider.LOCAL,
+                "learner-speaking/invalid-" + System.nanoTime() + "/bad\nkey.webm",
+                "audio/webm", "webm", "opus", 1L, 1000L, hash("rollback"));
+        invalid = mediaRepository.saveAndFlush(invalid);
+
+        Long mediaId = invalid.getId();
+        assertThatThrownBy(() -> discardTransactionService.discardForOwner(
+                fixture.attemptId(), fixture.userId()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        PracticeAttempt preserved = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        assertThat(preserved.getStatus()).isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
+        assertThat(preserved.getDiscardedAt()).isNull();
+        assertThat(preserved.getAnswersJson()).contains("preserved");
+        assertThat(mediaRepository.findById(mediaId).orElseThrow().getStatus())
+                .isEqualTo(PracticeSpeakingMediaStatus.READY);
+    }
+
+    @Test
+    void uploadPreflightBeforeDiscardCannotActivateAfterDiscardCommits() {
+        Fixture fixture = createSpeakingFixture("discard-upload-race");
+        service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId());
+
+        discardTransactionService.discardForOwner(fixture.attemptId(), fixture.userId());
+
+        assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                descriptor("discard-race-new.webm")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("before submit");
+        assertThat(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                PracticeSpeakingMediaStatus.READY)).isEmpty();
+    }
+
+    @Test
+    void activationThatCommitsFirstIsCollectedByFollowingDiscard() {
+        Fixture fixture = createSpeakingFixture("activation-before-discard");
+        SpeakingMediaActivationResult activated = service.activateValidatedMediaForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                descriptor("activation-before-discard.webm"));
+
+        PracticeAttemptDiscardResult discarded = discardTransactionService.discardForOwner(
+                fixture.attemptId(), fixture.userId());
+
+        assertThat(mediaRepository.findById(activated.mediaId()).orElseThrow().getStatus())
+                .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(discarded.cleanupTaskCount()).isEqualTo(1);
+        assertThat(cleanupTaskRepository.findById(discarded.immediateCleanupTaskIds().get(0)).orElseThrow()
+                .getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
+    }
+
+    @Test
+    void discardPersistsEveryTaskButProcessesAtMostOneHundredAfterCommit() {
+        Fixture fixture = createSpeakingFixture("discard-bounded");
+        for (int i = 0; i < 101; i++) {
+            mediaRepository.save(readyMedia(fixture, "discard-bounded-" + i + ".webm"));
+        }
+        mediaRepository.flush();
+        clearInvocations(cleanupProcessor);
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return null;
+        }).when(cleanupProcessor).processTaskNow(anyLong());
+
+        PracticeAttemptDiscardResult result = discardService.discardForOwner(
+                fixture.attemptId(), fixture.userId());
+
+        assertThat(result.cleanupTaskCount()).isEqualTo(101);
+        assertThat(result.immediateCleanupTaskIds()).hasSize(100);
+        assertThat(cleanupTaskRepository.findAll())
+                .filteredOn(task -> task.getStorageKey().contains("discard-bounded-"))
+                .hasSize(101);
+        verify(cleanupProcessor, times(100)).processTaskNow(anyLong());
     }
 
     @Test

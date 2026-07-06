@@ -7,6 +7,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.User;
@@ -41,15 +42,18 @@ public class PracticeController {
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);
 
     private final PracticeService practiceService;
+    private final PracticeAttemptDiscardService attemptDiscardService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
 
     public PracticeController(PracticeService practiceService,
+                              PracticeAttemptDiscardService attemptDiscardService,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
                               com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository) {
         this.practiceService = practiceService;
+        this.attemptDiscardService = attemptDiscardService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.sectionRepository = sectionRepository;
@@ -142,12 +146,7 @@ public class PracticeController {
                                  @RequestParam("testId") Long testId,
                                  @AuthenticationPrincipal KshUserDetails user,
                                  RedirectAttributes redirectAttributes) {
-        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.BAD_REQUEST, "Chỉ có thể hủy lượt làm bài chưa hoàn thành.");
-        }
-        practiceService.discardAttempt(attemptId, user.getId());
+        attemptDiscardService.discardForOwner(attemptId, user.getId());
         redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
         return "redirect:/practice/sets/" + setId + "/tests/" + testId;
     }

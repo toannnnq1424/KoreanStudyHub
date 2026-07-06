@@ -287,6 +287,7 @@ public class PracticeService {
     public PracticeResultView getResult(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
+        rejectDiscardedAttempt(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
@@ -667,6 +668,12 @@ public class PracticeService {
                 || PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus());
     }
 
+    private void rejectDiscardedAttempt(PracticeAttempt attempt) {
+        if (PracticeAttempt.STATUS_DISCARDED.equals(attempt.getStatus())) {
+            throw new EntityNotFoundException("Lượt làm bài không tồn tại");
+        }
+    }
+
     private boolean hasValidProgressScore(PracticeAttempt attempt) {
         return isCompletedProgressAttempt(attempt) && attempt.getScore() != null;
     }
@@ -754,8 +761,11 @@ public class PracticeService {
 
     private com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview buildAttemptProgressOverview(
             Long userId, String displayName, String avatarUrl) {
-        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        List<PracticeAttempt> recentAttempts = attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(userId);
+        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                userId, PracticeAttempt.STATUS_DISCARDED);
+        List<PracticeAttempt> recentAttempts =
+                attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                        userId, PracticeAttempt.STATUS_DISCARDED);
         String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
 
         List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> skillMetrics = new ArrayList<>();
@@ -866,8 +876,11 @@ public class PracticeService {
     }
 
     private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics buildAttemptPracticeAnalytics(Long userId) {
-        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        List<PracticeAttempt> recentAttempts = attemptRepository.findTop100ByUserIdOrderByCreatedAtDesc(userId);
+        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                userId, PracticeAttempt.STATUS_DISCARDED);
+        List<PracticeAttempt> recentAttempts =
+                attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                        userId, PracticeAttempt.STATUS_DISCARDED);
 
         if (allAttempts.isEmpty()) {
             return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
@@ -1429,8 +1442,10 @@ public class PracticeService {
 
     @Transactional(readOnly = true)
     public PracticeAttempt getPracticeAttempt(Long attemptId, Long userId) {
-        return attemptRepository.findByIdAndUserId(attemptId, userId)
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Lượt làm bài không tồn tại"));
+        rejectDiscardedAttempt(attempt);
+        return attempt;
     }
 
     @Transactional(readOnly = true)
@@ -1722,17 +1737,6 @@ public class PracticeService {
         attemptRepository.save(attempt);
     }
 
-    @Transactional
-    public void discardAttempt(Long attemptId, Long userId) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lượt làm bài"));
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể hủy lượt làm bài chưa hoàn thành.");
-        }
-        attemptRepository.delete(attempt);
-        log.info("[PracticeService] Discarded in-progress PracticeAttempt id={}", attemptId);
-    }
-
     @Transactional(readOnly = true)
     public List<PracticeAttemptHistoryRow> getSetAttemptHistory(Long setId, Long userId) {
         return attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(setId, userId).stream()
@@ -1759,6 +1763,7 @@ public class PracticeService {
     public PracticeAttemptResultView getAttemptResult(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
+        rejectDiscardedAttempt(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
 
@@ -1882,6 +1887,7 @@ public class PracticeService {
     public ReadingListeningResultView getReadingListeningResult(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
+        rejectDiscardedAttempt(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())

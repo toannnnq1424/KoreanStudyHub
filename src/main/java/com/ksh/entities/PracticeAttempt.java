@@ -27,6 +27,7 @@ public class PracticeAttempt {
     public static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
     public static final String STATUS_SUBMITTED = "SUBMITTED";
     public static final String STATUS_GRADED = "GRADED";
+    public static final String STATUS_DISCARDED = "DISCARDED";
 
     public static final String ANALYSIS_NOT_REQUESTED = "NOT_REQUESTED";
     public static final String ANALYSIS_QUEUED = "QUEUED";
@@ -96,6 +97,9 @@ public class PracticeAttempt {
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
+    @Column(name = "discarded_at")
+    private LocalDateTime discardedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -132,6 +136,7 @@ public class PracticeAttempt {
     // --- Score update helpers ---
 
     public void markSubmitted(BigDecimal score, BigDecimal totalPoints, String answersJson) {
+        requireNotDiscarded();
         this.score = score;
         this.totalPoints = totalPoints;
         this.answersJson = answersJson;
@@ -141,6 +146,7 @@ public class PracticeAttempt {
 
     public void markGraded(BigDecimal score, BigDecimal totalPoints,
                            String answersJson, String aiFeedbackJson) {
+        requireNotDiscarded();
         this.score = score;
         this.totalPoints = totalPoints;
         this.answersJson = answersJson;
@@ -151,6 +157,7 @@ public class PracticeAttempt {
 
     public void markAnalysisSucceeded(BigDecimal score, String aiFeedbackJson,
                                        Long usageId, String engine) {
+        requireNotDiscarded();
         this.score = score;
         this.aiFeedbackJson = aiFeedbackJson;
         this.analysisStatus = ANALYSIS_SUCCEEDED;
@@ -161,10 +168,42 @@ public class PracticeAttempt {
     }
 
     public void markAnalysisFailed(String errorCode, Long usageId) {
+        requireNotDiscarded();
         this.analysisStatus = ANALYSIS_FAILED;
         this.analysisCompletedAt = LocalDateTime.now();
         this.analysisErrorCode = errorCode;
         this.analysisUsageId = usageId;
+    }
+
+    public void discard(LocalDateTime discardedAt) {
+        if (STATUS_DISCARDED.equals(status)) {
+            return;
+        }
+        if (!STATUS_IN_PROGRESS.equals(status)) {
+            throw new IllegalStateException("Only an in-progress attempt can be discarded.");
+        }
+        if (discardedAt == null) {
+            throw new IllegalArgumentException("discardedAt is required.");
+        }
+        status = STATUS_DISCARDED;
+        this.discardedAt = discardedAt;
+        score = null;
+        totalPoints = null;
+        answersJson = null;
+        aiFeedbackJson = null;
+        analysisStatus = ANALYSIS_NOT_REQUESTED;
+        analysisRequestedAt = null;
+        analysisCompletedAt = null;
+        analysisUsageId = null;
+        analysisEngine = null;
+        analysisErrorCode = null;
+        submittedAt = null;
+    }
+
+    private void requireNotDiscarded() {
+        if (STATUS_DISCARDED.equals(status)) {
+            throw new IllegalStateException("A discarded attempt cannot be changed.");
+        }
     }
 
     public boolean isObjectiveSkill() {
@@ -197,10 +236,17 @@ public class PracticeAttempt {
     public String getAnalysisErrorCode() { return analysisErrorCode; }
     public LocalDateTime getStartedAt() { return startedAt; }
     public LocalDateTime getSubmittedAt() { return submittedAt; }
+    public LocalDateTime getDiscardedAt() { return discardedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
-    public void setStatus(String status) { this.status = status; }
+    public void setStatus(String status) {
+        if (STATUS_DISCARDED.equals(status)) {
+            throw new IllegalArgumentException("Use discard() for the discarded transition.");
+        }
+        requireNotDiscarded();
+        this.status = status;
+    }
     public void setLockVersion(Long lockVersion) { this.lockVersion = lockVersion; }
     public void setAnalysisStatus(String analysisStatus) { this.analysisStatus = analysisStatus; }
     public void setScore(BigDecimal score) { this.score = score; }
