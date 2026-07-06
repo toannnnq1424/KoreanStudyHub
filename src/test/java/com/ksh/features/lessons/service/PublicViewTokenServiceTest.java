@@ -6,7 +6,6 @@ import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.PublicViewToken;
 import com.ksh.entities.Section;
 import com.ksh.entities.User;
-import com.ksh.entities.UserFactory;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
@@ -14,7 +13,6 @@ import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.repository.PublicViewTokenRepository;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.features.lessons.service.PublicViewTokenService.AttachmentHandle;
-import com.ksh.security.Role;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration tests for {@link PublicViewTokenService}. Boots the full Spring
  * context with MySQL so the FK from {@code public_view_tokens.attachment_id}
  * to {@code lesson_attachments} and the token TTL/cleanup logic are exercised
- * end-to-end. Covers create → resolve → expiry → scheduled cleanup (KSH-4.x).
+ * end-to-end. Covers create → resolve → expiry → scheduled cleanup (ULP-4.x).
  */
 @SpringBootTest
 @Transactional
@@ -53,7 +51,7 @@ class PublicViewTokenServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         ClassEntity clazz = saveClass("Token test class", "PVTCLS");
         Section section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));

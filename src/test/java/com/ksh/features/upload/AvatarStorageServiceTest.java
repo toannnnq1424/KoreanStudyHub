@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AvatarStorageServiceTest {
 
     private final AvatarStorageService service =
-            new AvatarStorageService(System.getProperty("java.io.tmpdir") + "/ksh-test-uploads");
+            new AvatarStorageService(System.getProperty("java.io.tmpdir") + "/ulp-test-uploads");
 
     private static byte[] jpegBytes() {
         byte[] b = new byte[20];

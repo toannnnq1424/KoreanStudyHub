@@ -67,15 +67,15 @@ class SectionsControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        head = userRepository.findByEmailIgnoreCase("head@ulp.edu.vn").orElseThrow();
         clazz = saveClass("Lessons IT class", lecturer.getId(), "LESIT");
     }
 
     // ── Page render ─────────────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_lessons_page_returns_view_with_sections_in_model() throws Exception {
         Section s1 = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
@@ -95,7 +95,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_lessons_with_section_param_populates_selected_section() throws Exception {
         Section saved = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 5", (short) 0, lecturer.getId()));
@@ -110,7 +110,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_lessons_with_invalid_section_param_falls_back_to_all() throws Exception {
         // Section ID không tồn tại trong class này → silent fallback, không 404.
         mockMvc.perform(get("/lecturer/classes/" + clazz.getId() + "/lessons")
@@ -124,7 +124,7 @@ class SectionsControllerIntegrationTest {
     // ── Create section — full-page form ────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_section_new_renders_form_for_owner() throws Exception {
         mockMvc.perform(get("/lecturer/classes/" + clazz.getId() + "/lessons/new"))
                 .andExpect(status().isOk())
@@ -135,7 +135,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void post_section_with_valid_title_redirects_with_flash() throws Exception {
         mockMvc.perform(post("/lecturer/classes/" + clazz.getId() + "/lessons/sections")
                         .with(csrf())
@@ -151,7 +151,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void post_section_with_blank_title_re_renders_form_with_error() throws Exception {
         mockMvc.perform(post("/lecturer/classes/" + clazz.getId() + "/lessons/sections")
                         .with(csrf())
@@ -167,7 +167,7 @@ class SectionsControllerIntegrationTest {
     // ── Rename section — full-page form ────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_section_edit_renders_form_with_existing_title() throws Exception {
         Section saved = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Tên cũ", (short) 0, lecturer.getId()));
@@ -181,7 +181,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void post_section_edit_with_valid_title_updates_and_stays_on_edit_page() throws Exception {
         Section saved = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Tên cũ", (short) 0, lecturer.getId()));
@@ -203,7 +203,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_section_edit_eagerly_renders_history_panel() throws Exception {
         // Create + rename through the service so two audit rows are
         // written (CREATED + RENAMED). The plain GET (no ?tab= param)
@@ -225,7 +225,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void get_section_edit_with_history_tab_param_marks_active_tab() throws Exception {
         Section saved = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "T", (short) 0, lecturer.getId()));
@@ -240,7 +240,7 @@ class SectionsControllerIntegrationTest {
     // ── Delete section — JSON ──────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void delete_section_marks_soft_deleted_in_db() throws Exception {
         Section saved = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "To-be-deleted", (short) 0, lecturer.getId()));
@@ -259,7 +259,7 @@ class SectionsControllerIntegrationTest {
     // ── Reorder — JSON ─────────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void post_reorder_with_full_ordered_ids_returns_200() throws Exception {
         Section a = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "A", (short) 0, lecturer.getId()));
@@ -285,7 +285,7 @@ class SectionsControllerIntegrationTest {
     // ── Cross-owner forbidden ──────────────────────────────────────────
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("head@ulp.edu.vn")
     void head_can_create_section_in_lecturer_class() throws Exception {
         // HEAD has org-wide editing authority, so this should succeed
         // (proves the auth wiring uses isEditableBy, not lecturer-only).
@@ -298,7 +298,7 @@ class SectionsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails("student@ulp.edu.vn")
     void student_cannot_access_lessons_page() throws Exception {
         // Class-level @PreAuthorize blocks STUDENT: Spring Security returns
         // 403 for an authenticated user lacking the required role.

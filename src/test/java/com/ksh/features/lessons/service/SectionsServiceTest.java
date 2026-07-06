@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration tests for {@link SectionsService}.
  *
  * <p>Uses seeded users from {@code V5__seed_test_users.sql}. Each test gets
- * a fresh class owned by {@code lecturer@ksh.edu.vn} so the section state
+ * a fresh class owned by {@code lecturer@ulp.edu.vn} so the section state
  * does not bleed across tests.
  */
 @SpringBootTest
@@ -49,7 +49,7 @@ class SectionsServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         // The seed data contains a single LECTURER. Use HEAD as a "different
         // role" proxy for the negative-auth test below; an ad-hoc LECTURER
         // user is created locally so we can also exercise the LECTURER vs
@@ -300,7 +300,7 @@ class SectionsServiceTest {
      * contains a single lecturer account.
      */
     private User ensureExtraLecturer() {
-        String email = "lecturer-other@ksh.edu.vn";
+        String email = "lecturer-other@ulp.edu.vn";
         return userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             User u = UserFactory.newAdminCreated(
                     email,

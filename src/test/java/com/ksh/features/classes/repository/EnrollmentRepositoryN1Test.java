@@ -50,12 +50,12 @@ class EnrollmentRepositoryN1Test {
     @Test
     void find_all_by_class_status_uses_join_fetch_for_user() {
         // â”€â”€ Seed: 1 fresh class + N enrollments using already-seeded students â”€â”€
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
 
         long[] studentIds = new long[ENROLLMENT_COUNT];
         for (int i = 0; i < ENROLLMENT_COUNT; i++) {
-            studentIds[i] = lookupUserId(String.format("sv0%d@ksh.edu.vn", i + 1));
+            studentIds[i] = lookupUserId(String.format("sv0%d@ulp.edu.vn", i + 1));
             insertEnrollment(studentIds[i], classId);
         }
         em.flush();
@@ -90,9 +90,9 @@ class EnrollmentRepositoryN1Test {
     @Test
     void find_all_returns_user_initialized_with_accessible_fields() {
         // Smaller smoke check: even without measuring statements, ensure user fields are usable.
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
-        long studentId = lookupUserId("sv01@ksh.edu.vn");
+        long studentId = lookupUserId("sv01@ulp.edu.vn");
         insertEnrollment(studentId, classId);
         em.flush();
         em.clear();

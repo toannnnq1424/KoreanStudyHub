@@ -34,8 +34,8 @@ class EnrollmentRepositoryJoinQueriesTest {
 
     @Test
     void find_by_user_and_class_returns_existing_row() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
-        long studentId = lookupUserId("sv01@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long studentId = lookupUserId("sv01@ulp.edu.vn");
         long classId = insertClass(lecturerId);
         insertEnrollment(studentId, classId, "ACTIVE");
         em.flush();
@@ -49,8 +49,8 @@ class EnrollmentRepositoryJoinQueriesTest {
 
     @Test
     void find_by_user_and_class_returns_empty_when_no_row() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
-        long studentId = lookupUserId("sv01@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long studentId = lookupUserId("sv01@ulp.edu.vn");
         long classId = insertClass(lecturerId);
         em.flush();
         em.clear();
@@ -62,8 +62,8 @@ class EnrollmentRepositoryJoinQueriesTest {
 
     @Test
     void list_by_user_and_status_returns_only_active() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
-        long studentId = lookupUserId("sv02@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        long studentId = lookupUserId("sv02@ulp.edu.vn");
         long activeClass = insertClass(lecturerId);
         long removedClass = insertClass(lecturerId);
         insertEnrollment(studentId, activeClass, "ACTIVE");
@@ -86,11 +86,11 @@ class EnrollmentRepositoryJoinQueriesTest {
 
     @Test
     void count_active_by_class_id_returns_active_count() {
-        long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
         long classId = insertClass(lecturerId);
-        insertEnrollment(lookupUserId("sv01@ksh.edu.vn"), classId, "ACTIVE");
-        insertEnrollment(lookupUserId("sv02@ksh.edu.vn"), classId, "ACTIVE");
-        insertEnrollment(lookupUserId("sv03@ksh.edu.vn"), classId, "REMOVED");
+        insertEnrollment(lookupUserId("sv01@ulp.edu.vn"), classId, "ACTIVE");
+        insertEnrollment(lookupUserId("sv02@ulp.edu.vn"), classId, "ACTIVE");
+        insertEnrollment(lookupUserId("sv03@ulp.edu.vn"), classId, "REMOVED");
         em.flush();
         em.clear();
 

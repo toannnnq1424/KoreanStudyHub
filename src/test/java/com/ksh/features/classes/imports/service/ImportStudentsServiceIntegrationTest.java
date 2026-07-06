@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Uses seeded users from {@code V5__seed_test_users.sql} and
  * {@code V8__seed_fake_students.sql}. The test creates a fresh class owned by
- * {@code lecturer@ksh.edu.vn}, builds an in-memory Excel file, runs preview +
+ * {@code lecturer@ulp.edu.vn}, builds an in-memory Excel file, runs preview +
  * confirm, and verifies enrollments + activity logging.
  */
 @SpringBootTest
@@ -53,15 +53,15 @@ class ImportStudentsServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         clazz = saveClass("Import IT class", lecturer.getId(), "IMPIT");
     }
 
     @Test
     void full_flow_imports_ok_rows_and_skips_invalid() throws IOException {
         MultipartFile file = build(new String[]{"Email", "MSSV", "Họ tên", "SĐT"}, new String[][]{
-                {"sv01@ksh.edu.vn", "SV0001", "Đỗ Khắc Nam", "0971761607"}, // OK — valid student
-                {"sv02@ksh.edu.vn", "SV0002", "Trần Thu Hà", "0905123456"}, // OK — valid student
+                {"sv01@ulp.edu.vn", "SV0001", "Đỗ Khắc Nam", "0971761607"}, // OK — valid student
+                {"sv02@ulp.edu.vn", "SV0002", "Trần Thu Hà", "0905123456"}, // OK — valid student
                 {"ghost@nowhere.vn", "SV9999", "Ghost",       "0900000000"}, // USER_NOT_FOUND
                 {"",                 "",       "Empty Row",   ""}            // MISSING_REQUIRED
         });
@@ -93,7 +93,7 @@ class ImportStudentsServiceIntegrationTest {
     @Test
     void confirm_with_errors_and_skip_false_returns_without_writing() throws IOException {
         MultipartFile file = build(new String[]{"Email", "MSSV"}, new String[][]{
-                {"sv03@ksh.edu.vn", "SV0003"},  // OK
+                {"sv03@ulp.edu.vn", "SV0003"},  // OK
                 {"not-an-email",   "BAD"}      // INVALID_EMAIL
         });
 
@@ -114,13 +114,13 @@ class ImportStudentsServiceIntegrationTest {
     @Test
     void re_enroll_reactivates_previously_removed_enrollment() throws IOException {
         // Pre-seed: sv04 is in the class as REMOVED.
-        User sv04 = userRepository.findByEmailIgnoreCase("sv04@ksh.edu.vn").orElseThrow();
+        User sv04 = userRepository.findByEmailIgnoreCase("sv04@ulp.edu.vn").orElseThrow();
         Enrollment seeded = new Enrollment(sv04, clazz.getId(), "MANUAL", null);
         seeded.markRemoved();
         enrollmentRepository.saveAndFlush(seeded);
 
         MultipartFile file = build(new String[]{"Email", "MSSV"}, new String[][]{
-                {"sv04@ksh.edu.vn", "SV0004"}
+                {"sv04@ulp.edu.vn", "SV0004"}
         });
 
         ImportSession session = importStudentsService.previewUpload(

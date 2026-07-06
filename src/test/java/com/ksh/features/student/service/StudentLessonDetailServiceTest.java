@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link StudentLessonDetailService#getLessonDetail} (ksh-4.2).
+ * Integration tests for {@link StudentLessonDetailService#getLessonDetail} (ULP-4.2).
  * Boots the full Spring context with MySQL so {@code @SQLRestriction} on
  * {@link Lesson} / {@link ClassEntity} is exercised end-to-end.
  */
@@ -55,8 +55,8 @@ class StudentLessonDetailServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        student = ensureUser("student-lesson-detail@ksh.edu.vn", "Student Detail");
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        student = ensureUser("student-lesson-detail@ulp.edu.vn", "Student Detail");
         clazz = saveClass("Lesson detail class", "SLDCLS");
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));

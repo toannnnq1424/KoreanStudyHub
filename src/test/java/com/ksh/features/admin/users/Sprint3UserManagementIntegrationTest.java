@@ -48,8 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code /admin/departments} routing regression.
  *
  * <p>Seed users from {@code V5__seed_test_users.sql}:
- * {@code admin@ksh.edu.vn}, {@code lecturer@ksh.edu.vn}, {@code head@ksh.edu.vn},
- * {@code student@ksh.edu.vn} — password {@code "password"} for all.
+ * {@code admin@ulp.edu.vn}, {@code lecturer@ulp.edu.vn}, {@code head@ulp.edu.vn},
+ * {@code student@ulp.edu.vn} — password {@code "password"} for all.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -68,41 +68,41 @@ class Sprint3UserManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        admin = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn").orElseThrow();
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
+        admin = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        student = userRepository.findByEmailIgnoreCase("student@ulp.edu.vn").orElseThrow();
     }
 
     // ──────────────── List (12.2) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_default_renders_admin_users_template() throws Exception {
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/users"))
-                .andExpect(content().string(containsString("admin@ksh.edu.vn")));
+                .andExpect(content().string(containsString("admin@ulp.edu.vn")));
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_search_by_name_substring_is_case_insensitive() throws Exception {
         // Seeded admin's full_name = "System Admin"; query "SYS" must match.
         mockMvc.perform(get("/admin/users").param("q", "SYS"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("admin@ksh.edu.vn")));
+                .andExpect(content().string(containsString("admin@ulp.edu.vn")));
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_filter_by_role_returns_only_matching() throws Exception {
         mockMvc.perform(get("/admin/users").param("role", "STUDENT"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("student@ksh.edu.vn")));
+                .andExpect(content().string(containsString("student@ulp.edu.vn")));
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_filter_by_status_deleted_surfaces_soft_deleted_users() throws Exception {
         // Soft-delete the seeded student.
         student.softDelete();
@@ -110,15 +110,15 @@ class Sprint3UserManagementIntegrationTest {
 
         // Default filter hides them.
         mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(not(containsString("student@ksh.edu.vn"))));
+                .andExpect(content().string(not(containsString("student@ulp.edu.vn"))));
 
         // status=DELETED surfaces them.
         mockMvc.perform(get("/admin/users").param("status", "DELETED"))
-                .andExpect(content().string(containsString("student@ksh.edu.vn")));
+                .andExpect(content().string(containsString("student@ulp.edu.vn")));
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_page_size_is_clamped_to_max_100() throws Exception {
         mockMvc.perform(get("/admin/users").param("size", "10000"))
                 .andExpect(status().isOk());
@@ -127,7 +127,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void list_sort_by_rolePriority_orders_admin_before_student() throws Exception {
         // Seed data has: 1 ADMIN, 1 HEAD, 1 LECTURER, students. With rolePriority sort,
         // the ADMIN row's position in the rendered HTML must precede the student row.
@@ -135,15 +135,15 @@ class Sprint3UserManagementIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        int adminIdx = html.indexOf("admin@ksh.edu.vn");
-        int studentIdx = html.indexOf("student@ksh.edu.vn");
+        int adminIdx = html.indexOf("admin@ulp.edu.vn");
+        int studentIdx = html.indexOf("student@ulp.edu.vn");
         assertThat(adminIdx).isPositive();
         assertThat(studentIdx).isPositive();
         assertThat(adminIdx).isLessThan(studentIdx);
     }
 
     @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
+    @WithUserDetails("lecturer@ulp.edu.vn")
     void list_returns_403_for_non_admin() throws Exception {
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isForbidden());
@@ -152,7 +152,7 @@ class Sprint3UserManagementIntegrationTest {
     // ──────────────── Create (12.3) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void create_form_defaults_role_to_LECTURER() throws Exception {
         var result = mockMvc.perform(get("/admin/users/new"))
                 .andExpect(status().isOk())
@@ -165,12 +165,12 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void create_happy_path_persists_lowercased_email_and_writes_CREATED_activity() throws Exception {
         long activityBefore = activityRepository.count();
 
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "Brand.New@ksh.Edu.Vn")
+                        .param("email", "Brand.New@Ulp.Edu.Vn")
                         .param("fullName", "Brand New")
                         .param("role", "LECTURER")
                         .param("phone", "")
@@ -181,8 +181,8 @@ class Sprint3UserManagementIntegrationTest {
                 .andExpect(redirectedUrl("/admin/users"))
                 .andExpect(flash().attributeExists("flashSuccess"));
 
-        User saved = userRepository.findFirstByEmailIgnoreCase("brand.new@ksh.edu.vn").orElseThrow();
-        assertThat(saved.getEmail()).isEqualTo("brand.new@ksh.edu.vn");
+        User saved = userRepository.findFirstByEmailIgnoreCase("brand.new@ulp.edu.vn").orElseThrow();
+        assertThat(saved.getEmail()).isEqualTo("brand.new@ulp.edu.vn");
         assertThat(passwordEncoder.matches("temp1234", saved.getPasswordHash())).isTrue();
 
         assertThat(activityRepository.count()).isEqualTo(activityBefore + 1);
@@ -193,10 +193,10 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void create_rejects_duplicate_email_with_inline_error() throws Exception {
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "admin@ksh.edu.vn")
+                        .param("email", "admin@ulp.edu.vn")
                         .param("fullName", "Another Admin")
                         .param("role", "ADMIN")
                         .param("password", "temp1234")
@@ -207,11 +207,11 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void create_rejects_duplicate_email_case_insensitively() throws Exception {
-        // Seed admin email is "admin@ksh.edu.vn"; submit the same with mixed case.
+        // Seed admin email is "admin@ulp.edu.vn"; submit the same with mixed case.
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "ADMIN@ksh.EDU.VN")
+                        .param("email", "ADMIN@Ulp.EDU.VN")
                         .param("fullName", "Another Admin")
                         .param("role", "ADMIN")
                         .param("password", "temp1234")
@@ -222,10 +222,10 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void create_rejects_blank_fullName() throws Exception {
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "blank.name@ksh.edu.vn")
+                        .param("email", "blank.name@ulp.edu.vn")
                         .param("fullName", "")
                         .param("role", "LECTURER")
                         .param("password", "temp1234")
@@ -237,7 +237,7 @@ class Sprint3UserManagementIntegrationTest {
     // ──────────────── Edit (12.4) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void edit_happy_path_persists_changes_and_writes_UPDATED() throws Exception {
         long before = activityRepository.count();
 
@@ -268,7 +268,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void edit_role_change_writes_both_UPDATED_and_ROLE_CHANGED_rows() throws Exception {
         long before = activityRepository.count();
 
@@ -288,10 +288,10 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void edit_rejects_duplicate_email() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId()).with(csrf())
-                        .param("email", "admin@ksh.edu.vn")
+                        .param("email", "admin@ulp.edu.vn")
                         .param("fullName", lecturer.getFullName())
                         .param("role", "LECTURER")
                         .param("emailVerified", "true"))
@@ -301,7 +301,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void demoting_lecturer_who_owns_classes_surfaces_warning_flash() throws Exception {
         // Create a class owned by the lecturer so the demote-warning path fires.
         ClassEntity clazz = new ClassEntity(
@@ -322,7 +322,7 @@ class Sprint3UserManagementIntegrationTest {
     // ──────────────── Lifecycle (12.5) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void deactivate_then_activate_round_trips_correctly_and_audits() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/deactivate").with(csrf()))
                 .andExpect(status().is3xxRedirection());
@@ -340,7 +340,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void lock_with_reason_records_metadata_and_unlock_clears_it() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/lock").with(csrf())
                         .param("lockedReason", "Multiple complaints"))
@@ -364,7 +364,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void lock_blank_reason_redirects_with_flashError_and_lock_reopen_payload() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/lock").with(csrf())
                         .param("lockedReason", ""))
@@ -378,7 +378,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void reset_password_blank_redirects_with_flashError_and_reset_reopen_payload() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/reset-password").with(csrf())
                         .param("newPassword", ""))
@@ -389,7 +389,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void reset_password_stores_bcrypt_hash_and_audits_without_leaking_password() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/reset-password").with(csrf())
                         .param("newPassword", "newSecret123"))
@@ -408,18 +408,18 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void softDelete_hides_user_then_restore_brings_it_back() throws Exception {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/delete").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
         // Default list excludes the row.
         mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(not(containsString("lecturer@ksh.edu.vn"))));
+                .andExpect(content().string(not(containsString("lecturer@ulp.edu.vn"))));
 
         // DELETED filter surfaces it.
         mockMvc.perform(get("/admin/users").param("status", "DELETED"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+                .andExpect(content().string(containsString("lecturer@ulp.edu.vn")));
 
         // Audit row with type DELETED is recorded.
         assertThat(activityRepository.findAll().stream()
@@ -431,7 +431,7 @@ class Sprint3UserManagementIntegrationTest {
                 .andExpect(status().is3xxRedirection());
 
         mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+                .andExpect(content().string(containsString("lecturer@ulp.edu.vn")));
 
         // Audit row with type RESTORED is recorded.
         assertThat(activityRepository.findAll().stream()
@@ -443,14 +443,14 @@ class Sprint3UserManagementIntegrationTest {
     // ──────────────── Guards (12.6) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void self_deactivate_returns_403() throws Exception {
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/deactivate").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void self_lock_returns_403() throws Exception {
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/lock").with(csrf())
                         .param("lockedReason", "test"))
@@ -458,14 +458,14 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void self_delete_returns_403() throws Exception {
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/delete").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void self_reset_password_returns_403() throws Exception {
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/reset-password").with(csrf())
                         .param("newPassword", "trytochange"))
@@ -473,7 +473,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void last_active_admin_cannot_be_deactivated() throws Exception {
         // V2 seeds exactly one ADMIN; the guard refuses to deactivate that user.
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/deactivate").with(csrf()))
@@ -481,7 +481,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void last_active_admin_cannot_be_locked() throws Exception {
         // Self-protect AND last-admin both fire; either rejects with 403.
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/lock").with(csrf())
@@ -490,14 +490,14 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void last_active_admin_cannot_be_deleted() throws Exception {
         mockMvc.perform(post("/admin/users/" + admin.getId() + "/delete").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void last_active_admin_cannot_be_demoted_via_edit() throws Exception {
         // Self-protection ALSO triggers here (admin is editing self) — the
         // self-protect guard fires first when the role is being changed for
@@ -516,7 +516,7 @@ class Sprint3UserManagementIntegrationTest {
     // cover the non-self code path. Here we verify the seed assumption (1 active
     // admin) so the other last-admin integration tests above are meaningful.
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void only_one_active_admin_exists_in_seed() {
         assertThat(userRepository.countActiveAdmins("ADMIN")).isEqualTo(1L);
     }
@@ -527,7 +527,7 @@ class Sprint3UserManagementIntegrationTest {
     // because doing so would leave zero active admins (the actor themselves
     // is the only remaining one and the target was the other).
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void last_admin_demote_via_edit_other_account_is_blocked_endpoint() throws Exception {
         // The active admin pool currently has size 1 (just `admin`). Promote
         // the lecturer to ADMIN so the pool has size 2. Now demoting `admin`
@@ -559,9 +559,9 @@ class Sprint3UserManagementIntegrationTest {
 
     @Test
     void findByEmailIgnoreCase_resolves_mixed_case_input() {
-        var lookup1 = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn");
-        var lookup2 = userRepository.findByEmailIgnoreCase("Admin@ksh.edu.vn");
-        var lookup3 = userRepository.findByEmailIgnoreCase("ADMIN@ksh.EDU.VN");
+        var lookup1 = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn");
+        var lookup2 = userRepository.findByEmailIgnoreCase("Admin@ULP.edu.vn");
+        var lookup3 = userRepository.findByEmailIgnoreCase("ADMIN@ULP.EDU.VN");
 
         assertThat(lookup1).isPresent();
         assertThat(lookup2).isPresent();
@@ -618,7 +618,7 @@ class Sprint3UserManagementIntegrationTest {
     // ──────────────── Routing regression (12.9) ────────────────
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_departments_still_renders_placeholder() throws Exception {
         mockMvc.perform(get("/admin/departments"))
                 .andExpect(status().isOk())
@@ -626,7 +626,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_users_no_longer_renders_placeholder() throws Exception {
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isOk())
@@ -635,7 +635,7 @@ class Sprint3UserManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
+    @WithUserDetails("admin@ulp.edu.vn")
     void admin_users_new_form_sets_activeTab_users() throws Exception {
         mockMvc.perform(get("/admin/users/new"))
                 .andExpect(status().isOk())

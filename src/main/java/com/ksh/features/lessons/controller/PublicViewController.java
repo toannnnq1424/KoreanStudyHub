@@ -1,4 +1,4 @@
-package com.ksh.features.lessons.controller.support;
+package com.ksh.features.lessons.controller;
 
 import com.ksh.features.lessons.service.PublicViewTokenService;
 import com.ksh.features.lessons.service.PublicViewTokenService.AttachmentHandle;

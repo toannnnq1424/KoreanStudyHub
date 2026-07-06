@@ -28,7 +28,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,9 +60,9 @@ class LessonAttachmentsServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        otherLecturer = ensureUser("lecturer-other@ksh.edu.vn", "Lecturer Other", Role.LECTURER);
-        student = ensureUser("student-attach@ksh.edu.vn", "Student A", Role.STUDENT);
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        otherLecturer = ensureUser("lecturer-other@ulp.edu.vn", "Lecturer Other", Role.LECTURER);
+        student = ensureUser("student-attach@ulp.edu.vn", "Student A", Role.STUDENT);
         clazz = saveClass("Attachments class", lecturer.getId(), "ATTCLS");
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
