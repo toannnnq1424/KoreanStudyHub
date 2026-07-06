@@ -48,8 +48,8 @@ class StudentLessonsServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        student = ensureUser("student-lessons@ksh.edu.vn", "Student Lessons");
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        student = ensureUser("student-lessons@ulp.edu.vn", "Student Lessons");
         clazz = saveClass("Student lessons class", "STLSN1");
         section1 = sectionRepository.saveAndFlush(new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         section2 = sectionRepository.saveAndFlush(new Section(clazz.getId(), "Chương 2", (short) 1, lecturer.getId()));

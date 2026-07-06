@@ -40,7 +40,7 @@ class InviteCodeBackfillRunnerTest {
     @Test
     @Commit
     void backfill_brings_missing_classes_to_invariant_and_is_idempotent() {
-        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
 
         // â”€â”€ Seed 3 classes â”€â”€
         ClassEntity none = createClass(lecturer.getId(), "Backfill-None");

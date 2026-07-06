@@ -190,12 +190,12 @@ public class LessonsController {
         String videoProvider = form.videoProvider();
         if (CONTENT_TYPE_VIDEO.equals(form.effectiveContentType())
                 && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
-                || VIDEO_PROVIDER_VIMEO.equals(videoProvider))) {
+                    || VIDEO_PROVIDER_VIMEO.equals(videoProvider))) {
             String videoUrl = form.videoUrl();
             boolean validUrl = videoUrl != null
                     && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
-                    ? YouTubeEmbedUrl.matches(videoUrl)
-                    : VimeoEmbedUrl.matches(videoUrl));
+                        ? YouTubeEmbedUrl.matches(videoUrl)
+                        : VimeoEmbedUrl.matches(videoUrl));
             if (!validUrl) {
                 result.rejectValue("videoUrl", "video.url.invalid", MSG_VIDEO_URL_INVALID);
             }

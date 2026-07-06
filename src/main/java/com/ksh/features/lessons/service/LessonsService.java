@@ -25,6 +25,7 @@ import static com.ksh.common.IConstant.MSG_LESSON_NOT_FOUND;
 import static com.ksh.common.IConstant.VIDEO_PROVIDER_UPLOAD;
 import static com.ksh.common.IConstant.VIDEO_PROVIDER_VIMEO;
 import static com.ksh.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
+
 /**
  * Lesson CRUD service for the lessons tab.
  *
@@ -165,7 +166,7 @@ public class LessonsService {
         // only YouTube/Vimeo URLs flow in from the form.
         if (CONTENT_TYPE_VIDEO.equals(requestedType)
                 && (VIDEO_PROVIDER_YOUTUBE.equals(form.videoProvider())
-                || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider()))) {
+                    || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider()))) {
             lesson.setVideoProvider(form.videoProvider());
             lesson.setVideoUrl(form.videoUrl());
         }

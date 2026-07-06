@@ -66,7 +66,7 @@ class RowValidatorTest {
 
     @Test
     void user_not_found_when_email_does_not_match_any_user() {
-        ImportRow row = run(new ExcelParser.RawRow(2, "ghost@ksh.vn", "SV0001", "Ghost", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "ghost@ulp.vn", "SV0001", "Ghost", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.USER_NOT_FOUND);
     }
 
@@ -84,73 +84,73 @@ class RowValidatorTest {
 
     @Test
     void not_a_student_when_user_role_is_lecturer() {
-        User lecturer = stubUser(50L, "lect@ksh.vn", Role.LECTURER, true, false);
-        when(userRepository.findByEmailIgnoreCase("lect@ksh.vn")).thenReturn(Optional.of(lecturer));
+        User lecturer = stubUser(50L, "lect@ulp.vn", Role.LECTURER, true, false);
+        when(userRepository.findByEmailIgnoreCase("lect@ulp.vn")).thenReturn(Optional.of(lecturer));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "lect@ksh.vn", "SV0001", "Lecturer", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "lect@ulp.vn", "SV0001", "Lecturer", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.NOT_A_STUDENT);
     }
 
     @Test
     void user_inactive_when_user_is_locked() {
-        User locked = stubUser(60L, "locked@ksh.vn", Role.STUDENT, true, true);
-        when(userRepository.findByEmailIgnoreCase("locked@ksh.vn")).thenReturn(Optional.of(locked));
+        User locked = stubUser(60L, "locked@ulp.vn", Role.STUDENT, true, true);
+        when(userRepository.findByEmailIgnoreCase("locked@ulp.vn")).thenReturn(Optional.of(locked));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "locked@ksh.vn", "SV0001", "Locked", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "locked@ulp.vn", "SV0001", "Locked", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.USER_INACTIVE);
     }
 
     @Test
     void user_inactive_when_user_is_deactivated() {
-        User off = stubUser(61L, "off@ksh.vn", Role.STUDENT, false, false);
-        when(userRepository.findByEmailIgnoreCase("off@ksh.vn")).thenReturn(Optional.of(off));
+        User off = stubUser(61L, "off@ulp.vn", Role.STUDENT, false, false);
+        when(userRepository.findByEmailIgnoreCase("off@ulp.vn")).thenReturn(Optional.of(off));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "off@ksh.vn", "SV0001", "Off", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "off@ulp.vn", "SV0001", "Off", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.USER_INACTIVE);
     }
 
     @Test
     void duplicate_in_class_when_active_enrollment_already_exists() {
-        User student = stubUser(70L, "active@ksh.vn", Role.STUDENT, true, false);
-        when(userRepository.findByEmailIgnoreCase("active@ksh.vn")).thenReturn(Optional.of(student));
+        User student = stubUser(70L, "active@ulp.vn", Role.STUDENT, true, false);
+        when(userRepository.findByEmailIgnoreCase("active@ulp.vn")).thenReturn(Optional.of(student));
         Enrollment e = newEnrollment(student, "ACTIVE");
         when(enrollmentRepository.findByUserIdAndClassId(70L, CLASS_ID)).thenReturn(Optional.of(e));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "active@ksh.vn", "SV0001", "Active", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "active@ulp.vn", "SV0001", "Active", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.DUPLICATE_IN_CLASS);
         assertThat(row.getUserId()).isEqualTo(70L);
     }
 
     @Test
     void re_enroll_when_existing_enrollment_is_removed() {
-        User student = stubUser(80L, "removed@ksh.vn", Role.STUDENT, true, false);
-        when(userRepository.findByEmailIgnoreCase("removed@ksh.vn")).thenReturn(Optional.of(student));
+        User student = stubUser(80L, "removed@ulp.vn", Role.STUDENT, true, false);
+        when(userRepository.findByEmailIgnoreCase("removed@ulp.vn")).thenReturn(Optional.of(student));
         Enrollment e = newEnrollment(student, "REMOVED");
         when(enrollmentRepository.findByUserIdAndClassId(80L, CLASS_ID)).thenReturn(Optional.of(e));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "removed@ksh.vn", "SV0001", "Returned", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "removed@ulp.vn", "SV0001", "Returned", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.RE_ENROLL);
         assertThat(row.getUserId()).isEqualTo(80L);
     }
 
     @Test
     void ok_when_user_matches_and_no_existing_enrollment() {
-        User student = stubUser(90L, "ok@ksh.vn", Role.STUDENT, true, false);
-        when(userRepository.findByEmailIgnoreCase("ok@ksh.vn")).thenReturn(Optional.of(student));
+        User student = stubUser(90L, "ok@ulp.vn", Role.STUDENT, true, false);
+        when(userRepository.findByEmailIgnoreCase("ok@ulp.vn")).thenReturn(Optional.of(student));
 
-        ImportRow row = run(new ExcelParser.RawRow(2, "ok@ksh.vn", "SV0001", "OK", ""));
+        ImportRow row = run(new ExcelParser.RawRow(2, "ok@ulp.vn", "SV0001", "OK", ""));
         assertThat(row.getStatus()).isEqualTo(ImportRowStatus.OK);
         assertThat(row.getUserId()).isEqualTo(90L);
     }
 
     @Test
     void duplicate_in_file_when_email_appears_twice() {
-        User student = stubUser(100L, "twice@ksh.vn", Role.STUDENT, true, false);
-        when(userRepository.findByEmailIgnoreCase("twice@ksh.vn")).thenReturn(Optional.of(student));
+        User student = stubUser(100L, "twice@ulp.vn", Role.STUDENT, true, false);
+        when(userRepository.findByEmailIgnoreCase("twice@ulp.vn")).thenReturn(Optional.of(student));
 
         List<ImportRow> rows = validator.validate(List.of(
-                new ExcelParser.RawRow(2, "twice@ksh.vn", "SV0001", "First",  ""),
-                new ExcelParser.RawRow(3, "twice@ksh.vn", "SV0002", "Second", "")
+                new ExcelParser.RawRow(2, "twice@ulp.vn", "SV0001", "First",  ""),
+                new ExcelParser.RawRow(3, "twice@ulp.vn", "SV0002", "Second", "")
         ), CLASS_ID);
 
         assertThat(rows.get(0).getStatus()).isEqualTo(ImportRowStatus.OK);

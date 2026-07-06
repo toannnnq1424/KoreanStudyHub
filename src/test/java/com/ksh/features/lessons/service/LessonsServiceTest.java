@@ -56,7 +56,7 @@ class LessonsServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
         otherLecturer = ensureExtraLecturer();
         clazz = saveClass("Lessons IT class", lecturer.getId(), "LSNIT");
         section = sectionRepository.saveAndFlush(
@@ -242,7 +242,7 @@ class LessonsServiceTest {
                 a.id(), PageRequest.of(0, 10));
         assertThat(aPage.getContent()).extracting(LessonActivity::getType)
                 .containsExactly(LessonActivity.TYPE_REORDERED,
-                        LessonActivity.TYPE_CREATED);
+                                 LessonActivity.TYPE_CREATED);
 
         var bPage = activityRepository.findByLessonIdOrderByCreatedAtDesc(
                 b.id(), PageRequest.of(0, 10));
@@ -254,7 +254,7 @@ class LessonsServiceTest {
                 c.id(), PageRequest.of(0, 10));
         assertThat(cPage.getContent()).extracting(LessonActivity::getType)
                 .containsExactly(LessonActivity.TYPE_REORDERED,
-                        LessonActivity.TYPE_CREATED);
+                                 LessonActivity.TYPE_CREATED);
     }
 
     @Test
@@ -522,7 +522,7 @@ class LessonsServiceTest {
     }
 
     private User ensureExtraLecturer() {
-        String email = "lecturer-other@ksh.edu.vn";
+        String email = "lecturer-other@ulp.edu.vn";
         return userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             User u = UserFactory.newAdminCreated(
                     email,
