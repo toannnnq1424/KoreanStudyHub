@@ -49,11 +49,21 @@ public class StudentLessonsDtos {
 
     /**
      * Top-level view model for the page. Includes the class id (used to
-     * build per-lesson hrefs) and class name (rendered in the header).
+     * build per-lesson hrefs), class name, class join code and the owning
+     * lecturer's display name — all rendered in the left class-nav sidebar.
+     *
+     * @param classId      owning class id
+     * @param className    class display name
+     * @param classCode    class join code (shown as "Mã lớp")
+     * @param lecturerName owning lecturer's full name; null when the
+     *                     lecturer account is missing/deleted
+     * @param sections     ordered sections with their PUBLISHED lessons
      */
     public record ClassLessonsView(
             Long classId,
             String className,
+            String classCode,
+            String lecturerName,
             List<SectionWithLessons> sections
     ) { }
 
@@ -69,6 +79,8 @@ public class StudentLessonsDtos {
      * @param sizeBytes   file size in bytes
      * @param mimeType    resolved MIME type (from the extension whitelist)
      * @param downloadUrl absolute path to the existing download endpoint
+     * @param viewUrl     inline viewer URL, or null if the format is not
+     *                    supported (PDF → PDF.js; DOCX/PPTX/XLSX → MS Office)
      */
     public record LessonAttachmentRow(
             Long id,
@@ -131,7 +143,8 @@ public class StudentLessonsDtos {
      * @param publishedAt     timestamp the lesson was published
      * @param attachments     attachment rows in upload order; may be empty
      * @param contentType     RICHTEXT / PDF / VIDEO — selects the viewer
-     * @param pdfDownloadUrl  stream URL of the main PDF when type=PDF
+     * @param pdfDownloadUrl  download URL of the main PDF when type=PDF
+     * @param pdfViewerUrl    PDF.js iframe URL when type=PDF; null otherwise
      * @param videoUrl        embed URL (YOUTUBE/VIMEO) or stream URL (UPLOAD)
      * @param videoProvider   YOUTUBE / VIMEO / UPLOAD — null outside VIDEO
      */
