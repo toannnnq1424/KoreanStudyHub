@@ -1,6 +1,7 @@
 package com.ksh;
 
 import com.ksh.features.practice.controller.PracticeSpeakingMediaController;
+import com.ksh.features.practice.controller.PracticeSpeakingMediaPlaybackController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +22,11 @@ class KshApplicationTests {
 	@Test
 	void speakingMediaUploadApiControllerIsAbsentByDefault() {
 		assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaController.class)).isEmpty();
+	}
+
+	@Test
+	void speakingMediaPlaybackApiControllerIsAbsentByDefault() {
+		assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).isEmpty();
 	}
 
 }

@@ -429,6 +429,63 @@ class PracticeSpeakingMediaServiceTest {
     }
 
     @Test
+    void playbackAuthorizationProjectionIsOwnerRouteStatusScoped() {
+        Fixture fixture = createSpeakingFixture("playback-auth");
+        PracticeSpeakingMedia media = mediaRepository.saveAndFlush(readyMedia(fixture, "playback-auth-ready.webm"));
+
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), media.getId()))
+                .isPresent()
+                .get()
+                .satisfies(projection -> {
+                    assertThat(projection.getStorageProvider()).isEqualTo(PracticeSpeakingStorageProvider.LOCAL);
+                    assertThat(projection.getStorageKey()).isEqualTo(media.getStorageKey());
+                    assertThat(projection.getMimeType()).isEqualTo("audio/webm");
+                    assertThat(projection.getByteSize()).isEqualTo(1234L);
+                });
+
+        User outsider = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
+        assertThat(authorizedPlayback(outsider.getId(), fixture.attemptId(), fixture.speakingQuestionId(), media.getId()))
+                .isEmpty();
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId() + 999_999L, fixture.speakingQuestionId(), media.getId()))
+                .isEmpty();
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId() + 999_999L, media.getId()))
+                .isEmpty();
+
+        PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        attempt.setStatus(PracticeAttempt.STATUS_SUBMITTED);
+        attempt = attemptRepository.saveAndFlush(attempt);
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), media.getId()))
+                .isPresent();
+
+        attempt.setStatus(PracticeAttempt.STATUS_GRADED);
+        attemptRepository.saveAndFlush(attempt);
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), media.getId()))
+                .isPresent();
+
+        jdbcTemplate.update(
+                "UPDATE practice_attempts SET status = 'DISCARDED', discarded_at = CURRENT_TIMESTAMP(6) WHERE id = ?",
+                fixture.attemptId());
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), media.getId()))
+                .isEmpty();
+    }
+
+    @Test
+    void playbackAuthorizationProjectionExcludesSupersededAndDeletedMedia() {
+        Fixture fixture = createSpeakingFixture("playback-auth-media-status");
+        PracticeSpeakingMedia superseded = readyMedia(fixture, "playback-auth-superseded.webm");
+        superseded.markSuperseded();
+        superseded = mediaRepository.saveAndFlush(superseded);
+        PracticeSpeakingMedia deleted = readyMedia(fixture, "playback-auth-deleted.webm");
+        deleted.markDeleted();
+        deleted = mediaRepository.saveAndFlush(deleted);
+
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), superseded.getId()))
+                .isEmpty();
+        assertThat(authorizedPlayback(fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), deleted.getId()))
+                .isEmpty();
+    }
+
+    @Test
     void uniqueProviderAndStorageKeyIsEnforced() {
         Fixture fixture = createSpeakingFixture("unique");
         String storageKey = key("unique-a.webm");
@@ -1061,6 +1118,23 @@ class PracticeSpeakingMediaServiceTest {
                 1234L,
                 5000L,
                 hash(keySuffix));
+    }
+
+    private java.util.Optional<PracticeSpeakingMediaRepository.PlaybackAuthorizationProjection> authorizedPlayback(
+            Long userId,
+            Long attemptId,
+            Long questionId,
+            Long mediaId) {
+        return mediaRepository.findAuthorizedPlayback(
+                userId,
+                attemptId,
+                questionId,
+                mediaId,
+                PracticeSpeakingMediaStatus.READY,
+                java.util.Set.of(
+                        PracticeAttempt.STATUS_IN_PROGRESS,
+                        PracticeAttempt.STATUS_SUBMITTED,
+                        PracticeAttempt.STATUS_GRADED));
     }
 
     private PreparedSpeakingAudio prepared(String storageKey, String hashSeed) {

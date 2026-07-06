@@ -1,6 +1,6 @@
 package com.ksh.features.practice.controller;
 
-import com.ksh.features.practice.service.SpeakingAudioUploadService;
+import com.ksh.features.practice.service.PracticeSpeakingMediaPlaybackService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,8 +11,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "app.practice.speaking-media.upload-api-enabled=true")
-class PracticeSpeakingMediaGateTrueTest {
+@SpringBootTest(properties = "app.practice.speaking-media.playback-api-enabled=true")
+class PracticeSpeakingMediaPlaybackGateTrueTest {
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -21,17 +21,16 @@ class PracticeSpeakingMediaGateTrueTest {
     private RequestMappingHandlerMapping handlerMapping;
 
     @MockBean
-    private SpeakingAudioUploadService uploadService;
+    private PracticeSpeakingMediaPlaybackService playbackService;
 
     @Test
-    void propertyTrueRegistersControllerAndRoutes() {
-        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaController.class)).hasSize(1);
-        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).isEmpty();
-        assertThat(mappedSpeakingMediaRoutes()).isEqualTo(2);
-        assertThat(mappedSpeakingMediaRoutes(RequestMethod.POST,
-                "/practice/attempts/{attemptId}/questions/{questionId}/speaking-media")).isEqualTo(1);
-        assertThat(mappedSpeakingMediaRoutes(RequestMethod.DELETE,
-                "/practice/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}")).isEqualTo(1);
+    void playbackPropertyTrueRegistersPlaybackOnlyAndDoesNotEnableUpload() {
+        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).hasSize(1);
+        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaController.class)).isEmpty();
+        assertThat(mappedSpeakingMediaRoutes()).isEqualTo(1);
+        assertThat(mappedSpeakingMediaRoutes(RequestMethod.GET,
+                "/practice/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}/content"))
+                .isEqualTo(1);
     }
 
     private long mappedSpeakingMediaRoutes() {

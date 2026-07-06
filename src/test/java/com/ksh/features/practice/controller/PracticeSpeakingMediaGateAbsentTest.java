@@ -34,12 +34,16 @@ class PracticeSpeakingMediaGateAbsentTest {
     @Test
     void propertyAbsentDoesNotRegisterControllerOrRoutes() throws Exception {
         assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaController.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).isEmpty();
         assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaControllerAdvice.class)).hasSize(1);
         assertThat(mappedSpeakingMediaRoutes()).isZero();
 
         mockMvc.perform(delete("/practice/attempts/1/questions/2/speaking-media/3")
                         .with(user("student").roles("STUDENT"))
                         .with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/practice/attempts/1/questions/2/speaking-media/3/content")
+                        .with(user("student").roles("STUDENT")))
                 .andExpect(status().isNotFound());
     }
 

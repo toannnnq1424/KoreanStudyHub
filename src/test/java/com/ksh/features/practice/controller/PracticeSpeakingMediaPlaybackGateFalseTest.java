@@ -8,8 +8,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "app.practice.speaking-media.upload-api-enabled=false")
-class PracticeSpeakingMediaGateFalseTest {
+@SpringBootTest(properties = "app.practice.speaking-media.playback-api-enabled=false")
+class PracticeSpeakingMediaPlaybackGateFalseTest {
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -18,8 +18,7 @@ class PracticeSpeakingMediaGateFalseTest {
     private RequestMappingHandlerMapping handlerMapping;
 
     @Test
-    void propertyFalseDoesNotRegisterControllerOrRoutes() {
-        assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaController.class)).isEmpty();
+    void playbackPropertyFalseDoesNotRegisterPlaybackControllerOrRoutes() {
         assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).isEmpty();
         assertThat(mappedSpeakingMediaRoutes()).isZero();
     }
