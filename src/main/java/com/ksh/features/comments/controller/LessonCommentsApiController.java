@@ -1,6 +1,6 @@
 package com.ksh.features.comments.controller;
 
-import com.ksh.features.comments.dto.LessonCommentsDtos.CommentListResponse;
+import com.ksh.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CommentRow;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CreateRequest;
 import com.ksh.features.comments.dto.LessonCommentsDtos.EditRequest;
@@ -23,8 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import static com.ksh.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.forbidden;
@@ -57,10 +56,13 @@ public class LessonCommentsApiController {
 
     @GetMapping
     public ResponseEntity<?> list(@PathVariable Long lessonId,
+                                  @RequestParam(defaultValue = "0") int page,
+                                  @RequestParam(defaultValue = "0") int size,
                                   @AuthenticationPrincipal KshUserDetails user) {
         try {
-            List<CommentRow> rows = commentsService.list(lessonId, user.getId());
-            return ResponseEntity.ok(AjaxResult.success(new CommentListResponse(rows)));
+            // size 0 lets the service fall back to DEFAULT_COMMENT_PAGE_SIZE.
+            CommentPageView data = commentsService.listPage(lessonId, user.getId(), page, size);
+            return ResponseEntity.ok(AjaxResult.success(data));
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {

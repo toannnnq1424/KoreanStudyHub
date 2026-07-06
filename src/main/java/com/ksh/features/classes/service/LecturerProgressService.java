@@ -7,7 +7,7 @@ import com.ksh.features.classes.dto.ProgressDtos.ProgressPageView;
 import com.ksh.features.classes.dto.ProgressDtos.ProgressSummary;
 import com.ksh.features.classes.dto.ProgressDtos.StudentProgressRow;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.classes.service.support.AvatarStyles;
+import com.ksh.utils.AvatarStyles;
 import com.ksh.features.classes.service.support.ProgressMath;
 import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.progress.repository.LearningProgressRepository;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.ksh.common.IConstant.DEFAULT_PROGRESS_PAGE_SIZE;
-
+import static com.ksh.common.IConstant.MAX_PROGRESS_PAGE_SIZE;
 /**
  * Read service for the lecturer progress dashboard table + summary cards
  * (lecturer-student-progress). The per-student drill-down lives in
@@ -153,7 +153,8 @@ public class LecturerProgressService {
 
     private Page<StudentProgressRow> paginate(List<StudentProgressRow> rows,
                                               int page, int size) {
-        int safeSize = size <= 0 ? DEFAULT_PROGRESS_PAGE_SIZE : size;
+        int safeSize = size <= 0 ? DEFAULT_PROGRESS_PAGE_SIZE
+                : Math.min(size, MAX_PROGRESS_PAGE_SIZE);
         int safePage = Math.max(page, 0);
         int total = rows.size();
         // Compute the offset in long so an absurd page never overflows int

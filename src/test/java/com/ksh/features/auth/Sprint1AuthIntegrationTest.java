@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.ksh.security.UlpUserDetails;
+import com.ksh.security.KshUserDetails;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Trong tam: KHOA LAI Bug #3 — cac trang authenticated dung
  * {@code sec:authentication="principal.fullName"}. Voi form-login, principal la
- * {@link UlpUserDetails}; truoc khi sua, principal la Spring's User (khong co
+ * {@link KshUserDetails}; truoc khi sua, principal la Spring's User (khong co
  * fullName) -> SpEL loi -> 500. Cac test render duoi day se 200 neu principal
  * dung. Tai khoan test: admin@ulp.edu.vn / password (seed V2+V6).
  */

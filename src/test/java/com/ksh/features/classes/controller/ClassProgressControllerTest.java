@@ -12,7 +12,7 @@ import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.security.Role;
-import com.ksh.security.UlpUserDetails;
+import com.ksh.security.KshUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,7 +89,7 @@ class ClassProgressControllerTest {
     void non_owner_lecturer_gets_403() throws Exception {
         User otherLecturer = ensureUser("lecturer-pgother@ulp.edu.vn", "Other Lec", Role.LECTURER);
         mockMvc.perform(get(progressUrl())
-                        .with(user(new UlpUserDetails(otherLecturer))))
+                        .with(user(new KshUserDetails(otherLecturer))))
                 .andExpect(status().isForbidden());
     }
 

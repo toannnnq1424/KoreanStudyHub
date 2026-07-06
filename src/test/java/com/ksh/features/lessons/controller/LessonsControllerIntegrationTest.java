@@ -295,7 +295,7 @@ class LessonsControllerIntegrationTest {
                         .with(csrf())
                         .with(org.springframework.security.test.web.servlet.request
                                 .SecurityMockMvcRequestPostProcessors.user(
-                                        new com.ksh.security.UlpUserDetails(otherLecturer)))
+                                        new com.ksh.security.KshUserDetails(otherLecturer)))
                         .param("title", "Bài lậu")
                         .param("status", "DRAFT")
                         .param("contentHtml", ""))

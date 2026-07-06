@@ -6,7 +6,7 @@ import com.ksh.features.classes.dto.MemberDtos.MemberRow;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.classes.service.support.AvatarStyles;
+import com.ksh.utils.AvatarStyles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

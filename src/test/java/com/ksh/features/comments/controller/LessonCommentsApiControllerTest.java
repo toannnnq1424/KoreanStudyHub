@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc tests for {@link LessonCommentsApiController} (ULP-4.6): status codes,
+ * MockMvc tests for {@link LessonCommentsApiController} (ksh-4.6): status codes,
  * JSON envelope shape, and the authz matrix (404 for outsider / DRAFT, 400 for
  * bad input, 403 for cross-user delete).
  */
@@ -40,9 +40,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class LessonCommentsApiControllerTest {
 
-    private static final String AUTHOR_EMAIL = "student@ulp.edu.vn";  // enrolled
-    private static final String OTHER_EMAIL = "sv02@ulp.edu.vn";      // enrolled
-    private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";   // not enrolled
+    private static final String AUTHOR_EMAIL = "student@ksh.edu.vn";  // enrolled
+    private static final String OTHER_EMAIL = "sv02@ksh.edu.vn";      // enrolled
+    private static final String OUTSIDER_EMAIL = "sv01@ksh.edu.vn";   // not enrolled
 
     @Autowired private MockMvc mockMvc;
     @Autowired private LessonCommentsService service;
@@ -64,7 +64,7 @@ class LessonCommentsApiControllerTest {
     @BeforeEach
     void setUp() {
         orderSeq = 0;
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         author = userRepository.findByEmailIgnoreCase(AUTHOR_EMAIL).orElseThrow();
         other = userRepository.findByEmailIgnoreCase(OTHER_EMAIL).orElseThrow();
         clazz = saveClass("Comments API class", "CMTAPI");
@@ -79,10 +79,29 @@ class LessonCommentsApiControllerTest {
     @Test
     @WithUserDetails(AUTHOR_EMAIL)
     void list_returns_ok_envelope() throws Exception {
-        mockMvc.perform(get(url()))
+        mockMvc.perform(get(url()).param("page", "0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
-                .andExpect(jsonPath("$.data.comments").isArray());
+                .andExpect(jsonPath("$.data.comments").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.hasNext").exists())
+                .andExpect(jsonPath("$.data.totalRoots").exists());
+    }
+
+    @Test
+    @WithUserDetails(AUTHOR_EMAIL)
+    void list_paginates_roots_newest_first() throws Exception {
+        for (int i = 0; i < 12; i++) {
+            service.create(lesson.getId(), author.getId(), "Gốc " + i, null);
+        }
+
+        mockMvc.perform(get(url()).param("page", "0").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.comments.length()").value(5))
+                .andExpect(jsonPath("$.data.totalRoots").value(12))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                // Newest-first: last-created root leads the first page.
+                .andExpect(jsonPath("$.data.comments[0].content").value("Gốc 11"));
     }
 
     @Test
@@ -110,6 +129,19 @@ class LessonCommentsApiControllerTest {
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.canEdit").value(true))
                 .andExpect(jsonPath("$.data.canDelete").value(true));
+    }
+
+    @Test
+    @WithUserDetails(AUTHOR_EMAIL)
+    void create_reply_echoes_parent_and_avatar() throws Exception {
+        CommentRow root = service.create(lesson.getId(), author.getId(), "Gốc", null);
+
+        mockMvc.perform(post(url()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"Trả lời\",\"parentId\":" + root.id() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.parentId").value(root.id()))
+                .andExpect(jsonPath("$.data.avatarGradient").exists());
     }
 
     @Test
