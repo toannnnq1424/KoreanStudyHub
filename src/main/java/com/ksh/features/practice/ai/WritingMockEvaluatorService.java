@@ -66,7 +66,7 @@ public class WritingMockEvaluatorService {
         if (ruleAnalysis.charCountWarning().startsWith("OK:")) score += 0.5;
         if (ruleAnalysis.charCountWarning().startsWith("CRITICAL:")) score -= 1.5;
         if (ruleAnalysis.charCountWarning().startsWith("WARNING:")) score -= 0.5;
-        score -= Math.min(1.5, ruleAnalysis.ruleViolations().size() * 0.25);
+        score -= Math.min(1.5, WritingRuleEngine.hardViolationCount(ruleAnalysis.ruleViolations()) * 0.25);
         return WritingScoreMatrix.clampAndRound(score);
     }
 
@@ -93,7 +93,7 @@ public class WritingMockEvaluatorService {
         }
         
         // 3. Hạn chế quan trọng & 4. Tác động của độ dài/register/rule violations
-        int violations = ruleAnalysis.ruleViolations().size();
+        long violations = WritingRuleEngine.hardViolationCount(ruleAnalysis.ruleViolations());
         if (violations > 0) {
             sb.append("Tuy nhiên, bài viết còn gặp hạn chế khi xuất hiện ").append(violations).append(" lỗi dùng từ hoặc khẩu ngữ. ");
         }
@@ -113,7 +113,7 @@ public class WritingMockEvaluatorService {
         return List.of(
                 rubric(names.get(0), score, "Mock: đánh giá dựa trên mức độ có nội dung tiếng Hàn và độ dài bài làm."),
                 rubric(names.get(1), Math.max(1.0, score - 0.5), "Mock: cần AI thật để đọc sâu logic triển khai; hiện hệ thống chỉ kiểm tra dấu hiệu bố cục cơ bản."),
-                rubric(names.get(2), Math.max(1.0, score - Math.min(1.0, ruleAnalysis.ruleViolations().size() * 0.25)), "Mock: đã phát hiện khẩu ngữ/cảnh báo ký tự bằng rule engine.")
+                rubric(names.get(2), Math.max(1.0, score - Math.min(1.0, WritingRuleEngine.hardViolationCount(ruleAnalysis.ruleViolations()) * 0.25)), "Mock: đã phát hiện khẩu ngữ/cảnh báo ký tự bằng rule engine.")
         );
     }
 
@@ -142,6 +142,9 @@ public class WritingMockEvaluatorService {
     private static List<Map<String, Object>> mockNeeds(String answer, WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (WritingRuleEngine.RuleViolation violation : ruleAnalysis.ruleViolations()) {
+            if (!violation.hardFinding()) {
+                continue;
+            }
             if (violation.evidence() != null && !violation.evidence().isEmpty() && answer.contains(violation.evidence())) {
                 rows.add(finding(
                         "W_REGISTER_CONSISTENCY_ISSUES",
@@ -176,7 +179,7 @@ public class WritingMockEvaluatorService {
                 .replace("해요", "한다")
                 .replace("했어요", "하였다")
                 .replace("같아요", "다고 볼 수 있다");
-        if (upgraded.equals(answer) && !ruleAnalysis.ruleViolations().isEmpty()) {
+        if (upgraded.equals(answer) && WritingRuleEngine.hardViolationCount(ruleAnalysis.ruleViolations()) > 0) {
             return answer;
         }
         return upgraded;
@@ -196,10 +199,16 @@ public class WritingMockEvaluatorService {
     }
 
     private static List<Map<String, Object>> mockRewrites(String answer, WritingRuleEngine.RuleAnalysis ruleAnalysis) {
-        if (answer == null || answer.isBlank() || ruleAnalysis.ruleViolations().isEmpty()) {
+        if (answer == null || answer.isBlank() || WritingRuleEngine.hardViolationCount(ruleAnalysis.ruleViolations()) == 0) {
             return List.of();
         }
-        WritingRuleEngine.RuleViolation violation = ruleAnalysis.ruleViolations().get(0);
+        WritingRuleEngine.RuleViolation violation = ruleAnalysis.ruleViolations().stream()
+                .filter(WritingRuleEngine.RuleViolation::hardFinding)
+                .findFirst()
+                .orElse(null);
+        if (violation == null) {
+            return List.of();
+        }
         if (violation.evidence() != null && !violation.evidence().isEmpty() && answer.contains(violation.evidence())) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("original", violation.evidence());

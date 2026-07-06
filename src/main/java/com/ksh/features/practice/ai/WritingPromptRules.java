@@ -39,6 +39,7 @@ public final class WritingPromptRules {
     public static String buildUnifiedPrompt(String taskType, boolean isReEvaluation) {
         return """
                 Bạn là một giám khảo chấm thi tiếng Hàn chuyên nghiệp của KSH Korean Study Hub, chuyên đánh giá TOPIK Writing cho học viên Việt Nam.
+                Điểm 1.0-9.0 là thang điểm luyện tập nội bộ của KSH, không phải điểm TOPIK chính thức hay quy đổi tương đương.
                 Tuyệt đối KHÔNG dùng tiếng Anh trong giải thích. Chỉ dùng tiếng Việt để giải thích và tiếng Hàn cho bằng chứng/câu sửa.
 
                 ========================================
@@ -119,7 +120,13 @@ public final class WritingPromptRules {
                 8. W_SPELLING_SPACING_ERRORS: sai 맞춤법, 받침, dấu câu, 띄어쓰기.
 
                 [BỘ LỌC KHẨU NGỮ ĐÃ PHÁT HIỆN BỞI JAVA]
-                Trường rule_violations là sự thật kỹ thuật. Bắt buộc tạo W_REGISTER_CONSISTENCY_ISSUES cho mỗi vi phạm còn tìm thấy trong bài làm.
+                Trường rule_violations là ngữ cảnh kỹ thuật, không tự quyết định điểm cuối.
+                Mỗi rule có severity và action:
+                - HIGH: vấn đề khẩu ngữ/register rõ; với Q53/Q54/GENERAL có thể tạo W_REGISTER_CONSISTENCY_ISSUES nếu evidence còn nguyên văn.
+                - MEDIUM: vấn đề mức vừa; Q53/Q54 có thể tạo needs_improvement, GENERAL nên xem là gợi ý mềm, Q51/Q52 không được phóng đại thành lỗi bài luận.
+                - LOW: chỉ là suggestion/soft note; đặc biệt "그리고" và "하고" không phải lỗi cứng mặc định.
+                Tạo finding cho rule_violations chỉ khi action=NEEDS_IMPROVEMENT, evidence vẫn là TEXT_SPAN chính xác, và lỗi thật sự phù hợp với task.
+                Không lặp lại máy móc nhiều finding cho cùng một vấn đề deterministic; gộp hoặc giải thích ngắn gọn nếu cùng loại.
 
                 [QUY TẮC EVIDENCE — QUAN TRỌNG]
                 Backend chỉ tính start/end index cho TEXT_SPAN.
@@ -210,7 +217,8 @@ public final class WritingPromptRules {
             case "Q53" -> """
                     [YÊU CẦU CÂU 53 - BIỂU ĐỒ 200~300자]
                     - Mô tả khách quan số liệu/xu hướng; không đưa ý kiến cá nhân (objective written style).
-                    - Tuyệt đối KHÔNG tự bịa dữ kiện, số liệu ngoài đề bài (no fabricated data/statistics rule).
+                    - Chỉ đánh giá số liệu/xu hướng dựa trên dữ kiện hiển thị rõ trong prompt hoặc nguồn đề bài đã cung cấp.
+                    - Không tự bịa dữ kiện, số liệu ngoài đề bài; không kết luận chắc chắn là "bịa/sai số liệu" nếu không có dữ liệu có thẩm quyền để đối chiếu.
                     - Phạt nặng nếu dùng 나, 저, 생각한다, 느낀다 theo kiểu chủ quan.
                     - Ưu tiên cấu trúc ~에 따르면, ~ㄴ 것으로 나타났다, ~ㄹ 전망이다.
                     - Tiêu chí chấm:
@@ -221,7 +229,8 @@ public final class WritingPromptRules {
             case "Q54" -> """
                     [YÊU CẦU CÂU 54 - NGHỊ LUẬN 600~700자]
                     - Bố cục mở-thân-kết rõ ràng (organization anchors).
-                    - Trả lời đầy đủ từng gợi ý của đề. Thiếu một ý gợi ý phải trừ mạnh tiêu chí nội dung.
+                    - Đánh giá mức độ trả lời các gợi ý/yêu cầu được viết rõ trong prompt; không thực hiện kiểm tra yêu cầu có cấu trúc nếu đề không cung cấp dữ liệu có thẩm quyền.
+                    - Nếu một ý gợi ý hiển thị rõ bị bỏ qua, nêu như hạn chế task coverage có căn cứ; tránh overclaim khi yêu cầu chỉ suy đoán.
                     - Phải có luận điểm rõ ràng (thesis/argument coverage), phát triển ý kiến bằng lý do, giải thích hoặc ví dụ thực tế (reasons/examples/development).
                     - Cần lập luận chặt chẽ, liên kết logic và văn phong nghị luận trang trọng.
                     - Tiêu chí chấm:
@@ -243,10 +252,10 @@ public final class WritingPromptRules {
 
     static String taskDetailRules(String taskType) {
         if ("Q53".equals(taskType)) {
-            return "Với Q53, ưu tiên bắt lỗi mô tả biểu đồ chủ quan, thiếu số liệu, sai cách diễn đạt xu hướng, và không đạt dung lượng.";
+            return "Với Q53, ưu tiên lỗi mô tả dữ liệu có thể xác minh từ prompt/source text; nếu thiếu dữ liệu có thẩm quyền, chỉ nêu hạn chế như diễn giải chưa được hỗ trợ thay vì khẳng định bịa/sai số liệu.";
         }
         if ("Q54".equals(taskType)) {
-            return "Với Q54, ưu tiên bắt lỗi thiếu ý gợi ý, thiếu mở-thân-kết, liên kết yếu, khẩu ngữ và dung lượng không đạt.";
+            return "Với Q54, ưu tiên task coverage dựa trên gợi ý/yêu cầu hiển thị rõ, thiếu mở-thân-kết, liên kết yếu, khẩu ngữ và dung lượng không đạt; không overclaim structured requirement checking.";
         }
         if (isClozeTask(taskType)) {
             return "Với Q51/52, ưu tiên bắt lỗi hòa hợp nghĩa, vĩ tố liên kết, tiểu từ và ngữ pháp điền chỗ trống.";
