@@ -43,28 +43,28 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_dungThongTin_thanhCongVaChuyenVeTrangChu() throws Exception {
-        mockMvc.perform(formLogin("/login").user("admin@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("admin@ksh.edu.vn").password("password"))
                 .andExpect(authenticated().withRoles("ADMIN"))
                 .andExpect(redirectedUrl("/"));
     }
 
     @Test
     void dangNhap_saiMatKhau_thatBaiVaChuyenVeLoginError() throws Exception {
-        mockMvc.perform(formLogin("/login").user("admin@ulp.edu.vn").password("sai-mat-khau"))
+        mockMvc.perform(formLogin("/login").user("admin@ksh.edu.vn").password("sai-mat-khau"))
                 .andExpect(unauthenticated())
                 .andExpect(redirectedUrl("/login?error"));
     }
 
     @Test
     void dangNhap_emailKhongTonTai_thatBai() throws Exception {
-        mockMvc.perform(formLogin("/login").user("khongton@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("khongton@ksh.edu.vn").password("password"))
                 .andExpect(unauthenticated())
                 .andExpect(redirectedUrl("/login?error"));
     }
 
     @Test
     void dangNhap_taiKhoanStudent_mapDungRole() throws Exception {
-        mockMvc.perform(formLogin("/login").user("student@ulp.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("student@ksh.edu.vn").password("password"))
                 .andExpect(authenticated().withRoles("STUDENT"));
     }
 

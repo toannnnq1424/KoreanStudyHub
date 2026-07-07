@@ -56,7 +56,7 @@ class LessonsServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         otherLecturer = ensureExtraLecturer();
         clazz = saveClass("Lessons IT class", lecturer.getId(), "LSNIT");
         section = sectionRepository.saveAndFlush(
@@ -522,7 +522,7 @@ class LessonsServiceTest {
     }
 
     private User ensureExtraLecturer() {
-        String email = "lecturer-other@ulp.edu.vn";
+        String email = "lecturer-other@ksh.edu.vn";
         return userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             User u = UserFactory.newAdminCreated(
                     email,

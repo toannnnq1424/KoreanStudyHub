@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Integration tests for the legacy standalone lesson detail endpoint
- * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ULP-4.2).
+ * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ksh-4.2).
  *
  * <p>After the single-template refactor the route returns a permanent
  * 301 redirect to the canonical query-param form
@@ -46,8 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class StudentLessonDetailControllerTest {
 
-    private static final String STUDENT_EMAIL = "student@ulp.edu.vn";
-    private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";
+    private static final String STUDENT_EMAIL = "student@ksh.edu.vn";
+    private static final String OUTSIDER_EMAIL = "sv01@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -65,7 +65,7 @@ class StudentLessonDetailControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase(STUDENT_EMAIL).orElseThrow();
         clazz = saveClass("Detail controller class", lecturer.getId(), "SLDCTC");
         section = sectionRepository.saveAndFlush(

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Student class-lessons sidebar nav
+   ksh — Student class-lessons sidebar nav
    ----------------------------------------------------------------------------
    Wires the "Rời khỏi lớp này" button in the left class-nav sidebar. Mirrors
    the leave flow on my-classes.html: confirm modal → submit the hidden POST

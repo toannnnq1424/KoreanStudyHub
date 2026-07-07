@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Lesson comment thread renderer (ULP-4.6)
+   ksh — Lesson comment thread renderer (ksh-4.6)
    ----------------------------------------------------------------------------
    DOM-only builder for one comment subtree (Facebook-style: avatar + rounded
    bubble, relative time, replies collapsed behind a toggle, nesting capped at 3).
    All user content is injected via textContent (never innerHTML); avatarGradient
    is a server-generated CSS value applied via style.background.
 
-   Exposes window.UlpCommentThread(deps) → { node }. The orchestrator
+   Exposes window.KshCommentThread(deps) → { node }. The orchestrator
    (lesson-comments.js) owns fetching, pagination, CSRF and toasts and injects
    them as deps = { api, base, mutate, reload, contentRequiredMsg }.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -69,7 +69,7 @@
             submit.type = 'button';
             submit.addEventListener('click', function () {
                 var val = ta.value.trim();
-                if (!val) { if (window.UlpToast) window.UlpToast.error(MSG_CONTENT_REQUIRED); return; }
+                if (!val) { if (window.KshToast) window.KshToast.error(MSG_CONTENT_REQUIRED); return; }
                 submit.disabled = true;
                 onSubmit(val).catch(function () { submit.disabled = false; });
             });
@@ -205,5 +205,5 @@
         return { node: commentNode };
     }
 
-    window.UlpCommentThread = createThread;
+    window.KshCommentThread = createThread;
 })();

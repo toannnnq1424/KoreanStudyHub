@@ -1,4 +1,4 @@
--- ULP — V17__public_view_tokens.sql
+-- ksh — V17__public_view_tokens.sql
 -- Short-lived tokens that grant anonymous view-only access to a single
 -- lesson attachment. Used by MS Office Online Viewer (view.officeapps.live.com)
 -- which requires a public URL to embed DOCX/PPTX/XLSX files.

@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class OAuthLoginIntegrationTest {
 
-    private static final String SEED_REGISTERED_EMAIL = "student@ulp.edu.vn";
+    private static final String SEED_REGISTERED_EMAIL = "student@ksh.edu.vn";
 
     @Autowired private CustomOidcUserService customOidcUserService;
     @Autowired private UserRepository userRepository;

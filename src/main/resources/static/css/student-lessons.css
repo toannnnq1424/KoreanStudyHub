@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Student class-lessons (ULP-4.1)
+   ksh — Student class-lessons (ksh-4.1)
    ----------------------------------------------------------------------------
    3-column layout inspired by SHub Classroom lesson page:
    - Left sidebar (240px): class info + nav menu (kept minimal here)
@@ -582,7 +582,7 @@ a.student-lessons-nav-item:hover {
     margin: 0;
 }
 
-/* ── Learning progress (ULP-4.5) ─────────────────────────────────────── */
+/* ── Learning progress (ksh-4.5) ─────────────────────────────────────── */
 
 /* Overall class progress bar inside the sidebar class card. */
 .student-lessons-progress {

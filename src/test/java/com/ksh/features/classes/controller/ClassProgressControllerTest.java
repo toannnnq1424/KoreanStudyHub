@@ -23,8 +23,12 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,20 +52,20 @@ class ClassProgressControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         clazz = saveClass("Progress tab class", lecturer.getId(), "PGTAB1");
         Section section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         Lesson pub = new Lesson(section.getId(), "Bài 1", (short) 0, lecturer.getId());
         pub.publish();
         lessonRepository.saveAndFlush(pub);
-        User student = ensureUser("pgtab-student@ulp.edu.vn", "Pg Student", Role.STUDENT);
+        User student = ensureUser("pgtab-student@ksh.edu.vn", "Pg Student", Role.STUDENT);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
                 student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void owner_sees_progress_tab() throws Exception {
         mockMvc.perform(get(progressUrl()))
                 .andExpect(status().isOk())
@@ -72,7 +76,7 @@ class ClassProgressControllerTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void filter_search_page_params_are_honored() throws Exception {
         mockMvc.perform(get(progressUrl())
                         .param("status", "in-progress")
@@ -86,15 +90,42 @@ class ClassProgressControllerTest {
     }
 
     @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void pager_links_preserve_filters_and_encode_query() throws Exception {
+        // Seed 3 matching students so size=2 forces a second page (pager renders).
+        // The query term carries '&' — it MUST be URL-encoded in every page link.
+        String term = "aa&bb";
+        for (int i = 1; i <= 3; i++) {
+            User s = ensureUser("pgenc" + i + "@ksh.edu.vn", term + " Student " + i, Role.STUDENT);
+            enrollmentRepository.saveAndFlush(Enrollment.createFor(
+                    s, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+        }
+        mockMvc.perform(get(progressUrl())
+                        .param("status", "all")
+                        .param("q", term)
+                        .param("size", "2")
+                        .param("page", "0"))
+                .andExpect(status().isOk())
+                // Shared fragment rendered with a second-page link that keeps the filters.
+                .andExpect(content().string(allOf(
+                        containsString("class=\"pager\""),
+                        containsString("status=all"),
+                        containsString("size=2"),
+                        // '&' encoded to %26 — not left raw as an argument separator.
+                        containsString("q=aa%26bb"))))
+                .andExpect(content().string(not(containsString("q=aa&bb"))));
+    }
+
+    @Test
     void non_owner_lecturer_gets_403() throws Exception {
-        User otherLecturer = ensureUser("lecturer-pgother@ulp.edu.vn", "Other Lec", Role.LECTURER);
+        User otherLecturer = ensureUser("lecturer-pgother@ksh.edu.vn", "Other Lec", Role.LECTURER);
         mockMvc.perform(get(progressUrl())
                         .with(user(new KshUserDetails(otherLecturer))))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void student_is_denied_by_security() throws Exception {
         mockMvc.perform(get(progressUrl()))
                 .andExpect(status().isForbidden());

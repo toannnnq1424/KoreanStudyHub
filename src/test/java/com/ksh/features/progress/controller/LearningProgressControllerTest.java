@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc tests for {@link LearningProgressController} (ULP-4.5): PRG redirect
+ * MockMvc tests for {@link LearningProgressController} (ksh-4.5): PRG redirect
  * with flash, 404 for outsiders, and CSRF enforcement.
  */
 @SpringBootTest
@@ -35,8 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class LearningProgressControllerTest {
 
-    private static final String STUDENT_EMAIL = "student@ulp.edu.vn";
-    private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";
+    private static final String STUDENT_EMAIL = "student@ksh.edu.vn";
+    private static final String OUTSIDER_EMAIL = "sv01@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -53,7 +53,7 @@ class LearningProgressControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase(STUDENT_EMAIL).orElseThrow();
         clazz = saveClass("Progress controller class", "PRGCTL");
         section = sectionRepository.saveAndFlush(

@@ -51,13 +51,13 @@ class AdminUsersDetailPageIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
     }
 
     // ──────────────── Default tab + info-tab content ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_defaultTab_rendersInfoSectionCards() throws Exception {
         MvcResult result = mockMvc.perform(get("/admin/users/" + lecturer.getId() + "/edit"))
                 .andExpect(status().isOk())
@@ -76,7 +76,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── Activity tab placeholder ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_tabActivity_rendersPlaceholder() throws Exception {
         mockMvc.perform(get("/admin/users/" + lecturer.getId() + "/edit").param("tab", "activity"))
                 .andExpect(status().isOk())
@@ -87,7 +87,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── History tab: pagination first page ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_tabHistory_rendersActivityTable() throws Exception {
         seedAuditRows(lecturer.getId(), 25);
 
@@ -111,7 +111,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── History tab: pagination second page ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_tabHistory_page1_returnsRemainingRows() throws Exception {
         seedAuditRows(lecturer.getId(), 25);
 
@@ -131,7 +131,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── Invalid tab fallback ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_invalidTabValue_fallsBackToInfo() throws Exception {
         mockMvc.perform(get("/admin/users/" + lecturer.getId() + "/edit").param("tab", "garbage"))
                 .andExpect(status().isOk())
@@ -141,7 +141,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── Empty history ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_emptyHistory_rendersEmptyState() throws Exception {
         // The seeded lecturer starts with no audit rows; verify the empty
         // state renders without a <table> element.
@@ -164,7 +164,7 @@ class AdminUsersDetailPageIntegrationTest {
     // ──────────────── Create mode has no tab strip ────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void editPage_createMode_rendersWithoutTabs() throws Exception {
         mockMvc.perform(get("/admin/users/new"))
                 .andExpect(status().isOk())

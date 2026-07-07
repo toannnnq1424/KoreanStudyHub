@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code sec:authentication="principal.fullName"}. Voi form-login, principal la
  * {@link KshUserDetails}; truoc khi sua, principal la Spring's User (khong co
  * fullName) -> SpEL loi -> 500. Cac test render duoi day se 200 neu principal
- * dung. Tai khoan test: admin@ulp.edu.vn / password (seed V2+V6).
+ * dung. Tai khoan test: admin@ksh.edu.vn / password (seed V2+V6).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,7 +35,7 @@ class Sprint1AuthIntegrationTest {
     // ── Bug #3: authenticated pages render with real principal ──────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void trangChu_userFormLogin_render200_hienFullName() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
@@ -43,14 +43,14 @@ class Sprint1AuthIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void trangProfile_userFormLogin_render200() throws Exception {
         mockMvc.perform(get("/profile"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void trangDoiMatKhau_userFormLogin_render200() throws Exception {
         mockMvc.perform(get("/change-password"))
                 .andExpect(status().isOk());
@@ -66,7 +66,7 @@ class Sprint1AuthIntegrationTest {
     // ── Change password flow ────────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void doiMatKhau_saiMatKhauHienTai_baoLoi() throws Exception {
         mockMvc.perform(post("/change-password").with(csrf())
                         .param("currentPassword", "sai-mat-khau")
@@ -77,7 +77,7 @@ class Sprint1AuthIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void doiMatKhau_xacNhanKhongKhop_baoLoi() throws Exception {
         mockMvc.perform(post("/change-password").with(csrf())
                         .param("currentPassword", "password")
@@ -91,7 +91,7 @@ class Sprint1AuthIntegrationTest {
     @Test
     void quenMatKhau_emailTonTai_chuyenHuongTrungLap() throws Exception {
         mockMvc.perform(post("/forgot-password").with(csrf())
-                        .param("email", "admin@ulp.edu.vn"))
+                        .param("email", "admin@ksh.edu.vn"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/forgot-password"));
     }
@@ -100,7 +100,7 @@ class Sprint1AuthIntegrationTest {
     void quenMatKhau_emailKhongTonTai_chuyenHuongTrungLap() throws Exception {
         // Enumeration-safe: cung 1 ket qua nhu email ton tai
         mockMvc.perform(post("/forgot-password").with(csrf())
-                        .param("email", "khongtontai@ulp.edu.vn"))
+                        .param("email", "khongtontai@ksh.edu.vn"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/forgot-password"));
     }

@@ -68,8 +68,8 @@ class Sprint3LessonContentTypesIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
-        student = ensureUser("student-s3lct@ulp.edu.vn", "Student S3LCT", Role.STUDENT);
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        student = ensureUser("student-s3lct@ksh.edu.vn", "Student S3LCT", Role.STUDENT);
         clazz = saveClass("S3 content-type class", "S3LCT01", lecturer.getId());
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
@@ -79,7 +79,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void lecturer_uploads_pdf_and_student_can_view_pdf_lesson() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "PDF lesson", "DRAFT", "", lecturer.getId(), Role.LECTURER);
@@ -111,7 +111,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void lecturer_sets_youtube_url_via_content_endpoint() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "YT lesson", "DRAFT", "", lecturer.getId(), Role.LECTURER);
@@ -130,7 +130,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void content_video_url_rejects_non_provider_url() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "Bad URL", "DRAFT", "", lecturer.getId(), Role.LECTURER);
@@ -147,7 +147,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void enrolled_student_sees_pdf_viewer_markup_when_lesson_is_pdf() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
@@ -171,7 +171,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void enrolled_student_sees_youtube_iframe_when_lesson_is_video() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
@@ -195,7 +195,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     // ── Stream controller tests (Sprint 3) ─────────────────────────────
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void stream_returns_404_when_lesson_is_youtube_not_upload() throws Exception {
         // External video providers don't go through the stream endpoint;
@@ -217,7 +217,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void stream_returns_404_for_student_not_enrolled_in_class() throws Exception {
         // Build a SECOND class the student is NOT enrolled in, plant an
@@ -242,7 +242,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void stream_returns_404_when_lesson_is_draft() throws Exception {
         // Even when the student is enrolled in the class, DRAFT lessons
@@ -261,7 +261,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(value = "student-s3lct@ulp.edu.vn",
+    @WithUserDetails(value = "student-s3lct@ksh.edu.vn",
             setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void stream_returns_404_when_file_missing_on_disk() throws Exception {
         // Happy-path authz but the recorded MP4 path points at nothing on

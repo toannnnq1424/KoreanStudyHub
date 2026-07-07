@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Student lesson detail (ULP-4.2)
+   ksh — Student lesson detail (ksh-4.2)
    ----------------------------------------------------------------------------
    Single-column read view at /my/classes/{cid}/lessons/{lid}. All rules are
    scoped to `.student-lesson-detail-*` so they cannot leak into the list page

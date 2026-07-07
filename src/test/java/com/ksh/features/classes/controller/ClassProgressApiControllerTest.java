@@ -50,13 +50,13 @@ class ClassProgressApiControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         clazz = saveClass("Drill class", lecturer.getId(), "DRILL1");
         Section section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         Lesson a = publishLesson(section.getId(), "A", (short) 0);
         publishLesson(section.getId(), "B", (short) 1);
-        member = ensureUser("drill-member@ulp.edu.vn", "Drill Member", Role.STUDENT);
+        member = ensureUser("drill-member@ksh.edu.vn", "Drill Member", Role.STUDENT);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
                 member, clazz.getId(), Enrollment.JoinedVia.CODE, null));
         LearningProgress done = new LearningProgress(member.getId(), a.getId());
@@ -65,7 +65,7 @@ class ClassProgressApiControllerTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void owner_gets_json_breakdown() throws Exception {
         mockMvc.perform(get(drillUrl(member.getId())))
                 .andExpect(status().isOk())
@@ -78,7 +78,7 @@ class ClassProgressApiControllerTest {
 
     @Test
     void non_owner_lecturer_gets_403() throws Exception {
-        User otherLecturer = ensureUser("lecturer-drillother@ulp.edu.vn", "Other", Role.LECTURER);
+        User otherLecturer = ensureUser("lecturer-drillother@ksh.edu.vn", "Other", Role.LECTURER);
         mockMvc.perform(get(drillUrl(member.getId()))
                         .with(user(new KshUserDetails(otherLecturer))))
                 .andExpect(status().isForbidden())
@@ -86,16 +86,16 @@ class ClassProgressApiControllerTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void non_member_student_gets_404() throws Exception {
-        User outsider = ensureUser("drill-outsider@ulp.edu.vn", "Outsider", Role.STUDENT);
+        User outsider = ensureUser("drill-outsider@ksh.edu.vn", "Outsider", Role.STUDENT);
         mockMvc.perform(get(drillUrl(outsider.getId())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.ok").value(false));
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void student_is_denied_by_security() throws Exception {
         mockMvc.perform(get(drillUrl(member.getId())))
                 .andExpect(status().isForbidden());
