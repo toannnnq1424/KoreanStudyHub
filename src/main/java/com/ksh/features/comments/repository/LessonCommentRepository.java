@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Spring Data JPA repository for {@link Comment} (Ksh-4.6).
+ * Spring Data JPA repository for {@link Comment} (ksh-4.6).
  *
  * <p>{@link Comment} deliberately has NO {@code @SQLRestriction}, so the reply
  * query below still returns soft-deleted rows — a deleted mid-thread node must

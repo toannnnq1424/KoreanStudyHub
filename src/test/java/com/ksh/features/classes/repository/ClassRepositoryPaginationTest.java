@@ -43,7 +43,7 @@ class ClassRepositoryPaginationTest {
 
     @Test
     void find_all_by_lecturer_id_paginates_and_filters_to_owner() {
-        Long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        Long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
         long before = classRepository.findAllByLecturerId(lecturerId,
                 PageRequest.of(0, 1000)).getTotalElements();
 
@@ -52,7 +52,7 @@ class ClassRepositoryPaginationTest {
             classRepository.saveAndFlush(newClass(
                     "PG-Own-" + i, randomCode(), lecturerId));
         }
-        Long noiseLecturer = lookupUserId("head@ulp.edu.vn");
+        Long noiseLecturer = lookupUserId("head@ksh.edu.vn");
         classRepository.saveAndFlush(newClass("PG-Noise", randomCode(), noiseLecturer));
 
         // Page 0 of size 20 â†’ 20 rows; page 1 of size 20 â†’ 5 rows.
@@ -76,7 +76,7 @@ class ClassRepositoryPaginationTest {
 
     @Test
     void find_all_by_lecturer_id_excludes_soft_deleted_rows() {
-        Long lecturerId = lookupUserId("lecturer@ulp.edu.vn");
+        Long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
 
         ClassEntity live = newClass("PG-Live", randomCode(), lecturerId);
         ClassEntity gone = newClass("PG-Gone", randomCode(), lecturerId);
@@ -100,8 +100,8 @@ class ClassRepositoryPaginationTest {
 
     @Test
     void find_all_by_paginates_across_all_lecturers_for_head_admin() {
-        Long lec1 = lookupUserId("lecturer@ulp.edu.vn");
-        Long lec2 = lookupUserId("head@ulp.edu.vn");
+        Long lec1 = lookupUserId("lecturer@ksh.edu.vn");
+        Long lec2 = lookupUserId("head@ksh.edu.vn");
 
         // Inject a small mixed set so HEAD/ADMIN view sees both lecturers.
         classRepository.saveAndFlush(newClass("PG-All-A", randomCode(), lec1));

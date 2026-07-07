@@ -38,8 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * security filter chain, controller wiring, and template selection
  * end-to-end via MockMvc.
  *
- * <p>Uses pre-seeded users from migrations (V5 for {@code student@ulp.edu.vn}
- * and V8 for {@code sv01@ulp.edu.vn}) because {@code @WithUserDetails}
+ * <p>Uses pre-seeded users from migrations (V5 for {@code student@ksh.edu.vn}
+ * and V8 for {@code sv01@ksh.edu.vn}) because {@code @WithUserDetails}
  * resolves the principal before {@code @BeforeEach} runs, so users
  * created in setup are not visible to {@code UserDetailsService}.
  *
@@ -53,9 +53,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StudentLessonsControllerTest {
 
     // Seeded by V5 — the enrolled-student account for tests.
-    private static final String STUDENT_EMAIL = "student@ulp.edu.vn";
+    private static final String STUDENT_EMAIL = "student@ksh.edu.vn";
     // Seeded by V8 — the not-enrolled student account.
-    private static final String OUTSIDER_EMAIL = "sv01@ulp.edu.vn";
+    private static final String OUTSIDER_EMAIL = "sv01@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -73,7 +73,7 @@ class StudentLessonsControllerTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase(STUDENT_EMAIL).orElseThrow();
         clazz = saveClass("Controller class", lecturer.getId(), "STCTLC");
         section1 = sectionRepository.saveAndFlush(

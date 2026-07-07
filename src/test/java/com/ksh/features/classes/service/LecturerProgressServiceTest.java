@@ -53,7 +53,7 @@ class LecturerProgressServiceTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         clazz = saveClass("Progress class", "PROG01");
         section1 = sectionRepository.saveAndFlush(new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         section2 = sectionRepository.saveAndFlush(new Section(clazz.getId(), "Chương 2", (short) 1, lecturer.getId()));
@@ -62,9 +62,9 @@ class LecturerProgressServiceTest {
     @Test
     void summary_and_percent_over_full_cohort() {
         seedFourPublishedLessons();
-        User s4 = enrollStudent("prog-s4@ulp.edu.vn", "Nguyen Bon");
-        User s2 = enrollStudent("prog-s2@ulp.edu.vn", "Tran Hai");
-        User s0 = enrollStudent("prog-s0@ulp.edu.vn", "Le Khong");
+        User s4 = enrollStudent("prog-s4@ksh.edu.vn", "Nguyen Bon");
+        User s2 = enrollStudent("prog-s2@ksh.edu.vn", "Tran Hai");
+        User s0 = enrollStudent("prog-s0@ksh.edu.vn", "Le Khong");
         completeLessons(s4, published); // 4/4 -> 100%
         completeLessons(s2, published.subList(0, 2)); // 2/4 -> 50%
         // s0 completes nothing.
@@ -86,7 +86,7 @@ class LecturerProgressServiceTest {
         Lesson deleted = persistLesson(section1.getId(), "Đã xoá", (short) 2, true);
         deleted.markDeleted();
         lessonRepository.saveAndFlush(deleted);
-        User s = enrollStudent("prog-den@ulp.edu.vn", "Denominator");
+        User s = enrollStudent("prog-den@ksh.edu.vn", "Denominator");
         completeLessons(s, List.of(pub1));
 
         StudentProgressRow row = onlyRow(s.getId());
@@ -98,7 +98,7 @@ class LecturerProgressServiceTest {
 
     @Test
     void no_published_lessons_yields_zero_percent_without_error() {
-        User s = enrollStudent("prog-empty@ulp.edu.vn", "Empty Class");
+        User s = enrollStudent("prog-empty@ksh.edu.vn", "Empty Class");
 
         ProgressPageView view = service.getProgressPage(clazz.getId(), lecturer.getId(),
                 Role.LECTURER, "all", "", 0, 10);
@@ -114,8 +114,8 @@ class LecturerProgressServiceTest {
     @Test
     void search_matches_name_or_email_case_insensitive() {
         seedFourPublishedLessons();
-        enrollStudent("alice@ulp.edu.vn", "Nguyen Van A");
-        enrollStudent("bob@ulp.edu.vn", "Tran Thi B");
+        enrollStudent("alice@ksh.edu.vn", "Nguyen Van A");
+        enrollStudent("bob@ksh.edu.vn", "Tran Thi B");
 
         Page<StudentProgressRow> byName = service.getProgressPage(clazz.getId(),
                 lecturer.getId(), Role.LECTURER, "all", "NGUYEN", 0, 10).rows();
@@ -125,15 +125,15 @@ class LecturerProgressServiceTest {
         Page<StudentProgressRow> byEmail = service.getProgressPage(clazz.getId(),
                 lecturer.getId(), Role.LECTURER, "all", "bob@", 0, 10).rows();
         assertThat(byEmail.getContent()).extracting(StudentProgressRow::email)
-                .containsExactly("bob@ulp.edu.vn");
+                .containsExactly("bob@ksh.edu.vn");
     }
 
     @Test
     void status_filter_in_progress_keeps_only_partial_students() {
         seedFourPublishedLessons();
-        User done = enrollStudent("f-done@ulp.edu.vn", "Full Done");
-        User partial = enrollStudent("f-part@ulp.edu.vn", "Half Way");
-        enrollStudent("f-none@ulp.edu.vn", "Not Yet");
+        User done = enrollStudent("f-done@ksh.edu.vn", "Full Done");
+        User partial = enrollStudent("f-part@ksh.edu.vn", "Half Way");
+        enrollStudent("f-none@ksh.edu.vn", "Not Yet");
         completeLessons(done, published);
         completeLessons(partial, published.subList(0, 1));
 
@@ -149,8 +149,8 @@ class LecturerProgressServiceTest {
     @Test
     void summary_ignores_active_filter() {
         seedFourPublishedLessons();
-        User done = enrollStudent("g-done@ulp.edu.vn", "GDone");
-        enrollStudent("g-none@ulp.edu.vn", "GNone");
+        User done = enrollStudent("g-done@ksh.edu.vn", "GDone");
+        enrollStudent("g-none@ksh.edu.vn", "GNone");
         completeLessons(done, published);
 
         ProgressSummary sum = service.getProgressPage(clazz.getId(), lecturer.getId(),
@@ -165,7 +165,7 @@ class LecturerProgressServiceTest {
     void pagination_returns_window_and_total() {
         seedFourPublishedLessons();
         for (int i = 0; i < 25; i++) {
-            enrollStudent("page-" + i + "@ulp.edu.vn", "Student " + i);
+            enrollStudent("page-" + i + "@ksh.edu.vn", "Student " + i);
         }
 
         Page<StudentProgressRow> page1 = service.getProgressPage(clazz.getId(),
@@ -181,7 +181,7 @@ class LecturerProgressServiceTest {
     void last_activity_is_max_updated_at_across_any_status() {
         Lesson pub1 = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
         Lesson pub2 = persistLesson(section1.getId(), "Bài 2", (short) 1, true);
-        User s = enrollStudent("act@ulp.edu.vn", "Activity Guy");
+        User s = enrollStudent("act@ksh.edu.vn", "Activity Guy");
         // One IN_PROGRESS open (no completion) must still count as activity.
         progressRepository.saveAndFlush(new LearningProgress(s.getId(), pub1.getId()));
         LearningProgress done = new LearningProgress(s.getId(), pub2.getId());
@@ -196,7 +196,7 @@ class LecturerProgressServiceTest {
     @Test
     void never_started_student_has_null_last_activity() {
         seedFourPublishedLessons();
-        User s = enrollStudent("never@ulp.edu.vn", "Never Started");
+        User s = enrollStudent("never@ksh.edu.vn", "Never Started");
 
         StudentProgressRow row = onlyRow(s.getId());
         assertThat(row.lastActivity()).isNull();
@@ -207,7 +207,7 @@ class LecturerProgressServiceTest {
     @Test
     void opened_but_zero_completed_buckets_as_in_progress() {
         seedFourPublishedLessons();
-        User opener = enrollStudent("prog-opener@ulp.edu.vn", "Opener Only");
+        User opener = enrollStudent("prog-opener@ksh.edu.vn", "Opener Only");
         // Open one lesson (IN_PROGRESS) without completing anything.
         progressRepository.saveAndFlush(
                 new LearningProgress(opener.getId(), published.get(0).getId()));
@@ -230,7 +230,7 @@ class LecturerProgressServiceTest {
         Lesson a = persistLesson(section1.getId(), "A", (short) 0, true);
         Lesson b = persistLesson(section1.getId(), "B", (short) 1, true);
         Lesson c = persistLesson(section2.getId(), "C", (short) 0, true);
-        User s = enrollStudent("drill@ulp.edu.vn", "Drill Student");
+        User s = enrollStudent("drill@ksh.edu.vn", "Drill Student");
         completeLessons(s, List.of(a)); // A completed
         progressRepository.saveAndFlush(new LearningProgress(s.getId(), b.getId())); // B in-progress
         // C never opened.
@@ -252,7 +252,7 @@ class LecturerProgressServiceTest {
     @Test
     void drill_down_for_non_member_throws() {
         seedFourPublishedLessons();
-        User outsider = ensureUser("outsider@ulp.edu.vn", "Outsider"); // never enrolled
+        User outsider = ensureUser("outsider@ksh.edu.vn", "Outsider"); // never enrolled
 
         assertThatThrownBy(() -> breakdownService.getStudentLessonBreakdown(
                 clazz.getId(), outsider.getId(), lecturer.getId(), Role.LECTURER))

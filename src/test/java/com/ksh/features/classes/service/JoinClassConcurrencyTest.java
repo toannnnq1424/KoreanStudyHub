@@ -4,6 +4,7 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.ClassInviteCode;
+import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
@@ -50,9 +51,9 @@ class JoinClassConcurrencyTest {
     @Test
     @Commit
     void two_threads_race_on_last_use_yields_one_success_and_one_rejection() throws Exception {
-        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
-        User a = userRepository.findByEmailIgnoreCase("sv01@ulp.edu.vn").orElseThrow();
-        User b = userRepository.findByEmailIgnoreCase("sv02@ulp.edu.vn").orElseThrow();
+        User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        User a = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
+        User b = userRepository.findByEmailIgnoreCase("sv02@ksh.edu.vn").orElseThrow();
 
         for (int iter = 0; iter < RUNS; iter++) {
             // â”€â”€ Fresh seed for each iteration â”€â”€

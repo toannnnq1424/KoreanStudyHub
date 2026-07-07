@@ -67,7 +67,7 @@ class LessonsControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         clazz = saveClass("Lessons CIT class", lecturer.getId(), "LSNCIT");
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
@@ -76,7 +76,7 @@ class LessonsControllerIntegrationTest {
     // ── Render create form ────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void get_new_form_renders_for_owner() throws Exception {
         mockMvc.perform(get(newUrl()))
                 .andExpect(status().isOk())
@@ -87,7 +87,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_create_with_valid_input_redirects_with_flash() throws Exception {
         mockMvc.perform(post(baseUrl())
                         .with(csrf())
@@ -105,7 +105,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_create_with_blank_title_re_renders_form_with_error() throws Exception {
         mockMvc.perform(post(baseUrl())
                         .with(csrf())
@@ -121,7 +121,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_create_sanitises_script_in_body() throws Exception {
         mockMvc.perform(post(baseUrl())
                         .with(csrf())
@@ -139,7 +139,7 @@ class LessonsControllerIntegrationTest {
     // ── Edit form ──────────────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void get_edit_form_pre_fills_form_and_eager_loads_activity_page() throws Exception {
         var row = lessonsService.create(clazz.getId(), section.getId(),
                 "Cũ", "DRAFT", "<p>body</p>",
@@ -158,7 +158,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void get_edit_tab_history_marks_active_tab() throws Exception {
         Lesson saved = lessonRepository.saveAndFlush(
                 new Lesson(section.getId(), "T", (short) 0, lecturer.getId()));
@@ -169,7 +169,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_edit_with_valid_input_redirects_to_edit_page() throws Exception {
         Lesson saved = lessonRepository.saveAndFlush(
                 new Lesson(section.getId(), "Cũ", (short) 0, lecturer.getId()));
@@ -190,7 +190,7 @@ class LessonsControllerIntegrationTest {
     // ── Publish / unpublish ────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_publish_changes_status() throws Exception {
         Lesson saved = lessonRepository.saveAndFlush(
                 new Lesson(section.getId(), "T", (short) 0, lecturer.getId()));
@@ -205,7 +205,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_unpublish_changes_status() throws Exception {
         // Publish first so unpublish has something to flip.
         var row = lessonsService.create(clazz.getId(), section.getId(),
@@ -223,7 +223,7 @@ class LessonsControllerIntegrationTest {
     // ── Delete + reorder JSON ─────────────────────────────────────────
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void delete_returns_json_and_soft_deletes_lesson() throws Exception {
         Lesson saved = lessonRepository.saveAndFlush(
                 new Lesson(section.getId(), "X", (short) 0, lecturer.getId()));
@@ -237,7 +237,7 @@ class LessonsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void post_reorder_with_full_ordered_ids_returns_ok() throws Exception {
         Lesson a = lessonRepository.saveAndFlush(
                 new Lesson(section.getId(), "A", (short) 0, lecturer.getId()));
@@ -265,7 +265,7 @@ class LessonsControllerIntegrationTest {
     // ── Negative auth ──────────────────────────────────────────────────
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void student_cannot_access_lesson_endpoints() throws Exception {
         mockMvc.perform(get(newUrl()))
                 .andExpect(status().isForbidden());
@@ -337,7 +337,7 @@ class LessonsControllerIntegrationTest {
     }
 
     private User ensureExtraLecturer() {
-        String email = "lecturer-other@ulp.edu.vn";
+        String email = "lecturer-other@ksh.edu.vn";
         return userRepository.findByEmailIgnoreCase(email).orElseGet(() -> {
             User u = UserFactory.newAdminCreated(
                     email,

@@ -38,7 +38,7 @@ class ClassRepositoryTest {
     @PersistenceContext
     private EntityManager em;
 
-    /** Seeded lecturer id (V5__seed_test_users.sql: lecturer@ulp.edu.vn). */
+    /** Seeded lecturer id (V5__seed_test_users.sql: lecturer@ksh.edu.vn). */
     private static final long SEED_LECTURER_EMAIL_ID = lookupSeedLecturerId();
 
     @AfterEach
@@ -71,8 +71,8 @@ class ClassRepositoryTest {
 
     @Test
     void find_by_lecturer_id_filters_to_owner() {
-        Long lec1 = lookupUserId("lecturer@ulp.edu.vn");
-        Long lec2 = lookupUserId("head@ulp.edu.vn"); // HEAD also seeded
+        Long lec1 = lookupUserId("lecturer@ksh.edu.vn");
+        Long lec2 = lookupUserId("head@ksh.edu.vn"); // HEAD also seeded
 
         long before = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lec1).size();
 

@@ -27,7 +27,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Auth guards ─────────────────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void admin_root_redirects_to_dashboard() throws Exception {
         mockMvc.perform(get("/admin"))
                 .andExpect(status().is3xxRedirection())
@@ -42,21 +42,21 @@ class AdminControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void admin_student_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("lecturer@ulp.edu.vn")
+    @WithUserDetails("lecturer@ksh.edu.vn")
     void admin_lecturer_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("head@ulp.edu.vn")
+    @WithUserDetails("head@ksh.edu.vn")
     void admin_head_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
@@ -65,7 +65,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Dashboard render ────────────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void admin_dashboard_renders_with_stats() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isOk())
@@ -79,7 +79,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Placeholder tabs ────────────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void admin_users_placeholder_renders() throws Exception {
         mockMvc.perform(get("/admin/users"))
                 .andExpect(status().isOk())
@@ -89,7 +89,7 @@ class AdminControllerIntegrationTest {
     // ───────────────────── Settings index ──────────────────────────
 
     @Test
-    @WithUserDetails("admin@ulp.edu.vn")
+    @WithUserDetails("admin@ksh.edu.vn")
     void admin_settings_index_renders() throws Exception {
         mockMvc.perform(get("/admin/settings"))
                 .andExpect(status().isOk())

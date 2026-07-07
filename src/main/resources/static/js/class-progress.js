@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   ULP — Lecturer progress drill-down (lecturer-student-progress)
+   ksh — Lecturer progress drill-down (lecturer-student-progress)
    Row click → fetch per-student lesson breakdown JSON → render a side panel.
    All content is written via textContent (never innerHTML) so lesson/section
    titles containing markup render as literal text (XSS-safe). Uses

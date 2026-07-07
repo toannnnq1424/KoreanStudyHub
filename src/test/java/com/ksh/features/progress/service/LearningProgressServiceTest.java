@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link LearningProgressService} (ULP-4.5). Also
+ * Integration tests for {@link LearningProgressService} (ksh-4.5). Also
  * exercises {@link StudentLessonsService} aggregates so DRAFT-exclusion is
  * covered end-to-end against MySQL.
  */
@@ -56,8 +56,8 @@ class LearningProgressServiceTest {
     @BeforeEach
     void setUp() {
         orderSeq = 0;
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ulp.edu.vn").orElseThrow();
-        student = ensureUser("student-progress@ulp.edu.vn", "Student Progress");
+        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        student = ensureUser("student-progress@ksh.edu.vn", "Student Progress");
         clazz = saveClass("Progress class", "PRGCLS");
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));

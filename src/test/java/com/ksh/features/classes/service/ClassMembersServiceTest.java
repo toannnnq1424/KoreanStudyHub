@@ -59,7 +59,7 @@ class ClassMembersServiceTest {
         ClassEntity clazz = newClass(11L, "TestClass");
         List<Enrollment> enrollments = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
-            enrollments.add(newEnrollment(100L + i, "User " + i, "u" + i + "@ulp.vn"));
+            enrollments.add(newEnrollment(100L + i, "User " + i, "u" + i + "@ksh.vn"));
         }
 
         when(classesService.getViewable(eq(11L), eq(ANY_USER_ID), eq(Role.LECTURER))).thenReturn(clazz);
@@ -97,7 +97,7 @@ class ClassMembersServiceTest {
     @Test
     void list_for_class_preserves_user_fields_in_member_row() {
         ClassEntity clazz = newClass(13L, "FieldsClass");
-        Enrollment e = newEnrollment(500L, "Nguyen Van A", "nva@ulp.vn");
+        Enrollment e = newEnrollment(500L, "Nguyen Van A", "nva@ksh.vn");
         ReflectionTestUtils.setField(e, "joinedVia", "CODE");
         // Set phone on the underlying user
         ReflectionTestUtils.setField(e.getUser(), "phone", "0901234567");
@@ -110,7 +110,7 @@ class ClassMembersServiceTest {
 
         assertThat(row.userId()).isEqualTo(500L);
         assertThat(row.fullName()).isEqualTo("Nguyen Van A");
-        assertThat(row.email()).isEqualTo("nva@ulp.vn");
+        assertThat(row.email()).isEqualTo("nva@ksh.vn");
         assertThat(row.phone()).isEqualTo("0901234567");
         assertThat(row.joinedVia()).isEqualTo("CODE");
         assertThat(row.avatarLabel()).isEqualTo("NA");

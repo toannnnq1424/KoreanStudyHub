@@ -2,6 +2,8 @@ package com.ksh.features.admin.settings.service;
 
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.features.admin.settings.dto.OauthSettingsDtos.OauthSettingsForm;
+import com.ksh.features.admin.settings.service.EmailSettingsService;
+import com.ksh.features.admin.settings.service.OauthSettingsService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.config.CacheConfig;
 import com.ksh.features.admin.settings.SystemSettingGroups;
@@ -65,7 +67,7 @@ class SystemSettingsCacheTest {
         Cache cache = cacheManager.getCache(CacheConfig.CACHE_SETTINGS_GROUP);
         if (cache != null) cache.clear();
 
-        adminId = userRepository.findByEmailIgnoreCase("admin@ulp.edu.vn")
+        adminId = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn")
                 .map(u -> u.getId())
                 .orElseThrow();
     }
@@ -133,7 +135,7 @@ class SystemSettingsCacheTest {
         // Save SMTP — eviction should drop only the SMTP entry.
         EmailSettingsForm form = new EmailSettingsForm(
                 "smtp.example.com", 587, "tls", "u@example.com",
-                "", "ULP", "u@example.com", "");
+                "", "ksh", "u@example.com", "");
         emailSettingsService.save(form, adminId);
 
         assertThat(cache.get(SystemSettingGroups.SMTP))

@@ -6,7 +6,7 @@ package com.ksh.features.classes.imports;
  *
  * <p>The controller converts this exception into an HTTP 400 response whose
  * body carries the Vietnamese {@link #getMessage()} so the frontend can render
- * it via {@code kshToast.error(...)}.
+ * it via {@code KshToast.error(...)}.
  */
 public class InvalidFileException extends RuntimeException {
 

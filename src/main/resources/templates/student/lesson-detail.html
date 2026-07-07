@@ -11,7 +11,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lesson-detail-shell">
-    <!-- Back link returns to the section-scoped list view (D5 of ULP-4.1) -->
+    <!-- Back link returns to the section-scoped list view (D5 of ksh-4.1) -->
     <a class="student-lesson-detail-back"
        th:href="@{|/my/classes/${lessonDetail.classId()}/lessons|(section=${lessonDetail.sectionId()})}">
         <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
