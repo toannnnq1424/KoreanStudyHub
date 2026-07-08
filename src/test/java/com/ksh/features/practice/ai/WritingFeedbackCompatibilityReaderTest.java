@@ -77,6 +77,33 @@ class WritingFeedbackCompatibilityReaderTest {
     }
 
     @Test
+    void acceptsMissingRawScoreOnlyForNonScoreBearingStatuses() throws Exception {
+        JsonNode unavailable = objectMapper.readTree("""
+                {"evaluation_status":"EVALUATION_UNAVAILABLE","evaluation_source":"PROVIDER","evaluation_reason":"HTTP_ERROR","score_available":false}
+                """);
+        JsonNode contractFailed = objectMapper.readTree("""
+                {"evaluation_status":"EVALUATION_CONTRACT_FAILED","evaluation_source":"PROVIDER","evaluation_reason":"PROVIDER_CONTRACT_INVALID","score_available":false}
+                """);
+        JsonNode invalidMissingRaw = objectMapper.readTree("""
+                {"evaluation_status":"INVALID_LEARNER_RESPONSE","evaluation_source":"BACKEND_RULE","evaluation_reason":"BLANK_ANSWER","score_available":true,"raw_score_max":10}
+                """);
+        JsonNode invalidRawZero = objectMapper.readTree("""
+                {"evaluation_status":"INVALID_LEARNER_RESPONSE","evaluation_source":"BACKEND_RULE","evaluation_reason":"BLANK_ANSWER","score_available":true,"raw_score":0,"raw_score_max":10}
+                """);
+
+        WritingFeedbackCompatibilityReader.EntryResult unavailableResult = reader.parseStoredEntry(unavailable);
+        WritingFeedbackCompatibilityReader.EntryResult contractResult = reader.parseStoredEntry(contractFailed);
+        WritingFeedbackCompatibilityReader.EntryResult invalidResult = reader.parseStoredEntry(invalidRawZero);
+
+        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_CURRENT, unavailableResult.status());
+        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_CURRENT, contractResult.status());
+        assertEquals(WritingFeedbackCompatibilityReader.Status.MALFORMED, reader.parseStoredEntry(invalidMissingRaw).status());
+        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_CURRENT, invalidResult.status());
+        assertEquals(0, invalidResult.value().rawScore().compareTo(BigDecimal.ZERO));
+        assertEquals(true, invalidResult.value().scoreAvailable());
+    }
+
+    @Test
     void generatedEntryKeepsCurrentClampBehaviorForOutOfRangeRawScore() throws Exception {
         JsonNode negative = objectMapper.readTree("{\"raw_score\":-1,\"raw_score_max\":10}");
         JsonNode aboveMax = objectMapper.readTree("{\"raw_score\":11,\"raw_score_max\":10}");

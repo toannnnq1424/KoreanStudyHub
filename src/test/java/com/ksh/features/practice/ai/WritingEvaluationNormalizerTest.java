@@ -353,6 +353,48 @@ class WritingEvaluationNormalizerTest {
                 "Score should be determined by rubric scores, not findings count");
     }
 
+    @Test
+    void providerSpamOrOffTopicWithValidRubricsRemainsScoreBearingLowScore() throws Exception {
+        String studentText = "한국어 답안입니다. 주제와 약하게 관련된 내용을 썼습니다.";
+        List<String> rubrics = WritingPromptRules.rubricNamesForTask("Q53");
+        String aiJson = """
+        {
+          "summary": "[SPAM_DETECTED] Provider judged this as learner performance.",
+          "rubric_scores": [
+            {"name": "%s", "score": 1.0, "feedback": "Low content"},
+            {"name": "%s", "score": 1.0, "feedback": "Low structure"},
+            {"name": "%s", "score": 1.0, "feedback": "Low language"}
+          ],
+          "strengths": [],
+          "needs_improvement": [
+            {
+              "criterionId": "W_OFF_TOPIC_OR_WEAK_RELEVANCE",
+              "evidenceScope": "WHOLE_ANSWER",
+              "evidence": "",
+              "explanationVi": "Bai viet lac de hoac lien quan yeu.",
+              "correction": ""
+            }
+          ],
+          "upgraded_answer": "", "upgraded_answer_annotated": "",
+          "sample_answer": "", "sentence_rewrites": []
+        }
+        """.formatted(rubrics.get(0), rubrics.get(1), rubrics.get(2));
+
+        JsonNode root = objectMapper.readTree(normalizer.normalize(aiJson, "Q53", studentText, null));
+
+        assertEquals("EVALUATED", root.path("evaluation_status").asText());
+        assertEquals("PROVIDER", root.path("evaluation_source").asText());
+        assertEquals("NONE", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
+        assertEquals(1.0, root.path("score").asDouble());
+        assertEquals(30.0, root.path("raw_score_max").asDouble());
+        assertTrue(root.path("raw_score").asDouble() > 0.0,
+                "Provider low-score learner performance must not be rewritten to deterministic raw zero");
+        assertEquals(1, root.path("needs_improvement").size());
+        assertEquals("W_OFF_TOPIC_OR_WEAK_RELEVANCE",
+                root.path("needs_improvement").get(0).path("criterionId").asText());
+    }
+
     // ---- Missing upgrade fields ----
 
     @Test
@@ -383,7 +425,12 @@ class WritingEvaluationNormalizerTest {
         String spamJson = normalizer.spamResponse("Q53", "asdfasdf");
         JsonNode root = objectMapper.readTree(spamJson);
         assertEquals(0.0, root.path("score").asDouble());
-        assertTrue(root.path("summary").asText().startsWith("[SPAM_DETECTED]"));
+        assertTrue(root.path("summary").asText().startsWith("[INVALID_LEARNER_RESPONSE]"));
+        assertEquals("INVALID_LEARNER_RESPONSE", root.path("evaluation_status").asText());
+        assertEquals("BACKEND_RULE", root.path("evaluation_source").asText());
+        assertEquals("NO_HANGUL", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
+        assertEquals(0.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         assertEquals(3, root.path("rubric_scores").size());
         assertTrue(root.path("strengths").isEmpty());
@@ -394,6 +441,9 @@ class WritingEvaluationNormalizerTest {
     void testSpamResponseQ51_52UsesCorrectRubrics() throws Exception {
         String spamJson = normalizer.spamResponse("Q51_52", "");
         JsonNode root = objectMapper.readTree(spamJson);
+        assertEquals("INVALID_LEARNER_RESPONSE", root.path("evaluation_status").asText());
+        assertEquals("BLANK_ANSWER", root.path("evaluation_reason").asText());
+        assertEquals(0.0, root.path("raw_score").asDouble());
         assertEquals(10.0, root.path("raw_score_max").asDouble());
         String rubric0 = root.path("rubric_scores").get(0).path("name").asText();
         assertFalse(rubric0.contains("Bố cục"), "Spam response for Q51/52 should not have essay rubric");

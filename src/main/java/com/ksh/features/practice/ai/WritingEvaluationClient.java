@@ -129,7 +129,7 @@ public class WritingEvaluationClient {
 
         // 1. Deterministic spam short-circuit — task-aware
         if (isDefinitelyInvalid(learnerAnswer, ruleAnalysis)) {
-            log.info("KSH writing evaluation deterministic spam short-circuit: taskType={}", ruleAnalysis.taskType());
+            log.info("KSH writing evaluation deterministic invalid-response short-circuit: taskType={}", ruleAnalysis.taskType());
             return normalizer.spamResponse(ruleAnalysis.taskType(), learnerAnswer);
         }
 

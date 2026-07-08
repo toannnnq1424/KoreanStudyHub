@@ -193,8 +193,9 @@ public class WritingEvaluationNormalizer {
             normalized.put("raw_score_max", rawMax);
             normalized.put("task_type", effectiveTaskType);
             normalized.put("band_label", "Không phản hồi");
-            normalized.put("summary", "[SPAM_DETECTED] Bài làm không hợp lệ hoặc chưa đủ dữ liệu tiếng Hàn để chấm.");
-            normalized.put("summary_vi", "[SPAM_DETECTED] Bài làm không hợp lệ hoặc chưa đủ dữ liệu tiếng Hàn để chấm.");
+            String invalidSummary = "[INVALID_LEARNER_RESPONSE] Bai lam bo trong hoac chua du du lieu tieng Han de cham.";
+            normalized.put("summary", invalidSummary);
+            normalized.put("summary_vi", invalidSummary);
             normalized.put("rubric_scores", rubricScores);
             normalized.put("strengths", List.of());
             normalized.put("needs_improvement", List.of());
@@ -217,7 +218,7 @@ public class WritingEvaluationNormalizer {
                     true);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
-            return fallback("[SPAM_DETECTED] Bài làm không hợp lệ.", taskType);
+            return fallback("[INVALID_LEARNER_RESPONSE] Bai lam khong hop le.", taskType);
         }
     }
 

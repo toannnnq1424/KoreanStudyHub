@@ -57,6 +57,11 @@ class WritingMockEvaluatorServiceTest {
             String normalized = normalizer.normalize(mockOutput, "Q53", "제시된 자료에 따르면 한국어 수치는 일정한 변화 양상을 보인다.", analysis);
             JsonNode root = objectMapper.readTree(normalized);
             assertEquals(30.0, root.path("raw_score_max").asDouble(), "Q53 raw_score_max must be 30");
+            assertEquals("MOCK_EVALUATED", root.path("evaluation_status").asText());
+            assertEquals("MOCK", root.path("evaluation_source").asText());
+            assertEquals("MOCK_ONLY", root.path("evaluation_reason").asText());
+            assertTrue(root.path("score_available").asBoolean(false));
+            assertTrue(root.path("raw_score").isNumber());
         }
 
         // Test Q54

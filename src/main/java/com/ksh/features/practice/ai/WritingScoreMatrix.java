@@ -32,21 +32,6 @@ public final class WritingScoreMatrix {
                 .doubleValue();
     }
 
-    public static double backendScoreFromEvidence(double evaluatorScore, int strengthEvidence, int majorIssues) {
-        double adjusted = evaluatorScore;
-        if (strengthEvidence < 2) {
-            adjusted -= 1.0;
-        } else if (strengthEvidence <= 3) {
-            adjusted -= 0.5;
-        }
-        if (majorIssues > 6) {
-            adjusted -= 1.0;
-        } else if (majorIssues >= 4) {
-            adjusted -= 0.5;
-        }
-        return clampAndRound(adjusted);
-    }
-
     public static double rawScoreMax(String taskType) {
         return switch (taskType == null ? "GENERAL" : taskType) {
             case "Q51", "Q52", "Q51_52" -> 10.0;

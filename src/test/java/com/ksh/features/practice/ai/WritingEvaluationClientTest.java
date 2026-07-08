@@ -62,6 +62,53 @@ class WritingEvaluationClientTest {
     }
 
     @Test
+    void deterministicBlankReturnsInvalidRawZeroWithoutProviderCacheOrMock() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        RestClient restClient = mock(RestClient.class);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, restClient
+        );
+
+        JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet", "   ", false, WritingTaskType.Q53));
+
+        assertEquals("INVALID_LEARNER_RESPONSE", root.path("evaluation_status").asText());
+        assertEquals("BACKEND_RULE", root.path("evaluation_source").asText());
+        assertEquals("BLANK_ANSWER", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
+        assertEquals(0.0, root.path("raw_score").asDouble());
+        assertEquals(30.0, root.path("raw_score_max").asDouble());
+        assertTrue(root.path("summary").asText().startsWith("[INVALID_LEARNER_RESPONSE]"));
+        verifyNoInteractions(restClient, mockEvaluator);
+        verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void deterministicNoHangulReturnsInvalidRawZeroWithoutProviderCacheOrMock() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        RestClient restClient = mock(RestClient.class);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, restClient
+        );
+
+        JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 51 viet", "hello world 123", false, WritingTaskType.Q51));
+
+        assertEquals("INVALID_LEARNER_RESPONSE", root.path("evaluation_status").asText());
+        assertEquals("BACKEND_RULE", root.path("evaluation_source").asText());
+        assertEquals("NO_HANGUL", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
+        assertEquals(0.0, root.path("raw_score").asDouble());
+        assertEquals(10.0, root.path("raw_score_max").asDouble());
+        verifyNoInteractions(restClient, mockEvaluator);
+        verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
     void testValidKoreanNotInvalid() {
         var analysis = new WritingRuleEngine.RuleAnalysis("Q53", 10, "OK: 글자 수 250자.", List.of());
         assertFalse(WritingEvaluationClient.isDefinitelyInvalid("한국어를 공부합니다", analysis));

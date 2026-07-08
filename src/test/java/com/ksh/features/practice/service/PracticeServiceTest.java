@@ -1582,6 +1582,47 @@ class PracticeServiceTest {
     }
 
     @Test
+    void testWritingAggregationDoesNotApplyAdditionalLengthPenalty() {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q1 = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q1, 101L);
+        PracticeQuestion q2 = new PracticeQuestion(1L, 53, "ESSAY", "Q2", "[]", "", "Explain", BigDecimal.valueOf(30.0), 1);
+        setEntityId(q2, 102L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1, q2));
+
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), eq("짧은 답"), anyBoolean(), any()))
+                .thenReturn("{\"raw_score\":5.0,\"raw_score_max\":10.0}");
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean(), any()))
+                .thenReturn("{\"raw_score\":15.0,\"raw_score_max\":30.0}");
+
+        practiceService.submitAttempt(99L, 2L, Map.of(
+                "answer_101", "짧은 답",
+                "answer_102", "긴 답 ".repeat(80)
+        ));
+
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(40.0)));
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(50.00)));
+        verify(evaluationClient).evaluate(eq(2L), eq("Q1"), eq("짧은 답"), eq(false), isNull());
+        verify(evaluationClient).evaluate(eq(2L), eq("Q2"), anyString(), eq(false), isNull());
+    }
+
+    @Test
     void testWritingSubmitConflictsWhenLockVersionChangesBeforePersist() {
         PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
