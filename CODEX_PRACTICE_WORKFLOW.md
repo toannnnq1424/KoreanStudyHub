@@ -239,13 +239,38 @@ No real OpenAI/Gemini/Claude/provider calls by default.
 
 ## Escalation and Permission Policy
 
-Codex must stop and ask user before:
+Default posture:
+
+For repository-local work in `D:\Downloads\ksh` that the user has explicitly
+requested, Codex should use the required tool permission immediately when the
+operation is known or likely to need it.
+
+Do not deliberately run a command in a restricted mode first when prior evidence
+or the operation type already shows that it will need elevated/test/git/network
+permission. That creates predictable failure noise and wastes tokens.
+
+This applies to approved repo-local commands such as:
+
+- focused Maven test commands;
+- exact-path `git add`;
+- `git commit` with the approved message;
+- `git push origin feature/practice` when the user explicitly requested push;
+- read-only or write operations inside the approved workspace.
+
+Codex should still describe what it is doing and keep scope exact, but it should
+not pause for an extra permission conversation when the current prompt already
+authorizes the work and the required permission is only needed to complete that
+same repo-local task.
+
+Codex must stop and ask user before actions outside the normal repo-local trust
+boundary, including:
 
 - elevated OS permissions;
 - administrator permissions;
 - global environment changes;
 - installing dependencies;
-- external network calls;
+- external network calls unrelated to the explicitly requested git push or
+  approved dependency/test operation;
 - real AI/provider API calls;
 - production DB access;
 - DB mutation outside test context;
@@ -260,11 +285,19 @@ Codex must stop and ask user before:
 - security/auth config changes;
 - storage/object-storage config changes.
 
+Codex must also stop before accessing suspicious, phishing-like, or unrelated
+websites, and before reading, writing, deleting, staging, committing, or pushing
+files outside the approved repository scope.
+
 For Maven specifically:
 
 Do not run a known-to-fail non-escalated command first.
 
-Ask once, then run the focused command with the required permission if approved.
+If the current prompt already authorizes the test command, run the focused
+command once with the required permission from the start.
+
+If the current prompt does not authorize tests, ask once, then run the focused
+command with the required permission if approved.
 
 ## Known Patch File Rule
 
@@ -767,7 +800,20 @@ with reason.
 - remaining debt;
 - next action.
 
-7. If a requested task would require editing this MD but the prompt says no file edits,
+7. Do not leave this MD dirty across task boundaries.
+
+If `CODEX_PRACTICE_WORKFLOW.md` is updated as part of a code/test slice, commit
+the MD in the same slice commit unless the user explicitly requires a separate
+docs commit.
+
+If `CODEX_PRACTICE_WORKFLOW.md` is updated as a docs-only policy/status change
+after the related slice is already committed, commit the docs-only change
+immediately after review.
+
+Do not start a later audit while this MD has an uncommitted tracked diff.
+Foundation checks are expected to block in that state.
+
+8. If a requested task would require editing this MD but the prompt says no file edits,
 Codex must stop and ask:
 
 MD_STATUS_UPDATE_REQUIRES_PERMISSION
@@ -858,7 +904,8 @@ Codex must answer internally:
 6. Is the request trying to enter Phase 9 before 8G?
 7. Is the request outside `/practice`?
 8. Is `.codex-test-detail-csrf.patch` untouched?
-9. Do I need permission before Maven/test/escalation?
+9. If Maven/git/test/push needs permission, has the current prompt already
+   authorized it so I should use the required permission immediately?
 10. Am I about to run full suite for a small slice?
 11. Am I about to claim live rollout readiness without evidence?
 12. Am I about to mark a phase closed without commit/review/test evidence?
