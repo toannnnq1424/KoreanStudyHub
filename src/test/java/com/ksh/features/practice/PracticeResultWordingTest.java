@@ -28,7 +28,8 @@ class PracticeResultWordingTest {
 
         assertFalse(html.contains("'Task Score'"));
         assertFalse(html.contains(">Task Score<"));
-        assertTrue(html.contains("Điểm đánh giá câu viết"));
+        assertFalse(html.contains("Điểm đánh giá câu viết"));
+        assertTrue(html.contains("Điểm bài làm"));
     }
 
     @Test
