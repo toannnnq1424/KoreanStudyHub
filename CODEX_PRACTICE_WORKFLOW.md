@@ -182,7 +182,14 @@ If prior task evidence shows the current environment blocks Maven parent POM
 resolution without elevated/sandbox permission, Codex must NOT first run a
 known-to-fail non-escalated Maven command.
 
-Do not waste a test attempt just to reproduce the same sandbox failure.
+This is a hard rule, not a suggestion.
+
+Do not waste a test attempt, tool call, or token budget just to reproduce the
+same known sandbox failure.
+
+Do not run the parent/root Maven command normally first when prior evidence
+already shows that parent POM resolution or Maven execution needs elevated test
+permission in the current environment.
 
 Instead:
 
@@ -192,6 +199,10 @@ Instead:
 2. If the current prompt already grants test permission, run exactly one
    focused Maven command with the required permission and report that it used
    the known required test permission.
+
+When the prompt explicitly authorizes required test permission, Codex should use
+that permission at the start of the Maven command. It must not run a doomed
+non-escalated command first and then ask for permission afterward.
 
 Forbidden pattern:
 
@@ -208,7 +219,7 @@ Use this decision:
 If Maven is required and prior evidence shows sandbox permission is needed:
 
 - do not run non-escalated first;
-- request/declare required permission before running;
+- request or declare required permission before running;
 - run focused command once;
 - report exact reason.
 
@@ -481,13 +492,29 @@ feat(practice): stabilize speaking media contract
 Meaning:
 Safe upload/delete response contract metadata added and pushed.
 
+#### Phase 8D-D — Range Playback and Browser Compatibility
+
+Status:
+IMPLEMENTED_AND_FOCUSED_TESTED
+
+Commit:
+N/A
+
+Parent:
+03f781a74f46cd312c6ffe804dc9278b1f1414e3
+
+Message:
+N/A
+
+Meaning:
+Private local Speaking media playback now has focused-tested HTTP byte Range support for browser-compatible seeking.
+
 Top-level Phase 8D remains:
 IN_PROGRESS
 
 Remaining 8D areas:
 
 - browser recording / MediaRecorder;
-- Range playback / browser playback compatibility;
 - cleanup worker / deployment ownership;
 - production object storage;
 - consent;
@@ -752,17 +779,19 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8C-R Writing Closure Re-validation | PROVISIONALLY_CLOSED_NEEDS_REVALIDATION | CLOSED_WITH_ACCEPTED_DEBT | N/A | N/A | 8C_CLOSED_WITH_ACCEPTED_DEBT audit verdict. | Closed for internal practice-score workflow dependencies with accepted debt. | Continue Phase 8D path. |
 | 2026-07-09 | 8D-A Speaking Audio & Media Baseline Audit | NOT_STARTED | AUDIT_GO | N/A | N/A | 8D_FOUNDATION_VERIFIED_WITH_ACCEPTED_DEBT. | Backend media foundation exists, but not production/browser ready. | Confirm next 8D implementation slice. |
 | 2026-07-09 | 8D-B Speaking Audio Contract Stabilization | IMPLEMENTED_AND_FOCUSED_TESTED / READY_FOR_COMMIT_REVIEW | COMMITTED | 3156139081ef1480f605df91c8b99216069d43a3 | ca2f6f1298b7e556757b1e8fc1c840bb7fce44f4 | Focused tests 310 pass, 0 failures, 0 errors, 2 skips. Full suite was run historically for this slice but future small slices should not require full suite by default. | Committed and pushed to origin/feature/practice. | Confirm next 8D slice with user. |
+| 2026-07-09 | 8D-D Range Playback and Browser Compatibility | AUDIT_GO / IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 03f781a74f46cd312c6ffe804dc9278b1f1414e3 | Focused tests 81 pass, 0 failures, 0 errors, 2 skips. | Implemented private local playback Range support; not staged, committed, or pushed. | User review for 8D-D implementation summary, then commit/push only after explicit GO. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Ask user to confirm the next Phase 8D slice.
+User review for 8D-D Range Playback and Browser Compatibility implementation summary.
+
+After user review, commit/push only after explicit GO.
 
 Likely candidates:
 
 - 8D-C Browser Recording Implementation;
-- 8D-D Range Playback and Browser Compatibility;
 - 8D-E Cleanup Worker and Operations;
 - 8D-F Production Storage Abstraction.
 

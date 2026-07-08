@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -96,7 +97,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, containsString("private")))
                 .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
                 .andExpect(header().string(HttpHeaders.EXPIRES, "0"))
-                .andExpect(header().doesNotExist(HttpHeaders.ACCEPT_RANGES))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(header().doesNotExist(HttpHeaders.CONTENT_RANGE))
                 .andExpect(content().string(not(containsString(SECRET_KEY))))
                 .andExpect(content().string(not(containsString(SECRET_HASH))))
@@ -128,7 +129,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     }
 
     @Test
-    void rangeHeaderStillReturnsFullResponseWithoutRangeHeaders() throws Exception {
+    void rangeHeaderReturnsPartialContentWithRangeHeaders() throws Exception {
         TransactionObservingInputStream stream = new TransactionObservingInputStream(new byte[]{1, 2, 3, 4});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
@@ -141,12 +142,184 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andReturn();
 
         mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk())
-                .andExpect(content().bytes(new byte[]{1, 2, 3, 4}))
-                .andExpect(header().doesNotExist(HttpHeaders.ACCEPT_RANGES))
-                .andExpect(header().doesNotExist(HttpHeaders.CONTENT_RANGE));
+                .andExpect(status().isPartialContent())
+                .andExpect(content().bytes(new byte[]{2, 3}))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 1-2/4"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 2L));
 
         assertThat(stream.transactionActiveDuringRead).containsOnly(false);
+    }
+
+    @Test
+    void zeroToZeroRangeReturnsSingleByte() throws Exception {
+        when(playbackService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", 4L, stream(new byte[]{1, 2, 3, 4})));
+
+        MvcResult result = mockMvc.perform(get(ROUTE)
+                        .header(HttpHeaders.RANGE, "bytes=0-0")
+                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isPartialContent())
+                .andExpect(content().bytes(new byte[]{1}))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-0/4"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 1L));
+    }
+
+    @Test
+    void closedRangeReturnsExpectedSegmentAndHeaders() throws Exception {
+        byte[] content = sequence(160);
+        PracticeSpeakingMediaPlaybackService localService = mock(PracticeSpeakingMediaPlaybackService.class);
+        when(localService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", content.length, stream(content)));
+        PracticeSpeakingMediaPlaybackController controller =
+                new PracticeSpeakingMediaPlaybackController(localService, new AuthenticatedUserIdResolver());
+
+        ResponseEntity<StreamingResponseBody> response = controller.content(
+                10L, 20L, 30L, "bytes=0-99", formAuthentication(77L, Role.STUDENT));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.PARTIAL_CONTENT);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 0-99/160");
+        assertThat(response.getHeaders().getContentLength()).isEqualTo(100L);
+        assertThat(response.getBody()).isNotNull();
+        response.getBody().writeTo(output);
+        assertThat(output.toByteArray()).containsExactly(java.util.Arrays.copyOfRange(content, 0, 100));
+    }
+
+    @Test
+    void openEndedRangeReturnsBytesFromOffsetToEnd() throws Exception {
+        byte[] content = sequence(160);
+        when(playbackService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", content.length, stream(content)));
+
+        MvcResult result = mockMvc.perform(get(ROUTE)
+                        .header(HttpHeaders.RANGE, "bytes=100-")
+                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isPartialContent())
+                .andExpect(content().bytes(java.util.Arrays.copyOfRange(content, 100, 160)))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 100-159/160"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 60L));
+    }
+
+    @Test
+    void suffixRangeReturnsTrailingBytes() throws Exception {
+        when(playbackService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", 5L, stream(new byte[]{1, 2, 3, 4, 5})));
+
+        MvcResult result = mockMvc.perform(get(ROUTE)
+                        .header(HttpHeaders.RANGE, "bytes=-2")
+                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isPartialContent())
+                .andExpect(content().bytes(new byte[]{4, 5}))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 3-4/5"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 2L));
+    }
+
+    @Test
+    void suffixRangeLargerThanTotalReturnsWholeBodyAsPartial() throws Exception {
+        when(playbackService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", 5L, stream(new byte[]{1, 2, 3, 4, 5})));
+
+        MvcResult result = mockMvc.perform(get(ROUTE)
+                        .header(HttpHeaders.RANGE, "bytes=-50")
+                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isPartialContent())
+                .andExpect(content().bytes(new byte[]{1, 2, 3, 4, 5}))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-4/5"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 5L));
+    }
+
+    @Test
+    void unsatisfiableRangeReturnsBounded416WithTotalOnly() throws Exception {
+        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4});
+        PracticeSpeakingMediaPlaybackService localService = mock(PracticeSpeakingMediaPlaybackService.class);
+        when(localService.openForOwner(77L, 10L, 20L, 30L))
+                .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                        "audio/webm", 4L, stream));
+        PracticeSpeakingMediaPlaybackController controller =
+                new PracticeSpeakingMediaPlaybackController(localService, new AuthenticatedUserIdResolver());
+
+        ResponseEntity<StreamingResponseBody> response = controller.content(
+                10L, 20L, 30L, "bytes=4-", formAuthentication(77L, Role.STUDENT));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes */4");
+        assertThat(response.getHeaders().getContentLength()).isZero();
+        assertThat(response.toString())
+                .doesNotContain(SECRET_KEY, SECRET_PATH, SECRET_HASH, SECRET_FILENAME, SECRET_USER);
+        assertThat(response.getBody()).isNotNull();
+        response.getBody().writeTo(output);
+        assertThat(output.toByteArray()).isEmpty();
+
+        assertThat(stream.closed).isTrue();
+    }
+
+    @Test
+    void malformedMultipleAndUnsupportedRangesReturnBounded416() throws Exception {
+        PracticeSpeakingMediaPlaybackService localService = mock(PracticeSpeakingMediaPlaybackService.class);
+        PracticeSpeakingMediaPlaybackController controller =
+                new PracticeSpeakingMediaPlaybackController(localService, new AuthenticatedUserIdResolver());
+
+        for (String range : List.of("bytes=abc-2", "bytes=3-1", "bytes=-0", "bytes=", "bytes=0-1,3-4", "items=0-1")) {
+            when(localService.openForOwner(77L, 10L, 20L, 30L))
+                    .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
+                            "audio/webm", 4L, stream(new byte[]{1, 2, 3, 4})));
+            ResponseEntity<StreamingResponseBody> response = controller.content(
+                    10L, 20L, 30L, range, formAuthentication(77L, Role.STUDENT));
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+            assertThat(response.getStatusCode())
+                    .isEqualTo(org.springframework.http.HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE);
+            assertThat(response.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+            assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes */4");
+            assertThat(response.getHeaders().getContentLength()).isZero();
+            assertThat(response.getBody()).isNotNull();
+            response.getBody().writeTo(output);
+            assertThat(output.toByteArray()).isEmpty();
+        }
+    }
+
+    @Test
+    void notFoundWithRangeDoesNotRevealTotalLength() throws Exception {
+        when(playbackService.openForOwner(77L, 10L, 20L, 30L))
+                .thenThrow(new PracticeSpeakingMediaPlaybackNotFoundException());
+
+        mockMvc.perform(get(ROUTE)
+                        .header(HttpHeaders.RANGE, "bytes=0-0")
+                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                .andExpect(status().isNotFound())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCEPT_RANGES))
+                .andExpect(header().doesNotExist(HttpHeaders.CONTENT_RANGE))
+                .andExpect(content().string(not(containsString(SECRET_KEY))))
+                .andExpect(content().string(not(containsString(SECRET_PATH))))
+                .andExpect(content().string(not(containsString(SECRET_HASH))))
+                .andExpect(content().string(not(containsString(SECRET_FILENAME))))
+                .andExpect(content().string(not(containsString(SECRET_USER))));
     }
 
     @Test
@@ -283,7 +456,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 new PracticeSpeakingMediaPlaybackController(localService, new AuthenticatedUserIdResolver());
 
         ResponseEntity<StreamingResponseBody> response = controller.content(
-                10L, 20L, 30L, formAuthentication(77L, Role.STUDENT));
+                10L, 20L, 30L, null, formAuthentication(77L, Role.STUDENT));
 
         assertThat(response.getBody()).isNotNull();
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
@@ -310,7 +483,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 new PracticeSpeakingMediaPlaybackController(localService, new AuthenticatedUserIdResolver());
 
         ResponseEntity<StreamingResponseBody> response = controller.content(
-                10L, 20L, 30L, formAuthentication(77L, Role.STUDENT));
+                10L, 20L, 30L, null, formAuthentication(77L, Role.STUDENT));
 
         assertThat(response.getBody()).isNotNull();
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
@@ -321,6 +494,14 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     private static TrackingInputStream stream(byte[] content) {
         return new TrackingInputStream(content);
+    }
+
+    private static byte[] sequence(int length) {
+        byte[] content = new byte[length];
+        for (int i = 0; i < length; i++) {
+            content[i] = (byte) i;
+        }
+        return content;
     }
 
     private static UsernamePasswordAuthenticationToken formAuthentication(Long userId, Role role) {
