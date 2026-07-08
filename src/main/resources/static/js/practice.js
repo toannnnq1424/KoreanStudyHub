@@ -138,7 +138,7 @@
   const renderOverview = (data) => {
     const rubric = Array.isArray(data.rubric_scores) ? data.rubric_scores : [];
     const raw = data.raw_score_max
-      ? `<em>Điểm TOPIK thô: ${escape(data.raw_score || 0)}/${escape(data.raw_score_max)}</em>`
+      ? `<em>Điểm câu viết theo bộ chấm: ${escape(data.raw_score || 0)}/${escape(data.raw_score_max)}</em>`
       : '';
     return `
       <section class="ksh-ai-summary overview">

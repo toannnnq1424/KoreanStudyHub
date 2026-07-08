@@ -1507,6 +1507,41 @@ class PracticeServiceTest {
     }
 
     @Test
+    void testWritingSubmitContractFailedStoresFeedbackWithoutFakeScore() throws Exception {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q, 101L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
+                .thenReturn("{\"evaluation_status\":\"EVALUATION_CONTRACT_FAILED\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"PROVIDER_CONTRACT_INVALID\",\"evaluation_retryable\":true,\"score_available\":false}");
+
+        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1"));
+
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertNull(attempt.getScore());
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals("EVALUATION_CONTRACT_FAILED", feedback.get("101").path("evaluation_status").asText());
+        assertFalse(feedback.get("101").path("score_available").asBoolean(true));
+        assertFalse(feedback.get("101").has("raw_score"));
+    }
+
+    @Test
     void testWritingFeedbackMapWritesObjectValuesNotTextualJson() throws Exception {
         PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
@@ -1620,6 +1655,47 @@ class PracticeServiceTest {
         assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(50.00)));
         verify(evaluationClient).evaluate(eq(2L), eq("Q1"), eq("짧은 답"), eq(false), isNull());
         verify(evaluationClient).evaluate(eq(2L), eq("Q2"), anyString(), eq(false), isNull());
+    }
+
+    @Test
+    void testWritingAggregationScalesRawScoreByConfiguredQuestionPoints() {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion qConfiguredThirty = new PracticeQuestion(1L, 53, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.valueOf(30.0), 0);
+        qConfiguredThirty.setWritingTaskType(WritingTaskType.Q53);
+        setEntityId(qConfiguredThirty, 101L);
+        PracticeQuestion qConfiguredFifteen = new PracticeQuestion(1L, 53, "ESSAY", "Q2", "[]", "", "Explain", BigDecimal.valueOf(15.0), 1);
+        qConfiguredFifteen.setWritingTaskType(WritingTaskType.Q53);
+        setEntityId(qConfiguredFifteen, 102L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(qConfiguredThirty, qConfiguredFifteen));
+
+        when(evaluationClient.evaluate(anyLong(), eq("Q1"), anyString(), anyBoolean(), eq(WritingTaskType.Q53)))
+                .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0}");
+        when(evaluationClient.evaluate(anyLong(), eq("Q2"), anyString(), anyBoolean(), eq(WritingTaskType.Q53)))
+                .thenReturn("{\"raw_score\":24.0,\"raw_score_max\":30.0}");
+
+        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1", "answer_102", "A2"));
+
+        assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(45.0)));
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+        JsonNode feedback = assertDoesNotThrow(() -> objectMapper.readTree(attempt.getAiFeedbackJson()));
+        assertEquals(24.0, feedback.get("101").path("raw_score").asDouble());
+        assertEquals(24.0, feedback.get("102").path("raw_score").asDouble());
     }
 
     @Test
