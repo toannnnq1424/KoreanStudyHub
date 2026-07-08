@@ -2402,6 +2402,7 @@ public class PracticeService {
         BigDecimal attemptTotalPoints = BigDecimal.ZERO;
         BigDecimal attemptEarnedPoints = BigDecimal.ZERO;
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
+        boolean allEvaluationsScoreBearing = true;
 
         for (QuestionSnapshot q : snapshot.questions()) {
             BigDecimal configuredPoints = q.points();
@@ -2418,6 +2419,11 @@ public class PracticeService {
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
 
                 WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.questionId());
+                if (!evaluation.scoreAvailableFlag()) {
+                    allEvaluationsScoreBearing = false;
+                    feedbackMap.set(String.valueOf(q.questionId()), node);
+                    continue;
+                }
                 BigDecimal rawScore = evaluation.rawScore();
                 BigDecimal rawScoreMax = evaluation.rawScoreMax();
                 rawScore = clamp(rawScore, BigDecimal.ZERO, rawScoreMax);
@@ -2432,7 +2438,9 @@ public class PracticeService {
             }
         }
 
-        BigDecimal attemptScore = toWritingAttemptPercentage(attemptEarnedPoints, attemptTotalPoints);
+        BigDecimal attemptScore = allEvaluationsScoreBearing
+                ? toWritingAttemptPercentage(attemptEarnedPoints, attemptTotalPoints)
+                : null;
 
         String feedbackJson;
         try {
@@ -2456,7 +2464,10 @@ public class PracticeService {
                 snapshot.targetQuestion().writingTaskType());
         com.fasterxml.jackson.databind.node.ObjectNode targetNode =
                 readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
-        readStoredWritingScore(targetNode, snapshot.targetQuestion().questionId());
+        WritingEvaluationResult targetScore = readStoredWritingScore(targetNode, snapshot.targetQuestion().questionId());
+        if (!targetScore.scoreAvailableFlag()) {
+            return new WritingGradingResult(null, null, snapshot.expectedAnswersJson(), snapshot.expectedAiFeedbackJson());
+        }
         feedbackMap.set(String.valueOf(snapshot.targetQuestion().questionId()), targetNode);
 
         WritingScoreAggregate aggregate = aggregateWritingScore(snapshot.questions(), snapshot.answers(), feedbackMap);
@@ -2544,6 +2555,9 @@ public class PracticeService {
                     throw unsupportedPerQuestionFeedback();
                 }
                 WritingEvaluationResult storedScore = readStoredWritingScore(node, q.questionId());
+                if (!storedScore.scoreAvailableFlag()) {
+                    return new WritingScoreAggregate(null, attemptTotalPoints);
+                }
                 BigDecimal rawScore = clamp(storedScore.rawScore(), BigDecimal.ZERO, storedScore.rawScoreMax());
                 BigDecimal earnedQuestionPoints = rawScore.multiply(configuredPoints)
                         .divide(storedScore.rawScoreMax(), java.math.MathContext.DECIMAL128);
@@ -2651,7 +2665,12 @@ public class PracticeService {
             throw conflict();
         }
         verifySnapshotVersion(attempt, snapshot);
-        attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
+        if (result.score() == null) {
+            attempt.markSubmitted(null, result.totalPoints(), result.answersJson());
+            attempt.setAiFeedbackJson(result.feedbackJson());
+        } else {
+            attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
+        }
         flushAttempt(attempt);
         log.info("[PracticeService] Submitted WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
         return attempt.getId();
@@ -2667,6 +2686,9 @@ public class PracticeService {
             throw conflict();
         }
         verifySnapshotVersion(attempt, snapshot);
+        if (result.score() == null) {
+            return attempt.getId();
+        }
         attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
         flushAttempt(attempt);
         log.info("[PracticeService] Re-evaluated WRITING PracticeAttempt id={} score={} / {}", attempt.getId(), attempt.getScore(), attempt.getTotalPoints());
@@ -2689,6 +2711,9 @@ public class PracticeService {
             throw conflict();
         }
         verifyQuestionSnapshotVersion(attempt, snapshot);
+        if (result.score() == null) {
+            return attempt.getId();
+        }
         attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
         flushAttempt(attempt);
         log.info("[PracticeService] Re-evaluated WRITING question PracticeAttempt id={} questionId={} score={} / {}",

@@ -255,7 +255,12 @@ public final class PracticeDtos {
             List<WritingAnnotationView> annotations,
             @JsonProperty("upgraded_answer") String upgradedAnswer,
             @JsonProperty("sentence_rewrites") List<WritingSentenceRewriteView> sentenceRewrites,
-            @JsonProperty("sample_answer") String sampleAnswer
+            @JsonProperty("sample_answer") String sampleAnswer,
+            @JsonProperty("evaluation_status") String evaluationStatus,
+            @JsonProperty("evaluation_source") String evaluationSource,
+            @JsonProperty("evaluation_reason") String evaluationReason,
+            @JsonProperty("evaluation_retryable") Boolean evaluationRetryable,
+            @JsonProperty("score_available") Boolean scoreAvailable
     ) {
         public WritingFeedbackView {
             rubricScores = rubricScores == null ? List.of() : List.copyOf(rubricScores);
@@ -263,6 +268,10 @@ public final class PracticeDtos {
             needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
             annotations = annotations == null ? List.of() : List.copyOf(annotations);
             sentenceRewrites = sentenceRewrites == null ? List.of() : List.copyOf(sentenceRewrites);
+        }
+
+        public boolean scoreAvailableFlag() {
+            return scoreAvailable == null || scoreAvailable;
         }
     }
 

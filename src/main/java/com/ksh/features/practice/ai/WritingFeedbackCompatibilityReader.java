@@ -94,6 +94,27 @@ public class WritingFeedbackCompatibilityReader {
         if (!node.isObject()) {
             return EntryResult.malformed();
         }
+        String evaluationStatus = text(node.get("evaluation_status"));
+        String evaluationSource = text(node.get("evaluation_source"));
+        String evaluationReason = text(node.get("evaluation_reason"));
+        Boolean evaluationRetryable = bool(node.get("evaluation_retryable"));
+        Boolean scoreAvailable = bool(node.get("score_available"));
+        boolean explicitNonScoreBearing = isNonScoreBearing(evaluationStatus, scoreAvailable);
+        if (explicitNonScoreBearing) {
+            return EntryResult.valid(new WritingEvaluationResult(
+                    null,
+                    null,
+                    number(node.get("score")),
+                    number(node.get("overall_score")),
+                    text(node.get("task_type")),
+                    text(node.get("engine")),
+                    evaluationStatus,
+                    evaluationSource,
+                    evaluationReason,
+                    evaluationRetryable,
+                    false
+            ));
+        }
         BigDecimal rawScore = number(node.get("raw_score"));
         BigDecimal rawScoreMax = number(node.get("raw_score_max"));
         if (rawScore == null || rawScoreMax == null || rawScoreMax.compareTo(BigDecimal.ZERO) <= 0) {
@@ -108,7 +129,12 @@ public class WritingFeedbackCompatibilityReader {
                 number(node.get("score")),
                 number(node.get("overall_score")),
                 text(node.get("task_type")),
-                text(node.get("engine"))
+                text(node.get("engine")),
+                evaluationStatus == null ? "LEGACY_EVALUATED" : evaluationStatus,
+                evaluationSource == null ? "LEGACY" : evaluationSource,
+                evaluationReason == null ? "NONE" : evaluationReason,
+                evaluationRetryable == null ? false : evaluationRetryable,
+                scoreAvailable == null ? true : scoreAvailable
         ));
     }
 
@@ -124,6 +150,21 @@ public class WritingFeedbackCompatibilityReader {
             return null;
         }
         return node.asText();
+    }
+
+    private Boolean bool(JsonNode node) {
+        if (node == null || node.isNull() || !node.isBoolean()) {
+            return null;
+        }
+        return node.asBoolean();
+    }
+
+    private boolean isNonScoreBearing(String evaluationStatus, Boolean scoreAvailable) {
+        if (Boolean.FALSE.equals(scoreAvailable)) {
+            return true;
+        }
+        return "EVALUATION_UNAVAILABLE".equals(evaluationStatus)
+                || "EVALUATION_CONTRACT_FAILED".equals(evaluationStatus);
     }
 
     public enum Status {

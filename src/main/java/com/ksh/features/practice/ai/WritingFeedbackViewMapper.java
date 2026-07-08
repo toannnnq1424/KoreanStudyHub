@@ -31,7 +31,12 @@ public class WritingFeedbackViewMapper {
                 annotations(feedbackEntry.get("annotations")),
                 text(feedbackEntry.get("upgraded_answer")),
                 sentenceRewrites(feedbackEntry.get("sentence_rewrites")),
-                text(feedbackEntry.get("sample_answer"))
+                text(feedbackEntry.get("sample_answer")),
+                text(feedbackEntry.get("evaluation_status")),
+                text(feedbackEntry.get("evaluation_source")),
+                text(feedbackEntry.get("evaluation_reason")),
+                bool(feedbackEntry.get("evaluation_retryable")),
+                bool(feedbackEntry.get("score_available"))
         );
     }
 
@@ -150,6 +155,13 @@ public class WritingFeedbackViewMapper {
             return null;
         }
         return node.asText();
+    }
+
+    private Boolean bool(JsonNode node) {
+        if (node == null || node.isNull() || !node.isBoolean()) {
+            return null;
+        }
+        return node.asBoolean();
     }
 
     private String firstPresent(String preferred, String fallback) {

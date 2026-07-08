@@ -187,6 +187,39 @@ class PracticeServiceTest {
     }
 
     @Test
+    void testWritingReEvaluateUnavailablePreservesPreviousValidResult() {
+        String oldAnswers = "{\"10\":\"Tôi học tiếng Hàn.\"}";
+        String oldFeedback = "{\"10\":{\"raw_score\":30.0,\"raw_score_max\":50.0,\"summary\":\"old\"}}";
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.markGraded(BigDecimal.valueOf(60.00), BigDecimal.valueOf(50.0), oldAnswers, oldFeedback);
+        setEntityId(attempt, 1L);
+        when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
+
+        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        when(setRepository.findById(any())).thenReturn(Optional.of(set));
+
+        PracticeSection section = new PracticeSection(1L, "Writing", "WRITING", "ESSAY", "Write", 50, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findById(any())).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+
+        PracticeQuestion q = new PracticeQuestion(1L, 54, "ESSAY", "Q", "[]", "", "Explain", BigDecimal.valueOf(50.0), 0);
+        q.setWritingTaskType(WritingTaskType.Q54);
+        setEntityId(q, 10L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
+                .thenReturn("{\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"PROVIDER_TRANSPORT_ERROR\",\"evaluation_retryable\":true,\"score_available\":false}");
+
+        Long result = practiceService.reEvaluate(1L, 2L);
+
+        assertEquals(1L, result);
+        assertEquals("GRADED", attempt.getStatus());
+        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(60.00)));
+        assertEquals(oldFeedback, attempt.getAiFeedbackJson());
+    }
+
+    @Test
     void testReEvaluateEmptyScoreSavedAsZero() {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
         attempt.setStatus("SUBMITTED");
@@ -1439,6 +1472,41 @@ class PracticeServiceTest {
     }
 
     @Test
+    void testWritingSubmitUnavailableStoresFeedbackWithoutFakeScore() throws Exception {
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion q = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q, 101L);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q));
+        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
+                .thenReturn("{\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"MISSING_API_KEY\",\"evaluation_retryable\":true,\"score_available\":false}");
+
+        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", "A1"));
+
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertNull(attempt.getScore());
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals("EVALUATION_UNAVAILABLE", feedback.get("101").path("evaluation_status").asText());
+        assertFalse(feedback.get("101").path("score_available").asBoolean(true));
+        assertFalse(feedback.get("101").has("raw_score"));
+    }
+
+    @Test
     void testWritingFeedbackMapWritesObjectValuesNotTextualJson() throws Exception {
         PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
@@ -1611,6 +1679,26 @@ class PracticeServiceTest {
         assertFalse(feedback.get("103").isTextual());
         verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q54));
         verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean(), any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateUnavailablePreservesTargetAndAggregate() throws Exception {
+        String oldFeedback = "{\"102\":{\"raw_score\":6.0,\"raw_score_max\":10.0,\"summary\":\"keep\"},\"103\":{\"raw_score\":15.0,\"raw_score_max\":30.0,\"summary\":\"old\"}}";
+        PracticeAttempt attempt = arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
+                oldFeedback,
+                true);
+        BigDecimal oldScore = attempt.getScore();
+
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), any()))
+                .thenReturn("{\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"PROVIDER_HTTP_ERROR\",\"evaluation_retryable\":true,\"score_available\":false}");
+
+        Long result = practiceService.reEvaluateQuestion(99L, 103L, 2L);
+
+        assertEquals(99L, result);
+        assertEquals(0, attempt.getScore().compareTo(oldScore));
+        assertEquals(oldFeedback, attempt.getAiFeedbackJson());
+        verify(attemptRepository, never()).saveAndFlush(attempt);
     }
 
     @Test

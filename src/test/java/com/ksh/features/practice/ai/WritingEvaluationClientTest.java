@@ -160,7 +160,7 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void testApiKeyEmptyCacheMissUsesMockAndDoesNotPersist() {
+    void testApiKeyEmptyCacheMissReturnsUnavailableAndDoesNotPersist() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -173,13 +173,17 @@ class WritingEvaluationClientTest {
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
-        assertNotNull(result);
-        verify(mockEvaluator, times(1)).evaluate(any(), any(), any(), any());
+        JsonNode root = objectMapper.readTree(result);
+        assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
+        assertEquals("MISSING_API_KEY", root.path("evaluation_reason").asText());
+        assertFalse(root.path("score_available").asBoolean(true));
+        assertFalse(root.has("raw_score"));
+        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
-    void testProviderExceptionReturnsFallbackAndDoesNotPersist() {
+    void testProviderExceptionReturnsUnavailableAndDoesNotPersist() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -192,8 +196,12 @@ class WritingEvaluationClientTest {
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
-        assertNotNull(result);
-        verify(mockEvaluator, times(1)).evaluate(any(), any(), any(), any());
+        JsonNode root = objectMapper.readTree(result);
+        assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
+        assertEquals("PROVIDER_UNEXPECTED_ERROR", root.path("evaluation_reason").asText());
+        assertFalse(root.path("score_available").asBoolean(true));
+        assertFalse(root.has("raw_score"));
+        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -267,10 +275,11 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v3.0"), eq("v3.0"), eq("v3.0"), payload.capture());
+                eq("v3.0"), eq("v3.0"), eq("v3.0:v4.0"), payload.capture());
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
+        assertEquals("EVALUATED", cached.path("evaluation_status").asText());
     }
 
     @Test
@@ -290,7 +299,7 @@ class WritingEvaluationClientTest {
         assertEquals("Q53", root.path("task_type").asText());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v3.0"), eq("v3.0"), eq("v3.0"), anyString());
+                eq("v3.0"), eq("v3.0"), eq("v3.0:v4.0"), anyString());
     }
 
     @Test
@@ -328,7 +337,7 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void explicitMetadataControlsProviderFailureMockFallbackProfile() throws Exception {
+    void explicitMetadataControlsProviderFailureUnavailableProfile() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -343,11 +352,12 @@ class WritingEvaluationClientTest {
         JsonNode root = objectMapper.readTree(result);
 
         assertEquals("Q54", root.path("task_type").asText());
-        assertEquals(50.0, root.path("raw_score_max").asDouble());
-        ArgumentCaptor<WritingRuleEngine.RuleAnalysis> analysisCaptor =
-                ArgumentCaptor.forClass(WritingRuleEngine.RuleAnalysis.class);
-        verify(mockEvaluator).evaluate(any(), any(), analysisCaptor.capture(), any());
-        assertEquals("Q54", analysisCaptor.getValue().taskType());
+        assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
+        assertEquals("PROVIDER_UNEXPECTED_ERROR", root.path("evaluation_reason").asText());
+        assertFalse(root.path("score_available").asBoolean(true));
+        assertFalse(root.has("raw_score"));
+        assertFalse(root.has("raw_score_max"));
+        verifyNoInteractions(mockEvaluator);
     }
 
     @Test
@@ -365,7 +375,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v3.0"), eq("v3.0"), eq("v3.0"), anyString());
+                eq("v3.0"), eq("v3.0"), eq("v3.0:v4.0"), anyString());
     }
 
     @Test
@@ -380,7 +390,10 @@ class WritingEvaluationClientTest {
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", true);
 
-        assertTrue(result.contains("\"score\":4.0"));
+        assertTrue(result.contains("\"evaluation_status\":\"EVALUATION_UNAVAILABLE\""));
+        assertTrue(result.contains("\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\""));
+        assertFalse(result.contains("\"raw_score\""));
+        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -434,7 +447,7 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v3.0"), eq("v3.0"), eq("v3.0"));
+                eq("v3.0"), eq("v3.0"), eq("v3.0:v4.0"));
     }
 
     @Test
@@ -473,7 +486,7 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void mockFallbackRecordsOneProviderFallbackMetric() {
+    void missingApiKeyRecordsOneProviderFailureMetric() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -485,10 +498,11 @@ class WritingEvaluationClientTest {
 
         client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
+        verifyNoInteractions(mockEvaluator);
         assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
-                "feature", "writing", "outcome", "fallback").count());
+                "feature", "writing", "outcome", "failure").count());
         assertEquals(1L, registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
-                "feature", "writing", "outcome", "fallback").count());
+                "feature", "writing", "outcome", "failure").count());
     }
 
     @Test

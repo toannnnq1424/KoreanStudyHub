@@ -139,7 +139,7 @@ public class WritingEvaluationClient {
                 var cached = cacheService.get(userId, prompt, learnerAnswer,
                         ruleAnalysis.taskType(), properties.evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                        WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+                        cacheSchemaVersion());
                 if (cached.isPresent()) {
                     long parseStart = PracticeAiMetrics.startNanos();
                     try {
@@ -167,9 +167,9 @@ public class WritingEvaluationClient {
         // 3. Mock mode when API key is missing
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             long providerStart = PracticeAiMetrics.startNanos();
-            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "missing API key");
-            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
-            return fallback;
+            String unavailable = normalizer.providerUnavailable("MISSING_API_KEY", ruleAnalysis.taskType(), learnerAnswer);
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+            return unavailable;
         }
 
         // 4. Single unified provider call
@@ -183,22 +183,43 @@ public class WritingEvaluationClient {
             response = callPass("unified", systemPrompt, userPayload, unifiedResponseFormat());
             log.info("KSH writing evaluation unified call complete: taskType={}",
                     ruleAnalysis.taskType());
+        } catch (ProviderContractException ex) {
+            log.warn("Writing AI evaluation contract failed: operation=provider-contract model={} taskType={} reason={} exception={}",
+                    properties.evaluatorModel(), ruleAnalysis.taskType(), ex.reason(), exceptionCategory(ex));
+            String failure = normalizer.contractFailure(ex.reason(), ruleAnalysis.taskType(), learnerAnswer);
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+            return failure;
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
             log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
                     status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
+            if (ex != null) {
+                String unavailable = normalizer.providerUnavailable("PROVIDER_HTTP_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+                return unavailable;
+            }
             String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
             return fallback;
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
+            if (ex != null) {
+                String unavailable = normalizer.providerUnavailable("PROVIDER_TRANSPORT_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+                return unavailable;
+            }
             String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
             return fallback;
         } catch (Exception ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
+            if (ex != null) {
+                String unavailable = normalizer.providerUnavailable("PROVIDER_UNEXPECTED_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+                return unavailable;
+            }
             String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
             return fallback;
@@ -228,7 +249,7 @@ public class WritingEvaluationClient {
                 cacheService.put(userId, prompt, learnerAnswer,
                         ruleAnalysis.taskType(), properties.evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                        WritingPromptRules.EVALUATION_SCHEMA_VERSION,
+                        cacheSchemaVersion(),
                         normalizer.sanitizeForCache(normalized));
             } catch (Exception ex) {
                 log.warn("KSH writing evaluation cache write failed; returning provider result: operation=cache-write taskType={} exception={}",
@@ -245,7 +266,7 @@ public class WritingEvaluationClient {
             cacheService.delete(userId, prompt, learnerAnswer,
                     ruleAnalysis.taskType(), properties.evaluatorModel(),
                     WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
-                    WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+                        cacheSchemaVersion());
         } catch (Exception ex) {
             log.warn("KSH writing evaluation malformed cache cleanup failed: operation=cache-delete taskType={} exception={}",
                     ruleAnalysis.taskType(), exceptionCategory(ex));
@@ -267,6 +288,10 @@ public class WritingEvaluationClient {
 
     private static String exceptionCategory(Exception ex) {
         return ex == null ? "unknown" : ex.getClass().getSimpleName();
+    }
+
+    private static String cacheSchemaVersion() {
+        return WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":" + WritingPromptRules.EVALUATION_CONTRACT_VERSION;
     }
 
     // ---- Spam detection — task-aware ----
@@ -309,12 +334,21 @@ public class WritingEvaluationClient {
 
         log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
         String raw = callWithRetry(request);
-        JsonNode root = objectMapper.readTree(raw);
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(raw);
+        } catch (Exception ex) {
+            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
+        }
         String content = extractOutputText(root, raw);
         if (content == null || content.isBlank()) {
-            throw new IllegalStateException("AI returned empty content for pass " + passName);
+            throw new ProviderContractException("PROVIDER_EMPTY_RESPONSE");
         }
-        return objectMapper.readTree(content);
+        try {
+            return objectMapper.readTree(content);
+        } catch (Exception ex) {
+            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
+        }
     }
 
     private String callWithRetry(Map<String, Object> request) {
@@ -531,5 +565,23 @@ public class WritingEvaluationClient {
             list.add(value);
         }
         return list;
+    }
+
+    private static final class ProviderContractException extends RuntimeException {
+        private final String reason;
+
+        ProviderContractException(String reason) {
+            super(reason);
+            this.reason = reason;
+        }
+
+        ProviderContractException(String reason, Throwable cause) {
+            super(reason, cause);
+            this.reason = reason;
+        }
+
+        String reason() {
+            return reason;
+        }
     }
 }

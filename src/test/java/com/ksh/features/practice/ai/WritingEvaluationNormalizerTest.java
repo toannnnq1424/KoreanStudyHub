@@ -18,7 +18,7 @@ class WritingEvaluationNormalizerTest {
         String input = """
                 {
                   "summary":"ok",
-                  "rubric_scores":[],
+                  "rubric_scores":[{"name":"score contract","score":7.0,"feedback":"OK"}],
                   "strengths":[
                     {"criterionId":"W_LOGICAL_ORGANIZATION","evidenceScope":"WHOLE_ANSWER","evidence":"fabricated span","explanationVi":"Mạch lạc","correction":""},
                     {"criterionId":"W_GRAMMAR_ERRORS","evidenceScope":"TEXT_SPAN","evidence":"không có","explanationVi":"Sai","correction":"sửa"},
@@ -42,7 +42,7 @@ class WritingEvaluationNormalizerTest {
         String input = """
                 {
                   "summary":"ok",
-                  "rubric_scores":[],
+                  "rubric_scores":[{"name":"score contract","score":7.0,"feedback":"OK"}],
                   "strengths":[
                     {"criterionId":"W_CLEAR_THESIS_OR_MAIN_IDEA","evidenceScope":"WHOLE_ANSWER","evidence":"","explanationVi":"Rõ","correction":""},
                     {"criterionId":"W_CLOZE_CONTEXT_FIT","evidenceScope":"TEXT_SPAN","evidence":"있다","explanationVi":"Phù hợp","correction":""}
@@ -61,7 +61,7 @@ class WritingEvaluationNormalizerTest {
     void textSpanMustMatchExactlyWithoutNormalizerTrimming() throws Exception {
         String input = """
                 {
-                  "summary":"ok","rubric_scores":[],
+                  "summary":"ok","rubric_scores":[{"name":"score contract","score":7.0,"feedback":"OK"}],
                   "strengths":[
                     {"criterionId":"W_NATURAL_KOREAN_EXPRESSIONS","evidenceScope":"TEXT_SPAN","evidence":" 답안 ","explanationVi":"exact","correction":""}
                   ],
@@ -80,7 +80,7 @@ class WritingEvaluationNormalizerTest {
     void newProviderFindingsEnforceCanonicalTaxonomyMatrix() throws Exception {
         String input = """
                 {
-                  "summary":"ok","rubric_scores":[],
+                  "summary":"ok","rubric_scores":[{"name":"score contract","score":7.0,"feedback":"OK"}],
                   "strengths":[
                     {"criterionId":"UNKNOWN_ID","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"unknown","correction":""},
                     {"criterionId":"W_SENTENCE_VARIETY","evidenceScope":"TEXT_SPAN","evidence":"답안","explanationVi":"legacy","correction":""},
@@ -419,8 +419,11 @@ class WritingEvaluationNormalizerTest {
         JsonNode root = objectMapper.readTree(normalizedJson);
 
         assertEquals("Q54", root.path("task_type").asText());
-        assertEquals(50.0, root.path("raw_score_max").asDouble());
-        assertEquals(3, root.path("rubric_scores").size());
+        assertEquals("EVALUATION_CONTRACT_FAILED", root.path("evaluation_status").asText());
+        assertEquals("PROVIDER_MALFORMED_JSON", root.path("evaluation_reason").asText());
+        assertFalse(root.path("score_available").asBoolean(true));
+        assertFalse(root.has("raw_score"));
+        assertFalse(root.has("raw_score_max"));
     }
 
     @Test

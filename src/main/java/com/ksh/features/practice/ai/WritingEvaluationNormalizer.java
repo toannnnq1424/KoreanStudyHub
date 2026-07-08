@@ -32,6 +32,10 @@ public class WritingEvaluationNormalizer {
             JsonNode root = objectMapper.readTree(aiJson);
             String studentText = learnerAnswer == null ? "" : learnerAnswer;
 
+            if (!hasUsableRubricContract(root.path("rubric_scores"), taskType)) {
+                return contractFailure("PROVIDER_CONTRACT_INVALID", taskType, studentText);
+            }
+
             List<Map<String, Object>> rubricScores = normalizeRubricScores(root.path("rubric_scores"), taskType);
             List<Map<String, Object>> strengths = normalizeFindings(
                     root.path("strengths"),
@@ -74,8 +78,18 @@ public class WritingEvaluationNormalizer {
             normalized.put("sample_answer", text(root, "sample_answer", ""));
             normalized.put("sentence_rewrites", normalizeSentenceRewrites(root.path("sentence_rewrites"), studentText));
             normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
+            boolean mock = text(root, "summary", text(root, "summary_vi", "")).startsWith("[MOCK_EVALUATION]");
+            putEvaluationMetadata(normalized,
+                    mock ? "MOCK_EVALUATED" : "EVALUATED",
+                    mock ? "MOCK" : "PROVIDER",
+                    mock ? "MOCK_ONLY" : "NONE",
+                    false,
+                    true);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
+            if (ex != null) {
+                return contractFailure("PROVIDER_MALFORMED_JSON", taskType, learnerAnswer);
+            }
             return fallback("Không đọc được phản hồi AI. Hệ thống đã lưu bài làm, vui lòng chấm lại sau.", taskType);
         }
     }
@@ -86,6 +100,8 @@ public class WritingEvaluationNormalizer {
             return root != null
                     && root.isObject()
                     && "KSH_WRITING_EVALUATOR_V2".equals(root.path("engine").asText())
+                    && "EVALUATED".equals(root.path("evaluation_status").asText("EVALUATED"))
+                    && !"MOCK".equals(root.path("evaluation_source").asText(""))
                     && root.path("raw_score").isNumber()
                     && root.path("raw_score_max").isNumber();
         } catch (Exception ex) {
@@ -117,6 +133,7 @@ public class WritingEvaluationNormalizer {
             String studentText = learnerAnswer == null ? "" : learnerAnswer;
             ObjectNode hydrated = ((ObjectNode) root).deepCopy();
             hydrated.put("student_text", studentText);
+            hydrated.put("evaluation_source", "CACHE");
 
             ArrayNode strengths = filterFindingsForAnswer(hydrated.path("strengths"), studentText);
             ArrayNode needs = filterFindingsForAnswer(hydrated.path("needs_improvement"), studentText);
@@ -192,6 +209,12 @@ public class WritingEvaluationNormalizer {
             normalized.put("sample_answer", "");
             normalized.put("sentence_rewrites", List.of());
             normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
+            putEvaluationMetadata(normalized,
+                    "INVALID_LEARNER_RESPONSE",
+                    "BACKEND_RULE",
+                    invalidLearnerReason(learnerAnswer),
+                    false,
+                    true);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return fallback("[SPAM_DETECTED] Bài làm không hợp lệ.", taskType);
@@ -230,9 +253,72 @@ public class WritingEvaluationNormalizer {
             normalized.put("sample_answer", "");
             normalized.put("sentence_rewrites", List.of());
             normalized.put("engine", "KSH_WRITING_EVALUATOR_FALLBACK");
+            putEvaluationMetadata(normalized,
+                    "EVALUATION_UNAVAILABLE",
+                    "SYSTEM",
+                    "PROVIDER_UNEXPECTED_ERROR",
+                    true,
+                    false);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return "{\"score\":1.0,\"overall_score\":1.0,\"summary_vi\":\"Không tạo được phản hồi AI.\"}";
+        }
+    }
+
+    public String providerUnavailable(String reason, String taskType, String learnerAnswer) {
+        return availabilityResult(
+                "EVALUATION_UNAVAILABLE",
+                "PROVIDER",
+                reason,
+                true,
+                "Chua co danh gia AI kha dung - vui long cham lai.",
+                taskType,
+                learnerAnswer);
+    }
+
+    public String contractFailure(String reason, String taskType, String learnerAnswer) {
+        return availabilityResult(
+                "EVALUATION_CONTRACT_FAILED",
+                "PROVIDER",
+                reason,
+                true,
+                "Phan hoi AI khong dung dinh dang cham diem - vui long cham lai.",
+                taskType,
+                learnerAnswer);
+    }
+
+    private String availabilityResult(String status,
+                                      String source,
+                                      String reason,
+                                      boolean retryable,
+                                      String message,
+                                      String taskType,
+                                      String learnerAnswer) {
+        try {
+            String effectiveTaskType = taskType == null ? "GENERAL" : taskType;
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("task_type", effectiveTaskType);
+            normalized.put("band_label", "Chua co danh gia");
+            normalized.put("summary", message);
+            normalized.put("summary_vi", message);
+            normalized.put("rubric_scores", List.of());
+            normalized.put("strengths", List.of());
+            normalized.put("needs_improvement", List.of());
+            normalized.put("student_text", learnerAnswer == null ? "" : learnerAnswer);
+            normalized.put("student_strengths_annotated", "");
+            normalized.put("student_needs_annotated", "");
+            normalized.put("annotations", List.of());
+            normalized.put("upgraded_answer", "");
+            normalized.put("upgraded_answer_annotated", "");
+            normalized.put("upgraded_annotations", List.of());
+            normalized.put("corrected_version", "");
+            normalized.put("sample_answer", "");
+            normalized.put("sentence_rewrites", List.of());
+            normalized.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
+            putEvaluationMetadata(normalized, status, source, reason, retryable, false);
+            return objectMapper.writeValueAsString(normalized);
+        } catch (Exception ex) {
+            return "{\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"summary_vi\":\"Chua co danh gia AI kha dung.\"}";
         }
     }
 
@@ -261,6 +347,21 @@ public class WritingEvaluationNormalizer {
     }
 
     // ---- Rubric validation ----
+
+    private static boolean hasUsableRubricContract(JsonNode array, String taskType) {
+        if (array == null || !array.isArray() || array.isEmpty()) {
+            return false;
+        }
+        for (JsonNode node : array) {
+            if (node.isObject()) {
+                JsonNode score = node.get("score");
+                if (score != null && score.isNumber()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     private List<Map<String, Object>> normalizeRubricScores(JsonNode array, String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -303,6 +404,18 @@ public class WritingEvaluationNormalizer {
             }
         }
         return rubric(name, 1.0, "AI chưa trả đủ nhận xét cho tiêu chí này.");
+    }
+
+    private static boolean namesMatch(String candidate, String expected) {
+        if (candidate == null || expected == null) {
+            return false;
+        }
+        if (expected.equals(candidate)) {
+            return true;
+        }
+        String candidateLower = candidate.toLowerCase();
+        String expectedLower = expected.toLowerCase();
+        return candidateLower.contains(expectedLower) || expectedLower.contains(candidateLower);
     }
 
     // ---- Findings validation ----
@@ -573,6 +686,37 @@ public class WritingEvaluationNormalizer {
     }
 
     // ---- Helpers ----
+
+    private static void putEvaluationMetadata(Map<String, Object> target,
+                                              String status,
+                                              String source,
+                                              String reason,
+                                              boolean retryable,
+                                              boolean scoreAvailable) {
+        target.put("evaluation_status", status);
+        target.put("evaluation_source", source);
+        target.put("evaluation_reason", reason);
+        target.put("evaluation_retryable", retryable);
+        target.put("score_available", scoreAvailable);
+    }
+
+    private static String invalidLearnerReason(String learnerAnswer) {
+        if (learnerAnswer == null || learnerAnswer.trim().isEmpty()) {
+            return "BLANK_ANSWER";
+        }
+        String trimmed = learnerAnswer.trim();
+        boolean hasHangul = trimmed.codePoints().anyMatch(cp -> cp >= 0xAC00 && cp <= 0xD7A3);
+        if (!hasHangul) {
+            return "NO_HANGUL";
+        }
+        if (hasHangul) {
+            return "INVALID_LEARNER_RESPONSE";
+        }
+        if (!learnerAnswer.trim().matches("(?s).*[ê°€-íž£].*")) {
+            return "NO_HANGUL";
+        }
+        return "INVALID_LEARNER_RESPONSE";
+    }
 
     private static Map<String, Object> rubric(String name, double score, String feedback) {
         Map<String, Object> row = new LinkedHashMap<>();

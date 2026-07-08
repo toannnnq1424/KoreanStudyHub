@@ -8,6 +8,7 @@ public final class WritingPromptRules {
     public static final String PROMPT_VERSION = "v3.0";
     public static final String RUBRIC_VERSION = "v3.0";
     public static final String EVALUATION_SCHEMA_VERSION = "v3.0";
+    public static final String EVALUATION_CONTRACT_VERSION = "v4.0";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
