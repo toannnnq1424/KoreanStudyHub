@@ -89,15 +89,17 @@ class PracticeSpeakingMediaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("no-store")))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.*", hasSize(7)))
+                .andExpect(jsonPath("$.*", hasSize(10)))
                 .andExpect(jsonPath("$.mediaId").value(30))
+                .andExpect(jsonPath("$.attemptId").value(10))
                 .andExpect(jsonPath("$.questionId").value(20))
                 .andExpect(jsonPath("$.status").value("READY"))
+                .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.byteSize").value(4))
                 .andExpect(jsonPath("$.durationMs").value(1234))
                 .andExpect(jsonPath("$.mimeType").value("audio/webm"))
+                .andExpect(jsonPath("$.playbackPath").value("/practice/attempts/10/questions/20/speaking-media/30/content"))
                 .andExpect(jsonPath("$.lockVersion").value(5))
-                .andExpect(jsonPath("$.attemptId").doesNotExist())
                 .andExpect(jsonPath("$.userId").doesNotExist())
                 .andExpect(jsonPath("$.storageKey").doesNotExist())
                 .andExpect(jsonPath("$.contentHash").doesNotExist())
@@ -458,10 +460,13 @@ class PracticeSpeakingMediaControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", containsString("no-store")))
-                .andExpect(jsonPath("$.*", hasSize(2)))
+                .andExpect(jsonPath("$.*", hasSize(6)))
                 .andExpect(jsonPath("$.mediaId").value(30))
+                .andExpect(jsonPath("$.attemptId").value(10))
+                .andExpect(jsonPath("$.questionId").value(20))
                 .andExpect(jsonPath("$.status").value("DELETED"))
-                .andExpect(jsonPath("$.cleanup").doesNotExist())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.pendingCleanup").value(true))
                 .andExpect(jsonPath("$.storageKey").doesNotExist());
     }
 
@@ -557,6 +562,7 @@ class PracticeSpeakingMediaControllerTest {
     private static SpeakingAudioUploadService.SpeakingAudioUploadResult uploadResult() {
         return new SpeakingAudioUploadService.SpeakingAudioUploadResult(
                 30L,
+                10L,
                 20L,
                 PracticeSpeakingMediaStatus.READY,
                 4L,
@@ -567,7 +573,7 @@ class PracticeSpeakingMediaControllerTest {
 
     private static SpeakingAudioUploadService.SpeakingAudioDeletionResult deleteResult(
             PracticeSpeakingMediaStatus status) {
-        return new SpeakingAudioUploadService.SpeakingAudioDeletionResult(30L, status);
+        return new SpeakingAudioUploadService.SpeakingAudioDeletionResult(30L, 10L, 20L, status, true);
     }
 
     private static UsernamePasswordAuthenticationToken formAuthentication(Long userId) {

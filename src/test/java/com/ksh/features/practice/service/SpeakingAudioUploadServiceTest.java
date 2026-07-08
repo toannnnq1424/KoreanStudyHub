@@ -97,6 +97,7 @@ class SpeakingAudioUploadServiceTest {
         SpeakingAudioUploadResult result = upload(new byte[]{1, 2, 3});
 
         assertThat(result.mediaId()).isEqualTo(101L);
+        assertThat(result.attemptId()).isEqualTo(ATTEMPT_ID);
         assertThat(result.questionId()).isEqualTo(QUESTION_ID);
         assertThat(result.status()).isEqualTo(PracticeSpeakingMediaStatus.READY);
         assertThat(result.byteSize()).isEqualTo(3L);
@@ -257,7 +258,10 @@ class SpeakingAudioUploadServiceTest {
 
         SpeakingAudioDeletionResult result = service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 251L);
 
+        assertThat(result.attemptId()).isEqualTo(ATTEMPT_ID);
+        assertThat(result.questionId()).isEqualTo(QUESTION_ID);
         assertThat(result.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(result.pendingCleanup()).isTrue();
         assertThat(result.toString()).doesNotContain(CLEANUP_SECRET_KEY);
         verifyNoInteractions(storage);
         verify(cleanupProcessor).processTaskNow(801L);
@@ -272,6 +276,7 @@ class SpeakingAudioUploadServiceTest {
         SpeakingAudioDeletionResult result = service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 301L);
 
         assertThat(result.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(result.pendingCleanup()).isTrue();
         assertThat(result.toString()).doesNotContain(SECRET_KEY).doesNotContain(SECRET_HASH);
         var ordered = inOrder(mediaService, cleanupProcessor);
         ordered.verify(mediaService).markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 301L);
@@ -291,8 +296,10 @@ class SpeakingAudioUploadServiceTest {
         when(mediaService.markDeletedForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 402L))
                 .thenReturn(new SpeakingMediaDeletionResult(
                         402L, PracticeSpeakingMediaStatus.DELETED, null));
-        assertThat(service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 402L).status())
+        SpeakingAudioDeletionResult result = service.deleteForOwner(USER_ID, ATTEMPT_ID, QUESTION_ID, 402L);
+        assertThat(result.status())
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(result.pendingCleanup()).isFalse();
         verifyNoInteractions(storage);
         verifyNoInteractions(cleanupProcessor);
     }

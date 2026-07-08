@@ -56,7 +56,7 @@ public class SpeakingAudioUploadService {
             throw activationFailure;
         }
 
-        return safeUploadResult(activated);
+        return safeUploadResult(attemptId, activated);
     }
 
     public SpeakingAudioDeletionResult deleteForOwner(
@@ -67,12 +67,18 @@ public class SpeakingAudioUploadService {
         SpeakingMediaDeletionResult deleted = mediaService.markDeletedForOwner(
                 userId, attemptId, questionId, mediaId);
         processCleanupTaskBestEffort(deleted.cleanupTaskId());
-        return new SpeakingAudioDeletionResult(deleted.mediaId(), deleted.status());
+        return new SpeakingAudioDeletionResult(
+                deleted.mediaId(),
+                attemptId,
+                questionId,
+                deleted.status(),
+                deleted.cleanupTaskId() != null);
     }
 
-    private SpeakingAudioUploadResult safeUploadResult(SpeakingMediaActivationResult activated) {
+    private SpeakingAudioUploadResult safeUploadResult(Long attemptId, SpeakingMediaActivationResult activated) {
         return new SpeakingAudioUploadResult(
                 activated.mediaId(),
+                attemptId,
                 activated.questionId(),
                 activated.status(),
                 activated.byteSize(),
@@ -116,6 +122,7 @@ public class SpeakingAudioUploadService {
 
     public record SpeakingAudioUploadResult(
             Long mediaId,
+            Long attemptId,
             Long questionId,
             PracticeSpeakingMediaStatus status,
             Long byteSize,
@@ -126,6 +133,9 @@ public class SpeakingAudioUploadService {
 
     public record SpeakingAudioDeletionResult(
             Long mediaId,
-            PracticeSpeakingMediaStatus status
+            Long attemptId,
+            Long questionId,
+            PracticeSpeakingMediaStatus status,
+            Boolean pendingCleanup
     ) {}
 }

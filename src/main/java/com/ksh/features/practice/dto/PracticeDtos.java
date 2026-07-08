@@ -410,18 +410,25 @@ public final class PracticeDtos {
 
     public record SpeakingMediaUploadResponse(
             Long mediaId,
+            Long attemptId,
             Long questionId,
             String status,
+            Boolean active,
             Long byteSize,
             Long durationMs,
             String mimeType,
+            String playbackPath,
             Long lockVersion
     ) {
     }
 
     public record SpeakingMediaDeleteResponse(
             Long mediaId,
-            String status
+            Long attemptId,
+            Long questionId,
+            String status,
+            Boolean active,
+            Boolean pendingCleanup
     ) {
     }
 

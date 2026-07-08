@@ -115,11 +115,14 @@ public class PracticeSpeakingMediaController {
             SpeakingAudioUploadService.SpeakingAudioUploadResult result) {
         return new SpeakingMediaUploadResponse(
                 result.mediaId(),
+                result.attemptId(),
                 result.questionId(),
                 result.status().name(),
+                result.status() == com.ksh.entities.PracticeSpeakingMediaStatus.READY,
                 result.byteSize(),
                 result.durationMs(),
                 result.mimeType(),
+                playbackPath(result.attemptId(), result.questionId(), result.mediaId()),
                 result.lockVersion());
     }
 
@@ -127,6 +130,17 @@ public class PracticeSpeakingMediaController {
             SpeakingAudioUploadService.SpeakingAudioDeletionResult result) {
         return new SpeakingMediaDeleteResponse(
                 result.mediaId(),
-                result.status().name());
+                result.attemptId(),
+                result.questionId(),
+                result.status().name(),
+                result.status() == com.ksh.entities.PracticeSpeakingMediaStatus.READY,
+                result.pendingCleanup());
+    }
+
+    private static String playbackPath(Long attemptId, Long questionId, Long mediaId) {
+        return "/practice/attempts/" + attemptId
+                + "/questions/" + questionId
+                + "/speaking-media/" + mediaId
+                + "/content";
     }
 }
