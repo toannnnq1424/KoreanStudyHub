@@ -164,6 +164,20 @@ class WritingFeedbackCompatibilityReaderTest {
     }
 
     @Test
+    void oldAttemptFeedbackDoesNotRequireCurrentCacheGuardFields() throws Exception {
+        JsonNode root = objectMapper.readTree("""
+                {"raw_score":8,"raw_score_max":10,"score":7.5,"student_text":"answer","engine":"KSH_WRITING_EVALUATOR_V2"}
+                """);
+
+        WritingFeedbackCompatibilityReader.FeedbackResult result = reader.parseRoot(root, List.of(101L));
+
+        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_LEGACY_SINGLE, result.status());
+        assertEquals(0, result.entries().get(101L).rawScore().compareTo(BigDecimal.valueOf(8)));
+        assertEquals(0, result.entries().get(101L).rawScoreMax().compareTo(BigDecimal.valueOf(10)));
+        assertEquals("KSH_WRITING_EVALUATOR_V2", result.entries().get(101L).engine());
+    }
+
+    @Test
     void missingNullBlankAndMalformedPayloadAreExplicit() {
         assertEquals(WritingFeedbackCompatibilityReader.Status.MISSING,
                 reader.parsePayload(null, List.of(101L)).status());

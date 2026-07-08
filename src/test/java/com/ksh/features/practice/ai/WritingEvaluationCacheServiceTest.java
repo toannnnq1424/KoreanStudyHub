@@ -98,6 +98,24 @@ class WritingEvaluationCacheServiceTest {
     }
 
     @Test
+    void currentContractGuardDoesNotReuseOldPlainV3CacheRow() {
+        var fixture = fixture(Clock.systemUTC());
+        String oldSchema = "v3.0";
+        String currentSchema = "v3.0:v4.0";
+
+        fixture.service.put(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, "v3.0", "v3.0", oldSchema, "{\"contract\":\"old\"}");
+
+        assertTrue(fixture.service.get(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, "v3.0", "v3.0", currentSchema).isEmpty());
+
+        fixture.service.put(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, "v3.0", "v3.0", currentSchema, "{\"contract\":\"current\"}");
+
+        Optional<String> result = fixture.service.get(USER_ID, PROMPT, ANSWER, TASK_TYPE, MODEL, "v3.0", "v3.0", currentSchema);
+        assertTrue(result.isPresent());
+        assertEquals("{\"contract\":\"current\"}", result.get());
+        assertEquals(2, fixture.rows.size());
+    }
+
+    @Test
     void testLineEndingNormalizationInContentKey() {
         String key1 = WritingEvaluationCacheService.key("prompt\r\n", "answer\r\n", TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION);
         String key2 = WritingEvaluationCacheService.key("prompt\n", "answer\n", TASK_TYPE, MODEL, PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION);

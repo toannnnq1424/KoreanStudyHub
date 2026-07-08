@@ -596,6 +596,10 @@ class WritingEvaluationNormalizerTest {
           "raw_score_max": 30.0,
           "task_type": "Q53",
           "summary": "Good",
+          "evaluation_status": "EVALUATED",
+          "evaluation_source": "PROVIDER",
+          "evaluation_reason": "NONE",
+          "score_available": true,
           "rubric_scores": [
             {"name": "A", "score": 7.0, "feedback": "A"},
             {"name": "B", "score": 7.0, "feedback": "B"},
@@ -626,6 +630,10 @@ class WritingEvaluationNormalizerTest {
         assertEquals(7.0, root.path("score").asDouble());
         assertEquals(22.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
+        assertEquals("EVALUATED", root.path("evaluation_status").asText());
+        assertEquals("CACHE", root.path("evaluation_source").asText());
+        assertEquals("NONE", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
         assertEquals(3, root.path("rubric_scores").size());
         assertEquals(1, root.path("strengths").size());
         assertEquals("공부합니다", root.path("strengths").get(0).path("evidence").asText());
@@ -638,9 +646,13 @@ class WritingEvaluationNormalizerTest {
     }
 
     @Test
-    void testCacheabilityRejectsFallback() {
+    void testCacheabilityAcceptsOnlyProviderEvaluatedScoreBearingResults() {
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_FALLBACK\",\"raw_score\":1.0,\"raw_score_max\":100.0}"));
-        assertTrue(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"raw_score\":1.0,\"raw_score_max\":100.0}"));
+        assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_STATUS\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"HTTP_ERROR\",\"score_available\":false}"));
+        assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_STATUS\",\"evaluation_status\":\"EVALUATION_CONTRACT_FAILED\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"PROVIDER_CONTRACT_INVALID\",\"score_available\":false}"));
+        assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"MOCK_EVALUATED\",\"evaluation_source\":\"MOCK\",\"raw_score\":1.0,\"raw_score_max\":100.0,\"score_available\":true}"));
+        assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"INVALID_LEARNER_RESPONSE\",\"evaluation_source\":\"BACKEND_RULE\",\"evaluation_reason\":\"BLANK_ANSWER\",\"raw_score\":0.0,\"raw_score_max\":30.0,\"score_available\":true}"));
+        assertTrue(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"EVALUATED\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"NONE\",\"raw_score\":1.0,\"raw_score_max\":100.0,\"score_available\":true}"));
     }
 
     // ---- Task-specific raw max and score validation ----

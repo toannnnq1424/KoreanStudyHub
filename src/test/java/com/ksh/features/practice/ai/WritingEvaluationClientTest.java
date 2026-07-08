@@ -207,6 +207,51 @@ class WritingEvaluationClientTest {
     }
 
     @Test
+    void cacheHitPreservesScoreStatusReasonAndMarksSourceCache() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        String cachedValue = """
+                {
+                  "score":8.0,
+                  "overall_score":8.0,
+                  "raw_score":24.0,
+                  "raw_score_max":30.0,
+                  "task_type":"Q53",
+                  "summary":"Cached provider result",
+                  "evaluation_status":"EVALUATED",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE",
+                  "score_available":true,
+                  "strengths":[],
+                  "needs_improvement":[],
+                  "sentence_rewrites":[],
+                  "engine":"KSH_WRITING_EVALUATOR_V2"
+                }
+                """;
+        when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of(cachedValue));
+
+        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, setupMockRestClient("{}", new AtomicInteger())
+        );
+
+        String learnerAnswer = "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4";
+        JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet", learnerAnswer, false, WritingTaskType.Q53));
+
+        assertEquals(learnerAnswer, root.path("student_text").asText());
+        assertEquals(8.0, root.path("score").asDouble());
+        assertEquals(24.0, root.path("raw_score").asDouble());
+        assertEquals(30.0, root.path("raw_score_max").asDouble());
+        assertEquals("EVALUATED", root.path("evaluation_status").asText());
+        assertEquals("CACHE", root.path("evaluation_source").asText());
+        assertEquals("NONE", root.path("evaluation_reason").asText());
+        assertTrue(root.path("score_available").asBoolean(false));
+        verifyNoInteractions(mockEvaluator);
+        verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
     void testApiKeyEmptyCacheMissReturnsUnavailableAndDoesNotPersist() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
@@ -327,6 +372,32 @@ class WritingEvaluationClientTest {
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
         assertEquals("EVALUATED", cached.path("evaluation_status").asText());
+        assertEquals("PROVIDER", cached.path("evaluation_source").asText());
+        assertEquals("NONE", cached.path("evaluation_reason").asText());
+        assertTrue(cached.path("score_available").asBoolean(false));
+        assertTrue(cached.path("raw_score").isNumber());
+        assertTrue(cached.path("raw_score_max").isNumber());
+    }
+
+    @Test
+    void contractFailureDoesNotPersistCache() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mock(WritingMockEvaluatorService.class),
+                setupMockRestClient("{\"choices\":[{\"message\":{\"content\":\"not-json\"}}]}", new AtomicInteger())
+        );
+
+        JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet",
+                "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4", false, WritingTaskType.Q53));
+
+        assertEquals("EVALUATION_CONTRACT_FAILED", root.path("evaluation_status").asText());
+        assertEquals("PROVIDER_CONTRACT_INVALID", root.path("evaluation_reason").asText());
+        assertFalse(root.path("score_available").asBoolean(true));
+        assertFalse(root.has("raw_score"));
+        verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -495,6 +566,27 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
                 eq("v3.0"), eq("v3.0"), eq("v3.0:v4.0"));
+    }
+
+    @Test
+    void malformedCacheDeleteFailureDoesNotBlockProviderEvaluation() {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.of("{malformed"));
+        doThrow(new RuntimeException("db delete down")).when(cacheService)
+                .delete(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        AtomicInteger callCount = new AtomicInteger(0);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+        );
+
+        String result = client.evaluate(USER_ID, "Bai 53 viet",
+                "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4", false, WritingTaskType.Q53);
+
+        assertNotNull(result);
+        assertTrue(result.contains("\"engine\":\"KSH_WRITING_EVALUATOR_V2\""));
+        assertEquals(1, callCount.get());
     }
 
     @Test
