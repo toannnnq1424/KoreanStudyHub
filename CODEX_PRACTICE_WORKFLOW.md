@@ -165,16 +165,23 @@ For implementation and review of small slices:
 
 Focused tests must target only the slice or directly affected behavior.
 
-Focused test reruns are allowed during an active implementation or test-fix
+Focused test reruns are required during an active implementation or test-fix
 task when the previous focused run found a compile error, test failure, or
 test-fixture defect and the code or test was changed to address that evidence.
+
+This repository policy overrides later task wording that says a focused Maven
+command may run only once or must not be rerun after an evidence-based fix.
+Codex must continue the same focused validation/fix cycle until the focused
+tests pass or there is no concrete in-scope fix available. Future workflow
+updates must not restore or record a one-run-only Maven restriction.
 
 Each rerun must:
 
 - keep the same narrow test scope, or reduce it further;
 - have a concrete fix made since the previous run;
 - avoid `clean`, the full suite, and unrelated modules;
-- stop when repeated failures no longer produce a concrete in-scope fix.
+- continue after each concrete in-scope fix until the focused tests pass;
+- stop only when repeated failures no longer produce a concrete in-scope fix.
 
 Do not rerun an unchanged command against unchanged code merely to see whether
 an intermittent failure disappears.
@@ -239,7 +246,8 @@ If Maven is required and prior evidence shows sandbox permission is needed:
 - do not run non-escalated first;
 - request or declare required permission before running;
 - run only the focused command;
-- rerun it only after an evidence-based in-scope fix;
+- rerun it after every evidence-based in-scope fix until it passes or becomes
+  genuinely blocked;
 - report exact reason.
 
 If permission is unavailable:
@@ -624,7 +632,10 @@ audio/transcript-based Speaking evaluation with fixed schema, internal score onl
 #### Phase 8E-A — Speaking AI Schema, Status & Normalizer Foundation
 
 Status:
-IMPLEMENTED_AND_FOCUSED_TESTED
+COMMITTED
+
+Commit:
+6bccffec14e5df13c155327f369eaed420bbd38a
 
 Meaning:
 Typed Speaking evaluation status/result/evidence/rubric contracts, 100-point
@@ -639,7 +650,10 @@ the new Speaking AI foundation tests and existing `PracticeServiceTest`.
 #### Phase 8E-B — Korean Transcription Integration Abstraction
 
 Status:
-IMPLEMENTED_AND_FOCUSED_TESTED
+COMMITTED
+
+Commit:
+d1960b4941cb039693000ed4d8b3670f818abcc8
 
 Dependency:
 OpenAI STT primary strategy selected for the MVP transcription adapter.
@@ -669,10 +683,81 @@ Provider strategy note:
 #### Phase 8E-C — Speaking Evaluator Fixed-Schema Provider Integration
 
 Status:
-NOT_STARTED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Dependency:
-Evaluator prompt rules/provider integration decision after 8E-B review.
+8E-B transcription foundation.
+
+Meaning:
+Speaking evaluator prompt rules, fixed-schema OpenAI-compatible chat adapter,
+provider-neutral `SpeakingEvaluationClient`, evaluator handoff/orchestrator,
+S_* Speaking criterion IDs, and rich feedback contract are implemented without
+persistence, UI rendering, cache, migrations, or real provider calls.
+
+Focused test evidence:
+46 tests, 0 failures, 0 errors, 0 skips on JDK 17. The focused scope covered
+Speaking evaluator prompt rules, fixed-schema request building, OpenAI-
+compatible adapter failure mapping, orchestrator handoff behavior, rich
+normalizer contract, and score policy guard tests.
+
+Evaluator strategy note:
+
+- `EXISTING_GEMINI_EVALUATOR_COMPATIBLE` is the current 8E-C MVP default.
+- Speaking evaluator uses separate `app.practice.speaking-evaluator.*` config.
+- OpenAI structured outputs remain accepted fallback/upgrade path.
+- Provider-neutral `SpeakingEvaluationClient` must remain open for future evaluator swaps.
+- `SpeakingPromptRules` uses KSH `allowed_rubric` `max_score` discipline and
+  does not use 9-band or few-shot calibration.
+- `SpeakingRuleEngine` provides deterministic pre-evaluation signals adapted
+  for spoken Korean.
+- Speaking criterion IDs use the `S_*` namespace.
+- 8E-C evaluator output supports overall summary, strengths, needs improvement,
+  action plan, criterion breakdowns, subcriteria, transcript annotations,
+  upgraded answer, and sample answer.
+- The result contract is PREP-inspired only as product structure; KSH must not
+  copy UI or claim official IELTS/TOPIK scoring.
+- Pronunciation remains advisory unless a specialized provider/timestamp/alignment
+  pipeline is added later.
+- Writing rubric scale consistency requires the separate 8E-CW audit.
+- 8E-C does not cache evaluator results.
+- 8E-C does not persist or render results; 8E-D owns persistence/UI.
+
+#### Phase 8E-CW — Writing Rubric Scale Consistency Follow-up
+
+Status:
+NOT_STARTED
+
+Purpose:
+A narrow maintenance slice, audited before implementation, to remove remaining
+Writing 1–9 band, few-shot, and sample-answer scoring assumptions and enforce
+`allowed_rubric` `max_score` discipline. This does not reopen all of Phase 8C.
+
+#### Phase 8E-D — Speaking AI Persistence and Result Rendering
+
+Status:
+NOT_STARTED
+
+Purpose:
+persist normalized Speaking AI feedback and render result/detail tabs while
+preserving 8D playback and current legacy Speaking feedback compatibility.
+
+#### Phase 8E-E — Speaking Re-evaluation and Transcript Reuse Stabilization
+
+Status:
+NOT_STARTED
+
+Purpose:
+stabilize per-question re-evaluation, transcript reuse, prior-valid-result
+preservation, and failure behavior without introducing a Speaking audio cache.
+
+#### Phase 8E-F — Speaking AI Focused Phase-Gate Review
+
+Status:
+NOT_STARTED
+
+Purpose:
+focused Phase 8E review after 8E-D and 8E-E. Do not close top-level 8E before
+this review and explicit accepted-debt decisions.
 
 #### Phase 8F — Calibration & Production Hardening
 
@@ -689,10 +774,44 @@ PLANNED
 
 Must happen before Phase 9.
 
+#### Phase 8H — Practice Module Architecture, Security Boundary & Maintainability Stabilization
+
+Status:
+PLANNED
+
+Scope:
+
+- Constants boundary audit: `IConstant` must not keep growing as a
+  route/view/model/flash/tab/pagination catch-all. Future split candidates are
+  `PracticeRoutes`, `PracticeViews`, `PracticeModelAttributes`,
+  `PracticeFlashMessages`, `PracticeTabs`, `PracticePagination`, and
+  `PracticeDiscriminators`. UI text may later move to `messages.properties`
+  when localization is needed.
+- `PracticeService` decomposition audit: it currently coordinates attempts,
+  questions, results, Writing AI, Speaking feedback, Reading/Listening
+  explanation, audio, and transactions. Future split candidates are
+  `PracticeAttemptCommandService`, `PracticeAttemptQueryService`,
+  `PracticeAttemptGradingService`, `PracticeResultAssembler`,
+  `PracticeAnswerMapper`, `WritingEvaluationApplicationService`,
+  `SpeakingEvaluationApplicationService`,
+  `ReadingListeningExplanationService`, and
+  `PracticeAttemptTransactionCoordinator`.
+- Practice AI package boundary audit: preserve focused tests while reviewing
+  the current Speaking transcription/evaluation package candidates. Avoid a
+  broad package refactor.
+- Public uploads versus private learner media security audit: `/uploads/**`
+  `permitAll` must remain clearly separated from authenticated private
+  Speaking playback. Private learner media must never be served under public
+  upload paths.
+- Narrow refactor stabilization only: no big-bang cleanup; audit first;
+  focused tests only; no Phase 9 until Phase 8H is accepted or explicitly
+  deferred.
+
 ### Phase 9 — Immutable Published Practice Versions
 
 Status:
-BLOCKED until Phase 8G is CLOSED_VERIFIED or CLOSED_WITH_ACCEPTED_DEBT by user decision.
+BLOCKED until both Phase 8G and Phase 8H are closed, accepted, or explicitly
+deferred by user decision.
 
 Purpose:
 immutable published content/rubric/scoring graph and stable historical attempts.
@@ -731,7 +850,7 @@ NOT_STARTED
 Status:
 NOT_STARTED
 
-### Phase 16 — Chatbot Optional
+### Phase 16 — Optional Chatbot AI
 
 Status:
 OPTIONAL / NOT_STARTED
@@ -947,17 +1066,20 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | Phase 8D Speaking Audio and Media Closure | COMMITTED | CLOSED_WITH_ACCEPTED_DEBT | c30ce7505cf1b70074f1d97864c1cfa107c1b0ac | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Gates confirmed disabled by default; all remaining browser/device, recorder lifecycle, playback, reload, and text-fallback smoke items explicitly accepted as NOT_TESTED_ACCEPTED_DEBT. | Closed with explicit acceptance of object-storage, local-storage, cleanup topology, session-consent, Phase 15 UAT, and Phase 8F production-hardening debt. Live rollout remains NO-GO. | Phase 8E audit for Speaking AI Evaluation. |
 | 2026-07-09 | 8E-A Speaking AI Schema, Status & Normalizer Foundation | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | a6c2504a684b2aa3d86b07d4ba9136b55c3c7c20 | Focused rerun: 83 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Foundation implemented with typed result/status/evidence/rubric contracts, 100-point scoring, low-confidence safeguards, legacy compatibility, and view mapping. | User review and commit, then provider docs verification / 8E-B audit. |
 | 2026-07-09 | 8E-B Speaking Transcription Abstraction and OpenAI STT Adapter | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 6bccffec14e5df13c155327f369eaed420bbd38a | Focused command: `mvn "-Dtest=OpenAiSpeakingTranscriptionClientTest,SpeakingTranscriptionMediaResolverTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; 38 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented disabled-by-default OpenAI STT transcription abstraction, safe DTOs, READY local-media resolver, logprob-derived confidence, and provider strategy note. Live rollout remains NO-GO. | 8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-schema provider integration and prompt rules. |
+| 2026-07-09 | 8E-C Speaking Evaluator Fixed-Schema Provider Integration | NEEDS_COMPILE_FIX | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d1960b4941cb039693000ed4d8b3670f818abcc8 | Focused command: `mvn "-Dtest=SpeakingEvaluation*Test,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingEvaluationPromptBuilderTest,SpeakingPromptRulesTest,SpeakingEvaluationOrchestratorTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; final focused rerun 46 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented KSH allowed_rubric rules, deterministic Speaking rule signals, S_* criterion IDs, rich feedback contract, provider-neutral evaluator client, OpenAI-compatible chat adapter, orchestrator handoff, failure mapping, and disabled-by-default evaluator config. No persistence/UI/cache/migration. | 8E-C user review and commit, then 8E-D audit for Speaking AI persistence and result/detail rendering. |
 
 ## Current Required Next Action
 
 Current next action:
 
-8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-
-schema provider integration and prompt rules.
+8E-C user review and commit, then 8E-D audit for Speaking AI persistence and
+result/detail rendering.
 
-Phase 8E is IN_PROGRESS. Phase 8E-C remains NOT_STARTED.
+Phase 8E is IN_PROGRESS. Phase 8E-C is IMPLEMENTED_AND_FOCUSED_TESTED.
+Phase 8E-D remains NOT_STARTED.
 
-Do not start Phase 9 before Phase 8G.
+Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
+explicitly deferred.
 
 ## Long-Term Direction After Phase 16
 

@@ -154,6 +154,46 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
+    void richSpeakingFeedbackContractNormalizesForFutureRendering() throws Exception {
+        SpeakingEvaluationResult result = normalizer.normalize(
+                objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()));
+
+        assertEquals("Clear answer with minor language issues.", result.overallSummary());
+        assertEquals("The learner introduces themself and stays on topic.", result.taskAchievementSummary());
+        assertEquals(2, result.majorStrengths().size());
+        assertEquals(2, result.majorNeedsImprovement().size());
+        assertEquals(2, result.actionPlan().size());
+        assertEquals(SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL, result.actionPlan().get(0).criterion());
+        assertEquals("S_GRAMMAR_PARTICLES", result.actionPlan().get(0).subCriterionId());
+        assertEquals("Độ tin cậy đủ để phản hồi tổng quát, nhưng phát âm vẫn chỉ là gợi ý.", result.confidenceNotes());
+        assertEquals(1, result.strengths().size());
+        assertEquals("S_CONTENT_RELEVANCE", result.strengths().get(0).subCriterionId());
+        assertEquals("", result.strengths().get(0).correction());
+        assertEquals(1, result.needsImprovement().size());
+        assertEquals("학생이에요", result.needsImprovement().get(0).correction());
+        assertEquals(6, result.criterionFeedback().size());
+        assertEquals(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, result.criterionFeedback().get(0).criterion());
+        assertEquals("S_CONTENT_RELEVANCE", result.criterionFeedback().get(0).subcriteria().get(0).subCriterionId());
+        assertEquals(1, result.transcriptAnnotations().size());
+        assertEquals("needs_improvement", result.transcriptAnnotations().get(0).annotationType());
+        assertEquals(SpeakingEvidenceSource.TRANSCRIPT, result.transcriptAnnotations().get(0).evidenceSource());
+        assertEquals("TEXT_SPAN", result.transcriptAnnotations().get(0).evidenceScope());
+        assertEquals("학생 이에요", result.transcriptAnnotations().get(0).evidence());
+        assertEquals("학생이에요", result.transcriptAnnotations().get(0).suggestionKo());
+    }
+
+    @Test
+    void speakingCriterionIdsSerializeWithSpeakingNamespace() throws Exception {
+        String json = objectMapper.writeValueAsString(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT);
+
+        assertEquals("\"S_CONTENT_TASK_FULFILLMENT\"", json);
+        assertEquals(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                SpeakingRubricCriterion.fromExternalId("S_CONTENT_TASK_FULFILLMENT"));
+        assertEquals(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                SpeakingRubricCriterion.fromExternalId("CONTENT_TASK_FULFILLMENT"));
+    }
+
+    @Test
     void impossibleOverallAndRubricCombinationUsesDeterministicRubricTotal() throws Exception {
         JsonNode input = (JsonNode) validInput().deepCopy();
         ((com.fasterxml.jackson.databind.node.ObjectNode) input).put("overall_score", 99);
