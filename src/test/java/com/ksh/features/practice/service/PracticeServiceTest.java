@@ -1085,6 +1085,103 @@ class PracticeServiceTest {
     }
 
     @Test
+    void speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback() throws Exception {
+        PracticeQuestion q1 = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(q1, 101L);
+        com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult result =
+                new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult(
+                        com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus.EVALUATED,
+                        true,
+                        com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource.PROVIDER,
+                        "gemini-compatible",
+                        "gpt-4o-mini-transcribe",
+                        "prompt-v",
+                        "rubric-v",
+                        "schema-v",
+                        501L,
+                        7L,
+                        "저는 한국어를 공부해요.",
+                        "저는 한국어를 공부해요.",
+                        "저는 한국어를 공부해요.",
+                        "Learner studies Korean",
+                        null,
+                        new BigDecimal("0.93"),
+                        "LOW",
+                        new BigDecimal("82"),
+                        "B1",
+                        "Bạn trả lời rõ ý.",
+                        "Câu trả lời bám đề.",
+                        List.of("Có ý chính rõ"),
+                        List.of("Thêm ví dụ"),
+                        List.of(new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult.ActionPlanItem(
+                                com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                                "S_CONTENT_SPECIFICITY_EXAMPLES",
+                                "Thêm ví dụ",
+                                "Nói thêm một ví dụ cá nhân.",
+                                "Giúp nội dung cụ thể hơn.",
+                                "HIGH")),
+                        List.of(),
+                        List.of(new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult.TranscriptAnnotation(
+                                "strength",
+                                "CONTENT",
+                                com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                                "S_CONTENT_RELEVANCE",
+                                "한국어",
+                                "",
+                                3,
+                                6,
+                                "Có từ khóa đúng chủ đề.",
+                                "LOW",
+                                com.ksh.features.practice.ai.speaking.SpeakingEvidenceSource.TRANSCRIPT,
+                                "TEXT_SPAN",
+                                "한국어",
+                                "Có từ khóa đúng chủ đề.",
+                                "",
+                                BigDecimal.ONE)),
+                        List.of(new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult.FeedbackItem(
+                                com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                                "S_CONTENT_RELEVANCE",
+                                "TEXT_SPAN",
+                                "한국어",
+                                com.ksh.features.practice.ai.speaking.SpeakingEvidenceSource.TRANSCRIPT,
+                                "Bám đúng chủ đề.",
+                                "")),
+                        List.of(),
+                        "Độ tin cậy ổn.",
+                        List.of(new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult.RubricScore(
+                                com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                                new BigDecimal("16"),
+                                new BigDecimal("20"),
+                                "Nội dung tốt")),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        "저는 한국어를 꾸준히 공부하고 있어요.",
+                        "저는 매일 한국어를 공부하면서 새로운 표현을 익히고 있습니다.",
+                        List.of("Pronunciation advisory only"),
+                        List.of("Fluency text"),
+                        null,
+                        false);
+
+        String feedbackJson = practiceService.speakingAiFeedbackEnvelope(Map.of(101L, result));
+        List<SpeakingQuestionFeedbackRow> rows = practiceService.buildSpeakingQuestionFeedbackRows(
+                List.of(q1),
+                "{\"101\":\"PRIVATE_SPEAKING_ANSWER\"}",
+                feedbackJson);
+
+        assertEquals("speaking_ai_v1", objectMapper.readTree(feedbackJson).path("_contract").asText());
+        assertEquals(1, rows.size());
+        assertNotNull(rows.get(0).speakingFeedback());
+        assertEquals("EVALUATED", rows.get(0).speakingFeedback().evaluationStatus());
+        assertEquals(new BigDecimal("82"), rows.get(0).speakingFeedback().percentage());
+        assertEquals("Bạn trả lời rõ ý.", rows.get(0).speakingFeedback().overallSummary());
+        assertEquals("저는 한국어를 공부해요.", rows.get(0).speakingFeedback().actuallyHeardTranscript());
+        assertEquals(1, rows.get(0).speakingFeedback().actionPlan().size());
+        assertEquals(1, rows.get(0).speakingFeedback().transcriptAnnotations().size());
+        assertFalse(objectMapper.writeValueAsString(rows.get(0).speakingFeedback()).contains("PRIVATE_SPEAKING_ANSWER"));
+    }
+
+    @Test
     void speakingFeedbackRowsUseDeterministicQuestionOrderIncludingNulls() {
         PracticeQuestion first = new PracticeQuestion(1L, 3, "SPEAKING", "P1", "[]", "", "E", BigDecimal.ONE, 0);
         PracticeQuestion second = new PracticeQuestion(1L, 3, "SPEAKING", "P2", "[]", "", "E", BigDecimal.ONE, 0);

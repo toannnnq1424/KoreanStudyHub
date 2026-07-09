@@ -17,6 +17,9 @@ import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
 import com.ksh.features.practice.ai.WritingScoringPolicy;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackViewMapper;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
@@ -76,6 +79,7 @@ public class PracticeService {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeService.class);
     private static final String SPEAKING_MIXED_CONTRACT = "speaking_mixed_v1";
+    private static final String SPEAKING_AI_CONTRACT = "speaking_ai_v1";
     private static final String SPEAKING_MIXED_CONTRACT_FIELD = "_contract";
     private static final String SPEAKING_MIXED_SPEAKING_FIELD = "speaking_feedback_by_question";
     private static final String SPEAKING_MIXED_ESSAY_FIELD = "essay_feedback_by_question";
@@ -89,6 +93,8 @@ public class PracticeService {
     private final WritingEvaluationClient evaluationClient;
     private final WritingFeedbackCompatibilityReader writingFeedbackReader;
     private final WritingFeedbackViewMapper writingFeedbackViewMapper;
+    private final SpeakingFeedbackCompatibilityReader speakingFeedbackReader;
+    private final SpeakingFeedbackViewMapper speakingFeedbackViewMapper;
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private final ObjectMapper objectMapper;
@@ -106,6 +112,8 @@ public class PracticeService {
                            WritingEvaluationClient evaluationClient,
                            WritingFeedbackCompatibilityReader writingFeedbackReader,
                            WritingFeedbackViewMapper writingFeedbackViewMapper,
+                           SpeakingFeedbackCompatibilityReader speakingFeedbackReader,
+                           SpeakingFeedbackViewMapper speakingFeedbackViewMapper,
                            ReadingListeningExplanationService readingListeningExplanationService,
                            AudioStorageService audioStorageService,
                            ObjectMapper objectMapper,
@@ -119,6 +127,8 @@ public class PracticeService {
         this.evaluationClient = evaluationClient;
         this.writingFeedbackReader = writingFeedbackReader;
         this.writingFeedbackViewMapper = writingFeedbackViewMapper;
+        this.speakingFeedbackReader = speakingFeedbackReader;
+        this.speakingFeedbackViewMapper = speakingFeedbackViewMapper;
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -150,6 +160,8 @@ public class PracticeService {
         this.evaluationClient = evaluationClient;
         this.writingFeedbackReader = new WritingFeedbackCompatibilityReader(objectMapper);
         this.writingFeedbackViewMapper = new WritingFeedbackViewMapper();
+        this.speakingFeedbackReader = new SpeakingFeedbackCompatibilityReader(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
+        this.speakingFeedbackViewMapper = new SpeakingFeedbackViewMapper();
         this.readingListeningExplanationService = readingListeningExplanationService;
         this.audioStorageService = audioStorageService;
         this.objectMapper = objectMapper;
@@ -355,29 +367,35 @@ public class PracticeService {
             }
         }
 
+        boolean speakingAiEnvelope = isSpeakingAiEnvelope(rootNode);
         boolean mixedEnvelope = isSpeakingMixedEnvelope(rootNode);
         List<PracticeQuestion> rowQuestions = questions.stream()
-                .filter(q -> mixedEnvelope || PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType()))
+                .filter(q -> speakingAiEnvelope || mixedEnvelope || PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType()))
                 .sorted(QUESTION_ORDER)
                 .toList();
         List<PracticeQuestion> speakingQuestions = rowQuestions.stream()
                 .filter(q -> PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType()))
                 .toList();
+        JsonNode aiSpeakingFeedback = speakingAiEnvelope ? rootNode.path(SPEAKING_MIXED_SPEAKING_FIELD) : null;
         JsonNode mixedSpeakingFeedback = mixedEnvelope ? rootNode.path(SPEAKING_MIXED_SPEAKING_FIELD) : null;
         JsonNode mixedEssayFeedback = mixedEnvelope ? rootNode.path(SPEAKING_MIXED_ESSAY_FIELD) : null;
-        boolean canonicalMap = !mixedEnvelope && isCanonicalSpeakingFeedbackMap(rootNode, speakingQuestions);
+        boolean canonicalMap = !speakingAiEnvelope && !mixedEnvelope && isCanonicalSpeakingFeedbackMap(rootNode, speakingQuestions);
         boolean unknownContract = rootNode != null
                 && rootNode.isObject()
                 && rootNode.has(SPEAKING_MIXED_CONTRACT_FIELD)
+                && !speakingAiEnvelope
                 && !mixedEnvelope;
-        boolean legacyGlobal = rootNode != null && rootNode.isObject() && !mixedEnvelope && !unknownContract && !canonicalMap;
+        boolean legacyGlobal = rootNode != null && rootNode.isObject() && !speakingAiEnvelope && !mixedEnvelope && !unknownContract && !canonicalMap;
 
         List<SpeakingQuestionFeedbackRow> rows = new ArrayList<>();
         for (PracticeQuestion q : rowQuestions) {
             JsonNode feedbackNode = null;
             com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView legacyEssayFeedback = null;
             boolean legacyApplied = false;
-            if (mixedEnvelope && PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
+            if (speakingAiEnvelope && PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
+                JsonNode candidate = aiSpeakingFeedback == null ? null : aiSpeakingFeedback.get(String.valueOf(q.getId()));
+                feedbackNode = candidate != null && candidate.isObject() ? candidate : null;
+            } else if (mixedEnvelope && PracticeQuestion.TYPE_SPEAKING.equals(q.getQuestionType())) {
                 JsonNode candidate = mixedSpeakingFeedback == null ? null : mixedSpeakingFeedback.get(String.valueOf(q.getId()));
                 feedbackNode = candidate != null && candidate.isObject() ? candidate : null;
             } else if (mixedEnvelope && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())) {
@@ -412,6 +430,26 @@ public class PracticeService {
                 && SPEAKING_MIXED_CONTRACT.equals(rootNode.path(SPEAKING_MIXED_CONTRACT_FIELD).asText(null));
     }
 
+    private boolean isSpeakingAiEnvelope(JsonNode rootNode) {
+        return rootNode != null
+                && rootNode.isObject()
+                && SPEAKING_AI_CONTRACT.equals(rootNode.path(SPEAKING_MIXED_CONTRACT_FIELD).asText(null));
+    }
+
+    public String speakingAiFeedbackEnvelope(Map<Long, SpeakingEvaluationResult> feedbackByQuestionId) {
+        com.fasterxml.jackson.databind.node.ObjectNode envelope = objectMapper.createObjectNode();
+        envelope.put(SPEAKING_MIXED_CONTRACT_FIELD, SPEAKING_AI_CONTRACT);
+        com.fasterxml.jackson.databind.node.ObjectNode byQuestion = envelope.putObject(SPEAKING_MIXED_SPEAKING_FIELD);
+        if (feedbackByQuestionId != null) {
+            feedbackByQuestionId.forEach((questionId, feedback) -> {
+                if (questionId != null && feedback != null) {
+                    byQuestion.set(String.valueOf(questionId), objectMapper.valueToTree(feedback));
+                }
+            });
+        }
+        return writeJson(envelope);
+    }
+
     private boolean isCanonicalSpeakingFeedbackMap(JsonNode rootNode, List<PracticeQuestion> speakingQuestions) {
         if (rootNode == null || !rootNode.isObject() || speakingQuestions.isEmpty()) {
             return false;
@@ -430,18 +468,7 @@ public class PracticeService {
         if (node == null || !node.isObject() || !hasSpeakingFeedbackContent(node)) {
             return null;
         }
-        return new SpeakingFeedbackView(
-                speakingPercentage(node),
-                textOrNull(node, "summary"),
-                textOrNull(node, "summary_vi"),
-                speakingRubricScores(node.path("rubric_scores")),
-                speakingFindings(node.path("strengths")),
-                speakingFindings(node.path("needs_improvement")),
-                textOrNull(node, "sample_answer"),
-                textOrNull(node, "corrected_version"),
-                textOrNull(node, "engine"),
-                textOrNull(node, "source")
-        );
+        return speakingFeedbackViewMapper.map(speakingFeedbackReader.read(node));
     }
 
     private BigDecimal speakingPercentage(JsonNode node) {
@@ -464,7 +491,15 @@ public class PracticeService {
                 || node.has("sample_answer")
                 || node.has("corrected_version")
                 || node.has("engine")
-                || node.has("source");
+                || node.has("source")
+                || node.has("evaluationStatus")
+                || node.has("evaluation_status")
+                || node.has("overallSummary")
+                || node.has("overall_summary")
+                || node.has("criterionFeedback")
+                || node.has("criterion_feedback")
+                || node.has("actionPlan")
+                || node.has("action_plan");
     }
 
     private List<SpeakingRubricScoreView> speakingRubricScores(JsonNode node) {

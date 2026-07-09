@@ -50,7 +50,7 @@
 
       const rubrics = [
         { id: 'fluency', label: 'Lưu loát & Mạch lạc', metrics: ['Tốc độ nói', 'Độ tự nhiên', 'Ngắt nghỉ'] },
-        { id: 'pronunciation', label: 'Phát âm & Ngữ điệu', metrics: ['Độ rõ âm', 'Ngữ điệu bản xứ'] },
+        { id: 'pronunciation', label: 'Phát âm & Ngữ điệu', metrics: ['Độ rõ âm', 'Ngữ điệu tham khảo'] },
         { id: 'grammar', label: 'Ngữ pháp & Từ vựng', metrics: ['Cấu trúc câu', 'Độ đa dạng từ vựng'] }
       ];
 
@@ -111,7 +111,7 @@
           if (rubId === 'fluency') {
             feedbackText = "Tốc độ nói tương đối ổn định, ít có quãng dừng ngập ngừng quá dài. Giao tiếp mạch lạc.";
           } else if (rubId === 'pronunciation') {
-            feedbackText = "Phát âm các nguyên âm và phụ âm cơ bản chuẩn xác. Ngữ điệu trôi chảy tự nhiên.";
+            feedbackText = "Phần phát âm chỉ là nhận xét tham khảo dựa trên dữ liệu hiện có; hãy ưu tiên độ rõ và khả năng người nghe hiểu được ý chính.";
           } else {
             feedbackText = "Vận dụng được các cấu trúc câu đơn và câu ghép cơ bản chính xác. Từ vựng phong phú.";
           }

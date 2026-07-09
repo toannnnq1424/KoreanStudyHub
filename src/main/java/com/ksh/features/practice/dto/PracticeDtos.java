@@ -222,26 +222,159 @@ public final class PracticeDtos {
             String sampleAnswer,
             String correctedVersion,
             String engine,
-            String source
+            String source,
+            String evaluationStatus,
+            boolean scoreAvailable,
+            String levelLabel,
+            String overallSummary,
+            String taskAchievementSummary,
+            List<String> majorStrengths,
+            List<String> majorNeedsImprovement,
+            List<SpeakingActionPlanView> actionPlan,
+            List<SpeakingCriterionFeedbackView> criterionFeedback,
+            List<SpeakingTranscriptAnnotationView> transcriptAnnotations,
+            List<SpeakingTranscriptAnnotationView> annotations,
+            String transcript,
+            String normalizedTranscript,
+            String actuallyHeardTranscript,
+            String interpretedIntent,
+            BigDecimal transcriptConfidence,
+            String confidenceNotes,
+            String listenerBurden,
+            List<String> pronunciationAdvisory,
+            List<String> fluencyObservations,
+            String errorCategory,
+            boolean retryable,
+            Long audioMediaId,
+            Long mediaVersion,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion,
+            String model,
+            String transcriptionModel
     ) {
+        public SpeakingFeedbackView(
+                BigDecimal percentage,
+                String summary,
+                String summaryVi,
+                List<SpeakingRubricScoreView> rubricScores,
+                List<SpeakingFindingView> strengths,
+                List<SpeakingFindingView> needsImprovement,
+                String sampleAnswer,
+                String correctedVersion,
+                String engine,
+                String source
+        ) {
+            this(
+                    percentage, summary, summaryVi, rubricScores, strengths, needsImprovement,
+                    sampleAnswer, correctedVersion, engine, source,
+                    null, percentage != null, null, summaryVi == null ? summary : summaryVi, null,
+                    List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                    null, null, null, null, null, null, null, List.of(), List.of(),
+                    null, false, null, null, null, null, null, engine, null);
+        }
+
         public SpeakingFeedbackView {
             rubricScores = rubricScores == null ? List.of() : List.copyOf(rubricScores);
             strengths = strengths == null ? List.of() : List.copyOf(strengths);
             needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
+            majorStrengths = majorStrengths == null ? List.of() : List.copyOf(majorStrengths);
+            majorNeedsImprovement = majorNeedsImprovement == null ? List.of() : List.copyOf(majorNeedsImprovement);
+            actionPlan = actionPlan == null ? List.of() : List.copyOf(actionPlan);
+            criterionFeedback = criterionFeedback == null ? List.of() : List.copyOf(criterionFeedback);
+            transcriptAnnotations = transcriptAnnotations == null ? List.of() : List.copyOf(transcriptAnnotations);
+            annotations = annotations == null ? List.of() : List.copyOf(annotations);
+            pronunciationAdvisory = pronunciationAdvisory == null ? List.of() : List.copyOf(pronunciationAdvisory);
+            fluencyObservations = fluencyObservations == null ? List.of() : List.copyOf(fluencyObservations);
         }
     }
 
     public record SpeakingRubricScoreView(
             String name,
             BigDecimal percentage,
-            String feedback
+            String feedback,
+            String criterionId,
+            BigDecimal score,
+            BigDecimal maxScore
+    ) {
+        public SpeakingRubricScoreView(String name, BigDecimal percentage, String feedback) {
+            this(name, percentage, feedback, null, null, null);
+        }
+    }
+
+    public record SpeakingCriterionFeedbackView(
+            String criterionId,
+            String name,
+            BigDecimal score,
+            BigDecimal maxScore,
+            String levelLabel,
+            String summary,
+            List<String> strengths,
+            List<String> needsImprovement,
+            List<SpeakingSubcriterionFeedbackView> subcriteria
+    ) {
+        public SpeakingCriterionFeedbackView {
+            strengths = strengths == null ? List.of() : List.copyOf(strengths);
+            needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
+            subcriteria = subcriteria == null ? List.of() : List.copyOf(subcriteria);
+        }
+    }
+
+    public record SpeakingSubcriterionFeedbackView(
+            String subcriterionId,
+            String name,
+            String levelLabel,
+            String summary,
+            List<String> strengths,
+            List<String> needsImprovement
+    ) {
+        public SpeakingSubcriterionFeedbackView {
+            strengths = strengths == null ? List.of() : List.copyOf(strengths);
+            needsImprovement = needsImprovement == null ? List.of() : List.copyOf(needsImprovement);
+        }
+    }
+
+    public record SpeakingActionPlanView(
+            String criterionId,
+            String subcriterionId,
+            String titleVi,
+            String instructionVi,
+            String reasonVi,
+            String priority
+    ) {}
+
+    public record SpeakingTranscriptAnnotationView(
+            String criterionId,
+            String subcriterionId,
+            String evidenceScope,
+            String evidence,
+            String evidenceSource,
+            Integer startOffset,
+            Integer endOffset,
+            Integer start,
+            Integer end,
+            String annotationType,
+            String kind,
+            String category,
+            String explanationVi,
+            String suggestionKo,
+            String correction,
+            String severity
     ) {}
 
     public record SpeakingFindingView(
             String criterionId,
+            String subcriterionId,
+            String evidenceScope,
+            String evidence,
+            String evidenceSource,
             String explanationVi,
             String correction
-    ) {}
+    ) {
+        public SpeakingFindingView(String criterionId, String explanationVi, String correction) {
+            this(criterionId, null, null, null, null, explanationVi, correction);
+        }
+    }
 
     public record WritingFeedbackView(
             @JsonProperty("raw_score") BigDecimal rawScore,

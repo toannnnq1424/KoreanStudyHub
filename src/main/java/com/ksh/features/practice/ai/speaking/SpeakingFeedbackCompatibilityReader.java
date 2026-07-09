@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -10,16 +11,38 @@ import java.util.List;
 
 @Component
 public class SpeakingFeedbackCompatibilityReader {
+    private final ObjectMapper objectMapper;
+    private final SpeakingEvaluationNormalizer normalizer;
+
+    public SpeakingFeedbackCompatibilityReader() {
+        this(new ObjectMapper(), new SpeakingEvaluationNormalizer());
+    }
+
+    public SpeakingFeedbackCompatibilityReader(ObjectMapper objectMapper, SpeakingEvaluationNormalizer normalizer) {
+        this.objectMapper = objectMapper;
+        this.normalizer = normalizer;
+    }
 
     public SpeakingEvaluationResult read(JsonNode legacy) {
         if (legacy == null || !legacy.isObject()) {
             return legacyResult(null, List.of(), null, null, null);
+        }
+        if (legacy.has("evaluationStatus")) {
+            try {
+                return objectMapper.treeToValue(legacy, SpeakingEvaluationResult.class);
+            } catch (Exception ex) {
+                return normalizer.contractFailure("SPEAKING_FEEDBACK_JSON_INVALID");
+            }
+        }
+        if (legacy.has("evaluation_status")) {
+            return normalizer.normalize(legacy);
         }
         BigDecimal percentage = number(legacy, "percentage");
         if (percentage == null) {
             BigDecimal band = number(legacy, "score");
             percentage = band == null ? null : legacyBandPercentage(band);
         }
+        String summary = firstText(legacy, "summary_vi", "summary");
         List<SpeakingEvaluationResult.RubricScore> rubrics = legacyRubrics(legacy.path("rubric_scores"));
         SpeakingEvaluationStatus status = "practice_speaking_mock".equals(text(legacy, "source"))
                 ? SpeakingEvaluationStatus.MOCK_EVALUATED
@@ -45,7 +68,7 @@ public class SpeakingFeedbackCompatibilityReader {
                 null,
                 percentage,
                 null,
-                null,
+                summary,
                 null,
                 List.of(),
                 List.of(),
@@ -129,5 +152,10 @@ public class SpeakingFeedbackCompatibilityReader {
         JsonNode value = node.get(field);
         return value != null && value.isTextual() && !value.asText().isBlank()
                 ? value.asText().trim() : null;
+    }
+
+    private String firstText(JsonNode node, String first, String second) {
+        String value = text(node, first);
+        return value == null ? text(node, second) : value;
     }
 }

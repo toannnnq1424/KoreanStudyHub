@@ -64,9 +64,14 @@ class SpeakingFeedbackViewMapperTest {
         assertEquals(new BigDecimal("75"), view.percentage());
         assertEquals(1, view.rubricScores().size());
         assertEquals(new BigDecimal("75.00"), view.rubricScores().get(0).percentage());
+        assertEquals("Overall summary", view.overallSummary());
+        assertEquals("Task achieved", view.taskAchievementSummary());
+        assertEquals("heard", view.actuallyHeardTranscript());
+        assertEquals("intent", view.interpretedIntent());
         assertEquals("Sample", view.sampleAnswer());
         assertEquals("Upgraded", view.correctedVersion());
         assertEquals("MOCK", view.source());
+        assertTrue(view.scoreAvailable());
     }
 
     @Test

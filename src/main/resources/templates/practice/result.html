@@ -214,9 +214,12 @@
       }
 
       rubrics = [
-        { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Bám yêu cầu đề', 'Độ dài câu trả lời'] },
-        { id: 'structure', label: 'Mạch lạc văn bản', metrics: ['Mở ý', 'Giải thích', 'Kết luận'] },
-        { id: 'language', label: 'Ngôn ngữ tham khảo', metrics: ['Từ vựng', 'Ngữ pháp', 'Độ rõ ý'] }
+        { id: 'content', label: 'Nội dung', criterionId: 'S_CONTENT_TASK_FULFILLMENT', metrics: ['Bám yêu cầu đề', 'Phát triển ý', 'Ví dụ cụ thể'] },
+        { id: 'vocabulary', label: 'Từ vựng', criterionId: 'S_VOCABULARY_EXPRESSIONS', metrics: ['Từ đúng chủ đề', 'Diễn đạt tự nhiên', 'Kiểm soát lặp từ'] },
+        { id: 'grammar', label: 'Ngữ pháp', criterionId: 'S_GRAMMAR_SENTENCE_CONTROL', metrics: ['Tiểu từ/vĩ tố', 'Cấu trúc câu', 'Register/đuôi câu'] },
+        { id: 'coherence', label: 'Mạch lạc', criterionId: 'S_COHERENCE_ORGANIZATION', metrics: ['Mở ý', 'Liên kết ý', 'Kết luận'] },
+        { id: 'fluency', label: 'Độ lưu loát', criterionId: 'S_FLUENCY', metrics: ['Liên tục', 'Ít ngập ngừng', 'Gánh nặng nghe'] },
+        { id: 'pronunciation', label: 'Phát âm (tham khảo)', criterionId: 'S_PRONUNCIATION_DELIVERY', metrics: ['Độ rõ', 'Dấu hiệu nghi ngờ', 'Cảnh báo confidence'] }
       ];
     }
 
@@ -228,9 +231,12 @@
         question: q
       }));
       rubrics = [
-        { id: 'task', label: 'Hoàn thành nhiệm vụ', metrics: ['Bám yêu cầu đề', 'Độ dài câu trả lời'] },
-        { id: 'structure', label: 'Mạch lạc văn bản', metrics: ['Mở ý', 'Giải thích', 'Kết luận'] },
-        { id: 'language', label: 'Ngôn ngữ tham khảo', metrics: ['Từ vựng', 'Ngữ pháp', 'Độ rõ ý'] }
+        { id: 'content', label: 'Nội dung', criterionId: 'S_CONTENT_TASK_FULFILLMENT', metrics: ['Bám yêu cầu đề', 'Phát triển ý', 'Ví dụ cụ thể'] },
+        { id: 'vocabulary', label: 'Từ vựng', criterionId: 'S_VOCABULARY_EXPRESSIONS', metrics: ['Từ đúng chủ đề', 'Diễn đạt tự nhiên', 'Kiểm soát lặp từ'] },
+        { id: 'grammar', label: 'Ngữ pháp', criterionId: 'S_GRAMMAR_SENTENCE_CONTROL', metrics: ['Tiểu từ/vĩ tố', 'Cấu trúc câu', 'Register/đuôi câu'] },
+        { id: 'coherence', label: 'Mạch lạc', criterionId: 'S_COHERENCE_ORGANIZATION', metrics: ['Mở ý', 'Liên kết ý', 'Kết luận'] },
+        { id: 'fluency', label: 'Độ lưu loát', criterionId: 'S_FLUENCY', metrics: ['Liên tục', 'Ít ngập ngừng', 'Gánh nặng nghe'] },
+        { id: 'pronunciation', label: 'Phát âm (tham khảo)', criterionId: 'S_PRONUNCIATION_DELIVERY', metrics: ['Độ rõ', 'Dấu hiệu nghi ngờ', 'Cảnh báo confidence'] }
       ];
     }
 
@@ -293,20 +299,23 @@
         }
       }
 
-      let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
+      let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : (Array.isArray(aiData.rubricScores) ? aiData.rubricScores : []);
       let matchedScore = null;
       let matchedMaxScore = null;
       let feedbackText = "";
 
       if (rubricList.length > 0) {
-        let targetIdx = 0;
-        if (currentRubric === 'structure') targetIdx = 1;
-        else if (currentRubric === 'language') targetIdx = 2;
-        
-        const matched = rubricList[Math.min(targetIdx, rubricList.length - 1)];
+        const activeCriterionId = activeRubricObj && activeRubricObj.criterionId;
+        let matched = activeCriterionId
+          ? rubricList.find(r => (r.criterionId || r.criterion_id) === activeCriterionId)
+          : null;
+        if (!matched) {
+          const rubricIndex = Math.max(0, rubrics.findIndex(r => r.id === currentRubric));
+          matched = rubricList[Math.min(rubricIndex, rubricList.length - 1)];
+        }
         if (matched) {
-          matchedScore = activeQuestionUsesSpeakingFeedback ? matched.percentage : matched.score;
-          matchedMaxScore = activeQuestionUsesSpeakingFeedback ? 100 : (matched.maxScore || 10);
+          matchedScore = activeQuestionUsesSpeakingFeedback ? (matched.score !== undefined ? matched.score : matched.percentage) : matched.score;
+          matchedMaxScore = activeQuestionUsesSpeakingFeedback ? (matched.maxScore || matched.max_score || 100) : (matched.maxScore || 10);
           feedbackText = matched.feedback;
         }
       }
@@ -328,7 +337,7 @@
       }
 
       const speakingScore = activeQuestionUsesSpeakingFeedback
-        ? parseFloat(aiData.percentage !== undefined ? aiData.percentage : overallScore)
+        ? parseFloat(aiData.scoreAvailable === false || aiData.score_available === false ? NaN : (aiData.percentage !== undefined ? aiData.percentage : (aiData.overallScore !== undefined ? aiData.overallScore : overallScore)))
         : null;
       const writingRubricPercent = matchedScore === null || !matchedMaxScore
         ? null

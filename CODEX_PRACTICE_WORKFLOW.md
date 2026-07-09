@@ -32,6 +32,14 @@ When sources conflict, classify as:
 - BACKWARD_COMPATIBILITY_CONSTRAINT
 - PHASE_DEPENDENCY
 
+## Product Language Policy
+
+KSH is a Vietnamese/Korean learning website. Learner-facing website copy,
+feedback, and UI labels must use Vietnamese and/or Korean only unless a
+specific technical/admin context explicitly requires English. KSH is not an
+English-learning product, and it is not primarily designed for American or
+British English-speaking learners studying Korean.
+
 ## Workflow Modes
 
 Define exactly four modes.
@@ -814,11 +822,33 @@ Implementation note:
 #### Phase 8E-D — Speaking AI Persistence and Result Rendering
 
 Status:
-NOT_STARTED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Purpose:
 persist normalized Speaking AI feedback and render result/detail tabs while
 preserving 8D playback and current legacy Speaking feedback compatibility.
+
+Implementation notes:
+
+- 8E-D1 persisted/read the `speaking_ai_v1` per-question Speaking AI feedback
+  envelope through the existing `ai_feedback_json` JSON flow without adding a
+  migration.
+- 8E-D1 preserved legacy/mock Speaking feedback and mixed Speaking/Essay
+  compatibility.
+- 8E-D2 extended Speaking result view mapping for rich result/detail rendering:
+  status, score availability, summaries, criterion feedback, transcript
+  annotations, action plan, upgraded answer, sample answer, confidence notes,
+  advisory pronunciation, and safe media metadata.
+- 8E-D2 result/detail rendering supports functional Speaking tabs for Overall,
+  Content, Vocabulary, Grammar, Fluency, Pronunciation, Upgraded answer, and
+  Sample answer while preserving protected 8D audio playback.
+- 8E-D2 removed native-like pronunciation wording from the Speaking rendering
+  path; pronunciation remains advisory.
+- 8E-D3 focused validation passed for the persistence/readback, view-mapping,
+  result-rendering contract, and legacy compatibility slice; no full suite and
+  no provider/API call.
+- Top-level 8E remains `IN_PROGRESS`; 8E-E, 8E-F, 8F, 8G, and 8H remain
+  unstarted/planned as previously recorded.
 
 #### Phase 8E-E — Speaking Re-evaluation and Transcript Reuse Stabilization
 
@@ -1152,10 +1182,11 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 
 Current next action:
 
-Phase 8E-D audit for Speaking AI persistence and result/detail rendering.
+Phase 8E-D user review and commit, then 8E-E audit for Speaking
+re-evaluation and transcript reuse stabilization.
 
 Phase 8E is IN_PROGRESS. Phase 8E-C is IMPLEMENTED_AND_FOCUSED_TESTED.
-Phase 8E-D remains NOT_STARTED.
+Phase 8E-D is IMPLEMENTED_AND_FOCUSED_TESTED.
 
 Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
 explicitly deferred.
