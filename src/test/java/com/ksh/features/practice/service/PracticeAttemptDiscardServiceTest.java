@@ -6,14 +6,11 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PracticeAttemptDiscardServiceTest {
@@ -43,7 +40,7 @@ class PracticeAttemptDiscardServiceTest {
     }
 
     @Test
-    void processorInfrastructureFailureDoesNotChangeLogicalSuccessOrStopRemainingTasks() {
+    void retainedDiscardTasksAreLeftForTheDueCleanupWorker() {
         PracticeAttemptDiscardTransactionService transactionService =
                 mock(PracticeAttemptDiscardTransactionService.class);
         PracticeSpeakingMediaCleanupProcessor processor =
@@ -51,20 +48,17 @@ class PracticeAttemptDiscardServiceTest {
         LocalDateTime discardedAt = LocalDateTime.of(2026, 7, 5, 12, 0);
         PracticeAttemptDiscardService service =
                 new PracticeAttemptDiscardService(transactionService, processor);
-        List<Long> taskIds = LongStream.rangeClosed(1, 100).boxed().toList();
         PracticeAttemptDiscardResult expected = new PracticeAttemptDiscardResult(
                 42L,
                 "DISCARDED",
                 discardedAt,
                 101,
-                taskIds);
+                List.of());
         when(transactionService.discardForOwner(42L, 7L)).thenReturn(expected);
-        doThrow(new IllegalStateException("LEARNER_AUDIO_PATH_SECRET_B3A2"))
-                .when(processor).processTaskNow(1L);
 
         PracticeAttemptDiscardResult actual = service.discardForOwner(42L, 7L);
 
         assertThat(actual).isSameAs(expected);
-        verify(processor, times(100)).processTaskNow(org.mockito.ArgumentMatchers.anyLong());
+        verifyNoInteractions(processor);
     }
 }

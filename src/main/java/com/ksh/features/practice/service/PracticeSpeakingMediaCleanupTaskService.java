@@ -86,8 +86,7 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT,
                 storageProvider,
                 storageKey,
-                discardedAt.plusHours(24),
-                discardedAt);
+                discardedAt.plusHours(24));
     }
 
     @Transactional(readOnly = true)

@@ -840,3 +840,21 @@
   .prd-tabs-primary { padding: 0 8px; overflow-x: auto; }
   .prd-tab-btn { padding: 12px 10px; font-size: 12px; }
 }
+.prd-speaking-media {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.prd-speaking-media h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.prd-speaking-media audio {
+  display: block;
+  width: 100%;
+  margin: 8px 0 12px;
+}

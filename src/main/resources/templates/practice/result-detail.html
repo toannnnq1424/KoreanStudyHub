@@ -38,6 +38,19 @@
   <div th:if="${success}" class="prd-flash prd-flash-success" th:text="${success}"></div>
   <div th:if="${error}" class="prd-flash prd-flash-error" th:text="${error}"></div>
 
+  <section class="prd-speaking-media" th:if="${result.set().skill() == 'SPEAKING'}">
+    <h2>Bản ghi câu trả lời Nói</h2>
+    <div th:if="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
+      <div th:each="media : ${speakingMedia}" th:attr="data-speaking-result-question=${media.questionId()}">
+        <strong th:text="'Câu ' + ${media.questionId()}">Câu trả lời</strong>
+        <audio controls preload="metadata" th:src="${media.playbackPath()}"></audio>
+      </div>
+    </div>
+    <p th:unless="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
+      Không có bản ghi đang khả dụng.
+    </p>
+  </section>
+
   <!-- Task navigation row -->
   <div class="prd-task-row" id="prd-task-row">
     <div class="prd-task-name" id="prd-task-name">Đang tải...</div>

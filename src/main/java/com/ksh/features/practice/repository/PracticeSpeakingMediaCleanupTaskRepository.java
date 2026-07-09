@@ -24,7 +24,8 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
             where t.status in (com.ksh.entities.PracticeSpeakingMediaCleanupStatus.PENDING,
                                com.ksh.entities.PracticeSpeakingMediaCleanupStatus.RETRY)
               and t.nextAttemptAt <= :now
-            order by t.nextAttemptAt asc, t.id asc
+              and t.dueAt <= :now
+            order by t.dueAt asc, t.nextAttemptAt asc, t.id asc
             """)
     List<Long> findDueTaskIds(@Param("now") LocalDateTime now, Pageable pageable);
 

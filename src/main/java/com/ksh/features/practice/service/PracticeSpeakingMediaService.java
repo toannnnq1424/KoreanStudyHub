@@ -11,6 +11,7 @@ import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,6 +99,17 @@ public class PracticeSpeakingMediaService {
         return readyRows.stream().findFirst().map(this::identity);
     }
 
+    @Transactional(readOnly = true)
+    public List<SpeakingMediaView> findReadyMediaViewsForOwner(Long userId, Long attemptId) {
+        PracticeAttempt attempt = loadOwnedAttempt(attemptId, userId);
+        if (!"SPEAKING".equals(attempt.getSkill())) {
+            return List.of();
+        }
+        return mediaRepository.findByAttemptIdAndStatus(attemptId, PracticeSpeakingMediaStatus.READY).stream()
+                .map(this::view)
+                .toList();
+    }
+
     @Transactional
     public SpeakingMediaDeletionResult markDeletedForOwner(
             Long userId, Long attemptId, Long questionId, Long mediaId) {
@@ -176,6 +188,20 @@ public class PracticeSpeakingMediaService {
                 media.getByteSize(),
                 media.getAttemptId(),
                 media.getQuestionId());
+    }
+
+    private SpeakingMediaView view(PracticeSpeakingMedia media) {
+        return new SpeakingMediaView(
+                media.getId(),
+                media.getQuestionId(),
+                media.getStatus().name(),
+                media.getByteSize(),
+                media.getDurationMs(),
+                media.getMimeType(),
+                "/practice/attempts/" + media.getAttemptId()
+                        + "/questions/" + media.getQuestionId()
+                        + "/speaking-media/" + media.getId() + "/content",
+                media.getLockVersion());
     }
 
     private SpeakingMediaActivationResult activationResult(

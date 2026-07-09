@@ -542,17 +542,46 @@ N/A
 Meaning:
 Private local Speaking media playback now has focused-tested HTTP byte Range support for browser-compatible seeking.
 
-Top-level Phase 8D remains:
-IN_PROGRESS
+#### Phase 8D-C — Browser Recording and Functional Audio UI
 
-Remaining 8D areas:
+Status:
+COMMITTED
 
-- browser recording / MediaRecorder;
-- cleanup worker / deployment ownership;
-- production object storage;
-- consent;
-- UI wiring;
+Meaning:
+Optional browser recording, session-only consent, upload progress, retry/delete/re-record,
+player preview, and result/detail playback are implemented behind disabled-by-default gates.
+
+#### Phase 8D-E — Cleanup Worker and Retention
+
+Status:
+COMMITTED
+
+Meaning:
+The disabled-by-default scheduled cleanup worker processes bounded due batches.
+Cleanup eligibility requires both `due_at` and `next_attempt_at`, and discarded media
+is not physically eligible before its 24-hour retention deadline.
+
+#### Phase 8D-F — Production Storage
+
+Status:
+CLOSED_WITH_ACCEPTED_DEBT
+
+Decision:
+PRODUCTION_OBJECT_STORAGE_DEFERRED
+
+Meaning:
+Phase 8D remains on private local storage. This is suitable for development, testing,
+and single-node staging only unless explicitly accepted for a small controlled deployment.
+Object storage must be revisited after a provider and runtime access policy are selected.
+
+Top-level Phase 8D:
+COMMITTED
+
+Remaining Phase 8D closure work:
+
 - mobile/browser UAT.
+- user review and commit/push;
+- accepted single-node cleanup and local-storage deployment debt.
 
 #### Phase 8E — Speaking AI Evaluation
 
@@ -826,22 +855,18 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8D-A Speaking Audio & Media Baseline Audit | NOT_STARTED | AUDIT_GO | N/A | N/A | 8D_FOUNDATION_VERIFIED_WITH_ACCEPTED_DEBT. | Backend media foundation exists, but not production/browser ready. | Confirm next 8D implementation slice. |
 | 2026-07-09 | 8D-B Speaking Audio Contract Stabilization | IMPLEMENTED_AND_FOCUSED_TESTED / READY_FOR_COMMIT_REVIEW | COMMITTED | 3156139081ef1480f605df91c8b99216069d43a3 | ca2f6f1298b7e556757b1e8fc1c840bb7fce44f4 | Focused tests 310 pass, 0 failures, 0 errors, 2 skips. Full suite was run historically for this slice but future small slices should not require full suite by default. | Committed and pushed to origin/feature/practice. | Confirm next 8D slice with user. |
 | 2026-07-09 | 8D-D Range Playback and Browser Compatibility | AUDIT_GO / IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 03f781a74f46cd312c6ffe804dc9278b1f1414e3 | Focused tests 81 pass, 0 failures, 0 errors, 2 skips. | Implemented private local playback Range support; not staged, committed, or pushed. | User review for 8D-D implementation summary, then commit/push only after explicit GO. |
+| 2026-07-09 | 8D-C Browser Recording and Functional Audio UI | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Consolidated focused suite: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17. | Implemented optional MediaRecorder flow, session-only consent, upload/delete/re-record, player preview, and result/detail playback behind disabled gates. | User review, then top-level 8D phase-gate stabilization. |
+| 2026-07-09 | 8D-E Cleanup Worker and Retention | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Consolidated focused suite: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17. | Added disabled-by-default bounded scheduler and enforced due_at plus next_attempt_at with 24-hour discard retention. | User review, then top-level 8D phase-gate stabilization. |
+| 2026-07-09 | 8D-F Production Storage | IN_PROGRESS | CLOSED_WITH_ACCEPTED_DEBT | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Source inspection and explicit user decision; no object-storage dependency or adapter added. | PRODUCTION_OBJECT_STORAGE_DEFERRED; local private storage remains a single-node deployment limitation. | Reopen production storage hardening after provider/target selection. |
+| 2026-07-09 | Phase 8D Speaking Audio and Media | IN_PROGRESS | STABILIZATION_REQUIRED | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | 8D-C and 8D-E focused-tested; 8D-F accepted debt recorded. | Implementation complete but top-level phase is not closed. | User review, then Phase 8D phase-gate stabilization. |
+| 2026-07-09 | Phase 8D Speaking Audio and Media | STABILIZATION_REQUIRED | STABILIZED_PENDING_COMMIT | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Focused stabilization rerun: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17. Fixed nested consent form markup, preserved local preview when playback gate is disabled, and stabilized async playback test dispatch. | Phase-gate source review and focused regression passed; live rollout remains NO-GO pending manual browser/device smoke and accepted debt confirmation. | User review, then commit/push only after explicit approval. |
+| 2026-07-09 | Consolidated Phase 8D Speaking Audio and Media | STABILIZED_PENDING_COMMIT | COMMITTED | this commit | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Phase-gate focused tests: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17; no full suite. | 8D-C and 8D-E committed; 8D-F remains CLOSED_WITH_ACCEPTED_DEBT / PRODUCTION_OBJECT_STORAGE_DEFERRED; top-level 8D is not closed. | Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review. |
 
 ## Current Required Next Action
 
 Current next action:
 
-User review for 8D-D Range Playback and Browser Compatibility implementation summary.
-
-After user review, commit/push only after explicit GO.
-
-Likely candidates:
-
-- 8D-C Browser Recording Implementation;
-- 8D-E Cleanup Worker and Operations;
-- 8D-F Production Storage Abstraction.
-
-Do not choose automatically.
+Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review.
 
 Do not start 8E until the required 8D path is confirmed or explicitly deferred.
 

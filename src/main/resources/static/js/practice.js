@@ -837,9 +837,318 @@
     });
   };
 
+  const initSpeakingRecorders = () => {
+    const form = document.querySelector('form.ksh-room');
+    if (!form || form.dataset.speakingMediaUploadEnabled !== 'true') return;
+
+    const recorders = Array.from(form.querySelectorAll('.ksh-speaking-recorder'));
+    if (!recorders.length) return;
+
+    const csrfInput = form.querySelector('input[type="hidden"][name]');
+    const consentDialog = document.getElementById('ksh-speaking-consent');
+    const consentCheck = document.getElementById('ksh-speaking-consent-check');
+    const consentAccept = consentDialog?.querySelector('[data-speaking-consent-accept]');
+    const consentCancel = consentDialog?.querySelector('[data-speaking-consent-cancel]');
+    const consentKey = 'ksh.practice.speaking-recording-consent';
+    let pendingConsentResolve = null;
+
+    const hasConsent = () => {
+      try {
+        return window.sessionStorage.getItem(consentKey) === 'accepted';
+      } catch (error) {
+        return false;
+      }
+    };
+
+    const rememberConsent = () => {
+      try {
+        window.sessionStorage.setItem(consentKey, 'accepted');
+      } catch (error) {
+        // The in-memory recording session can continue when storage is unavailable.
+      }
+    };
+
+    const requestConsent = () => {
+      if (hasConsent()) return Promise.resolve(true);
+      if (!consentDialog || typeof consentDialog.showModal !== 'function') {
+        return Promise.resolve(window.confirm(
+          'Bản ghi chỉ dùng cho luyện tập, được giữ riêng tư và tuân theo chính sách lưu giữ media Nói. '
+          + 'Bạn có thể xóa trước khi nộp. Đây không phải chấm điểm TOPIK chính thức và hiện chưa có '
+          + 'đánh giá phát âm bằng AI. Bạn đồng ý ghi âm?'
+        )).then((accepted) => {
+          if (accepted) rememberConsent();
+          return accepted;
+        });
+      }
+      consentCheck.checked = false;
+      consentAccept.disabled = true;
+      consentDialog.showModal();
+      return new Promise((resolve) => {
+        pendingConsentResolve = resolve;
+      });
+    };
+
+    consentCheck?.addEventListener('change', () => {
+      consentAccept.disabled = !consentCheck.checked;
+    });
+    consentAccept?.addEventListener('click', () => {
+      if (!consentCheck.checked) return;
+      rememberConsent();
+      consentDialog.close();
+      pendingConsentResolve?.(true);
+      pendingConsentResolve = null;
+    });
+    consentCancel?.addEventListener('click', () => {
+      consentDialog.close();
+      pendingConsentResolve?.(false);
+      pendingConsentResolve = null;
+    });
+    consentDialog?.addEventListener('cancel', () => {
+      pendingConsentResolve?.(false);
+      pendingConsentResolve = null;
+    });
+
+    const supportedMimeType = () => {
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/webm',
+      ];
+      if (typeof window.MediaRecorder?.isTypeSupported !== 'function') return '';
+      return candidates.find((type) => window.MediaRecorder.isTypeSupported(type)) || '';
+    };
+
+    const safeErrorMessage = (error) => {
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+        return 'Quyền dùng micro bị từ chối. Hãy cho phép micro rồi thử lại.';
+      }
+      if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+        return 'Không tìm thấy micro trên thiết bị này.';
+      }
+      return 'Không thể bắt đầu ghi âm trên trình duyệt này.';
+    };
+
+    recorders.forEach((panel) => {
+      const startButton = panel.querySelector('.ksh-recorder-start');
+      const stopButton = panel.querySelector('.ksh-recorder-stop');
+      const uploadButton = panel.querySelector('.ksh-recorder-upload');
+      const retryButton = panel.querySelector('.ksh-recorder-retry');
+      const deleteButton = panel.querySelector('.ksh-recorder-delete');
+      const rerecordButton = panel.querySelector('.ksh-recorder-rerecord');
+      const preview = panel.querySelector('.ksh-recorder-preview');
+      const progress = panel.querySelector('.ksh-recorder-progress');
+      const status = panel.querySelector('.ksh-recorder-status');
+      let recorder = null;
+      let stream = null;
+      let chunks = [];
+      let recordedBlob = null;
+      let localPreviewUrl = null;
+
+      const setStatus = (message) => {
+        status.textContent = message;
+      };
+      const setBusy = (state) => {
+        panel.dataset.busy = state;
+      };
+      const clearLocalPreview = () => {
+        if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+        localPreviewUrl = null;
+      };
+      const clearRecordedBlob = () => {
+        recordedBlob = null;
+        chunks = [];
+        clearLocalPreview();
+      };
+      const stopTracks = () => {
+        stream?.getTracks().forEach((track) => track.stop());
+        stream = null;
+      };
+      const deleteUrl = () => panel.dataset.mediaId
+        ? `${panel.dataset.uploadUrl}/${panel.dataset.mediaId}`
+        : '';
+
+      const applyUploadedMedia = (media) => {
+        panel.dataset.mediaId = String(media.mediaId);
+        panel.dataset.playbackPath = media.playbackPath || '';
+        panel.dataset.mediaMime = media.mimeType || '';
+        panel.dataset.mediaDurationMs = String(media.durationMs || '');
+        panel.dataset.mediaByteSize = String(media.byteSize || '');
+        panel.dataset.mediaLockVersion = String(media.lockVersion || '');
+        if (form.dataset.speakingMediaPlaybackEnabled === 'true' && media.playbackPath) {
+          clearLocalPreview();
+          preview.src = media.playbackPath;
+          preview.hidden = false;
+        }
+        deleteButton.hidden = false;
+        rerecordButton.hidden = false;
+        uploadButton.hidden = true;
+        retryButton.hidden = true;
+        setBusy('idle');
+        setStatus('Bản ghi đã được tải lên và lưu riêng tư.');
+      };
+
+      const upload = () => {
+        if (!recordedBlob || !csrfInput) return;
+        setBusy('uploading');
+        progress.hidden = false;
+        progress.value = 0;
+        uploadButton.disabled = true;
+        retryButton.hidden = true;
+        setStatus('Đang tải bản ghi lên...');
+
+        const data = new FormData();
+        const extension = recordedBlob.type.includes('mp4')
+          ? 'm4a'
+          : recordedBlob.type.includes('ogg') ? 'ogg' : 'webm';
+        data.append('file', recordedBlob, `speaking-answer.${extension}`);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', panel.dataset.uploadUrl);
+        xhr.setRequestHeader('X-CSRF-TOKEN', csrfInput.value);
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) progress.value = Math.round((event.loaded / event.total) * 100);
+        });
+        xhr.addEventListener('load', () => {
+          progress.hidden = true;
+          uploadButton.disabled = false;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              applyUploadedMedia(JSON.parse(xhr.responseText));
+              recordedBlob = null;
+              chunks = [];
+              if (form.dataset.speakingMediaPlaybackEnabled === 'true') {
+                clearLocalPreview();
+              }
+              return;
+            } catch (error) {
+              // Fall through to the bounded upload error state.
+            }
+          }
+          setBusy('idle');
+          retryButton.hidden = false;
+          setStatus('Tải bản ghi thất bại. Bạn có thể thử lại hoặc ghi lại.');
+        });
+        xhr.addEventListener('error', () => {
+          progress.hidden = true;
+          uploadButton.disabled = false;
+          retryButton.hidden = false;
+          setBusy('idle');
+          setStatus('Không thể tải bản ghi. Hãy kiểm tra kết nối và thử lại.');
+        });
+        xhr.send(data);
+      };
+
+      const removeUploadedMedia = async () => {
+        if (!deleteUrl() || !csrfInput) return true;
+        setBusy('uploading');
+        setStatus('Đang xóa bản ghi...');
+        try {
+          const response = await fetch(deleteUrl(), {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrfInput.value },
+          });
+          if (!response.ok) throw new Error('delete failed');
+          panel.dataset.mediaId = '';
+          panel.dataset.playbackPath = '';
+          clearLocalPreview();
+          preview.removeAttribute('src');
+          preview.load();
+          preview.hidden = true;
+          deleteButton.hidden = true;
+          rerecordButton.hidden = true;
+          setBusy('idle');
+          setStatus('Đã xóa bản ghi. Bạn có thể ghi lại hoặc chỉ dùng câu trả lời văn bản.');
+          return true;
+        } catch (error) {
+          setBusy('idle');
+          setStatus('Không thể xóa bản ghi. Hãy thử lại.');
+          return false;
+        }
+      };
+
+      const startRecording = async () => {
+        if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+          setStatus('Trình duyệt này không hỗ trợ ghi âm. Bạn vẫn có thể trả lời bằng văn bản.');
+          return;
+        }
+        if (!await requestConsent()) {
+          setStatus('Bạn cần đồng ý trước khi dùng micro.');
+          return;
+        }
+        try {
+          const mimeType = supportedMimeType();
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recorder = mimeType
+            ? new window.MediaRecorder(stream, { mimeType })
+            : new window.MediaRecorder(stream);
+          chunks = [];
+          recorder.addEventListener('dataavailable', (event) => {
+            if (event.data?.size) chunks.push(event.data);
+          });
+          recorder.addEventListener('stop', () => {
+            const blobType = recorder.mimeType || mimeType || chunks[0]?.type || 'audio/webm';
+            recordedBlob = new Blob(chunks, { type: blobType });
+            clearLocalPreview();
+            localPreviewUrl = URL.createObjectURL(recordedBlob);
+            preview.src = localPreviewUrl;
+            preview.hidden = false;
+            uploadButton.hidden = false;
+            uploadButton.disabled = false;
+            retryButton.hidden = true;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            setBusy('idle');
+            setStatus('Bản ghi đã sẵn sàng để nghe thử và tải lên.');
+            stopTracks();
+          });
+          recorder.start();
+          setBusy('recording');
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          uploadButton.hidden = true;
+          retryButton.hidden = true;
+          setStatus('Đang ghi âm...');
+        } catch (error) {
+          stopTracks();
+          setBusy('idle');
+          setStatus(safeErrorMessage(error));
+        }
+      };
+
+      startButton.addEventListener('click', startRecording);
+      stopButton.addEventListener('click', () => {
+        if (recorder?.state === 'recording') recorder.stop();
+      });
+      uploadButton.addEventListener('click', upload);
+      retryButton.addEventListener('click', upload);
+      deleteButton.addEventListener('click', removeUploadedMedia);
+      rerecordButton.addEventListener('click', async () => {
+        if (await removeUploadedMedia()) {
+          clearRecordedBlob();
+          await startRecording();
+        }
+      });
+
+      setBusy('idle');
+      if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+        startButton.disabled = true;
+        setStatus('Trình duyệt này không hỗ trợ ghi âm. Bạn vẫn có thể trả lời bằng văn bản.');
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+      const pending = recorders.some((panel) =>
+        panel.dataset.busy === 'recording' || panel.dataset.busy === 'uploading');
+      if (!pending) return;
+      event.preventDefault();
+      window.alert('Hãy dừng ghi âm hoặc chờ tải bản ghi xong trước khi nộp bài.');
+    });
+  };
+
   renderAiFeedback();
   initDraftEditor();
   initRoomTimer();
   initSplitDivider();
   initRoomCbt();
+  initSpeakingRecorders();
 })();

@@ -432,6 +432,18 @@ public final class PracticeDtos {
     ) {
     }
 
+    public record SpeakingMediaView(
+            Long mediaId,
+            Long questionId,
+            String status,
+            Long byteSize,
+            Long durationMs,
+            String mimeType,
+            String playbackPath,
+            Long lockVersion
+    ) {
+    }
+
     public record SpeakingMediaErrorResponse(
             String code,
             String message

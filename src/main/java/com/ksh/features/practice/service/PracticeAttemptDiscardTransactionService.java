@@ -2,7 +2,6 @@ package com.ksh.features.practice.service;
 
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSpeakingMedia;
-import com.ksh.entities.PracticeSpeakingMediaCleanupStatus;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -14,13 +13,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class PracticeAttemptDiscardTransactionService {
-
-    private static final int MAX_IMMEDIATE_CLEANUP_TASKS = 100;
 
     private final PracticeAttemptRepository attemptRepository;
     private final PracticeSpeakingMediaRepository mediaRepository;
@@ -56,23 +52,12 @@ public class PracticeAttemptDiscardTransactionService {
 
         List<PracticeSpeakingMedia> mediaRows =
                 mediaRepository.findByAttemptIdForUpdateOrderByIdAsc(attemptId);
-        LocalDateTime cleanupEligibleAt = discardedAt;
-        List<Long> immediateCleanupTaskIds = new ArrayList<>(
-                Math.min(mediaRows.size(), MAX_IMMEDIATE_CLEANUP_TASKS));
         for (PracticeSpeakingMedia media : mediaRows) {
             media.markDeleted(discardedAt);
-            Long cleanupTaskId = cleanupTaskService.enqueueDiscardAttempt(
+            cleanupTaskService.enqueueDiscardAttempt(
                     media.getStorageProvider(),
                     media.getStorageKey(),
                     discardedAt);
-            if (immediateCleanupTaskIds.size() < MAX_IMMEDIATE_CLEANUP_TASKS
-                    && cleanupTaskService.processingSnapshot(cleanupTaskId)
-                    .filter(snapshot -> snapshot.status() == PracticeSpeakingMediaCleanupStatus.PENDING
-                            || snapshot.status() == PracticeSpeakingMediaCleanupStatus.RETRY)
-                    .filter(snapshot -> !snapshot.nextAttemptAt().isAfter(cleanupEligibleAt))
-                    .isPresent()) {
-                immediateCleanupTaskIds.add(cleanupTaskId);
-            }
         }
 
         attemptRepository.flush();
@@ -82,6 +67,6 @@ public class PracticeAttemptDiscardTransactionService {
                 attempt.getStatus(),
                 discardedAt,
                 mediaRows.size(),
-                immediateCleanupTaskIds);
+                List.of());
     }
 }

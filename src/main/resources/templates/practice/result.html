@@ -83,6 +83,21 @@
       </div>
     </div>
 
+    <section class="pi-overview-analysis"
+             th:if="${result.set().skill() == 'SPEAKING'}">
+      <h2 class="pi-overview-title">Bản ghi câu trả lời Nói</h2>
+      <div th:if="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
+        <div th:each="media : ${speakingMedia}" style="margin-top: 12px;">
+          <strong th:text="'Câu ' + ${media.questionId()}">Câu trả lời</strong>
+          <audio controls preload="metadata" style="display:block; width:100%; margin-top:8px;"
+                 th:src="${media.playbackPath()}"></audio>
+        </div>
+      </div>
+      <p th:unless="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
+        Không có bản ghi đang khả dụng.
+      </p>
+    </section>
+
     <!-- ═══ OVERVIEW ANALYSIS SECTION (PREP STYLE) ═══ -->
     <div class="pi-overview-analysis" id="pi-overview-analysis-card">
       <h2 class="pi-overview-title">Phân tích kết quả tổng quan</h2>

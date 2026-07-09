@@ -396,6 +396,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
+        result.getAsyncResult(5_000);
         mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isOk());
     }

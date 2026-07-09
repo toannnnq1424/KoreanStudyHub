@@ -51,12 +51,8 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @SpringBootTest
 class PracticeSpeakingMediaServiceTest {
@@ -202,39 +198,26 @@ class PracticeSpeakingMediaServiceTest {
                 .extracting(PracticeSpeakingMedia::getStatus)
                 .containsOnly(PracticeSpeakingMediaStatus.DELETED);
         assertThat(first.cleanupTaskCount()).isEqualTo(3);
-        assertThat(first.immediateCleanupTaskIds()).hasSize(3);
+        assertThat(first.immediateCleanupTaskIds()).isEmpty();
         var tasks = cleanupTaskRepository.findAll();
         assertThat(tasks).filteredOn(task -> task.getStorageKey().contains("discard-"))
                 .allSatisfy(task -> {
                     assertThat(task.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
                     assertThat(task.getDueAt()).isEqualTo(first.discardedAt().plusHours(24));
-                    assertThat(task.getNextAttemptAt()).isEqualTo(first.discardedAt());
+                    assertThat(task.getNextAttemptAt()).isEqualTo(first.discardedAt().plusHours(24));
                 });
-
-        Long taskId = first.immediateCleanupTaskIds().get(0);
-        var snapshot = cleanupTaskService.processingSnapshot(taskId).orElseThrow();
-        cleanupTaskService.markRetry(
-                taskId,
-                snapshot.lockVersion(),
-                snapshot.attemptCount(),
-                com.ksh.entities.PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
-        var retryBefore = cleanupTaskRepository.findById(taskId).orElseThrow();
-        var retryAt = retryBefore.getNextAttemptAt();
         var discardedAt = discarded.getDiscardedAt();
 
         PracticeAttemptDiscardResult repeated = discardTransactionService.discardForOwner(
                 fixture.attemptId(), fixture.userId());
-        var retryAfter = cleanupTaskRepository.findById(taskId).orElseThrow();
         assertThat(repeated.discardedAt()).isEqualTo(discardedAt);
-        assertThat(repeated.immediateCleanupTaskIds()).doesNotContain(taskId);
-        assertThat(retryAfter.getAttemptCount()).isEqualTo(1L);
-        assertThat(retryAfter.getNextAttemptAt()).isEqualTo(retryAt);
+        assertThat(repeated.immediateCleanupTaskIds()).isEmpty();
         assertThat(cleanupTaskRepository.findAll()).filteredOn(task -> task.getStorageKey().contains("discard-"))
                 .hasSize(3);
 
         clearInvocations(cleanupProcessor);
         discardService.discardForOwner(fixture.attemptId(), fixture.userId());
-        verify(cleanupProcessor, never()).processTaskNow(taskId);
+        verifyNoInteractions(cleanupProcessor);
 
         Long restartedId = practiceService.startAttempt(
                 fixture.setId(), fixture.testId(), fixture.sectionId(), fixture.userId());
@@ -296,11 +279,12 @@ class PracticeSpeakingMediaServiceTest {
     @Test
     void activationThatCommitsFirstIsCollectedByFollowingDiscard() {
         Fixture fixture = createSpeakingFixture("activation-before-discard");
+        ValidatedSpeakingMediaDescriptor descriptor = descriptor("activation-before-discard.webm");
         SpeakingMediaActivationResult activated = service.activateValidatedMediaForOwner(
                 fixture.userId(),
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
-                descriptor("activation-before-discard.webm"));
+                descriptor);
 
         PracticeAttemptDiscardResult discarded = discardTransactionService.discardForOwner(
                 fixture.attemptId(), fixture.userId());
@@ -308,32 +292,31 @@ class PracticeSpeakingMediaServiceTest {
         assertThat(mediaRepository.findById(activated.mediaId()).orElseThrow().getStatus())
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(discarded.cleanupTaskCount()).isEqualTo(1);
-        assertThat(cleanupTaskRepository.findById(discarded.immediateCleanupTaskIds().get(0)).orElseThrow()
+        assertThat(discarded.immediateCleanupTaskIds()).isEmpty();
+        assertThat(cleanupTaskRepository.findByStorageProviderAndStorageKey(
+                        PracticeSpeakingStorageProvider.LOCAL,
+                        descriptor.storageKey()).orElseThrow()
                 .getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
     }
 
     @Test
-    void discardPersistsEveryTaskButProcessesAtMostOneHundredAfterCommit() {
+    void discardPersistsEveryTaskForTheDueWorkerWithoutImmediateProcessing() {
         Fixture fixture = createSpeakingFixture("discard-bounded");
         for (int i = 0; i < 101; i++) {
             mediaRepository.save(readyMedia(fixture, "discard-bounded-" + i + ".webm"));
         }
         mediaRepository.flush();
         clearInvocations(cleanupProcessor);
-        doAnswer(invocation -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            return null;
-        }).when(cleanupProcessor).processTaskNow(anyLong());
 
         PracticeAttemptDiscardResult result = discardService.discardForOwner(
                 fixture.attemptId(), fixture.userId());
 
         assertThat(result.cleanupTaskCount()).isEqualTo(101);
-        assertThat(result.immediateCleanupTaskIds()).hasSize(100);
+        assertThat(result.immediateCleanupTaskIds()).isEmpty();
         assertThat(cleanupTaskRepository.findAll())
                 .filteredOn(task -> task.getStorageKey().contains("discard-bounded-"))
                 .hasSize(101);
-        verify(cleanupProcessor, times(100)).processTaskNow(anyLong());
+        verifyNoInteractions(cleanupProcessor);
     }
 
     @Test
@@ -705,6 +688,20 @@ class PracticeSpeakingMediaServiceTest {
         assertThat(service.findReadyMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId()))
                 .hasValueSatisfying(identity -> assertThat(identity.mediaId()).isEqualTo(second.mediaId()));
+        assertThat(service.findReadyMediaViewsForOwner(fixture.userId(), fixture.attemptId()))
+                .singleElement()
+                .satisfies(view -> {
+                    assertThat(view.mediaId()).isEqualTo(second.mediaId());
+                    assertThat(view.questionId()).isEqualTo(fixture.speakingQuestionId());
+                    assertThat(view.status()).isEqualTo("READY");
+                    assertThat(view.playbackPath()).isEqualTo(
+                            "/practice/attempts/" + fixture.attemptId()
+                                    + "/questions/" + fixture.speakingQuestionId()
+                                    + "/speaking-media/" + second.mediaId() + "/content");
+                    assertThat(view.toString())
+                            .doesNotContain(secondDescriptor.storageKey())
+                            .doesNotContain(secondDescriptor.contentHash());
+                });
     }
 
     @Test

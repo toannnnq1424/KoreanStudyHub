@@ -9,6 +9,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
+import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.User;
 import com.ksh.entities.PracticeAttempt;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +35,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/practice")
@@ -43,20 +47,31 @@ public class PracticeController {
 
     private final PracticeService practiceService;
     private final PracticeAttemptDiscardService attemptDiscardService;
+    private final PracticeSpeakingMediaService speakingMediaService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
+    private final boolean speakingMediaUploadEnabled;
+    private final boolean speakingMediaPlaybackEnabled;
 
     public PracticeController(PracticeService practiceService,
                               PracticeAttemptDiscardService attemptDiscardService,
+                              PracticeSpeakingMediaService speakingMediaService,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
-                              com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository) {
+                              com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository,
+                              @Value("${app.practice.speaking-media.upload-api-enabled:false}")
+                              boolean speakingMediaUploadEnabled,
+                              @Value("${app.practice.speaking-media.playback-api-enabled:false}")
+                              boolean speakingMediaPlaybackEnabled) {
         this.practiceService = practiceService;
         this.attemptDiscardService = attemptDiscardService;
+        this.speakingMediaService = speakingMediaService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.sectionRepository = sectionRepository;
+        this.speakingMediaUploadEnabled = speakingMediaUploadEnabled;
+        this.speakingMediaPlaybackEnabled = speakingMediaPlaybackEnabled;
     }
 
     public static final class Routes {
@@ -211,6 +226,7 @@ public class PracticeController {
         model.addAttribute("activeSectionDuration", section.getDurationMinutes() != null ? section.getDurationMinutes() * 60 : 2400);
         model.addAttribute("sectionIndex", 0);
         model.addAttribute("totalSections", 1);
+        addSpeakingMediaModel(model, user.getId(), attempt, true);
 
         return "practice/player";
     }
@@ -244,11 +260,13 @@ public class PracticeController {
                     practiceService.getReadingListeningResult(attemptId, user.getId());
             model.addAttribute("result", rlResult);
             model.addAttribute("attemptId", attemptId);
+            addSpeakingMediaModel(model, user.getId(), attempt, false);
             return "practice/rl-result";
         } else {
             PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
             model.addAttribute("result", standardResult);
             model.addAttribute("attemptId", attemptId);
+            addSpeakingMediaModel(model, user.getId(), attempt, false);
             try {
                 String questionsJson = "SPEAKING".equals(skill)
                         ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks().isEmpty()
@@ -288,6 +306,7 @@ public class PracticeController {
             PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
             model.addAttribute("result", standardResult);
             model.addAttribute("attemptId", attemptId);
+            addSpeakingMediaModel(model, user.getId(), attempt, false);
             Long activeQuestionId = activeWritingQuestionId(skill, standardResult, questionId);
             model.addAttribute("activeQuestionId", activeQuestionId);
             try {
@@ -343,6 +362,22 @@ public class PracticeController {
                 .buildAndExpand(attemptId)
                 .toUriString();
         return "redirect:" + path;
+    }
+
+    private void addSpeakingMediaModel(
+            Model model, Long userId, PracticeAttempt attempt, boolean includeUploadGate) {
+        boolean speaking = "SPEAKING".equals(attempt.getSkill());
+        var media = speaking
+                ? speakingMediaService.findReadyMediaViewsForOwner(userId, attempt.getId())
+                : List.<com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView>of();
+        model.addAttribute("speakingMedia", media);
+        model.addAttribute("speakingMediaByQuestionId", media.stream().collect(Collectors.toMap(
+                com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView::questionId,
+                Function.identity())));
+        model.addAttribute("speakingMediaPlaybackEnabled", speakingMediaPlaybackEnabled);
+        if (includeUploadGate) {
+            model.addAttribute("speakingMediaUploadEnabled", speakingMediaUploadEnabled);
+        }
     }
 
     private Long activeWritingQuestionId(String skill, PracticeResultView result, Long requestedQuestionId) {

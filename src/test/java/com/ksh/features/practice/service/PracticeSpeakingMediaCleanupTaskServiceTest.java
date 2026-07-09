@@ -202,7 +202,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     }
 
     @Test
-    void discardEnqueueEscalatesRetentionButPreservesImmediateRetryBackoff() {
+    void discardEnqueueEscalatesRetentionAndPreservesRetryBackoff() {
         Long retentionTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(
                 PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
         Long discardTaskId = inTransaction(() -> taskService.enqueueDiscardAttempt(
@@ -212,7 +212,8 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(discardTask.getCleanupReason())
                 .isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
         assertThat(discardTask.getDueAt()).isEqualTo(NOW.plusHours(24));
-        assertThat(discardTask.getNextAttemptAt()).isEqualTo(NOW);
+        assertThat(discardTask.getNextAttemptAt()).isEqualTo(NOW.plusHours(24));
+        assertThat(taskService.findDueTaskIds(NOW, 10)).doesNotContain(discardTaskId);
 
         var discardSnapshot = taskService.processingSnapshot(discardTaskId).orElseThrow();
         taskService.markRetry(
