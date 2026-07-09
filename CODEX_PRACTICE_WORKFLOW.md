@@ -639,10 +639,40 @@ the new Speaking AI foundation tests and existing `PracticeServiceTest`.
 #### Phase 8E-B — Korean Transcription Integration Abstraction
 
 Status:
+IMPLEMENTED_AND_FOCUSED_TESTED
+
+Dependency:
+OpenAI STT primary strategy selected for the MVP transcription adapter.
+
+Meaning:
+Speaking transcription client abstraction, safe request/result DTOs, disabled-by-
+default OpenAI STT adapter, READY local-media resolver, failure/status mapping,
+and privacy-safe `toString` behavior are implemented without evaluator scoring,
+result persistence, UI tabs, or real provider calls in tests.
+
+Focused test evidence:
+38 tests, 0 failures, 0 errors, 0 skips on JDK 17. The focused scope covered
+OpenAI STT adapter behavior, transcription media eligibility, and existing
+Speaking evaluation normalizer/score policy guard tests.
+
+Provider strategy note:
+
+- `OPENAI_STT_PRIMARY` is the current 8E-B MVP default.
+- `gpt-4o-mini-transcribe` is the default cost-oriented MVP model.
+- `gpt-4o-transcribe` remains an accepted quality/confidence upgrade candidate.
+- Groq Whisper and Deepgram remain accepted future fallback providers.
+- Gemini remains evaluator-oriented for 8E-C unless native audio strategy changes.
+- SpeechSuper/Azure remain deferred pronunciation-assessment providers.
+- LangChain4j remains deferred and must not be added in 8E-B.
+- Provider abstraction must remain open so KSH can swap or run multiple transcription providers later.
+
+#### Phase 8E-C — Speaking Evaluator Fixed-Schema Provider Integration
+
+Status:
 NOT_STARTED
 
 Dependency:
-Official provider documentation verification and provider/base URL decision.
+Evaluator prompt rules/provider integration decision after 8E-B review.
 
 #### Phase 8F — Calibration & Production Hardening
 
@@ -916,15 +946,16 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | Consolidated Phase 8D Speaking Audio and Media | STABILIZED_PENDING_COMMIT | COMMITTED | this commit | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Phase-gate focused tests: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17; no full suite. | 8D-C and 8D-E committed; 8D-F remains CLOSED_WITH_ACCEPTED_DEBT / PRODUCTION_OBJECT_STORAGE_DEFERRED; top-level 8D is not closed. | Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review. |
 | 2026-07-09 | Phase 8D Speaking Audio and Media Closure | COMMITTED | CLOSED_WITH_ACCEPTED_DEBT | c30ce7505cf1b70074f1d97864c1cfa107c1b0ac | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Gates confirmed disabled by default; all remaining browser/device, recorder lifecycle, playback, reload, and text-fallback smoke items explicitly accepted as NOT_TESTED_ACCEPTED_DEBT. | Closed with explicit acceptance of object-storage, local-storage, cleanup topology, session-consent, Phase 15 UAT, and Phase 8F production-hardening debt. Live rollout remains NO-GO. | Phase 8E audit for Speaking AI Evaluation. |
 | 2026-07-09 | 8E-A Speaking AI Schema, Status & Normalizer Foundation | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | a6c2504a684b2aa3d86b07d4ba9136b55c3c7c20 | Focused rerun: 83 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Foundation implemented with typed result/status/evidence/rubric contracts, 100-point scoring, low-confidence safeguards, legacy compatibility, and view mapping. | User review and commit, then provider docs verification / 8E-B audit. |
+| 2026-07-09 | 8E-B Speaking Transcription Abstraction and OpenAI STT Adapter | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 6bccffec14e5df13c155327f369eaed420bbd38a | Focused command: `mvn "-Dtest=OpenAiSpeakingTranscriptionClientTest,SpeakingTranscriptionMediaResolverTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; 38 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented disabled-by-default OpenAI STT transcription abstraction, safe DTOs, READY local-media resolver, logprob-derived confidence, and provider strategy note. Live rollout remains NO-GO. | 8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-schema provider integration and prompt rules. |
 
 ## Current Required Next Action
 
 Current next action:
 
-8E-A user review and commit, then official provider documentation verification
-and 8E-B audit.
+8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-
+schema provider integration and prompt rules.
 
-Phase 8E is IN_PROGRESS. Phase 8E-B remains NOT_STARTED.
+Phase 8E is IN_PROGRESS. Phase 8E-C remains NOT_STARTED.
 
 Do not start Phase 9 before Phase 8G.
 
