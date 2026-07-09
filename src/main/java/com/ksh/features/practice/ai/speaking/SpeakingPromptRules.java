@@ -54,7 +54,8 @@ public final class SpeakingPromptRules {
                 Do NOT use English in learner-facing explanations.
                 Use Vietnamese for learner-facing explanations: overall_summary, task_achievement_summary,
                 feedback, explanationVi, confidence_notes, action_plan titles/instructions/reasons.
-                Use Korean only for evidence, correction, suggestionKo, upgraded_answer, and sample_answer.
+                Use exact transcript text for evidence. Do not translate, normalize, or rewrite evidence.
+                Use Korean for correction, suggestionKo, upgraded_answer, and sample_answer when a Korean correction or model answer is needed.
                 Internal IDs such as criterionId, subcriterionId, evidenceSource, and status values remain machine-readable constants.
                 """;
     }
@@ -63,7 +64,8 @@ public final class SpeakingPromptRules {
         return """
                 [ALLOWED_RUBRIC SCORING RULES]
                 Score only the criteria provided in allowed_rubric.
-                Each criterion must be scored according to its max_score from allowed_rubric.
+                The allowed_rubric provides each criterion and its max_score.
+                Always use the supplied max_score and do not assume fixed weights.
                 Do not create new primary criteria. Do not change weights.
                 Do not score by feeling. Use the transcript, prompt, safe audio metadata, and deterministic signals.
                 Do not use a 10-point band. Do not use 9.0 / 7.5 / 5.0 band labels.
@@ -96,7 +98,6 @@ public final class SpeakingPromptRules {
                 Content / Task Achievement is evaluated by S_CONTENT_TASK_FULFILLMENT.
                 Stable learner-facing labels include Vocabulary / Expressions, Grammar / Sentence Control,
                 Register / Honorifics / Ending Consistency, and Coherence / Organization.
-                The allowed rubric contains criteria with max 20 and max 15; always use each supplied max_score.
                 Evaluate whether the learner answered the question, covered prompt bullets/requirements,
                 developed ideas with reasons/details/examples, stayed on topic, and avoided repetition, rambling, or unfinished ideas.
                 If transcript is incomplete but interpreted_intent is clear, give partial credit only for Content / Task Fulfillment.
@@ -154,8 +155,8 @@ public final class SpeakingPromptRules {
         return """
                 [ACTION PLAN SECTION]
                 Output 2-3 action_plan items based on needs_improvement.
-                Each item must include target criterion/subcriterion, a short Vietnamese title,
-                concrete Vietnamese practice instruction, Vietnamese reason, and priority.
+                Each action_plan item must include criterionId, subcriterionId, titleVi,
+                instructionVi, reasonVi, and priority.
                 Do not require a second AI call.
                 """;
     }
@@ -268,19 +269,25 @@ public final class SpeakingPromptRules {
         return """
                 [OUTPUT JSON SECTION]
                 Output strict JSON only, parseable by a standard JSON parser.
-                Use the schema fields exactly. Include at least:
+                Use the exact field names from the provided JSON schema, including camelCase item fields where the schema defines them.
+                Include at least:
                 evaluation_status, score_available, source, model, transcription_model, prompt_version, rubric_version,
                 schema_version, audio_media_id, media_version, transcript, normalized_transcript,
                 actually_heard_transcript, interpreted_intent, intent_confidence, transcript_confidence,
                 listener_burden, overall_score, level_label, overall_summary, task_achievement_summary,
-                rubric_scores, strengths, needs_improvement, transcript_annotations, upgraded_answer,
+                rubric_scores, criterion_feedback, strengths, needs_improvement, transcript_annotations, upgraded_answer,
                 sample_answer, confidence_notes, action_plan, findings, evidence, recommendations,
                 pronunciation_advisory, fluency_observations, error_category, retryable.
                 rubric_scores item: criterionId, name, score, maxScore, feedback.
+                criterion_feedback item: criterionId, name, score, maxScore, levelLabel, summary,
+                strengths, needsImprovement, subcriteria.
+                criterion_feedback subcriteria item: subcriterionId, name, levelLabel, summary, evidenceRefs.
+                If evidenceRefs are not supported, return an empty array instead of inventing references.
                 strengths item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource, explanationVi, correction="".
                 needs_improvement item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource, explanationVi, correction.
                 transcript_annotations item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource,
                 startOffset, endOffset, annotationType, explanationVi, suggestionKo.
+                action_plan item: criterionId, subcriterionId, titleVi, instructionVi, reasonVi, priority.
                 """;
     }
 

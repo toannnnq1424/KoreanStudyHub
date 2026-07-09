@@ -722,6 +722,19 @@ Evaluator strategy note:
 - 8E-C does not cache evaluator results.
 - 8E-C does not persist or render results; 8E-D owns persistence/UI.
 
+8E-C follow-up:
+
+- Speaking prompt contract cleanup is implemented and focused-tested.
+- Evidence must preserve exact transcript text without translation,
+  normalization, or rewriting.
+- The Speaking prompt no longer assumes fixed max 20/max 15 weights; it uses
+  each `max_score` supplied by `allowed_rubric`.
+- `criterion_feedback` and `action_plan` item schemas are explicit.
+- No Writing files were modified.
+- Focused validation: 42 tests, 0 failures, 0 errors, 0 skips on JDK 17.
+- Top-level 8E remains `IN_PROGRESS`; 8E-D and 8E-CW remain `NOT_STARTED`;
+  8H remains `PLANNED`.
+
 #### Phase 8E-CW — Writing Rubric Scale Consistency Follow-up
 
 Status:

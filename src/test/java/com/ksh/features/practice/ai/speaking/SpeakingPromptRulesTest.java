@@ -13,7 +13,7 @@ class SpeakingPromptRulesTest {
                 .contains("KSH practice only")
                 .contains("not an official TOPIK Speaking score")
                 .contains("Score only the criteria provided in allowed_rubric")
-                .contains("max_score from allowed_rubric")
+                .contains("allowed_rubric provides each criterion and its max_score")
                 .contains("Do not use a 10-point band")
                 .contains("Do not use 9.0 / 7.5 / 5.0")
                 .contains("Do not use few-shot calibration samples")
@@ -42,8 +42,9 @@ class SpeakingPromptRulesTest {
                 .contains("upgraded_answer")
                 .contains("sample_answer")
                 .contains("confidence_notes")
-                .contains("max 20")
-                .contains("max 15");
+                .contains("allowed_rubric provides each criterion and its max_score")
+                .contains("do not assume fixed weights")
+                .doesNotContain("criteria with max 20 and max 15");
     }
 
     @Test
@@ -61,7 +62,9 @@ class SpeakingPromptRulesTest {
                 .contains("[OUTPUT JSON SECTION]")
                 .contains("[LANGUAGE POLICY]")
                 .contains("Use Vietnamese for learner-facing explanations")
-                .contains("Use Korean only for evidence")
+                .contains("Use exact transcript text for evidence")
+                .contains("Do not translate, normalize, or rewrite evidence")
+                .doesNotContain("Use Korean only for evidence")
                 .contains("Do NOT use English in learner-facing explanations");
     }
 
@@ -113,5 +116,19 @@ class SpeakingPromptRulesTest {
                 .contains("text-only fallback")
                 .contains("Pronunciation & Delivery must be capped")
                 .contains("do not pretend learner audio was evaluated");
+    }
+
+    @Test
+    void promptRulesDefineCriterionFeedbackAndActionPlanSchemasExplicitly() {
+        String prompt = SpeakingPromptRules.buildSystemPrompt(false);
+
+        assertThat(prompt)
+                .contains("criterion_feedback item: criterionId, name, score, maxScore, levelLabel, summary")
+                .contains("strengths, needsImprovement, subcriteria")
+                .contains("subcriteria item: subcriterionId, name, levelLabel, summary, evidenceRefs")
+                .contains("return an empty array instead of inventing references")
+                .contains("action_plan item: criterionId, subcriterionId, titleVi, instructionVi, reasonVi, priority")
+                .contains("Use the exact field names from the provided JSON schema")
+                .contains("including camelCase item fields where the schema defines them");
     }
 }
