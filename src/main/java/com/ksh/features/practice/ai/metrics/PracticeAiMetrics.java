@@ -126,7 +126,9 @@ public class PracticeAiMetrics {
 
     public enum ProviderFeature {
         WRITING("writing"),
-        RL_EXPLANATION("rl_explanation");
+        RL_EXPLANATION("rl_explanation"),
+        SPEAKING_TRANSCRIPTION("speaking_transcription"),
+        SPEAKING_EVALUATION("speaking_evaluation");
 
         private final String tag;
 
@@ -142,7 +144,10 @@ public class PracticeAiMetrics {
     public enum ProviderOutcome {
         SUCCESS("success"),
         FALLBACK("fallback"),
-        FAILURE("failure");
+        FAILURE("failure"),
+        RATE_LIMITED("rate_limited"),
+        CONTRACT_FAILURE("contract_failure"),
+        UNAVAILABLE("unavailable");
 
         private final String tag;
 

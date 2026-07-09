@@ -951,7 +951,7 @@ NO-GO FOR LIVE SPEAKING AI ROLLOUT.
 #### Phase 8F — AI Production Hardening, Calibration & Rollout Readiness
 
 Status:
-NOT_STARTED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Purpose:
 provider/live-rollout readiness, production calibration, teacher-reviewed
@@ -960,6 +960,40 @@ runbook, multi-node cleanup, privacy/security, and operational readiness.
 
 Live Speaking AI rollout remains NO-GO until the Phase 8F rollout readiness
 gate passes.
+
+Implementation note:
+
+- 8F-A provider rollout gates are implemented as backend readiness checks only.
+  Live Speaking transcription allows the current OpenAI STT primary path, and
+  Speaking evaluator allows the current OpenAI-compatible evaluator path. No new
+  provider was added in 8F-A.
+- 8F-B calibration fixture framework is implemented with minimum MVP counts:
+  five Speaking fixtures and five Writing fixtures. Expected outcomes use score
+  ranges / qualitative bands, not exact hard scores. Teacher-reviewed fixtures
+  remain accepted debt for Phase 15, but 8F now has a fixture contract and
+  expected-range validation.
+- 8F-C provider reliability readiness is implemented through bounded
+  observability tags and operator runbook checks for outage, rate limit, cost
+  spike, bad feedback, media storage failure, and privacy incident. User-facing
+  retry button remains deferred to Phase 13. Background re-evaluation remains
+  deferred; 8E-E submit-only evaluation remains the MVP-safe path.
+- 8F-D storage readiness policy records that local private storage is accepted
+  only for dev/single-node staging. It is not production-final. Object storage
+  remains a live-rollout blocker/decision before real Speaking AI rollout.
+- 8F-E rollout checklist is implemented. Live Speaking AI remains blocked until
+  provider gates, calibration framework, runbook readiness, storage decision,
+  Phase 8G, Phase 8H, and manual UAT / accepted Phase 15 decision are all
+  satisfied.
+
+Focused validation:
+
+`mvn "-Dtest=SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeAiMetricsTest" test`
+
+Result: 31 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS on JDK 17.
+
+Rollout verdict:
+
+NO-GO FOR LIVE SPEAKING AI ROLLOUT.
 
 #### Phase 8G — Practice-Wide Functional UI / Integration Regression
 
@@ -1265,15 +1299,18 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8E-CW2 Writing Task-Native Scoring Matrix | IMPLEMENTED_AND_FOCUSED_TESTED | COMMITTED | this commit | 5908a93755003f2c1df37899a95dd11e1a4be076 | Sequential focused validation passed for CW2-A, CW2-B, and CW2-C; final evidence-based consolidated CW2-D rerun passed 182 tests, 0 failures, 0 errors, 0 skips on JDK 17. | Implemented Q51/Q52 10-point two-blank rubrics, Q53 30-point rubric, Q54 50-point rubric, explicit percentage compatibility, and maxScore-aware result rendering; committed and pushed to origin/feature/practice. | Run the Phase 8E-D audit for Speaking AI persistence and result/detail rendering. |
 | 2026-07-09 | 8E-E Speaking Re-evaluation and Transcript Reuse Stabilization | NOT_STARTED | COMMITTED | aa988d65e989e4091ee27b973af58a9c137a4c38 | ad21d2aceda173781c7acec4a3f2d8dc61262e9f | Focused command: `mvn "-Dtest=SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingEvaluationOrchestratorTest,SpeakingTranscriptionMediaResolverTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService" test`; 50 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented submit-only Speaking AI evaluation behind both gates, identity-based reuse/invalidation, stale media guard, text fallback constraints, prior-success preservation for same-identity transient failures, and disabled-by-default fallback config; committed and pushed to origin/feature/practice. | 8E-F focused Phase 8E phase-gate review. |
 | 2026-07-09 | 8E-F Speaking AI Focused Phase-Gate Review | NOT_STARTED | COMMITTED | d6dbbb98bff4791c67ae6e501ea295387ca394cb | aa988d65e989e4091ee27b973af58a9c137a4c38 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService,WritingScoringPolicyTest,WritingTaskNativeScoringTest,WritingPromptRulesTest,WritingEvaluationClientTest,WritingEvaluationNormalizerTest,WritingFeedbackCompatibilityReaderTest,PracticeResultWordingTest" test`; 196 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8E gate review passed and top-level 8E closed as CLOSED_WITH_ACCEPTED_DEBT; live Speaking AI rollout remains NO-GO. | Route accepted debt through Phase 16, then Phase 8F audit only after user approval. |
+| 2026-07-10 | Phase 8F AI Production Hardening, Calibration & Rollout Readiness | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d174971251339ead75b0e8a1e55d2456b7b77389 | Focused command: `mvn "-Dtest=SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeAiMetricsTest" test`; 31 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented provider gate readiness, calibration fixture framework, bounded provider metrics/runbook readiness, storage production-readiness policy, and rollout checklist. Live Speaking AI remains NO-GO until object storage decision, 8G, 8H, and Phase 15/UAT decisions are satisfied. | User review, then commit/push only after explicit approval. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Proceed to Phase 8F audit only after user approval.
+User review for Phase 8F implementation summary, then commit/push only after
+explicit approval.
 
 Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
-are COMMITTED.
+are COMMITTED. Phase 8F is IMPLEMENTED_AND_FOCUSED_TESTED but not yet staged,
+committed, or pushed.
 
 Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
 explicitly deferred.

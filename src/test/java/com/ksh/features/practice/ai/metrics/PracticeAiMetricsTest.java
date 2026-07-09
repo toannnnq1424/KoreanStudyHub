@@ -25,9 +25,10 @@ class PracticeAiMetricsTest {
 
     private static final Set<String> ALLOWED_TAG_KEYS = Set.of("cache", "operation", "outcome", "feature");
     private static final Set<String> ALLOWED_TAG_VALUES = Set.of(
-            "writing", "rl_explanation",
+            "writing", "rl_explanation", "speaking_transcription", "speaking_evaluation",
             "lookup", "parse", "write", "delete",
-            "hit", "miss", "expired", "malformed", "success", "failure", "fallback");
+            "hit", "miss", "expired", "malformed", "success", "failure", "fallback",
+            "rate_limited", "contract_failure", "unavailable");
 
     @Test
     void cacheOperationRecordsCounterAndTimerWithBoundedTags() {
@@ -108,6 +109,27 @@ class PracticeAiMetricsTest {
                 "feature", "writing", "outcome", "fallback").count());
         assertEquals(100L, registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
                 "feature", "writing", "outcome", "fallback").count());
+        assertMetersUseOnlyAllowedTags(registry);
+    }
+
+    @Test
+    void speakingProviderMetricsUseBoundedOperationalTags() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        PracticeAiMetrics metrics = new PracticeAiMetrics(registry);
+
+        metrics.recordProviderOperation(
+                PracticeAiMetrics.ProviderFeature.SPEAKING_TRANSCRIPTION,
+                PracticeAiMetrics.ProviderOutcome.RATE_LIMITED,
+                Duration.ofMillis(4));
+        metrics.recordProviderOperation(
+                PracticeAiMetrics.ProviderFeature.SPEAKING_EVALUATION,
+                PracticeAiMetrics.ProviderOutcome.CONTRACT_FAILURE,
+                Duration.ofMillis(6));
+
+        assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
+                "feature", "speaking_transcription", "outcome", "rate_limited").count());
+        assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
+                "feature", "speaking_evaluation", "outcome", "contract_failure").count());
         assertMetersUseOnlyAllowedTags(registry);
     }
 
