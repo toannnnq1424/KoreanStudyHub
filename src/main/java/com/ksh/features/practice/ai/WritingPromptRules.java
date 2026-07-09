@@ -5,10 +5,10 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v4.0";
-    public static final String RUBRIC_VERSION = "v4.0";
-    public static final String EVALUATION_SCHEMA_VERSION = "v4.0";
-    public static final String EVALUATION_CONTRACT_VERSION = "v5.0";
+    public static final String PROMPT_VERSION = "v4.1";
+    public static final String RUBRIC_VERSION = "v4.1";
+    public static final String EVALUATION_SCHEMA_VERSION = "v4.1";
+    public static final String EVALUATION_CONTRACT_VERSION = "v6.0";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
@@ -33,12 +33,8 @@ public final class WritingPromptRules {
         return List.of(RUBRIC_CONTENT, RUBRIC_STRUCTURE, RUBRIC_LANGUAGE);
     }
 
-    public static List<ScoringCriterion> scoringCriteriaForTask(String taskType) {
-        List<String> names = rubricNamesForTask(taskType);
-        return List.of(
-                new ScoringCriterion("W_CONTENT_TASK_ACHIEVEMENT", names.get(0), 40, 1),
-                new ScoringCriterion("W_ORGANIZATION_COHERENCE", names.get(1), 30, 2),
-                new ScoringCriterion("W_LANGUAGE_EXPRESSION", names.get(2), 30, 3));
+    public static List<WritingScoringCriterion> scoringCriteriaForTask(String taskType) {
+        return WritingScoringPolicy.rubricFor(taskType).criteria();
     }
 
     /**
@@ -185,14 +181,14 @@ public final class WritingPromptRules {
 
                 Trả về JSON nghiêm ngặt gồm đúng các trường sau (KHÔNG trả score, raw_score, raw_score_max — backend tự tính):
                 - summary (string): nhận xét tổng quan
-                - rubric_scores (array): đúng 3 phần tử, mỗi phần tử có criterionId, name, score, maxScore, feedback
+                - rubric_scores (array): đúng tất cả tiêu chí trong allowed_rubric.scoring_criteria, mỗi phần tử có criterionId, name, score, maxScore, feedback
                 - strengths (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
                 - needs_improvement (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
                 - upgraded_answer (string)
                 - upgraded_answer_annotated (string)
                 - sentence_rewrites (array): mỗi phần tử có original, upgraded, reason
 
-                rubric_scores phải dùng đúng 3 tên tiêu chí: """ + String.join(", ", rubricNamesForTask(taskType)) + """
+                rubric_scores phải dùng đúng criterionId, displayName và max_score trong allowed_rubric.scoring_criteria.
                 """;
     }
 
@@ -316,5 +312,4 @@ public final class WritingPromptRules {
         return "Q51".equals(taskType) || "Q52".equals(taskType) || "Q51_52".equals(taskType);
     }
 
-    public record ScoringCriterion(String criterionId, String displayName, int maxScore, int order) {}
 }

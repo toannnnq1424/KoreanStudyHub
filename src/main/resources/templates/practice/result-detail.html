@@ -449,11 +449,12 @@
       if (rubricScores.length > 0) {
         chipsEl.innerHTML = rubricScores.map(r => {
           const rubricValue = isActiveQuestionSpeakingFeedback() ? r.percentage : r.score;
-          const pct = isActiveQuestionSpeakingFeedback() ? Math.round(rubricValue || 0) : Math.round((rubricValue / 10.0) * 100);
+          const rubricMax = isActiveQuestionSpeakingFeedback() ? 100 : parseFloat(r.maxScore || 10);
+          const pct = rubricMax > 0 ? Math.round(((parseFloat(rubricValue) || 0) / rubricMax) * 100) : 0;
           const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
           return `<div class="prd-rubric-chip ${cls}">
             <div class="prd-chip-name">${escHtml(r.name)}</div>
-            <div class="prd-chip-score">${rubricValue}${isActiveQuestionSpeakingFeedback() ? '/100' : '/10'}</div>
+            <div class="prd-chip-score">${rubricValue}/${rubricMax}</div>
             <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
             <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
           </div>`;

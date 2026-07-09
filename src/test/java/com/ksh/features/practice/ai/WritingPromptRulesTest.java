@@ -19,9 +19,20 @@ class WritingPromptRulesTest {
     @Test
     void scoringCriteriaAreStableAndSumToOneHundred() {
         var rows = WritingPromptRules.scoringCriteriaForTask("Q53");
-        assertThat(rows).extracting(WritingPromptRules.ScoringCriterion::criterionId)
+        assertThat(rows).extracting(WritingScoringCriterion::criterionId)
                 .containsExactly("W_CONTENT_TASK_ACHIEVEMENT", "W_ORGANIZATION_COHERENCE", "W_LANGUAGE_EXPRESSION");
-        assertThat(rows.stream().mapToInt(WritingPromptRules.ScoringCriterion::maxScore).sum()).isEqualTo(100);
+        assertThat(rows.stream().mapToInt(WritingScoringCriterion::maxScore).sum()).isEqualTo(30);
+        assertThat(rows).extracting(WritingScoringCriterion::maxScore).containsExactly(12, 9, 9);
+    }
+
+    @Test
+    void clozePromptUsesTwoBlankTaskNativeCriteria() {
+        var rows = WritingPromptRules.scoringCriteriaForTask("Q51");
+        assertThat(rows).hasSize(6);
+        assertThat(rows.stream().mapToInt(WritingScoringCriterion::maxScore).sum()).isEqualTo(10);
+        assertThat(WritingPromptRules.buildUnifiedPrompt("Q51", false))
+                .contains("allowed_rubric.scoring_criteria")
+                .doesNotContain("đúng 3 phần tử", "đúng 3 tên tiêu chí");
     }
 
     @Test

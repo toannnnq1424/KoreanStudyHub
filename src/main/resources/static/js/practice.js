@@ -130,8 +130,10 @@
   };
 
   // Convert 1–9 band score to 100-point scale
-  const toHundred = (score) => {
+  const toHundred = (score, maxScore) => {
     const s = parseFloat(score) || 0;
+    const max = parseFloat(maxScore);
+    if (max > 0) return Math.round((s / max) * 100);
     return Math.round((s / 9) * 100);
   };
 
@@ -143,7 +145,7 @@
     return `
       <section class="ksh-ai-summary overview">
         <span>${escape(data.band_label || 'KSH TOPIK Writing')}</span>
-        <strong>${toHundred(data.overall_score || data.score || 0)}</strong><em class="ksh-score-denom">/100</em>
+        <strong>${Math.round(parseFloat(data.percentage !== undefined ? data.percentage : toHundred(data.overall_score || data.score || 0)) || 0)}</strong><em class="ksh-score-denom">/100</em>
         ${raw}
         <p>${escape(data.summary_vi || data.summary || 'Chưa có nhận xét tổng quan.')}</p>
       </section>
@@ -152,7 +154,7 @@
           <article class="ksh-rubric-item">
             <button class="ksh-rubric-toggle" type="button" data-rubric="${idx}">
               <span>${escape(item.name)}</span>
-              <strong>${toHundred(item.score)}</strong><small>/100</small>
+              <strong>${item.score}</strong><small>/${item.maxScore || 10}</small>
             </button>
             <p class="rubric-feedback">${escape(item.feedback)}</p>
           </article>

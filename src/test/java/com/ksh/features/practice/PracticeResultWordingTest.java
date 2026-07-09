@@ -30,6 +30,8 @@ class PracticeResultWordingTest {
         assertFalse(html.contains(">Task Score<"));
         assertFalse(html.contains("Điểm đánh giá câu viết"));
         assertTrue(html.contains("Điểm bài làm"));
+        assertTrue(html.contains("r.maxScore || 10"));
+        assertFalse(html.contains("rubricValue / 10.0"));
     }
 
     @Test
@@ -39,6 +41,18 @@ class PracticeResultWordingTest {
         assertFalse(html.contains("'Overall Score'"));
         assertFalse(html.contains(">Overall Score<"));
         assertTrue(html.contains("Điểm tổng kết bài làm"));
+        assertTrue(html.contains("matched.maxScore || 10"));
+        assertFalse(html.contains("matchedScore * 10"));
+    }
+
+    @Test
+    void writingFragmentAndLegacyJsUseRubricMaxScore() throws IOException {
+        String fragment = readResource("templates/practice/result/writing.html");
+        String js = readResource("static/js/practice.js");
+
+        assertTrue(fragment.contains("matched.maxScore || 10"));
+        assertFalse(fragment.contains("matchedScore * 10"));
+        assertTrue(js.contains("item.maxScore || 10"));
     }
 
     private static String readResource(String relativePath) throws IOException {

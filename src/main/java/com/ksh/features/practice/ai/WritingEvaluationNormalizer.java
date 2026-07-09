@@ -51,21 +51,26 @@ public class WritingEvaluationNormalizer {
                     studentText,
                     taskType);
 
-            // Derive score from rubric average — sole source of truth
-            double score = deriveScoreFromRubrics(rubricScores);
             boolean maxScoreContract = root.path("rubric_scores").get(0).has("maxScore");
+            double score = deriveScoreFromRubrics(rubricScores);
             double rawTopikScore = maxScoreContract
-                    ? score * WritingScoreMatrix.rawScoreMax(taskType) / 100.0
+                    ? sumRubricScores(rubricScores)
                     : WritingScoreMatrix.rawScoreFromNormalized(score, taskType);
-            double rawTopikMax = WritingScoreMatrix.rawScoreMax(taskType);
+            double rawTopikMax = maxScoreContract
+                    ? WritingScoringPolicy.rubricFor(taskType).totalMaxScore()
+                    : WritingScoreMatrix.rawScoreMax(taskType);
 
             List<Map<String, Object>> annotations = buildAnnotations(strengths, needs, studentText);
 
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("score", score);
             normalized.put("overall_score", score);
+            normalized.put("percentage", maxScoreContract
+                    ? score
+                    : WritingScoreMatrix.toHundredPointScale(score));
             normalized.put("raw_score", rawTopikScore);
             normalized.put("raw_score_max", rawTopikMax);
+            normalized.put("scoring_contract", maxScoreContract ? "TASK_NATIVE_RUBRIC_V1" : "LEGACY_BAND_V1");
             normalized.put("task_type", taskType);
             normalized.put("band_label", maxScoreContract ? "" : WritingScoreMatrix.bandLabel(score));
             normalized.put("summary", text(root, "summary", text(root, "summary_vi", "")));
@@ -184,19 +189,27 @@ public class WritingEvaluationNormalizer {
             String effectiveTaskType = taskType == null ? "GENERAL" : taskType;
             double score = 0.0;
             double rawScore = 0.0;
-            double rawMax = WritingScoreMatrix.rawScoreMax(effectiveTaskType);
+            WritingScoringRubric scoringRubric = WritingScoringPolicy.rubricFor(effectiveTaskType);
+            double rawMax = scoringRubric.totalMaxScore();
 
-            List<String> rubricNames = WritingPromptRules.rubricNamesForTask(effectiveTaskType);
             List<Map<String, Object>> rubricScores = new ArrayList<>();
-            for (String name : rubricNames) {
-                rubricScores.add(rubric(name, 0.0, "Bài làm không hợp lệ."));
+            for (WritingScoringCriterion criterion : scoringRubric.criteria()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("criterionId", criterion.criterionId());
+                row.put("name", criterion.displayName());
+                row.put("score", 0.0);
+                row.put("maxScore", criterion.maxScore());
+                row.put("feedback", "Bài làm không hợp lệ.");
+                rubricScores.add(row);
             }
 
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("score", score);
             normalized.put("overall_score", score);
+            normalized.put("percentage", score);
             normalized.put("raw_score", rawScore);
             normalized.put("raw_score_max", rawMax);
+            normalized.put("scoring_contract", "TASK_NATIVE_RUBRIC_V1");
             normalized.put("task_type", effectiveTaskType);
             normalized.put("band_label", "Không phản hồi");
             String invalidSummary = "[INVALID_LEARNER_RESPONSE] Bai lam bo trong hoac chua du du lieu tieng Han de cham.";
@@ -355,6 +368,17 @@ public class WritingEvaluationNormalizer {
         if (count == 0) return 1.0;
         if (max > 0) return Math.round(sum / max * 10000.0) / 100.0;
         return WritingScoreMatrix.clampAndRound(sum / count);
+    }
+
+    private static double sumRubricScores(List<Map<String, Object>> rubricScores) {
+        double sum = 0.0;
+        for (Map<String, Object> row : rubricScores) {
+            Object score = row.get("score");
+            if (score instanceof Number number) {
+                sum += number.doubleValue();
+            }
+        }
+        return Math.round(sum * 100.0) / 100.0;
     }
 
     // ---- Rubric validation ----

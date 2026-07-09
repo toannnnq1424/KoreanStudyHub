@@ -90,6 +90,7 @@
         const activeRubricObj = rubrics.find(r => r.id === rubId);
         let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
         let matchedScore = null;
+        let matchedMaxScore = null;
         let feedbackText = "";
 
         if (rubricList.length > 0) {
@@ -100,6 +101,7 @@
           const matched = rubricList[Math.min(targetIdx, rubricList.length - 1)];
           if (matched) {
             matchedScore = matched.score;
+            matchedMaxScore = matched.maxScore || 10;
             feedbackText = matched.feedback;
           }
         }
@@ -125,8 +127,11 @@
         const scoreScale = document.getElementById('rubric-score-scale-' + secId);
         const feedbackEl = document.getElementById('rubric-feedback-text-' + secId);
         
-        if (scoreVal) scoreVal.textContent = matchedScore === null ? "--" : (matchedScore * 10).toFixed(0);
-        if (scoreScale) scoreScale.textContent = matchedScore === null ? "" : "/ 100";
+        const rubricPercent = matchedScore === null || !matchedMaxScore
+          ? null
+          : Math.round((matchedScore / matchedMaxScore) * 100);
+        if (scoreVal) scoreVal.textContent = rubricPercent === null ? "--" : rubricPercent.toFixed(0);
+        if (scoreScale) scoreScale.textContent = rubricPercent === null ? "" : "/ 100";
         if (feedbackEl) feedbackEl.textContent = feedbackText;
 
         // Render Sliders
@@ -136,7 +141,7 @@
           return;
         }
         if (slidersContainer) {
-          const rawPercent = matchedScore * 10;
+          const rawPercent = rubricPercent;
           slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
             const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
             const finalValue = Math.min(100, Math.max(20, rawPercent + variation));

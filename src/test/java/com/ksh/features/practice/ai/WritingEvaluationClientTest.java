@@ -163,9 +163,9 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-        assertEquals("v4.0", WritingPromptRules.PROMPT_VERSION);
-        assertEquals("v4.0", WritingPromptRules.RUBRIC_VERSION);
-        assertEquals("v4.0", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+        assertEquals("v4.1", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v4.1", WritingPromptRules.RUBRIC_VERSION);
+        assertEquals("v4.1", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
     }
 
     @Test
@@ -367,7 +367,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v4.0"), eq("v4.0"), eq("v4.0:v5.0"), payload.capture());
+                eq("v4.1"), eq("v4.1"), eq("v4.1:v6.0"), payload.capture());
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
@@ -417,7 +417,7 @@ class WritingEvaluationClientTest {
         assertEquals("Q53", root.path("task_type").asText());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v4.0"), eq("v4.0"), eq("v4.0:v5.0"), anyString());
+                eq("v4.1"), eq("v4.1"), eq("v4.1:v6.0"), anyString());
     }
 
     @Test
@@ -493,7 +493,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v4.0"), eq("v4.0"), eq("v4.0:v5.0"), anyString());
+                eq("v4.1"), eq("v4.1"), eq("v4.1:v6.0"), anyString());
     }
 
     @Test
@@ -565,7 +565,7 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v4.0"), eq("v4.0"), eq("v4.0:v5.0"));
+                eq("v4.1"), eq("v4.1"), eq("v4.1:v6.0"));
     }
 
     @Test

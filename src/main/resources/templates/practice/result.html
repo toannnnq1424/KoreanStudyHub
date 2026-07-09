@@ -295,6 +295,7 @@
 
       let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
       let matchedScore = null;
+      let matchedMaxScore = null;
       let feedbackText = "";
 
       if (rubricList.length > 0) {
@@ -305,6 +306,7 @@
         const matched = rubricList[Math.min(targetIdx, rubricList.length - 1)];
         if (matched) {
           matchedScore = activeQuestionUsesSpeakingFeedback ? matched.percentage : matched.score;
+          matchedMaxScore = activeQuestionUsesSpeakingFeedback ? 100 : (matched.maxScore || 10);
           feedbackText = matched.feedback;
         }
       }
@@ -328,7 +330,10 @@
       const speakingScore = activeQuestionUsesSpeakingFeedback
         ? parseFloat(aiData.percentage !== undefined ? aiData.percentage : overallScore)
         : null;
-      document.getElementById('rubric-score-val').textContent = speakingScore !== null && !Number.isNaN(speakingScore) ? speakingScore.toFixed(0) : (matchedScore === null ? "--" : (matchedScore * 10).toFixed(0));
+      const writingRubricPercent = matchedScore === null || !matchedMaxScore
+        ? null
+        : Math.round((matchedScore / matchedMaxScore) * 100);
+      document.getElementById('rubric-score-val').textContent = speakingScore !== null && !Number.isNaN(speakingScore) ? speakingScore.toFixed(0) : (writingRubricPercent === null ? "--" : writingRubricPercent.toFixed(0));
       document.getElementById('rubric-score-scale').textContent = speakingScore !== null && !Number.isNaN(speakingScore)
         ? "/ 100"
         : (matchedScore === null ? "" : "/ 100");
@@ -340,7 +345,7 @@
         return;
       }
       slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
-        const rawPercent = activeQuestionUsesSpeakingFeedback ? matchedScore : matchedScore * 10;
+        const rawPercent = activeQuestionUsesSpeakingFeedback ? matchedScore : writingRubricPercent;
         const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
         const finalValue = Math.min(100, Math.max(20, rawPercent + variation));
         

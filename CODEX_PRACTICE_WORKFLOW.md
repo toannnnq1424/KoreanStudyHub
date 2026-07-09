@@ -759,6 +759,58 @@ Implementation note:
 - Focused validation: 101 tests, 0 failures, 0 errors, 0 skips on JDK 17.
 - No Speaking files were modified.
 
+#### Phase 8E-CW2 — Writing Task-Native Scoring Matrix
+
+Status:
+COMMITTED
+
+Commit:
+this commit
+
+Parent:
+5908a93755003f2c1df37899a95dd11e1a4be076
+
+Message:
+feat(practice): add task-native writing scoring
+
+Pushed branch:
+origin/feature/practice
+
+Purpose:
+Replace the temporary uniform 40/30/30 provider rubric with task-native Writing
+maximums while preserving historical Writing feedback compatibility.
+
+Task-native scoring policy:
+
+- Q51: two answer blanks, 5 points per blank, 10 points total. Each blank uses
+  2 points for context, 2 points for grammar, and 1 point for expression.
+- Q52: two answer blanks, 5 points per blank, 10 points total, with the same
+  2/2/1 breakdown.
+- Q53: Content 12, Organization 9, Language 9, 30 points total.
+- Q54: Content 20, Organization 15, Language 15, 50 points total.
+- GENERAL: Content 40, Organization 30, Language 30, 100 points total.
+
+Implementation note:
+
+- `WritingScoringPolicy` is the single task-native scoring source for provider
+  criteria, maximum totals, and earned-score percentage calculation.
+- New normalized results explicitly expose earned `raw_score`,
+  task `raw_score_max`, `percentage`, and `TASK_NATIVE_RUBRIC_V1`.
+- `PracticeService` prefers explicit percentage/contract metadata and no longer
+  infers every score at or below 9 as a legacy Writing band.
+- Writing result rendering uses each rubric row's `maxScore` instead of a
+  hard-coded `/10`.
+- Legacy 1-9 Writing JSON remains readable through the existing compatibility
+  path; no migration or database schema change was added.
+- Focused CW2-A validation: 5 tests passed.
+- Focused CW2-B validation: 77 tests passed after an evidence-based stale
+  cache-version fixture correction.
+- Focused CW2-C validation: 79 tests passed.
+- Consolidated CW2-D validation: final evidence-based rerun passed 182 tests,
+  0 failures, 0 errors, 0 skips on JDK 17 after correcting the legacy-band
+  percentage projection; no full suite and no provider calls.
+- No Speaking files were modified.
+
 #### Phase 8E-D — Speaking AI Persistence and Result Rendering
 
 Status:
@@ -1094,13 +1146,13 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8E-A Speaking AI Schema, Status & Normalizer Foundation | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | a6c2504a684b2aa3d86b07d4ba9136b55c3c7c20 | Focused rerun: 83 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Foundation implemented with typed result/status/evidence/rubric contracts, 100-point scoring, low-confidence safeguards, legacy compatibility, and view mapping. | User review and commit, then provider docs verification / 8E-B audit. |
 | 2026-07-09 | 8E-B Speaking Transcription Abstraction and OpenAI STT Adapter | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 6bccffec14e5df13c155327f369eaed420bbd38a | Focused command: `mvn "-Dtest=OpenAiSpeakingTranscriptionClientTest,SpeakingTranscriptionMediaResolverTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; 38 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented disabled-by-default OpenAI STT transcription abstraction, safe DTOs, READY local-media resolver, logprob-derived confidence, and provider strategy note. Live rollout remains NO-GO. | 8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-schema provider integration and prompt rules. |
 | 2026-07-09 | 8E-C Speaking Evaluator Fixed-Schema Provider Integration | NEEDS_COMPILE_FIX | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d1960b4941cb039693000ed4d8b3670f818abcc8 | Focused command: `mvn "-Dtest=SpeakingEvaluation*Test,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingEvaluationPromptBuilderTest,SpeakingPromptRulesTest,SpeakingEvaluationOrchestratorTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; final focused rerun 46 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented KSH allowed_rubric rules, deterministic Speaking rule signals, S_* criterion IDs, rich feedback contract, provider-neutral evaluator client, OpenAI-compatible chat adapter, orchestrator handoff, failure mapping, and disabled-by-default evaluator config. No persistence/UI/cache/migration. | 8E-C user review and commit, then 8E-D audit for Speaking AI persistence and result/detail rendering. |
+| 2026-07-09 | 8E-CW2 Writing Task-Native Scoring Matrix | IMPLEMENTED_AND_FOCUSED_TESTED | COMMITTED | this commit | 5908a93755003f2c1df37899a95dd11e1a4be076 | Sequential focused validation passed for CW2-A, CW2-B, and CW2-C; final evidence-based consolidated CW2-D rerun passed 182 tests, 0 failures, 0 errors, 0 skips on JDK 17. | Implemented Q51/Q52 10-point two-blank rubrics, Q53 30-point rubric, Q54 50-point rubric, explicit percentage compatibility, and maxScore-aware result rendering; committed and pushed to origin/feature/practice. | Run the Phase 8E-D audit for Speaking AI persistence and result/detail rendering. |
 
 ## Current Required Next Action
 
 Current next action:
 
-8E-C user review and commit, then 8E-D audit for Speaking AI persistence and
-result/detail rendering.
+Phase 8E-D audit for Speaking AI persistence and result/detail rendering.
 
 Phase 8E is IN_PROGRESS. Phase 8E-C is IMPLEMENTED_AND_FOCUSED_TESTED.
 Phase 8E-D remains NOT_STARTED.

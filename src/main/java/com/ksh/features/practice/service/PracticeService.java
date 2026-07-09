@@ -16,6 +16,7 @@ import com.ksh.features.practice.ai.WritingEvaluationResult;
 import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.WritingScoreMatrix;
+import com.ksh.features.practice.ai.WritingScoringPolicy;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
@@ -1177,15 +1178,7 @@ public class PracticeService {
 
     private BigDecimal extractAiScore(String aiFeedback) {
         try {
-            JsonNode root = objectMapper.readTree(aiFeedback);
-            double score = root.path("score").asDouble(root.path("overall_score").asDouble(1.0));
-            if (score <= 0.0) {
-                return BigDecimal.ZERO;
-            }
-            if (score > 9.0) {
-                return BigDecimal.valueOf(Math.min(100.0, score));
-            }
-            return WritingScoreMatrix.toHundredPointScale(score);
+            return WritingScoringPolicy.percentageFromFeedback(objectMapper.readTree(aiFeedback));
         } catch (Exception ex) {
             // Fallback: score band 1.0 = "Không phản hồi" → 11.11/100
             return WritingScoreMatrix.toHundredPointScale(1.0);
