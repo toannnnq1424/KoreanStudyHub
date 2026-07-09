@@ -927,26 +927,49 @@ Accepted debt:
 - Broader route/player/template integration remains for Phase 8G.
 - Architecture/service decomposition remains for Phase 8H.
 
+Accepted debt routing:
+
+- Real provider live rollout remains disabled by default -> Phase 8F.
+- No production calibration -> Phase 8F and Phase 15.
+- No teacher-reviewed calibration fixture set -> Phase 8F and Phase 15.
+- No object storage production switch -> Phase 8F.
+- No multi-node cleanup, provider monitoring, or operational runbook -> Phase 8F.
+- No background re-evaluation worker -> Phase 8F if required for operations;
+  otherwise explicitly defer from the MVP.
+- No user-facing Speaking retry button -> Phase 8F if operationally required;
+  otherwise Phase 13 UX.
+- No full manual UAT -> Phase 15.
+- No immutable version graph -> Phase 9.
+- Broader route/player/template integration -> Phase 8G.
+- Architecture, service decomposition, and security boundary cleanup -> Phase 8H.
+- Visual polish / PREP-like redesign -> Phase 13.
+
 Rollout verdict:
 
 NO-GO FOR LIVE SPEAKING AI ROLLOUT.
 
-#### Phase 8F — Calibration & Production Hardening
+#### Phase 8F — AI Production Hardening, Calibration & Rollout Readiness
 
 Status:
 NOT_STARTED
 
 Purpose:
-calibration, provider consistency, browser/device testing, monitoring, runbook, privacy/security.
+provider/live-rollout readiness, production calibration, teacher-reviewed
+calibration fixtures, object-storage production switch, provider monitoring,
+runbook, multi-node cleanup, privacy/security, and operational readiness.
 
-#### Phase 8G — Practice-Wide Functional UI, Integration Regression Audit & Stabilization
+Live Speaking AI rollout remains NO-GO until the Phase 8F rollout readiness
+gate passes.
+
+#### Phase 8G — Practice-Wide Functional UI / Integration Regression
 
 Status:
 PLANNED
 
-Must happen before Phase 9.
+Must happen before Phase 9 unless explicitly accepted/deferred by user
+decision.
 
-#### Phase 8H — Practice Module Architecture, Security Boundary & Maintainability Stabilization
+#### Phase 8H — Practice Architecture, Security Boundary & Maintainability
 
 Status:
 PLANNED
@@ -988,7 +1011,7 @@ deferred by user decision.
 Purpose:
 immutable published content/rubric/scoring graph and stable historical attempts.
 
-### Phase 10 — Academic Configuration & Multi-Certification
+### Phase 10 — Academic Program / Certification Configuration
 
 Status:
 NOT_STARTED
@@ -1003,7 +1026,7 @@ NOT_STARTED
 Status:
 NOT_STARTED
 
-### Phase 13 — Results, Progress & UI/UX
+### Phase 13 — Results, Progress & UI/UX Polish
 
 Status:
 NOT_STARTED
@@ -1012,12 +1035,12 @@ Important:
 Phase 13 is for visual polish and richer UX.
 Functional breakage belongs to Phase 8G.
 
-### Phase 14 — Report an Error & Content Review
+### Phase 14 — Report an Error & Content Review Workflow
 
 Status:
 NOT_STARTED
 
-### Phase 15 — Manual UAT
+### Phase 15 — Manual UAT & Release Hardening
 
 Status:
 NOT_STARTED
@@ -1241,17 +1264,16 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8E-C Speaking Evaluator Fixed-Schema Provider Integration | NEEDS_COMPILE_FIX | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d1960b4941cb039693000ed4d8b3670f818abcc8 | Focused command: `mvn "-Dtest=SpeakingEvaluation*Test,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingEvaluationPromptBuilderTest,SpeakingPromptRulesTest,SpeakingEvaluationOrchestratorTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; final focused rerun 46 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented KSH allowed_rubric rules, deterministic Speaking rule signals, S_* criterion IDs, rich feedback contract, provider-neutral evaluator client, OpenAI-compatible chat adapter, orchestrator handoff, failure mapping, and disabled-by-default evaluator config. No persistence/UI/cache/migration. | 8E-C user review and commit, then 8E-D audit for Speaking AI persistence and result/detail rendering. |
 | 2026-07-09 | 8E-CW2 Writing Task-Native Scoring Matrix | IMPLEMENTED_AND_FOCUSED_TESTED | COMMITTED | this commit | 5908a93755003f2c1df37899a95dd11e1a4be076 | Sequential focused validation passed for CW2-A, CW2-B, and CW2-C; final evidence-based consolidated CW2-D rerun passed 182 tests, 0 failures, 0 errors, 0 skips on JDK 17. | Implemented Q51/Q52 10-point two-blank rubrics, Q53 30-point rubric, Q54 50-point rubric, explicit percentage compatibility, and maxScore-aware result rendering; committed and pushed to origin/feature/practice. | Run the Phase 8E-D audit for Speaking AI persistence and result/detail rendering. |
 | 2026-07-09 | 8E-E Speaking Re-evaluation and Transcript Reuse Stabilization | NOT_STARTED | COMMITTED | aa988d65e989e4091ee27b973af58a9c137a4c38 | ad21d2aceda173781c7acec4a3f2d8dc61262e9f | Focused command: `mvn "-Dtest=SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingEvaluationOrchestratorTest,SpeakingTranscriptionMediaResolverTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService" test`; 50 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented submit-only Speaking AI evaluation behind both gates, identity-based reuse/invalidation, stale media guard, text fallback constraints, prior-success preservation for same-identity transient failures, and disabled-by-default fallback config; committed and pushed to origin/feature/practice. | 8E-F focused Phase 8E phase-gate review. |
-| 2026-07-09 | 8E-F Speaking AI Focused Phase-Gate Review | NOT_STARTED | STABILIZED_PENDING_COMMIT | N/A | aa988d65e989e4091ee27b973af58a9c137a4c38 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService,WritingScoringPolicyTest,WritingTaskNativeScoringTest,WritingPromptRulesTest,WritingEvaluationClientTest,WritingEvaluationNormalizerTest,WritingFeedbackCompatibilityReaderTest,PracticeResultWordingTest" test`; 196 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8E gate review passed. Top-level 8E is CLOSED_WITH_ACCEPTED_DEBT pending docs commit; live Speaking AI rollout remains NO-GO. | Commit/push 8E-F workflow closure docs, then proceed to 8F audit only after user approval. |
+| 2026-07-09 | 8E-F Speaking AI Focused Phase-Gate Review | NOT_STARTED | COMMITTED | d6dbbb98bff4791c67ae6e501ea295387ca394cb | aa988d65e989e4091ee27b973af58a9c137a4c38 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService,WritingScoringPolicyTest,WritingTaskNativeScoringTest,WritingPromptRulesTest,WritingEvaluationClientTest,WritingEvaluationNormalizerTest,WritingFeedbackCompatibilityReaderTest,PracticeResultWordingTest" test`; 196 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8E gate review passed and top-level 8E closed as CLOSED_WITH_ACCEPTED_DEBT; live Speaking AI rollout remains NO-GO. | Route accepted debt through Phase 16, then Phase 8F audit only after user approval. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push 8E-F workflow closure docs, then proceed to Phase 8F audit only
-after user approval.
+Proceed to Phase 8F audit only after user approval.
 
-Phase 8E is CLOSED_WITH_ACCEPTED_DEBT pending docs commit. Phase 8E-D and
-Phase 8E-E are COMMITTED. Phase 8E-F is STABILIZED_PENDING_COMMIT.
+Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
+are COMMITTED.
 
 Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
 explicitly deferred.
