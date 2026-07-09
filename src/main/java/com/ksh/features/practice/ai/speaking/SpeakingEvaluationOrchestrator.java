@@ -97,7 +97,11 @@ public class SpeakingEvaluationOrchestrator {
         putIfMissing(copy, "actually_heard_transcript", request.actuallyHeardTranscript());
         putIfMissing(copy, "transcript_confidence", request.transcriptConfidence());
         if (request.textFallback()) {
-            putIfMissing(copy, "evaluation_status", SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED.name());
+            copy.remove("audio_media_id");
+            copy.remove("media_version");
+            copy.remove("transcription_model");
+            copy.put("evaluation_status", SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED.name());
+            copy.put("source", SpeakingEvaluationSource.TEXT_FALLBACK.name());
         }
         return copy;
     }

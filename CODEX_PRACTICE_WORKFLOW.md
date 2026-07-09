@@ -822,7 +822,7 @@ Implementation note:
 #### Phase 8E-D — Speaking AI Persistence and Result Rendering
 
 Status:
-IMPLEMENTED_AND_FOCUSED_TESTED
+COMMITTED
 
 Purpose:
 persist normalized Speaking AI feedback and render result/detail tabs while
@@ -847,17 +847,42 @@ Implementation notes:
 - 8E-D3 focused validation passed for the persistence/readback, view-mapping,
   result-rendering contract, and legacy compatibility slice; no full suite and
   no provider/API call.
-- Top-level 8E remains `IN_PROGRESS`; 8E-E, 8E-F, 8F, 8G, and 8H remain
+- Top-level 8E remains `IN_PROGRESS`; 8E-F, 8F, 8G, and 8H remain
   unstarted/planned as previously recorded.
 
 #### Phase 8E-E — Speaking Re-evaluation and Transcript Reuse Stabilization
 
 Status:
-NOT_STARTED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Purpose:
 stabilize per-question re-evaluation, transcript reuse, prior-valid-result
 preservation, and failure behavior without introducing a Speaking audio cache.
+
+Implementation notes:
+
+- 8E-E1 added an explicit Speaking AI identity/reuse policy for audio
+  evaluations using `audioMediaId` plus `mediaVersion`/`lockVersion`, evaluator
+  model, transcription model, prompt version, rubric version, schema version,
+  and source/mode. No storage key/path is stored in the identity.
+- 8E-E1 reuses stored successful or non-retryable same-identity results, but
+  retryable failures remain eligible for a fresh submit-time attempt.
+- 8E-E2 wires Speaking AI evaluation only on submit when both transcription and
+  evaluator gates are enabled. Result page loads and re-evaluation flows do not
+  call real Speaking AI providers.
+- 8E-E2 text fallback is disabled by default and runs only when no valid READY
+  audio exists, the learner text answer is nonblank, and product config enables
+  text fallback. Text fallback results remain explicitly marked
+  `TEXT_FALLBACK_EVALUATED`.
+- 8E-E2 preserves a prior same-identity successful result when a new transient
+  provider/evaluator failure is retryable; identity changes do not reuse old
+  success.
+- 8E-E3 rejects stale audio successes if active media identity changes after
+  resolution and before persistence, persisting a safe `AUDIO_UNAVAILABLE`
+  failure instead.
+- 8E-E focused validation passed for reuse policy, submit-only integration,
+  text fallback constraints, failure persistence, stale media identity guard,
+  legacy/result rendering compatibility, and no provider/API call in tests.
 
 #### Phase 8E-F — Speaking AI Focused Phase-Gate Review
 
@@ -1177,16 +1202,17 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8E-B Speaking Transcription Abstraction and OpenAI STT Adapter | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 6bccffec14e5df13c155327f369eaed420bbd38a | Focused command: `mvn "-Dtest=OpenAiSpeakingTranscriptionClientTest,SpeakingTranscriptionMediaResolverTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; 38 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented disabled-by-default OpenAI STT transcription abstraction, safe DTOs, READY local-media resolver, logprob-derived confidence, and provider strategy note. Live rollout remains NO-GO. | 8E-B user review and commit, then 8E-C audit for Speaking evaluator fixed-schema provider integration and prompt rules. |
 | 2026-07-09 | 8E-C Speaking Evaluator Fixed-Schema Provider Integration | NEEDS_COMPILE_FIX | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d1960b4941cb039693000ed4d8b3670f818abcc8 | Focused command: `mvn "-Dtest=SpeakingEvaluation*Test,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingEvaluationPromptBuilderTest,SpeakingPromptRulesTest,SpeakingEvaluationOrchestratorTest,SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest" test`; final focused rerun 46 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented KSH allowed_rubric rules, deterministic Speaking rule signals, S_* criterion IDs, rich feedback contract, provider-neutral evaluator client, OpenAI-compatible chat adapter, orchestrator handoff, failure mapping, and disabled-by-default evaluator config. No persistence/UI/cache/migration. | 8E-C user review and commit, then 8E-D audit for Speaking AI persistence and result/detail rendering. |
 | 2026-07-09 | 8E-CW2 Writing Task-Native Scoring Matrix | IMPLEMENTED_AND_FOCUSED_TESTED | COMMITTED | this commit | 5908a93755003f2c1df37899a95dd11e1a4be076 | Sequential focused validation passed for CW2-A, CW2-B, and CW2-C; final evidence-based consolidated CW2-D rerun passed 182 tests, 0 failures, 0 errors, 0 skips on JDK 17. | Implemented Q51/Q52 10-point two-blank rubrics, Q53 30-point rubric, Q54 50-point rubric, explicit percentage compatibility, and maxScore-aware result rendering; committed and pushed to origin/feature/practice. | Run the Phase 8E-D audit for Speaking AI persistence and result/detail rendering. |
+| 2026-07-09 | 8E-E Speaking Re-evaluation and Transcript Reuse Stabilization | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | ad21d2aceda173781c7acec4a3f2d8dc61262e9f | Focused command: `mvn "-Dtest=SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingEvaluationOrchestratorTest,SpeakingTranscriptionMediaResolverTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService" test`; 50 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented submit-only Speaking AI evaluation behind both gates, identity-based reuse/invalidation, stale media guard, text fallback constraints, prior-success preservation for same-identity transient failures, and disabled-by-default fallback config. | 8E-E user review and commit, then 8E-F focused Phase 8E phase-gate review. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Phase 8E-D user review and commit, then 8E-E audit for Speaking
-re-evaluation and transcript reuse stabilization.
+Phase 8E-E user review and commit, then 8E-F focused Phase 8E
+phase-gate review.
 
 Phase 8E is IN_PROGRESS. Phase 8E-C is IMPLEMENTED_AND_FOCUSED_TESTED.
-Phase 8E-D is IMPLEMENTED_AND_FOCUSED_TESTED.
+Phase 8E-D is COMMITTED. Phase 8E-E is IMPLEMENTED_AND_FOCUSED_TESTED.
 
 Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
 explicitly deferred.

@@ -12,6 +12,10 @@ import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.WritingEvaluationClient;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
 import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
@@ -1293,6 +1297,110 @@ class PracticeServiceTest {
     }
 
     @Test
+    void speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope() throws Exception {
+        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Speaking Section", "SPEAKING", "ORAL", "Instruction", 30, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(30L);
+        when(group.getGroupLabel()).thenReturn("1-2");
+        when(group.getQuestionFrom()).thenReturn(0);
+        when(group.getQuestionTo()).thenReturn(2);
+        when(group.getInstruction()).thenReturn("Prompt group");
+        when(group.getSectionId()).thenReturn(20L);
+        when(group.getDisplayOrder()).thenReturn(0);
+
+        PracticeQuestion mcq = new PracticeQuestion(1L, 0, "MCQ", "MCQ", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.valueOf(5), 0);
+        PracticeQuestion speaking = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 1);
+        setEntityId(mcq, 100L);
+        setEntityId(speaking, 101L);
+        mcq.setGroupId(30L);
+        speaking.setGroupId(30L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(mcq, speaking));
+
+        SpeakingEvaluationApplicationService speakingService = mock(SpeakingEvaluationApplicationService.class);
+        SpeakingEvaluationResult result = speakingResult(SpeakingEvaluationStatus.EVALUATED, true, new BigDecimal("80"), false);
+        when(speakingService.enabled()).thenReturn(true);
+        when(speakingService.evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class)))
+                .thenReturn(new SpeakingEvaluationApplicationService.Evaluation(result, false, false, "EVALUATED"));
+        practiceService.setSpeakingEvaluationApplicationService(speakingService);
+
+        practiceService.submitAttempt(99L, 2L, Map.of(
+                "answer_100", "1",
+                "answer_101", "저는 학생입니다."
+        ));
+
+        assertEquals("GRADED", attempt.getStatus());
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("86.67")));
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals("speaking_ai_v1", feedback.path("_contract").asText());
+        assertTrue(feedback.path("speaking_feedback_by_question").has("101"));
+        assertFalse(attempt.getAiFeedbackJson().contains("provider_raw_body"));
+        verify(speakingService, times(1)).evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class));
+        verify(evaluationClient, never()).evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any());
+    }
+
+    @Test
+    void speakingReEvaluateDoesNotCallRealSpeakingAiService() {
+        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Speaking Section", "SPEAKING", "ORAL", "Instruction", 30, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(30L);
+        when(group.getGroupLabel()).thenReturn("1");
+        when(group.getQuestionFrom()).thenReturn(1);
+        when(group.getQuestionTo()).thenReturn(1);
+        when(group.getInstruction()).thenReturn("Prompt group");
+        when(group.getSectionId()).thenReturn(20L);
+        when(group.getDisplayOrder()).thenReturn(0);
+
+        PracticeQuestion speaking = new PracticeQuestion(1L, 1, "SPEAKING", "Prompt 1", "[]", "", "Explain", BigDecimal.TEN, 0);
+        setEntityId(speaking, 101L);
+        speaking.setGroupId(30L);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        attempt.markGraded(new BigDecimal("70.00"), BigDecimal.TEN, "{\"101\":\"저는 학생입니다.\"}", "{\"score\":7.0,\"summary_vi\":\"legacy\"}");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(speaking));
+
+        SpeakingEvaluationApplicationService speakingService = mock(SpeakingEvaluationApplicationService.class);
+        when(speakingService.enabled()).thenReturn(true);
+        practiceService.setSpeakingEvaluationApplicationService(speakingService);
+
+        practiceService.reEvaluate(99L, 2L);
+
+        verify(speakingService, never()).evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class));
+    }
+
+    @Test
     void mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder() throws Exception {
         assertMixedLegacySpeakingEssayOrder(List.of("SPEAKING", "ESSAY"));
         setUp();
@@ -2120,5 +2228,53 @@ class PracticeServiceTest {
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(qEssay));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
         return attempt;
+    }
+
+    private SpeakingEvaluationResult speakingResult(
+            SpeakingEvaluationStatus status,
+            boolean scoreAvailable,
+            BigDecimal overallScore,
+            boolean retryable
+    ) {
+        return new SpeakingEvaluationResult(
+                status,
+                scoreAvailable,
+                SpeakingEvaluationSource.PROVIDER,
+                "models/gemini-2.5-flash",
+                "gpt-4o-mini-transcribe",
+                "speaking-eval-v1",
+                "speaking-rubric-v1",
+                "speaking-schema-v1",
+                12L,
+                3L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                overallScore,
+                "B1",
+                "Tóm tắt an toàn",
+                "Hoàn thành nhiệm vụ",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                List.of(),
+                List.of(),
+                scoreAvailable ? null : status.name(),
+                retryable);
     }
 }
