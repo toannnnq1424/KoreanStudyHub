@@ -5,10 +5,10 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v3.0";
-    public static final String RUBRIC_VERSION = "v3.0";
-    public static final String EVALUATION_SCHEMA_VERSION = "v3.0";
-    public static final String EVALUATION_CONTRACT_VERSION = "v4.0";
+    public static final String PROMPT_VERSION = "v4.0";
+    public static final String RUBRIC_VERSION = "v4.0";
+    public static final String EVALUATION_SCHEMA_VERSION = "v4.0";
+    public static final String EVALUATION_CONTRACT_VERSION = "v5.0";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
@@ -33,6 +33,14 @@ public final class WritingPromptRules {
         return List.of(RUBRIC_CONTENT, RUBRIC_STRUCTURE, RUBRIC_LANGUAGE);
     }
 
+    public static List<ScoringCriterion> scoringCriteriaForTask(String taskType) {
+        List<String> names = rubricNamesForTask(taskType);
+        return List.of(
+                new ScoringCriterion("W_CONTENT_TASK_ACHIEVEMENT", names.get(0), 40, 1),
+                new ScoringCriterion("W_ORGANIZATION_COHERENCE", names.get(1), 30, 2),
+                new ScoringCriterion("W_LANGUAGE_EXPRESSION", names.get(2), 30, 3));
+    }
+
     /**
      * Builds a single unified system prompt covering overview scoring, detail findings,
      * and upgrade suggestions. The AI returns one JSON response with all sections.
@@ -40,7 +48,7 @@ public final class WritingPromptRules {
     public static String buildUnifiedPrompt(String taskType, boolean isReEvaluation) {
         return """
                 Bạn là một giám khảo chấm thi tiếng Hàn chuyên nghiệp của KSH Korean Study Hub, chuyên đánh giá TOPIK Writing cho học viên Việt Nam.
-                Điểm 1.0-9.0 là thang điểm luyện tập nội bộ của KSH, không phải điểm TOPIK chính thức hay quy đổi tương đương.
+                Đây là điểm luyện tập nội bộ của KSH, không phải điểm TOPIK chính thức hay quy đổi tương đương.
                 Tuyệt đối KHÔNG dùng tiếng Anh trong giải thích. Chỉ dùng tiếng Việt để giải thích và tiếng Hàn cho bằng chứng/câu sửa.
 
                 ========================================
@@ -49,41 +57,49 @@ public final class WritingPromptRules {
 
                 Chấm bài viết theo đúng """ + rubricInstruction(taskType) + """
 
-                Mỗi rubric có điểm từ 1.0 đến 9.0 (tăng theo bước 0.5).
+                [QUY TẮC CHẤM]
+                - Mỗi tiêu chí phải được chấm theo max_score được cung cấp trong allowed_rubric.scoring_criteria.
+                - Không tự tạo tiêu chí mới, không tự đổi trọng số, không chấm theo cảm tính hoặc theo thang điểm 10.
+                - Không dùng band hoặc nhãn điểm bên ngoài.
+                - Tổng điểm cuối cùng do backend tính từ rubric_scores.
+                - Không tự trả về score tổng, total_score, raw_score hoặc raw_score_max.
+                - Chất lượng không đồng đều phải được phản ánh trong từng tiêu chí thay vì ép về band tổng quát.
+
+                [ĐÁNH GIÁ NỘI DUNG / TASK ACHIEVEMENT]
+                - Kiểm tra trả lời đúng đề, bao phủ yêu cầu, phát triển ý bằng lý do/ví dụ/dữ kiện, tránh lạc đề, lặp đề, lan man và giữ đúng dạng bài.
+                - Bao phủ đầy đủ các yêu cầu / bullet của đề không.
+                - Có phát triển ý bằng lý do, giải thích, ví dụ hoặc dữ kiện phù hợp không.
+                - Có đi lạc đề, lặp đề, viết lan man, hoặc thiếu trọng tâm không.
+                - Có giữ đúng dạng bài của taskType không.
+
+                [ĐÁNH GIÁ VĂN PHONG / REGISTER]
+                -Bài có giữ văn phong viết phù hợp không.
+                -Có trộn văn nói và văn viết không.
+                -Có dùng 해요체, 반말, khẩu ngữ, hoặc biểu đạt quá thân mật trong bài nghị luận không.
+                -Có nhất quán đuôi câu không.
+                -Register/honorific/ending consistency được ghi nhận trong Ngữ Pháp hoặc Từ vựng findings, không tạo tiêu chí điểm riêng nếu allowed_rubric không có.
+
+                [ĐÁNH GIÁ MẠCH LẠC / TỔ CHỨC]
+                -Bố cục mở bài, thân bài, kết luận nếu task yêu cầu.
+                -Trình tự ý có logic không.
+                -Có dùng liên kết như 먼저, 또한, 그러나, 따라서, 예를 들어, 마지막으로 phù hợp không.
+                -Có chuyển ý đột ngột hoặc lặp ý không.
+                -Các câu có liên kết với nhau thành đoạn văn rõ ràng không.
 
                 """ + taskSpecificRules(taskType) + """
 
-                [ĐÁNH GIÁ TỪ VỰNG - LEXICAL CALIBRATION]
-                - Nếu bài chỉ dùng từ sơ cấp như 많다, 좋다, 생각해요, điểm ngôn ngữ tối đa khoảng 4.0.
-                - Bài từ 7.0 trở lên cần có từ Hán-Hàn hoặc cụm học thuật phù hợp: 소득을 창출하다, 인구 감소 현상이 심화되다, 상호 이해를 증진하다...
+                [ĐÁNH GIÁ TỪ VỰNG / BIỂU ĐẠT]
+                - Đánh giá từ đúng chủ đề, từ Hán-Hàn, collocation, tính tự nhiên, mức độ lặp và độ phù hợp văn viết.
+                - Ví dụ định hướng khi đúng ngữ cảnh: 영향을 미치다, 문제를 해결하다, 현상이 심화되다, 상호 이해를 높이다.
                 - Không thưởng điểm chỉ vì câu dài; câu phải tự nhiên, đúng, và phục vụ đề.
-
-                [SCORING BANDS]
-                9.0 Xuất sắc — Bài viết kiểm soát gần như tự nhiên, đầy đủ nhiệm vụ, văn phong TOPIK rõ và ít lỗi.
-                8.0 Rất tốt — Bài viết mạnh, ý rõ, từ vựng phong phú, chỉ còn lỗi nhỏ.
-                7.0 Tốt — Hoàn thành nhiệm vụ rõ, bố cục ổn, còn một số lỗi không phá vỡ ý.
-                6.0 Đạt — Trả lời được đề, nhưng phát triển ý, liên kết hoặc ngôn ngữ còn hạn chế.
-                5.0 Đang phát triển — Nội dung cơ bản, còn nhiều lỗi từ vựng/ngữ pháp và ý chưa sâu.
-                4.0 Hạn chế — Ý chưa rõ hoặc thiếu phát triển; lỗi ngôn ngữ xuất hiện thường xuyên.
-                3.0 Rất hạn chế — Chỉ truyền đạt được một phần nhỏ; lỗi nghiêm trọng ở nhiều tiêu chí.
-                2.0 Tối thiểu — Rất ít tiếng Hàn sử dụng được cho nhiệm vụ.
-                1.0 Không phản hồi — Không có câu trả lời có ý nghĩa, gõ bừa hoặc lạc đề.
 
                 [SPAM / OFF-TOPIC GUARDRAIL]
                 Nếu bài viết gõ bừa, chửi thề, không phải tiếng Hàn, lặp lại đề bài nhiều lần, hoặc lạc đề hoàn toàn:
-                - rubric_scores đều 1.0
+                - rubric_scores đều ở mức tối thiểu theo allowed_rubric
                 - summary bắt đầu chính xác bằng: [SPAM_DETECTED]
                 - không cố tạo điểm mạnh giả.
                 Các từ hợp lệ như TOPIK, AI, K-pop, 2026 được chấp nhận nếu đúng ngữ cảnh.
 
-                [FEW-SHOT CALIBRATION]
-                Bài mẫu khoảng 5.0:
-                "저는 한국 드라마 진짜 좋아해서 한국어 공부 시작해요. 친구들과 이야기 하고 싶어요. 앞으로 열심히 공부해요."
-                Lý do: đủ ý rất cơ bản nhưng nhiều khẩu ngữ, đuôi 해요, từ vựng sơ cấp, thiếu bố cục.
-
-                Bài mẫu khoảng 7.5:
-                "한국 문화에 대한 깊은 관심으로 한국어 학습을 시작하게 되었다. 초기에는 드라마 시청이 목적이었으나, 현재는 한국인들과의 자연스러운 담화 교류를 지향하고 있다. 향후 TOPIK 4급 취득을 위해 매일 작문 및 청해 연습을 부단히 수행할 계획이다."
-                Lý do: văn phong viết nhất quán, từ vựng trang trọng, ngữ pháp trung-cao cấp khá chính xác.
 
                 ========================================
                 PHẦN 2: PHÂN TÍCH CHI TIẾT (STRENGTHS & NEEDS)
@@ -120,6 +136,12 @@ public final class WritingPromptRules {
                 7. W_REGISTER_CONSISTENCY_ISSUES: trộn văn nói/văn viết, 해요체 trong bài nghị luận, từ khẩu ngữ.
                 8. W_SPELLING_SPACING_ERRORS: sai 맞춤법, 받침, dấu câu, 띄어쓰기.
 
+                [QUY TẮC NEEDS_IMPROVEMENT CORRECTION]
+                - correction phải sửa đúng lỗi được nêu, không viết lại quá xa ý gốc.
+                - Không bịa lỗi nếu câu của học viên chấp nhận được; không biến mọi cách diễn đạt đơn giản thành lỗi.
+                - Chỉ ghi lỗi khi ảnh hưởng chất lượng bài hoặc chưa phù hợp task.
+                - Gộp lỗi cùng loại lặp lại và luôn dựa trên evidence thật hoặc whole-answer issue hợp lý.
+
                 [BỘ LỌC KHẨU NGỮ ĐÃ PHÁT HIỆN BỞI JAVA]
                 Trường rule_violations là ngữ cảnh kỹ thuật, không tự quyết định điểm cuối.
                 Mỗi rule có severity và action:
@@ -138,18 +160,20 @@ public final class WritingPromptRules {
                 """ + taskDetailRules(taskType) + """
 
                 ========================================
-                PHẦN 3: BÀI NÂNG CẤP VÀ BÀI MẪU
+                PHẦN 3: BÀI NÂNG CẤP VÀ SENTENCE REWRITES
                 ========================================
 
-                Tạo bài viết nâng cấp, bài mẫu, và bảng so sánh từng câu từ bài làm của học sinh.
+                Tạo upgraded_answer và sentence_rewrites.
 
                 [NGUYÊN TẮC BẮT BUỘC]
                 - upgraded_answer phải dựa sát 100% ý tưởng, dữ liệu và lập luận gốc của học sinh.
-                - Chỉ sửa chính tả, cách chữ, tiểu từ, văn phong, từ vựng sơ cấp/khẩu ngữ, ngữ pháp lỗi.
-                - Không bịa dữ kiện mới. Không viết lại thành một bài hoàn toàn khác.
-                - sample_answer có thể là bài mẫu độc lập theo chuẩn TOPIK, nhưng phải phù hợp đề.
-                - upgraded_answer_annotated bọc các cụm tốt bằng tag criterionId strengths.
-                - sentence_rewrites chỉ liệt kê câu/cụm thật có thay đổi đáng kể: original, upgraded, reason bằng tiếng Việt.
+                - Chỉ sửa chính tả, cách chữ, tiểu từ, văn phong, từ vựng sơ cấp/khẩu ngữ, ngữ pháp lỗi và liên kết.
+                - Không bịa dữ kiện hoặc lập luận mới; không viết lại thành bài khác; giữ độ dài và trình độ gần bản gốc.
+                - upgraded_answer bằng tiếng Hàn.
+                - upgraded_answer_annotated chỉ annotate cải thiện thật với criterionId hợp lệ, không quá dày.
+                - sentence_rewrites chỉ liệt kê thay đổi đáng kể: original phải là chuỗi chính xác từ learner_answer,
+                  upgraded bằng tiếng Hàn, reason ngắn bằng tiếng Việt.
+                - Không tạo bài mẫu độc lập. Không tạo sample_answer.
 
                 """ + taskUpgradeRules(taskType) + """
 
@@ -161,12 +185,11 @@ public final class WritingPromptRules {
 
                 Trả về JSON nghiêm ngặt gồm đúng các trường sau (KHÔNG trả score, raw_score, raw_score_max — backend tự tính):
                 - summary (string): nhận xét tổng quan
-                - rubric_scores (array): đúng 3 phần tử, mỗi phần tử có name, score (1.0-9.0), feedback
+                - rubric_scores (array): đúng 3 phần tử, mỗi phần tử có criterionId, name, score, maxScore, feedback
                 - strengths (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
                 - needs_improvement (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
                 - upgraded_answer (string)
                 - upgraded_answer_annotated (string)
-                - sample_answer (string)
                 - sentence_rewrites (array): mỗi phần tử có original, upgraded, reason
 
                 rubric_scores phải dùng đúng 3 tên tiêu chí: """ + String.join(", ", rubricNamesForTask(taskType)) + """
@@ -292,4 +315,6 @@ public final class WritingPromptRules {
     private static boolean isClozeTask(String taskType) {
         return "Q51".equals(taskType) || "Q52".equals(taskType) || "Q51_52".equals(taskType);
     }
+
+    public record ScoringCriterion(String criterionId, String displayName, int maxScore, int order) {}
 }

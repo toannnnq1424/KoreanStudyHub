@@ -1182,6 +1182,9 @@ public class PracticeService {
             if (score <= 0.0) {
                 return BigDecimal.ZERO;
             }
+            if (score > 9.0) {
+                return BigDecimal.valueOf(Math.min(100.0, score));
+            }
             return WritingScoreMatrix.toHundredPointScale(score);
         } catch (Exception ex) {
             // Fallback: score band 1.0 = "Không phản hồi" → 11.11/100

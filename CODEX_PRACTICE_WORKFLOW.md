@@ -738,12 +738,26 @@ Evaluator strategy note:
 #### Phase 8E-CW — Writing Rubric Scale Consistency Follow-up
 
 Status:
-NOT_STARTED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Purpose:
 A narrow maintenance slice, audited before implementation, to remove remaining
 Writing 1–9 band, few-shot, and sample-answer scoring assumptions and enforce
 `allowed_rubric` `max_score` discipline. This does not reopen all of Phase 8C.
+
+Implementation note:
+
+- `WritingPromptRules` was restored from current HEAD before surgical cleanup,
+  preserving detailed evidence, finding, task-specific, upgrade, and output rules.
+- The provider prompt no longer uses 1-9 bands, lexical score caps, or few-shot
+  calibration and no longer requests an independent `sample_answer`.
+- Provider scoring uses `allowed_rubric.scoring_criteria` with stable
+  40/30/30 `max_score` values; backend computes percentage from rubric scores.
+- `needs_improvement` correction safeguards and upgraded-answer/rewrite rules
+  were strengthened.
+- Legacy 1-9/raw-score/sample-answer stored JSON remains readable.
+- Focused validation: 101 tests, 0 failures, 0 errors, 0 skips on JDK 17.
+- No Speaking files were modified.
 
 #### Phase 8E-D — Speaking AI Persistence and Result Rendering
 

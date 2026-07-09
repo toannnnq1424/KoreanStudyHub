@@ -408,8 +408,9 @@ public class WritingEvaluationClient {
         payload.put("audio_evidence_available", false);
         payload.put("is_re_evaluation", isReEvaluation);
         payload.put("audit_mode", isReEvaluation);
-        payload.put("allowed_rubric", allowedRubric(ruleAnalysis.taskType()));
-        payload.put("score_matrix", WritingScoreMatrix.bands());
+        payload.put("allowed_rubric", Map.of(
+                "scoring_criteria", scoringCriteria(ruleAnalysis.taskType()),
+                "finding_criteria", allowedRubric(ruleAnalysis.taskType())));
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (Exception ex) {
@@ -434,6 +435,16 @@ public class WritingEvaluationClient {
         return rows;
     }
 
+    static List<Map<String, Object>> scoringCriteria(String taskType) {
+        return WritingPromptRules.scoringCriteriaForTask(taskType).stream()
+                .map(row -> Map.<String, Object>of(
+                        "criterionId", row.criterionId(),
+                        "displayName", row.displayName(),
+                        "max_score", row.maxScore(),
+                        "order", row.order()))
+                .toList();
+    }
+
     // ---- Response format / schema ----
 
     private Map<String, Object> unifiedResponseFormat() {
@@ -443,17 +454,17 @@ public class WritingEvaluationClient {
     private Map<String, Object> unifiedSchema() {
         Map<String, Object> schema = baseObject(list(
                 "summary", "rubric_scores", "strengths", "needs_improvement",
-                "upgraded_answer", "upgraded_answer_annotated", "sample_answer", "sentence_rewrites"));
+                "upgraded_answer", "upgraded_answer_annotated", "sentence_rewrites"));
         schema.put("properties", prop(
                 "summary", typed("string"),
                 "rubric_scores", arrayOf(objectSchema(
-                        list("name", "score", "feedback"),
-                        prop("name", typed("string"), "score", typed("number"), "feedback", typed("string")))),
+                        list("criterionId", "name", "score", "maxScore", "feedback"),
+                        prop("criterionId", typed("string"), "name", typed("string"), "score", typed("number"),
+                                "maxScore", typed("number"), "feedback", typed("string")))),
                 "strengths", arrayOf(findingSchema()),
                 "needs_improvement", arrayOf(findingSchema()),
                 "upgraded_answer", typed("string"),
                 "upgraded_answer_annotated", typed("string"),
-                "sample_answer", typed("string"),
                 "sentence_rewrites", arrayOf(objectSchema(
                         list("original", "upgraded", "reason"),
                         prop("original", typed("string"), "upgraded", typed("string"), "reason", typed("string"))))));
