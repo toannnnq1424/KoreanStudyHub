@@ -528,16 +528,16 @@ Safe upload/delete response contract metadata added and pushed.
 #### Phase 8D-D — Range Playback and Browser Compatibility
 
 Status:
-IMPLEMENTED_AND_FOCUSED_TESTED
+COMMITTED
 
 Commit:
-N/A
+0680e04c7c0f41e35b69a7307d804ef6695fb3a2
 
 Parent:
 03f781a74f46cd312c6ffe804dc9278b1f1414e3
 
 Message:
-N/A
+feat(practice): add private audio range playback
 
 Meaning:
 Private local Speaking media playback now has focused-tested HTTP byte Range support for browser-compatible seeking.
@@ -575,13 +575,23 @@ and single-node staging only unless explicitly accepted for a small controlled d
 Object storage must be revisited after a provider and runtime access policy are selected.
 
 Top-level Phase 8D:
-COMMITTED
+CLOSED_WITH_ACCEPTED_DEBT
 
-Remaining Phase 8D closure work:
+Closure note:
+Phase 8D closed with accepted debt after the committed Speaking audio media flow,
+smoke/debt acceptance, and explicit production debt confirmation.
 
-- mobile/browser UAT.
-- user review and commit/push;
-- accepted single-node cleanup and local-storage deployment debt.
+Accepted debt:
+
+- `PRODUCTION_OBJECT_STORAGE_DEFERRED`; no production object-storage provider is selected.
+- Local private storage is limited to dev/test/single-node staging or an explicitly controlled deployment.
+- Cleanup supports the single-node MVP assumption; multi-node duplicate processing and version conflicts remain accepted.
+- Consent is session-only with no persisted or auditable consent record.
+- Browser/device and recorder lifecycle smoke items are `NOT_TESTED_ACCEPTED_DEBT`.
+- Full manual UAT remains deferred to Phase 15.
+- Production hardening, stronger cleanup claiming/locking, and media operations remain deferred to Phase 8F.
+- Practice-wide functional UI regression remains assigned to Phase 8G.
+- Closure does not approve live Speaking audio rollout.
 
 #### Phase 8E — Speaking AI Evaluation
 
@@ -861,14 +871,15 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | Phase 8D Speaking Audio and Media | IN_PROGRESS | STABILIZATION_REQUIRED | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | 8D-C and 8D-E focused-tested; 8D-F accepted debt recorded. | Implementation complete but top-level phase is not closed. | User review, then Phase 8D phase-gate stabilization. |
 | 2026-07-09 | Phase 8D Speaking Audio and Media | STABILIZATION_REQUIRED | STABILIZED_PENDING_COMMIT | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Focused stabilization rerun: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17. Fixed nested consent form markup, preserved local preview when playback gate is disabled, and stabilized async playback test dispatch. | Phase-gate source review and focused regression passed; live rollout remains NO-GO pending manual browser/device smoke and accepted debt confirmation. | User review, then commit/push only after explicit approval. |
 | 2026-07-09 | Consolidated Phase 8D Speaking Audio and Media | STABILIZED_PENDING_COMMIT | COMMITTED | this commit | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Phase-gate focused tests: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17; no full suite. | 8D-C and 8D-E committed; 8D-F remains CLOSED_WITH_ACCEPTED_DEBT / PRODUCTION_OBJECT_STORAGE_DEFERRED; top-level 8D is not closed. | Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review. |
+| 2026-07-09 | Phase 8D Speaking Audio and Media Closure | COMMITTED | CLOSED_WITH_ACCEPTED_DEBT | c30ce7505cf1b70074f1d97864c1cfa107c1b0ac | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Gates confirmed disabled by default; all remaining browser/device, recorder lifecycle, playback, reload, and text-fallback smoke items explicitly accepted as NOT_TESTED_ACCEPTED_DEBT. | Closed with explicit acceptance of object-storage, local-storage, cleanup topology, session-consent, Phase 15 UAT, and Phase 8F production-hardening debt. Live rollout remains NO-GO. | Phase 8E audit for Speaking AI Evaluation. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review.
+Phase 8E audit for Speaking AI Evaluation.
 
-Do not start 8E until the required 8D path is confirmed or explicitly deferred.
+Phase 8E remains NOT_STARTED until its audit begins.
 
 Do not start Phase 9 before Phase 8G.
 
