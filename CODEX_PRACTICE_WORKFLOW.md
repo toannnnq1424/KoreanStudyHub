@@ -165,6 +165,20 @@ For implementation and review of small slices:
 
 Focused tests must target only the slice or directly affected behavior.
 
+Focused test reruns are allowed during an active implementation or test-fix
+task when the previous focused run found a compile error, test failure, or
+test-fixture defect and the code or test was changed to address that evidence.
+
+Each rerun must:
+
+- keep the same narrow test scope, or reduce it further;
+- have a concrete fix made since the previous run;
+- avoid `clean`, the full suite, and unrelated modules;
+- stop when repeated failures no longer produce a concrete in-scope fix.
+
+Do not rerun an unchanged command against unchanged code merely to see whether
+an intermittent failure disappears.
+
 ### Full suite rule
 
 Full suite is only expected for:
@@ -193,12 +207,16 @@ permission in the current environment.
 
 Instead:
 
-1. Ask the user for permission before running Maven with the needed permission;
-   OR
+1. Ask the user for permission before the first Maven run when the current
+   prompt does not already grant the needed test permission; OR
 
-2. If the current prompt already grants test permission, run exactly one
-   focused Maven command with the required permission and report that it used
+2. If the current prompt already grants test permission, run the focused Maven
+   command with the required permission from the start and report that it used
    the known required test permission.
+
+3. If a focused run finds an actionable in-scope defect, fix that defect and
+   rerun the focused command with the same required permission. Do not insert a
+   non-elevated probe between elevated runs.
 
 When the prompt explicitly authorizes required test permission, Codex should use
 that permission at the start of the Maven command. It must not run a doomed
@@ -220,7 +238,8 @@ If Maven is required and prior evidence shows sandbox permission is needed:
 
 - do not run non-escalated first;
 - request or declare required permission before running;
-- run focused command once;
+- run only the focused command;
+- rerun it only after an evidence-based in-scope fix;
 - report exact reason.
 
 If permission is unavailable:
@@ -293,8 +312,9 @@ For Maven specifically:
 
 Do not run a known-to-fail non-escalated command first.
 
-If the current prompt already authorizes the test command, run the focused
-command once with the required permission from the start.
+If the current prompt already authorizes the test command, run every authorized
+focused test attempt with the required permission from the start. This includes
+evidence-based reruns after an in-scope compile or test fix.
 
 If the current prompt does not authorize tests, ask once, then run the focused
 command with the required permission if approved.
@@ -596,10 +616,33 @@ Accepted debt:
 #### Phase 8E — Speaking AI Evaluation
 
 Status:
-NOT_STARTED
+IN_PROGRESS
 
 Purpose:
 audio/transcript-based Speaking evaluation with fixed schema, internal score only.
+
+#### Phase 8E-A — Speaking AI Schema, Status & Normalizer Foundation
+
+Status:
+IMPLEMENTED_AND_FOCUSED_TESTED
+
+Meaning:
+Typed Speaking evaluation status/result/evidence/rubric contracts, 100-point
+internal scoring helpers, deterministic normalizer behavior, low-transcript-
+confidence safeguards, legacy mock compatibility, and existing Speaking view
+mapping foundation are implemented without provider or transcription calls.
+
+Focused test evidence:
+83 tests, 0 failures, 0 errors, 0 skips on JDK 17. The focused scope covered
+the new Speaking AI foundation tests and existing `PracticeServiceTest`.
+
+#### Phase 8E-B — Korean Transcription Integration Abstraction
+
+Status:
+NOT_STARTED
+
+Dependency:
+Official provider documentation verification and provider/base URL decision.
 
 #### Phase 8F — Calibration & Production Hardening
 
@@ -872,14 +915,16 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | Phase 8D Speaking Audio and Media | STABILIZATION_REQUIRED | STABILIZED_PENDING_COMMIT | N/A | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Focused stabilization rerun: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17. Fixed nested consent form markup, preserved local preview when playback gate is disabled, and stabilized async playback test dispatch. | Phase-gate source review and focused regression passed; live rollout remains NO-GO pending manual browser/device smoke and accepted debt confirmation. | User review, then commit/push only after explicit approval. |
 | 2026-07-09 | Consolidated Phase 8D Speaking Audio and Media | STABILIZED_PENDING_COMMIT | COMMITTED | this commit | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Phase-gate focused tests: 244 tests, 0 failures, 0 errors, 2 skips on JDK 17; no full suite. | 8D-C and 8D-E committed; 8D-F remains CLOSED_WITH_ACCEPTED_DEBT / PRODUCTION_OBJECT_STORAGE_DEFERRED; top-level 8D is not closed. | Manual browser/device smoke, accepted-debt confirmation, then Phase 8D closure review. |
 | 2026-07-09 | Phase 8D Speaking Audio and Media Closure | COMMITTED | CLOSED_WITH_ACCEPTED_DEBT | c30ce7505cf1b70074f1d97864c1cfa107c1b0ac | 9c978ce332fc60de2118d2e6bbdcd4243d89485c | Gates confirmed disabled by default; all remaining browser/device, recorder lifecycle, playback, reload, and text-fallback smoke items explicitly accepted as NOT_TESTED_ACCEPTED_DEBT. | Closed with explicit acceptance of object-storage, local-storage, cleanup topology, session-consent, Phase 15 UAT, and Phase 8F production-hardening debt. Live rollout remains NO-GO. | Phase 8E audit for Speaking AI Evaluation. |
+| 2026-07-09 | 8E-A Speaking AI Schema, Status & Normalizer Foundation | IMPLEMENTATION_IN_PROGRESS | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | a6c2504a684b2aa3d86b07d4ba9136b55c3c7c20 | Focused rerun: 83 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Foundation implemented with typed result/status/evidence/rubric contracts, 100-point scoring, low-confidence safeguards, legacy compatibility, and view mapping. | User review and commit, then provider docs verification / 8E-B audit. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Phase 8E audit for Speaking AI Evaluation.
+8E-A user review and commit, then official provider documentation verification
+and 8E-B audit.
 
-Phase 8E remains NOT_STARTED until its audit begins.
+Phase 8E is IN_PROGRESS. Phase 8E-B remains NOT_STARTED.
 
 Do not start Phase 9 before Phase 8G.
 
