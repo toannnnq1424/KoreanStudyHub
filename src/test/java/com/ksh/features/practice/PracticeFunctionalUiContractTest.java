@@ -1,5 +1,10 @@
 package com.ksh.features.practice;
 
+import com.ksh.features.practice.web.PracticeFormFields;
+import com.ksh.features.practice.web.PracticeMediaRoutes;
+import com.ksh.features.practice.web.PracticeModelAttributes;
+import com.ksh.features.practice.web.PracticeRoutes;
+import com.ksh.features.practice.web.PracticeViews;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -55,5 +60,26 @@ class PracticeFunctionalUiContractTest {
         assertThat(player).contains("ksh-question-block");
         assertThat(js).contains("querySelectorAll('.ksh-question-block')");
         assertThat(js).doesNotContain("querySelectorAll('.ksh-question-card')");
+    }
+
+    @Test
+    void practiceWebBoundaryConstantsCoverHighRiskContracts() {
+        assertThat(PracticeRoutes.BASE).isEqualTo("/practice");
+        assertThat(PracticeRoutes.redirectToSetDetail(11L)).isEqualTo("redirect:/practice/sets/11");
+        assertThat(PracticeRoutes.redirectToTestDetail(11L, 22L))
+                .isEqualTo("redirect:/practice/sets/11/tests/22");
+        assertThat(PracticeRoutes.redirectToAttempt(33L, "exam"))
+                .isEqualTo("redirect:/practice/attempts/33?mode=exam");
+        assertThat(PracticeRoutes.redirectToResultDetail(44L, 55L))
+                .isEqualTo("redirect:/practice/attempts/44/result/detail?questionId=55");
+
+        assertThat(PracticeViews.RESULT_DETAIL).isEqualTo("practice/result-detail");
+        assertThat(PracticeModelAttributes.SPEAKING_MEDIA_PLAYBACK_ENABLED)
+                .isEqualTo("speakingMediaPlaybackEnabled");
+        assertThat(PracticeFormFields.answerKey(66L)).isEqualTo("answer_66");
+        assertThat(PracticeFormFields.isAnswerField("answer_66")).isTrue();
+        assertThat(PracticeFormFields.questionIdFromAnswerField("answer_66")).isEqualTo("66");
+        assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
+                .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content");
     }
 }

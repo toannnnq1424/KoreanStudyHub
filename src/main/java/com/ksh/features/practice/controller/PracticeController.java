@@ -10,6 +10,10 @@ import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
+import com.ksh.features.practice.web.PracticeFormFields;
+import com.ksh.features.practice.web.PracticeModelAttributes;
+import com.ksh.features.practice.web.PracticeRoutes;
+import com.ksh.features.practice.web.PracticeViews;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.User;
 import com.ksh.entities.PracticeAttempt;
@@ -30,7 +34,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,7 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Controller
-@RequestMapping("/practice")
+@RequestMapping(PracticeRoutes.BASE)
 @PreAuthorize("isAuthenticated()")
 public class PracticeController {
 
@@ -74,71 +77,60 @@ public class PracticeController {
         this.speakingMediaPlaybackEnabled = speakingMediaPlaybackEnabled;
     }
 
-    public static final class Routes {
-        public static final String HOME = "/practice";
-        public static final String SET_DETAIL = "/sets/{setId}";
-        public static final String TEST_DETAIL = "/sets/{setId}/tests/{testId}";
-        public static final String TEST_MODE = "/sets/{setId}/tests/{testId}/mode";
-        public static final String ATTEMPT = "/attempts/{attemptId}";
-        public static final String RESULT = "/attempts/{attemptId}/result";
-        public static final String RESULT_DETAIL = "/attempts/{attemptId}/result/detail";
-        public static final String PROGRESS = "/progress";
-    }
-
-    @GetMapping({"", "/"})
+    @GetMapping({PracticeRoutes.HOME, PracticeRoutes.HOME_SLASH})
     public String index(Model model) {
-        model.addAttribute("sets", practiceService.listPublished());
-        return "practice/index";
+        model.addAttribute(PracticeModelAttributes.SETS, practiceService.listPublished());
+        return PracticeViews.INDEX;
     }
 
     // --- Legacy Redirects ---
-    @GetMapping("/{setId}")
+    @GetMapping(PracticeRoutes.LEGACY_SET)
     public String legacyDetail(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId;
+        return PracticeRoutes.redirectToSetDetail(setId);
     }
 
-    @GetMapping("/{setId}/detail")
+    @GetMapping(PracticeRoutes.LEGACY_SET_DETAIL)
     public String legacyDetailView(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId;
+        return PracticeRoutes.redirectToSetDetail(setId);
     }
 
-    @GetMapping("/{setId}/mode")
+    @GetMapping(PracticeRoutes.LEGACY_MODE)
     public String legacyMode(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId;
+        return PracticeRoutes.redirectToSetDetail(setId);
     }
 
-    @GetMapping("/{setId}/room")
+    @GetMapping(PracticeRoutes.LEGACY_ROOM)
     public String legacyPlayer(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId;
+        return PracticeRoutes.redirectToSetDetail(setId);
     }
 
-    @PostMapping("/{setId}/submit")
+    @PostMapping(PracticeRoutes.LEGACY_SUBMIT)
     public String legacySubmit(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId;
+        return PracticeRoutes.redirectToSetDetail(setId);
     }
 
-    @GetMapping("/submissions/{submissionId}")
+    @GetMapping(PracticeRoutes.LEGACY_SUBMISSION_RESULT)
     public String legacyResult(@PathVariable Long submissionId) {
-        return "redirect:/practice/attempts/" + submissionId + "/result";
+        return PracticeRoutes.redirectToResult(submissionId);
     }
 
-    @PostMapping("/submissions/{submissionId}/re-evaluate")
+    @PostMapping(PracticeRoutes.LEGACY_SUBMISSION_RE_EVALUATE)
     public String legacyReEvaluate(@PathVariable Long submissionId) {
-        return "redirect:/practice/attempts/" + submissionId + "/result";
+        return PracticeRoutes.redirectToResult(submissionId);
     }
 
     // --- New Flow Routing ---
-    @GetMapping(Routes.SET_DETAIL)
+    @GetMapping(PracticeRoutes.SET_DETAIL)
     public String setDetail(@PathVariable Long setId,
                             @AuthenticationPrincipal KshUserDetails user,
                             Model model) {
         PracticeSetView view = practiceService.getPractice(setId);
-        model.addAttribute("view", view);
-        model.addAttribute("submissions", practiceService.getSetAttemptHistory(setId, user.getId()));
-        return "practice/set-detail";
+        model.addAttribute(PracticeModelAttributes.VIEW, view);
+        model.addAttribute(PracticeModelAttributes.SUBMISSIONS, practiceService.getSetAttemptHistory(setId, user.getId()));
+        return PracticeViews.SET_DETAIL;
     }
 
-    @GetMapping(Routes.TEST_DETAIL)
+    @GetMapping(PracticeRoutes.TEST_DETAIL)
     public String testDetail(@PathVariable Long setId,
                              @PathVariable Long testId,
                              @AuthenticationPrincipal KshUserDetails user,
@@ -147,15 +139,15 @@ public class PracticeController {
         List<PracticeSection> testSections = practiceService.getSectionsForTest(setId, testId);
         Map<Long, PracticeAttempt> inProgressAttempts = practiceService.getInProgressAttemptsBySection(testId, user.getId());
 
-        model.addAttribute("view", view);
-        model.addAttribute("testId", testId);
-        model.addAttribute("sections", testSections);
-        model.addAttribute("inProgressAttempts", inProgressAttempts);
+        model.addAttribute(PracticeModelAttributes.VIEW, view);
+        model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
+        model.addAttribute(PracticeModelAttributes.SECTIONS, testSections);
+        model.addAttribute(PracticeModelAttributes.IN_PROGRESS_ATTEMPTS, inProgressAttempts);
 
-        return "practice/test-detail";
+        return PracticeViews.TEST_DETAIL;
     }
 
-    @PostMapping("/attempts/{attemptId}/discard")
+    @PostMapping(PracticeRoutes.ATTEMPT_DISCARD)
     public String discardAttempt(@PathVariable Long attemptId,
                                  @RequestParam("setId") Long setId,
                                  @RequestParam("testId") Long testId,
@@ -163,45 +155,45 @@ public class PracticeController {
                                  RedirectAttributes redirectAttributes) {
         attemptDiscardService.discardForOwner(attemptId, user.getId());
         redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
-        return "redirect:/practice/sets/" + setId + "/tests/" + testId;
+        return PracticeRoutes.redirectToTestDetail(setId, testId);
     }
 
-    @GetMapping(Routes.TEST_MODE)
+    @GetMapping(PracticeRoutes.TEST_MODE)
     public String testMode(@PathVariable Long setId,
                            @PathVariable Long testId,
                            Model model) {
         PracticeSetView view = practiceService.getPractice(setId);
-        model.addAttribute("view", view);
-        model.addAttribute("testId", testId);
-        model.addAttribute("sections", practiceService.getSectionsForTest(setId, testId));
-        return "practice/mode";
+        model.addAttribute(PracticeModelAttributes.VIEW, view);
+        model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
+        model.addAttribute(PracticeModelAttributes.SECTIONS, practiceService.getSectionsForTest(setId, testId));
+        return PracticeViews.MODE;
     }
 
-    @PostMapping("/sets/{setId}/tests/{testId}/attempts")
+    @PostMapping(PracticeRoutes.CREATE_ATTEMPT)
     public String createAttempt(@PathVariable Long setId,
                                 @PathVariable Long testId,
-                                @RequestParam("sectionId") Long sectionId,
-                                @RequestParam(value = "mode", defaultValue = "practice") String mode,
+                                @RequestParam(PracticeFormFields.SECTION_ID) Long sectionId,
+                                @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                                 @AuthenticationPrincipal KshUserDetails user) {
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
-        return "redirect:/practice/attempts/" + attemptId + "?mode=" + mode;
+        return PracticeRoutes.redirectToAttempt(attemptId, mode);
     }
 
-    @GetMapping("/sets/{setId}/tests/{testId}/attempts")
+    @GetMapping(PracticeRoutes.CREATE_ATTEMPT)
     public String attemptsGetFallback(@PathVariable Long setId,
                                       @PathVariable Long testId) {
-        return "redirect:/practice/sets/" + setId + "/tests/" + testId;
+        return PracticeRoutes.redirectToTestDetail(setId, testId);
     }
 
-    @GetMapping(Routes.ATTEMPT)
+    @GetMapping(PracticeRoutes.ATTEMPT)
     public String attempt(@PathVariable Long attemptId,
-                          @RequestParam(value = "mode", defaultValue = "practice") String mode,
+                          @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                           @AuthenticationPrincipal KshUserDetails user,
                           Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
             log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, attempt.getStatus());
-            return "redirect:/practice/attempts/" + attemptId + "/result";
+            return PracticeRoutes.redirectToResult(attemptId);
         }
         
         PracticeSection section = practiceService.getSection(attempt.getSectionId());
@@ -218,23 +210,23 @@ public class PracticeController {
         com.ksh.features.practice.dto.PracticeDtos.PracticeSetView filteredView = 
                 new com.ksh.features.practice.dto.PracticeDtos.PracticeSetView(view.set(), filteredGroups);
 
-        model.addAttribute("view", filteredView);
-        model.addAttribute("mode", mode);
-        model.addAttribute("attemptId", attemptId);
+        model.addAttribute(PracticeModelAttributes.VIEW, filteredView);
+        model.addAttribute(PracticeModelAttributes.MODE, mode);
+        model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
         
-        model.addAttribute("activeSectionTitle", section.getTitle());
-        model.addAttribute("activeSectionSkill", section.getSkill());
-        model.addAttribute("activeSectionDuration", section.getDurationMinutes() != null ? section.getDurationMinutes() * 60 : 2400);
-        model.addAttribute("sectionIndex", 0);
-        model.addAttribute("totalSections", 1);
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, section.getTitle());
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_SKILL, section.getSkill());
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_DURATION, section.getDurationMinutes() != null ? section.getDurationMinutes() * 60 : 2400);
+        model.addAttribute(PracticeModelAttributes.SECTION_INDEX, 0);
+        model.addAttribute(PracticeModelAttributes.TOTAL_SECTIONS, 1);
         addSpeakingMediaModel(model, user.getId(), attempt, true);
 
-        return "practice/player";
+        return PracticeViews.PLAYER;
     }
 
-    @PostMapping("/attempts/{attemptId}/submit")
+    @PostMapping(PracticeRoutes.ATTEMPT_SUBMIT)
     public String submitAttempt(@PathVariable Long attemptId,
-                                @RequestParam(value = "mode", defaultValue = "practice") String mode,
+                                @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                                 @RequestParam Map<String, String> form,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 RedirectAttributes redirectAttributes) {
@@ -245,10 +237,10 @@ public class PracticeController {
         }
         practiceService.submitAttempt(attemptId, user.getId(), form);
         redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
-        return "redirect:/practice/attempts/" + attemptId + "/result";
+        return PracticeRoutes.redirectToResult(attemptId);
     }
 
-    @GetMapping(Routes.RESULT)
+    @GetMapping(PracticeRoutes.RESULT)
     public String attemptResult(@PathVariable Long attemptId,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 Model model) {
@@ -259,14 +251,14 @@ public class PracticeController {
         if ("READING".equals(skill) || "LISTENING".equals(skill)) {
             com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
                     practiceService.getReadingListeningResult(attemptId, user.getId());
-            model.addAttribute("result", rlResult);
-            model.addAttribute("attemptId", attemptId);
+            model.addAttribute(PracticeModelAttributes.RESULT, rlResult);
+            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
             addSpeakingMediaModel(model, user.getId(), attempt, false);
-            return "practice/rl-result";
+            return PracticeViews.READING_LISTENING_RESULT;
         } else {
             PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-            model.addAttribute("result", standardResult);
-            model.addAttribute("attemptId", attemptId);
+            model.addAttribute(PracticeModelAttributes.RESULT, standardResult);
+            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
             addSpeakingMediaModel(model, user.getId(), attempt, false);
             try {
                 String questionsJson = "SPEAKING".equals(skill)
@@ -274,15 +266,15 @@ public class PracticeController {
                                 ? standardResult.answerReviews()
                                 : standardResult.speakingQuestionFeedbacks())
                         : objectMapper.writeValueAsString(standardResult.questionFeedbacks());
-                model.addAttribute("questionsJson", questionsJson);
+                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, questionsJson);
             } catch (Exception e) {
-                model.addAttribute("questionsJson", "[]");
+                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, "[]");
             }
-            return "practice/result";
+            return PracticeViews.RESULT;
         }
     }
 
-    @GetMapping(Routes.RESULT_DETAIL)
+    @GetMapping(PracticeRoutes.RESULT_DETAIL)
     public String attemptResultDetail(@PathVariable Long attemptId,
                                       @RequestParam(value = "questionId", required = false) Long questionId,
                                       @AuthenticationPrincipal KshUserDetails user,
@@ -294,22 +286,22 @@ public class PracticeController {
         if ("READING".equals(skill) || "LISTENING".equals(skill)) {
             com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
                     practiceService.getReadingListeningResult(attemptId, user.getId());
-            model.addAttribute("result", rlResult);
-            model.addAttribute("attemptId", attemptId);
+            model.addAttribute(PracticeModelAttributes.RESULT, rlResult);
+            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
             try {
                 String groupsJson = objectMapper.writeValueAsString(rlResult.groups());
-                model.addAttribute("groupsJson", groupsJson);
+                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, groupsJson);
             } catch (Exception e) {
-                model.addAttribute("groupsJson", "[]");
+                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, "[]");
             }
-            return "practice/rl-result-detail";
+            return PracticeViews.READING_LISTENING_RESULT_DETAIL;
         } else {
             PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-            model.addAttribute("result", standardResult);
-            model.addAttribute("attemptId", attemptId);
+            model.addAttribute(PracticeModelAttributes.RESULT, standardResult);
+            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
             addSpeakingMediaModel(model, user.getId(), attempt, false);
             Long activeQuestionId = activeWritingQuestionId(skill, standardResult, questionId);
-            model.addAttribute("activeQuestionId", activeQuestionId);
+            model.addAttribute(PracticeModelAttributes.ACTIVE_QUESTION_ID, activeQuestionId);
             try {
                 String questionsJson = "WRITING".equals(skill)
                         ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
@@ -327,15 +319,15 @@ public class PracticeController {
                                     return m;
                                 }).toList()
                         );
-                model.addAttribute("questionsJson", questionsJson);
+                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, questionsJson);
             } catch (Exception e) {
-                model.addAttribute("questionsJson", "[]");
+                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, "[]");
             }
-            return "practice/result-detail";
+            return PracticeViews.RESULT_DETAIL;
         }
     }
 
-    @PostMapping("/attempts/{attemptId}/re-evaluate")
+    @PostMapping(PracticeRoutes.ATTEMPT_RE_EVALUATE)
     public String reEvaluateAttempt(@PathVariable Long attemptId,
                                     @RequestParam(value = "questionId", required = false) Long questionId,
                                     @AuthenticationPrincipal KshUserDetails user,
@@ -343,7 +335,7 @@ public class PracticeController {
         if (questionId == null) {
             Long refreshedSubmissionId = practiceService.reEvaluate(attemptId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Đã chấm lại bài viết bằng Audit Mode.");
-            return "redirect:/practice/attempts/" + refreshedSubmissionId + "/result";
+            return PracticeRoutes.redirectToResult(refreshedSubmissionId);
         }
 
         try {
@@ -357,12 +349,7 @@ public class PracticeController {
     }
 
     private String redirectToResultDetail(Long attemptId, Long questionId) {
-        String path = UriComponentsBuilder
-                .fromPath("/practice/attempts/{attemptId}/result/detail")
-                .queryParam("questionId", questionId)
-                .buildAndExpand(attemptId)
-                .toUriString();
-        return "redirect:" + path;
+        return PracticeRoutes.redirectToResultDetail(attemptId, questionId);
     }
 
     private void addSpeakingMediaModel(
@@ -371,13 +358,13 @@ public class PracticeController {
         var media = speaking
                 ? speakingMediaService.findReadyMediaViewsForOwner(userId, attempt.getId())
                 : List.<com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView>of();
-        model.addAttribute("speakingMedia", media);
-        model.addAttribute("speakingMediaByQuestionId", media.stream().collect(Collectors.toMap(
+        model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA, media);
+        model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_BY_QUESTION_ID, media.stream().collect(Collectors.toMap(
                 com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView::questionId,
                 Function.identity())));
-        model.addAttribute("speakingMediaPlaybackEnabled", speakingMediaPlaybackEnabled);
+        model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_PLAYBACK_ENABLED, speakingMediaPlaybackEnabled);
         if (includeUploadGate) {
-            model.addAttribute("speakingMediaUploadEnabled", speakingMediaUploadEnabled);
+            model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED, speakingMediaUploadEnabled);
         }
     }
 
@@ -401,12 +388,12 @@ public class PracticeController {
         return "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại.";
     }
 
-    @GetMapping("/profile")
+    @GetMapping(PracticeRoutes.PROFILE)
     public String profileRedirect() {
-        return "redirect:/practice/progress";
+        return PracticeRoutes.redirectToProgress();
     }
 
-    @GetMapping(Routes.PROGRESS)
+    @GetMapping(PracticeRoutes.PROGRESS)
     public String progress(@AuthenticationPrincipal KshUserDetails user,
                            @RequestParam(value = "tab", defaultValue = "overview") String tab,
                            Model model) {
@@ -420,28 +407,28 @@ public class PracticeController {
         com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics analytics =
                 practiceService.getPracticeAnalytics(user.getId());
 
-        model.addAttribute("tab", tab);
-        model.addAttribute("overview", overview);
-        model.addAttribute("analytics", analytics);
+        model.addAttribute(PracticeModelAttributes.TAB, tab);
+        model.addAttribute(PracticeModelAttributes.OVERVIEW, overview);
+        model.addAttribute(PracticeModelAttributes.ANALYTICS, analytics);
 
         try {
-            model.addAttribute("overviewJson", objectMapper.writeValueAsString(overview));
-            model.addAttribute("analyticsJson", objectMapper.writeValueAsString(analytics));
+            model.addAttribute(PracticeModelAttributes.OVERVIEW_JSON, objectMapper.writeValueAsString(overview));
+            model.addAttribute(PracticeModelAttributes.ANALYTICS_JSON, objectMapper.writeValueAsString(analytics));
         } catch (Exception e) {
-            model.addAttribute("overviewJson", "{}");
-            model.addAttribute("analyticsJson", "{}");
+            model.addAttribute(PracticeModelAttributes.OVERVIEW_JSON, "{}");
+            model.addAttribute(PracticeModelAttributes.ANALYTICS_JSON, "{}");
         }
 
-        return "practice/progress";
+        return PracticeViews.PROGRESS;
     }
 
-    @GetMapping("/manage/upload")
+    @GetMapping(PracticeRoutes.MANAGE_UPLOAD)
     @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
     public String uploadFormRedirect() {
         return "redirect:/practice/manage/import";
     }
 
-    @GetMapping("/manage/manual")
+    @GetMapping(PracticeRoutes.MANAGE_MANUAL)
     @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
     public String manualFormRedirect() {
         return "redirect:/practice/manage/create";

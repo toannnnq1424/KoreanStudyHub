@@ -6,6 +6,8 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
+import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSubmissionRepository;
@@ -48,7 +50,6 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -63,7 +64,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -139,10 +139,10 @@ class PracticeIntegrationTest {
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private com.ksh.features.practice.ai.WritingEvaluationClient writingEvaluationClient;
+    private WritingEvaluationClient writingEvaluationClient;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private com.ksh.features.practice.ai.ReadingListeningExplanationClient readingListeningExplanationClient;
+    private ReadingListeningExplanationClient readingListeningExplanationClient;
 
     private User student;
     private User lecturer;

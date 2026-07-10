@@ -11,17 +11,16 @@ import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ExampleBox;
-import com.ksh.features.practice.ai.WritingEvaluationClient;
-import com.ksh.features.practice.ai.WritingEvaluationResult;
-import com.ksh.features.practice.ai.WritingFeedbackCompatibilityReader;
-import com.ksh.features.practice.ai.WritingFeedbackViewMapper;
-import com.ksh.features.practice.ai.WritingScoreMatrix;
-import com.ksh.features.practice.ai.WritingScoringPolicy;
+import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
+import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
+import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
+import com.ksh.features.practice.ai.writing.WritingScoreMatrix;
+import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackViewMapper;
-import com.ksh.features.practice.dto.PracticeDtos.LearningProfileView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerReviewRow;
@@ -35,7 +34,6 @@ import com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PerformanceByTypeRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReviewGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReviewQuestionRow;
-import com.ksh.features.practice.dto.PracticeDtos.QuestionExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.EliminatedOptionExplanation;
 import com.ksh.features.practice.dto.PracticeDtos.SectionResultRow;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingFeedbackView;
@@ -55,7 +53,6 @@ import com.ksh.entities.PracticeSection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.persistence.EntityNotFoundException;
-import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -1740,13 +1737,10 @@ public class PracticeService {
         }
 
         // Process only form fields that belong to sectionQuestions
-        for (PracticeQuestion q : sectionQuestions) {
-            String key = "answer_" + q.getId();
-            if (form.containsKey(key)) {
-                String answer = form.get(key).trim();
-                answers.put(String.valueOf(q.getId()), answer);
-            }
-        }
+        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
+                answers,
+                form,
+                sectionQuestions.stream().map(PracticeQuestion::getId).toList());
 
         if ("WRITING".equals(skill)) {
             throw new IllegalStateException("Writing attempt must use snapshot grading path.");
@@ -1813,12 +1807,7 @@ public class PracticeService {
         }
 
         // Merge new answers
-        for (Map.Entry<String, String> entry : form.entrySet()) {
-            if (entry.getKey().startsWith("answer_")) {
-                String qId = entry.getKey().substring(7);
-                currentAnswers.put(qId, entry.getValue().trim());
-            }
-        }
+        PracticeAnswerFormMapper.mergeAllAnswerFields(currentAnswers, form);
 
         attempt.setAnswersJson(writeJson(currentAnswers));
         attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
@@ -2156,12 +2145,10 @@ public class PracticeService {
                         exceptionCategory(e));
             }
         }
-        for (QuestionSnapshot q : questions) {
-            String key = "answer_" + q.questionId();
-            if (form.containsKey(key)) {
-                answers.put(String.valueOf(q.questionId()), form.get(key).trim());
-            }
-        }
+        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
+                answers,
+                form,
+                questions.stream().map(QuestionSnapshot::questionId).toList());
 
         return new WritingGradingSnapshot(
                 attempt.getId(),
@@ -2285,12 +2272,10 @@ public class PracticeService {
                         exceptionCategory(e));
             }
         }
-        for (QuestionSnapshot q : questions) {
-            String key = "answer_" + q.questionId();
-            if (form.containsKey(key)) {
-                answers.put(String.valueOf(q.questionId()), form.get(key).trim());
-            }
-        }
+        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
+                answers,
+                form,
+                questions.stream().map(QuestionSnapshot::questionId).toList());
 
         return new NonWritingEssayGradingSnapshot(
                 attempt.getId(),
@@ -2385,12 +2370,10 @@ public class PracticeService {
                         exceptionCategory(e));
             }
         }
-        for (QuestionSnapshot q : questions) {
-            String key = "answer_" + q.questionId();
-            if (form.containsKey(key)) {
-                answers.put(String.valueOf(q.questionId()), form.get(key).trim());
-            }
-        }
+        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
+                answers,
+                form,
+                questions.stream().map(QuestionSnapshot::questionId).toList());
 
         return new SpeakingGradingSnapshot(
                 attempt.getId(),

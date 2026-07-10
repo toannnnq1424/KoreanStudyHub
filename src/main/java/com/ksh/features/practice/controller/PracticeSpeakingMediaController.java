@@ -3,6 +3,8 @@ package com.ksh.features.practice.controller;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaDeleteResponse;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaUploadResponse;
 import com.ksh.features.practice.service.SpeakingAudioUploadService;
+import com.ksh.features.practice.web.PracticeMediaRoutes;
+import com.ksh.features.practice.web.PracticeRoutes;
 import com.ksh.security.AuthenticatedUserIdResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.CacheControl;
@@ -25,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@RequestMapping("/practice")
+@RequestMapping(PracticeRoutes.BASE)
 @PreAuthorize("isAuthenticated()")
 @ConditionalOnProperty(
         prefix = "app.practice.speaking-media",
@@ -49,7 +51,7 @@ public class PracticeSpeakingMediaController {
     }
 
     @PostMapping(
-            path = "/attempts/{attemptId}/questions/{questionId}/speaking-media",
+            path = PracticeMediaRoutes.SPEAKING_MEDIA,
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -82,7 +84,7 @@ public class PracticeSpeakingMediaController {
     }
 
     @DeleteMapping(
-            path = "/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}",
+            path = PracticeMediaRoutes.SPEAKING_MEDIA_ITEM,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<SpeakingMediaDeleteResponse> delete(
@@ -122,7 +124,7 @@ public class PracticeSpeakingMediaController {
                 result.byteSize(),
                 result.durationMs(),
                 result.mimeType(),
-                playbackPath(result.attemptId(), result.questionId(), result.mediaId()),
+                PracticeMediaRoutes.playbackPath(result.attemptId(), result.questionId(), result.mediaId()),
                 result.lockVersion());
     }
 
@@ -137,10 +139,4 @@ public class PracticeSpeakingMediaController {
                 result.pendingCleanup());
     }
 
-    private static String playbackPath(Long attemptId, Long questionId, Long mediaId) {
-        return "/practice/attempts/" + attemptId
-                + "/questions/" + questionId
-                + "/speaking-media/" + mediaId
-                + "/content";
-    }
 }

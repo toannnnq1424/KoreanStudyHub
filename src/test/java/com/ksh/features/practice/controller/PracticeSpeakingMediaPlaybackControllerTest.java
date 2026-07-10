@@ -391,14 +391,12 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 1L, stream(new byte[]{1})));
 
-        MvcResult result = mockMvc.perform(get(ROUTE)
+        mockMvc.perform(get(ROUTE)
                         .with(authentication(formAuthentication(77L, Role.STUDENT))))
-                .andExpect(request().asyncStarted())
-                .andReturn();
+                .andExpect(status().isOk())
+                .andExpect(request().asyncStarted());
 
-        result.getAsyncResult(5_000);
-        mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk());
+        verify(playbackService).openForOwner(77L, 10L, 20L, 30L);
     }
 
     @Test

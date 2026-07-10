@@ -1022,7 +1022,7 @@ Accepted debt:
 #### Phase 8G — Practice-Wide Functional UI / Integration Regression
 
 Status:
-CLOSED_WITH_ACCEPTED_DEBT (pending docs commit)
+CLOSED_WITH_ACCEPTED_DEBT
 
 Must happen before Phase 9 unless explicitly accepted/deferred by user
 decision.
@@ -1045,7 +1045,7 @@ Implemented slices:
   contract tests.
 - 8G-E implementation validation:
   focused phase-gate review passed and Phase 8G is closed with accepted debt,
-  pending a docs-only commit.
+  with closure documentation committed.
 
 Focused evidence:
 
@@ -1076,7 +1076,7 @@ Accepted debt:
 #### Phase 8H — Practice Architecture, Security Boundary & Maintainability
 
 Status:
-PLANNED
+IMPLEMENTED_AND_FOCUSED_TESTED (pending review/commit)
 
 Scope:
 
@@ -1105,6 +1105,49 @@ Scope:
 - Narrow refactor stabilization only: no big-bang cleanup; audit first;
   focused tests only; no Phase 9 until Phase 8H is accepted or explicitly
   deferred.
+
+Implemented slices:
+
+- 8H-A constants and route/view/model/form boundary:
+  introduced narrow practice web constants for learner route paths, template
+  names, model attributes, form answer fields, and private Speaking media
+  route builders. Practice controllers and submit/save answer handling now use
+  these focused constants without adding a broad catch-all constants class.
+- 8H-B security and private media boundary stabilization:
+  preserved current owner-protected private Speaking playback boundary,
+  confirmed private learner media remains separate from public `/uploads/**`,
+  and added tests to guard against storage key/path/provider diagnostic leaks.
+  Playback role policy remains accepted debt for final 8H review because the
+  product still needs to decide whether reviewer roles should access learner
+  recordings.
+- 8H-C narrow PracticeService maintainability extraction:
+  extracted `PracticeAnswerFormMapper` for the player form answer-field
+  contract, reducing duplicated `answer_` parsing in submit/save paths without
+  moving grading, transactions, or Phase 9-sensitive attempt logic.
+- 8H-D AI/result mapper boundary cleanup:
+  added result/template boundary checks so result pages and fragments do not
+  render provider raw body, API key, prompt body, storage key/path, or local
+  private file path fields. No prompt, provider, scoring, schema, or AI gate
+  behavior was changed.
+- 8H-E focused implementation validation:
+  focused tests passed; top-level 8H is not closed yet and still requires user
+  review plus commit/push, then a phase-gate closure review.
+
+Focused evidence:
+
+`mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`
+
+Result: 68 tests, 0 failures, 0 errors, 2 skips, BUILD SUCCESS.
+
+Notes:
+
+- No full suite was run.
+- No real AI/provider API call was made.
+- No stage, commit, or push was performed.
+- Phase 8H remains pending review/commit and is not closed.
+- Phase 9 remains blocked until Phase 8H is closed, accepted, or explicitly
+  deferred.
+- Live Speaking AI rollout remains NO-GO.
 
 ### Phase 9 — Immutable Published Practice Versions
 
@@ -1138,6 +1181,61 @@ NOT_STARTED
 Important:
 Phase 13 is for visual polish and richer UX.
 Functional breakage belongs to Phase 8G.
+
+Future UI/UX and import roadmap notes:
+
+These notes preserve user feedback for later planning only. They are not part
+of the current Phase 8H implementation, they are not a full UI/UX spec, and
+they must not start Phase 9, Phase 10, Phase 11, Phase 13, or Phase 15.
+
+- Mojibake / Unicode / UTF-8:
+  fix Vietnamese/Korean UI text corruption such as `Cáº¥p`, `Äá»c`, and
+  similar ASCII/encoding artifacts. Templates, database seed/import text,
+  resource bundles, and rendered pages must consistently use UTF-8. Add UI/UAT
+  checks so mojibake does not reappear.
+- Icons:
+  avoid emoji-style product UI icons such as `🚀`. Prefer Lucide icons or
+  consistent SVG icon components for a professional KSH interface.
+- PREP-like references:
+  screenshots from PREP-style products are inspiration only, not copy targets.
+  KSH should preserve its Vietnamese/Korean learner context and product style.
+- Future UI areas:
+  learning profile, practice library cards, test set detail, skill list,
+  result/progress/retake/detail navigation, and mobile/responsive polish.
+- Large catalog performance:
+  do not load thousands of practice sets/tests/cards at once. For catalogs such
+  as 6000 tests, use server-side pagination, filtering/search, lazy loading,
+  infinite scroll, or virtualization. Initial page load should fetch a bounded
+  number of items. This belongs mainly to Phase 13 UI/UX and may require
+  backend pagination/filter support if not already present.
+- Set/test/skill composition:
+  a practice set may contain multiple tests, and a practice test may contain
+  multiple skills/sections. Product flows should support both full-test
+  practice and skill-specific practice, similar to PREP-style skill selection.
+  Do not assume one set = one test. Do not assume one test = one skill.
+- Validation routing:
+  - Phase 9 immutable versions:
+    snapshot the set/test/section/question/skill structure so old attempts
+    remain stable.
+  - Phase 10 academic program/certification configuration:
+    define allowed skills, sections, timers, question types, and full-test vs
+    skill-specific practice modes.
+  - Phase 11 lecturer authoring/import:
+    validate imported content structure. A set must contain one or more tests,
+    a test must contain one or more sections/skills, sections must map to
+    supported skills, skill-specific practice must be possible where
+    configured, and invalid import structures must be rejected with clear
+    errors.
+  - Phase 13 UI/UX:
+    expose the set/test/skill selection UX and large-catalog browsing UX.
+  - Phase 15 UAT:
+    manually validate large catalogs, encoding, icons, and multi-test /
+    multi-skill flows.
+- Current phase guard:
+  do not implement this UI/UX or import work during Phase 8H. Do not start
+  Phase 9 until Phase 8H is closed, accepted, or explicitly deferred. React
+  modernization remains future-only after Phase 16. Live Speaking AI rollout
+  remains NO-GO.
 
 ### Phase 14 — Report an Error & Content Review Workflow
 
@@ -1373,17 +1471,19 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 8F AI Production Readiness Gate | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | 9ecd9924a4ca4c83044ec7f81fc7c09a1cd5ea04 | Focused command: `mvn "-Dtest=SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeAiMetricsTest" test`; 31 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8F gate review passed. Provider gates remain disabled by default; bounded metrics/runbook, calibration fixture framework, storage production-readiness policy, and rollout checklist are accepted with debt. Live Speaking AI remains NO-GO. | Commit/push 8F closure docs, then Phase 8G audit only after user approval. |
 | 2026-07-10 | Phase 8G Practice-Wide Functional UI / Integration Regression | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 7dc79f1ccafa0c19f3d9474ef86c4ebc96cf4f42 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Implemented route/data binding, legacy mode/room redirects to canonical set detail without default-test assumptions, mode sectionId, player JS selector alignment, Writing/Speaking and Reading/Listening result navigation, and Spring DI constructor selection needed for focused app-context tests. | User review, then commit/push only after explicit approval; after commit, run Phase 8G phase-gate closure review before starting 8H. |
 | 2026-07-10 | Phase 8G Practice Functional Flow Gate | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | e737b282981b84eeefb759490d3d6ca524dae08c | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Phase 8G gate review passed. Route/data binding, sectionId mode flow, legacy route correction, player/template JS contract, and result navigation are accepted with debt. Live Speaking AI remains NO-GO. | Commit/push 8G closure docs, then Phase 8H audit only after user approval. |
+| 2026-07-10 | Phase 8H Practice Architecture, Security Boundary & Maintainability | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 59706a879db88291859777286f9208635e914d26 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`; 68 tests, 0 failures, 0 errors, 2 skips; no full suite and no real provider calls. | Implemented narrow route/view/model/form/media constants, private Speaking media boundary tests, `PracticeAnswerFormMapper` extraction, safe result/provider/private-storage no-leak checks, and stabilized one async playback CSRF test to avoid streaming-body dispatch flake. Phase 8H is not closed. | User review, then commit/push only after explicit approval; after commit, run Phase 8H phase-gate closure review before Phase 9. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push Phase 8G closure documentation after user approval, then run Phase
-8H audit only after explicit user approval.
+User review for Phase 8H implementation, then commit/push only after explicit
+approval. After commit, run Phase 8H phase-gate closure review before Phase 9.
 
 Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
 are COMMITTED. Phase 8F is CLOSED_WITH_ACCEPTED_DEBT. Phase 8G is
-CLOSED_WITH_ACCEPTED_DEBT pending docs commit. Phase 8H remains PLANNED.
+CLOSED_WITH_ACCEPTED_DEBT. Phase 8H is IMPLEMENTED_AND_FOCUSED_TESTED pending
+review/commit.
 
 Do not start Phase 9 before Phase 8H is closed, accepted, or explicitly
 deferred.

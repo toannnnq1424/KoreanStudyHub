@@ -1,6 +1,8 @@
 package com.ksh.features.practice.controller;
 
 import com.ksh.features.practice.service.PracticeSpeakingMediaPlaybackService;
+import com.ksh.features.practice.web.PracticeMediaRoutes;
+import com.ksh.features.practice.web.PracticeRoutes;
 import com.ksh.security.AuthenticatedUserIdResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.CacheControl;
@@ -24,7 +26,7 @@ import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@RequestMapping("/practice")
+@RequestMapping(PracticeRoutes.BASE)
 @PreAuthorize("hasRole('STUDENT')")
 @ConditionalOnProperty(
         prefix = "app.practice.speaking-media",
@@ -49,7 +51,7 @@ public class PracticeSpeakingMediaPlaybackController {
         this.userIdResolver = userIdResolver;
     }
 
-    @GetMapping("/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}/content")
+    @GetMapping(PracticeMediaRoutes.SPEAKING_MEDIA_CONTENT)
     public ResponseEntity<StreamingResponseBody> content(@PathVariable Long attemptId,
                                                          @PathVariable Long questionId,
                                                          @PathVariable Long mediaId,

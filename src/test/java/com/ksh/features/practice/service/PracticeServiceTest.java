@@ -11,7 +11,7 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.WritingTaskType;
-import com.ksh.features.practice.ai.WritingEvaluationClient;
+import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
