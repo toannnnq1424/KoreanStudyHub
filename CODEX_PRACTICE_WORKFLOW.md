@@ -1441,6 +1441,122 @@ closure, without starting Phase 10 or changing the product UI.
 Status:
 NOT_STARTED
 
+Purpose:
+assessment/program policy foundation for multiple Korean certification
+programs and custom teacher practice modes. Phase 10 is backend/model/policy
+foundation, not UI/UX, not lecturer import implementation, and not visual
+redesign.
+
+Locked Phase 10 decisions:
+
+- Canonical MVP question types:
+  - `SINGLE_CHOICE`
+  - `MULTIPLE_CHOICE`
+  - `TRUE_FALSE_NOT_GIVEN`
+  - `FILL_BLANK`
+  - `MATCHING`
+  - `ESSAY`
+  - `SPEAKING`
+- Deferred question types:
+  - `ORDERING`
+  - `TEXT_COMPLETION`
+  - `DRAG_DROP`
+  - `LONG_FORM_PROJECT`
+  - `PAIR_SPEAKING`
+  - `FILE_UPLOAD_ANSWER`
+- Legacy `MCQ`:
+  - keep existing `MCQ` rows/code readable as a backward-compatible alias only;
+  - map `MCQ -> SINGLE_CHOICE` in a policy/resolver layer;
+  - do not keep `MCQ` as separate product behavior;
+  - new content should use canonical `SINGLE_CHOICE` where supported;
+  - tests must prove `MCQ` and `SINGLE_CHOICE` score equivalently.
+- Scoring decisions:
+  - `SINGLE_CHOICE`: exactly one correct option.
+  - `TRUE_FALSE_NOT_GIVEN`: canonical type; scores like single-choice with
+    `TRUE`, `FALSE`, and `NOT_GIVEN` values.
+  - `MULTIPLE_CHOICE`: default `ALL_OR_NOTHING`; backend may also support
+    `PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO`.
+  - `FILL_BLANK`: accepted answers plus teacher-defined aliases using
+    normalized exact matching. Regex is deferred/admin-only future work.
+  - `MATCHING`: default `PER_PAIR`; optional `ALL_OR_NOTHING` may be modeled
+    but does not require UI in Phase 10.
+  - `ESSAY` and `SPEAKING`: use prompt/rubric/scoring profile references, not
+    inline editable UI in Phase 10.
+- Program configuration:
+  - use normalized DB tables plus seed TOPIK defaults;
+  - do not use config files as the source of truth;
+  - UI for Admin/Head editing programs, prompts, rubrics, and scoring profiles
+    is deferred.
+- Data model:
+  - do not rely on legacy `answer_key VARCHAR` as the long-term contract for
+    complex question types;
+  - add a versioned answer spec contract such as `answer_spec_json`,
+    `scoring_policy_code`, and `canonical_question_type`;
+  - snapshot the same fields into immutable question version rows, not only
+    live question rows;
+  - keep `answer_key` for legacy compatibility only.
+- AI explanation:
+  - standardize a backend `ExplanationContext` for Reading/Listening with
+    `programCode`, `skill`, `questionType`, passage/instruction, prompt,
+    options, answer spec, learner answer, correct answer, and explanation
+    language;
+  - AI explanation should consume normalized answer specs, not ad-hoc
+    `answer_key` parsing.
+
+Suggested normalized DB concepts:
+
+- `assessment_programs`: `TOPIK`, `KIIP`, `KLAT`, `CUSTOM`, etc.
+- `assessment_skills`: `READING`, `LISTENING`, `WRITING`, `SPEAKING`.
+- `assessment_question_type_policies`: program, skill, question type, enabled
+  flag, and default scoring policy.
+- `assessment_scoring_profiles`: code, version, and config JSON.
+- `assessment_prompt_profiles`: code, version, skill, task type, and enabled
+  flag.
+
+Seed TOPIK defaults:
+
+- TOPIK Reading: `SINGLE_CHOICE` only for now.
+- TOPIK Listening: `SINGLE_CHOICE` only for now.
+- TOPIK Writing: `ESSAY` with Q51/Q52/Q53/Q54 policy references.
+- TOPIK Speaking: `SPEAKING`.
+
+Other certification/custom modes may later enable `MULTIPLE_CHOICE`,
+`FILL_BLANK`, `MATCHING`, and `TRUE_FALSE_NOT_GIVEN`.
+
+Allowed Phase 10 debt:
+
+- no UI editor for program/prompt/rubric/scoring profiles yet;
+- no `ORDERING` / `TEXT_COMPLETION` yet;
+- no regex fill-blank yet;
+- no product visual redesign.
+
+Not allowed before later UI/UX work:
+
+- missing canonical question type resolver;
+- missing answer spec contract;
+- missing scoring policy contract;
+- missing immutable version snapshot for new answer/scoring fields;
+- missing standardized Reading/Listening explanation context;
+- missing tests for scoring behavior by question type.
+
+Phase 10 operating process:
+
+- Implement 10A, then run focused tests.
+- If 10A passes, do a small audit before 10B to confirm whether the original
+  10B plan still fits. Then implement 10B, or implement 10B version 2 if the
+  audit changes the scope, and run focused tests.
+- Repeat the same pattern for 10C, 10D, 10E, 10F, 10G, and 10H.
+- After 10H, run a full test suite.
+- If the full suite has any failure or error, stop and wait for user approval
+  before fixing.
+- If the full suite succeeds, update this workflow document with the final
+  Phase 10 evidence and wait for user approval before commit/push.
+- Every sub-slice must record implementation purpose, operating rules, focused
+  evidence, accepted debt, and next-slice guidance in this workflow before the
+  commit request.
+- Do not start Phase 11, Phase 13, UI modernization, lecturer import
+  implementation, or React modernization during Phase 10.
+
 ### Phase 11 — Lecturer Authoring & Import
 
 Status:
@@ -1756,21 +1872,22 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 9 Final Review and Full-Suite Evidence | IMPLEMENTED_AND_FOCUSED_TESTED | ACCEPTED_READY_FOR_COMMIT | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Review verdict: PHASE9_ACCEPTED_READY_FOR_COMMIT. Full suite command: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. Skips are environment/permission-dependent symlink checks in `LocalPrivateSpeakingAudioStorageTest`: `rejectsSymlinkEscapeWhereSupported` and `rejectsSymlinkObjectWhereSupported`; not functional regressions. | Final stabilization notes: fixtures create immutable published versions before attempts; ungrouped/null-group questions are snapshotted only when section mapping is unambiguous; multi-section null-group ambiguity is not assigned silently; V24 marks ambiguous legacy paths with compatibility metadata instead of locking to a wrong version; versioned result rendering includes null-group questions exactly once; MockMvc playback range test avoids async streaming/header race while preserving 206/range header coverage. Phase 9 is implemented/focused-tested and accepted for commit, not closed. | Commit/push Phase 9 implementation, then Phase 9 gate/closure review before Phase 10 audit. |
 | 2026-07-10 | Phase 9 Immutable Published Practice Versions Gate | ACCEPTED_READY_FOR_COMMIT | CLOSED_WITH_ACCEPTED_DEBT | ac658dc32a6b98d01760fd2cce352825876d53e5 | b764ba5c6de70bc2275b7a25c8722e83cda88f78 | Source review plus prior full suite evidence: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Phase 9 gate accepted and closure docs committed. Normalized immutable version graph, append-only publish, attempt version locks, snapshot-based scoring/rendering, legacy compatibility, null-group stabilization, and privacy guardrails are accepted with debt. Phase 10/11/13 remain not started; live Speaking AI rollout remains NO-GO. | Phase 9G stabilization before Phase 10 audit. |
 | 2026-07-10 | Phase 9G Immutable Version Stabilization & Encoding Cleanup | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | ac658dc32a6b98d01760fd2cce352825876d53e5 | Focused evidence: 9G-A null-group ambiguity rejection/fallback, 4 tests passed; 9G-B content hash fail-closed, 2 tests passed; 9G-C transcription retry multipart rebuild, 4 tests passed; 9G-D mojibake cleanup, 3 tests passed; 9G-F focused gate, 12 tests passed. User-approved full suite: `mvn test`; 1163 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Rejects ambiguous null-group publish/version creation across multi-test or multi-section graphs; V24 baseline avoids wrong locks and uses compatibility fallback; runtime publish hash fails closed; transcription retry reopens audio stream; narrow UTF-8 cleanup applied. Phase 10/11/13 remain NOT_STARTED. | Commit/push Phase 9G stabilization, then Phase 10 audit. |
+| 2026-07-10 | Phase 10 Academic Program / Certification Configuration Decisions | NOT_STARTED | READY_FOR_IMPLEMENTATION_PLANNING | N/A | 97625154832b26cb71302814ecd4e91161c84bce | Docs-only decision record; no tests run, no provider calls. | Locked Phase 10 as backend assessment/program policy foundation: canonical MVP question types, MCQ aliasing, scoring policy contracts, normalized DB program config, answer spec/version snapshot requirements, Reading/Listening explanation context, and A→H implementation process. | Commit/push docs-only decision record, then begin Phase 10A only after user approval. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Review Phase 9G stabilization, then commit/push Phase 9G only after explicit
-user approval. After that, Phase 10 audit may begin.
+Commit/push the docs-only Phase 10 decision record. After that, begin Phase
+10A only after explicit user approval.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
-CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization
-IMPLEMENTED_AND_FOCUSED_TESTED pending review/commit. Phase 10+ remain
-NOT_STARTED. Live Speaking AI rollout remains NO-GO. React modernization
-remains future-only after Phase 16. Do not start Phase 10, Phase 11, Phase 13,
-UI modernization, import work, or React modernization from the Phase 9G
-stabilization diff.
+CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
+READY_FOR_IMPLEMENTATION_PLANNING but NOT_STARTED until user approval for 10A.
+Phase 11+ remain NOT_STARTED. Live Speaking AI rollout remains NO-GO. React
+modernization remains future-only after Phase 16. Do not start Phase 11, Phase
+13, UI modernization, import work, or React modernization from the Phase 10
+foundation work.
 
 ## Long-Term Direction After Phase 16
 
