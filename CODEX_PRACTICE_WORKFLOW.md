@@ -1276,11 +1276,65 @@ Phase routing:
 ### Phase 9 — Immutable Published Practice Versions
 
 Status:
-NOT_STARTED / READY_FOR_AUDIT_ONLY after Phase 8 closure docs and playback test
-stabilization are committed and pushed.
+IMPLEMENTED_AND_FOCUSED_TESTED pending user review/commit.
 
 Purpose:
 immutable published content/rubric/scoring graph and stable historical attempts.
+
+Locked Phase 9 decisions:
+
+- Use normalized immutable version tables, not JSON-only snapshots.
+- Store question options as JSON snapshot inside `practice_question_versions`
+  for MVP.
+- Published versions are append-only.
+- Editing after publish creates a draft/new version; published versions are not
+  mutated.
+- Unpublish/archive blocks or hides new attempts only; old attempts must still
+  render.
+- New attempts must lock to `publishedVersionId`, `setVersionId`,
+  `testVersionId`, and `sectionVersionId`.
+- Section-specific attempts lock a section version. Full-test attempts must be
+  supported by the test-level version graph, but full-test vs skill-specific
+  product policy remains Phase 10.
+- Result/detail rendering must use question version rows for prompt, options,
+  answer key, points, and explanation snapshot when an attempt has a version
+  lock.
+- Legacy attempts without version IDs must keep a compatibility path.
+- Existing attempts are handled by baseline migration/compatibility in 9E.
+  Attempts created before immutable versioning are best-effort historical
+  reconstruction if source content was already mutated before Phase 9.
+- Media/materials use version-safe references only; do not copy private files
+  and do not persist storage keys/private paths in version rows.
+- Hidden/internal prompt bodies, provider raw bodies, API keys, and storage
+  keys/private paths must not be persisted or rendered.
+- Speaking Phase 8 evidence-layer policy becomes a versioned evaluation
+  contract in Phase 9D: transcript-only supports language evaluation only;
+  pronunciation/acoustic findings require audio/timestamp/provider evidence.
+- Lecturer import validation remains Phase 11. UI/UX/version-selection work
+  remains Phase 13. Program/certification mode rules remain Phase 10.
+
+Implemented Phase 9 slices pending review/commit:
+
+- 9A: normalized immutable version schema/entities/repositories and baseline
+  migration design.
+- 9B: publish creates immutable published graph versions; start attempt locks
+  latest published version; no published version means no versioned start path.
+- 9C: attempt scoring/result rendering use versioned question snapshots where
+  locked, with legacy fallback.
+- Phase 9 ungrouped/null-group stabilization is included: immutable version
+  creation and the V24 baseline migration include grouped questions with
+  `group_version_id` and null-group questions with `group_version_id = null`
+  when the source test has a single section; versioned result rendering includes
+  null-group questions through the same fallback/synthetic grouping style used
+  by the legacy live path. Old live-fallback attempts remain compatible.
+- 9D: AI/rubric/prompt/media compatibility is tied to the attempt version lock
+  and existing Writing/Speaking compatibility readers; no provider raw body or
+  prompt body storage added.
+- 9E: baseline migration and legacy compatibility path implemented; old
+  pre-Phase-9 attempts remain best-effort if historical source content was
+  previously mutated.
+- 9F: focused validation completed; Phase 9 is not closed until user review and
+  an explicit closure/commit step.
 
 ### Phase 10 — Academic Program / Certification Configuration
 
@@ -1597,23 +1651,23 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 8G Practice Functional Flow Gate | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | e737b282981b84eeefb759490d3d6ca524dae08c | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Phase 8G gate review passed. Route/data binding, sectionId mode flow, legacy route correction, player/template JS contract, and result navigation are accepted with debt. Live Speaking AI remains NO-GO. | Commit/push 8G closure docs, then Phase 8H audit only after user approval. |
 | 2026-07-10 | Phase 8H Practice Architecture, Security Boundary & Maintainability | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 59706a879db88291859777286f9208635e914d26 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`; 68 tests, 0 failures, 0 errors, 2 skips; no full suite and no real provider calls. | Implemented narrow route/view/model/form/media constants, private Speaking media boundary tests, `PracticeAnswerFormMapper` extraction, safe result/provider/private-storage no-leak checks, and stabilized one async playback CSRF test to avoid streaming-body dispatch flake. Phase 8H is not closed. | User review, then commit/push only after explicit approval; after commit, run Phase 8H phase-gate closure review before Phase 9. |
 | 2026-07-10 | Phase 8 Closure Stabilization After Playback Test Fix | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | 95d50cd8efa1e4b38f15eda256e9fdbf2c22f8d1 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`; final evidence-based rerun: 182 tests, 0 failures, 0 errors, 2 skips; no full suite and no provider calls. | Phase 8 closed with accepted debt. Speaking Evaluation Deep-Dive evidence-layer policy recorded. Playback range MockMvc async stabilization preserved. Live Speaking AI rollout remains NO-GO. | Commit/push Phase 8 closure docs and playback test stabilization, then Phase 9 audit only after explicit user approval. |
+| 2026-07-10 | Phase 9 Immutable Published Practice Versions | READY_FOR_AUDIT_ONLY | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Focused commands: `mvn "-Dtest=PracticeServiceTest#startAttemptLocksLatestPublishedVersion+readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot,PracticePublisherServiceTest" test`; 31 tests, 0 failures, 0 errors, 0 skips. App-context/Flyway evidence-based rerun after schema/constructor fixes: `mvn "-Dtest=PracticeIntegrationTest#testModeView" test`; 1 test, 0 failures, 0 errors, 0 skips. No full suite and no provider calls. | Implemented normalized immutable version tables, baseline migration, append-only publish graph service, attempt version locks, versioned question snapshot grading/rendering for locked attempts, legacy compatibility fallback, and Phase 9 decision/debt notes. Phase 9 is not closed. | User review, then commit/push only after explicit approval; then Phase 9 gate/closure review before Phase 10 audit. |
+| 2026-07-10 | Phase 9 Ungrouped Question Version Snapshot Stabilization | IMPLEMENTED_AND_FOCUSED_TESTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Focused command: `mvn "-Dtest=PracticeServiceTest#startAttemptLocksLatestPublishedVersion+readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot+publishedVersionIncludesUngroupedQuestion+readingResultUsesLockedUngroupedQuestionVersionSnapshot,PracticePublisherServiceTest,PracticeIntegrationTest#testModeView" test`; 34 tests, 0 failures, 0 errors, 0 skips. No full suite and no provider calls. | Narrow stabilization added immutable snapshot and versioned rendering coverage for null-group questions, updated V24 baseline handling for grouped and ungrouped question versions, and preserved old live-fallback attempts. Phase 9 is not closed. | Phase 9 A-F implementation review again, then commit/push only after explicit approval. |
+| 2026-07-10 | Phase 9 Final Review and Full-Suite Evidence | IMPLEMENTED_AND_FOCUSED_TESTED | ACCEPTED_READY_FOR_COMMIT | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Review verdict: PHASE9_ACCEPTED_READY_FOR_COMMIT. Full suite command: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. Skips are environment/permission-dependent symlink checks in `LocalPrivateSpeakingAudioStorageTest`: `rejectsSymlinkEscapeWhereSupported` and `rejectsSymlinkObjectWhereSupported`; not functional regressions. | Final stabilization notes: fixtures create immutable published versions before attempts; ungrouped/null-group questions are snapshotted only when section mapping is unambiguous; multi-section null-group ambiguity is not assigned silently; V24 marks ambiguous legacy paths with compatibility metadata instead of locking to a wrong version; versioned result rendering includes null-group questions exactly once; MockMvc playback range test avoids async streaming/header race while preserving 206/range header coverage. Phase 9 is implemented/focused-tested and accepted for commit, not closed. | Commit/push Phase 9 implementation, then Phase 9 gate/closure review before Phase 10 audit. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push Phase 8 closure docs and playback test stabilization only after
-explicit user approval. After that, Phase 9 may begin as AUDIT ONLY if the user
-approves.
+Commit/push Phase 9 immutable published practice version implementation after
+final full-suite evidence inventory.
 
-Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
-are COMMITTED. Phase 8F is CLOSED_WITH_ACCEPTED_DEBT. Phase 8G is
-CLOSED_WITH_ACCEPTED_DEBT. Phase 8H is CLOSED_WITH_ACCEPTED_DEBT. Phase 8
-overall is CLOSED_WITH_ACCEPTED_DEBT pending commit/push of this closure docs
-update and playback test stabilization.
-
-Do not start Phase 9 before this Phase 8 closure docs update and playback test
-stabilization are committed and pushed. Phase 9 must start with AUDIT ONLY.
+Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
+IMPLEMENTED_AND_FOCUSED_TESTED / ACCEPTED_READY_FOR_COMMIT pending commit.
+Phase 9 is not closed. Phase 10+ remain NOT_STARTED. Live Speaking AI rollout
+remains NO-GO. React modernization remains future-only after Phase 16. Do not
+start Phase 10, Phase 11, Phase 13, UI modernization, import work, or React
+modernization from the Phase 9 implementation diff.
 
 ## Long-Term Direction After Phase 16
 

@@ -17,6 +17,7 @@ import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeEditLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +37,11 @@ public class PracticePublisherService {
     private final PracticeQuestionRepository questionRepository;
     private final PracticeEditLogRepository editLogRepository;
     private final PracticePublishedGraphMutationGuard mutationGuard;
+    private final com.ksh.features.practice.service.PracticePublishedVersionService publishedVersionService;
     private final PracticeDraftValidator draftValidator;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
                                     PracticeSetRepository setRepository,
                                     PracticeSectionRepository sectionRepository,
@@ -46,6 +49,7 @@ public class PracticePublisherService {
                                      PracticeQuestionRepository questionRepository,
                                      PracticeEditLogRepository editLogRepository,
                                      PracticePublishedGraphMutationGuard mutationGuard,
+                                     com.ksh.features.practice.service.PracticePublishedVersionService publishedVersionService,
                                      PracticeDraftValidator draftValidator,
                                     ObjectMapper objectMapper) {
         this.draftRepository = draftRepository;
@@ -55,8 +59,22 @@ public class PracticePublisherService {
         this.questionRepository = questionRepository;
         this.editLogRepository = editLogRepository;
         this.mutationGuard = mutationGuard;
+        this.publishedVersionService = publishedVersionService;
         this.draftValidator = draftValidator;
         this.objectMapper = objectMapper;
+    }
+
+    PracticePublisherService(PracticeDraftRepository draftRepository,
+                             PracticeSetRepository setRepository,
+                             PracticeSectionRepository sectionRepository,
+                             PracticeQuestionGroupRepository groupRepository,
+                             PracticeQuestionRepository questionRepository,
+                             PracticeEditLogRepository editLogRepository,
+                             PracticePublishedGraphMutationGuard mutationGuard,
+                             PracticeDraftValidator draftValidator,
+                             ObjectMapper objectMapper) {
+        this(draftRepository, setRepository, sectionRepository, groupRepository, questionRepository,
+                editLogRepository, mutationGuard, null, draftValidator, objectMapper);
     }
 
     @Transactional
@@ -309,6 +327,10 @@ public class PracticePublisherService {
                 editType
         );
         editLogRepository.save(logEntry);
+
+        if (publishedVersionService != null) {
+            publishedVersionService.createPublishedVersion(savedSet.getId(), ownerId);
+        }
 
         // Send collaborative notification
         log.info("[Notification] Sent collaborative edit notification for Set ID={} (editType={}) to owner={} and administrators.",

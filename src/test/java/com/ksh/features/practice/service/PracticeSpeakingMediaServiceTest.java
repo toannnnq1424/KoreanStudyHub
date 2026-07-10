@@ -78,6 +78,9 @@ class PracticeSpeakingMediaServiceTest {
     @Autowired
     private PracticeService practiceService;
 
+    @Autowired
+    private PracticePublishedVersionService publishedVersionService;
+
     @MockBean
     private PracticeSpeakingMediaCleanupProcessor cleanupProcessor;
 
@@ -1071,6 +1074,7 @@ class PracticeSpeakingMediaServiceTest {
         group = groupRepository.saveAndFlush(group);
         PracticeQuestion question = speakingQuestion(set.getId(), group.getId(), 1);
         question = questionRepository.saveAndFlush(question);
+        publishedVersionService.createPublishedVersion(set.getId(), student.getId());
         PracticeAttempt attempt = attemptRepository.saveAndFlush(new PracticeAttempt(
                 student.getId(), set.getId(), test.getId(), "SPEAKING", section.getId()));
         return new Fixture(student.getId(), set.getId(), test.getId(), section.getId(), group.getId(), question.getId(), attempt.getId());

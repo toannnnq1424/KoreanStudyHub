@@ -7,9 +7,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
+import com.ksh.entities.PracticeQuestionGroupVersion;
+import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
+import com.ksh.entities.PracticeSectionVersion;
+import com.ksh.entities.PracticePublishedVersion;
+import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
@@ -147,6 +153,362 @@ class PracticeServiceTest {
         assertNotNull(view);
         assertEquals(1, view.groups().size());
         assertEquals("1-2", view.groups().get(0).groupLabel());
+    }
+
+    @Test
+    void startAttemptLocksLatestPublishedVersion() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeSet set = mock(PracticeSet.class);
+        when(set.getId()).thenReturn(1L);
+        when(set.getStatus()).thenReturn(PracticeSet.STATUS_PUBLISHED);
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(setRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(set));
+
+        com.ksh.entities.PracticeTest test = mock(com.ksh.entities.PracticeTest.class);
+        when(test.getId()).thenReturn(10L);
+        when(test.getSetId()).thenReturn(1L);
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(testRepository.findByIdForShare(10L)).thenReturn(Optional.of(test));
+
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getId()).thenReturn(20L);
+        when(section.getSetId()).thenReturn(1L);
+        when(section.getTestId()).thenReturn(10L);
+        when(section.getSkill()).thenReturn("READING");
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
+
+        when(versionService.latestLock(1L, 10L, 20L))
+                .thenReturn(Optional.of(new PracticeAttemptVersionLock(100L, 101L, 102L, 103L)));
+        when(attemptRepository.findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
+                2L, 10L, 20L, PracticeAttempt.STATUS_IN_PROGRESS)).thenReturn(Optional.empty());
+        when(attemptRepository.save(any(PracticeAttempt.class))).thenAnswer(invocation -> {
+            PracticeAttempt saved = invocation.getArgument(0);
+            setEntityId(saved, 99L);
+            return saved;
+        });
+
+        Long attemptId = practiceService.startAttempt(1L, 10L, 20L, 2L);
+
+        assertEquals(99L, attemptId);
+        org.mockito.ArgumentCaptor<PracticeAttempt> captor = org.mockito.ArgumentCaptor.forClass(PracticeAttempt.class);
+        verify(attemptRepository).save(captor.capture());
+        PracticeAttempt saved = captor.getValue();
+        assertEquals(100L, saved.getPublishedVersionId());
+        assertEquals(101L, saved.getSetVersionId());
+        assertEquals(102L, saved.getTestVersionId());
+        assertEquals(103L, saved.getSectionVersionId());
+    }
+
+    @Test
+    void readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        setEntityId(attempt, 50L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
+        when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeSet liveSet = new PracticeSet("Live title", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        setEntityId(liveSet, 1L);
+        when(setRepository.findById(1L)).thenReturn(Optional.of(liveSet));
+
+        PracticeSection liveSection = mock(PracticeSection.class);
+        when(liveSection.getId()).thenReturn(20L);
+        when(liveSection.getSetId()).thenReturn(1L);
+        when(liveSection.getTestId()).thenReturn(10L);
+        when(liveSection.getSkill()).thenReturn("READING");
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(liveSection));
+
+        PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        when(setVersion.getTitle()).thenReturn("Snapshot title");
+        when(setVersion.getDescription()).thenReturn("");
+        when(setVersion.getSkill()).thenReturn("READING");
+        when(setVersion.getTopikLevel()).thenReturn("TOPIK_I");
+        when(setVersion.getMetadataJson()).thenReturn("{}");
+        when(setVersion.getCreationMethod()).thenReturn("MANUAL");
+
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getTitle()).thenReturn("Snapshot section");
+        when(sectionVersion.getSkill()).thenReturn("READING");
+
+        PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
+        when(groupVersion.getId()).thenReturn(700L);
+        when(groupVersion.getGroupId()).thenReturn(7L);
+        when(groupVersion.getGroupLabel()).thenReturn("1");
+        when(groupVersion.getQuestionFrom()).thenReturn(1);
+        when(groupVersion.getQuestionTo()).thenReturn(1);
+        when(groupVersion.getInstruction()).thenReturn("Snapshot instruction");
+        when(groupVersion.getDisplayOrder()).thenReturn(0);
+
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getGroupVersionId()).thenReturn(700L);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_MCQ);
+        when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
+        when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
+        when(questionVersion.getAnswerKey()).thenReturn("A");
+        when(questionVersion.getExplanation()).thenReturn("Snapshot explanation");
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.ONE);
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
+                        List.of(groupVersion), List.of(questionVersion))));
+
+        ReadingListeningResultView result = practiceService.getReadingListeningResult(50L, 2L);
+
+        assertEquals("Snapshot title", result.set().title());
+        assertEquals(1, result.correctCount());
+        assertEquals(0, result.incorrectCount());
+        assertEquals("Snapshot prompt", result.groups().get(0).questions().get(0).prompt());
+        assertEquals("Snapshot explanation", result.groups().get(0).questions().get(0).explanationJson());
+        verify(readingListeningExplanationService, never()).getOrCreateExplanation(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void publishedVersionIncludesUngroupedQuestion() {
+        com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticePublishedVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSetVersionRepository setVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSetVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeTestVersionRepository testVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeTestVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSectionVersionRepository sectionVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSectionVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionGroupVersionRepository groupVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionGroupVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionVersionRepository questionVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSetRepository localSetRepository =
+                mock(com.ksh.features.practice.repository.PracticeSetRepository.class);
+        com.ksh.features.practice.repository.PracticeTestRepository localTestRepository =
+                mock(com.ksh.features.practice.repository.PracticeTestRepository.class);
+        com.ksh.features.practice.repository.PracticeSectionRepository localSectionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSectionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionGroupRepository localGroupRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionGroupRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
+
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
+                "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
+        ungrouped.setGroupId(null);
+        setEntityId(ungrouped, 11L);
+
+        when(localSetRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(localTestRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(test));
+        when(localSectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(localGroupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of());
+        when(localQuestionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(ungrouped));
+        when(publishedVersionRepository.maxVersionNumberBySetId(1L)).thenReturn(0);
+        when(publishedVersionRepository.save(any(PracticePublishedVersion.class))).thenAnswer(invocation -> {
+            PracticePublishedVersion version = invocation.getArgument(0);
+            setEntityId(version, 100L);
+            return version;
+        });
+        when(setVersionRepository.save(any(PracticeSetVersion.class))).thenAnswer(invocation -> {
+            PracticeSetVersion version = invocation.getArgument(0);
+            setEntityId(version, 101L);
+            return version;
+        });
+        when(testVersionRepository.save(any(PracticeTestVersion.class))).thenAnswer(invocation -> {
+            PracticeTestVersion version = invocation.getArgument(0);
+            setEntityId(version, 102L);
+            return version;
+        });
+        when(sectionVersionRepository.save(any(PracticeSectionVersion.class))).thenAnswer(invocation -> {
+            PracticeSectionVersion version = invocation.getArgument(0);
+            setEntityId(version, 103L);
+            return version;
+        });
+        when(questionVersionRepository.save(any(PracticeQuestionVersion.class))).thenAnswer(invocation -> {
+            PracticeQuestionVersion version = invocation.getArgument(0);
+            setEntityId(version, 104L);
+            return version;
+        });
+
+        PracticePublishedVersionService service = new PracticePublishedVersionService(
+                publishedVersionRepository,
+                setVersionRepository,
+                testVersionRepository,
+                sectionVersionRepository,
+                groupVersionRepository,
+                questionVersionRepository,
+                localSetRepository,
+                localTestRepository,
+                localSectionRepository,
+                localGroupRepository,
+                localQuestionRepository,
+                objectMapper);
+
+        service.createPublishedVersion(1L, 2L);
+
+        org.mockito.ArgumentCaptor<PracticeQuestionVersion> captor =
+                org.mockito.ArgumentCaptor.forClass(PracticeQuestionVersion.class);
+        verify(questionVersionRepository).save(captor.capture());
+        PracticeQuestionVersion saved = captor.getValue();
+        assertEquals(100L, saved.getPublishedVersionId());
+        assertEquals(103L, saved.getSectionVersionId());
+        assertNull(saved.getGroupVersionId());
+        assertEquals(11L, saved.getQuestionId());
+        assertEquals("[\"A\",\"B\"]", saved.getOptionsJson());
+        assertEquals("A", saved.getAnswerKey());
+        assertEquals("Snapshot explanation", saved.getExplanation());
+        verify(groupVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void publishedVersionRejectsUngroupedQuestionInMultiSectionTest() {
+        com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticePublishedVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSetVersionRepository setVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSetVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeTestVersionRepository testVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeTestVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSectionVersionRepository sectionVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSectionVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionGroupVersionRepository groupVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionGroupVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionVersionRepository questionVersionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionVersionRepository.class);
+        com.ksh.features.practice.repository.PracticeSetRepository localSetRepository =
+                mock(com.ksh.features.practice.repository.PracticeSetRepository.class);
+        com.ksh.features.practice.repository.PracticeTestRepository localTestRepository =
+                mock(com.ksh.features.practice.repository.PracticeTestRepository.class);
+        com.ksh.features.practice.repository.PracticeSectionRepository localSectionRepository =
+                mock(com.ksh.features.practice.repository.PracticeSectionRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionGroupRepository localGroupRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionGroupRepository.class);
+        com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
+                mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
+
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
+        setEntityId(test, 10L);
+        PracticeSection firstSection = new PracticeSection(1L, "Reading 1", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        firstSection.setTestId(10L);
+        setEntityId(firstSection, 20L);
+        PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "MCQ", "", 10, BigDecimal.ONE, 1);
+        secondSection.setTestId(10L);
+        setEntityId(secondSection, 21L);
+        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
+                "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
+        ungrouped.setGroupId(null);
+        setEntityId(ungrouped, 11L);
+
+        when(localSetRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(localTestRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(test));
+        when(localSectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(firstSection, secondSection));
+        when(localGroupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of());
+        when(localQuestionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(ungrouped));
+
+        PracticePublishedVersionService service = new PracticePublishedVersionService(
+                publishedVersionRepository,
+                setVersionRepository,
+                testVersionRepository,
+                sectionVersionRepository,
+                groupVersionRepository,
+                questionVersionRepository,
+                localSetRepository,
+                localTestRepository,
+                localSectionRepository,
+                localGroupRepository,
+                localQuestionRepository,
+                objectMapper);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> service.createPublishedVersion(1L, 2L));
+        assertTrue(ex.getMessage().contains("ungrouped questions are ambiguous"));
+        verify(publishedVersionRepository, never()).save(any());
+        verify(questionVersionRepository, never()).save(any());
+    }
+
+    @Test
+    void readingResultUsesLockedUngroupedQuestionVersionSnapshot() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        setEntityId(attempt, 50L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
+        when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeSet liveSet = new PracticeSet("Live title", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        setEntityId(liveSet, 1L);
+        when(setRepository.findById(1L)).thenReturn(Optional.of(liveSet));
+
+        PracticeSection liveSection = mock(PracticeSection.class);
+        when(liveSection.getId()).thenReturn(20L);
+        when(liveSection.getSetId()).thenReturn(1L);
+        when(liveSection.getTestId()).thenReturn(10L);
+        when(liveSection.getSkill()).thenReturn("READING");
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(liveSection));
+
+        PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        when(setVersion.getTitle()).thenReturn("Snapshot title");
+        when(setVersion.getDescription()).thenReturn("");
+        when(setVersion.getSkill()).thenReturn("READING");
+        when(setVersion.getTopikLevel()).thenReturn("TOPIK_I");
+        when(setVersion.getMetadataJson()).thenReturn("{}");
+        when(setVersion.getCreationMethod()).thenReturn("MANUAL");
+
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getTitle()).thenReturn("Snapshot section");
+        when(sectionVersion.getSkill()).thenReturn("READING");
+
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getGroupVersionId()).thenReturn(null);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_MCQ);
+        when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
+        when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
+        when(questionVersion.getAnswerKey()).thenReturn("A");
+        when(questionVersion.getExplanation()).thenReturn("Snapshot explanation");
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.ONE);
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
+                        List.of(), List.of(questionVersion))));
+
+        ReadingListeningResultView result = practiceService.getReadingListeningResult(50L, 2L);
+
+        assertEquals("Snapshot title", result.set().title());
+        assertEquals(1, result.correctCount());
+        assertEquals(0, result.incorrectCount());
+        assertEquals(1, result.groups().size());
+        assertEquals(1, result.groups().get(0).questions().size());
+        assertNotEquals("Ungrouped", result.groups().get(0).groupLabel());
+        assertEquals("Snapshot prompt", result.groups().get(0).questions().get(0).prompt());
+        assertEquals("Snapshot explanation", result.groups().get(0).questions().get(0).explanationJson());
+        verify(readingListeningExplanationService, never()).getOrCreateExplanation(any(), any(), any(), any(), any());
+        verify(questionRepository, never()).findById(any());
     }
 
 

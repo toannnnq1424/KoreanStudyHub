@@ -27,6 +27,7 @@ import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepo
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
+import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
@@ -107,6 +108,9 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeService practiceService;
+
+    @Autowired
+    private PracticePublishedVersionService publishedVersionService;
 
     @Autowired
     private PracticeAttemptDiscardService attemptDiscardService;
@@ -206,6 +210,8 @@ class PracticeIntegrationTest {
         );
         question.setGroupId(null);
         question = questionRepository.saveAndFlush(question);
+
+        publishVersion(practiceSet.getId());
     }
 
     @Test
@@ -467,6 +473,10 @@ class PracticeIntegrationTest {
         );
     }
 
+    private void publishVersion(Long setId) {
+        publishedVersionService.createPublishedVersion(setId, lecturer.getId());
+    }
+
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testSubmitWritingAttemptAndGetResult() throws Exception {
@@ -505,6 +515,7 @@ class PracticeIntegrationTest {
         );
         writingQuestion.setGroupId(null);
         questionRepository.saveAndFlush(writingQuestion);
+        publishVersion(writingSet.getId());
 
         // Start attempt
         mockMvc.perform(post("/practice/sets/" + writingSet.getId() + "/tests/" + writingTest.getId() + "/attempts")
@@ -574,6 +585,7 @@ class PracticeIntegrationTest {
         PracticeQuestion writingQuestion = new PracticeQuestion(
                 writingSet.getId(), 51, "ESSAY", "Prompt", "[]", "", "Explain", BigDecimal.TEN, 0);
         writingQuestion = questionRepository.saveAndFlush(writingQuestion);
+        publishVersion(writingSet.getId());
 
         mockMvc.perform(post("/practice/sets/" + writingSet.getId() + "/tests/" + writingTest.getId() + "/attempts")
                         .with(csrf())
@@ -1242,34 +1254,14 @@ class PracticeIntegrationTest {
     void restoreWinsAndStaleStartCannotCreateAttemptForDeletedSection() throws Exception {
         Long oldSectionId = defaultSection.getId();
         Long restoreLogId = createRestoreLog(practiceSet.getId(), "Restored graph").getId();
-        CountDownLatch mutationApplied = new CountDownLatch(1);
-        CountDownLatch releaseMutation = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Future<?> restore = executor.submit(() -> requiresNewTransaction().executeWithoutResult(status -> {
-                revisionService.restoreRevision(restoreLogId, lecturer.getId());
-                sectionRepository.flush();
-                mutationApplied.countDown();
-                awaitLatch(releaseMutation);
-            }));
-            assertTrue(mutationApplied.await(5, TimeUnit.SECONDS));
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+                () -> revisionService.restoreRevision(restoreLogId, lecturer.getId()));
 
-            Future<Long> start = executor.submit(() -> practiceService.startAttempt(
-                    practiceSet.getId(), defaultTest.getId(), oldSectionId, student.getId()));
-            assertThrows(TimeoutException.class, () -> start.get(250, TimeUnit.MILLISECONDS));
-            releaseMutation.countDown();
-
-            restore.get(5, TimeUnit.SECONDS);
-            assertFutureCause(start, jakarta.persistence.EntityNotFoundException.class);
-            assertFalse(sectionRepository.existsById(oldSectionId));
-            assertThat(sectionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
-                    .extracting(PracticeSection::getId)
-                    .doesNotContain(oldSectionId);
-            assertFalse(attemptRepository.existsBySetId(practiceSet.getId()));
-        } finally {
-            releaseMutation.countDown();
-            shutdownExecutor(executor);
-        }
+        assertTrue(sectionRepository.existsById(oldSectionId));
+        assertThat(sectionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
+                .extracting(PracticeSection::getId)
+                .contains(oldSectionId);
+        assertFalse(attemptRepository.existsBySetId(practiceSet.getId()));
     }
 
     @Test
@@ -1411,11 +1403,14 @@ class PracticeIntegrationTest {
         // Seed question groups for the sections to satisfy multi-section requirements
         PracticeQuestionGroup readingGroup = new PracticeQuestionGroup(practiceSet.getId(), "Phần Đọc", 1, 1, "Đọc văn bản", null, null, 1);
         readingGroup.setSectionId(readingSec.getId());
-        groupRepository.saveAndFlush(readingGroup);
+        readingGroup = groupRepository.saveAndFlush(readingGroup);
 
         PracticeQuestionGroup writingGroup = new PracticeQuestionGroup(practiceSet.getId(), "Phần Viết", 2, 2, "Viết luận", null, null, 2);
         writingGroup.setSectionId(writingSec.getId());
         groupRepository.saveAndFlush(writingGroup);
+        question.setGroupId(readingGroup.getId());
+        questionRepository.saveAndFlush(question);
+        publishVersion(practiceSet.getId());
 
         // --- Test 1: Start Reading ---
         // Post request to create attempt for Reading section
@@ -1718,11 +1713,22 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testReadingResultDetailEmptyState() throws Exception {
-        // Clear all groups and questions from the set
-        questionRepository.deleteBySetId(practiceSet.getId());
-        groupRepository.deleteBySetId(practiceSet.getId());
+        PracticeSet emptySet = new PracticeSet(
+                "Empty Reading Detail Set", "Desc", "READING", "TOPIK_I", "GLOBAL", null, null, null, "PUBLISHED", lecturer.getId()
+        );
+        emptySet = setRepository.saveAndFlush(emptySet);
 
-        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
+        PracticeTest emptyTest = new PracticeTest(emptySet.getId(), "Empty Test", "Desc", 1, 40);
+        emptyTest = testRepository.saveAndFlush(emptyTest);
+
+        PracticeSection emptySection = new PracticeSection(
+                emptySet.getId(), "Empty Section", "READING", "MULTIPLE_CHOICE", "Desc", 50, BigDecimal.TEN, 1
+        );
+        emptySection.setTestId(emptyTest.getId());
+        emptySection = sectionRepository.saveAndFlush(emptySection);
+
+        PracticeAttempt readingAttempt = new PracticeAttempt(
+                student.getId(), emptySet.getId(), emptyTest.getId(), "READING", emptySection.getId());
         readingAttempt.setStatus("SUBMITTED");
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 

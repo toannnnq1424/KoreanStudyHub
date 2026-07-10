@@ -58,6 +58,24 @@ public class PracticeAttempt {
     @Column(name = "section_id")
     private Long sectionId;
 
+    @Column(name = "published_version_id")
+    private Long publishedVersionId;
+
+    @Column(name = "set_version_id")
+    private Long setVersionId;
+
+    @Column(name = "test_version_id")
+    private Long testVersionId;
+
+    @Column(name = "section_version_id")
+    private Long sectionVersionId;
+
+    @Column(name = "version_compatibility_status", length = 40)
+    private String versionCompatibilityStatus;
+
+    @Column(name = "version_compatibility_note", length = 500)
+    private String versionCompatibilityNote;
+
     @Column(nullable = false, length = 30)
     private String status = STATUS_IN_PROGRESS;
 
@@ -118,6 +136,19 @@ public class PracticeAttempt {
         this.status = STATUS_IN_PROGRESS;
         this.analysisStatus = ANALYSIS_NOT_REQUESTED;
         this.startedAt = LocalDateTime.now();
+    }
+
+    public void lockPublishedVersion(Long publishedVersionId, Long setVersionId,
+                                     Long testVersionId, Long sectionVersionId) {
+        if (publishedVersionId == null || setVersionId == null || testVersionId == null || sectionVersionId == null) {
+            throw new IllegalArgumentException("Published practice version lock is incomplete.");
+        }
+        this.publishedVersionId = publishedVersionId;
+        this.setVersionId = setVersionId;
+        this.testVersionId = testVersionId;
+        this.sectionVersionId = sectionVersionId;
+        this.versionCompatibilityStatus = null;
+        this.versionCompatibilityNote = null;
     }
 
     @PrePersist
@@ -223,6 +254,12 @@ public class PracticeAttempt {
     public Long getTestId() { return testId; }
     public String getSkill() { return skill; }
     public Long getSectionId() { return sectionId; }
+    public Long getPublishedVersionId() { return publishedVersionId; }
+    public Long getSetVersionId() { return setVersionId; }
+    public Long getTestVersionId() { return testVersionId; }
+    public Long getSectionVersionId() { return sectionVersionId; }
+    public String getVersionCompatibilityStatus() { return versionCompatibilityStatus; }
+    public String getVersionCompatibilityNote() { return versionCompatibilityNote; }
     public String getStatus() { return status; }
     public String getAnalysisStatus() { return analysisStatus; }
     public BigDecimal getScore() { return score; }
@@ -255,4 +292,6 @@ public class PracticeAttempt {
     public void setAiFeedbackJson(String aiFeedbackJson) { this.aiFeedbackJson = aiFeedbackJson; }
     public void setAnalysisRequestedAt(LocalDateTime analysisRequestedAt) { this.analysisRequestedAt = analysisRequestedAt; }
     public void setSectionId(Long sectionId) { this.sectionId = sectionId; }
+    public void setVersionCompatibilityStatus(String versionCompatibilityStatus) { this.versionCompatibilityStatus = versionCompatibilityStatus; }
+    public void setVersionCompatibilityNote(String versionCompatibilityNote) { this.versionCompatibilityNote = versionCompatibilityNote; }
 }

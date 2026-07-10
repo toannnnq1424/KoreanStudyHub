@@ -135,15 +135,20 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 4L, stream(new byte[]{1, 2, 3, 4})));
 
-        mockMvc.perform(get(ROUTE)
-                        .header(HttpHeaders.RANGE, "bytes=1-2")
-                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
-                .andExpect(status().isPartialContent())
-                .andExpect(request().asyncStarted())
-                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
-                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 1-2/4"))
-                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 2L))
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, containsString("audio/webm")));
+        PracticeSpeakingMediaPlaybackController controller =
+                new PracticeSpeakingMediaPlaybackController(playbackService, new AuthenticatedUserIdResolver());
+
+        ResponseEntity<StreamingResponseBody> response = controller.content(
+                10L, 20L, 30L, "bytes=1-2", formAuthentication(77L, Role.STUDENT));
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.PARTIAL_CONTENT);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 1-2/4");
+        assertThat(response.getHeaders().getContentLength()).isEqualTo(2L);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.parseMediaType("audio/webm"));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        response.getBody().writeTo(output);
+        assertThat(output.toByteArray()).containsExactly(2, 3);
 
         verify(playbackService).openForOwner(77L, 10L, 20L, 30L);
     }
