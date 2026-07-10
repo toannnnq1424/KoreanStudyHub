@@ -195,6 +195,11 @@ WHERE ppv.version_number = 1
       SELECT COUNT(*)
       FROM practice_sections sec_count
       WHERE sec_count.test_id = ptv.test_id
+  ) = 1
+  AND (
+      SELECT COUNT(*)
+      FROM practice_tests test_count
+      WHERE test_count.set_id = ppv.set_id
   ) = 1;
 
 UPDATE practice_attempts a
@@ -213,27 +218,37 @@ WHERE NOT EXISTS (
     FROM practice_questions q_un
     WHERE q_un.set_id = ppv.set_id
       AND q_un.group_id IS NULL
-      AND (
+      AND ((
           SELECT COUNT(*)
           FROM practice_sections sec_count
           WHERE sec_count.test_id = ptv.test_id
       ) > 1
+      OR (
+          SELECT COUNT(*)
+          FROM practice_tests test_count
+          WHERE test_count.set_id = ppv.set_id
+      ) > 1)
 );
 
 UPDATE practice_attempts a
 JOIN practice_published_versions ppv ON ppv.set_id = a.set_id AND ppv.version_number = 1
 JOIN practice_test_versions ptv ON ptv.published_version_id = ppv.id AND ptv.test_id = a.test_id
 SET a.version_compatibility_status = 'LEGACY_UNGROUPED_UNSUPPORTED',
-    a.version_compatibility_note = 'Legacy attempt kept on live fallback because null-group questions cannot be safely assigned to a section in a multi-section test.'
+    a.version_compatibility_note = 'Legacy attempt kept on live fallback because null-group questions cannot be safely assigned to a section/test in a multi-section or multi-test set.'
 WHERE a.published_version_id IS NULL
   AND EXISTS (
       SELECT 1
       FROM practice_questions q_un
       WHERE q_un.set_id = ppv.set_id
         AND q_un.group_id IS NULL
-        AND (
+        AND ((
             SELECT COUNT(*)
             FROM practice_sections sec_count
             WHERE sec_count.test_id = ptv.test_id
         ) > 1
+        OR (
+            SELECT COUNT(*)
+            FROM practice_tests test_count
+            WHERE test_count.set_id = ppv.set_id
+        ) > 1)
   );

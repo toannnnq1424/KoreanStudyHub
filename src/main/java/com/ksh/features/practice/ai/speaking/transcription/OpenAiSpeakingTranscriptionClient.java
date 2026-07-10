@@ -62,8 +62,7 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
                     request, SpeakingTranscriptionErrorCategory.AUDIO_MISSING, false, startNanos);
         }
         try {
-            MultiValueMap<String, Object> multipart = multipart(request);
-            String raw = callWithRetry(multipart);
+            String raw = callWithRetry(request);
             return parse(raw, request, startNanos);
         } catch (AudioOpenException ex) {
             return failure(SpeakingEvaluationStatus.AUDIO_UNAVAILABLE,
@@ -118,12 +117,13 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         }
     }
 
-    private String callWithRetry(MultiValueMap<String, Object> body) throws IOException {
+    private String callWithRetry(SpeakingTranscriptionRequest request) throws IOException {
         int maxRetries = properties.maxRetries();
         RuntimeException lastRuntime = null;
         IOException lastIo = null;
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
+                MultiValueMap<String, Object> body = multipart(request);
                 return transport.post(body);
             } catch (HttpStatusCodeException ex) {
                 lastRuntime = ex;

@@ -32,6 +32,38 @@ When sources conflict, classify as:
 - BACKWARD_COMPATIBILITY_CONSTRAINT
 - PHASE_DEPENDENCY
 
+## Phase Documentation Ledger Rule
+
+From this point forward, every practice phase and every approved sub-slice
+within a phase must leave enough written evidence in this workflow file for
+future audit, comparison, and commit review.
+
+Before the user is asked to commit/push a slice, phase, closure document, or
+major stabilization batch, Codex must update `CODEX_PRACTICE_WORKFLOW.md` when
+the task changed implementation, operating policy, phase status, accepted debt,
+test evidence, or downstream routing.
+
+The workflow update must record, as applicable:
+
+- the phase and sub-slice objective;
+- the actual implementation scope;
+- the files or component areas affected at a useful summary level;
+- the operating rules and invariants introduced or preserved;
+- focused test evidence and any full-suite evidence;
+- accepted debt, explicit deferrals, and downstream phase routing;
+- rollout or production-readiness verdicts;
+- compatibility notes for legacy data/attempts/views;
+- any user decisions that changed the implementation direction.
+
+Do not defer this documentation until memory is stale. The workflow file should
+be updated during the final validated step before the corresponding commit
+request, unless the user explicitly asks for commit-only handling of an already
+prepared documentation diff.
+
+Do not mark a top-level phase closed merely because the ledger was updated.
+Closure still requires the relevant review/gate outcome or an explicit user
+override.
+
 ## Product Language Policy
 
 KSH is a Vietnamese/Korean learning website. Learner-facing website copy,
@@ -1276,7 +1308,7 @@ Phase routing:
 ### Phase 9 — Immutable Published Practice Versions
 
 Status:
-CLOSED_WITH_ACCEPTED_DEBT pending closure docs commit.
+CLOSED_WITH_ACCEPTED_DEBT.
 
 Purpose:
 immutable published content/rubric/scoring graph and stable historical attempts.
@@ -1337,7 +1369,8 @@ Implemented Phase 9 slices:
 
 Phase-gate evidence:
 
-- Review verdict: PHASE9_CLOSED_WITH_ACCEPTED_DEBT_PENDING_DOCS_COMMIT.
+- Review verdict: PHASE9_CLOSED_WITH_ACCEPTED_DEBT.
+- Closure documentation commit: `ac658dc32a6b98d01760fd2cce352825876d53e5`.
 - Full suite command: `mvn test`.
 - Full suite result: 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD
   SUCCESS.
@@ -1355,6 +1388,53 @@ Accepted Phase 9 debt:
 - UI/UX version selection, large catalog UX, and visual polish remain Phase 13.
 - Broader manual UAT remains Phase 15.
 - Live Speaking AI rollout remains NO-GO.
+
+Post-closure Phase 9G stabilization before Phase 10:
+
+Status:
+IMPLEMENTED_AND_FOCUSED_TESTED pending review/commit.
+
+Purpose:
+close the remaining immutable-version safety concerns found after Phase 9
+closure, without starting Phase 10 or changing the product UI.
+
+- 9G-A: null-group question ambiguity is rejected for new publish/version
+  creation when a set has multiple tests or a target test has multiple
+  sections. The V24 baseline path snapshots null-group questions only when the
+  set has exactly one test and that test has exactly one section. Ambiguous
+  legacy attempts remain on compatibility/fallback metadata instead of being
+  locked to a wrong section/test.
+  Focused evidence: `mvn "-Dtest=PracticeServiceTest#publishedVersionIncludesUngroupedQuestion+publishedVersionRejectsUngroupedQuestionInMultiSectionTest+publishedVersionRejectsUngroupedQuestionInMultiTestSingleSectionSet+readingResultUsesLockedUngroupedQuestionVersionSnapshot" test`;
+  4 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS.
+- 9G-B: runtime published-version content hashing now fails closed if the hash
+  cannot be computed. The failure is logged and publish aborts instead of
+  silently saving `null`; the nullable migration column remains for baseline
+  compatibility.
+  Focused evidence: `mvn "-Dtest=PracticeServiceTest#publishedVersionFailsClosedWhenContentHashCannotBeComputed+publishedVersionIncludesUngroupedQuestion" test`;
+  2 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS.
+- 9G-C: Speaking transcription retry rebuilds the multipart request and audio
+  resource for each retry attempt, preventing reuse of an already-consumed
+  stream. Tests use fake transport only; no provider/API call.
+  Focused evidence: `mvn "-Dtest=OpenAiSpeakingTranscriptionClientTest#retryRebuildsMultipartAndReopensAudioStream+http429And503MapRetryableTrue+transportTimeoutMapsRetryableTrue+buildsMultipartRequestWithModelFileLanguageJsonAndLogprobs" test`;
+  4 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS.
+- 9G-D: narrow mojibake cleanup corrected obvious Vietnamese UTF-8 corruption
+  in active practice service labels/error messages and the PDF import safety
+  message. This is not UI redesign. Broader UI/UX encoding review remains
+  Phase 13/15.
+  Focused evidence: `mvn "-Dtest=PracticeServiceTest#testGetLearningProgressOverview+testGetPracticeAnalytics+testProgressAnalyticsUsesAllAttemptsNotTop100ForAverage" test`;
+  3 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS.
+- 9G-E: workflow status was corrected after the Phase 9 closure commit. Phase
+  10 remains NOT_STARTED. Production configuration hardening remains accepted
+  debt: local datasource credentials, Flyway clean/validation posture, and
+  deployment-specific profile separation must be handled before production
+  rollout.
+- 9G-F: final focused 9G validation must pass before the 9G commit request.
+  Focused evidence: `mvn "-Dtest=PracticeServiceTest#publishedVersionIncludesUngroupedQuestion+publishedVersionRejectsUngroupedQuestionInMultiSectionTest+publishedVersionRejectsUngroupedQuestionInMultiTestSingleSectionSet+publishedVersionFailsClosedWhenContentHashCannotBeComputed+readingResultUsesLockedUngroupedQuestionVersionSnapshot+testGetLearningProgressOverview+testGetPracticeAnalytics+testProgressAnalyticsUsesAllAttemptsNotTop100ForAverage,OpenAiSpeakingTranscriptionClientTest#retryRebuildsMultipartAndReopensAudioStream+http429And503MapRetryableTrue+transportTimeoutMapsRetryableTrue+buildsMultipartRequestWithModelFileLanguageJsonAndLogprobs" test`;
+  12 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS. User-approved full
+  suite evidence before commit: `mvn test`; 1163 tests, 0 failures, 0 errors,
+  2 skipped, BUILD SUCCESS. The 2 skipped tests remain the
+  environment/permission-dependent symlink checks in
+  `LocalPrivateSpeakingAudioStorageTest`, not functional regressions.
 
 ### Phase 10 — Academic Program / Certification Configuration
 
@@ -1674,20 +1754,23 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 9 Immutable Published Practice Versions | READY_FOR_AUDIT_ONLY | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Focused commands: `mvn "-Dtest=PracticeServiceTest#startAttemptLocksLatestPublishedVersion+readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot,PracticePublisherServiceTest" test`; 31 tests, 0 failures, 0 errors, 0 skips. App-context/Flyway evidence-based rerun after schema/constructor fixes: `mvn "-Dtest=PracticeIntegrationTest#testModeView" test`; 1 test, 0 failures, 0 errors, 0 skips. No full suite and no provider calls. | Implemented normalized immutable version tables, baseline migration, append-only publish graph service, attempt version locks, versioned question snapshot grading/rendering for locked attempts, legacy compatibility fallback, and Phase 9 decision/debt notes. Phase 9 is not closed. | User review, then commit/push only after explicit approval; then Phase 9 gate/closure review before Phase 10 audit. |
 | 2026-07-10 | Phase 9 Ungrouped Question Version Snapshot Stabilization | IMPLEMENTED_AND_FOCUSED_TESTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Focused command: `mvn "-Dtest=PracticeServiceTest#startAttemptLocksLatestPublishedVersion+readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot+publishedVersionIncludesUngroupedQuestion+readingResultUsesLockedUngroupedQuestionVersionSnapshot,PracticePublisherServiceTest,PracticeIntegrationTest#testModeView" test`; 34 tests, 0 failures, 0 errors, 0 skips. No full suite and no provider calls. | Narrow stabilization added immutable snapshot and versioned rendering coverage for null-group questions, updated V24 baseline handling for grouped and ungrouped question versions, and preserved old live-fallback attempts. Phase 9 is not closed. | Phase 9 A-F implementation review again, then commit/push only after explicit approval. |
 | 2026-07-10 | Phase 9 Final Review and Full-Suite Evidence | IMPLEMENTED_AND_FOCUSED_TESTED | ACCEPTED_READY_FOR_COMMIT | N/A | 10768b25f41ac2ecba8e4b8de2229d14672bb595 | Review verdict: PHASE9_ACCEPTED_READY_FOR_COMMIT. Full suite command: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. Skips are environment/permission-dependent symlink checks in `LocalPrivateSpeakingAudioStorageTest`: `rejectsSymlinkEscapeWhereSupported` and `rejectsSymlinkObjectWhereSupported`; not functional regressions. | Final stabilization notes: fixtures create immutable published versions before attempts; ungrouped/null-group questions are snapshotted only when section mapping is unambiguous; multi-section null-group ambiguity is not assigned silently; V24 marks ambiguous legacy paths with compatibility metadata instead of locking to a wrong version; versioned result rendering includes null-group questions exactly once; MockMvc playback range test avoids async streaming/header race while preserving 206/range header coverage. Phase 9 is implemented/focused-tested and accepted for commit, not closed. | Commit/push Phase 9 implementation, then Phase 9 gate/closure review before Phase 10 audit. |
-| 2026-07-10 | Phase 9 Immutable Published Practice Versions Gate | ACCEPTED_READY_FOR_COMMIT | CLOSED_WITH_ACCEPTED_DEBT | N/A | b764ba5c6de70bc2275b7a25c8722e83cda88f78 | Source review plus prior full suite evidence: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Phase 9 gate accepted. Normalized immutable version graph, append-only publish, attempt version locks, snapshot-based scoring/rendering, legacy compatibility, null-group stabilization, and privacy guardrails are accepted with debt. Phase 10/11/13 remain not started; live Speaking AI rollout remains NO-GO. | Commit/push Phase 9 closure docs, then Phase 10 audit only after user approval. |
+| 2026-07-10 | Phase 9 Immutable Published Practice Versions Gate | ACCEPTED_READY_FOR_COMMIT | CLOSED_WITH_ACCEPTED_DEBT | ac658dc32a6b98d01760fd2cce352825876d53e5 | b764ba5c6de70bc2275b7a25c8722e83cda88f78 | Source review plus prior full suite evidence: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Phase 9 gate accepted and closure docs committed. Normalized immutable version graph, append-only publish, attempt version locks, snapshot-based scoring/rendering, legacy compatibility, null-group stabilization, and privacy guardrails are accepted with debt. Phase 10/11/13 remain not started; live Speaking AI rollout remains NO-GO. | Phase 9G stabilization before Phase 10 audit. |
+| 2026-07-10 | Phase 9G Immutable Version Stabilization & Encoding Cleanup | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | ac658dc32a6b98d01760fd2cce352825876d53e5 | Focused evidence: 9G-A null-group ambiguity rejection/fallback, 4 tests passed; 9G-B content hash fail-closed, 2 tests passed; 9G-C transcription retry multipart rebuild, 4 tests passed; 9G-D mojibake cleanup, 3 tests passed; 9G-F focused gate, 12 tests passed. User-approved full suite: `mvn test`; 1163 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Rejects ambiguous null-group publish/version creation across multi-test or multi-section graphs; V24 baseline avoids wrong locks and uses compatibility fallback; runtime publish hash fails closed; transcription retry reopens audio stream; narrow UTF-8 cleanup applied. Phase 10/11/13 remain NOT_STARTED. | Commit/push Phase 9G stabilization, then Phase 10 audit. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push Phase 9 closure docs after user approval. Then Phase 10 audit only.
+Review Phase 9G stabilization, then commit/push Phase 9G only after explicit
+user approval. After that, Phase 10 audit may begin.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
-CLOSED_WITH_ACCEPTED_DEBT pending closure docs commit. Phase 10+ remain
+CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization
+IMPLEMENTED_AND_FOCUSED_TESTED pending review/commit. Phase 10+ remain
 NOT_STARTED. Live Speaking AI rollout remains NO-GO. React modernization
 remains future-only after Phase 16. Do not start Phase 10, Phase 11, Phase 13,
-UI modernization, import work, or React modernization from the Phase 9 closure
-diff.
+UI modernization, import work, or React modernization from the Phase 9G
+stabilization diff.
 
 ## Long-Term Direction After Phase 16
 

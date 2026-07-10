@@ -14,6 +14,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -192,6 +194,35 @@ class OpenAiSpeakingTranscriptionClientTest {
         assertThat(transport.baseUrl()).isEqualTo("https://api.openai.com/v1");
     }
 
+    @Test
+    void retryRebuildsMultipartAndReopensAudioStream() {
+        ResourceReadingRetryTransport transport = new ResourceReadingRetryTransport();
+        OpenAiSpeakingTranscriptionClient client = client(properties("secret-key", "https://api.openai.com/v1",
+                "gpt-4o-mini-transcribe", true, 1), transport);
+        AtomicInteger opens = new AtomicInteger();
+        byte[] payload = "fresh-audio".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        SpeakingTranscriptionRequest request = new SpeakingTranscriptionRequest(
+                9L,
+                10L,
+                11L,
+                12L,
+                "audio/webm",
+                (long) payload.length,
+                1200L,
+                "ko",
+                () -> {
+                    opens.incrementAndGet();
+                    return new ByteArrayInputStream(payload);
+                });
+
+        SpeakingTranscriptionResult result = client.transcribe(request);
+
+        assertEquals(SpeakingEvaluationStatus.EVALUATED, result.status());
+        assertThat(transport.calls()).isEqualTo(2);
+        assertThat(opens.get()).isEqualTo(2);
+        assertThat(transport.payloads()).containsExactly("fresh-audio", "fresh-audio");
+    }
+
     private void assertRetryableHttp(HttpStatus status) {
         CapturingTransport transport = status == HttpStatus.TOO_MANY_REQUESTS
                 ? new CapturingTransport(HttpClientErrorException.create(
@@ -224,12 +255,17 @@ class OpenAiSpeakingTranscriptionClientTest {
 
     private OpenAiSpeakingTranscriptionClient client(
             SpeakingTranscriptionProperties properties,
-            CapturingTransport transport
+            OpenAiSpeakingTranscriptionClient.OpenAiTranscriptionTransport transport
     ) {
         return new OpenAiSpeakingTranscriptionClient(properties, objectMapper, transport);
     }
 
     private SpeakingTranscriptionProperties properties(String apiKey, String baseUrl, String model, boolean includeLogprobs) {
+        return properties(apiKey, baseUrl, model, includeLogprobs, 0);
+    }
+
+    private SpeakingTranscriptionProperties properties(String apiKey, String baseUrl, String model,
+                                                      boolean includeLogprobs, int maxRetries) {
         return new SpeakingTranscriptionProperties(
                 false,
                 "openai",
@@ -239,7 +275,7 @@ class OpenAiSpeakingTranscriptionClientTest {
                 "ko",
                 26214400L,
                 Duration.ofSeconds(30),
-                0,
+                maxRetries,
                 includeLogprobs,
                 "audio/webm,audio/mp4");
     }
@@ -302,6 +338,35 @@ class OpenAiSpeakingTranscriptionClientTest {
 
         private int calls() {
             return calls.get();
+        }
+    }
+
+    private static class ResourceReadingRetryTransport implements OpenAiSpeakingTranscriptionClient.OpenAiTranscriptionTransport {
+        private final AtomicInteger calls = new AtomicInteger();
+        private final List<String> payloads = new ArrayList<>();
+
+        @Override
+        public String post(MultiValueMap<String, Object> body) throws IOException {
+            calls.incrementAndGet();
+            Resource file = (Resource) body.getFirst("file");
+            payloads.add(new String(file.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            if (calls.get() == 1) {
+                throw new ResourceAccessException("retryable timeout");
+            }
+            return "{\"text\":\"안녕하세요\"}";
+        }
+
+        @Override
+        public String baseUrl() {
+            return "https://api.openai.com/v1";
+        }
+
+        private int calls() {
+            return calls.get();
+        }
+
+        private List<String> payloads() {
+            return payloads;
         }
     }
 }

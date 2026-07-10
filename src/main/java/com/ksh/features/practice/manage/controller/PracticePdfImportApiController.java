@@ -219,7 +219,7 @@ public class PracticePdfImportApiController {
                 sessionService.updateStatus(sessionId, "READY_FOR_AI");
                 return ResponseEntity.badRequest().body(Map.of(
                         "status", "FAILED_RETRYABLE",
-                        "message", "Dá»¯ liá»‡u khoanh vÃ¹ng chÆ°a Ä‘á»§ an toÃ n Ä‘á»ƒ gá»­i AI.",
+                        "message", "Dữ liệu khoanh vùng chưa đủ an toàn để gửi AI.",
                         "errors", blockingErrors,
                         "warnings", payloadInfo.validationErrors()
                 ));

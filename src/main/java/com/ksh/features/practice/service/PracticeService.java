@@ -1041,17 +1041,17 @@ public class PracticeService {
             recentHistory.add(toAttemptSummary(attempt, setsById, testsById, sectionsById));
         }
 
-        String currentLevel = "TOPIK II Cáº¥p 3";
+        String currentLevel = "TOPIK II Cấp 3";
         if (recentAverageScore >= 80.0) {
-            currentLevel = "TOPIK II Cáº¥p 6";
+            currentLevel = "TOPIK II Cấp 6";
         } else if (recentAverageScore >= 70.0) {
-            currentLevel = "TOPIK II Cáº¥p 5";
+            currentLevel = "TOPIK II Cấp 5";
         } else if (recentAverageScore >= 60.0) {
-            currentLevel = "TOPIK II Cáº¥p 4";
+            currentLevel = "TOPIK II Cấp 4";
         } else if (recentAverageScore < 40.0) {
-            currentLevel = "TOPIK I Cáº¥p 1";
+            currentLevel = "TOPIK I Cấp 1";
         } else if (recentAverageScore < 50.0) {
-            currentLevel = "TOPIK I Cáº¥p 2";
+            currentLevel = "TOPIK I Cấp 2";
         }
 
         return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
@@ -1206,22 +1206,22 @@ public class PracticeService {
         }
         if (maxAttempts >= 3 && !mostPracticedSkill.isEmpty()) {
             highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
-                    "MOST_PRACTICED", "Luyá»‡n nhiá»u nháº¥t",
+                    "MOST_PRACTICED", "Luyện nhiều nhất",
                     PracticeDtos.getSkillLabel(mostPracticedSkill), maxAttempts, 0.0, true));
         } else {
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_PRACTICED", "Luyá»‡n nhiá»u nháº¥t", "", 0, 0.0, false));
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_PRACTICED", "Luyện nhiều nhất", "", 0, 0.0, false));
         }
         if (minAvgScore <= 100.0 && !needsWorkSkill.isEmpty()) {
             List<PracticeAttempt> skillAttempts = attemptsBySkill(scoredAll, needsWorkSkill);
             highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight(
-                    "NEEDS_WORK", "Cáº§n cáº£i thiá»‡n",
+                    "NEEDS_WORK", "Cần cải thiện",
                     PracticeDtos.getSkillLabel(needsWorkSkill), skillAttempts.size(),
                     Math.round(minAvgScore * 10.0) / 10.0, true));
         } else {
-            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("NEEDS_WORK", "Cáº§n cáº£i thiá»‡n", "", 0, 0.0, false));
+            highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("NEEDS_WORK", "Cần cải thiện", "", 0, 0.0, false));
         }
-        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_STABLE", "á»”n Ä‘á»‹nh nháº¥t", "", 0, 0.0, false));
-        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_IMPROVED", "Tiáº¿n bá»™ nháº¥t", "", 0, 0.0, false));
+        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_STABLE", "Ổn định nhất", "", 0, 0.0, false));
+        highlights.add(new com.ksh.features.practice.dto.PracticeDtos.PerformanceHighlight("MOST_IMPROVED", "Tiến bộ nhất", "", 0, 0.0, false));
 
         List<PracticeResultSummary> history = new ArrayList<>();
         List<PracticeAttempt> historyAttempts = recentAttempts.subList(0, Math.min(30, recentAttempts.size()));
@@ -1391,7 +1391,7 @@ public class PracticeService {
             groups.add(new PracticeQuestionGroupRow(
                     null,
                     version.sectionVersion().getSectionId(),
-                    "Pháº§n thi",
+                    "Phần thi",
                     from,
                     to,
                     null,
@@ -2491,16 +2491,16 @@ public class PracticeService {
             Map<String, String> form
     ) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("KhÃ´ng tÃ¬m tháº¥y lÆ°á»£t lÃ m bÃ i"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
         if ("WRITING".equals(attempt.getSkill())) {
             throw new IllegalStateException("Writing attempt must use snapshot grading path.");
         }
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new IllegalStateException("LÆ°á»£t lÃ m bÃ i Ä‘Ã£ Ä‘Æ°á»£c ná»™p hoáº·c cháº¥m Ä‘iá»ƒm.");
+            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
         }
 
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section khÃ´ng tá»“n táº¡i"));
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
         validateAttemptSection(attempt, section);
         validateKnownSkill(attempt.getSkill());
         loadPublished(attempt.getSetId());
@@ -2546,13 +2546,13 @@ public class PracticeService {
 
     private NonWritingEssayGradingSnapshot loadNonWritingEssayReEvaluationSnapshot(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Káº¿t quáº£ khÃ´ng tá»“n táº¡i"));
+                .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         if ("WRITING".equals(attempt.getSkill())) {
             throw new IllegalStateException("Writing attempt must use snapshot grading path.");
         }
 
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section khÃ´ng tá»“n táº¡i"));
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
         validateAttemptSection(attempt, section);
         validateKnownSkill(attempt.getSkill());
         loadPublished(attempt.getSetId());
@@ -2703,7 +2703,7 @@ public class PracticeService {
     private void validateKnownSkill(String skill) {
         if (skill == null || (!"READING".equals(skill) && !"LISTENING".equals(skill) &&
             !"WRITING".equals(skill) && !"SPEAKING".equals(skill))) {
-            throw new IllegalArgumentException("Skill khÃ´ng há»£p lá»‡");
+            throw new IllegalArgumentException("Skill không hợp lệ");
         }
     }
 
@@ -3066,7 +3066,7 @@ public class PracticeService {
             NonWritingEssayGradingResult result
     ) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("BÃ i lÃ m Ä‘Ã£ thay Ä‘á»•i trong lÃºc cháº¥m. Vui lÃ²ng táº£i láº¡i vÃ  thá»­ láº¡i."));
+                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
         verifyNonWritingSnapshotIdentity(attempt, snapshot);
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
             throw conflict();
@@ -3090,7 +3090,7 @@ public class PracticeService {
             NonWritingEssayGradingResult result
     ) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("BÃ i lÃ m Ä‘Ã£ thay Ä‘á»•i trong lÃºc cháº¥m. Vui lÃ²ng táº£i láº¡i vÃ  thá»­ láº¡i."));
+                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
         verifyNonWritingSnapshotIdentity(attempt, snapshot);
         if (!Objects.equals(snapshot.expectedStatus(), attempt.getStatus())) {
             throw conflict();

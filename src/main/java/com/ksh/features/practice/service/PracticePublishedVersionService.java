@@ -26,6 +26,8 @@ import com.ksh.features.practice.repository.PracticeTestVersionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -37,6 +39,8 @@ import java.util.Optional;
 
 @Service
 public class PracticePublishedVersionService {
+    private static final Logger log = LoggerFactory.getLogger(PracticePublishedVersionService.class);
+
 
     private final PracticePublishedVersionRepository publishedVersionRepository;
     private final PracticeSetVersionRepository setVersionRepository;
@@ -147,6 +151,11 @@ public class PracticePublishedVersionService {
                         " because ungrouped questions are ambiguous in multi-section testId=" + test.getId());
             }
         }
+        if (tests.size() > 1) {
+            throw new IllegalStateException(
+                    "Cannot publish immutable practice version for setId=" + setId +
+                    " because ungrouped questions are ambiguous across multiple tests.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -208,7 +217,8 @@ public class PracticePublishedVersionService {
             }
             return sb.toString();
         } catch (Exception e) {
-            return null;
+            log.error("[PracticePublishedVersion] Failed to compute immutable content hash for setId={}", setId, e);
+            throw new IllegalStateException("Cannot publish immutable practice version because content hash could not be computed.", e);
         }
     }
 }
