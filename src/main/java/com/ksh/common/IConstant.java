@@ -4,12 +4,12 @@ package com.ksh.common;
  * Project-wide constants shared by controllers (and any other layer that
  * benefits from the same key set). Consumers reference these unqualified via
  * a static import — interface fields are implicitly
- * {@code public static final}, so {@code import static com.ksh.common.IConstant.*}
+ * {@code public static final}, so {@code import static com.ulp.common.IConstant.*}
  * lets a class write {@code ATTR_FORM} directly without {@code IConstant.} prefix.
  *
  * <p><b>Why an interface, not a final class with statics?</b>
  * The interface stays as a namespace for the constants. Consumers pull them
- * in with {@code import static com.ksh.common.IConstant.*}, which keeps the
+ * in with {@code import static com.ulp.common.IConstant.*}, which keeps the
  * keys as an <em>implementation detail</em> of the consumer rather than
  * leaking through its public type (the classic "constant interface
  * anti-pattern" — Effective Java Item 22). Sub-interfaces can still extend
@@ -28,7 +28,7 @@ package com.ksh.common;
  * <p><b>What does NOT go here:</b>
  * <ul>
  *   <li>Entity column names — they belong on the entity.</li>
- *   <li>Role / permission strings — see {@code com.ksh.security.Roles}.</li>
+ *   <li>Role / permission strings — see {@code com.ulp.security.Roles}.</li>
  *   <li>One-off literals used by a single method — keep them inline.</li>
  *   <li>Localised UI strings once {@code MessageSource} ships — migrate to
  *       {@code messages.properties}.</li>
@@ -54,6 +54,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_CLASS_DETAIL_PROGRESS   = "classes/detail-progress";
+    String VIEW_CLASS_DETAIL_TESTS      = "classes/detail-tests";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
     String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
@@ -127,6 +128,7 @@ public interface IConstant {
     String TAB_LESSONS     = "lessons";
     String TAB_MATERIALS   = "materials";
     String TAB_PROGRESS    = "progress";
+    String TAB_TESTS       = "tests";
     String TAB_SETTINGS    = "settings";
 
     // Additional tab keys (used across admin / detail screens).
@@ -135,6 +137,8 @@ public interface IConstant {
     String TAB_INFO      = "info";
     String TAB_HISTORY   = "history";
     String TAB_ACTIVITY  = "activity";
+    String TAB_MONITOR     = "monitor";
+    String TAB_SUBMISSIONS = "submissions";
 
     // Settings sub-tabs
     String SUBTAB_INFO   = "info";
@@ -214,20 +218,22 @@ public interface IConstant {
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
-    // ───────── Learning-progress flash messages (ksh-4.5) ────────────
+    // ───────── Learning-progress flash messages (ULP-4.5) ────────────
     String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
     String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
 
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (ksh-4.6, Vietnamese UI text) ──
+    // ───────── Lesson-comment messages (ULP-4.6, Vietnamese UI text) ──
     String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
+    // Moderator hide/unhide (ULP-11.7).
+    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
-    // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
+    // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
     String API_FLASHCARDS       = "/api/flashcards";
@@ -266,7 +272,78 @@ public interface IConstant {
     int QUALITY_GOOD   = 4;
     int QUALITY_EASY   = 5;
 
-    // ───────── Pagination ────────────────────────────────────────────
+    // ───────── MCQ online exams (Epic #11) ───────────────────────────
+    // Route prefixes / canonical URLs.
+    String BASE_MY_TESTS       = "/my/tests";
+    String API_TESTS           = "/api/tests";
+    String BASE_LECTURER_TESTS = BASE_LECTURER + "/tests";
+
+    // View names.
+    String VIEW_TEST_LIST          = "tests/list";
+    String VIEW_TEST_TAKE          = "tests/take";
+    String VIEW_TEST_RESULT        = "tests/result";
+    String VIEW_TEST_REVIEW        = "tests/review";
+    String VIEW_TEST_PRACTICE_NEW  = "tests/practice-new";
+    String VIEW_TEST_READINESS     = "tests/readiness";
+    String VIEW_TEST_LECTURER_LIST = "tests/lecturer-list";
+    String VIEW_TEST_LECTURER_FORM = "tests/lecturer-form";
+    String VIEW_STUDENT_CLASS_TESTS = "student/class-tests";
+
+    // Model attribute keys.
+    String ATTR_EXAMS_PAGE   = "examsPage";
+    String ATTR_TAKE         = "take";
+    String ATTR_RESULT       = "result";
+    String ATTR_REVIEW       = "review";
+    String ATTR_READINESS    = "readiness";
+    String ATTR_PRACTICE     = "practice";
+    String ATTR_EXAM_FORM    = "examForm";
+    String ATTR_TEST         = "test";
+    String ATTR_LED_CLASSES  = "ledClasses";
+    String ATTR_MONITOR      = "monitor";
+    String ATTR_SUBMISSIONS  = "submissions";
+    String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
+
+    // Readiness band labels (Vietnamese UI text).
+    String BAND_NOT_READY = "Chưa sẵn sàng";
+    String BAND_OK        = "Khá";
+    String BAND_READY     = "Sẵn sàng";
+
+    // Flash / validation messages (Vietnamese UI text).
+    String MSG_EXAM_SAVED            = "Đã lưu bài test";
+    String MSG_EXAM_DELETED          = "Đã xoá bài test";
+    String MSG_EXAM_SUBMITTED        = "Đã nộp bài";
+    String MSG_PRACTICE_CREATED      = "Đã tạo bài luyện tập";
+    String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
+    String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
+    String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
+    String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
+    String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
+    String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
+    String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
+    String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
+
+    // Exam list / submissions page sizes (default + upper bound for ?size).
+    int DEFAULT_EXAM_PAGE_SIZE        = 12;
+    int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
+
+    // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
+    // Route prefix / canonical URL.
+    String BASE_MY_MESSAGES = "/my/messages";
+
+    // View names.
+    String VIEW_MESSAGING_INDEX        = "messaging/index";
+    String VIEW_MESSAGING_CONVERSATION = "messaging/conversation";
+    String VIEW_STUDENT_CLASS_MESSAGES = "student/class-messages";
+
+    // Model attribute keys.
+    String ATTR_CONVERSATIONS = "conversations";
+    String ATTR_CONVERSATION  = "conversation";
+    String ATTR_MSG_UNREAD    = "msgUnreadCount";
+    String ATTR_RECIPIENTS     = "recipients";
+    String ATTR_COMPOSE        = "compose";
+    String ATTR_COMPOSE_QUERY  = "composeQuery";
+
+    // Pagination.
     int DEFAULT_PAGE_SIZE = 20;
 
     // Lessons feature — shared paging (history tab page size).
@@ -286,6 +363,28 @@ public interface IConstant {
 
     // Shared pager fragment — Map of query params to preserve across pages
     // (status/q/size/…). Consumed by templates/fragments/pager.html.
-    // Numbered-button window size lives in com.ksh.common.PageWindow.
+    // Numbered-button window size lives in com.ulp.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
+
+    // ───────── Admin course categories (ULP-11.4) ────────────────────
+    // View names.
+    String VIEW_ADMIN_CATEGORIES      = "admin/categories";
+    String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";
+
+    // Tab key (admin sidebar active state).
+    String TAB_CATEGORIES = "categories";
+
+    // Model attribute keys.
+    String ATTR_CATEGORY_TREE    = "categoryTree";
+    String ATTR_CATEGORY_PARENTS = "categoryParents";
+    String ATTR_HAS_CHILDREN     = "hasChildren";
+    String ATTR_TARGET_ID        = "targetId";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_CATEGORY_CREATED = "Đã tạo danh mục ";
+    String MSG_CATEGORY_UPDATED = "Đã cập nhật danh mục";
+    String MSG_CATEGORY_DELETED = "Đã xoá danh mục";
+    String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
+    String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
+    String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
 }

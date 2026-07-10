@@ -7,6 +7,7 @@ import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.service.ClassMembersService;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.classes.service.invites.InviteCodeService;
+import com.ksh.features.tests.service.LecturerExamService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import org.springframework.http.HttpStatus;
@@ -53,15 +54,18 @@ public class ClassDetailController {
     private final ClassMembersService classMembersService;
     private final InviteCodeService inviteCodeService;
     private final ClassDetailModelSupport detailSupport;
+    private final LecturerExamService examService;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
-                                 ClassDetailModelSupport detailSupport) {
+                                 ClassDetailModelSupport detailSupport,
+                                 LecturerExamService examService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
         this.inviteCodeService = inviteCodeService;
         this.detailSupport = detailSupport;
+        this.examService = examService;
     }
 
     /** Renders the class board (announcement) tab. */
@@ -86,6 +90,18 @@ public class ClassDetailController {
         model.addAttribute(ATTR_MEMBERS, view.members());
         model.addAttribute(ATTR_MEMBER_TOTAL, view.total());
         return VIEW_CLASS_DETAIL_MEMBERS;
+    }
+
+    /** Renders the class exams tab — the exams belonging to this class. */
+    @GetMapping("/classes/{id}/tests")
+    public String detailTests(@PathVariable Long id,
+                              @RequestParam(name = "page", defaultValue = "0") int page,
+                              @AuthenticationPrincipal KshUserDetails user,
+                              Model model) {
+        ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
+        detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
+        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        return VIEW_CLASS_DETAIL_TESTS;
     }
 
     /**
@@ -118,13 +134,13 @@ public class ClassDetailController {
      *
      * <p>Note: {@code /lessons} is intentionally NOT mapped here — it is owned
      * by {@code SectionsController} ({@code /lecturer/classes/{classId}/lessons})
-     * starting with ksh-4.0a. Adding both mappings would raise
+     * starting with ULP-4.0a. Adding both mappings would raise
      * {@code IllegalStateException: Ambiguous mapping} at startup.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
-                "/classes/{id}/groups", "/classes/{id}/assignments",
-                "/classes/{id}/scores",
-                "/classes/{id}/materials"})
+            "/classes/{id}/groups", "/classes/{id}/assignments",
+            "/classes/{id}/scores",
+            "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,
                                     @AuthenticationPrincipal KshUserDetails user,
                                     jakarta.servlet.http.HttpServletRequest request,
