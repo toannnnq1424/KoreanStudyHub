@@ -669,7 +669,7 @@
           questionGroupsMap[groupLabel] = [];
         }
 
-        groupEl.querySelectorAll('.ksh-question-card').forEach((qCard) => {
+        groupEl.querySelectorAll('.ksh-question-block').forEach((qCard) => {
           const cb = qCard.querySelector('.ksh-flag-review');
           const qNo = cb ? cb.dataset.questionNo : null;
           

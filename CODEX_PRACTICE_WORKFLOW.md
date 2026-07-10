@@ -1022,10 +1022,45 @@ Accepted debt:
 #### Phase 8G — Practice-Wide Functional UI / Integration Regression
 
 Status:
-PLANNED
+IMPLEMENTED_AND_FOCUSED_TESTED
 
 Must happen before Phase 9 unless explicitly accepted/deferred by user
 decision.
+
+Implemented slices:
+
+- 8G-A route/data binding stabilization:
+  set detail now renders actual PracticeTest IDs, legacy one-id mode/room routes
+  redirect to canonical set detail without assuming a default test, mode
+  create-attempt forms submit sectionId, and result back links preserve attempt
+  testId.
+- 8G-B player/template/JS contract stabilization:
+  player question block selector now matches the rendered player template.
+- 8G-C result/result-detail integration stabilization:
+  Writing/Speaking result and Reading/Listening result navigation preserve
+  setId/testId context, and Spring test context starts without real provider
+  calls.
+- 8G-D focused navigation and smoke contract tests:
+  route/template/JS regressions are covered by focused MockMvc and file
+  contract tests.
+- 8G-E implementation validation:
+  focused tests passed; phase-gate closure review remains pending before
+  marking Phase 8G closed.
+
+Focused evidence:
+
+`mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`
+
+Result: 10 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS.
+
+Notes:
+
+- No full suite was run.
+- No real AI/provider API call was made.
+- No stage, commit, or push was performed.
+- Phase 8H remains PLANNED.
+- Phase 9 remains blocked until Phase 8G and Phase 8H are closed, accepted, or
+  explicitly deferred.
 
 #### Phase 8H — Practice Architecture, Security Boundary & Maintainability
 
@@ -1325,16 +1360,20 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-09 | 8E-F Speaking AI Focused Phase-Gate Review | NOT_STARTED | COMMITTED | d6dbbb98bff4791c67ae6e501ea295387ca394cb | aa988d65e989e4091ee27b973af58a9c137a4c38 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,PracticeServiceTest#speakingAiEnvelopeBuildsAndReadsRichPerQuestionFeedback+speakingFeedbackMapBuildsPerQuestionRowsWithoutLeakingAnswers+speakingLegacyOneObjectFeedbackIsMarkedAsGlobalCompatibility+speakingEmptyOrMalformedFeedbackProducesSafeRowsWithoutFeedback+mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder+speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope+speakingReEvaluateDoesNotCallRealSpeakingAiService,WritingScoringPolicyTest,WritingTaskNativeScoringTest,WritingPromptRulesTest,WritingEvaluationClientTest,WritingEvaluationNormalizerTest,WritingFeedbackCompatibilityReaderTest,PracticeResultWordingTest" test`; 196 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8E gate review passed and top-level 8E closed as CLOSED_WITH_ACCEPTED_DEBT; live Speaking AI rollout remains NO-GO. | Route accepted debt through Phase 16, then Phase 8F audit only after user approval. |
 | 2026-07-10 | Phase 8F AI Production Hardening, Calibration & Rollout Readiness | NOT_STARTED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | d174971251339ead75b0e8a1e55d2456b7b77389 | Focused command: `mvn "-Dtest=SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeAiMetricsTest" test`; 31 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Implemented provider gate readiness, calibration fixture framework, bounded provider metrics/runbook readiness, storage production-readiness policy, and rollout checklist. Live Speaking AI remains NO-GO until object storage decision, 8G, 8H, and Phase 15/UAT decisions are satisfied. | User review, then commit/push only after explicit approval. |
 | 2026-07-10 | Phase 8F AI Production Readiness Gate | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | 9ecd9924a4ca4c83044ec7f81fc7c09a1cd5ea04 | Focused command: `mvn "-Dtest=SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeAiMetricsTest" test`; 31 tests, 0 failures, 0 errors, 0 skips on JDK 17; no full suite and no provider calls. | Phase 8F gate review passed. Provider gates remain disabled by default; bounded metrics/runbook, calibration fixture framework, storage production-readiness policy, and rollout checklist are accepted with debt. Live Speaking AI remains NO-GO. | Commit/push 8F closure docs, then Phase 8G audit only after user approval. |
+| 2026-07-10 | Phase 8G Practice-Wide Functional UI / Integration Regression | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 7dc79f1ccafa0c19f3d9474ef86c4ebc96cf4f42 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Implemented route/data binding, legacy mode/room redirects to canonical set detail without default-test assumptions, mode sectionId, player JS selector alignment, Writing/Speaking and Reading/Listening result navigation, and Spring DI constructor selection needed for focused app-context tests. | User review, then commit/push only after explicit approval; after commit, run Phase 8G phase-gate closure review before starting 8H. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push Phase 8F closure documentation after user approval, then proceed to
-Phase 8G audit only after explicit user approval.
+User review for Phase 8G implementation, then commit/push only after explicit
+approval. After commit, run Phase 8G phase-gate closure review before starting
+Phase 8H.
 
 Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
-are COMMITTED. Phase 8F is CLOSED_WITH_ACCEPTED_DEBT pending docs commit.
+are COMMITTED. Phase 8F is CLOSED_WITH_ACCEPTED_DEBT. Phase 8G is
+IMPLEMENTED_AND_FOCUSED_TESTED pending user review/commit. Phase 8H remains
+PLANNED.
 
 Do not start Phase 9 before both Phase 8G and Phase 8H are closed, accepted, or
 explicitly deferred.

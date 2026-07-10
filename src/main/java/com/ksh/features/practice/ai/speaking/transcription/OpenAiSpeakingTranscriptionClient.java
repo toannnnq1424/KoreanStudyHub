@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -34,6 +35,7 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
     private final ObjectMapper objectMapper;
     private final OpenAiTranscriptionTransport transport;
 
+    @Autowired
     public OpenAiSpeakingTranscriptionClient(SpeakingTranscriptionProperties properties, ObjectMapper objectMapper) {
         this(properties, objectMapper, new RestClientOpenAiTranscriptionTransport(properties));
     }

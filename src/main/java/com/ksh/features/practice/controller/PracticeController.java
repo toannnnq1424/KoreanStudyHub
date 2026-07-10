@@ -104,12 +104,12 @@ public class PracticeController {
 
     @GetMapping("/{setId}/mode")
     public String legacyMode(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId + "/tests/" + setId + "/mode";
+        return "redirect:/practice/sets/" + setId;
     }
 
     @GetMapping("/{setId}/room")
     public String legacyPlayer(@PathVariable Long setId) {
-        return "redirect:/practice/sets/" + setId + "/tests/" + setId;
+        return "redirect:/practice/sets/" + setId;
     }
 
     @PostMapping("/{setId}/submit")
@@ -173,6 +173,7 @@ public class PracticeController {
         PracticeSetView view = practiceService.getPractice(setId);
         model.addAttribute("view", view);
         model.addAttribute("testId", testId);
+        model.addAttribute("sections", practiceService.getSectionsForTest(setId, testId));
         return "practice/mode";
     }
 
@@ -400,8 +401,6 @@ public class PracticeController {
         return "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại.";
     }
 
-
-    /** Backward-compat redirect: /practice/profile → /practice/progress */
     @GetMapping("/profile")
     public String profileRedirect() {
         return "redirect:/practice/progress";

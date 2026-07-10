@@ -229,6 +229,22 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
+    void setDetailLinksUseActualPracticeTestIds() throws Exception {
+        PracticeTest secondTest = testRepository.saveAndFlush(
+                new PracticeTest(practiceSet.getId(), "Test riêng", "Bài luyện thứ hai", 2, 30));
+
+        mockMvc.perform(get("/practice/sets/" + practiceSet.getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId())))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/practice/sets/" + practiceSet.getId() + "/tests/" + secondTest.getId())))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(
+                        "testId=" + practiceSet.getId() + ")"))));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
     void testSetDetailUsesAttemptHistoryAndIgnoresLegacySubmissions() throws Exception {
         PracticeAttempt currentUserAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         currentUserAttempt.markSubmitted(BigDecimal.valueOf(8.5), BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}");
@@ -299,7 +315,47 @@ class PracticeIntegrationTest {
         mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/mode"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/mode"))
-                .andExpect(model().attributeExists("view"));
+                .andExpect(model().attributeExists("view"))
+                .andExpect(model().attributeExists("sections"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"sectionId\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"" + defaultSection.getId() + "\"")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void legacyModeRedirectsToSetDetail() throws Exception {
+        mockMvc.perform(get("/practice/" + practiceSet.getId() + "/mode"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void legacyRoomRedirectsToSetDetail() throws Exception {
+        mockMvc.perform(get("/practice/" + practiceSet.getId() + "/room"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void resultBackLinkUsesAttemptTestId() throws Exception {
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(defaultSection.getId()))
+                        .param("mode", "exam"))
+                .andExpect(status().is3xxRedirection());
+
+        PracticeAttempt attempt = attemptRepository.findAll().get(0);
+        mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
+                        .with(csrf())
+                        .param("answer_" + question.getId(), "1"))
+                .andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId())));
     }
 
     @Test

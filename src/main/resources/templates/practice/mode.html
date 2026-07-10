@@ -64,6 +64,10 @@
           <!-- Form submit to create attempt -->
           <form class="mt-auto pt-4" method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <label class="sr-only" for="practice-section-select">Chọn kỹ năng</label>
+            <select id="practice-section-select" name="sectionId" class="pi-mode-select" required>
+              <option th:each="sec : ${sections}" th:value="${sec.id}" th:text="${sec.title}">Phần thi</option>
+            </select>
             <input type="hidden" name="mode" value="practice" />
             <button class="pi-btn-primary pi-btn-full" type="submit">Bắt đầu</button>
           </form>
@@ -98,6 +102,10 @@
           <!-- Form submit to create attempt -->
           <form class="mt-auto pt-4" method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <label class="sr-only" for="exam-section-select">Chọn kỹ năng</label>
+            <select id="exam-section-select" name="sectionId" class="pi-mode-select" required>
+              <option th:each="sec : ${sections}" th:value="${sec.id}" th:text="${sec.title}">Phần thi</option>
+            </select>
             <input type="hidden" name="mode" value="exam" />
             <button class="pi-btn-primary pi-btn-full" type="submit">Bắt đầu</button>
           </form>

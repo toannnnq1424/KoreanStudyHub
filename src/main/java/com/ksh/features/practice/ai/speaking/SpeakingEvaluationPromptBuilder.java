@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -14,6 +15,7 @@ public class SpeakingEvaluationPromptBuilder {
     private final ObjectMapper objectMapper;
     private final SpeakingRuleEngine ruleEngine;
 
+    @Autowired
     public SpeakingEvaluationPromptBuilder(ObjectMapper objectMapper) {
         this(objectMapper, new SpeakingRuleEngine());
     }

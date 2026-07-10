@@ -64,6 +64,14 @@ public final class PracticeDtos {
     ) {
     }
 
+    public record PracticeTestRow(Long id,
+                                  Long setId,
+                                  String title,
+                                  String description,
+                                  Integer displayOrder,
+                                  Integer estimatedMinutes) {
+    }
+
     public record PracticeAnswerExplanationRow(Integer questionNo,
                                                String questionType,
                                                String prompt,
@@ -122,10 +130,15 @@ public final class PracticeDtos {
 
     public record PracticeSetView(PracticeSetRow set,
                                   List<PracticeQuestionGroupRow> groups,
-                                  List<SectionView> sections) {
+                                  List<SectionView> sections,
+                                  List<PracticeTestRow> tests) {
         // Convenience constructor for code that only supplies groups (backward-compat)
         public PracticeSetView(PracticeSetRow set, List<PracticeQuestionGroupRow> groups) {
-            this(set, groups, List.of());
+            this(set, groups, List.of(), List.of());
+        }
+
+        public PracticeSetView(PracticeSetRow set, List<PracticeQuestionGroupRow> groups, List<SectionView> sections) {
+            this(set, groups, sections, List.of());
         }
 
         public boolean writing() {
@@ -167,7 +180,7 @@ public final class PracticeDtos {
         }
     }
 
-    public record PracticeResultView(Long submissionId, PracticeSetRow set,
+    public record PracticeResultView(Long submissionId, Long testId, PracticeSetRow set,
                                      BigDecimal score, BigDecimal totalPoints,
                                      String scoreLabel,
                                      String answersJson,
@@ -177,6 +190,20 @@ public final class PracticeDtos {
                                      List<PracticeAnswerExplanationRow> answerExplanations,
                                      List<PracticeQuestionFeedbackRow> questionFeedbacks,
                                      List<SpeakingQuestionFeedbackRow> speakingQuestionFeedbacks) {
+        public PracticeResultView(Long submissionId, PracticeSetRow set,
+                                  BigDecimal score, BigDecimal totalPoints,
+                                  String scoreLabel,
+                                  String answersJson,
+                                  String aiFeedbackJson,
+                                  List<PracticeQuestionRow> questions,
+                                  List<PracticeAnswerReviewRow> answerReviews,
+                                  List<PracticeAnswerExplanationRow> answerExplanations,
+                                  List<PracticeQuestionFeedbackRow> questionFeedbacks,
+                                  List<SpeakingQuestionFeedbackRow> speakingQuestionFeedbacks) {
+            this(submissionId, null, set, score, totalPoints, scoreLabel, answersJson, aiFeedbackJson,
+                    questions, answerReviews, answerExplanations, questionFeedbacks, speakingQuestionFeedbacks);
+        }
+
         public boolean hasAiFeedback() {
             return aiFeedbackJson != null && !aiFeedbackJson.isBlank();
         }
@@ -453,6 +480,7 @@ public final class PracticeDtos {
 
     public record ReadingListeningResultView(
             Long submissionId,
+            Long testId,
             PracticeSetRow set,
             BigDecimal score,
             BigDecimal totalPoints,
@@ -464,6 +492,22 @@ public final class PracticeDtos {
             String answersJson,
             String optionLabelMode
     ) {
+        public ReadingListeningResultView(
+                Long submissionId,
+                PracticeSetRow set,
+                BigDecimal score,
+                BigDecimal totalPoints,
+                int correctCount,
+                int incorrectCount,
+                int totalCount,
+                List<PerformanceByTypeRow> performanceByType,
+                List<ReviewGroupRow> groups,
+                String answersJson,
+                String optionLabelMode
+        ) {
+            this(submissionId, null, set, score, totalPoints, correctCount, incorrectCount, totalCount,
+                    performanceByType, groups, answersJson, optionLabelMode);
+        }
     }
 
     public record PerformanceByTypeRow(

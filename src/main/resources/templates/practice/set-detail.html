@@ -63,26 +63,26 @@
       <!-- Tests Timeline List (PREP Vertical Timeline) -->
       <div class="pi-timeline">
         
-        <!-- Full Test item -->
-        <div class="pi-timeline-item active">
-          <div class="pi-timeline-badge">1</div>
+        <!-- Test items -->
+        <div class="pi-timeline-item active" th:each="test, iter : ${view.tests()}">
+          <div class="pi-timeline-badge" th:text="${iter.index + 1}">1</div>
           
           <!-- Test Card -->
-          <div class="pi-timeline-card" th:onclick="|window.location.href='@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${view.set().id()})}'|">
+          <div class="pi-timeline-card" th:onclick="|window.location.href='@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${test.id()})}'|">
             <div class="pi-tcard-main">
               <div class="pi-tcard-title-row">
-                <h3>Bài thi Đầy đủ (Full Test)</h3>
+                <h3 th:text="${test.title()}">Bài thi Đầy đủ</h3>
                 <!-- Status Badge -->
                 <span class="pi-status-badge"
                       th:classappend="${#lists.isEmpty(submissions)} ? 'not-started' : 'completed'"
                       th:text="${#lists.isEmpty(submissions)} ? 'Chưa làm' : 'Đã làm'">Chưa làm</span>
               </div>
-              <p class="pi-tcard-desc" th:text="'Luyện tập trọn vẹn bộ đề ' + ${view.set().title()} + ' với chấm điểm tự động từ AI.'">Mô tả bài thi</p>
+              <p class="pi-tcard-desc" th:text="${test.description() != null && !#strings.isEmpty(test.description()) ? test.description() : 'Luyện tập trọn vẹn bộ đề ' + view.set().title() + ' với chấm điểm tự động từ KSH.'}">Mô tả bài thi</p>
               
               <div class="pi-tcard-meta">
                 <span th:text="${view.totalQuestions()} + ' câu hỏi'">40 câu hỏi</span>
                 <span>•</span>
-                <span>70 phút</span>
+                <span th:text="${test.estimatedMinutes() != null ? test.estimatedMinutes() + ' phút' : 'Chưa cấu hình thời gian'}">70 phút</span>
               </div>
             </div>
 

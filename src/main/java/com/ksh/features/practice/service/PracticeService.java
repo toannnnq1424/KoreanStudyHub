@@ -30,6 +30,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PerformanceByTypeRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReviewGroupRow;
@@ -190,6 +191,10 @@ public class PracticeService {
         PracticeSet set = loadPublished(setId);
         List<PracticeQuestionGroup> dbGroups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
         List<PracticeQuestion> dbQuestions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        List<PracticeTestRow> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId)
+                .stream()
+                .map(PracticeService::toTestRow)
+                .toList();
 
         List<PracticeQuestionGroupRow> groups;
         if (dbGroups.isEmpty()) {
@@ -204,7 +209,7 @@ public class PracticeService {
             }).toList();
         }
 
-        return new PracticeSetView(toSetRow(set), groups);
+        return new PracticeSetView(toSetRow(set), groups, List.of(), tests);
     }
 
     public Long reEvaluate(Long attemptId, Long userId) {
@@ -342,6 +347,7 @@ public class PracticeService {
 
         return new PracticeResultView(
                 attempt.getId(),
+                attempt.getTestId(),
                 toSetRow(set),
                 attempt.getScore(),
                 attempt.getTotalPoints(),
@@ -1132,6 +1138,17 @@ public class PracticeService {
                 badgeText(set.getSkill(), set.getTopikLevel()),
                 set.getMetadataJson(),
                 set.getCreationMethod()
+        );
+    }
+
+    private static PracticeTestRow toTestRow(PracticeTest test) {
+        return new PracticeTestRow(
+                test.getId(),
+                test.getSetId(),
+                test.getTitle(),
+                test.getDescription(),
+                test.getDisplayOrder(),
+                test.getEstimatedMinutes()
         );
     }
 
@@ -2055,6 +2072,7 @@ public class PracticeService {
 
         return new ReadingListeningResultView(
                 attempt.getId(),
+                attempt.getTestId(),
                 toSetRow(set),
                 attempt.getScore(),
                 attempt.getTotalPoints(),
