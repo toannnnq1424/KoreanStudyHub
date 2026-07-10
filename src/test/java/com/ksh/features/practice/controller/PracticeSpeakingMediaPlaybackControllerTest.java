@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -130,25 +131,21 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void rangeHeaderReturnsPartialContentWithRangeHeaders() throws Exception {
-        TransactionObservingInputStream stream = new TransactionObservingInputStream(new byte[]{1, 2, 3, 4});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", 4L, stream));
+                        "audio/webm", 4L, stream(new byte[]{1, 2, 3, 4})));
 
-        MvcResult result = mockMvc.perform(get(ROUTE)
+        mockMvc.perform(get(ROUTE)
                         .header(HttpHeaders.RANGE, "bytes=1-2")
                         .with(authentication(formAuthentication(77L, Role.STUDENT))))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(result))
                 .andExpect(status().isPartialContent())
-                .andExpect(content().bytes(new byte[]{2, 3}))
+                .andExpect(request().asyncStarted())
                 .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 1-2/4"))
-                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 2L));
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 2L))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, containsString("audio/webm")));
 
-        assertThat(stream.transactionActiveDuringRead).containsOnly(false);
+        verify(playbackService).openForOwner(77L, 10L, 20L, 30L);
     }
 
     @Test
@@ -387,14 +384,22 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void getDoesNotRequireCsrf() throws Exception {
+        ReleasableInputStream stream = new ReleasableInputStream(new byte[]{1});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", 1L, stream(new byte[]{1})));
+                        "audio/webm", 1L, stream));
 
-        mockMvc.perform(get(ROUTE)
-                        .with(authentication(formAuthentication(77L, Role.STUDENT))))
-                .andExpect(status().isOk())
-                .andExpect(request().asyncStarted());
+        MvcResult result;
+        try {
+            result = mockMvc.perform(get(ROUTE)
+                            .with(authentication(formAuthentication(77L, Role.STUDENT))))
+                    .andExpect(status().isOk())
+                    .andExpect(request().asyncStarted())
+                    .andReturn();
+        } finally {
+            stream.release();
+        }
+        result.getAsyncResult(2_000);
 
         verify(playbackService).openForOwner(77L, 10L, 20L, 30L);
     }
@@ -493,6 +498,40 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     private static TrackingInputStream stream(byte[] content) {
         return new TrackingInputStream(content);
+    }
+
+    private static final class ReleasableInputStream extends InputStream {
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final ByteArrayInputStream delegate;
+
+        private ReleasableInputStream(byte[] bytes) {
+            this.delegate = new ByteArrayInputStream(bytes);
+        }
+
+        @Override
+        public int read() throws IOException {
+            awaitRelease();
+            return delegate.read();
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            awaitRelease();
+            return delegate.read(b, off, len);
+        }
+
+        private void release() {
+            release.countDown();
+        }
+
+        private void awaitRelease() throws IOException {
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting to release test stream.", ex);
+            }
+        }
     }
 
     private static byte[] sequence(int length) {

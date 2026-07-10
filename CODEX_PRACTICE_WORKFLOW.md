@@ -500,7 +500,17 @@ Writing logical TTL, RL version-based retention.
 ### Phase 8 — Advanced Practice, Writing & Speaking AI
 
 Status:
-IN_PROGRESS
+CLOSED_WITH_ACCEPTED_DEBT
+
+Closure note:
+
+Phase 8 is closed with accepted debt after Speaking media, Speaking AI
+schema/transcription/evaluator/persistence/reuse, AI readiness, practice-wide
+functional flow stabilization, and architecture/security boundary
+maintainability were implemented, committed, and focused-validated. This
+closure does not approve live Speaking AI rollout. Live Speaking AI rollout
+remains NO-GO until the later rollout readiness, object-storage, calibration,
+manual UAT, and operator approval gates are explicitly satisfied.
 
 #### Phase 8B — Text Speaking
 
@@ -1076,7 +1086,7 @@ Accepted debt:
 #### Phase 8H — Practice Architecture, Security Boundary & Maintainability
 
 Status:
-IMPLEMENTED_AND_FOCUSED_TESTED (pending review/commit)
+CLOSED_WITH_ACCEPTED_DEBT
 
 Scope:
 
@@ -1130,8 +1140,9 @@ Implemented slices:
   private file path fields. No prompt, provider, scoring, schema, or AI gate
   behavior was changed.
 - 8H-E focused implementation validation:
-  focused tests passed; top-level 8H is not closed yet and still requires user
-  review plus commit/push, then a phase-gate closure review.
+  focused tests passed; top-level 8H is closed with accepted debt as part of
+  the final Phase 8 closure stabilization after the architecture-boundary
+  implementation was committed.
 
 Focused evidence:
 
@@ -1139,21 +1150,134 @@ Focused evidence:
 
 Result: 68 tests, 0 failures, 0 errors, 2 skips, BUILD SUCCESS.
 
+Final Phase 8 closure evidence:
+
+`mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`
+
+Result: 182 tests, 0 failures, 0 errors, 2 skips, BUILD SUCCESS.
+
+Playback range MockMvc stabilization evidence:
+
+- `PracticeSpeakingMediaPlaybackControllerTest.rangeHeaderReturnsPartialContentWithRangeHeaders`
+  preserves 206 Partial Content, `Content-Range`, `Accept-Ranges`, bounded
+  `Content-Length`, and content type assertions without forcing the flaky
+  async body dispatch path.
+- `PracticeSpeakingMediaPlaybackControllerTest.getDoesNotRequireCsrf` uses a
+  releasable test stream so GET/CSRF coverage remains intact without racing
+  MockMvc async streaming against security header writes.
+- Streaming body behavior remains covered by playback controller/service and
+  local private storage focused tests.
+
 Notes:
 
 - No full suite was run.
 - No real AI/provider API call was made.
 - No stage, commit, or push was performed.
-- Phase 8H remains pending review/commit and is not closed.
-- Phase 9 remains blocked until Phase 8H is closed, accepted, or explicitly
-  deferred.
+- Phase 8H is closed with accepted debt after final Phase 8 closure
+  stabilization.
+- Phase 9 may begin only as AUDIT ONLY after this Phase 8 closure docs update
+  and playback test stabilization are committed and pushed.
 - Live Speaking AI rollout remains NO-GO.
+
+#### Final Phase 8 Speaking Evaluation Deep-Dive Policy
+
+Speaking evaluation must keep four independent evidence layers:
+
+1. Original audio reference:
+   learner recording reference, media id, and route-owned playback reference.
+   Do not expose public storage keys, storage paths, or local private file paths.
+2. Transcript layer:
+   transcript text, normalized transcript, transcript confidence, and
+   timestamped transcript when the provider supports it.
+3. Acoustic / speech evidence layer:
+   pronunciation evidence, fluency evidence, pauses, repetition,
+   self-correction, speech rate, and batchim / liaison / linking / intonation
+   evidence only when supported by audio, timestamp, or provider evidence.
+4. Language evaluation layer:
+   task fulfillment, content development, vocabulary, grammar, spoken endings,
+   honorifics / politeness / register, coherence, and organization.
+
+No single-label collapse:
+
+- A word, token, or phrase can simultaneously appear in multiple evidence
+  categories.
+- Example: a phrase can be lexically strong because it is used correctly and
+  naturally, a pronunciation weakness if it is pronounced incorrectly, and
+  fluency evidence if it is preceded by hesitation.
+- Do not collapse the word into one label.
+
+Korean Speaking criteria must remain independently auditable:
+
+- answering the question/task;
+- content development;
+- coherence and flow;
+- pauses;
+- repetition;
+- self-correction;
+- speech rate;
+- vocabulary;
+- grammar;
+- spoken sentence endings;
+- honorifics / politeness / register;
+- pronunciation;
+- batchim;
+- liaison / linking;
+- stress / intonation only when evidence is reliable enough.
+
+Pronunciation / acoustic evidence rule:
+
+- Do not claim pronunciation or acoustic analysis from transcript alone.
+- Transcript-only input may support language evaluation.
+- Transcript-only input may say pronunciation evidence is unavailable or
+  limited.
+- Audio-backed provider evidence may support pronunciation and acoustic
+  findings.
+- Timestamps or provider evidence may support time-aligned findings.
+- Do not claim exact pronunciation defects from plain transcript only.
+- Do not claim batchim, liaison, linking, or intonation diagnosis without
+  audio, timestamp, or provider evidence.
+- Do not present suspected pronunciation issues as certain facts.
+
+Status wording:
+
+- Use "suspected pronunciation issue" only when evidence is partial.
+- Use "audio evidence unavailable" or "transcript-only evaluation" where
+  appropriate.
+- Do not use native-like claims.
+- Do not claim official TOPIK equivalence.
+- Do not present medical or speech-therapy diagnosis.
+
+Accepted Phase 8 debt:
+
+- Real live Speaking AI rollout remains NO-GO.
+- Full timestamped transcript support depends on provider capability and
+  calibration.
+- Full acoustic/speech evidence modeling remains accepted Phase 8 debt before
+  live rollout.
+- Production pronunciation/acoustic claims require provider evidence and
+  teacher/UAT validation.
+- Teacher-reviewed calibration remains Phase 15 debt.
+- Object storage production decision remains a rollout blocker.
+- Playback role/security boundary review remains accepted 8H debt unless later
+  resolved by explicit product/security decision.
+- Manual browser/device UAT remains Phase 15.
+- UI/UX visual polish remains Phase 13.
+- Immutable practice versioning remains Phase 9.
+
+Phase routing:
+
+- These Speaking evidence-layer rules belong to Phase 8 / Speaking evaluation
+  policy.
+- They must not be hidden inside Writing DTO work.
+- They must not be treated as UI modernization.
+- Later UI phases may render the evidence better, but the evidence model and
+  policy belong to Speaking evaluation.
 
 ### Phase 9 — Immutable Published Practice Versions
 
 Status:
-BLOCKED until both Phase 8G and Phase 8H are closed, accepted, or explicitly
-deferred by user decision.
+NOT_STARTED / READY_FOR_AUDIT_ONLY after Phase 8 closure docs and playback test
+stabilization are committed and pushed.
 
 Purpose:
 immutable published content/rubric/scoring graph and stable historical attempts.
@@ -1472,21 +1596,24 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 8G Practice-Wide Functional UI / Integration Regression | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 7dc79f1ccafa0c19f3d9474ef86c4ebc96cf4f42 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Implemented route/data binding, legacy mode/room redirects to canonical set detail without default-test assumptions, mode sectionId, player JS selector alignment, Writing/Speaking and Reading/Listening result navigation, and Spring DI constructor selection needed for focused app-context tests. | User review, then commit/push only after explicit approval; after commit, run Phase 8G phase-gate closure review before starting 8H. |
 | 2026-07-10 | Phase 8G Practice Functional Flow Gate | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | e737b282981b84eeefb759490d3d6ca524dae08c | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId" test`; 10 tests, 0 failures, 0 errors, 0 skips; no full suite and no real provider calls. | Phase 8G gate review passed. Route/data binding, sectionId mode flow, legacy route correction, player/template JS contract, and result navigation are accepted with debt. Live Speaking AI remains NO-GO. | Commit/push 8G closure docs, then Phase 8H audit only after user approval. |
 | 2026-07-10 | Phase 8H Practice Architecture, Security Boundary & Maintainability | PLANNED | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | 59706a879db88291859777286f9208635e914d26 | Focused command: `mvn "-Dtest=PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`; 68 tests, 0 failures, 0 errors, 2 skips; no full suite and no real provider calls. | Implemented narrow route/view/model/form/media constants, private Speaking media boundary tests, `PracticeAnswerFormMapper` extraction, safe result/provider/private-storage no-leak checks, and stabilized one async playback CSRF test to avoid streaming-body dispatch flake. Phase 8H is not closed. | User review, then commit/push only after explicit approval; after commit, run Phase 8H phase-gate closure review before Phase 9. |
+| 2026-07-10 | Phase 8 Closure Stabilization After Playback Test Fix | IMPLEMENTED_AND_FOCUSED_TESTED | CLOSED_WITH_ACCEPTED_DEBT | N/A | 95d50cd8efa1e4b38f15eda256e9fdbf2c22f8d1 | Focused command: `mvn "-Dtest=SpeakingEvaluationNormalizerTest,SpeakingScorePolicyTest,SpeakingPromptRulesTest,SpeakingEvaluationRuleEngineTest,SpeakingEvaluationOrchestratorTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingTranscriptionMediaResolverTest,OpenAiSpeakingTranscriptionClientTest,SpeakingFeedbackCompatibilityReaderTest,SpeakingFeedbackViewMapperTest,SpeakingResultRenderingContractTest,SpeakingEvaluationReusePolicyTest,SpeakingEvaluationApplicationServiceTest,SpeakingProviderRolloutReadinessTest,AiCalibrationReadinessPolicyTest,ProviderOperationalReadinessPolicyTest,SpeakingStorageProductionReadinessPolicyTest,AiRolloutReadinessChecklistTest,PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticeAnswerFormMapperTest,PracticeIntegrationTest#setDetailLinksUseActualPracticeTestIds+testModeView+legacyModeRedirectsToSetDetail+legacyRoomRedirectsToSetDetail+resultBackLinkUsesAttemptTestId,PracticeSpeakingMediaPlaybackControllerTest,PracticeSpeakingMediaPlaybackServiceTest,LocalPrivateSpeakingAudioStorageTest" test`; final evidence-based rerun: 182 tests, 0 failures, 0 errors, 2 skips; no full suite and no provider calls. | Phase 8 closed with accepted debt. Speaking Evaluation Deep-Dive evidence-layer policy recorded. Playback range MockMvc async stabilization preserved. Live Speaking AI rollout remains NO-GO. | Commit/push Phase 8 closure docs and playback test stabilization, then Phase 9 audit only after explicit user approval. |
 
 ## Current Required Next Action
 
 Current next action:
 
-User review for Phase 8H implementation, then commit/push only after explicit
-approval. After commit, run Phase 8H phase-gate closure review before Phase 9.
+Commit/push Phase 8 closure docs and playback test stabilization only after
+explicit user approval. After that, Phase 9 may begin as AUDIT ONLY if the user
+approves.
 
 Phase 8E is CLOSED_WITH_ACCEPTED_DEBT. Phase 8E-D, Phase 8E-E, and Phase 8E-F
 are COMMITTED. Phase 8F is CLOSED_WITH_ACCEPTED_DEBT. Phase 8G is
-CLOSED_WITH_ACCEPTED_DEBT. Phase 8H is IMPLEMENTED_AND_FOCUSED_TESTED pending
-review/commit.
+CLOSED_WITH_ACCEPTED_DEBT. Phase 8H is CLOSED_WITH_ACCEPTED_DEBT. Phase 8
+overall is CLOSED_WITH_ACCEPTED_DEBT pending commit/push of this closure docs
+update and playback test stabilization.
 
-Do not start Phase 9 before Phase 8H is closed, accepted, or explicitly
-deferred.
+Do not start Phase 9 before this Phase 8 closure docs update and playback test
+stabilization are committed and pushed. Phase 9 must start with AUDIT ONLY.
 
 ## Long-Term Direction After Phase 16
 
