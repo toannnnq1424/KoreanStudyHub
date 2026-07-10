@@ -7,6 +7,7 @@ import com.ksh.entities.PracticeSubmission;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
+import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -32,6 +33,8 @@ import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -379,11 +382,29 @@ class PracticeIntegrationTest {
         assertThat(attempts).isNotEmpty();
         PracticeAttempt attempt = attempts.get(0);
 
-        mockMvc.perform(get("/practice/attempts/" + attempt.getId()).param("mode", "exam"))
+        Long lockedQuestionId = question.getId();
+        questionRepository.delete(question);
+        questionRepository.flush();
+        PracticeQuestion replacement = new PracticeQuestion(
+                practiceSet.getId(), 1, "MCQ", "Live prompt must not replace locked content",
+                "[\"Live A\",\"Live B\"]", "2", "Live explanation",
+                BigDecimal.valueOf(2.5), 0);
+        questionRepository.saveAndFlush(replacement);
+
+        org.springframework.test.web.servlet.MvcResult result = mockMvc.perform(
+                        get("/practice/attempts/" + attempt.getId()).param("mode", "exam"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/player"))
                 .andExpect(model().attributeExists("view"))
-                .andExpect(model().attribute("mode", "exam"));
+                .andExpect(model().attribute("mode", "exam"))
+                .andReturn();
+
+        PracticeSetView playerView = (PracticeSetView) result.getModelAndView().getModel().get("view");
+        PracticeQuestionRow deliveredQuestion = playerView.groups().get(0).questions().get(0);
+        assertThat(deliveredQuestion.id()).isEqualTo(lockedQuestionId);
+        assertThat(deliveredQuestion.prompt()).isEqualTo("Câu hỏi 1");
+        assertThat(deliveredQuestion.answerKey()).isNull();
+        assertThat(deliveredQuestion.explanation()).isNull();
     }
 
     @Test
@@ -433,7 +454,7 @@ class PracticeIntegrationTest {
         String providerJson = """
                 {
                   "meaningVi": "meaning",
-                  "evidenceQuote": "quote",
+                  "evidenceQuote": "văn bản nguồn",
                   "correctReasonVi": "reason",
                   "relatedTranslationVi": "translation",
                   "eliminatedOptions": [
@@ -441,7 +462,15 @@ class PracticeIntegrationTest {
                   ]
                 }
                 """;
-        when(readingListeningExplanationClient.explain(any(PracticeQuestion.class), nullable(String.class), eq("READING"), nullable(String.class)))
+        PracticeQuestionGroup evidenceGroup = new PracticeQuestionGroup(
+                practiceSet.getId(), "Đoạn văn", 1, 1,
+                "Đây là văn bản nguồn đã được giáo viên duyệt.", null, null, 1);
+        evidenceGroup.setSectionId(defaultSection.getId());
+        evidenceGroup = groupRepository.saveAndFlush(evidenceGroup);
+        question.setGroupId(evidenceGroup.getId());
+        question = questionRepository.saveAndFlush(question);
+
+        when(readingListeningExplanationClient.explain(any(ExplanationContext.class)))
                 .thenReturn(providerJson);
 
         PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
@@ -460,7 +489,7 @@ class PracticeIntegrationTest {
                 .andExpect(view().name("practice/rl-result-detail"));
 
         verify(readingListeningExplanationClient, times(1))
-                .explain(any(PracticeQuestion.class), nullable(String.class), eq("READING"), nullable(String.class));
+                .explain(any(ExplanationContext.class));
     }
 
     private long countExplanationCacheRowsForQuestion(Long questionId) {
@@ -1251,16 +1280,20 @@ class PracticeIntegrationTest {
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void restoreWinsAndStaleStartCannotCreateAttemptForDeletedSection() throws Exception {
+    void restoreWithoutAttemptsReplacesLiveGraph() {
         Long oldSectionId = defaultSection.getId();
         Long restoreLogId = createRestoreLog(practiceSet.getId(), "Restored graph").getId();
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
-                () -> revisionService.restoreRevision(restoreLogId, lecturer.getId()));
+        revisionService.restoreRevision(restoreLogId, lecturer.getId());
 
-        assertTrue(sectionRepository.existsById(oldSectionId));
+        assertFalse(sectionRepository.existsById(oldSectionId));
         assertThat(sectionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
-                .extracting(PracticeSection::getId)
-                .contains(oldSectionId);
+                .singleElement()
+                .extracting(PracticeSection::getTitle)
+                .isEqualTo("Restored section");
+        assertThat(questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId()))
+                .singleElement()
+                .extracting(PracticeQuestion::getPrompt)
+                .isEqualTo("Restored prompt");
         assertFalse(attemptRepository.existsBySetId(practiceSet.getId()));
     }
 

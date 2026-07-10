@@ -5,6 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.entities.PracticeAiRequestAudit;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest;
 import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.junit.jupiter.api.Test;
@@ -24,13 +25,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import org.mockito.ArgumentCaptor;
 
 class PracticePdfAiOrchestratorTest {
 
     @Test
     void providerHttpErrorLogOmitsPayloadAndKeepsSafeMetadata() {
+        PracticeAiRequestAuditRepository auditRepository = mock(PracticeAiRequestAuditRepository.class);
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                properties(), new ObjectMapper(), mock(PracticeAiRequestAuditRepository.class));
+                properties(), new ObjectMapper(), auditRepository);
         ReflectionTestUtils.setField(orchestrator, "restClient", httpErrorRestClient(
                 "PRIVATE_PROVIDER_RESPONSE PRIVATE_PDF_DOCUMENT_TEXT PRIVATE_PROVIDER_REQUEST SECRET_API_KEY_VALUE PRIVATE_FILE_PATH PRIVATE_USER_EMAIL"));
 
@@ -56,6 +60,12 @@ class PracticePdfAiOrchestratorTest {
         assertTrue(logs.contains("operation=provider-call"));
         assertTrue(logs.contains("model=safe-model"));
         assertTrue(logs.contains("status=400"));
+
+        ArgumentCaptor<PracticeAiRequestAudit> auditCaptor =
+                ArgumentCaptor.forClass(PracticeAiRequestAudit.class);
+        verify(auditRepository).save(auditCaptor.capture());
+        assertTrue("AI_PROVIDER_CALL_FAILED".equals(auditCaptor.getValue().getErrorCode()));
+        assertFalse(auditCaptor.getValue().getErrorCode().contains("PRIVATE_PROVIDER_RESPONSE"));
     }
 
     @Test

@@ -205,7 +205,7 @@ public class PracticeController {
 
         PracticeSetView view = practiceService.getPractice(attempt.getSetId());
         List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow> filteredGroups =
-                practiceService.getQuestionGroupsForSection(attempt.getSetId(), section.getId());
+                practiceService.getPlayerQuestionGroupsForAttempt(attemptId, user.getId());
 
         com.ksh.features.practice.dto.PracticeDtos.PracticeSetView filteredView = 
                 new com.ksh.features.practice.dto.PracticeDtos.PracticeSetView(view.set(), filteredGroups);

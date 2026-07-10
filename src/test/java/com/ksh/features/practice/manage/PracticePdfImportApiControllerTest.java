@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
+import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.User;
 import com.ksh.features.practice.manage.controller.PracticePdfImportApiController;
 import com.ksh.features.practice.manage.service.*;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -160,5 +162,30 @@ class PracticePdfImportApiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(500))
                 .andExpect(jsonPath("$[0].regionType").value("INSTRUCTION"));
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void promoteAssetBindsSessionRegionAndOwnerFromRoute() throws Exception {
+        PracticePdfRegionAnnotation annotation = new PracticePdfRegionAnnotation();
+        annotation.setId(500L);
+        annotation.setSessionId(100L);
+        LecturerAsset asset = new LecturerAsset();
+        asset.setId(700L);
+        asset.setOwnerLecturerId(1L);
+        asset.setStatus("ACTIVE");
+        when(regionService.getAnnotation(100L, 500L, 1L)).thenReturn(annotation);
+        when(assetService.promoteSessionRegionAsset(100L, 500L, 700L, 1L)).thenReturn(asset);
+
+        mockMvc.perform(post("/practice/manage/import-sessions/100/regions/500/promote-asset")
+                        .param("assetId", "700")
+                        .with(user(lecturerUser))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(700))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        verify(regionService).getAnnotation(100L, 500L, 1L);
+        verify(assetService).promoteSessionRegionAsset(100L, 500L, 700L, 1L);
     }
 }

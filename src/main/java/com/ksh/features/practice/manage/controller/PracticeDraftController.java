@@ -17,7 +17,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 @Controller
 @RequestMapping("/practice/manage")
@@ -25,6 +31,12 @@ import java.util.Map;
 public class PracticeDraftController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeDraftController.class);
+    private static final long MAX_AUDIO_BYTES = 50L * 1024 * 1024;
+    private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
+    private static final Set<String> AUDIO_EXTENSIONS = Set.of(
+            ".mp3", ".wav", ".m4a", ".ogg", ".webm");
+    private static final Set<String> IMAGE_EXTENSIONS = Set.of(
+            ".png", ".jpg", ".jpeg", ".gif", ".webp");
 
     @org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads}")
     private String rawUploadDir;
@@ -118,9 +130,13 @@ public class PracticeDraftController {
                     "status", "conflict",
                     "error", "Xung đột ghi đè đồng thời! Một giảng viên khác đã chỉnh sửa bản nháp này. Vui lòng tải lại trang để cập nhật nội dung mới nhất."
             ));
+        } catch (org.springframework.security.access.AccessDeniedException
+                 | jakarta.persistence.EntityNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("[DraftAutosave] Failed to autosave draftId={}", draftId, e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Không thể lưu bản nháp với dữ liệu đã gửi."));
         }
     }
 
@@ -137,7 +153,7 @@ public class PracticeDraftController {
             return "redirect:/practice/manage/drafts/" + draftId;
         } catch (Exception e) {
             log.error("[DraftPublish] Publish failed draftId={}", draftId, e);
-            redirectAttributes.addFlashAttribute("error", "Lỗi xuất bản: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Không thể xuất bản bộ luyện tập.");
             return "redirect:/practice/manage/drafts/" + draftId;
         }
     }
@@ -152,7 +168,7 @@ public class PracticeDraftController {
             return "redirect:/practice/manage";
         } catch (Exception e) {
             log.error("[DraftDelete] Delete failed draftId={}", draftId, e);
-            redirectAttributes.addFlashAttribute("error", "Lỗi xoá bản nháp: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Không thể xoá bản nháp.");
             return "redirect:/practice/manage";
         }
     }
@@ -160,54 +176,101 @@ public class PracticeDraftController {
     @PostMapping("/drafts/{draftId}/upload-audio")
     @ResponseBody
     public ResponseEntity<?> uploadAudio(@PathVariable("draftId") Long draftId,
-                                         @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+                                         @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                         @AuthenticationPrincipal KshUserDetails user) {
         try {
+            draftService.getDraft(draftId, user.getId());
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Tệp âm thanh rỗng."));
             }
             String originalFilename = file.getOriginalFilename();
-            String ext = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                ext = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = java.util.UUID.randomUUID() + ext;
-            java.nio.file.Path targetDir = java.nio.file.Paths.get(rawUploadDir, "practice-audio").toAbsolutePath().normalize();
-            java.nio.file.Files.createDirectories(targetDir);
-            java.nio.file.Path dest = targetDir.resolve(filename);
+            String ext = validateUpload(file, AUDIO_EXTENSIONS, MAX_AUDIO_BYTES, "âm thanh");
+            String filename = UUID.randomUUID() + ext;
+            Path targetDir = uploadDirectory("practice-audio");
+            Path dest = safeUploadDestination(targetDir, filename);
             file.transferTo(dest.toFile());
 
             String relativeUrl = "/uploads/practice-audio/" + filename;
             return ResponseEntity.ok(Map.of("url", relativeUrl, "filename", originalFilename));
+        } catch (org.springframework.security.access.AccessDeniedException
+                 | jakarta.persistence.EntityNotFoundException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("[AudioUpload] Failed for draftId={}", draftId, e);
-            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "Không thể lưu tệp âm thanh."));
         }
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/drafts/{draftId}/upload-image")
     @org.springframework.web.bind.annotation.ResponseBody
     public org.springframework.http.ResponseEntity<?> uploadImage(@PathVariable("draftId") Long draftId,
-                                                                 @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+                                                                 @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                                                 @AuthenticationPrincipal KshUserDetails user) {
         try {
+            draftService.getDraft(draftId, user.getId());
             if (file.isEmpty()) {
                 return org.springframework.http.ResponseEntity.badRequest().body(Map.of("error", "Tệp ảnh rỗng."));
             }
             String originalFilename = file.getOriginalFilename();
-            String ext = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                ext = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = java.util.UUID.randomUUID() + ext;
-            java.nio.file.Path targetDir = java.nio.file.Paths.get(rawUploadDir, "practice-images").toAbsolutePath().normalize();
-            java.nio.file.Files.createDirectories(targetDir);
-            java.nio.file.Path dest = targetDir.resolve(filename);
+            String ext = validateUpload(file, IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, "ảnh");
+            String filename = UUID.randomUUID() + ext;
+            Path targetDir = uploadDirectory("practice-images");
+            Path dest = safeUploadDestination(targetDir, filename);
             file.transferTo(dest.toFile());
 
             String relativeUrl = "/uploads/practice-images/" + filename;
             return org.springframework.http.ResponseEntity.ok(Map.of("url", relativeUrl, "filename", originalFilename));
+        } catch (org.springframework.security.access.AccessDeniedException
+                 | jakarta.persistence.EntityNotFoundException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("[ImageUpload] Failed for draftId={}", draftId, e);
-            return org.springframework.http.ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "Không thể lưu tệp ảnh."));
         }
+    }
+
+    private static String validateUpload(org.springframework.web.multipart.MultipartFile file,
+                                         Set<String> allowedExtensions,
+                                         long maxBytes,
+                                         String fileLabel) {
+        if (file.getSize() > maxBytes) {
+            throw new IllegalArgumentException("Tệp " + fileLabel + " vượt quá dung lượng cho phép.");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new IllegalArgumentException("Tên tệp " + fileLabel + " không hợp lệ.");
+        }
+        int extensionIndex = originalFilename.lastIndexOf('.');
+        String extension = extensionIndex < 0
+                ? ""
+                : originalFilename.substring(extensionIndex).toLowerCase(Locale.ROOT);
+        if (!allowedExtensions.contains(extension)) {
+            throw new IllegalArgumentException("Định dạng tệp " + fileLabel + " không được hỗ trợ.");
+        }
+        return extension;
+    }
+
+    private Path uploadDirectory(String childDirectory) throws java.io.IOException {
+        Path uploadRoot = Paths.get(rawUploadDir).toAbsolutePath().normalize();
+        Path targetDirectory = uploadRoot.resolve(childDirectory).normalize();
+        if (!targetDirectory.startsWith(uploadRoot)) {
+            throw new IllegalArgumentException("Đường dẫn lưu tệp không hợp lệ.");
+        }
+        Files.createDirectories(targetDirectory);
+        return targetDirectory;
+    }
+
+    private static Path safeUploadDestination(Path targetDirectory, String filename) {
+        Path destination = targetDirectory.resolve(filename).normalize();
+        if (!destination.startsWith(targetDirectory)) {
+            throw new IllegalArgumentException("Đường dẫn lưu tệp không hợp lệ.");
+        }
+        return destination;
     }
 }

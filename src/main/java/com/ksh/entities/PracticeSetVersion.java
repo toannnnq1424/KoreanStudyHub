@@ -33,6 +33,9 @@ public class PracticeSetVersion {
     @Column(name = "topik_level", length = 20)
     private String topikLevel;
 
+    @Column(name = "assessment_program_code", nullable = false, length = 40)
+    private String assessmentProgramCode;
+
     @Column(nullable = false, length = 20)
     private String scope;
 
@@ -58,6 +61,7 @@ public class PracticeSetVersion {
         this.description = set.getDescription();
         this.skill = set.getSkill();
         this.topikLevel = set.getTopikLevel();
+        this.assessmentProgramCode = set.getAssessmentProgramCode();
         this.scope = set.getScope();
         this.classId = set.getClassId();
         this.metadataJson = set.getMetadataJson();
@@ -72,6 +76,7 @@ public class PracticeSetVersion {
     public String getDescription() { return description; }
     public String getSkill() { return skill; }
     public String getTopikLevel() { return topikLevel; }
+    public String getAssessmentProgramCode() { return assessmentProgramCode; }
     public String getScope() { return scope; }
     public Long getClassId() { return classId; }
     public String getMetadataJson() { return metadataJson; }

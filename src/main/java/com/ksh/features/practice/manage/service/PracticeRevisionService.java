@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.*;
+import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +20,17 @@ public class PracticeRevisionService {
     private static final Logger log = LoggerFactory.getLogger(PracticeRevisionService.class);
 
     private final PracticeSetRepository setRepository;
+    private final PracticeTestRepository testRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
     private final PracticeEditLogRepository editLogRepository;
     private final PracticePublishedGraphMutationGuard mutationGuard;
     private final ObjectMapper objectMapper;
+    private final QuestionTypeResolver questionTypeResolver = new QuestionTypeResolver();
 
     public PracticeRevisionService(PracticeSetRepository setRepository,
+                                   PracticeTestRepository testRepository,
                                    PracticeSectionRepository sectionRepository,
                                     PracticeQuestionGroupRepository groupRepository,
                                     PracticeQuestionRepository questionRepository,
@@ -34,6 +38,7 @@ public class PracticeRevisionService {
                                     PracticePublishedGraphMutationGuard mutationGuard,
                                     ObjectMapper objectMapper) {
         this.setRepository = setRepository;
+        this.testRepository = testRepository;
         this.sectionRepository = sectionRepository;
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
@@ -54,6 +59,15 @@ public class PracticeRevisionService {
 
         Long setId = logEntry.getSetId();
         PracticeSet set = mutationGuard.lockAndAssertRestoreAllowed(setId);
+        if (!editorId.equals(set.getCreatedBy())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền khôi phục học liệu này.");
+        }
+        List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        if (tests.size() > 1) {
+            throw new IllegalStateException(
+                    "Không thể khôi phục snapshot cũ cho bộ đề có nhiều bài kiểm tra.");
+        }
 
         // Parse JSON snapshot
         JsonNode root;
@@ -79,8 +93,15 @@ public class PracticeRevisionService {
             set.setTitle(docNode.path("title").asText(set.getTitle()));
             set.setDescription(docNode.path("description").asText(set.getDescription()));
             set.setTopikLevel(docNode.path("detectedCategory").asText(set.getTopikLevel()));
+            String programCode = docNode.path("assessmentProgramCode").asText("");
+            set.setAssessmentProgramCode(programCode.isBlank()
+                    ? programCodeForCategory(set.getTopikLevel())
+                    : programCode);
         }
         setRepository.save(set);
+        PracticeTest targetTest = tests.isEmpty()
+                ? testRepository.save(new PracticeTest(setId, set.getTitle(), set.getDescription(), 0, null))
+                : tests.get(0);
 
         // Restore sections, groups and questions
         JsonNode sectionsNode = root.path("sections");
@@ -97,6 +118,7 @@ public class PracticeRevisionService {
                         BigDecimal.valueOf(sNode.path("totalPoints").asDouble(100.0)),
                         sIdx
                 );
+                section.setTestId(targetTest.getId());
                 PracticeSection savedSection = sectionRepository.save(section);
 
                 JsonNode groupsNode = sNode.path("groups");
@@ -158,6 +180,22 @@ public class PracticeRevisionService {
                                         rawType,
                                         qNode
                                 ));
+                                String canonicalType = qNode.path("canonicalQuestionType").asText("");
+                                if (canonicalType.isBlank()) {
+                                    canonicalType = questionTypeResolver.resolveOptional(rawType)
+                                            .map(Enum::name)
+                                            .orElse(null);
+                                }
+                                question.setCanonicalQuestionType(canonicalType);
+                                question.setQuestionContentJson(jsonField(qNode, "questionContent"));
+                                question.setAnswerSpecJson(jsonField(qNode, "answerSpec"));
+                                question.setScoringPolicyCode(nullableText(qNode, "scoringPolicyCode"));
+                                question.setScoringProfileCode(nullableText(qNode, "scoringProfileCode"));
+                                question.setScoringProfileVersion(nullableInteger(qNode, "scoringProfileVersion"));
+                                question.setPromptProfileCode(nullableText(qNode, "promptProfileCode"));
+                                question.setPromptProfileVersion(nullableInteger(qNode, "promptProfileVersion"));
+                                question.setRubricProfileCode(nullableText(qNode, "rubricProfileCode"));
+                                question.setRubricProfileVersion(nullableInteger(qNode, "rubricProfileVersion"));
                                 question.setGroupId(savedGroup.getId());
                                 questionRepository.save(question);
                             }
@@ -228,5 +266,26 @@ public class PracticeRevisionService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
         }
+    }
+
+    private static String jsonField(JsonNode parent, String field) {
+        JsonNode value = parent.get(field);
+        return value == null || value.isNull() ? null : value.toString();
+    }
+
+    private static String nullableText(JsonNode parent, String field) {
+        JsonNode value = parent.get(field);
+        return value == null || value.isNull() || !value.isTextual() || value.asText().isBlank()
+                ? null
+                : value.asText();
+    }
+
+    private static Integer nullableInteger(JsonNode parent, String field) {
+        JsonNode value = parent.get(field);
+        return value == null || value.isNull() || !value.canConvertToInt() ? null : value.asInt();
+    }
+
+    private static String programCodeForCategory(String category) {
+        return category != null && category.toUpperCase().startsWith("TOPIK") ? "TOPIK" : "CUSTOM";
     }
 }

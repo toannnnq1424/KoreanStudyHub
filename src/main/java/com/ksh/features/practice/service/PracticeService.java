@@ -24,6 +24,20 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackViewMapper;
+import com.ksh.features.practice.assessment.AnswerSpec;
+import com.ksh.features.practice.assessment.AssessmentContractCodec;
+import com.ksh.features.practice.assessment.AssessmentScoreResult;
+import com.ksh.features.practice.assessment.AssessmentScoreStatus;
+import com.ksh.features.practice.assessment.AssessmentScoringEngine;
+import com.ksh.features.practice.assessment.AssessmentSkill;
+import com.ksh.features.practice.assessment.AssessmentStimulus;
+import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.LearnerAnswer;
+import com.ksh.features.practice.assessment.ProfileReference;
+import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerReviewRow;
@@ -102,6 +116,9 @@ public class PracticeService {
     private final AudioStorageService audioStorageService;
     private PracticePublishedVersionService publishedVersionService;
     private final ObjectMapper objectMapper;
+    private final QuestionTypeResolver questionTypeResolver;
+    private final AssessmentContractCodec assessmentContractCodec;
+    private final AssessmentScoringEngine assessmentScoringEngine;
     private final TransactionTemplate readTransactionTemplate;
     private final TransactionTemplate nonTransactionalTemplate;
     private final TransactionTemplate writeTransactionTemplate;
@@ -138,6 +155,9 @@ public class PracticeService {
         this.audioStorageService = audioStorageService;
         this.publishedVersionService = publishedVersionService;
         this.objectMapper = objectMapper;
+        this.questionTypeResolver = new QuestionTypeResolver();
+        this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
+        this.assessmentScoringEngine = new AssessmentScoringEngine();
         this.readTransactionTemplate = new TransactionTemplate(transactionManager);
         this.readTransactionTemplate.setReadOnly(true);
         this.readTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
@@ -181,6 +201,9 @@ public class PracticeService {
         this.audioStorageService = audioStorageService;
         this.publishedVersionService = null;
         this.objectMapper = objectMapper;
+        this.questionTypeResolver = new QuestionTypeResolver();
+        this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
+        this.assessmentScoringEngine = new AssessmentScoringEngine();
         this.readTransactionTemplate = null;
         this.nonTransactionalTemplate = null;
         this.writeTransactionTemplate = null;
@@ -275,20 +298,18 @@ public class PracticeService {
             total = total.add(q.points());
             String answer = submittedAnswers.getOrDefault(String.valueOf(q.questionId()), "").trim();
 
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
                 throw new IllegalStateException("Essay attempt must use snapshot grading path.");
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
                 String perQuestionFeedback = mockSpeakingFeedback(q.prompt(), answer);
                 speakingFeedbackMap.put(String.valueOf(q.questionId()), readFeedbackObject(perQuestionFeedback));
                 earnedPoints = earnedPoints.add(earnedSpeakingPoints(q.points(), extractAiScore(perQuestionFeedback)));
-            } else if (isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            } else {
+                throw new IllegalStateException("Unsupported question type for question ID "
+                        + q.questionId() + ": " + q.questionType());
             }
         }
         BigDecimal score = speakingFeedbackMap.isEmpty() ? earnedPoints : toWritingAttemptPercentage(earnedPoints, total);
@@ -312,6 +333,7 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         rejectDiscardedAttempt(attempt);
+        requireSubmittedForExplanation(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
@@ -1152,9 +1174,19 @@ public class PracticeService {
                     }
                 }
                 String ans = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
-                double qScore = ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill()))
-                        ? attempt.getScore().doubleValue()
-                        : (answersMatch(ans, q.getAnswerKey()) ? 100.0 : 0.0);
+                double qScore;
+                if ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill())) {
+                    qScore = attempt.getScore().doubleValue();
+                } else {
+                    AssessmentScoreResult scoreResult = scoreObjective(toQuestionSnapshot(q), ans)
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Objective progress question is not scoreable: " + q.getId()));
+                    qScore = scoreResult.possiblePoints().signum() == 0
+                            ? 0.0
+                            : scoreResult.earnedPoints().multiply(BigDecimal.valueOf(100))
+                                    .divide(scoreResult.possiblePoints(), 4, RoundingMode.HALF_UP)
+                                    .doubleValue();
+                }
                 scoresByType.computeIfAbsent(type, k -> new ArrayList<>()).add(qScore);
                 skillByType.putIfAbsent(type, attempt.getSkill());
                 java.time.LocalDateTime activityAt = progressActivityAt(attempt);
@@ -1663,6 +1695,192 @@ public class PracticeService {
         return left.equals(right);
     }
 
+    private Optional<AssessmentScoreResult> scoreObjective(QuestionSnapshot question, String rawAnswer) {
+        Optional<CanonicalQuestionType> resolvedType = questionTypeResolver.resolveOptional(
+                firstNonBlank(question.canonicalQuestionType(), question.questionType()));
+        if (resolvedType.isEmpty()) {
+            if (isAutoScoredByKey(question.questionType())) {
+                return Optional.of(legacyBinaryScore(question, rawAnswer));
+            }
+            throw new IllegalStateException("Unsupported practice question type for question ID "
+                    + question.questionId() + ": " + question.questionType());
+        }
+
+        CanonicalQuestionType type = resolvedType.get();
+        if (!type.isObjective()) {
+            return Optional.empty();
+        }
+
+        if (isBlank(question.answerSpecJson())) {
+            if (!isBlank(question.questionContentJson())) {
+                throw new IllegalStateException("Question content has no answer spec for question ID "
+                        + question.questionId());
+            }
+            if (type == CanonicalQuestionType.MATCHING) {
+                return Optional.of(legacyBinaryScore(question, rawAnswer));
+            }
+        }
+
+        boolean legacyContract = isBlank(question.questionContentJson()) && isBlank(question.answerSpecJson());
+        try {
+            QuestionContent content = isBlank(question.questionContentJson())
+                    ? assessmentContractCodec.adaptLegacyContent(question.optionsJson(), question.questionType())
+                    : assessmentContractCodec.readQuestionContent(question.questionContentJson(), type);
+            AnswerSpec spec = isBlank(question.answerSpecJson())
+                    ? assessmentContractCodec.adaptLegacyAnswerSpec(question.questionType(), question.answerKey(), content)
+                    : assessmentContractCodec.readAnswerSpec(question.answerSpecJson(), content);
+            if (!isBlank(question.scoringPolicyCode())
+                    && !question.scoringPolicyCode().equals(spec.scoringPolicyCode().name())) {
+                throw new IllegalStateException("Scoring policy snapshot mismatch for question ID "
+                        + question.questionId());
+            }
+            LearnerAnswer answer = readLearnerAnswer(type, rawAnswer, content);
+            return Optional.of(assessmentScoringEngine.score(spec, answer, question.points()));
+        } catch (IllegalArgumentException exception) {
+            if (legacyContract) {
+                return Optional.of(legacyBinaryScore(question, rawAnswer));
+            }
+            throw new IllegalStateException("Cannot score question ID " + question.questionId()
+                    + " with its assessment contract", exception);
+        }
+    }
+
+    private LearnerAnswer readLearnerAnswer(CanonicalQuestionType type,
+                                            String rawAnswer,
+                                            QuestionContent content) {
+        if (isBlank(rawAnswer)) {
+            return new LearnerAnswer(
+                    LearnerAnswer.SCHEMA_VERSION,
+                    type,
+                    List.of(),
+                    null,
+                    Map.of(),
+                    Map.of(),
+                    null
+            );
+        }
+        if (rawAnswer.trim().startsWith("{")) {
+            LearnerAnswer typed = assessmentContractCodec.readLearnerAnswer(rawAnswer);
+            if (typed.questionType() != type) {
+                throw new IllegalArgumentException("Learner answer type does not match question type");
+            }
+            return typed;
+        }
+        return assessmentContractCodec.adaptLegacyLearnerAnswer(type.name(), rawAnswer, content);
+    }
+
+    private AssessmentScoreResult legacyBinaryScore(QuestionSnapshot question, String rawAnswer) {
+        boolean correct = answersMatch(rawAnswer, question.answerKey());
+        return new AssessmentScoreResult(
+                correct ? AssessmentScoreStatus.CORRECT
+                        : (isBlank(rawAnswer) ? AssessmentScoreStatus.NOT_ANSWERED : AssessmentScoreStatus.INCORRECT),
+                correct ? question.points() : BigDecimal.ZERO,
+                question.points(),
+                ScoringPolicyCode.ALL_OR_NOTHING,
+                correct ? 1 : 0,
+                1
+        );
+    }
+
+    private AssessmentScoreResult scoreResultForRow(Map<Long, QuestionSnapshot> questions,
+                                                    Long questionId,
+                                                    String rawAnswer) {
+        QuestionSnapshot question = questions.get(questionId);
+        if (question == null) {
+            throw new IllegalStateException("Missing scoring snapshot for question ID " + questionId);
+        }
+        return scoreObjective(question, rawAnswer)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Question ID " + questionId + " is not objectively scoreable"));
+    }
+
+    private String explanationForAttempt(PracticeAttempt attempt,
+                                         PracticeSet set,
+                                         Optional<PracticeVersionSnapshot> lockedSnapshot,
+                                         QuestionSnapshot question,
+                                         PracticeQuestionGroupRow group,
+                                         String rawLearnerAnswer,
+                                         String optionLabelMode) {
+        if (question == null) {
+            throw new IllegalStateException("Missing question snapshot for explanation");
+        }
+        try {
+            CanonicalQuestionType type = questionTypeResolver.resolve(
+                    firstNonBlank(question.canonicalQuestionType(), question.questionType()));
+            QuestionContent content = isBlank(question.questionContentJson())
+                    ? assessmentContractCodec.adaptLegacyContent(question.optionsJson(), question.questionType())
+                    : assessmentContractCodec.readQuestionContent(question.questionContentJson(), type);
+            AnswerSpec answerSpec = isBlank(question.answerSpecJson())
+                    ? assessmentContractCodec.adaptLegacyAnswerSpec(
+                            question.questionType(), question.answerKey(), content)
+                    : assessmentContractCodec.readAnswerSpec(question.answerSpecJson(), content);
+            LearnerAnswer learnerAnswer = readLearnerAnswer(type, rawLearnerAnswer, content);
+            AssessmentSkill skill = AssessmentSkill.valueOf(attempt.getSkill());
+            AssessmentStimulus stimulus = skill == AssessmentSkill.READING
+                    ? AssessmentStimulus.readingPassage(group.instruction(), "PUBLISHED_GROUP_SNAPSHOT")
+                    : AssessmentStimulus.listeningAudio(
+                            group.audioUrl(), null, "PUBLISHED_AUDIO_WITHOUT_TRANSCRIPT", false);
+            String programCode = lockedSnapshot
+                    .map(PracticeVersionSnapshot::setVersion)
+                    .map(PracticeSetVersion::getAssessmentProgramCode)
+                    .filter(code -> !code.isBlank())
+                    .orElse(set.getAssessmentProgramCode());
+            ProfileReference promptProfile = isBlank(question.promptProfileCode())
+                    || question.promptProfileVersion() == null
+                    ? null
+                    : new ProfileReference(question.promptProfileCode(), question.promptProfileVersion());
+            ExplanationContext context = new ExplanationContext(
+                    ExplanationContext.SCHEMA_VERSION,
+                    question.questionId(),
+                    question.questionVersionId(),
+                    question.questionNo(),
+                    programCode,
+                    skill,
+                    type,
+                    question.prompt(),
+                    content,
+                    answerSpec,
+                    learnerAnswer,
+                    stimulus,
+                    question.teacherExplanation(),
+                    "vi",
+                    optionLabelMode,
+                    promptProfile
+            );
+            String generated = readingListeningExplanationService.getOrCreateExplanation(
+                    context, attempt.getTestId());
+            return isBlank(generated) ? question.teacherExplanation() : generated;
+        } catch (IllegalArgumentException exception) {
+            log.warn("[PracticeService] Explanation contract unavailable questionId={} type={} exception={}",
+                    question.questionId(), question.questionType(), exceptionCategory(exception));
+            return question.teacherExplanation();
+        }
+    }
+
+    private static void requireSubmittedForExplanation(PracticeAttempt attempt) {
+        if (!PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
+                && !PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Kết quả chỉ khả dụng sau khi bài làm đã được nộp.");
+        }
+    }
+
+    private static String scoreRatioLabel(BigDecimal earned, BigDecimal possible) {
+        if (possible == null || possible.signum() <= 0 || earned == null) {
+            return "0%";
+        }
+        return earned.multiply(BigDecimal.valueOf(100))
+                .divide(possible, 0, RoundingMode.HALF_UP)
+                .toPlainString() + "%";
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return isBlank(first) ? second : first;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     private static String normalizeKey(String value) {
         if (value == null) {
             return "";
@@ -1812,6 +2030,47 @@ public class PracticeService {
         }
 
         return groups;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PracticeQuestionGroupRow> getPlayerQuestionGroupsForAttempt(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Lượt làm bài không tồn tại"));
+        rejectDiscardedAttempt(attempt);
+        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
+                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
+        if (!attempt.getSetId().equals(section.getSetId())
+                || !attempt.getTestId().equals(section.getTestId())
+                || !attempt.getSkill().equals(section.getSkill())) {
+            throw new IllegalStateException("Section metadata mismatch with attempt");
+        }
+        return redactPlayerGroups(groupRowsForAttempt(attempt, section));
+    }
+
+    private static List<PracticeQuestionGroupRow> redactPlayerGroups(
+            List<PracticeQuestionGroupRow> groups) {
+        return groups.stream()
+                .map(group -> new PracticeQuestionGroupRow(
+                        group.id(),
+                        group.sectionId(),
+                        group.groupLabel(),
+                        group.questionFrom(),
+                        group.questionTo(),
+                        group.instruction(),
+                        group.audioUrl(),
+                        group.exampleBox(),
+                        group.questions().stream()
+                                .map(question -> new PracticeQuestionRow(
+                                        question.id(),
+                                        question.questionNo(),
+                                        question.questionType(),
+                                        question.prompt(),
+                                        question.options(),
+                                        null,
+                                        null,
+                                        question.groupLabel()))
+                                .toList()))
+                .toList();
     }
 
     @Transactional
@@ -1993,20 +2252,18 @@ public class PracticeService {
             total = total.add(q.points());
             String answer = answers.getOrDefault(String.valueOf(q.questionId()), "").trim();
 
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
                 throw new IllegalStateException("Essay attempt must use snapshot grading path.");
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
                 String perQuestionFeedback = mockSpeakingFeedback(q.prompt(), answer);
                 speakingFeedbackMap.put(String.valueOf(q.questionId()), readFeedbackObject(perQuestionFeedback));
                 earnedPoints = earnedPoints.add(earnedSpeakingPoints(q.points(), extractAiScore(perQuestionFeedback)));
-            } else if (isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            } else {
+                throw new IllegalStateException("Unsupported question type for question ID "
+                        + q.questionId() + ": " + q.questionType());
             }
         }
         BigDecimal score = speakingFeedbackMap.isEmpty() ? earnedPoints : toWritingAttemptPercentage(earnedPoints, total);
@@ -2079,6 +2336,7 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         rejectDiscardedAttempt(attempt);
+        requireSubmittedForExplanation(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
 
@@ -2090,6 +2348,12 @@ public class PracticeService {
         List<PracticeQuestionRow> dbQuestions = groupRows.stream()
                 .flatMap(g -> g.questions().stream())
                 .toList();
+        Map<Long, QuestionSnapshot> scoringQuestions = loadQuestionSnapshots(attempt, section.getId()).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        QuestionSnapshot::questionId,
+                        question -> question,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
 
         Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
         String optionLabelMode = getOptionLabelMode(set);
@@ -2116,11 +2380,15 @@ public class PracticeService {
             List<PracticeQuestionRow> qs = entry.getValue();
             int total = qs.size();
             int correct = 0;
+            BigDecimal earnedByType = BigDecimal.ZERO;
+            BigDecimal possibleByType = BigDecimal.ZERO;
             for (PracticeQuestionRow q : qs) {
                 String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
                 if (isObjective || isAutoScoredByKey(type)) {
-                    boolean ok = answersMatch(ans, q.answerKey());
-                    if (ok) {
+                    AssessmentScoreResult scoreResult = scoreResultForRow(scoringQuestions, q.id(), ans);
+                    earnedByType = earnedByType.add(scoreResult.earnedPoints());
+                    possibleByType = possibleByType.add(scoreResult.possiblePoints());
+                    if (scoreResult.fullyCorrect()) {
                         correct++;
                     }
                 }
@@ -2129,7 +2397,7 @@ public class PracticeService {
                 int incorrect = total - correct;
                 correctCount += correct;
                 incorrectCount += incorrect;
-                String accuracyPct = total == 0 ? "0%" : Math.round(((double) correct / total) * 100) + "%";
+                String accuracyPct = scoreRatioLabel(earnedByType, possibleByType);
                 perfByType.add(new PerformanceByTypeRow(type, getQuestionTypeLabel(type), total, correct, incorrect, accuracyPct));
             }
         }
@@ -2145,18 +2413,18 @@ public class PracticeService {
                 List<ReviewQuestionRow> qRows = new ArrayList<>();
                 for (PracticeQuestionRow q : g.questions()) {
                     String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
-                    boolean isCorrect = answersMatch(ans, q.answerKey());
+                    boolean isCorrect = scoreResultForRow(scoringQuestions, q.id(), ans).fullyCorrect();
                     String explanationJson = null;
                     try {
-                        if (lockedSnapshot.isPresent()) {
-                            explanationJson = q.explanation();
-                        } else {
-                            PracticeQuestion pq = questionRepository.findById(q.id()).orElse(null);
-                            if (pq != null) {
-                            explanationJson = readingListeningExplanationService.getOrCreateExplanation(
-                                    pq, g.instruction(), skill, set.getId(), optionLabelMode);
-                            }
-                        }
+                        explanationJson = explanationForAttempt(
+                                attempt,
+                                set,
+                                lockedSnapshot,
+                                scoringQuestions.get(q.id()),
+                                g,
+                                ans,
+                                optionLabelMode
+                        );
                     } catch (Exception e) {
                         log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
                                 q.id(), exceptionCategory(e));
@@ -2208,6 +2476,7 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         rejectDiscardedAttempt(attempt);
+        requireSubmittedForExplanation(attempt);
         PracticeSet set = setRepository.findById(attempt.getSetId())
                 .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
@@ -2218,6 +2487,12 @@ public class PracticeService {
         List<PracticeQuestionRow> dbQuestions = groupRows.stream()
                 .flatMap(g -> g.questions().stream())
                 .toList();
+        Map<Long, QuestionSnapshot> scoringQuestions = loadQuestionSnapshots(attempt, section.getId()).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        QuestionSnapshot::questionId,
+                        question -> question,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
 
         Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
 
@@ -2238,9 +2513,14 @@ public class PracticeService {
             int total = qs.size();
             int correct = 0;
             int incorrect = 0;
+            BigDecimal earnedByType = BigDecimal.ZERO;
+            BigDecimal possibleByType = BigDecimal.ZERO;
             for (PracticeQuestionRow q : qs) {
                 String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
-                boolean isCorrect = answersMatch(ans, q.answerKey());
+                AssessmentScoreResult scoreResult = scoreResultForRow(scoringQuestions, q.id(), ans);
+                boolean isCorrect = scoreResult.fullyCorrect();
+                earnedByType = earnedByType.add(scoreResult.earnedPoints());
+                possibleByType = possibleByType.add(scoreResult.possiblePoints());
                 if (isCorrect) {
                     correct++;
                 } else {
@@ -2250,7 +2530,7 @@ public class PracticeService {
             correctCount += correct;
             incorrectCount += incorrect;
 
-            String accuracyPct = total == 0 ? "0%" : Math.round(((double) correct / total) * 100) + "%";
+            String accuracyPct = scoreRatioLabel(earnedByType, possibleByType);
             performanceByType.add(new PerformanceByTypeRow(
                     type,
                     getQuestionTypeLabel(type),
@@ -2269,19 +2549,18 @@ public class PracticeService {
             List<ReviewQuestionRow> questions = new ArrayList<>();
             for (PracticeQuestionRow q : g.questions()) {
                 String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
-                boolean isCorrect = answersMatch(ans, q.answerKey());
+                boolean isCorrect = scoreResultForRow(scoringQuestions, q.id(), ans).fullyCorrect();
                 String explanationJson = null;
                 try {
-                    if (lockedSnapshot.isPresent()) {
-                        explanationJson = q.explanation();
-                    } else {
-                        PracticeQuestion pq = questionRepository.findById(q.id()).orElse(null);
-                        if (pq != null) {
-                        explanationJson = readingListeningExplanationService.getOrCreateExplanation(
-                                pq, g.instruction(), section.getSkill(), set.getId(), optionLabelMode
-                        );
-                        }
-                    }
+                    explanationJson = explanationForAttempt(
+                            attempt,
+                            set,
+                            lockedSnapshot,
+                            scoringQuestions.get(q.id()),
+                            g,
+                            ans,
+                            optionLabelMode
+                    );
                 } catch (Exception e) {
                     log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
                             q.id(), exceptionCategory(e));
@@ -2326,9 +2605,10 @@ public class PracticeService {
     private static String getQuestionTypeLabel(String type) {
         if (type == null) return "객관식 (Trắc nghiệm)";
         return switch (type) {
-            case PracticeQuestion.TYPE_MCQ -> "객관식 (Trắc nghiệm)";
+            case PracticeQuestion.TYPE_MCQ, PracticeQuestion.TYPE_SINGLE_CHOICE -> "객관식 (Trắc nghiệm)";
+            case PracticeQuestion.TYPE_MULTIPLE_CHOICE -> "복수 선택 (Chọn nhiều đáp án)";
             case PracticeQuestion.TYPE_TRUE_FALSE_NOT_GIVEN -> "맞다/틀리다 (Đúng/Sai)";
-            case PracticeQuestion.TYPE_MATCHING_INFORMATION -> "선 잇기 (Nối thông tin)";
+            case PracticeQuestion.TYPE_MATCHING_INFORMATION, PracticeQuestion.TYPE_MATCHING -> "선 잇기 (Nối thông tin)";
             case PracticeQuestion.TYPE_FILL_BLANK -> "빈칸 채우기 (Điền từ)";
             case PracticeQuestion.TYPE_ORDERING -> "순서 배열 (Sắp xếp thứ tự)";
             case PracticeQuestion.TYPE_TEXT_COMPLETION -> "문장 완성 (Hoàn thành câu)";
@@ -2650,11 +2930,20 @@ public class PracticeService {
                             .thenComparing(PracticeQuestionVersion::getId, Comparator.nullsLast(Long::compareTo)))
                     .map(q -> new QuestionSnapshot(
                             q.getQuestionId(),
+                            q.getId(),
                             q.getQuestionNo(),
                             q.getDisplayOrder(),
                             q.getPrompt(),
                             q.getQuestionType(),
+                            q.getCanonicalQuestionType(),
+                            q.getQuestionContentJson(),
+                            q.getOptionsJson(),
                             q.getAnswerKey(),
+                            q.getAnswerSpecJson(),
+                            q.getScoringPolicyCode(),
+                            q.getExplanation(),
+                            q.getPromptProfileCode(),
+                            q.getPromptProfileVersion(),
                             q.getPoints(),
                             q.getWritingTaskType()
                     ))
@@ -2671,17 +2960,30 @@ public class PracticeService {
         return allQuestions.stream()
                 .filter(q -> sectionQuestionIds.contains(q.getId()))
                 .sorted(QUESTION_ORDER)
-                .map(q -> new QuestionSnapshot(
-                        q.getId(),
-                        q.getQuestionNo(),
-                        q.getDisplayOrder(),
-                        q.getPrompt(),
-                        q.getQuestionType(),
-                        q.getAnswerKey(),
-                        q.getPoints(),
-                        q.getWritingTaskType()
-                ))
+                .map(this::toQuestionSnapshot)
                 .toList();
+    }
+
+    private QuestionSnapshot toQuestionSnapshot(PracticeQuestion question) {
+        return new QuestionSnapshot(
+                question.getId(),
+                null,
+                question.getQuestionNo(),
+                question.getDisplayOrder(),
+                question.getPrompt(),
+                question.getQuestionType(),
+                question.getCanonicalQuestionType(),
+                question.getQuestionContentJson(),
+                question.getOptionsJson(),
+                question.getAnswerKey(),
+                question.getAnswerSpecJson(),
+                question.getScoringPolicyCode(),
+                question.getExplanation(),
+                question.getPromptProfileCode(),
+                question.getPromptProfileVersion(),
+                question.getPoints(),
+                question.getWritingTaskType()
+        );
     }
 
     private boolean containsEssay(List<QuestionSnapshot> questions) {
@@ -2730,11 +3032,10 @@ public class PracticeService {
             total = total.add(q.points());
             String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
 
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    legacyFlatScore = legacyFlatScore.add(q.points());
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                legacyFlatScore = legacyFlatScore.add(objectiveScore.get().earnedPoints());
+                earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
                 String perQuestionFeedback = evaluationClient.evaluate(
                         snapshot.userId(), q.prompt(), answer, isReEvaluate, q.writingTaskType());
@@ -2748,11 +3049,9 @@ public class PracticeService {
                 aiFeedback = perQuestionFeedback;
                 legacyFlatScore = extractAiScore(perQuestionFeedback);
                 earnedPoints = earnedPoints.add(earnedSpeakingPoints(q.points(), extractAiScore(perQuestionFeedback)));
-            } else if (isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    legacyFlatScore = legacyFlatScore.add(q.points());
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            } else {
+                throw new IllegalStateException("Unsupported question type for question ID "
+                        + q.questionId() + ": " + q.questionType());
             }
         }
         BigDecimal score = speakingFeedbackByQuestion.isEmpty()
@@ -2775,10 +3074,9 @@ public class PracticeService {
         for (QuestionSnapshot q : snapshot.questions()) {
             total = total.add(q.points());
             String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
                 SpeakingEvaluationApplicationService.Evaluation evaluation =
                         speakingEvaluationApplicationService.evaluateQuestion(
@@ -2805,10 +3103,9 @@ public class PracticeService {
                         .multiply(q.points())
                         .divide(BigDecimal.valueOf(100), java.math.MathContext.DECIMAL128);
                 earnedPoints = earnedPoints.add(earnedQuestionPoints);
-            } else if (isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    earnedPoints = earnedPoints.add(q.points());
-                }
+            } else {
+                throw new IllegalStateException("Unsupported SPEAKING question type for question ID "
+                        + q.questionId() + ": " + q.questionType());
             }
         }
         String feedbackJson = feedbackByQuestion.isEmpty() ? null : speakingAiFeedbackEnvelope(feedbackByQuestion);
@@ -2870,10 +3167,9 @@ public class PracticeService {
             attemptTotalPoints = attemptTotalPoints.add(configuredPoints);
             String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
 
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType()) || isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                attemptEarnedPoints = attemptEarnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
                 String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer,
                         isReEvaluate, q.writingTaskType());
@@ -3006,10 +3302,9 @@ public class PracticeService {
             attemptTotalPoints = attemptTotalPoints.add(configuredPoints);
             String answer = answers.getOrDefault(String.valueOf(q.questionId()), "").trim();
 
-            if (PracticeQuestion.TYPE_MCQ.equals(q.questionType()) || isAutoScoredByKey(q.questionType())) {
-                if (answersMatch(answer, q.answerKey())) {
-                    attemptEarnedPoints = attemptEarnedPoints.add(configuredPoints);
-                }
+            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
+            if (objectiveScore.isPresent()) {
+                attemptEarnedPoints = attemptEarnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
                 JsonNode node = feedbackMap.get(String.valueOf(q.questionId()));
                 if (node == null || node.isNull() || !node.isObject()) {
@@ -3345,11 +3640,20 @@ public class PracticeService {
 
     private record QuestionSnapshot(
             Long questionId,
+            Long questionVersionId,
             Integer questionNo,
             Integer displayOrder,
             String prompt,
             String questionType,
+            String canonicalQuestionType,
+            String questionContentJson,
+            String optionsJson,
             String answerKey,
+            String answerSpecJson,
+            String scoringPolicyCode,
+            String teacherExplanation,
+            String promptProfileCode,
+            Integer promptProfileVersion,
             BigDecimal points,
             WritingTaskType writingTaskType
     ) {

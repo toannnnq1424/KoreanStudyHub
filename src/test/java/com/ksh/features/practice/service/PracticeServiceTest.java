@@ -311,6 +311,16 @@ class PracticeServiceTest {
         PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
                 "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
         ungrouped.setGroupId(null);
+        ungrouped.setCanonicalQuestionType("SINGLE_CHOICE");
+        ungrouped.setQuestionContentJson("{\"schemaVersion\":\"question-content-v1\"}");
+        ungrouped.setAnswerSpecJson("{\"schemaVersion\":\"answer-spec-v1\"}");
+        ungrouped.setScoringPolicyCode("ALL_OR_NOTHING");
+        ungrouped.setScoringProfileCode("TOPIK_SINGLE_CHOICE");
+        ungrouped.setScoringProfileVersion(1);
+        ungrouped.setPromptProfileCode("TOPIK_READING_EXPLANATION");
+        ungrouped.setPromptProfileVersion(2);
+        ungrouped.setRubricProfileCode("TOPIK_READING_RUBRIC");
+        ungrouped.setRubricProfileVersion(3);
         setEntityId(ungrouped, 11L);
 
         when(localSetRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -372,6 +382,20 @@ class PracticeServiceTest {
         assertEquals("[\"A\",\"B\"]", saved.getOptionsJson());
         assertEquals("A", saved.getAnswerKey());
         assertEquals("Snapshot explanation", saved.getExplanation());
+        assertEquals("SINGLE_CHOICE", saved.getCanonicalQuestionType());
+        assertEquals("{\"schemaVersion\":\"question-content-v1\"}", saved.getQuestionContentJson());
+        assertEquals("{\"schemaVersion\":\"answer-spec-v1\"}", saved.getAnswerSpecJson());
+        assertEquals("ALL_OR_NOTHING", saved.getScoringPolicyCode());
+        assertEquals("TOPIK_SINGLE_CHOICE", saved.getScoringProfileCode());
+        assertEquals(1, saved.getScoringProfileVersion());
+        assertEquals("TOPIK_READING_EXPLANATION", saved.getPromptProfileCode());
+        assertEquals(2, saved.getPromptProfileVersion());
+        assertEquals("TOPIK_READING_RUBRIC", saved.getRubricProfileCode());
+        assertEquals(3, saved.getRubricProfileVersion());
+        org.mockito.ArgumentCaptor<PracticeSetVersion> setVersionCaptor =
+                org.mockito.ArgumentCaptor.forClass(PracticeSetVersion.class);
+        verify(setVersionRepository).save(setVersionCaptor.capture());
+        assertEquals("TOPIK", setVersionCaptor.getValue().getAssessmentProgramCode());
         verify(groupVersionRepository, never()).save(any());
     }
 
@@ -843,6 +867,8 @@ class PracticeServiceTest {
         when(q1.getId()).thenReturn(100L);
         when(q1.getQuestionType()).thenReturn("MCQ");
         when(q1.getSetId()).thenReturn(1L);
+        when(q1.getAnswerKey()).thenReturn("1");
+        when(q1.getPoints()).thenReturn(BigDecimal.ONE);
         when(questionRepository.findBySetIdIn(anyList())).thenReturn(List.of(q1));
 
         PracticeAnalytics analytics = practiceService.getPracticeAnalytics(2L);
@@ -1176,6 +1202,130 @@ class PracticeServiceTest {
         assertEquals(BigDecimal.valueOf(5), attempt.getTotalPoints());
         assertEquals("{\"101\":\"3\"}", attempt.getAnswersJson());
         verify(attemptRepository).save(attempt);
+    }
+
+    @Test
+    void submitTypedMultipleChoiceAwardsPartialCreditWithoutWrongSelections() {
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II",
+                "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "DEFAULT", "",
+                40, BigDecimal.valueOf(4), 0);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeQuestion question = typedMultipleChoiceQuestion();
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(question));
+        String typedAnswer = """
+                {"schemaVersion":"learner-answer-v1","questionType":"MULTIPLE_CHOICE","selectedOptionIds":["opt_1"]}
+                """.trim();
+
+        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", typedAnswer));
+
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("2")));
+        assertEquals(0, attempt.getTotalPoints().compareTo(new BigDecimal("4")));
+        assertTrue(attempt.getAnswersJson().contains("learner-answer-v1"));
+    }
+
+    @Test
+    void versionLockedTypedGradingUsesAnswerSpecSnapshotInsteadOfLiveQuestion() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II",
+                "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "DEFAULT", "",
+                40, BigDecimal.valueOf(4), 0);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        setEntityId(attempt, 99L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getQuestionId()).thenReturn(101L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+        when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
+        when(questionVersion.getQuestionType()).thenReturn("MULTIPLE_CHOICE");
+        when(questionVersion.getCanonicalQuestionType()).thenReturn("MULTIPLE_CHOICE");
+        when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\",\"C\"]");
+        when(questionVersion.getQuestionContentJson()).thenReturn(questionContentJson());
+        when(questionVersion.getAnswerKey()).thenReturn("1,3");
+        when(questionVersion.getAnswerSpecJson()).thenReturn(answerSpecJson());
+        when(questionVersion.getScoringPolicyCode())
+                .thenReturn("PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO");
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.valueOf(4));
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
+                        List.of(), List.of(questionVersion))));
+
+        PracticeQuestion liveQuestion = typedMultipleChoiceQuestion();
+        liveQuestion.setAnswerSpecJson("""
+                {"schemaVersion":"answer-spec-v1","questionType":"MULTIPLE_CHOICE",\
+                "correctOptionIds":["opt_2"],"scoringPolicyCode":"ALL_OR_NOTHING"}
+                """);
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(liveQuestion));
+        String typedAnswer = """
+                {"schemaVersion":"learner-answer-v1","questionType":"MULTIPLE_CHOICE","selectedOptionIds":["opt_1"]}
+                """.trim();
+
+        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", typedAnswer));
+
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("2")));
+        verify(questionRepository, never()).findById(any());
+    }
+
+    private PracticeQuestion typedMultipleChoiceQuestion() {
+        PracticeQuestion question = new PracticeQuestion(
+                1L, 1, "MULTIPLE_CHOICE", "Choose", "[\"A\",\"B\",\"C\"]", "1,3", "",
+                BigDecimal.valueOf(4), 0);
+        setEntityId(question, 101L);
+        question.setCanonicalQuestionType("MULTIPLE_CHOICE");
+        question.setQuestionContentJson(questionContentJson());
+        question.setAnswerSpecJson(answerSpecJson());
+        question.setScoringPolicyCode("PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO");
+        return question;
+    }
+
+    private String questionContentJson() {
+        return """
+                {"schemaVersion":"question-content-v1","options":[
+                  {"id":"opt_1","text":"A"},{"id":"opt_2","text":"B"},{"id":"opt_3","text":"C"}
+                ]}
+                """;
+    }
+
+    private String answerSpecJson() {
+        return """
+                {"schemaVersion":"answer-spec-v1","questionType":"MULTIPLE_CHOICE",\
+                "correctOptionIds":["opt_1","opt_3"],\
+                "scoringPolicyCode":"PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO"}
+                """;
     }
 
     @Test

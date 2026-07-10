@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
+import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.QuestionContent;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -76,6 +78,53 @@ public class ReadingListeningMockExplanationService {
         } catch (Exception ex) {
             // Last resort fallback
             return buildMinimalFallback(question);
+        }
+    }
+
+    public String explain(ExplanationContext context, String reason) {
+        try {
+            boolean evidenceAvailable = context.stimulus().hasUsableEvidence();
+            String evidence = evidenceAvailable ? context.stimulus().evidenceText().trim() : "";
+            if (evidence.length() > 300) {
+                evidence = evidence.substring(0, 300);
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("meaningVi", evidenceAvailable
+                    ? "Giải thích dựa trên nội dung nguồn đã được cung cấp."
+                    : "Chưa có transcript hoặc văn bản nguồn đã được duyệt để giải thích câu này.");
+            result.put("evidenceQuote", evidence);
+            result.put("correctReasonVi", context.teacherExplanation() != null
+                    && !context.teacherExplanation().isBlank()
+                    ? context.teacherExplanation()
+                    : (evidenceAvailable
+                            ? "Đáp án được xác định theo answer spec của giáo viên; AI tạm thời chưa khả dụng."
+                            : "Không thể giải thích nội dung nghe khi chưa có transcript hoặc bằng chứng đã được duyệt."));
+            result.put("relatedTranslationVi", evidenceAvailable
+                    ? "Bản dịch chi tiết sẽ được tạo khi dịch vụ AI khả dụng."
+                    : "");
+            result.put("evidenceStatus", evidenceAvailable ? "AVAILABLE" : "UNAVAILABLE");
+            result.put("fallbackReason", reason == null ? "" : reason);
+
+            java.util.Set<String> correctIds = new java.util.LinkedHashSet<>(
+                    context.answerSpec().correctOptionIds());
+            List<Map<String, String>> eliminated = new ArrayList<>();
+            if (evidenceAvailable) {
+                for (QuestionContent.Option option : context.questionContent().options()) {
+                    if (!correctIds.contains(option.id())) {
+                        eliminated.add(Map.of(
+                                "optionKey", option.id(),
+                                "reasonVi", "Phương án này không thuộc answer spec của giáo viên."
+                        ));
+                    }
+                }
+            }
+            result.put("eliminatedOptions", eliminated);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception exception) {
+            return "{\"meaningVi\":\"Không thể tạo giải thích.\",\"evidenceQuote\":\"\","
+                    + "\"correctReasonVi\":\"Không đủ bằng chứng.\",\"relatedTranslationVi\":\"\","
+                    + "\"eliminatedOptions\":[],\"evidenceStatus\":\"UNAVAILABLE\"}";
         }
     }
 

@@ -45,7 +45,7 @@ public class PracticeDraftServiceTest {
     @Test
     public void testSaveDraftState() {
         PracticeDraft draft = new PracticeDraft("Tiêu đề", "Mô tả", "TOPIK_II", "GLOBAL", null, "DRAFT", 99L, "{}");
-        when(draftRepository.findById(1L)).thenReturn(Optional.of(draft));
+        when(draftRepository.findByIdAndOwnerId(1L, 99L)).thenReturn(Optional.of(draft));
         when(draftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(draftRepository.saveAndFlush(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -85,8 +85,9 @@ public class PracticeDraftServiceTest {
         question.setGroupId(30L);
         question.setWritingTaskType(WritingTaskType.Q54);
 
-        when(localDraftRepository.findByPublishedSetId(10L)).thenReturn(Optional.empty());
+        when(localDraftRepository.findByPublishedSetIdAndOwnerId(10L, 99L)).thenReturn(Optional.empty());
         when(localDraftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(setRepository.findByIdAndCreatedBy(10L, 99L)).thenReturn(Optional.of(set));
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(section));
         when(groupRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(group));
@@ -129,8 +130,9 @@ public class PracticeDraftServiceTest {
         question.setGroupId(30L);
         question.setWritingTaskType(WritingTaskType.Q54);
 
-        when(localDraftRepository.findByPublishedSetId(10L)).thenReturn(Optional.empty());
+        when(localDraftRepository.findByPublishedSetIdAndOwnerId(10L, 99L)).thenReturn(Optional.empty());
         when(localDraftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(setRepository.findByIdAndCreatedBy(10L, 99L)).thenReturn(Optional.of(set));
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(section));
         when(groupRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(group));
@@ -141,6 +143,18 @@ public class PracticeDraftServiceTest {
         JsonNode root = objectMapper.readTree(draft.getDraftJson());
         JsonNode qNode = root.path("sections").get(0).path("groups").get(0).path("questions").get(0);
         assertFalse(qNode.has("essayTaskType"));
+    }
+
+    @Test
+    void crossOwnerCannotReadSaveOrDeleteDraft() {
+        when(draftRepository.findByIdAndOwnerId(1L, 100L)).thenReturn(Optional.empty());
+
+        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                () -> service.getDraft(1L, 100L));
+        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                () -> service.saveDraftState(1L, 100L, "{}", "Title", "", null));
+        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                () -> service.deleteDraft(1L, 100L));
     }
 
     private void setEntityId(Object entity, Long id) throws Exception {

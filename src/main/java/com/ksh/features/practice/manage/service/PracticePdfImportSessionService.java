@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
 import com.ksh.features.practice.repository.PracticePdfPageExtractionRepository;
 import com.ksh.features.practice.repository.PracticePdfRegionAnnotationRepository;
@@ -29,6 +30,7 @@ public class PracticePdfImportSessionService {
     private final PracticePdfRegionAnnotationRepository annotationRepository;
     private final PracticePdfPageExtractionRepository pageExtractionRepository;
     private final PracticeAiRequestAuditRepository aiRequestAuditRepository;
+    private final PracticeDraftRepository draftRepository;
     private final PracticePdfStorageService storageService;
     private final LecturerAssetService assetService;
 
@@ -36,25 +38,30 @@ public class PracticePdfImportSessionService {
                                            PracticePdfRegionAnnotationRepository annotationRepository,
                                            PracticePdfPageExtractionRepository pageExtractionRepository,
                                            PracticeAiRequestAuditRepository aiRequestAuditRepository,
+                                           PracticeDraftRepository draftRepository,
                                            PracticePdfStorageService storageService,
                                            LecturerAssetService assetService) {
         this.sessionRepository = sessionRepository;
         this.annotationRepository = annotationRepository;
         this.pageExtractionRepository = pageExtractionRepository;
         this.aiRequestAuditRepository = aiRequestAuditRepository;
+        this.draftRepository = draftRepository;
         this.storageService = storageService;
         this.assetService = assetService;
     }
 
     @Transactional
     public PracticePdfImportSession createSession(Long uploaderId, MultipartFile file, String examCategory, String title, Long linkedDraftId) throws IOException {
+        if (linkedDraftId != null && draftRepository.findByIdAndOwnerId(linkedDraftId, uploaderId).isEmpty()) {
+            throw new jakarta.persistence.EntityNotFoundException("Bản nháp liên kết không tồn tại.");
+        }
         PracticePdfStorageService.StoredPdf storedPdf = storageService.store(file, uploaderId);
 
         int totalPages = 1;
         try (PDDocument doc = Loader.loadPDF(storedPdf.absolutePath().toFile())) {
             totalPages = doc.getNumberOfPages();
         } catch (Exception e) {
-            log.error("[PdfImportSessionService] Failed to read total pages for file={}", storedPdf.absolutePath().toString(), e);
+            log.error("[PdfImportSessionService] Failed to read PDF page count", e);
         }
 
         String finalTitle = (title != null && !title.isBlank()) ? title : file.getOriginalFilename().replaceFirst("(?i)\\.pdf$", "");
@@ -147,12 +154,12 @@ public class PracticePdfImportSessionService {
         if (session.getStoredPdfPath() != null) {
             File file = new File(session.getStoredPdfPath());
             if (file.exists() && file.delete()) {
-                log.info("[PdfImportSessionService] Deleted PDF file={}", session.getStoredPdfPath());
+                log.info("[PdfImportSessionService] Deleted PDF for sessionId={}", sessionId);
             }
         }
 
         // 2. Cleanup temporary and active assets
-        assetService.cleanupTemporaryAssets(sessionId);
+        assetService.cleanupTemporaryAssets(sessionId, userId);
         
         // 3. Delete cascades in db (managed by hibernate or query)
         annotationRepository.deleteBySessionId(sessionId);

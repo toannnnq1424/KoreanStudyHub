@@ -103,7 +103,7 @@ public class PracticeDraftValidator {
                 }
             }
         } catch (Exception e) {
-            messages.add(new ValidationMsg("BLOCKING", "Lỗi phân tích cú pháp dữ liệu: " + e.getMessage()));
+            messages.add(new ValidationMsg("BLOCKING", "Dữ liệu bản nháp không đúng cấu trúc JSON hợp lệ."));
         }
 
         boolean hasBlocking = messages.stream().anyMatch(m -> "BLOCKING".equals(m.type()));

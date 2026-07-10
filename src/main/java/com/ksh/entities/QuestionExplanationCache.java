@@ -22,8 +22,14 @@ public class QuestionExplanationCache {
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
+    @Column(name = "question_version_id")
+    private Long questionVersionId;
+
     @Column(name = "test_id")
     private Long testId;
+
+    @Column(name = "program_code", length = 40)
+    private String programCode;
 
     @Column(name = "skill_type", nullable = false, length = 20)
     private String skillType;
@@ -33,6 +39,12 @@ public class QuestionExplanationCache {
 
     @Column(name = "question_hash", nullable = false, length = 64)
     private String questionHash;
+
+    @Column(name = "stimulus_hash", length = 64, columnDefinition = "CHAR(64)")
+    private String stimulusHash;
+
+    @Column(name = "answer_spec_hash", length = 64, columnDefinition = "CHAR(64)")
+    private String answerSpecHash;
 
     @Column(name = "correct_answer", length = 500)
     private String correctAnswer;
@@ -45,6 +57,12 @@ public class QuestionExplanationCache {
 
     @Column(name = "prompt_version", nullable = false, length = 32)
     private String promptVersion;
+
+    @Column(name = "prompt_profile_code", length = 100)
+    private String promptProfileCode;
+
+    @Column(name = "prompt_profile_version")
+    private Integer promptProfileVersion;
 
     @Column(name = "schema_version", nullable = false, length = 32)
     private String schemaVersion;
@@ -90,8 +108,16 @@ public class QuestionExplanationCache {
         return questionId;
     }
 
+    public Long getQuestionVersionId() {
+        return questionVersionId;
+    }
+
     public Long getTestId() {
         return testId;
+    }
+
+    public String getProgramCode() {
+        return programCode;
     }
 
     public String getSkillType() {
@@ -104,6 +130,14 @@ public class QuestionExplanationCache {
 
     public String getQuestionHash() {
         return questionHash;
+    }
+
+    public String getStimulusHash() {
+        return stimulusHash;
+    }
+
+    public String getAnswerSpecHash() {
+        return answerSpecHash;
     }
 
     public String getCorrectAnswer() {
@@ -124,6 +158,14 @@ public class QuestionExplanationCache {
 
     public String getPromptVersion() {
         return promptVersion;
+    }
+
+    public String getPromptProfileCode() {
+        return promptProfileCode;
+    }
+
+    public Integer getPromptProfileVersion() {
+        return promptProfileVersion;
     }
 
     public String getSchemaVersion() {

@@ -6,12 +6,14 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeTest;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.repository.PracticeEditLogRepository;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.features.practice.repository.PracticeTestRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
 class PracticeRevisionServiceTest {
 
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
+    private final PracticeTestRepository testRepository = mock(PracticeTestRepository.class);
     private final PracticeSectionRepository sectionRepository = mock(PracticeSectionRepository.class);
     private final PracticeQuestionGroupRepository groupRepository = mock(PracticeQuestionGroupRepository.class);
     private final PracticeQuestionRepository questionRepository = mock(PracticeQuestionRepository.class);
@@ -50,6 +53,7 @@ class PracticeRevisionServiceTest {
     void setUp() {
         service = new PracticeRevisionService(
                 setRepository,
+                testRepository,
                 sectionRepository,
                 groupRepository,
                 questionRepository,
@@ -58,6 +62,11 @@ class PracticeRevisionServiceTest {
                 objectMapper
         );
         when(setRepository.save(any(PracticeSet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(testRepository.save(any(PracticeTest.class))).thenAnswer(invocation -> {
+            PracticeTest test = invocation.getArgument(0);
+            assignIdIfMissing(test);
+            return test;
+        });
         when(sectionRepository.save(any(PracticeSection.class))).thenAnswer(invocation -> {
             PracticeSection section = invocation.getArgument(0);
             assignIdIfMissing(section);
@@ -84,6 +93,7 @@ class PracticeRevisionServiceTest {
 
         assertEquals(1, savedQuestions.size());
         assertEquals(WritingTaskType.Q53, savedQuestions.get(0).getWritingTaskType());
+        verify(testRepository).save(any(PracticeTest.class));
     }
 
     @Test
@@ -183,6 +193,17 @@ class PracticeRevisionServiceTest {
         verify(groupRepository, never()).deleteBySetId(any());
         verify(sectionRepository, never()).deleteBySetId(any());
         verify(questionRepository, never()).save(any());
+    }
+
+    @Test
+    void crossOwnerCannotRestoreRevision() throws Exception {
+        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.restoreRevision(7L, 100L));
+
+        verify(questionRepository, never()).deleteBySetId(any());
+        verify(sectionRepository, never()).save(any());
     }
 
     private void arrangeRestoreQuestion(String questionJson) throws Exception {

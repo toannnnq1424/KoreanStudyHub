@@ -44,6 +44,9 @@ public class PracticeSet {
     @Column(name = "topik_level", length = 20)
     private String topikLevel;
 
+    @Column(name = "assessment_program_code", nullable = false, length = 40)
+    private String assessmentProgramCode;
+
     @Column(nullable = false, length = 20)
     private String scope;
 
@@ -90,6 +93,9 @@ public class PracticeSet {
         this.description = description;
         this.skill = skill;
         this.topikLevel = topikLevel;
+        this.assessmentProgramCode = topikLevel != null && topikLevel.toUpperCase().startsWith("TOPIK")
+                ? "TOPIK"
+                : "CUSTOM";
         this.scope = scope;
         this.classId = classId;
         this.sourcePdfPath = sourcePdfPath;
@@ -117,6 +123,10 @@ public class PracticeSet {
 
     public String getTopikLevel() {
         return topikLevel;
+    }
+
+    public String getAssessmentProgramCode() {
+        return assessmentProgramCode;
     }
 
     public String getScope() {
@@ -173,6 +183,10 @@ public class PracticeSet {
 
     public void setTopikLevel(String topikLevel) {
         this.topikLevel = topikLevel;
+    }
+
+    public void setAssessmentProgramCode(String assessmentProgramCode) {
+        this.assessmentProgramCode = assessmentProgramCode;
     }
 
     public void setScope(String scope) {

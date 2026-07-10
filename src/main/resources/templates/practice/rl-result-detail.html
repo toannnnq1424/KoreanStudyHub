@@ -97,7 +97,7 @@
         <div class="rl-options-container">
           
           <!-- TYPE: MCQ, TRUE_FALSE_NOT_GIVEN, TRUE_FALSE -->
-          <th:block th:if="${q.questionType() == 'MCQ' || q.questionType() == 'TRUE_FALSE_NOT_GIVEN' || q.questionType() == 'TRUE_FALSE'}">
+          <th:block th:if="${q.questionType() == 'MCQ' || q.questionType() == 'SINGLE_CHOICE' || q.questionType() == 'TRUE_FALSE_NOT_GIVEN' || q.questionType() == 'TRUE_FALSE'}">
             <div th:each="opt, optIter : ${q.options()}" class="rl-option-item"
                  th:with="
                    isOptCorrect=${q.correctAnswer() == ('' + (optIter.index + 1)) || q.correctAnswer() == opt || q.correctAnswer() == (#strings.substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ', optIter.index, optIter.index + 1))},

@@ -90,7 +90,7 @@ public class PracticePdfAiOrchestrator {
             return response;
         } catch (Exception e) {
             audit.setStatus("FAILED");
-            audit.setErrorCode(e.getMessage());
+            audit.setErrorCode("AI_PROVIDER_CALL_FAILED");
             auditRepository.save(audit);
             throw e;
         }

@@ -12,6 +12,9 @@ import java.util.Optional;
 
 public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> {
     List<PracticeSet> findByStatusOrderByCreatedAtDesc(String status);
+    List<PracticeSet> findByCreatedByOrderByCreatedAtDesc(Long createdBy);
+    List<PracticeSet> findByCreatedByAndStatusOrderByCreatedAtDesc(Long createdBy, String status);
+    Optional<PracticeSet> findByIdAndCreatedBy(Long id, Long createdBy);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from PracticeSet s where s.id = :id")

@@ -34,21 +34,18 @@ public class PracticePdfRegionService {
     }
 
     public List<PracticePdfRegionAnnotation> getAnnotations(Long sessionId, Long userId) {
-        PracticePdfImportSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
-        if (!session.getUploaderId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập session này.");
-        }
+        requireOwnedSession(sessionId, userId);
         return annotationRepository.findBySessionIdOrderByPageNumberAscDisplayOrderAsc(sessionId);
+    }
+
+    public PracticePdfRegionAnnotation getAnnotation(Long sessionId, Long annotationId, Long userId) {
+        requireOwnedSession(sessionId, userId);
+        return requireSessionAnnotation(sessionId, annotationId);
     }
 
     @Transactional
     public PracticePdfRegionAnnotation createAnnotation(Long sessionId, PracticePdfRegionAnnotation annotation, Long userId) {
-        PracticePdfImportSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
-        if (!session.getUploaderId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền chỉnh sửa session này.");
-        }
+        PracticePdfImportSession session = requireOwnedSession(sessionId, userId);
 
         annotation.setSessionId(sessionId);
         annotation.setCreatedAt(LocalDateTime.now());
@@ -64,14 +61,8 @@ public class PracticePdfRegionService {
 
     @Transactional
     public PracticePdfRegionAnnotation updateAnnotation(Long sessionId, Long annotationId, PracticePdfRegionAnnotation update, Long userId) {
-        PracticePdfImportSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
-        if (!session.getUploaderId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền chỉnh sửa session này.");
-        }
-
-        PracticePdfRegionAnnotation annotation = annotationRepository.findById(annotationId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy annotation."));
+        PracticePdfImportSession session = requireOwnedSession(sessionId, userId);
+        PracticePdfRegionAnnotation annotation = requireSessionAnnotation(sessionId, annotationId);
 
         annotation.setRegionType(update.getRegionType());
         annotation.setxRatio(update.getxRatio());
@@ -104,17 +95,11 @@ public class PracticePdfRegionService {
 
     @Transactional
     public void deleteAnnotation(Long sessionId, Long annotationId, Long userId) {
-        PracticePdfImportSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
-        if (!session.getUploaderId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền chỉnh sửa session này.");
-        }
-
-        PracticePdfRegionAnnotation annotation = annotationRepository.findById(annotationId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy annotation."));
+        requireOwnedSession(sessionId, userId);
+        PracticePdfRegionAnnotation annotation = requireSessionAnnotation(sessionId, annotationId);
 
         // Delete associated asset if it is TEMPORARY
-        List<LecturerAsset> sessionAssets = assetService.getSessionAssets(sessionId);
+        List<LecturerAsset> sessionAssets = assetService.getSessionAssets(sessionId, userId);
         sessionAssets.stream()
                 .filter(a -> annotationId.equals(a.getSourceRegionId()) && "TEMPORARY".equalsIgnoreCase(a.getStatus()))
                 .forEach(a -> {
@@ -128,12 +113,28 @@ public class PracticePdfRegionService {
         annotationRepository.delete(annotation);
     }
 
+    private PracticePdfImportSession requireOwnedSession(Long sessionId, Long userId) {
+        PracticePdfImportSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
+        if (!session.getUploaderId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền quản lý session này.");
+        }
+        return session;
+    }
+
+    private PracticePdfRegionAnnotation requireSessionAnnotation(Long sessionId, Long annotationId) {
+        return annotationRepository.findByIdAndSessionId(annotationId, sessionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Không tìm thấy annotation trong session."));
+    }
+
     private void triggerAutoCropIfNecessary(PracticePdfImportSession session, PracticePdfRegionAnnotation ann, Long userId) {
         boolean includeImage = ann.getIncludeImageInAi() != false;
         if (includeImage && !"IGNORE".equalsIgnoreCase(ann.getRegionType())) {
             try {
                 // Check if crop already exists
-                List<LecturerAsset> existing = assetService.getSessionAssets(session.getId());
+                List<LecturerAsset> existing = assetService.getSessionAssets(session.getId(), userId);
                 boolean hasAsset = existing.stream().anyMatch(a -> ann.getId().equals(a.getSourceRegionId()));
 
                 if (!hasAsset) {

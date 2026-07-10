@@ -34,8 +34,11 @@ public class PracticeQuestionVersion {
     @Column(name = "question_no", nullable = false)
     private Integer questionNo;
 
-    @Column(name = "question_type", nullable = false, length = 30)
+    @Column(name = "question_type", nullable = false, length = 40)
     private String questionType;
+
+    @Column(name = "canonical_question_type", length = 40)
+    private String canonicalQuestionType;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String prompt;
@@ -43,8 +46,35 @@ public class PracticeQuestionVersion {
     @Column(name = "options_json", columnDefinition = "JSON")
     private String optionsJson;
 
+    @Column(name = "question_content_json", columnDefinition = "JSON")
+    private String questionContentJson;
+
     @Column(name = "answer_key", length = 500)
     private String answerKey;
+
+    @Column(name = "answer_spec_json", columnDefinition = "JSON")
+    private String answerSpecJson;
+
+    @Column(name = "scoring_policy_code", length = 80)
+    private String scoringPolicyCode;
+
+    @Column(name = "scoring_profile_code", length = 100)
+    private String scoringProfileCode;
+
+    @Column(name = "scoring_profile_version")
+    private Integer scoringProfileVersion;
+
+    @Column(name = "prompt_profile_code", length = 100)
+    private String promptProfileCode;
+
+    @Column(name = "prompt_profile_version")
+    private Integer promptProfileVersion;
+
+    @Column(name = "rubric_profile_code", length = 100)
+    private String rubricProfileCode;
+
+    @Column(name = "rubric_profile_version")
+    private Integer rubricProfileVersion;
 
     @Column(columnDefinition = "TEXT")
     private String explanation;
@@ -70,9 +100,19 @@ public class PracticeQuestionVersion {
         this.questionId = question.getId();
         this.questionNo = question.getQuestionNo();
         this.questionType = question.getQuestionType();
+        this.canonicalQuestionType = question.getCanonicalQuestionType();
         this.prompt = question.getPrompt();
         this.optionsJson = question.getOptionsJson();
+        this.questionContentJson = question.getQuestionContentJson();
         this.answerKey = question.getAnswerKey();
+        this.answerSpecJson = question.getAnswerSpecJson();
+        this.scoringPolicyCode = question.getScoringPolicyCode();
+        this.scoringProfileCode = question.getScoringProfileCode();
+        this.scoringProfileVersion = question.getScoringProfileVersion();
+        this.promptProfileCode = question.getPromptProfileCode();
+        this.promptProfileVersion = question.getPromptProfileVersion();
+        this.rubricProfileCode = question.getRubricProfileCode();
+        this.rubricProfileVersion = question.getRubricProfileVersion();
         this.explanation = question.getExplanation();
         this.points = question.getPoints();
         this.displayOrder = question.getDisplayOrder();
@@ -86,9 +126,19 @@ public class PracticeQuestionVersion {
     public Long getQuestionId() { return questionId; }
     public Integer getQuestionNo() { return questionNo; }
     public String getQuestionType() { return questionType; }
+    public String getCanonicalQuestionType() { return canonicalQuestionType; }
     public String getPrompt() { return prompt; }
     public String getOptionsJson() { return optionsJson; }
+    public String getQuestionContentJson() { return questionContentJson; }
     public String getAnswerKey() { return answerKey; }
+    public String getAnswerSpecJson() { return answerSpecJson; }
+    public String getScoringPolicyCode() { return scoringPolicyCode; }
+    public String getScoringProfileCode() { return scoringProfileCode; }
+    public Integer getScoringProfileVersion() { return scoringProfileVersion; }
+    public String getPromptProfileCode() { return promptProfileCode; }
+    public Integer getPromptProfileVersion() { return promptProfileVersion; }
+    public String getRubricProfileCode() { return rubricProfileCode; }
+    public Integer getRubricProfileVersion() { return rubricProfileVersion; }
     public String getExplanation() { return explanation; }
     public BigDecimal getPoints() { return points; }
     public Integer getDisplayOrder() { return displayOrder; }

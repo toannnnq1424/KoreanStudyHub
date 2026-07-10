@@ -234,7 +234,7 @@ public class PracticePdfImportApiController {
             return ResponseEntity.internalServerError().body(Map.of(
                     "status", "FAILED_RETRYABLE",
                     "message", "Phân tích AI thất bại. Vùng crop và bản nháp hiện tại vẫn được giữ nguyên.",
-                    "error", e.getMessage() != null ? e.getMessage() : "Unknown error"
+                    "error", "AI_PROCESSING_FAILED"
             ));
         }
     }
@@ -254,13 +254,14 @@ public class PracticePdfImportApiController {
         return ResponseEntity.ok(draft);
     }
 
-    // â•â•â• LECTURER ASSET LIBRARY ENDPOINTS â•â•â•
+    // Lecturer asset library endpoints
 
     @GetMapping("/assets")
     public ResponseEntity<List<LecturerAsset>> getAssetsList(@RequestParam(value = "sessionId", required = false) Long sessionId,
                                                              @AuthenticationPrincipal KshUserDetails user) {
         if (sessionId != null) {
-            return ResponseEntity.ok(assetService.getSessionAssets(sessionId));
+            sessionService.getSession(sessionId, user.getId());
+            return ResponseEntity.ok(assetService.getSessionAssets(sessionId, user.getId()));
         }
         return ResponseEntity.ok(assetService.getLibraryAssets(user.getId()));
     }
@@ -288,9 +289,11 @@ public class PracticePdfImportApiController {
         if (req.assetType() != null) asset.setAssetType(req.assetType());
         if (req.lecturerNote() != null) asset.setLecturerNote(req.lecturerNote());
         if (req.status() != null) {
-            if ("TEMPORARY".equalsIgnoreCase(req.status()) || "ACTIVE".equalsIgnoreCase(req.status())) {
-                asset.setStatus(req.status().toUpperCase());
+            if (!"TEMPORARY".equalsIgnoreCase(req.status())) {
+                throw new IllegalArgumentException(
+                        "Chỉ endpoint promote-asset được phép chuyển asset sang ACTIVE.");
             }
+            asset.setStatus("TEMPORARY");
         }
         asset.setUpdatedAt(LocalDateTime.now());
         return ResponseEntity.ok(assetRepository.save(asset));
@@ -308,7 +311,9 @@ public class PracticePdfImportApiController {
                                                       @PathVariable Long regionId,
                                                       @RequestParam("assetId") Long assetId,
                                                       @AuthenticationPrincipal KshUserDetails user) {
-        LecturerAsset asset = assetService.promoteToActiveLibrary(assetId, user.getId());
+        regionService.getAnnotation(sessionId, regionId, user.getId());
+        LecturerAsset asset = assetService.promoteSessionRegionAsset(
+                sessionId, regionId, assetId, user.getId());
         return ResponseEntity.ok(asset);
     }
 
@@ -317,7 +322,8 @@ public class PracticePdfImportApiController {
                                                              @RequestBody LinkAssetRequest req,
                                                              @AuthenticationPrincipal KshUserDetails user) {
         PracticeDraftAssetUsage usage = assetService.linkAssetToDraft(
-                draftId, req.assetId(), req.sectionTempId(), req.groupTempId(), req.questionTempId(), req.placement(), req.altText()
+                draftId, req.assetId(), user.getId(), req.sectionTempId(), req.groupTempId(),
+                req.questionTempId(), req.placement(), req.altText()
         );
         return ResponseEntity.ok(usage);
     }
@@ -326,7 +332,7 @@ public class PracticePdfImportApiController {
     public ResponseEntity<Void> unlinkAsset(@PathVariable Long draftId,
                                             @PathVariable Long usageId,
                                             @AuthenticationPrincipal KshUserDetails user) {
-        usageRepository.deleteByDraftIdAndId(draftId, usageId);
+        assetService.unlinkAssetFromDraft(draftId, usageId, user.getId());
         return ResponseEntity.ok().build();
     }
 

@@ -3,6 +3,9 @@ package com.ksh.features.practice.ai.readinglistening;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
+import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.ai.OpenAiProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,12 +18,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.text.Normalizer;
 
 @Service
 public class ReadingListeningExplanationClient {
 
     private static final Logger log = LoggerFactory.getLogger(ReadingListeningExplanationClient.class);
-    public static final String EXPLANATION_PROMPT_VERSION = "v2";
+    public static final String EXPLANATION_PROMPT_VERSION = "v3";
     public static final String EXPLANATION_SCHEMA_VERSION = "v1";
     public static final String EXPLANATION_LANGUAGE = "vi";
 
@@ -80,6 +84,45 @@ public class ReadingListeningExplanationClient {
         } catch (Exception ex) {
             log.warn("[ReadingListeningAI] JSON parse failed questionId={} model={} exception={}",
                     question.getId(), properties.evaluatorModel(), exceptionCategory(ex));
+            return null;
+        }
+    }
+
+    public String explain(ExplanationContext context) {
+        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+            log.info("[ReadingListeningAI] No API key configured; signalling typed fallback.");
+            return null;
+        }
+        if (!context.stimulus().hasUsableEvidence()) {
+            log.info("[ReadingListeningAI] Evidence unavailable questionId={} skill={}",
+                    context.questionId(), context.skill());
+            return null;
+        }
+
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("model", properties.evaluatorModel());
+        request.put("temperature", 0.0);
+        request.put("response_format", responseFormat());
+        request.put("messages", List.of(
+                message("system", typedSystemPrompt(context.questionType())),
+                message("user", typedUserPayload(context))
+        ));
+
+        log.info("[ReadingListeningAI] typed start model={} skill={} questionId={} type={}",
+                properties.evaluatorModel(), context.skill(), context.questionId(), context.questionType());
+        String raw = callWithRetry(request, context.skill().name());
+        if (raw == null) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            String content = extractOutputText(root, raw);
+            String cleaned = cleanAndValidateJson(content, context);
+            log.info("[ReadingListeningAI] typed completed questionId={}", context.questionId());
+            return cleaned;
+        } catch (Exception exception) {
+            log.warn("[ReadingListeningAI] typed JSON parse failed questionId={} model={} exception={}",
+                    context.questionId(), properties.evaluatorModel(), exceptionCategory(exception));
             return null;
         }
     }
@@ -162,6 +205,55 @@ public class ReadingListeningExplanationClient {
         }
     }
 
+    public String cleanAndValidateJson(String aiJson, ExplanationContext context) {
+        try {
+            JsonNode root = objectMapper.readTree(aiJson);
+            Map<String, QuestionContent.Option> optionsById = new LinkedHashMap<>();
+            for (QuestionContent.Option option : context.questionContent().options()) {
+                optionsById.put(option.id(), option);
+            }
+            java.util.Set<String> correctOptionIds = new java.util.LinkedHashSet<>(
+                    context.answerSpec().correctOptionIds());
+            List<Map<String, String>> eliminated = new ArrayList<>();
+            java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+            if (root.path("eliminatedOptions").isArray()) {
+                for (JsonNode item : root.path("eliminatedOptions")) {
+                    String optionId = item.path("optionKey").asText("").trim();
+                    String reason = item.path("reasonVi").asText("").trim();
+                    if (optionId.isBlank() || reason.isBlank() || seen.contains(optionId)
+                            || correctOptionIds.contains(optionId) || !optionsById.containsKey(optionId)) {
+                        continue;
+                    }
+                    eliminated.add(Map.of("optionKey", optionId, "reasonVi", reason));
+                    seen.add(optionId);
+                }
+            }
+
+            String meaningVi = root.path("meaningVi").asText("").trim();
+            String evidenceQuote = root.path("evidenceQuote").asText("").trim();
+            String correctReasonVi = root.path("correctReasonVi").asText("").trim();
+            String relatedTranslationVi = root.path("relatedTranslationVi").asText("").trim();
+            String evidenceText = context.stimulus().evidenceText();
+            if (meaningVi.isBlank() || correctReasonVi.isBlank()
+                    || evidenceQuote.isBlank()
+                    || !normalizeEvidence(evidenceText).contains(normalizeEvidence(evidenceQuote))) {
+                return null;
+            }
+
+            Map<String, Object> cleaned = new LinkedHashMap<>();
+            cleaned.put("meaningVi", meaningVi);
+            cleaned.put("evidenceQuote", evidenceQuote);
+            cleaned.put("correctReasonVi", correctReasonVi);
+            cleaned.put("relatedTranslationVi", relatedTranslationVi);
+            cleaned.put("eliminatedOptions", eliminated);
+            return objectMapper.writeValueAsString(cleaned);
+        } catch (Exception exception) {
+            log.warn("[ReadingListeningAI] typed cleaning failed questionId={} model={} exception={}",
+                    context.questionId(), properties.evaluatorModel(), exceptionCategory(exception));
+            return null;
+        }
+    }
+
     public String model() {
         return properties.evaluatorModel();
     }
@@ -176,6 +268,15 @@ public class ReadingListeningExplanationClient {
 
     public String explanationLanguage() {
         return EXPLANATION_LANGUAGE;
+    }
+
+    private static String normalizeEvidence(String value) {
+        if (value == null) {
+            return "";
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC)
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private String userPayload(PracticeQuestion question, String passageText, String skillType, String optionLabelMode) {
@@ -193,6 +294,30 @@ public class ReadingListeningExplanationClient {
             return objectMapper.writeValueAsString(payload);
         } catch (Exception ex) {
             return "{}";
+        }
+    }
+
+    private String typedUserPayload(ExplanationContext context) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("contextSchemaVersion", context.schemaVersion());
+        payload.put("questionId", String.valueOf(context.questionId()));
+        payload.put("questionVersionId", context.questionVersionId());
+        payload.put("questionNo", context.questionNo());
+        payload.put("programCode", context.programCode());
+        payload.put("skill", context.skill().name());
+        payload.put("questionType", context.questionType().name());
+        payload.put("prompt", context.prompt());
+        payload.put("questionContent", context.questionContent());
+        payload.put("answerSpec", context.answerSpec());
+        payload.put("evidenceText", context.stimulus().evidenceText());
+        payload.put("evidenceProvenance", context.stimulus().provenance());
+        payload.put("teacherExplanation", context.teacherExplanation());
+        payload.put("explanationLanguage", context.explanationLanguage());
+        payload.put("optionLabelMode", context.optionLabelMode());
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not serialize explanation context", exception);
         }
     }
 
@@ -242,6 +367,26 @@ public class ReadingListeningExplanationClient {
                   ]
                 }
                 """;
+    }
+
+    private static String typedSystemPrompt(CanonicalQuestionType questionType) {
+        String typeRule = switch (questionType) {
+            case SINGLE_CHOICE -> "Giải thích đúng một correctOptionId và loại từng option ID còn lại.";
+            case MULTIPLE_CHOICE -> "Giải thích đầy đủ tập correctOptionIds; không coi một đáp án đúng riêng lẻ là toàn bộ đáp án.";
+            case TRUE_FALSE_NOT_GIVEN -> "Phân biệt nghiêm ngặt TRUE, FALSE và NOT_GIVEN dựa trên bằng chứng.";
+            case FILL_BLANK -> "Giải thích từng blank ID và các acceptedValues; không tự thêm regex hay đáp án mới.";
+            case MATCHING -> "Giải thích từng cặp left ID -> right ID trong matchingPairs.";
+            case ESSAY, SPEAKING -> throw new IllegalArgumentException(
+                    "Reading/Listening explanation does not support subjective type " + questionType);
+        };
+        return """
+                Bạn là giáo viên giải thích đáp án Reading/Listening cho học viên Việt Nam học tiếng Hàn.
+                Chỉ dùng evidenceText đã cung cấp. Không suy diễn nội dung audio hoặc bằng chứng không tồn tại.
+                Không thay đổi answerSpec, không chấm lại learnerAnswer và không đưa learnerAnswer vào giải thích dùng chung.
+                Với eliminatedOptions, optionKey phải là stable option ID trong questionContent.
+                Trả JSON đúng schema rl_answer_explanation bằng tiếng Việt.
+                Quy tắc theo loại câu hỏi: %s
+                """.formatted(typeRule);
     }
 
     private Map<String, Object> responseFormat() {

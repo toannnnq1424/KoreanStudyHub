@@ -22,6 +22,7 @@ public class PracticeDraftService {
 
     private final PracticeDraftRepository draftRepository;
     private final PracticeSetRepository setRepository;
+    private final PracticeTestRepository testRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
@@ -30,12 +31,14 @@ public class PracticeDraftService {
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftService(PracticeDraftRepository draftRepository,
                                 PracticeSetRepository setRepository,
+                                PracticeTestRepository testRepository,
                                 PracticeSectionRepository sectionRepository,
                                 PracticeQuestionGroupRepository groupRepository,
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
+        this.testRepository = testRepository;
         this.sectionRepository = sectionRepository;
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
@@ -43,14 +46,22 @@ public class PracticeDraftService {
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository, ObjectMapper objectMapper) {
-        this(draftRepository, null, null, null, null, objectMapper);
+        this(draftRepository, null, null, null, null, null, objectMapper);
+    }
+
+    public PracticeDraftService(PracticeDraftRepository draftRepository,
+                                PracticeSetRepository setRepository,
+                                PracticeSectionRepository sectionRepository,
+                                PracticeQuestionGroupRepository groupRepository,
+                                PracticeQuestionRepository questionRepository,
+                                ObjectMapper objectMapper) {
+        this(draftRepository, setRepository, null, sectionRepository, groupRepository, questionRepository, objectMapper);
     }
 
     @Transactional(readOnly = true)
     public PracticeDraft getDraft(Long id, Long ownerId) {
-        PracticeDraft draft = draftRepository.findById(id)
+        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
-        // Relax check or check owner
         return draft;
     }
 
@@ -102,7 +113,7 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft saveDraftState(Long id, Long ownerId, String draftJson, String title, String description, Integer clientVersion) {
-        PracticeDraft draft = draftRepository.findById(id)
+        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
 
         // Check optimistic locking clientVersion
@@ -152,7 +163,11 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft createDraftFromPublishedSet(Long setId, Long ownerId) {
-        java.util.Optional<PracticeDraft> existing = draftRepository.findByPublishedSetId(setId);
+        PracticeSet set = setRepository.findByIdAndCreatedBy(setId, ownerId)
+                .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
+        assertLegacyEditorCanRepresentSet(setId);
+
+        java.util.Optional<PracticeDraft> existing = draftRepository.findByPublishedSetIdAndOwnerId(setId, ownerId);
         if (existing.isPresent()) {
             PracticeDraft draft = existing.get();
             if (draft.getDraftJson() == null || draft.getDraftJson().equals("{}") || !draft.getDraftJson().contains("\"questions\"")) {
@@ -164,9 +179,6 @@ public class PracticeDraftService {
             }
             return draft;
         }
-
-        PracticeSet set = setRepository.findById(setId)
-                .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
 
         String draftJson = captureSetSnapshot(setId);
 
@@ -197,6 +209,7 @@ public class PracticeDraftService {
             doc.put("title", set.getTitle());
             doc.put("description", set.getDescription());
             doc.put("detectedCategory", set.getTopikLevel());
+            doc.put("assessmentProgramCode", set.getAssessmentProgramCode());
             root.put("document", doc);
 
             java.util.List<java.util.Map<String, Object>> sectionsList = new java.util.ArrayList<>();
@@ -232,6 +245,20 @@ public class PracticeDraftService {
                                 qMap.put("points", q.getPoints());
                                 qMap.put("explanationVi", q.getExplanation());
                                 qMap.put("answerKey", q.getAnswerKey());
+                                qMap.put("canonicalQuestionType", q.getCanonicalQuestionType());
+                                qMap.put("scoringPolicyCode", q.getScoringPolicyCode());
+                                qMap.put("scoringProfileCode", q.getScoringProfileCode());
+                                qMap.put("scoringProfileVersion", q.getScoringProfileVersion());
+                                qMap.put("promptProfileCode", q.getPromptProfileCode());
+                                qMap.put("promptProfileVersion", q.getPromptProfileVersion());
+                                qMap.put("rubricProfileCode", q.getRubricProfileCode());
+                                qMap.put("rubricProfileVersion", q.getRubricProfileVersion());
+                                if (q.getQuestionContentJson() != null) {
+                                    qMap.put("questionContent", objectMapper.readTree(q.getQuestionContentJson()));
+                                }
+                                if (q.getAnswerSpecJson() != null) {
+                                    qMap.put("answerSpec", objectMapper.readTree(q.getAnswerSpecJson()));
+                                }
                                 if ("WRITING".equalsIgnoreCase(sec.getSkill())
                                         && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())
                                         && q.getWritingTaskType() != null) {
@@ -265,7 +292,7 @@ public class PracticeDraftService {
 
     @Transactional
     public void deleteDraft(Long id, Long ownerId) {
-        PracticeDraft draft = draftRepository.findById(id)
+        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         draftRepository.delete(draft);
         log.info("[DraftService] Deleted draft id={}", id);
@@ -289,6 +316,17 @@ public class PracticeDraftService {
                     }
                 }
             }
+        }
+    }
+
+    private void assertLegacyEditorCanRepresentSet(Long setId) {
+        if (testRepository == null) {
+            return;
+        }
+        List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+        if (tests.size() > 1) {
+            throw new IllegalStateException(
+                    "Trình soạn thảo hiện tại chưa hỗ trợ chỉnh sửa bộ đề có nhiều bài kiểm tra.");
         }
     }
 }

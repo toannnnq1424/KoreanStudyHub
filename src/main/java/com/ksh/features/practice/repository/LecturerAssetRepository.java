@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface LecturerAssetRepository extends JpaRepository<LecturerAsset, Long> {
     List<LecturerAsset> findByOwnerLecturerIdAndStatusAndDeletedAtIsNull(Long ownerLecturerId, String status);
     List<LecturerAsset> findBySourceImportSessionId(Long sessionId);
+    List<LecturerAsset> findBySourceImportSessionIdAndOwnerLecturerId(Long sessionId, Long ownerLecturerId);
     List<LecturerAsset> findBySourceImportSessionIdAndStatus(Long sessionId, String status);
     Optional<LecturerAsset> findByStorageKey(String storageKey);
     List<LecturerAsset> findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(Long ownerLecturerId, String sha256, String status);

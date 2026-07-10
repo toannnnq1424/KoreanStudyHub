@@ -42,7 +42,7 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = draftRepository.findById(session.getLinkedDraftId())
+        PracticeDraft aiDraft = draftRepository.findByIdAndOwnerId(session.getLinkedDraftId(), userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy AI Draft tương ứng."));
 
         // Copy and elevate AI Draft to MANUAL mode
@@ -80,14 +80,11 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = draftRepository.findById(session.getLinkedDraftId())
+        PracticeDraft aiDraft = draftRepository.findByIdAndOwnerId(session.getLinkedDraftId(), userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy AI Draft tương ứng."));
 
-        PracticeDraft targetDraft = draftRepository.findById(targetDraftId)
+        PracticeDraft targetDraft = draftRepository.findByIdAndOwnerId(targetDraftId, userId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy bản biên soạn đích."));
-        if (!targetDraft.getOwnerId().equals(userId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền chỉnh sửa bản biên soạn đích này.");
-        }
 
         try {
             // Read target json & ai json to merge sections
@@ -118,7 +115,7 @@ public class PracticeImportDraftService {
             return saved;
         } catch (Exception e) {
             log.error("[ImportDraftService] Failed to attach import session to draft id={}", targetDraftId, e);
-            throw new RuntimeException("Lỗi ghép đề: " + e.getMessage(), e);
+            throw new RuntimeException("Không thể ghép kết quả import vào bản nháp.", e);
         }
     }
 }

@@ -56,9 +56,9 @@ public class PracticeManageController {
                             Model model) {
         List<PracticeSet> sets;
         if (status != null && !status.isBlank()) {
-            sets = setRepository.findByStatusOrderByCreatedAtDesc(status);
+            sets = setRepository.findByCreatedByAndStatusOrderByCreatedAtDesc(user.getId(), status);
         } else {
-            sets = setRepository.findAll(); // simplified list
+            sets = setRepository.findByCreatedByOrderByCreatedAtDesc(user.getId());
         }
         
         long publishedCount = sets.stream()
@@ -125,7 +125,7 @@ public class PracticeManageController {
         } catch (PublishedPracticeGraphMutationBlockedException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Lỗi khôi phục: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Không thể khôi phục phiên bản lịch sử.");
         }
         return "redirect:/practice/manage/revisions";
     }

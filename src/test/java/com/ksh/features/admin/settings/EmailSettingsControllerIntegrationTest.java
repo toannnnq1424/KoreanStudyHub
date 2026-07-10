@@ -1,5 +1,6 @@
 package com.ksh.features.admin.settings;
 
+import com.ksh.config.CacheConfig;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos;
 import com.ksh.entities.SystemSetting;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,11 +51,15 @@ class EmailSettingsControllerIntegrationTest {
     @Autowired
     private SystemSettingsRepository repository;
 
+    @Autowired
+    private CacheManager cacheManager;
+
     /** Backup gia tri toan bo group SMTP de restore sau moi test. */
     private Map<String, String> backupSmtpRows;
 
     @BeforeEach
     void setUp() {
+        evictSmtpCache();
         backupSmtpRows = new java.util.HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup("SMTP")) {
             backupSmtpRows.put(s.getSettingKey(), s.getSettingValue());
@@ -69,6 +75,7 @@ class EmailSettingsControllerIntegrationTest {
                 repository.save(s);
             });
         }
+        evictSmtpCache();
     }
 
     // ─────────────────── Auth guards ───────────────────
@@ -376,8 +383,9 @@ class EmailSettingsControllerIntegrationTest {
         // Force smtp.host empty
         repository.findBySettingKey("smtp.host").ifPresent(s -> {
             s.setSettingValue("");
-            repository.save(s);
+            repository.saveAndFlush(s);
         });
+        evictSmtpCache();
 
         mockMvc.perform(post("/admin/settings/email/test")
                         .with(csrf())
@@ -385,5 +393,12 @@ class EmailSettingsControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(false))
                 .andExpect(jsonPath("$.error").value("SMTP host is not configured"));
+    }
+
+    private void evictSmtpCache() {
+        org.springframework.cache.Cache cache = cacheManager.getCache(CacheConfig.CACHE_SETTINGS_GROUP);
+        if (cache != null) {
+            cache.evict("SMTP");
+        }
     }
 }

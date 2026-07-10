@@ -1439,13 +1439,86 @@ closure, without starting Phase 10 or changing the product UI.
 ### Phase 10 — Academic Program / Certification Configuration
 
 Status:
-NOT_STARTED
+CLOSED_WITH_ACCEPTED_DEBT
 
 Purpose:
 assessment/program policy foundation for multiple Korean certification
 programs and custom teacher practice modes. Phase 10 is backend/model/policy
 foundation, not UI/UX, not lecturer import implementation, and not visual
 redesign.
+
+Implemented Phase 10 slices:
+
+- 10A: canonical assessment vocabulary and fail-closed legacy alias resolver,
+  including `MCQ -> SINGLE_CHOICE` compatibility.
+- 10B: typed question content, answer spec, learner answer, scoring result,
+  stimulus, prompt profile, and explanation context contracts with stable IDs.
+- 10C: deterministic objective scoring strategies for single choice, multiple
+  choice, true/false/not-given, fill blank, and matching; no provider call is
+  involved in objective scoring.
+- 10D: normalized assessment program, program version, question policy,
+  scoring profile, prompt profile, and rubric profile persistence. Flyway V25
+  seeds TOPIK and CUSTOM defaults while keeping KIIP/KLAT disabled until their
+  policies are verified.
+- 10E: live and immutable question/set snapshots include canonical type,
+  answer spec, scoring policy/profile, program code, and prompt/rubric profile
+  identity. Legacy columns remain compatibility inputs only.
+- 10F: objective submit/re-evaluate/result paths delegate to the typed scoring
+  engine while preserving locked-version and legacy-attempt behavior.
+- 10G: Reading/Listening explanation uses typed, versioned context and cache
+  identity. Provider output must contain meaningful fields and an evidence
+  quote present in approved evidence; learner-specific correctness remains a
+  deterministic overlay.
+- 10H: program-policy integration and stabilization gate completed. Player
+  delivery uses the attempt's locked graph and redacts answer/explanation
+  fields before submit.
+
+Phase 10 stabilization and security closure:
+
+- draft, publisher, linked-draft, import session, annotation, asset, revision,
+  and draft-asset ownership boundaries fail closed;
+- manual/PDF publish creates the `PracticeTest -> PracticeSection -> Group ->
+  Question` graph required by learner flow;
+- annotation and asset actions bind child IDs to the parent session/region in
+  the route;
+- draft audio/image upload rejects path-like or unsupported extensions,
+  enforces bounded sizes, and normalizes destinations under the configured
+  upload root;
+- AI/provider error responses, audit codes, file paths, storage keys, and
+  content hashes are not exposed through the stabilized paths;
+- immutable snapshot rows preserve source identity without blocking safe live
+  graph replacement when no attempt exists.
+
+Phase-gate evidence:
+
+- compile and test-compile: BUILD SUCCESS on JDK 26.0.1;
+- focused stabilization gate: 41 tests, 0 failures, 0 errors, 0 skips;
+- final full suite used `sh mvnw` with the JDK 26 Byte Buddy compatibility
+  argument and isolated MySQL datasource; 1208 tests, 0 failures, 0 errors,
+  0 skips, BUILD SUCCESS;
+- V25 integration/migration tests passed, and a clean local development schema
+  was migrated from V1 through V25 before commit;
+- no real AI provider call was made by the test suite.
+
+Accepted Phase 10 debt and routing:
+
+- type-specific lecturer editors and PDF/import normalization remain Phase 11;
+- explicit persisted passage/transcript/stimulus binding remains Phase 11F;
+- Admin/Head program, prompt, rubric, and scoring-profile governance remains
+  Phase 12;
+- full typed learner rendering for every new objective type, full-test attempt
+  aggregation, catalog scale, and accessibility remain Phase 13;
+- program-version identity is not yet a first-class set-version/attempt field;
+  effective question/scoring/prompt identities are snapshotted now, while the
+  broader delivery-policy lock is routed to Phase 13 before multi-program
+  rollout;
+- TOPIK Writing task/profile compatibility still resolves through current
+  fixed policy adapters; editable/version-admin governance remains Phase 12;
+- `PracticeService` remains large and must be decomposed incrementally in
+  Phase 11/13, not by a big-bang refactor;
+- production datasource/Flyway profiles, migration rehearsal, browser/device
+  UAT, load, and provider/calibration GO remain Phase 15;
+- live Speaking AI rollout remains NO-GO.
 
 Locked Phase 10 decisions:
 
@@ -1873,21 +1946,23 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 9 Immutable Published Practice Versions Gate | ACCEPTED_READY_FOR_COMMIT | CLOSED_WITH_ACCEPTED_DEBT | ac658dc32a6b98d01760fd2cce352825876d53e5 | b764ba5c6de70bc2275b7a25c8722e83cda88f78 | Source review plus prior full suite evidence: `mvn test`; 1160 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Phase 9 gate accepted and closure docs committed. Normalized immutable version graph, append-only publish, attempt version locks, snapshot-based scoring/rendering, legacy compatibility, null-group stabilization, and privacy guardrails are accepted with debt. Phase 10/11/13 remain not started; live Speaking AI rollout remains NO-GO. | Phase 9G stabilization before Phase 10 audit. |
 | 2026-07-10 | Phase 9G Immutable Version Stabilization & Encoding Cleanup | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | ac658dc32a6b98d01760fd2cce352825876d53e5 | Focused evidence: 9G-A null-group ambiguity rejection/fallback, 4 tests passed; 9G-B content hash fail-closed, 2 tests passed; 9G-C transcription retry multipart rebuild, 4 tests passed; 9G-D mojibake cleanup, 3 tests passed; 9G-F focused gate, 12 tests passed. User-approved full suite: `mvn test`; 1163 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Rejects ambiguous null-group publish/version creation across multi-test or multi-section graphs; V24 baseline avoids wrong locks and uses compatibility fallback; runtime publish hash fails closed; transcription retry reopens audio stream; narrow UTF-8 cleanup applied. Phase 10/11/13 remain NOT_STARTED. | Commit/push Phase 9G stabilization, then Phase 10 audit. |
 | 2026-07-10 | Phase 10 Academic Program / Certification Configuration Decisions | NOT_STARTED | READY_FOR_IMPLEMENTATION_PLANNING | N/A | 97625154832b26cb71302814ecd4e91161c84bce | Docs-only decision record; no tests run, no provider calls. | Locked Phase 10 as backend assessment/program policy foundation: canonical MVP question types, MCQ aliasing, scoring policy contracts, normalized DB program config, answer spec/version snapshot requirements, Reading/Listening explanation context, and A→H implementation process. | Commit/push docs-only decision record, then begin Phase 10A only after user approval. |
+| 2026-07-10 | Phase 10 Assessment Foundation and Stabilization Gate | READY_FOR_IMPLEMENTATION_PLANNING | CLOSED_WITH_ACCEPTED_DEBT | this commit | 448bdb1 | Focused stabilization gate: 41 tests, 0 failures, 0 errors, 0 skips. Final full suite: 1208 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS on JDK 26.0.1 and isolated MySQL schema at V25. | Implemented 10A-10H canonical contracts, deterministic scoring, normalized policy persistence, immutable policy snapshots, typed R/L explanation, player redaction, ownership/graph fixes, import child-parent binding, upload path hardening, and error/log hygiene. Phase 10 closes with explicitly routed Phase 11/12/13/15 debt; live Speaking AI remains NO-GO. | Commit/push Phase 10; then begin Phase 11 audit-only baseline and contract-to-editor gap map after explicit user approval. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push the docs-only Phase 10 decision record. After that, begin Phase
-10A only after explicit user approval.
+Commit/push the Phase 10 implementation, stabilization, migration, tests, and
+closure documentation. After that, begin Phase 11 with an audit-only baseline
+and contract-to-editor/import gap map, only after explicit user approval.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
-READY_FOR_IMPLEMENTATION_PLANNING but NOT_STARTED until user approval for 10A.
+CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11+ remain NOT_STARTED. Live Speaking AI rollout remains NO-GO. React
 modernization remains future-only after Phase 16. Do not start Phase 11, Phase
-13, UI modernization, import work, or React modernization from the Phase 10
-foundation work.
+13, UI modernization, import expansion, or React modernization without the
+next explicit phase approval.
 
 ## Long-Term Direction After Phase 16
 

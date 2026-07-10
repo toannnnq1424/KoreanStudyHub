@@ -58,7 +58,7 @@ public class PracticeImportSnapshotService {
             log.info("[SnapshotService] Snapshot saved for sessionId={}", sessionId);
         } catch (Exception e) {
             log.error("[SnapshotService] Failed to save snapshot for sessionId={}", sessionId, e);
-            throw new RuntimeException("Lỗi lưu snapshot: " + e.getMessage(), e);
+            throw new RuntimeException("Không thể lưu snapshot phiên import.", e);
         }
     }
 
@@ -102,7 +102,7 @@ public class PracticeImportSnapshotService {
             log.info("[SnapshotService] Snapshot restored for sessionId={}", sessionId);
         } catch (Exception e) {
             log.error("[SnapshotService] Failed to restore snapshot for sessionId={}", sessionId, e);
-            throw new RuntimeException("Lỗi khôi phục snapshot: " + e.getMessage(), e);
+            throw new RuntimeException("Không thể khôi phục snapshot phiên import.", e);
         }
     }
 }

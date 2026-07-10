@@ -8,6 +8,10 @@ import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningMockExplanationService;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
+import com.ksh.features.practice.assessment.AssessmentScoringEngine;
+import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.ExplanationLearnerOverlay;
+import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
@@ -18,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,6 +40,7 @@ public class ReadingListeningExplanationService {
     private final OpenAiProperties openAiProperties;
     private final ObjectMapper objectMapper;
     private final PracticeAiMetrics metrics;
+    private final AssessmentScoringEngine scoringEngine = new AssessmentScoringEngine();
 
     /** Per-cache-key lock objects. Prevents duplicate provider calls in one JVM only. */
     private final ConcurrentHashMap<String, Object> cacheLocks = new ConcurrentHashMap<>();
@@ -115,7 +121,76 @@ public class ReadingListeningExplanationService {
         }
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public String getOrCreateExplanation(ExplanationContext context, Long testId) {
+        if (context.skill() != com.ksh.features.practice.assessment.AssessmentSkill.READING
+                && context.skill() != com.ksh.features.practice.assessment.AssessmentSkill.LISTENING) {
+            throw new IllegalArgumentException("Explanation context skill must be READING or LISTENING");
+        }
+        if (!context.questionType().isObjective()) {
+            throw new IllegalArgumentException("Explanation context question type must be objective");
+        }
+        if (!context.stimulus().hasUsableEvidence()) {
+            return mockExplanationService.explain(context, "insufficient-approved-evidence");
+        }
+
+        VersionedCacheKeyParts versionedKey = buildCacheKeyParts(context);
+        CacheKeyParts keyParts = versionedKey.base();
+        Optional<String> cached = readValidCache(
+                keyParts, context.questionId(), context.skill().name());
+        if (cached.isPresent()) {
+            log.info("[ReadingListeningCache] Typed hit questionId={} questionVersionId={}",
+                    context.questionId(), context.questionVersionId());
+            return cached.get();
+        }
+
+        Object lock = cacheLocks.computeIfAbsent(keyParts.cacheKey(), key -> new Object());
+        synchronized (lock) {
+            try {
+                cached = readValidCache(keyParts, context.questionId(), context.skill().name());
+                if (cached.isPresent()) {
+                    return cached.get();
+                }
+                long providerStart = PracticeAiMetrics.startNanos();
+                String aiJson = explanationClient.explain(context);
+                if (isValidExplanationJson(aiJson)) {
+                    recordRlProvider(PracticeAiMetrics.ProviderOutcome.SUCCESS, providerStart);
+                    writeVersionedCache(versionedKey, context, testId, aiJson);
+                    return aiJson;
+                }
+                recordRlProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
+                String reason = openAiProperties.apiKey() == null || openAiProperties.apiKey().isBlank()
+                        ? "api-key-not-configured"
+                        : "provider-unavailable";
+                return mockExplanationService.explain(context, reason);
+            } finally {
+                cacheLocks.remove(keyParts.cacheKey(), lock);
+            }
+        }
+    }
+
+    public ExplanationLearnerOverlay learnerOverlay(ExplanationContext context, BigDecimal possiblePoints) {
+        LearnerAnswer learnerAnswer = context.learnerAnswer();
+        if (learnerAnswer == null) {
+            learnerAnswer = new LearnerAnswer(
+                    LearnerAnswer.SCHEMA_VERSION,
+                    context.questionType(),
+                    java.util.List.of(),
+                    null,
+                    java.util.Map.of(),
+                    java.util.Map.of(),
+                    null
+            );
+        }
+        return ExplanationLearnerOverlay.from(
+                scoringEngine.score(context.answerSpec(), learnerAnswer, possiblePoints));
+    }
+
     Optional<String> readValidCache(CacheKeyParts keyParts, PracticeQuestion question, String skillType) {
+        return readValidCache(keyParts, question.getId(), skillType);
+    }
+
+    private Optional<String> readValidCache(CacheKeyParts keyParts, Long questionId, String skillType) {
         long lookupStart = PracticeAiMetrics.startNanos();
         try {
             Optional<QuestionExplanationCache> row = cacheRepository.findByCacheKey(keyParts.cacheKey());
@@ -129,7 +204,7 @@ public class ReadingListeningExplanationService {
                 recordRlCache(PracticeAiMetrics.CacheOperation.LOOKUP,
                         PracticeAiMetrics.CacheOutcome.MISS, lookupStart);
                 log.warn("[ReadingListeningCache] Metadata mismatch for cached explanation; ignoring questionId={} skill={}",
-                        question.getId(), normalize(skillType));
+                        questionId, normalize(skillType));
                 return Optional.empty();
             }
             String explanationJson = cache.getExplanationJson();
@@ -146,14 +221,14 @@ public class ReadingListeningExplanationService {
                     PracticeAiMetrics.CacheOutcome.MALFORMED,
                     PracticeAiMetrics.elapsedSince(lookupStart));
             log.warn("[ReadingListeningCache] Malformed cached explanation ignored questionId={} skill={} category=malformed-cache",
-                    question.getId(), normalize(skillType));
-            deleteCache(keyParts.cacheKey(), question.getId(), skillType, "malformed-cache");
+                    questionId, normalize(skillType));
+            deleteCache(keyParts.cacheKey(), questionId, skillType, "malformed-cache");
             return Optional.empty();
         } catch (Exception ex) {
             recordRlCache(PracticeAiMetrics.CacheOperation.LOOKUP,
                     PracticeAiMetrics.CacheOutcome.FAILURE, lookupStart);
             log.warn("[ReadingListeningCache] Read failed; treating as miss operation=cache-read questionId={} skill={} exception={}",
-                    question.getId(), normalize(skillType), exceptionCategory(ex));
+                    questionId, normalize(skillType), exceptionCategory(ex));
             return Optional.empty();
         }
     }
@@ -184,6 +259,45 @@ public class ReadingListeningExplanationService {
                     PracticeAiMetrics.CacheOutcome.FAILURE, writeStart);
             log.warn("[ReadingListeningCache] Write failed; returning provider explanation operation=cache-write questionId={} skill={} exception={}",
                     question.getId(), normalize(skillType), exceptionCategory(ex));
+        }
+    }
+
+    private void writeVersionedCache(VersionedCacheKeyParts versionedKey,
+                                     ExplanationContext context,
+                                     Long testId,
+                                     String explanationJson) {
+        long writeStart = PracticeAiMetrics.startNanos();
+        CacheKeyParts keyParts = versionedKey.base();
+        try {
+            cacheRepository.upsertVersioned(
+                    keyParts.cacheKey(),
+                    context.questionId(),
+                    context.questionVersionId(),
+                    testId,
+                    normalize(context.programCode()),
+                    context.skill().name(),
+                    context.questionType().name(),
+                    keyParts.questionHash(),
+                    versionedKey.stimulusHash(),
+                    versionedKey.answerSpecHash(),
+                    null,
+                    explanationJson,
+                    keyParts.model(),
+                    keyParts.promptVersion(),
+                    context.promptProfile() == null ? null : context.promptProfile().code(),
+                    context.promptProfile() == null ? null : context.promptProfile().version(),
+                    keyParts.schemaVersion(),
+                    keyParts.language()
+            );
+            recordRlCache(PracticeAiMetrics.CacheOperation.WRITE,
+                    PracticeAiMetrics.CacheOutcome.SUCCESS, writeStart);
+            log.info("[ReadingListeningCache] Typed cached questionId={} questionVersionId={}",
+                    context.questionId(), context.questionVersionId());
+        } catch (Exception exception) {
+            recordRlCache(PracticeAiMetrics.CacheOperation.WRITE,
+                    PracticeAiMetrics.CacheOutcome.FAILURE, writeStart);
+            log.warn("[ReadingListeningCache] Typed write failed questionId={} skill={} exception={}",
+                    context.questionId(), context.skill(), exceptionCategory(exception));
         }
     }
 
@@ -238,9 +352,9 @@ public class ReadingListeningExplanationService {
             if (!root.isObject()) {
                 return false;
             }
-            if (!isTextual(root, "meaningVi")
+            if (!isNonBlankTextual(root, "meaningVi")
                     || !isTextual(root, "evidenceQuote")
-                    || !isTextual(root, "correctReasonVi")
+                    || !isNonBlankTextual(root, "correctReasonVi")
                     || !isTextual(root, "relatedTranslationVi")) {
                 return false;
             }
@@ -261,6 +375,10 @@ public class ReadingListeningExplanationService {
 
     private static boolean isTextual(JsonNode node, String fieldName) {
         return node.has(fieldName) && node.get(fieldName).isTextual();
+    }
+
+    private static boolean isNonBlankTextual(JsonNode node, String fieldName) {
+        return isTextual(node, fieldName) && !node.get(fieldName).asText().isBlank();
     }
 
     CacheKeyParts buildCacheKeyParts(PracticeQuestion question, String passageText,
@@ -287,6 +405,57 @@ public class ReadingListeningExplanationService {
                 language
         ));
         return new CacheKeyParts(cacheKey, questionHash, model, promptVersion, schemaVersion, language);
+    }
+
+    VersionedCacheKeyParts buildCacheKeyParts(ExplanationContext context) {
+        String stimulusJson = writeIdentityJson(context.stimulus());
+        String answerSpecJson = writeIdentityJson(context.answerSpec());
+        String contentJson = writeIdentityJson(context.questionContent());
+        String stimulusHash = sha256(framed(stimulusJson));
+        String answerSpecHash = sha256(framed(answerSpecJson));
+        String questionHash = sha256(framed(
+                normalize(context.schemaVersion()),
+                normalize(String.valueOf(context.questionVersionId())),
+                normalize(context.programCode()),
+                context.skill().name(),
+                context.questionType().name(),
+                normalize(context.prompt()),
+                contentJson,
+                answerSpecHash,
+                stimulusHash,
+                normalize(context.teacherExplanation()),
+                normalize(context.optionLabelMode()),
+                context.promptProfile() == null ? "" : normalize(context.promptProfile().code()),
+                context.promptProfile() == null ? "" : String.valueOf(context.promptProfile().version())
+        ));
+        String model = normalize(explanationClient.model());
+        String promptVersion = normalize(explanationClient.promptVersion());
+        String schemaVersion = normalize(explanationClient.schemaVersion());
+        String language = normalize(context.explanationLanguage());
+        String cacheKey = sha256(framed(
+                normalize(String.valueOf(context.questionId())),
+                normalize(String.valueOf(context.questionVersionId())),
+                questionHash,
+                stimulusHash,
+                answerSpecHash,
+                model,
+                promptVersion,
+                schemaVersion,
+                language
+        ));
+        return new VersionedCacheKeyParts(
+                new CacheKeyParts(cacheKey, questionHash, model, promptVersion, schemaVersion, language),
+                stimulusHash,
+                answerSpecHash
+        );
+    }
+
+    private String writeIdentityJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Could not serialize explanation cache identity", exception);
+        }
     }
 
     static String framed(String... values) {
@@ -330,5 +499,8 @@ public class ReadingListeningExplanationService {
 
     record CacheKeyParts(String cacheKey, String questionHash, String model,
                          String promptVersion, String schemaVersion, String language) {
+    }
+
+    record VersionedCacheKeyParts(CacheKeyParts base, String stimulusHash, String answerSpecHash) {
     }
 }

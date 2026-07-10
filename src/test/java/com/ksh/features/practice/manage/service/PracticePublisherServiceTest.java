@@ -8,6 +8,7 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeTest;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
@@ -16,6 +17,7 @@ import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.features.practice.repository.PracticeTestRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +46,7 @@ class PracticePublisherServiceTest {
 
     private final PracticeDraftRepository draftRepository = mock(PracticeDraftRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
+    private final PracticeTestRepository testRepository = mock(PracticeTestRepository.class);
     private final PracticeSectionRepository sectionRepository = mock(PracticeSectionRepository.class);
     private final PracticeQuestionGroupRepository groupRepository = mock(PracticeQuestionGroupRepository.class);
     private final PracticeQuestionRepository questionRepository = mock(PracticeQuestionRepository.class);
@@ -51,6 +54,7 @@ class PracticePublisherServiceTest {
     private final PracticePublishedGraphMutationGuard mutationGuard = mock(PracticePublishedGraphMutationGuard.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<PracticeSection> savedSections = new ArrayList<>();
+    private final List<PracticeTest> savedTests = new ArrayList<>();
     private final List<PracticeQuestionGroup> savedGroups = new ArrayList<>();
     private final List<PracticeQuestion> savedQuestions = new ArrayList<>();
     private final List<PracticeEditLog> savedEditLogs = new ArrayList<>();
@@ -64,6 +68,7 @@ class PracticePublisherServiceTest {
         service = new PracticePublisherService(
                 draftRepository,
                 setRepository,
+                testRepository,
                 sectionRepository,
                 groupRepository,
                 questionRepository,
@@ -81,6 +86,13 @@ class PracticePublisherServiceTest {
         });
         when(setRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(savedSet.get()));
+        when(testRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(savedTests);
+        when(testRepository.save(any(PracticeTest.class))).thenAnswer(invocation -> {
+            PracticeTest test = invocation.getArgument(0);
+            assignIdIfMissing(test);
+            savedTests.add(test);
+            return test;
+        });
         when(mutationGuard.lockAndAssertRepublishAllowed(any())).thenAnswer(invocation ->
                 Optional.ofNullable(savedSet.get()).orElseThrow());
         when(sectionRepository.save(any(PracticeSection.class))).thenAnswer(invocation -> {
@@ -149,6 +161,8 @@ class PracticePublisherServiceTest {
         assertEquals(0, savedQuestions.get(0).getDisplayOrder());
         assertEquals(1, savedGroups.get(0).getQuestionFrom());
         assertEquals(1, savedGroups.get(0).getQuestionTo());
+        assertEquals(1, savedTests.size());
+        assertEquals(savedTests.get(0).getId(), savedSections.get(0).getTestId());
     }
 
     @Test
@@ -378,6 +392,17 @@ class PracticePublisherServiceTest {
     }
 
     @Test
+    void crossOwnerCannotPublishDraft() {
+        when(draftRepository.findByIdAndOwnerId(1L, 100L)).thenReturn(Optional.empty());
+
+        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                () -> service.publish(1L, 100L));
+
+        verify(setRepository, never()).save(any());
+        verify(testRepository, never()).save(any());
+    }
+
+    @Test
     void republishClearsMetadataWhenDraftRemovesTaskField() {
         PracticeDraft draft = newDraft(draftJsonWithoutTask("WRITING", "ESSAY"));
         draft.setPublishedSetId(88L);
@@ -422,7 +447,7 @@ class PracticePublisherServiceTest {
     }
 
     private Long publish(PracticeDraft draft) {
-        when(draftRepository.findById(1L)).thenReturn(Optional.of(draft));
+        when(draftRepository.findByIdAndOwnerId(1L, 99L)).thenReturn(Optional.of(draft));
         return service.publish(1L, 99L);
     }
 

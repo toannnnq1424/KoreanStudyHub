@@ -65,7 +65,9 @@ public class PracticePdfDraftAssembler {
 
         PracticeDraft draft = null;
         if (session.getLinkedDraftId() != null) {
-            draft = draftRepository.findById(session.getLinkedDraftId()).orElse(null);
+            draft = draftRepository.findByIdAndOwnerId(session.getLinkedDraftId(), userId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Bản nháp liên kết không tồn tại."));
         }
 
         if (draft != null) {

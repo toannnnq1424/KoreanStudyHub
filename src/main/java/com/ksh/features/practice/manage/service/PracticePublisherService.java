@@ -6,13 +6,24 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeTest;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.WritingTaskType;
+import com.ksh.features.practice.assessment.AnswerSpec;
+import com.ksh.features.practice.assessment.AssessmentContractCodec;
+import com.ksh.features.practice.assessment.AssessmentProgramPolicyService;
+import com.ksh.features.practice.assessment.AssessmentSkill;
+import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.ProfileReference;
+import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ResolvedAssessmentPolicy;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeEditLogRepository;
 import org.slf4j.Logger;
@@ -32,6 +43,7 @@ public class PracticePublisherService {
 
     private final PracticeDraftRepository draftRepository;
     private final PracticeSetRepository setRepository;
+    private final PracticeTestRepository testRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
@@ -40,32 +52,42 @@ public class PracticePublisherService {
     private final com.ksh.features.practice.service.PracticePublishedVersionService publishedVersionService;
     private final PracticeDraftValidator draftValidator;
     private final ObjectMapper objectMapper;
+    private final QuestionTypeResolver questionTypeResolver;
+    private final AssessmentContractCodec assessmentContractCodec;
+    private final AssessmentProgramPolicyService assessmentProgramPolicyService;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
                                     PracticeSetRepository setRepository,
+                                    PracticeTestRepository testRepository,
                                     PracticeSectionRepository sectionRepository,
                                      PracticeQuestionGroupRepository groupRepository,
                                      PracticeQuestionRepository questionRepository,
                                      PracticeEditLogRepository editLogRepository,
                                      PracticePublishedGraphMutationGuard mutationGuard,
                                      com.ksh.features.practice.service.PracticePublishedVersionService publishedVersionService,
+                                     AssessmentProgramPolicyService assessmentProgramPolicyService,
                                      PracticeDraftValidator draftValidator,
                                     ObjectMapper objectMapper) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
+        this.testRepository = testRepository;
         this.sectionRepository = sectionRepository;
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
         this.editLogRepository = editLogRepository;
         this.mutationGuard = mutationGuard;
         this.publishedVersionService = publishedVersionService;
+        this.assessmentProgramPolicyService = assessmentProgramPolicyService;
         this.draftValidator = draftValidator;
         this.objectMapper = objectMapper;
+        this.questionTypeResolver = new QuestionTypeResolver();
+        this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
     }
 
     PracticePublisherService(PracticeDraftRepository draftRepository,
                              PracticeSetRepository setRepository,
+                             PracticeTestRepository testRepository,
                              PracticeSectionRepository sectionRepository,
                              PracticeQuestionGroupRepository groupRepository,
                              PracticeQuestionRepository questionRepository,
@@ -73,13 +95,13 @@ public class PracticePublisherService {
                              PracticePublishedGraphMutationGuard mutationGuard,
                              PracticeDraftValidator draftValidator,
                              ObjectMapper objectMapper) {
-        this(draftRepository, setRepository, sectionRepository, groupRepository, questionRepository,
-                editLogRepository, mutationGuard, null, draftValidator, objectMapper);
+        this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
+                editLogRepository, mutationGuard, null, null, draftValidator, objectMapper);
     }
 
     @Transactional
     public Long publish(Long draftId, Long ownerId) {
-        PracticeDraft draft = draftRepository.findById(draftId)
+        PracticeDraft draft = draftRepository.findByIdAndOwnerId(draftId, ownerId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Bản nháp không tồn tại."));
 
         // Parse JSON
@@ -136,8 +158,18 @@ public class PracticePublisherService {
 
         PracticeSet set;
         String beforeSnapshot = null;
+        List<PracticeTest> existingTests = List.of();
         if (draft.getPublishedSetId() != null) {
+            existingTests = testRepository.findBySetIdOrderByDisplayOrderAsc(draft.getPublishedSetId());
+            if (existingTests.size() > 1) {
+                throw new IllegalStateException(
+                        "Trình soạn thảo hiện tại chưa hỗ trợ xuất bản lại bộ đề có nhiều bài kiểm tra.");
+            }
             set = mutationGuard.lockAndAssertRepublishAllowed(draft.getPublishedSetId());
+            if (!ownerId.equals(set.getCreatedBy())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Bạn không có quyền xuất bản học liệu này.");
+            }
             
             // Capture before snapshot
             beforeSnapshot = captureSetSnapshot(set.getId());
@@ -156,6 +188,7 @@ public class PracticePublisherService {
             set.setDescription(draft.getDescription());
             set.setSkill(targetSkill);
             set.setTopikLevel(draft.getCategory());
+            set.setAssessmentProgramCode(programCodeForCategory(draft.getCategory()));
             set.setScope(draft.getScope());
             set.setClassId(draft.getClassId());
             set.setMetadataJson(metaJson);
@@ -179,6 +212,11 @@ public class PracticePublisherService {
         PracticeSet savedSet = setRepository.save(set);
         log.info("[Publisher] Saved PracticeSet id={} title={}", savedSet.getId(), savedSet.getTitle());
 
+        PracticeTest targetTest = existingTests.isEmpty()
+                ? testRepository.save(new PracticeTest(
+                        savedSet.getId(), draft.getTitle(), draft.getDescription(), 0, null))
+                : existingTests.get(0);
+
         // Save sections, groups and questions
         if (sectionsNode.isArray()) {
             for (int sIdx = 0; sIdx < sectionsNode.size(); sIdx++) {
@@ -193,6 +231,7 @@ public class PracticePublisherService {
                         BigDecimal.valueOf(sNode.path("totalPoints").asDouble(100.0)),
                         sIdx
                 );
+                section.setTestId(targetTest.getId());
                 PracticeSection savedSection = sectionRepository.save(section);
 
                 // Counter reset per section — questions numbered 1, 2, 3… independently in each section
@@ -274,13 +313,29 @@ public class PracticePublisherService {
                                 }
 
                                 String rawType = qNode.path("questionType").asText("MCQ");
-                                String dbType = mapUiTypeToDbType(rawType);
+                                CanonicalQuestionType canonicalType = questionTypeResolver.resolve(rawType);
+                                String dbType = canonicalType.name();
 
                                 String qPrompt = qNode.path("prompt").asText("");
                                 String qImgUrl = qNode.path("imageUrl").asText("");
                                 if (qImgUrl != null && !qImgUrl.isBlank()) {
                                     qPrompt = "![image](" + qImgUrl + ")\n" + qPrompt;
                                 }
+
+                                WritingTaskType writingTaskType = resolveWritingTaskTypeForPublish(
+                                        sNode.path("skill").asText("READING"),
+                                        dbType,
+                                        qNode
+                                );
+                                QuestionContent questionContent = resolveQuestionContent(
+                                        qNode, canonicalType, optJsonString);
+                                AnswerSpec answerSpec = resolveAnswerSpec(
+                                        qNode, rawType, ansVal, questionContent);
+                                ResolvedAssessmentPolicy policy = resolvePublishingPolicy(
+                                        savedSet.getAssessmentProgramCode(),
+                                        sNode.path("skill").asText("READING"),
+                                        canonicalType);
+                                answerSpec = withResolvedProfiles(answerSpec, policy, writingTaskType);
 
                                 PracticeQuestion question = new PracticeQuestion(
                                         savedSet.getId(),
@@ -293,11 +348,19 @@ public class PracticePublisherService {
                                         BigDecimal.valueOf(qNode.path("points").asDouble(1.0)),
                                         qIdx
                                 );
-                                question.setWritingTaskType(resolveWritingTaskTypeForPublish(
-                                        sNode.path("skill").asText("READING"),
-                                        dbType,
-                                        qNode
-                                ));
+                                question.setWritingTaskType(writingTaskType);
+                                question.setCanonicalQuestionType(canonicalType.name());
+                                question.setQuestionContentJson(assessmentContractCodec.writeQuestionContent(
+                                        questionContent, canonicalType));
+                                question.setAnswerSpecJson(assessmentContractCodec.writeAnswerSpec(
+                                        answerSpec, questionContent));
+                                question.setScoringPolicyCode(answerSpec.scoringPolicyCode().name());
+                                question.setScoringProfileCode(answerSpec.scoringProfileCode());
+                                question.setScoringProfileVersion(answerSpec.scoringProfileVersion());
+                                question.setPromptProfileCode(answerSpec.promptProfileCode());
+                                question.setPromptProfileVersion(answerSpec.promptProfileVersion());
+                                question.setRubricProfileCode(answerSpec.rubricProfileCode());
+                                question.setRubricProfileVersion(answerSpec.rubricProfileVersion());
                                 question.setGroupId(savedGroup.getId());
                                 questionRepository.save(question);
                                 sectionLocalQNo++;
@@ -350,6 +413,7 @@ public class PracticePublisherService {
             doc.put("title", set.getTitle());
             doc.put("description", set.getDescription());
             doc.put("detectedCategory", set.getTopikLevel());
+            doc.put("assessmentProgramCode", set.getAssessmentProgramCode());
             root.put("document", doc);
 
             List<java.util.Map<String, Object>> sectionsList = new java.util.ArrayList<>();
@@ -385,6 +449,16 @@ public class PracticePublisherService {
                                 qMap.put("points", q.getPoints());
                                 qMap.put("explanationVi", q.getExplanation());
                                 qMap.put("answerKey", q.getAnswerKey());
+                                qMap.put("canonicalQuestionType", q.getCanonicalQuestionType());
+                                qMap.put("scoringPolicyCode", q.getScoringPolicyCode());
+                                qMap.put("scoringProfileCode", q.getScoringProfileCode());
+                                qMap.put("scoringProfileVersion", q.getScoringProfileVersion());
+                                qMap.put("promptProfileCode", q.getPromptProfileCode());
+                                qMap.put("promptProfileVersion", q.getPromptProfileVersion());
+                                qMap.put("rubricProfileCode", q.getRubricProfileCode());
+                                qMap.put("rubricProfileVersion", q.getRubricProfileVersion());
+                                putJsonField(qMap, "questionContent", q.getQuestionContentJson());
+                                putJsonField(qMap, "answerSpec", q.getAnswerSpecJson());
                                 if ("WRITING".equalsIgnoreCase(sec.getSkill())
                                         && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())
                                         && q.getWritingTaskType() != null) {
@@ -479,13 +553,100 @@ public class PracticePublisherService {
     }
 
     private String mapUiTypeToDbType(String uiType) {
-        if (uiType == null) return "MCQ";
-        return switch (uiType.toUpperCase()) {
-            case "SINGLE_CHOICE", "MULTIPLE_CHOICE" -> "MCQ";
-            case "MATCHING" -> "MATCHING_INFORMATION";
-            case "GAP_FILL" -> "FILL_BLANK";
-            default -> uiType.toUpperCase();
-        };
+        return questionTypeResolver.canonicalCode(uiType == null ? "MCQ" : uiType);
+    }
+
+    private QuestionContent resolveQuestionContent(JsonNode question,
+                                                   CanonicalQuestionType type,
+                                                   String legacyOptionsJson) {
+        JsonNode typedContent = question.get("questionContent");
+        if (typedContent != null && typedContent.isObject()) {
+            return assessmentContractCodec.readQuestionContent(typedContent.toString(), type);
+        }
+        return assessmentContractCodec.adaptLegacyContent(legacyOptionsJson, type.name());
+    }
+
+    private AnswerSpec resolveAnswerSpec(JsonNode question,
+                                         String rawType,
+                                         String legacyAnswer,
+                                         QuestionContent content) {
+        JsonNode typedSpec = question.get("answerSpec");
+        if (typedSpec != null && typedSpec.isObject()) {
+            return assessmentContractCodec.readAnswerSpec(typedSpec.toString(), content);
+        }
+        return assessmentContractCodec.adaptLegacyAnswerSpec(rawType, legacyAnswer, content);
+    }
+
+    private ResolvedAssessmentPolicy resolvePublishingPolicy(String programCode,
+                                                             String rawSkill,
+                                                             CanonicalQuestionType type) {
+        if (assessmentProgramPolicyService == null) {
+            return null;
+        }
+        AssessmentSkill skill;
+        try {
+            skill = AssessmentSkill.valueOf(rawSkill.trim().toUpperCase());
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("Kỹ năng không được hỗ trợ bởi assessment policy: " + rawSkill);
+        }
+        return assessmentProgramPolicyService.resolve(programCode, skill, type);
+    }
+
+    private AnswerSpec withResolvedProfiles(AnswerSpec base,
+                                            ResolvedAssessmentPolicy policy,
+                                            WritingTaskType writingTaskType) {
+        if (policy == null) {
+            return base;
+        }
+        ProfileReference scoring = policy.scoringProfile();
+        ProfileReference prompt = policy.promptProfile();
+        ProfileReference rubric = policy.rubricProfile();
+        if (base.questionType() == CanonicalQuestionType.ESSAY
+                && writingTaskType != null
+                && writingTaskType != WritingTaskType.GENERAL) {
+            String taskProfileCode = "TOPIK_WRITING_" + writingTaskType.name();
+            scoring = new ProfileReference(taskProfileCode, 1);
+            prompt = new ProfileReference(taskProfileCode, 1);
+            rubric = new ProfileReference(taskProfileCode, 1);
+        }
+        return new AnswerSpec(
+                base.schemaVersion(),
+                base.questionType(),
+                base.correctOptionIds(),
+                base.correctValue(),
+                base.blanks(),
+                base.matchingPairs(),
+                policy.scoringPolicyCode(),
+                code(scoring),
+                code(prompt),
+                code(rubric),
+                version(scoring),
+                version(prompt),
+                version(rubric)
+        );
+    }
+
+    private void putJsonField(java.util.Map<String, Object> target, String field, String json) {
+        if (json == null || json.isBlank()) {
+            return;
+        }
+        try {
+            target.put(field, objectMapper.readTree(json));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể snapshot assessment field: " + field, exception);
+        }
+    }
+
+    private static String code(ProfileReference reference) {
+        return reference == null ? null : reference.code();
+    }
+
+    private static Integer version(ProfileReference reference) {
+        return reference == null ? null : reference.version();
+    }
+
+    private static String programCodeForCategory(String category) {
+        return category != null && category.toUpperCase().startsWith("TOPIK") ? "TOPIK" : "CUSTOM";
     }
 
     private void validateWritingTaskMetadata(JsonNode root) {

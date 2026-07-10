@@ -4,6 +4,7 @@ import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
 import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -29,6 +30,7 @@ class PracticePdfImportSessionServiceTest {
     private PracticePdfRegionAnnotationRepository annotationRepository;
     private PracticePdfPageExtractionRepository pageExtractionRepository;
     private PracticeAiRequestAuditRepository aiRequestAuditRepository;
+    private PracticeDraftRepository draftRepository;
     private PracticePdfStorageService storageService;
     private LecturerAssetService assetService;
     private PracticePdfImportSessionService sessionService;
@@ -39,6 +41,7 @@ class PracticePdfImportSessionServiceTest {
         annotationRepository = mock(PracticePdfRegionAnnotationRepository.class);
         pageExtractionRepository = mock(PracticePdfPageExtractionRepository.class);
         aiRequestAuditRepository = mock(PracticeAiRequestAuditRepository.class);
+        draftRepository = mock(PracticeDraftRepository.class);
         storageService = mock(PracticePdfStorageService.class);
         assetService = mock(LecturerAssetService.class);
         
@@ -47,6 +50,7 @@ class PracticePdfImportSessionServiceTest {
                 annotationRepository,
                 pageExtractionRepository,
                 aiRequestAuditRepository,
+                draftRepository,
                 storageService,
                 assetService
         );
@@ -113,5 +117,17 @@ class PracticePdfImportSessionServiceTest {
         assertThrows(IllegalArgumentException.class, () -> {
             sessionService.updatePageRange(100L, 8, 2, 1L); // start > end
         });
+    }
+
+    @Test
+    void createSessionRejectsForeignLinkedDraftBeforeStoringFile() {
+        MultipartFile file = mock(MultipartFile.class);
+        when(draftRepository.findByIdAndOwnerId(55L, 1L)).thenReturn(Optional.empty());
+
+        assertThrows(jakarta.persistence.EntityNotFoundException.class,
+                () -> sessionService.createSession(1L, file, "TOPIK_II", "Import", 55L));
+
+        verifyNoInteractions(storageService);
+        verify(sessionRepository, never()).save(any());
     }
 }

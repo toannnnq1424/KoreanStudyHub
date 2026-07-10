@@ -4,6 +4,7 @@ import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeDraftAssetUsage;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -23,14 +24,24 @@ public class LecturerAssetService {
 
     private final LecturerAssetRepository assetRepository;
     private final PracticeDraftAssetUsageRepository usageRepository;
+    private final PracticeDraftRepository draftRepository;
     private final AssetStorageService assetStorage;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public LecturerAssetService(LecturerAssetRepository assetRepository,
+                                PracticeDraftAssetUsageRepository usageRepository,
+                                PracticeDraftRepository draftRepository,
+                                AssetStorageService assetStorage) {
+        this.assetRepository = assetRepository;
+        this.usageRepository = usageRepository;
+        this.draftRepository = draftRepository;
+        this.assetStorage = assetStorage;
+    }
 
     public LecturerAssetService(LecturerAssetRepository assetRepository,
                                 PracticeDraftAssetUsageRepository usageRepository,
                                 AssetStorageService assetStorage) {
-        this.assetRepository = assetRepository;
-        this.usageRepository = usageRepository;
-        this.assetStorage = assetStorage;
+        this(assetRepository, usageRepository, null, assetStorage);
     }
 
     @Transactional
@@ -47,12 +58,12 @@ public class LecturerAssetService {
         List<LecturerAsset> duplicate = assetRepository.findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(ownerId, stored.sha256(), "ACTIVE");
         if (!duplicate.isEmpty()) {
             LecturerAsset existing = duplicate.get(0);
-            log.info("[AssetService] Reusing active assetId={} due to SHA-256={} match for owner={}", existing.getId(), stored.sha256(), ownerId);
+            log.info("[AssetService] Reusing active assetId={} after content deduplication", existing.getId());
             // Delete temp physical file as it's duplicate
             try {
                 assetStorage.delete(stored.storageKey());
             } catch (IOException e) {
-                log.warn("[AssetService] Failed to delete redundant duplicate physical file: {}", stored.storageKey(), e);
+                log.warn("[AssetService] Failed to delete redundant duplicate physical file", e);
             }
             return existing;
         }
@@ -87,21 +98,28 @@ public class LecturerAssetService {
 
     @Transactional
     public LecturerAsset promoteToActiveLibrary(Long assetId, Long ownerId) {
-        LecturerAsset asset = assetRepository.findById(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
-        if (!asset.getOwnerLecturerId().equals(ownerId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền quản lý asset này.");
-        }
+        return promoteOwnedAsset(requireOwnedAsset(assetId, ownerId), ownerId);
+    }
 
+    @Transactional
+    public LecturerAsset promoteSessionRegionAsset(Long sessionId, Long regionId,
+                                                    Long assetId, Long ownerId) {
+        LecturerAsset asset = requireOwnedAsset(assetId, ownerId);
+        if (!sessionId.equals(asset.getSourceImportSessionId())
+                || !regionId.equals(asset.getSourceRegionId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Asset không thuộc vùng import đã chọn.");
+        }
+        return promoteOwnedAsset(asset, ownerId);
+    }
+
+    private LecturerAsset promoteOwnedAsset(LecturerAsset asset, Long ownerId) {
         if ("ACTIVE".equalsIgnoreCase(asset.getStatus())) {
             return asset;
         }
 
         try {
-            // Move physical file key from /temporary/ to /library/
             String oldKey = asset.getStorageKey();
-            String newKey = oldKey.replace("/temporary/", "/library/");
-            
             try (InputStream in = assetStorage.load(oldKey).getInputStream()) {
                 String relativePath = "lecturer-assets/" + ownerId + "/imports/" + asset.getSourceImportSessionId() + "/library";
                 AssetStorageService.StoredAsset stored = assetStorage.store(in, asset.getOriginalFilename(), relativePath);
@@ -113,12 +131,22 @@ public class LecturerAssetService {
             
             asset.setStatus("ACTIVE");
             asset.setUpdatedAt(LocalDateTime.now());
-            log.info("[AssetService] Promoted assetId={} to library status", assetId);
+            log.info("[AssetService] Promoted assetId={} to library status", asset.getId());
             return assetRepository.save(asset);
         } catch (IOException e) {
-            log.error("[AssetService] Failed to promote assetId={}", assetId, e);
-            throw new RuntimeException("Lỗi lưu trữ khi chuyển ảnh vào thư viện: " + e.getMessage(), e);
+            log.error("[AssetService] Failed to promote assetId={}", asset.getId(), e);
+            throw new RuntimeException("Lỗi lưu trữ khi chuyển ảnh vào thư viện.", e);
         }
+    }
+
+    private LecturerAsset requireOwnedAsset(Long assetId, Long ownerId) {
+        LecturerAsset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
+        if (!ownerId.equals(asset.getOwnerLecturerId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền quản lý asset này.");
+        }
+        return asset;
     }
 
     public List<LecturerAsset> getLibraryAssets(Long ownerId) {
@@ -127,6 +155,10 @@ public class LecturerAssetService {
 
     public List<LecturerAsset> getSessionAssets(Long sessionId) {
         return assetRepository.findBySourceImportSessionId(sessionId);
+    }
+
+    public List<LecturerAsset> getSessionAssets(Long sessionId, Long ownerId) {
+        return assetRepository.findBySourceImportSessionIdAndOwnerLecturerId(sessionId, ownerId);
     }
 
     @Transactional
@@ -158,14 +190,18 @@ public class LecturerAssetService {
     }
 
     @Transactional
-    public void cleanupTemporaryAssets(Long sessionId) {
-        List<LecturerAsset> temps = assetRepository.findBySourceImportSessionIdAndStatus(sessionId, "TEMPORARY");
+    public void cleanupTemporaryAssets(Long sessionId, Long ownerId) {
+        List<LecturerAsset> temps = assetRepository
+                .findBySourceImportSessionIdAndOwnerLecturerId(sessionId, ownerId)
+                .stream()
+                .filter(asset -> "TEMPORARY".equalsIgnoreCase(asset.getStatus()))
+                .toList();
         for (LecturerAsset asset : temps) {
             try {
                 assetStorage.delete(asset.getStorageKey());
                 assetRepository.delete(asset);
             } catch (IOException e) {
-                log.warn("[AssetService] Failed to cleanup temp file key={}", asset.getStorageKey(), e);
+                log.warn("[AssetService] Failed to cleanup temporary assetId={}", asset.getId(), e);
             }
         }
     }
@@ -180,8 +216,16 @@ public class LecturerAssetService {
     }
 
     @Transactional
-    public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, String sectionTempId,
-                                                    String groupTempId, String questionTempId, String placement, String altText) {
+    public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
+                                                    String sectionTempId, String groupTempId,
+                                                    String questionTempId, String placement, String altText) {
+        requireOwnedDraft(draftId, ownerId);
+        LecturerAsset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
+        if (!ownerId.equals(asset.getOwnerLecturerId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền sử dụng asset này.");
+        }
         PracticeDraftAssetUsage usage = new PracticeDraftAssetUsage();
         usage.setDraftId(draftId);
         usage.setAssetId(assetId);
@@ -193,5 +237,23 @@ public class LecturerAssetService {
         usage.setCreatedAt(LocalDateTime.now());
         
         return usageRepository.save(usage);
+    }
+
+    @Transactional
+    public void unlinkAssetFromDraft(Long draftId, Long usageId, Long ownerId) {
+        requireOwnedDraft(draftId, ownerId);
+        PracticeDraftAssetUsage usage = usageRepository.findById(usageId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy liên kết asset."));
+        if (!draftId.equals(usage.getDraftId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền xóa liên kết asset này.");
+        }
+        usageRepository.delete(usage);
+    }
+
+    private void requireOwnedDraft(Long draftId, Long ownerId) {
+        if (draftRepository == null || draftRepository.findByIdAndOwnerId(draftId, ownerId).isEmpty()) {
+            throw new jakarta.persistence.EntityNotFoundException("Bản nháp không tồn tại.");
+        }
     }
 }
