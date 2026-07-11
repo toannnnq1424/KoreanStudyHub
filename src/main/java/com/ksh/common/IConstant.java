@@ -4,12 +4,12 @@ package com.ksh.common;
  * Project-wide constants shared by controllers (and any other layer that
  * benefits from the same key set). Consumers reference these unqualified via
  * a static import — interface fields are implicitly
- * {@code public static final}, so {@code import static com.ulp.common.IConstant.*}
+ * {@code public static final}, so {@code import static com.ksh.common.IConstant.*}
  * lets a class write {@code ATTR_FORM} directly without {@code IConstant.} prefix.
  *
  * <p><b>Why an interface, not a final class with statics?</b>
  * The interface stays as a namespace for the constants. Consumers pull them
- * in with {@code import static com.ulp.common.IConstant.*}, which keeps the
+ * in with {@code import static com.ksh.common.IConstant.*}, which keeps the
  * keys as an <em>implementation detail</em> of the consumer rather than
  * leaking through its public type (the classic "constant interface
  * anti-pattern" — Effective Java Item 22). Sub-interfaces can still extend
@@ -28,7 +28,7 @@ package com.ksh.common;
  * <p><b>What does NOT go here:</b>
  * <ul>
  *   <li>Entity column names — they belong on the entity.</li>
- *   <li>Role / permission strings — see {@code com.ulp.security.Roles}.</li>
+ *   <li>Role / permission strings — see {@code com.ksh.security.Roles}.</li>
  *   <li>One-off literals used by a single method — keep them inline.</li>
  *   <li>Localised UI strings once {@code MessageSource} ships — migrate to
  *       {@code messages.properties}.</li>
@@ -218,22 +218,20 @@ public interface IConstant {
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
-    // ───────── Learning-progress flash messages (ULP-4.5) ────────────
+    // ───────── Learning-progress flash messages (ksh-4.5) ────────────
     String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
     String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
 
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (ULP-4.6, Vietnamese UI text) ──
+    // ───────── Lesson-comment messages (ksh-4.6, Vietnamese UI text) ──
     String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
-    // Moderator hide/unhide (ULP-11.7).
-    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
-    // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
+    // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
     String API_FLASHCARDS       = "/api/flashcards";
@@ -326,7 +324,7 @@ public interface IConstant {
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
-    // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
+    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
     // Route prefix / canonical URL.
     String BASE_MY_MESSAGES = "/my/messages";
 
@@ -363,28 +361,6 @@ public interface IConstant {
 
     // Shared pager fragment — Map of query params to preserve across pages
     // (status/q/size/…). Consumed by templates/fragments/pager.html.
-    // Numbered-button window size lives in com.ulp.common.PageWindow.
+    // Numbered-button window size lives in com.ksh.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
-
-    // ───────── Admin course categories (ULP-11.4) ────────────────────
-    // View names.
-    String VIEW_ADMIN_CATEGORIES      = "admin/categories";
-    String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";
-
-    // Tab key (admin sidebar active state).
-    String TAB_CATEGORIES = "categories";
-
-    // Model attribute keys.
-    String ATTR_CATEGORY_TREE    = "categoryTree";
-    String ATTR_CATEGORY_PARENTS = "categoryParents";
-    String ATTR_HAS_CHILDREN     = "hasChildren";
-    String ATTR_TARGET_ID        = "targetId";
-
-    // Flash messages (Vietnamese UI text).
-    String MSG_CATEGORY_CREATED = "Đã tạo danh mục ";
-    String MSG_CATEGORY_UPDATED = "Đã cập nhật danh mục";
-    String MSG_CATEGORY_DELETED = "Đã xoá danh mục";
-    String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
-    String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
-    String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
 }
