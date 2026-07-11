@@ -2,9 +2,11 @@ package com.ksh.features.practice.manage.controller;
 
 import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.manage.service.PracticeDraftService;
+import com.ksh.features.practice.manage.service.PracticeDraftPreviewService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
+import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
@@ -44,13 +46,33 @@ public class PracticeDraftController {
     private final PracticeDraftService draftService;
     private final PracticePublisherService publisherService;
     private final PracticeDraftValidator draftValidator;
+    private final AssessmentAuthoringCatalogService authoringCatalogService;
+    private final PracticeDraftPreviewService draftPreviewService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PracticeDraftController(PracticeDraftService draftService,
+                                   PracticePublisherService publisherService,
+                                   PracticeDraftValidator draftValidator,
+                                   AssessmentAuthoringCatalogService authoringCatalogService,
+                                   PracticeDraftPreviewService draftPreviewService) {
+        this.draftService = draftService;
+        this.publisherService = publisherService;
+        this.draftValidator = draftValidator;
+        this.authoringCatalogService = authoringCatalogService;
+        this.draftPreviewService = draftPreviewService;
+    }
 
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator) {
-        this.draftService = draftService;
-        this.publisherService = publisherService;
-        this.draftValidator = draftValidator;
+        this(draftService, publisherService, draftValidator, null);
+    }
+
+    public PracticeDraftController(PracticeDraftService draftService,
+                                   PracticePublisherService publisherService,
+                                   PracticeDraftValidator draftValidator,
+                                   AssessmentAuthoringCatalogService authoringCatalogService) {
+        this(draftService, publisherService, draftValidator, authoringCatalogService, null);
     }
 
     @GetMapping("/create")
@@ -93,7 +115,39 @@ public class PracticeDraftController {
         PracticeDraft draft = draftService.getDraft(draftId, user.getId());
         model.addAttribute("draft", draft);
         model.addAttribute("draftJson", draft.getDraftJson());
+        if (authoringCatalogService != null) {
+            model.addAttribute("authoringCatalog", authoringCatalogService.catalog());
+        }
         return "practice/manage/editor";
+    }
+
+    @GetMapping("/authoring-catalog")
+    @ResponseBody
+    public ResponseEntity<?> authoringCatalog() {
+        if (authoringCatalogService == null) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Authoring catalog unavailable."));
+        }
+        return ResponseEntity.ok(authoringCatalogService.catalog());
+    }
+
+    @PostMapping("/drafts/{draftId}/preview")
+    @ResponseBody
+    public ResponseEntity<?> previewDraft(@PathVariable("draftId") Long draftId,
+                                          @RequestBody Map<String, Object> payload,
+                                          @AuthenticationPrincipal KshUserDetails user) {
+        draftService.getDraft(draftId, user.getId());
+        if (draftPreviewService == null) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Draft preview unavailable."));
+        }
+        Object rawDraftJson = payload.get("draftJson");
+        if (!(rawDraftJson instanceof String draftJson) || draftJson.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Thiếu dữ liệu bản nháp."));
+        }
+        try {
+            return ResponseEntity.ok(draftPreviewService.preview(draftJson));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        }
     }
 
     // REST API endpoint for autosave
@@ -117,7 +171,7 @@ public class PracticeDraftController {
             PracticeDraft saved = draftService.saveDraftState(draftId, user.getId(), draftJson, title, description, clientVersion);
             
             // Run validation on the fly to return to UI
-            PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(draftJson);
+            PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(saved.getDraftJson());
 
             return ResponseEntity.ok(Map.of(
                     "status", "success",

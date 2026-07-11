@@ -11,8 +11,11 @@ public class QuestionTypeResolver {
 
     private static final Map<String, CanonicalQuestionType> TYPES = Map.ofEntries(
             Map.entry("MCQ", CanonicalQuestionType.SINGLE_CHOICE),
+            Map.entry("MCQ_SINGLE", CanonicalQuestionType.SINGLE_CHOICE),
             Map.entry("SINGLE_CHOICE", CanonicalQuestionType.SINGLE_CHOICE),
+            Map.entry("MCQ_MULTIPLE", CanonicalQuestionType.MULTIPLE_CHOICE),
             Map.entry("MULTIPLE_CHOICE", CanonicalQuestionType.MULTIPLE_CHOICE),
+            Map.entry("TFNG", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("TRUE_FALSE_NOT_GIVEN", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("FILL_BLANK", CanonicalQuestionType.FILL_BLANK),
             Map.entry("GAP_FILL", CanonicalQuestionType.FILL_BLANK),

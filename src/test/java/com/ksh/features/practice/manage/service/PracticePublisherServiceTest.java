@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -170,6 +171,20 @@ class PracticePublisherServiceTest {
         publish(newDraft(draftJsonWithoutTask("WRITING", "ESSAY")));
 
         assertNull(savedQuestions.get(0).getWritingTaskType());
+    }
+
+    @Test
+    void firstPublishCarriesProgramVersionAndTemplateBinding() {
+        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q53"));
+        draft.setAssessmentProgramCode("TOPIK");
+        draft.setAssessmentProgramVersionId(42L);
+        draft.setExamTemplateCode("TOPIK_II");
+
+        publish(draft);
+
+        assertEquals("TOPIK", savedSet.get().getAssessmentProgramCode());
+        assertEquals(42L, savedSet.get().getAssessmentProgramVersionId());
+        assertEquals("TOPIK_II", savedSet.get().getExamTemplateCode());
     }
 
     @ParameterizedTest
@@ -446,12 +461,97 @@ class PracticePublisherServiceTest {
         assertFalse(question.has("essayTaskType"));
     }
 
+    @Test
+    void publishPersistsTypedListeningStimulusWithoutFoldingTranscriptIntoInstruction() throws Exception {
+        publish(newDraft("""
+                {
+                  "document": {"detectedCategory": "TOPIK_II"},
+                  "sections": [{
+                    "title": "Listening",
+                    "skill": "LISTENING",
+                    "durationMinutes": 40,
+                    "groups": [{
+                      "label": "Dialogue",
+                      "instruction": "Nghe và chọn đáp án.",
+                      "stimulus": {
+                        "schemaVersion": "practice-stimulus-v1",
+                        "type": "LISTENING_AUDIO",
+                        "transcriptText": "대화 원문",
+                        "mediaReference": "/uploads/practice-audio/a.mp3",
+                        "imageReference": "/uploads/practice-images/a.png",
+                        "provenance": {"source": "MANUAL", "approved": true, "sourceRegionIds": []}
+                      },
+                      "questions": [{
+                        "questionNo": 1,
+                        "questionType": "SINGLE_CHOICE",
+                        "prompt": "무엇을 말하고 있습니까?",
+                        "options": ["A", "B"],
+                        "answer": {"value": "1"},
+                        "points": 2
+                      }]
+                    }]
+                  }]
+                }
+                """));
+
+        PracticeQuestionGroup group = savedGroups.get(0);
+        assertEquals("Nghe và chọn đáp án.", group.getInstruction());
+        assertEquals("LISTENING_AUDIO", group.getStimulusType());
+        assertNull(group.getPassageText());
+        assertEquals("대화 원문", group.getTranscriptText());
+        assertEquals("/uploads/practice-images/a.png", group.getImageUrl());
+        assertTrue(objectMapper.readTree(group.getStimulusProvenanceJson()).path("approved").asBoolean());
+    }
+
     private Long publish(PracticeDraft draft) {
         when(draftRepository.findByIdAndOwnerId(1L, 99L)).thenReturn(Optional.of(draft));
         return service.publish(1L, 99L);
     }
 
     private PracticeDraft newDraft(String draftJson) {
+        String normalizedFixture = draftJson;
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode root =
+                    (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(draftJson);
+            com.fasterxml.jackson.databind.node.ArrayNode tests = root.withArray("tests");
+            tests.removeAll();
+            for (int sectionIndex = 0; sectionIndex < root.path("sections").size(); sectionIndex++) {
+                int testNo = sectionIndex + 1;
+                String testClientId = "test-" + testNo;
+                com.fasterxml.jackson.databind.node.ObjectNode test = tests.addObject();
+                test.put("clientId", testClientId);
+                test.put("testNo", testNo);
+                test.put("title", "Test " + testNo);
+
+                com.fasterxml.jackson.databind.node.ObjectNode section =
+                        (com.fasterxml.jackson.databind.node.ObjectNode) root.path("sections").get(sectionIndex);
+                String skill = section.path("skill").asText("READING");
+                String prefix = switch (skill) {
+                    case "LISTENING" -> "L";
+                    case "WRITING" -> "W";
+                    case "SPEAKING" -> "S";
+                    default -> "R";
+                };
+                section.put("clientId", "section-" + testNo);
+                section.put("testNo", testNo);
+                section.put("testClientId", testClientId);
+                section.put("lessonCode", prefix + testNo);
+                int questionNo = 1;
+                for (int groupIndex = 0; groupIndex < section.path("groups").size(); groupIndex++) {
+                    com.fasterxml.jackson.databind.node.ObjectNode group =
+                            (com.fasterxml.jackson.databind.node.ObjectNode) section.path("groups").get(groupIndex);
+                    group.put("clientId", "group-" + testNo + "-" + (groupIndex + 1));
+                    group.put("groupCode", prefix + testNo + "." + (groupIndex + 1));
+                    for (JsonNode value : group.path("questions")) {
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) value)
+                                .put("questionNo", questionNo++);
+                    }
+                }
+            }
+            normalizedFixture = root.toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể chuẩn hóa fixture publish.", exception);
+        }
         return new PracticeDraft(
                 "Draft",
                 "Description",
@@ -460,7 +560,7 @@ class PracticePublisherServiceTest {
                 null,
                 "DRAFT",
                 99L,
-                draftJson
+                normalizedFixture
         );
     }
 

@@ -63,6 +63,36 @@
     display: none !important;
   }
 
+  .workspace-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--ksh-border);
+    border-radius: 8px;
+    background: var(--ksh-surface-sec);
+  }
+
+  .workspace-mode-switch button {
+    min-height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ksh-text-muted);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .workspace-mode-switch button.active {
+    background: var(--ksh-surface);
+    color: var(--ksh-primary);
+    box-shadow: 0 1px 3px rgba(23, 32, 51, 0.12);
+  }
+
+  body.workspace-guided .advanced-only {
+    display: none !important;
+  }
+
   /* Asset Library Drawer Style */
   .asset-library-drawer {
     position: fixed;
@@ -682,7 +712,7 @@
             </div>
             <div class="ai-pop-actions">
               <button type="button" class="pi-btn-primary" onclick="runAiAnalysis()">Thử lại AI</button>
-              <button type="button" class="pi-btn-secondary" onclick="openPayloadPreview()">Xem request</button>
+              <button sec:authorize="hasAnyRole('HEAD','ADMIN')" type="button" class="pi-btn-secondary" onclick="openPayloadPreview()">Xem request</button>
               <button type="button" class="pi-btn-secondary" onclick="convertDraftToManual()">Làm thủ công</button>
             </div>
           </div>
@@ -732,6 +762,16 @@
       <!-- Cột 1: Page Sidebar -->
       <aside class="ws-sidebar-pages">
         <div class="ws-sidebar-section">
+          <h4>Chế độ thao tác</h4>
+          <div class="workspace-mode-switch" role="group" aria-label="Chế độ thao tác PDF">
+            <button type="button" id="mode-guided" onclick="setWorkspaceMode('guided')">Hướng dẫn</button>
+            <button type="button" id="mode-advanced" onclick="setWorkspaceMode('advanced')">Nâng cao</button>
+          </div>
+          <p id="workspace-mode-help" style="font-size:0.72rem; line-height:1.4; color:var(--ksh-text-muted); margin:8px 0 0;">
+            Chọn phạm vi trang, AI sẽ tự nhận diện nội dung trong các trang đó.
+          </p>
+        </div>
+        <div class="ws-sidebar-section">
           <h4>Phạm vi trang gửi AI</h4>
           <div style="display:flex; gap:8px; align-items:center;">
             <input type="number" id="start-page-input" class="form-input" style="padding:6px; text-align:center;" min="1" th:value="${sessionInfo.selectedStartPage}" onchange="saveWorkspaceState()">
@@ -740,7 +780,7 @@
           </div>
         </div>
 
-        <div class="ws-sidebar-section">
+        <div class="ws-sidebar-section advanced-only">
           <h4>Chiến lược gửi AI</h4>
           <select id="extraction-strategy" class="form-select" onchange="saveWorkspaceState()">
             <option value="HYBRID" th:selected="${sessionInfo.extractionStrategy == 'HYBRID'}">Kết hợp (Hybrid - Khuyên dùng)</option>
@@ -760,7 +800,7 @@
           <button class="stage-tool-btn active" id="tool-select" onclick="setWorkspaceTool('select')" title="Chọn Vùng (S)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l3.057 15 2.537-5.51L17 19h2L5 3z"/></svg>
           </button>
-          <button class="stage-tool-btn" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Vẽ Vùng (D)">
+          <button class="stage-tool-btn advanced-only" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Vẽ Vùng (D)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
           <button class="stage-tool-btn" id="tool-pan" onclick="setWorkspaceTool('pan')" title="Kéo di chuyển (H)">
@@ -976,10 +1016,10 @@
     
     <div class="preview-tabs">
       <button class="preview-tab-btn active" id="p-tab-overview" onclick="switchPreviewTab('overview')">Tổng quan</button>
-      <button class="preview-tab-btn" id="p-tab-text" onclick="switchPreviewTab('text')">Văn bản gửi đi</button>
+      <button sec:authorize="hasAnyRole('HEAD','ADMIN')" class="preview-tab-btn" id="p-tab-text" onclick="switchPreviewTab('text')">Văn bản gửi đi</button>
       <button class="preview-tab-btn" id="p-tab-regions" onclick="switchPreviewTab('regions')">Danh sách Vùng</button>
       <button class="preview-tab-btn" id="p-tab-images" onclick="switchPreviewTab('images')">Hình ảnh crops</button>
-      <button class="preview-tab-btn" id="p-tab-request" onclick="switchPreviewTab('request')">Request JSON</button>
+      <button sec:authorize="hasAnyRole('HEAD','ADMIN')" class="preview-tab-btn" id="p-tab-request" onclick="switchPreviewTab('request')">Request JSON</button>
     </div>
 
     <div class="preview-body silent-scroll">
@@ -1016,7 +1056,7 @@
       </div>
 
       <!-- Tab 2: Text -->
-      <div id="p-panel-text" style="display:none;">
+      <div sec:authorize="hasAnyRole('HEAD','ADMIN')" id="p-panel-text" style="display:none;">
         <pre id="p-text-content" style="background:var(--ksh-surface-sec); border:1px solid var(--ksh-border); padding:16px; border-radius:8px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:40vh; overflow-y:auto; margin:0;"></pre>
       </div>
 
@@ -1047,7 +1087,7 @@
       </div>
 
       <!-- Tab 5: Request JSON -->
-      <div id="p-panel-request" style="display:none;">
+      <div sec:authorize="hasAnyRole('HEAD','ADMIN')" id="p-panel-request" style="display:none;">
         <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
           <button class="pi-btn-secondary" style="padding:6px 12px; font-size:0.75rem; background:#fff;" onclick="copyRequestJson()">Copy Request JSON</button>
         </div>
@@ -1131,6 +1171,7 @@
   const SESSION_ID = /*[[${sessionId}]]*/ null;
   const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
   const TOTAL_PAGES = /*[[${sessionInfo.totalPages}]]*/ 1;
+  const CAN_VIEW_AI_REQUEST = /*[[${canViewAiRequest}]]*/ false;
 </script>
 
 <script>
@@ -1154,11 +1195,35 @@
   let autosaveTimeout = null;
 
   document.addEventListener('DOMContentLoaded', () => {
+    const savedMode = localStorage.getItem('practicePdfWorkspaceMode') || 'guided';
+    setWorkspaceMode(savedMode, true);
     if (SESSION_ID) {
       loadWorkspace();
       setupStageListeners();
     }
   });
+
+  function setWorkspaceMode(mode, savePreference = true) {
+    const normalized = mode === 'advanced' ? 'advanced' : 'guided';
+    document.body.classList.toggle('workspace-guided', normalized === 'guided');
+    document.getElementById('mode-guided')?.classList.toggle('active', normalized === 'guided');
+    document.getElementById('mode-advanced')?.classList.toggle('active', normalized === 'advanced');
+    const help = document.getElementById('workspace-mode-help');
+    if (help) {
+      help.textContent = normalized === 'guided'
+              ? 'Chọn phạm vi trang, AI sẽ tự nhận diện nội dung trong các trang đó.'
+              : 'Khoanh vùng và phân loại nội dung để kiểm soát request chính xác hơn.';
+    }
+    if (normalized === 'guided') {
+      const strategy = document.getElementById('extraction-strategy');
+      if (strategy && strategy.value !== 'FULL_SELECTED_PAGES') {
+        strategy.value = 'FULL_SELECTED_PAGES';
+        if (savePreference && SESSION_ID) triggerAutosave();
+      }
+      if (typeof setWorkspaceTool === 'function') setWorkspaceTool('select');
+    }
+    if (savePreference) localStorage.setItem('practicePdfWorkspaceMode', normalized);
+  }
 
   async function loadWorkspace() {
     showLoading("Đang tải PDF...", "Vui lòng giữ kết nối.");
@@ -2014,7 +2079,10 @@
       document.getElementById('p-model-name').innerText = data.model;
 
       // Render Text Tab
-      document.getElementById('p-text-content').innerText = data.systemPrompt + "\n\n=== USER CONTENT ===\n\n" + data.requestJsonPreview;
+      const textContent = document.getElementById('p-text-content');
+      if (textContent && data.privilegedDetails) {
+        textContent.innerText = data.systemPrompt + "\n\n=== USER CONTENT ===\n\n" + data.requestJsonPreview;
+      }
 
       // Render Regions Tab
       const tableBody = document.getElementById('p-regions-table-body');
@@ -2023,12 +2091,12 @@
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--ksh-border)';
         tr.innerHTML = `
-          <td style="padding:10px; font-weight:700;">${r.regionId}</td>
+          <td style="padding:10px; font-weight:700;">${escapeMarkup(r.regionId)}</td>
           <td style="padding:10px;">${r.page}</td>
-          <td style="padding:10px; color:var(--ksh-primary); font-weight:600;">${getRegionTypeLabel(r.type)}</td>
+          <td style="padding:10px; color:var(--ksh-primary); font-weight:600;">${escapeMarkup(getRegionTypeLabel(r.type))}</td>
           <td style="padding:10px;">${r.includeText ? 'Có' : 'Không'}</td>
           <td style="padding:10px;">${r.includeImage ? 'Có' : 'Không'}</td>
-          <td style="padding:10px; font-style:italic;">${r.note || ''}</td>
+          <td style="padding:10px; font-style:italic;">${escapeMarkup(r.note || '')}</td>
         `;
         tableBody.appendChild(tr);
       });
@@ -2053,7 +2121,10 @@
       }
 
       // Render Request JSON Tab
-      document.getElementById('p-request-content').innerText = data.requestJsonPreview;
+      const requestContent = document.getElementById('p-request-content');
+      if (requestContent && data.privilegedDetails) {
+        requestContent.innerText = data.requestJsonPreview;
+      }
 
       // Switch to Overview by default
       switchPreviewTab('overview');
@@ -2072,12 +2143,24 @@
 
   function switchPreviewTab(tab) {
     document.querySelectorAll('.preview-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('p-tab-' + tab).classList.add('active');
+    const activeTab = document.getElementById('p-tab-' + tab);
+    if (!activeTab) return;
+    activeTab.classList.add('active');
 
     const panels = ['overview', 'text', 'regions', 'images', 'request'];
     panels.forEach(p => {
-      document.getElementById('p-panel-' + p).style.display = (p === tab) ? 'block' : 'none';
+      const panel = document.getElementById('p-panel-' + p);
+      if (panel) panel.style.display = (p === tab) ? 'block' : 'none';
     });
+  }
+
+  function escapeMarkup(value) {
+    return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
   }
 
   function copyRequestJson() {

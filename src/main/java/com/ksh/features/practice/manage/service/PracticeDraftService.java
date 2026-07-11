@@ -27,6 +27,7 @@ public class PracticeDraftService {
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeQuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
+    private final PracticeDraftContractService draftContractService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -35,7 +36,8 @@ public class PracticeDraftService {
                                 PracticeSectionRepository sectionRepository,
                                 PracticeQuestionGroupRepository groupRepository,
                                 PracticeQuestionRepository questionRepository,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                PracticeDraftContractService draftContractService) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -43,10 +45,11 @@ public class PracticeDraftService {
         this.groupRepository = groupRepository;
         this.questionRepository = questionRepository;
         this.objectMapper = objectMapper;
+        this.draftContractService = draftContractService;
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository, ObjectMapper objectMapper) {
-        this(draftRepository, null, null, null, null, null, objectMapper);
+        this(draftRepository, null, null, null, null, null, objectMapper, null);
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -55,13 +58,15 @@ public class PracticeDraftService {
                                 PracticeQuestionGroupRepository groupRepository,
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper) {
-        this(draftRepository, setRepository, null, sectionRepository, groupRepository, questionRepository, objectMapper);
+        this(draftRepository, setRepository, null, sectionRepository, groupRepository, questionRepository,
+                objectMapper, null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PracticeDraft getDraft(Long id, Long ownerId) {
         PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+        normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
         return draft;
     }
 
@@ -105,6 +110,7 @@ public class PracticeDraftService {
                 root.toString()
         );
         draft.setCreationMethod("MANUAL");
+        normalizeDraft(draft, root.toString(), "MANUAL");
 
         PracticeDraft saved = draftRepository.save(draft);
         log.info("[DraftService] Created empty manual draft id={} for owner={}", saved.getId(), ownerId);
@@ -123,15 +129,13 @@ public class PracticeDraftService {
             );
         }
 
-        // Validate JSON
+        String normalizedJson = normalizeDraft(draft, draftJson, draft.getCreationMethod());
         JsonNode rootNode;
         try {
-            rootNode = objectMapper.readTree(draftJson);
+            rootNode = objectMapper.readTree(normalizedJson);
         } catch (Exception e) {
             throw new IllegalArgumentException("Định dạng dữ liệu JSON không hợp lệ.");
         }
-
-        draft.setDraftJson(draftJson);
         if (title != null && !title.isBlank()) {
             draft.setTitle(title.trim());
         }
@@ -165,7 +169,6 @@ public class PracticeDraftService {
     public PracticeDraft createDraftFromPublishedSet(Long setId, Long ownerId) {
         PracticeSet set = setRepository.findByIdAndCreatedBy(setId, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
-        assertLegacyEditorCanRepresentSet(setId);
 
         java.util.Optional<PracticeDraft> existing = draftRepository.findByPublishedSetIdAndOwnerId(setId, ownerId);
         if (existing.isPresent()) {
@@ -193,6 +196,7 @@ public class PracticeDraftService {
                 draftJson
         );
         draft.setPublishedSetId(setId);
+        normalizeDraft(draft, draftJson, "PUBLISHED_SET");
 
         PracticeDraft saved = draftRepository.save(draft);
         log.info("[DraftService] Created draft id={} from published set id={}", saved.getId(), setId);
@@ -210,7 +214,38 @@ public class PracticeDraftService {
             doc.put("description", set.getDescription());
             doc.put("detectedCategory", set.getTopikLevel());
             doc.put("assessmentProgramCode", set.getAssessmentProgramCode());
+            doc.put("assessmentProgramVersionId", set.getAssessmentProgramVersionId());
+            doc.put("examTemplateCode", set.getExamTemplateCode());
             root.put("document", doc);
+            root.put("schemaVersion", PracticeDraftContractService.SCHEMA_VERSION);
+
+            java.util.List<PracticeTest> tests = testRepository == null
+                    ? java.util.List.of()
+                    : testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+            java.util.Map<Long, String> testClientIds = new java.util.LinkedHashMap<>();
+            java.util.Map<Long, Integer> testNumbers = new java.util.LinkedHashMap<>();
+            java.util.List<java.util.Map<String, Object>> testsList = new java.util.ArrayList<>();
+            for (int testIndex = 0; testIndex < tests.size(); testIndex++) {
+                PracticeTest test = tests.get(testIndex);
+                int testNo = testIndex + 1;
+                String clientId = "test-" + test.getId();
+                testClientIds.put(test.getId(), clientId);
+                testNumbers.put(test.getId(), testNo);
+                java.util.Map<String, Object> testMap = new java.util.LinkedHashMap<>();
+                testMap.put("clientId", clientId);
+                testMap.put("testNo", testNo);
+                testMap.put("title", test.getTitle());
+                testMap.put("description", test.getDescription());
+                testMap.put("estimatedMinutes", test.getEstimatedMinutes());
+                testsList.add(testMap);
+            }
+            root.put("tests", testsList);
+            if (set.getMetadataJson() != null && !set.getMetadataJson().isBlank()) {
+                JsonNode metadata = objectMapper.readTree(set.getMetadataJson());
+                if (metadata.path("materials").isArray()) {
+                    root.put("materials", objectMapper.convertValue(metadata.path("materials"), java.util.List.class));
+                }
+            }
 
             java.util.List<java.util.Map<String, Object>> sectionsList = new java.util.ArrayList<>();
             java.util.List<PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -218,6 +253,10 @@ public class PracticeDraftService {
                 java.util.Map<String, Object> secMap = new java.util.HashMap<>();
                 secMap.put("title", sec.getTitle());
                 secMap.put("skill", sec.getSkill());
+                int testNo = testNumbers.getOrDefault(sec.getTestId(), 1);
+                secMap.put("testNo", testNo);
+                secMap.put("testClientId", testClientIds.getOrDefault(sec.getTestId(), "test-1"));
+                secMap.put("lessonCode", lessonCode(sec.getSkill(), testNo, sec.getSectionType()));
                 secMap.put("durationMinutes", sec.getDurationMinutes());
                 secMap.put("totalPoints", sec.getTotalPoints());
 
@@ -231,8 +270,26 @@ public class PracticeDraftService {
                     if (sec.getId().equals(grpSectionId)) {
                         java.util.Map<String, Object> grpMap = new java.util.HashMap<>();
                         grpMap.put("label", grp.getGroupLabel());
+                        grpMap.put("groupCode", grp.getGroupLabel());
                         grpMap.put("instruction", grp.getInstruction());
+                        grpMap.put("stimulusType", grp.getStimulusType());
+                        grpMap.put("passageText", grp.getPassageText());
+                        grpMap.put("transcriptText", grp.getTranscriptText());
+                        grpMap.put("imageUrl", grp.getImageUrl());
+                        putJsonField(grpMap, "stimulusProvenance", grp.getStimulusProvenanceJson());
                         grpMap.put("audioUrl", grp.getAudioUrl());
+                        java.util.Map<String, Object> stimulus = new java.util.LinkedHashMap<>();
+                        stimulus.put("schemaVersion", PracticeDraftContractService.STIMULUS_SCHEMA_VERSION);
+                        stimulus.put("type", grp.getStimulusType() == null ? "NONE" : grp.getStimulusType());
+                        stimulus.put("instruction", grp.getInstruction());
+                        stimulus.put("passageText", grp.getPassageText());
+                        stimulus.put("transcriptText", grp.getTranscriptText());
+                        stimulus.put("mediaReference", grp.getAudioUrl());
+                        stimulus.put("imageReference", grp.getImageUrl());
+                        if (grp.getStimulusProvenanceJson() != null && !grp.getStimulusProvenanceJson().isBlank()) {
+                            stimulus.put("provenance", objectMapper.readTree(grp.getStimulusProvenanceJson()));
+                        }
+                        grpMap.put("stimulus", stimulus);
                         
                         java.util.List<java.util.Map<String, Object>> qsList = new java.util.ArrayList<>();
                         java.util.List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -319,14 +376,44 @@ public class PracticeDraftService {
         }
     }
 
-    private void assertLegacyEditorCanRepresentSet(Long setId) {
-        if (testRepository == null) {
+    private static String lessonCode(String skill, int testNo, String persistedSectionType) {
+        if (persistedSectionType != null
+                && persistedSectionType.trim().toUpperCase(java.util.Locale.ROOT).matches("[LRWS]\\d+")) {
+            return persistedSectionType.trim().toUpperCase(java.util.Locale.ROOT);
+        }
+        String prefix = switch (skill == null ? "" : skill.toUpperCase(java.util.Locale.ROOT)) {
+            case "LISTENING" -> "L";
+            case "WRITING" -> "W";
+            case "SPEAKING" -> "S";
+            default -> "R";
+        };
+        return prefix + testNo;
+    }
+
+    private String normalizeDraft(PracticeDraft draft, String draftJson, String source) {
+        if (draftContractService == null) {
+            draft.setDraftJson(draftJson);
+            return draftJson;
+        }
+        PracticeDraftContractService.NormalizedDraft normalized =
+                draftContractService.normalize(draftJson, source);
+        draft.setDraftJson(normalized.json());
+        draft.setCategory(normalized.category());
+        draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
+        draft.setAssessmentProgramCode(normalized.programCode());
+        draft.setAssessmentProgramVersionId(normalized.programVersionId());
+        draft.setExamTemplateCode(normalized.examTemplateCode());
+        return normalized.json();
+    }
+
+    private void putJsonField(java.util.Map<String, Object> target, String field, String json) {
+        if (json == null || json.isBlank()) {
             return;
         }
-        List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
-        if (tests.size() > 1) {
-            throw new IllegalStateException(
-                    "Trình soạn thảo hiện tại chưa hỗ trợ chỉnh sửa bộ đề có nhiều bài kiểm tra.");
+        try {
+            target.put(field, objectMapper.readTree(json));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể đọc stimulus provenance.", exception);
         }
     }
 }

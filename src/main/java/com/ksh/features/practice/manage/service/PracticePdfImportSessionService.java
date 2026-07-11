@@ -80,7 +80,7 @@ public class PracticePdfImportSessionService {
         session.setTitle(finalTitle);
         session.setExamCategory(examCategory != null ? examCategory : "TOPIK_II");
         session.setLinkedDraftId(linkedDraftId);
-        session.setExtractionStrategy("HYBRID");
+        session.setExtractionStrategy("FULL_SELECTED_PAGES");
 
         return sessionRepository.save(session);
     }
@@ -122,7 +122,11 @@ public class PracticePdfImportSessionService {
             session.setSelectedEndPage(endPage);
         }
         if (strategy != null) {
-            session.setExtractionStrategy(strategy);
+            String normalizedStrategy = strategy.trim().toUpperCase();
+            if (!List.of("HYBRID", "REGION_ONLY", "FULL_SELECTED_PAGES").contains(normalizedStrategy)) {
+                throw new IllegalArgumentException("Chiến lược gửi AI không hợp lệ.");
+            }
+            session.setExtractionStrategy(normalizedStrategy);
         }
         session.setUpdatedAt(LocalDateTime.now());
         return sessionRepository.save(session);

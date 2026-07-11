@@ -34,7 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PracticePublisherService {
@@ -55,6 +57,7 @@ public class PracticePublisherService {
     private final QuestionTypeResolver questionTypeResolver;
     private final AssessmentContractCodec assessmentContractCodec;
     private final AssessmentProgramPolicyService assessmentProgramPolicyService;
+    private final PracticeDraftContractService draftContractService;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
@@ -67,6 +70,7 @@ public class PracticePublisherService {
                                      PracticePublishedGraphMutationGuard mutationGuard,
                                      com.ksh.features.practice.service.PracticePublishedVersionService publishedVersionService,
                                      AssessmentProgramPolicyService assessmentProgramPolicyService,
+                                     PracticeDraftContractService draftContractService,
                                      PracticeDraftValidator draftValidator,
                                     ObjectMapper objectMapper) {
         this.draftRepository = draftRepository;
@@ -79,6 +83,7 @@ public class PracticePublisherService {
         this.mutationGuard = mutationGuard;
         this.publishedVersionService = publishedVersionService;
         this.assessmentProgramPolicyService = assessmentProgramPolicyService;
+        this.draftContractService = draftContractService;
         this.draftValidator = draftValidator;
         this.objectMapper = objectMapper;
         this.questionTypeResolver = new QuestionTypeResolver();
@@ -96,7 +101,7 @@ public class PracticePublisherService {
                              PracticeDraftValidator draftValidator,
                              ObjectMapper objectMapper) {
         this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
-                editLogRepository, mutationGuard, null, null, draftValidator, objectMapper);
+                editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper);
     }
 
     @Transactional
@@ -110,6 +115,21 @@ public class PracticePublisherService {
             root = objectMapper.readTree(draft.getDraftJson());
         } catch (Exception e) {
             throw new IllegalArgumentException("Dữ liệu JSON bản nháp bị lỗi cú pháp.");
+        }
+        if (draftContractService != null && root instanceof com.fasterxml.jackson.databind.node.ObjectNode objectRoot) {
+            PracticeDraftContractService.NormalizedDraft normalized =
+                    draftContractService.normalize(objectRoot, draft.getCreationMethod());
+            draft.setDraftJson(normalized.json());
+            draft.setCategory(normalized.category());
+            draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
+            draft.setAssessmentProgramCode(normalized.programCode());
+            draft.setAssessmentProgramVersionId(normalized.programVersionId());
+            draft.setExamTemplateCode(normalized.examTemplateCode());
+            try {
+                root = objectMapper.readTree(normalized.json());
+            } catch (Exception exception) {
+                throw new IllegalStateException("Không thể chuẩn hóa bản nháp để xuất bản.", exception);
+            }
         }
         validateWritingTaskMetadata(root);
 
@@ -151,6 +171,9 @@ public class PracticePublisherService {
         try {
             java.util.Map<String, Object> metaMap = new java.util.HashMap<>();
             metaMap.put("skills", uniqueSkills);
+            if (root.path("materials").isArray()) {
+                metaMap.put("materials", objectMapper.convertValue(root.path("materials"), Object.class));
+            }
             metaJson = objectMapper.writeValueAsString(metaMap);
         } catch (Exception e) {
             log.warn("[Publisher] Failed serialize metadataJson: {}", e.getMessage());
@@ -158,13 +181,7 @@ public class PracticePublisherService {
 
         PracticeSet set;
         String beforeSnapshot = null;
-        List<PracticeTest> existingTests = List.of();
         if (draft.getPublishedSetId() != null) {
-            existingTests = testRepository.findBySetIdOrderByDisplayOrderAsc(draft.getPublishedSetId());
-            if (existingTests.size() > 1) {
-                throw new IllegalStateException(
-                        "Trình soạn thảo hiện tại chưa hỗ trợ xuất bản lại bộ đề có nhiều bài kiểm tra.");
-            }
             set = mutationGuard.lockAndAssertRepublishAllowed(draft.getPublishedSetId());
             if (!ownerId.equals(set.getCreatedBy())) {
                 throw new org.springframework.security.access.AccessDeniedException(
@@ -178,17 +195,21 @@ public class PracticePublisherService {
             questionRepository.deleteBySetId(set.getId());
             groupRepository.deleteBySetId(set.getId());
             sectionRepository.deleteBySetId(set.getId());
+            testRepository.deleteBySetId(set.getId());
             
             questionRepository.flush();
             groupRepository.flush();
             sectionRepository.flush();
+            testRepository.flush();
 
             // Update set metadata
             set.setTitle(draft.getTitle());
             set.setDescription(draft.getDescription());
             set.setSkill(targetSkill);
             set.setTopikLevel(draft.getCategory());
-            set.setAssessmentProgramCode(programCodeForCategory(draft.getCategory()));
+            set.setAssessmentProgramCode(resolveProgramCode(draft, root));
+            set.setAssessmentProgramVersionId(resolveProgramVersionId(draft, root));
+            set.setExamTemplateCode(resolveExamTemplateCode(draft, root));
             set.setScope(draft.getScope());
             set.setClassId(draft.getClassId());
             set.setMetadataJson(metaJson);
@@ -206,30 +227,34 @@ public class PracticePublisherService {
                     PracticeSet.STATUS_PUBLISHED,
                     ownerId
             );
+            set.setAssessmentProgramCode(resolveProgramCode(draft, root));
+            set.setAssessmentProgramVersionId(resolveProgramVersionId(draft, root));
+            set.setExamTemplateCode(resolveExamTemplateCode(draft, root));
             set.setCreationMethod(draft.getCreationMethod());
         }
 
         PracticeSet savedSet = setRepository.save(set);
         log.info("[Publisher] Saved PracticeSet id={} title={}", savedSet.getId(), savedSet.getTitle());
 
-        PracticeTest targetTest = existingTests.isEmpty()
-                ? testRepository.save(new PracticeTest(
-                        savedSet.getId(), draft.getTitle(), draft.getDescription(), 0, null))
-                : existingTests.get(0);
+        Map<String, PracticeTest> persistedTests = persistTests(root, savedSet, draft);
+        Map<Long, Integer> sectionOrderByTest = new LinkedHashMap<>();
 
         // Save sections, groups and questions
         if (sectionsNode.isArray()) {
             for (int sIdx = 0; sIdx < sectionsNode.size(); sIdx++) {
                 JsonNode sNode = sectionsNode.get(sIdx);
+                PracticeTest targetTest = resolveTestForSection(sNode, persistedTests);
+                int sectionDisplayOrder = sectionOrderByTest.getOrDefault(targetTest.getId(), 0);
+                sectionOrderByTest.put(targetTest.getId(), sectionDisplayOrder + 1);
                 PracticeSection section = new PracticeSection(
                         savedSet.getId(),
                         sNode.path("title").asText("Phần " + (sIdx + 1)),
                         sNode.path("skill").asText("READING"),
-                        sNode.path("sectionType").asText("DEFAULT"),
+                        sNode.path("lessonCode").asText(sNode.path("sectionType").asText("DEFAULT")),
                         sNode.path("instructions").asText(""),
                         sNode.path("durationMinutes").asInt(40),
-                        BigDecimal.valueOf(sNode.path("totalPoints").asDouble(100.0)),
-                        sIdx
+                        sectionTotalPoints(sNode),
+                        sectionDisplayOrder
                 );
                 section.setTestId(targetTest.getId());
                 PracticeSection savedSection = sectionRepository.save(section);
@@ -268,7 +293,7 @@ public class PracticePublisherService {
 
                         PracticeQuestionGroup group = new PracticeQuestionGroup(
                                 savedSet.getId(),
-                                gNode.path("label").asText("Câu"),
+                                gNode.path("groupCode").asText(gNode.path("label").asText("Câu")),
                                 groupQuestionFrom,
                                 groupQuestionTo,
                                 instruction,
@@ -277,6 +302,7 @@ public class PracticePublisherService {
                                 gIdx
                         );
                         group.setSectionId(savedSection.getId());
+                        applyStimulus(group, gNode, sNode.path("skill").asText("READING"));
                         PracticeQuestionGroup savedGroup = groupRepository.save(group);
 
                         if (questionsNode.isArray()) {
@@ -395,12 +421,51 @@ public class PracticePublisherService {
             publishedVersionService.createPublishedVersion(savedSet.getId(), ownerId);
         }
 
-        // Send collaborative notification
-        log.info("[Notification] Sent collaborative edit notification for Set ID={} (editType={}) to owner={} and administrators.",
-                savedSet.getId(), editType, savedSet.getCreatedBy());
-
         log.info("[Publisher] Complete publish draftId={} to setId={}", draftId, savedSet.getId());
         return savedSet.getId();
+    }
+
+    private Map<String, PracticeTest> persistTests(JsonNode root, PracticeSet set, PracticeDraft draft) {
+        Map<String, PracticeTest> result = new LinkedHashMap<>();
+        JsonNode tests = root.path("tests");
+        if (tests.isArray()) {
+            for (int index = 0; index < tests.size(); index++) {
+                JsonNode testNode = tests.get(index);
+                int testNo = testNode.path("testNo").asInt(index + 1);
+                Integer estimatedMinutes = testNode.path("estimatedMinutes").canConvertToInt()
+                        && testNode.path("estimatedMinutes").asInt() > 0
+                        ? testNode.path("estimatedMinutes").asInt()
+                        : null;
+                PracticeTest saved = testRepository.save(new PracticeTest(
+                        set.getId(),
+                        testNode.path("title").asText("Test " + testNo),
+                        testNode.path("description").asText(""),
+                        index,
+                        estimatedMinutes
+                ));
+                String clientId = testNode.path("clientId").asText("test-" + testNo);
+                result.put(clientId, saved);
+                result.put("no:" + testNo, saved);
+                result.putIfAbsent("default", saved);
+            }
+        }
+        if (result.isEmpty()) {
+            PracticeTest saved = testRepository.save(new PracticeTest(
+                    set.getId(), draft.getTitle(), draft.getDescription(), 0, null));
+            result.put("no:1", saved);
+            result.put("default", saved);
+        }
+        return result;
+    }
+
+    private static PracticeTest resolveTestForSection(JsonNode section,
+                                                      Map<String, PracticeTest> persistedTests) {
+        String clientId = section.path("testClientId").asText("");
+        PracticeTest test = clientId.isBlank() ? null : persistedTests.get(clientId);
+        if (test == null) test = persistedTests.get("no:" + section.path("testNo").asInt(1));
+        if (test == null) test = persistedTests.get("default");
+        if (test == null) throw new IllegalStateException("Section không tham chiếu Practice Test hợp lệ.");
+        return test;
     }
 
     private String captureSetSnapshot(Long setId) {
@@ -414,7 +479,36 @@ public class PracticePublisherService {
             doc.put("description", set.getDescription());
             doc.put("detectedCategory", set.getTopikLevel());
             doc.put("assessmentProgramCode", set.getAssessmentProgramCode());
+            doc.put("assessmentProgramVersionId", set.getAssessmentProgramVersionId());
+            doc.put("examTemplateCode", set.getExamTemplateCode());
             root.put("document", doc);
+            root.put("schemaVersion", PracticeDraftContractService.SCHEMA_VERSION);
+
+            List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+            Map<Long, String> testClientIds = new LinkedHashMap<>();
+            Map<Long, Integer> testNumbers = new LinkedHashMap<>();
+            List<java.util.Map<String, Object>> testList = new ArrayList<>();
+            for (int testIndex = 0; testIndex < tests.size(); testIndex++) {
+                PracticeTest test = tests.get(testIndex);
+                int testNo = testIndex + 1;
+                String clientId = "test-" + test.getId();
+                testClientIds.put(test.getId(), clientId);
+                testNumbers.put(test.getId(), testNo);
+                java.util.Map<String, Object> testMap = new LinkedHashMap<>();
+                testMap.put("clientId", clientId);
+                testMap.put("testNo", testNo);
+                testMap.put("title", test.getTitle());
+                testMap.put("description", test.getDescription());
+                testMap.put("estimatedMinutes", test.getEstimatedMinutes());
+                testList.add(testMap);
+            }
+            root.put("tests", testList);
+            if (set.getMetadataJson() != null && !set.getMetadataJson().isBlank()) {
+                JsonNode metadata = objectMapper.readTree(set.getMetadataJson());
+                if (metadata.path("materials").isArray()) {
+                    root.put("materials", objectMapper.convertValue(metadata.path("materials"), List.class));
+                }
+            }
 
             List<java.util.Map<String, Object>> sectionsList = new java.util.ArrayList<>();
             List<PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -422,6 +516,10 @@ public class PracticePublisherService {
                 java.util.Map<String, Object> secMap = new java.util.HashMap<>();
                 secMap.put("title", sec.getTitle());
                 secMap.put("skill", sec.getSkill());
+                int testNo = testNumbers.getOrDefault(sec.getTestId(), 1);
+                secMap.put("testNo", testNo);
+                secMap.put("testClientId", testClientIds.getOrDefault(sec.getTestId(), "test-1"));
+                secMap.put("lessonCode", lessonCode(sec.getSkill(), testNo, sec.getSectionType()));
                 secMap.put("durationMinutes", sec.getDurationMinutes());
                 secMap.put("totalPoints", sec.getTotalPoints());
 
@@ -435,8 +533,24 @@ public class PracticePublisherService {
                     if (sec.getId().equals(grpSectionId)) {
                         java.util.Map<String, Object> grpMap = new java.util.HashMap<>();
                         grpMap.put("label", grp.getGroupLabel());
+                        grpMap.put("groupCode", grp.getGroupLabel());
                         grpMap.put("instruction", grp.getInstruction());
+                        grpMap.put("passageText", grp.getPassageText());
+                        grpMap.put("transcriptText", grp.getTranscriptText());
+                        grpMap.put("imageUrl", grp.getImageUrl());
                         grpMap.put("audioUrl", grp.getAudioUrl());
+                        java.util.Map<String, Object> stimulus = new java.util.LinkedHashMap<>();
+                        stimulus.put("schemaVersion", PracticeDraftContractService.STIMULUS_SCHEMA_VERSION);
+                        stimulus.put("type", grp.getStimulusType() == null ? "NONE" : grp.getStimulusType());
+                        stimulus.put("instruction", grp.getInstruction());
+                        stimulus.put("passageText", grp.getPassageText());
+                        stimulus.put("transcriptText", grp.getTranscriptText());
+                        stimulus.put("mediaReference", grp.getAudioUrl());
+                        stimulus.put("imageReference", grp.getImageUrl());
+                        if (grp.getStimulusProvenanceJson() != null && !grp.getStimulusProvenanceJson().isBlank()) {
+                            stimulus.put("provenance", objectMapper.readTree(grp.getStimulusProvenanceJson()));
+                        }
+                        grpMap.put("stimulus", stimulus);
                         
                         List<java.util.Map<String, Object>> qsList = new java.util.ArrayList<>();
                         List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -488,6 +602,20 @@ public class PracticePublisherService {
             log.error("Failed to capture snapshot for setId={}", setId, e);
             return "{}";
         }
+    }
+
+    private static String lessonCode(String skill, int testNo, String persistedSectionType) {
+        if (persistedSectionType != null
+                && persistedSectionType.trim().toUpperCase(java.util.Locale.ROOT).matches("[LRWS]\\d+")) {
+            return persistedSectionType.trim().toUpperCase(java.util.Locale.ROOT);
+        }
+        String prefix = switch (skill == null ? "" : skill.toUpperCase(java.util.Locale.ROOT)) {
+            case "LISTENING" -> "L";
+            case "WRITING" -> "W";
+            case "SPEAKING" -> "S";
+            default -> "R";
+        };
+        return prefix + testNo;
     }
 
     private String determineEditType(String beforeJson, String afterJson) {
@@ -603,7 +731,8 @@ public class PracticePublisherService {
         ProfileReference rubric = policy.rubricProfile();
         if (base.questionType() == CanonicalQuestionType.ESSAY
                 && writingTaskType != null
-                && writingTaskType != WritingTaskType.GENERAL) {
+                && writingTaskType != WritingTaskType.GENERAL
+                && "TOPIK".equals(policy.programCode())) {
             String taskProfileCode = "TOPIK_WRITING_" + writingTaskType.name();
             scoring = new ProfileReference(taskProfileCode, 1);
             prompt = new ProfileReference(taskProfileCode, 1);
@@ -616,7 +745,7 @@ public class PracticePublisherService {
                 base.correctValue(),
                 base.blanks(),
                 base.matchingPairs(),
-                policy.scoringPolicyCode(),
+                base.scoringPolicyCode(),
                 code(scoring),
                 code(prompt),
                 code(rubric),
@@ -647,6 +776,95 @@ public class PracticePublisherService {
 
     private static String programCodeForCategory(String category) {
         return category != null && category.toUpperCase().startsWith("TOPIK") ? "TOPIK" : "CUSTOM";
+    }
+
+    private String resolveProgramCode(PracticeDraft draft, JsonNode root) {
+        String fromDraft = draft.getAssessmentProgramCode();
+        if (fromDraft != null && !fromDraft.isBlank()) {
+            return fromDraft;
+        }
+        String fromDocument = root.path("document").path("assessmentProgramCode").asText("");
+        return fromDocument.isBlank() ? programCodeForCategory(draft.getCategory()) : fromDocument;
+    }
+
+    private Long resolveProgramVersionId(PracticeDraft draft, JsonNode root) {
+        if (draft.getAssessmentProgramVersionId() != null) {
+            return draft.getAssessmentProgramVersionId();
+        }
+        return root.path("document").path("assessmentProgramVersionId").canConvertToLong()
+                ? root.path("document").path("assessmentProgramVersionId").longValue()
+                : null;
+    }
+
+    private String resolveExamTemplateCode(PracticeDraft draft, JsonNode root) {
+        if (draft.getExamTemplateCode() != null && !draft.getExamTemplateCode().isBlank()) {
+            return draft.getExamTemplateCode();
+        }
+        String fromDocument = root.path("document").path("examTemplateCode").asText("");
+        return fromDocument.isBlank()
+                ? com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService
+                        .defaultTemplateForCategory(draft.getCategory())
+                : fromDocument;
+    }
+
+    private BigDecimal sectionTotalPoints(JsonNode section) {
+        JsonNode explicit = section.get("totalPoints");
+        if (explicit != null && explicit.isNumber() && explicit.decimalValue().signum() > 0) {
+            return explicit.decimalValue();
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (JsonNode group : section.path("groups")) {
+            for (JsonNode question : group.path("questions")) {
+                BigDecimal points = question.path("points").isNumber()
+                        ? question.path("points").decimalValue()
+                        : BigDecimal.ONE;
+                if (points.signum() > 0) {
+                    total = total.add(points);
+                }
+            }
+        }
+        return total.signum() > 0 ? total : BigDecimal.ONE;
+    }
+
+    private void applyStimulus(PracticeQuestionGroup group, JsonNode groupNode, String skill) {
+        JsonNode stimulus = groupNode.path("stimulus");
+        String type = stimulus.path("type").asText("");
+        String passage = firstNonBlank(
+                stimulus.path("passageText").asText(""),
+                groupNode.path("passageText").asText(""));
+        String transcript = firstNonBlank(
+                stimulus.path("transcriptText").asText(""),
+                groupNode.path("transcriptText").asText(""));
+        if (transcript.isBlank() && "LISTENING".equalsIgnoreCase(skill)) {
+            transcript = groupNode.path("passageText").asText("");
+        }
+        if (type.isBlank()) {
+            type = "READING".equalsIgnoreCase(skill) && !passage.isBlank()
+                    ? "READING_PASSAGE"
+                    : ("LISTENING".equalsIgnoreCase(skill) ? "LISTENING_AUDIO" : "NONE");
+        }
+        group.setStimulusType(type);
+        group.setPassageText(blankToNull(passage));
+        group.setTranscriptText(blankToNull(transcript));
+        group.setImageUrl(blankToNull(firstNonBlank(
+                stimulus.path("imageReference").asText(""),
+                groupNode.path("imageUrl").asText(""))));
+        JsonNode provenance = stimulus.path("provenance");
+        if (provenance.isObject()) {
+            try {
+                group.setStimulusProvenanceJson(objectMapper.writeValueAsString(provenance));
+            } catch (Exception exception) {
+                throw new IllegalArgumentException("Stimulus provenance không hợp lệ.", exception);
+            }
+        }
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? (second == null ? "" : second) : first;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private void validateWritingTaskMetadata(JsonNode root) {

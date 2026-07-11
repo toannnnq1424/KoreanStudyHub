@@ -277,6 +277,10 @@ public class PracticePdfAiOrchestrator {
                 50. Không hợp nhất hai vùng chỉ vì chúng nằm gần nhau nếu lecturer đã gắn group khác nhau.
                 51. Nếu dữ liệu không đủ, trả draft chưa hoàn chỉnh kèm warning thay vì bịa.
 
+                XÁC NHẬN GIÁO VIÊN:
+                52. confidence của mỗi câu nằm trong khoảng 0 đến 1 và phản ánh độ chắc chắn dựa trên evidence.
+                53. reviewRequired phải là true khi confidence dưới 0.8, answerKey rỗng, loại câu chưa chắc chắn hoặc crop thiếu dữ liệu.
+
                 Trả về JSON đúng response schema, không markdown và không thêm văn bản ngoài JSON.
                 """;
     }
@@ -302,7 +306,7 @@ public class PracticePdfAiOrchestrator {
         );
 
         Map<String, Object> question = objectSchema(
-                List.of("questionNo", "questionType", "prompt", "options", "answerKey", "explanationVi", "points", "sourceRegionIds", "assets"),
+                List.of("questionNo", "questionType", "prompt", "options", "answerKey", "explanationVi", "points", "confidence", "reviewRequired", "sourceRegionIds", "assets"),
                 prop("questionNo", typed("integer"),
                         "questionType", typed("string"),
                         "prompt", typed("string"),
@@ -310,6 +314,8 @@ public class PracticePdfAiOrchestrator {
                         "answerKey", typed("string"),
                         "explanationVi", typed("string"),
                         "points", typed("number"),
+                        "confidence", typed("number"),
+                        "reviewRequired", typed("boolean"),
                         "sourceRegionIds", arrayOf(typed("string")),
                         "assets", arrayOf(asset))
         );

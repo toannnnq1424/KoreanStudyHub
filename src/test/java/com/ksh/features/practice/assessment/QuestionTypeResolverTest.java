@@ -14,6 +14,9 @@ class QuestionTypeResolverTest {
     @Test
     void legacyAliasesResolveToCanonicalTypes() {
         assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ"));
+        assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ_SINGLE"));
+        assertEquals(CanonicalQuestionType.MULTIPLE_CHOICE, resolver.resolve("MCQ_MULTIPLE"));
+        assertEquals(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN, resolver.resolve("TFNG"));
         assertEquals(CanonicalQuestionType.MATCHING, resolver.resolve("matching_information"));
         assertEquals(CanonicalQuestionType.FILL_BLANK, resolver.resolve(" GAP_FILL "));
     }

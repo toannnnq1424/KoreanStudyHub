@@ -26,9 +26,9 @@
         <div>
           <span style="font-size:0.75rem; font-weight:600; color:var(--pp-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Lecturer Workspace</span>
           <h1 style="font-size:1.8rem; font-weight:800; color:var(--pp-text); margin:4px 0 0 0;">Quản lý kho luyện tập</h1>
-          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Tải lên đề từ file PDF hoặc tự soạn thảo cấu trúc bài luyện TOPIK đa kỹ năng.</p>
+          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Nhập đề từ PDF hoặc tự soạn bài luyện theo mẫu chứng chỉ.</p>
         </div>
-        <div style="display:flex; gap:12px;">
+        <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:12px;">
           <a class="pi-btn-secondary" th:href="@{/practice/manage/import}" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--pp-border); padding:10px 20px; border-radius:12px; font-weight:600; text-decoration:none; color:var(--pp-text);">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Nhập từ PDF
@@ -123,7 +123,7 @@
         <div th:if="${#lists.isEmpty(sets)}" class="pp-empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           <h4>Chưa có tài liệu học tập nào được tải lên</h4>
-          <p>Nhấp "Nhập từ PDF" để bắt đầu trích xuất đề thi tự động bằng trí tuệ nhân tạo AI.</p>
+          <p>Chọn nhập từ PDF hoặc tạo thủ công để bắt đầu. Nhập Excel nằm trong từng phần kỹ năng được mẫu đề cho phép.</p>
         </div>
 
         <div th:unless="${#lists.isEmpty(sets)}" class="pp-table-wrapper">

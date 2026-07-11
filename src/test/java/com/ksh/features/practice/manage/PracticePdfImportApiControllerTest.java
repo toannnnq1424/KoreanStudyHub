@@ -19,8 +19,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -52,16 +54,10 @@ class PracticePdfImportApiControllerTest {
     private PracticePdfPageExtractionService pageExtractionService;
 
     @MockBean
-    private PracticePdfCropService cropService;
-
-    @MockBean
     private LecturerAssetService assetService;
 
     @MockBean
     private com.ksh.features.practice.repository.LecturerAssetRepository assetRepository;
-
-    @MockBean
-    private com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository usageRepository;
 
     @MockBean
     private PracticePdfPayloadPreviewService payloadPreviewService;
@@ -187,5 +183,70 @@ class PracticePdfImportApiControllerTest {
 
         verify(regionService).getAnnotation(100L, 500L, 1L);
         verify(assetService).promoteSessionRegionAsset(100L, 500L, 700L, 1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void lecturerPayloadPreviewIsRedactedByController() throws Exception {
+        PracticePdfImportSession session = session(1L);
+        when(sessionService.getSession(100L, 1L)).thenReturn(session);
+        when(payloadPreviewService.getPreview(session)).thenReturn(payloadPreview());
+
+        mockMvc.perform(get("/practice/manage/import-sessions/100/payload-preview")
+                        .with(user(lecturerUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.privilegedDetails").value(false))
+                .andExpect(jsonPath("$.systemPrompt").value(nullValue()))
+                .andExpect(jsonPath("$.requestJsonPreview").value(nullValue()))
+                .andExpect(jsonPath("$.model").value("safe-model"));
+    }
+
+    @Test
+    @WithMockUser(roles = "HEAD")
+    void headPayloadPreviewRetainsAuthorizedDebugDetails() throws Exception {
+        KshUserDetails head = userDetails(1L, com.ksh.security.Role.HEAD);
+        PracticePdfImportSession session = session(1L);
+        when(sessionService.getSession(100L, 1L)).thenReturn(session);
+        when(payloadPreviewService.getPreview(session)).thenReturn(payloadPreview());
+
+        mockMvc.perform(get("/practice/manage/import-sessions/100/payload-preview")
+                        .with(user(head)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.privilegedDetails").value(true))
+                .andExpect(jsonPath("$.systemPrompt").value("SECRET_SYSTEM_PROMPT"))
+                .andExpect(jsonPath("$.requestJsonPreview").value("SECRET_REQUEST"));
+    }
+
+    private static PracticePdfPayloadPreviewService.PayloadPreviewDto payloadPreview() {
+        return new PracticePdfPayloadPreviewService.PayloadPreviewDto(
+                true,
+                "SECRET_SYSTEM_PROMPT",
+                "safe-model",
+                "HYBRID",
+                Map.of("selectedPagesCount", 1),
+                List.of(),
+                List.of(),
+                "SECRET_REQUEST"
+        );
+    }
+
+    private static PracticePdfImportSession session(Long ownerId) {
+        PracticePdfImportSession session = new PracticePdfImportSession(
+                ownerId, "test.pdf", "path/to/test.pdf", 1, "UPLOADED",
+                LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now().plusHours(1));
+        session.setId(100L);
+        return session;
+    }
+
+    private static KshUserDetails userDetails(Long id, com.ksh.security.Role role) {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(user.getId()).thenReturn(id);
+        when(user.getRole()).thenReturn(role);
+        when(user.getEmail()).thenReturn(role.name().toLowerCase() + "@ksh.edu.vn");
+        when(user.getPasswordHash()).thenReturn("encodedPassword");
+        when(user.getFullName()).thenReturn(role.name());
+        when(user.isActive()).thenReturn(true);
+        when(user.isLocked()).thenReturn(false);
+        return new KshUserDetails(user);
     }
 }

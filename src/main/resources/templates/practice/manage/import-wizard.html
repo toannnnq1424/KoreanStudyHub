@@ -44,27 +44,17 @@
 
           <form id="import-upload-form" onsubmit="handleImportSubmit(event)">
             
-            <!-- Exam Category selection -->
+            <!-- Assessment template selection -->
             <div style="margin-bottom: 20px;">
-              <label style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Loại đề thi (Category)</label>
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                <label style="border: 1px solid #E5EAF2; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: #F8FAFD;">
-                  <input type="radio" name="examCategory" value="TOPIK_II" checked>
-                  <span style="font-size:0.88rem; font-weight:600;">TOPIK II</span>
-                </label>
-                <label style="border: 1px solid #E5EAF2; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: #F8FAFD;">
-                  <input type="radio" name="examCategory" value="TOPIK_I">
-                  <span style="font-size:0.88rem; font-weight:600;">TOPIK I</span>
-                </label>
-                <label style="border: 1px solid #E5EAF2; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: #F8FAFD;">
-                  <input type="radio" name="examCategory" value="EXTENDED_PRACTICE">
-                  <span style="font-size:0.88rem; font-weight:600;">Bài tập mở rộng</span>
-                </label>
-                <label style="border: 1px solid #E5EAF2; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; background: #F8FAFD;">
-                  <input type="radio" name="examCategory" value="GENERAL_KOREAN">
-                  <span style="font-size:0.88rem; font-weight:600;">Tiếng Hàn tổng hợp</span>
-                </label>
-              </div>
+              <label for="exam-category" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Chương trình và mẫu đề</label>
+              <select id="exam-category" name="examCategory" class="form-select"
+                      style="width:100%; padding:12px; border-radius:8px; border:1px solid #E5EAF2; background:#F8FAFD; box-sizing:border-box; font-size:0.9rem;">
+                <option th:each="template : ${authoringCatalog.templates}"
+                        th:value="${template.code}"
+                        th:text="|${template.displayName} · ${template.programCode} v${template.programVersion}|"
+                        th:selected="${template.code == 'TOPIK_II'}">TOPIK II</option>
+              </select>
+              <p style="font-size:0.76rem; color:#687389; margin:7px 0 0;">Mẫu đề quyết định kỹ năng, dạng câu hỏi và chính sách điểm được phép sử dụng.</p>
             </div>
 
             <!-- Title input -->
@@ -127,9 +117,9 @@
               Quy trình số hóa bằng AI
             </h3>
             <ol style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: #687389; display: flex; flex-direction: column; gap: 8px;">
-              <li><strong>Chọn trang:</strong> Chỉ định phạm vi trang có đề thi trong tệp PDF để tiết kiệm chi phí token.</li>
-              <li><strong>Khoanh vùng (Draw):</strong> Đánh dấu các vùng nội dung (Đề bài, ví dụ mẫu, ảnh minh họa...).</li>
-              <li><strong>Kiểm tra Payload:</strong> Xem chính xác dữ liệu văn bản và crops sẽ được gửi đi.</li>
+              <li><strong>Chọn trang:</strong> Ở chế độ hướng dẫn, AI tự nhận diện toàn bộ các trang đã chọn.</li>
+              <li><strong>Kiểm tra phạm vi:</strong> Loại bỏ trang bìa, đáp án hoặc nội dung không cần gửi để giảm chi phí.</li>
+              <li><strong>Nâng cao:</strong> Khi cần độ chính xác cao hơn, khoanh riêng passage, câu hỏi, đáp án hoặc hình ảnh.</li>
               <li><strong>AI nhận dạng:</strong> AI bóc tách cấu trúc câu hỏi tự động.</li>
               <li><strong>Biên tập & Xuất bản:</strong> Đồng bộ kết quả sang Manual Editor để chỉnh sửa nâng cao.</li>
             </ol>
@@ -250,7 +240,7 @@
     formData.append("file", selectedFile);
     formData.append("title", document.getElementById('title').value);
     
-    const category = form.querySelector('input[name="examCategory"]:checked').value;
+    const category = document.getElementById('exam-category').value;
     formData.append("examCategory", category);
 
     const linkedDraftId = document.getElementById('linkedDraftId').value;

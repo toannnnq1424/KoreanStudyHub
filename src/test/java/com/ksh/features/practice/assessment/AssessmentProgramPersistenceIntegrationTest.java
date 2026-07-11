@@ -45,10 +45,10 @@ class AssessmentProgramPersistenceIntegrationTest {
                 "TOPIK", AssessmentSkill.READING, CanonicalQuestionType.MULTIPLE_CHOICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not enabled");
-        assertThatThrownBy(() -> policyService.resolve(
-                "CUSTOM", AssessmentSkill.READING, CanonicalQuestionType.MULTIPLE_CHOICE))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not enabled");
+        ResolvedAssessmentPolicy customMultipleChoice = policyService.resolve(
+                "CUSTOM", AssessmentSkill.READING, CanonicalQuestionType.MULTIPLE_CHOICE);
+        assertThat(customMultipleChoice.scoringPolicyCode()).isEqualTo(ScoringPolicyCode.ALL_OR_NOTHING);
+        assertThat(customMultipleChoice.scoringProfile()).isNull();
     }
 
     @Test

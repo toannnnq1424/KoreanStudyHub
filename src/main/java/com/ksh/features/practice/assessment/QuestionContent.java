@@ -10,7 +10,9 @@ public record QuestionContent(
         List<Option> options,
         List<Item> matchingLeftItems,
         List<Item> matchingRightItems,
-        List<Blank> blanks
+        List<Blank> blanks,
+        String imageReference,
+        String audioReference
 ) {
     public static final String SCHEMA_VERSION = "question-content-v1";
 
@@ -22,6 +24,14 @@ public record QuestionContent(
         blanks = immutable(blanks);
     }
 
+    public QuestionContent(String schemaVersion,
+                           List<Option> options,
+                           List<Item> matchingLeftItems,
+                           List<Item> matchingRightItems,
+                           List<Blank> blanks) {
+        this(schemaVersion, options, matchingLeftItems, matchingRightItems, blanks, null, null);
+    }
+
     public static QuestionContent empty() {
         return new QuestionContent(SCHEMA_VERSION, List.of(), List.of(), List.of(), List.of());
     }
@@ -30,10 +40,16 @@ public record QuestionContent(
         return values == null ? List.of() : List.copyOf(values);
     }
 
-    public record Option(String id, String text) {
+    public record Option(String id, String text, String imageReference) {
+        public Option(String id, String text) {
+            this(id, text, null);
+        }
     }
 
-    public record Item(String id, String text) {
+    public record Item(String id, String text, String imageReference) {
+        public Item(String id, String text) {
+            this(id, text, null);
+        }
     }
 
     public record Blank(String id, String prompt) {

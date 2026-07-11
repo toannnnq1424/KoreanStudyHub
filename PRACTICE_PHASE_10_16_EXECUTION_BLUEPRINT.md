@@ -18,13 +18,23 @@ liệu này không tự thay đổi trạng thái phase, không thay thế bằn
 không phải quyền tự động bắt đầu phase mới. Khi code, workflow và tài liệu này
 mâu thuẫn, dùng thứ tự ưu tiên đã ghi trong workflow.
 
-Cập nhật sau triển khai ngày 2026-07-10:
+Cập nhật tổng hợp đến ngày 2026-07-11:
 
 - `PRE_PHASE_10_SECURITY_AND_GRAPH_GATE` đã hoàn tất;
 - Phase 10A-10H đã triển khai và đóng với accepted debt;
 - migration hiện tại là `V25__assessment_program_configuration.sql`;
 - focused stabilization gate đạt 41/41;
 - full suite cuối đạt 1208/1208, không failure/error/skip;
+- `PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE` đã hoàn tất audit-only với
+  verdict `GO_WITH_REQUIRED_FOUNDATION_FIXES`;
+- Phase 11A-11G đã được triển khai ngày 2026-07-11; migration hiện tại là
+  `V26__practice_authoring_contract.sql`;
+- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; Phase 11 ở
+  `STABILIZED_PENDING_USER_ACCEPTANCE`: focused closure rerun đạt 20/20,
+  focused Excel/media/MATCHING đạt 47/47, clean V1-V26 integration gate xanh,
+  full suite pool-bounded đạt 1242/1242 không failure/error/skip và runtime QA
+  editor/menu/PDF/Excel/teacher preview đã pass; chỉ còn user acceptance trước
+  commit/push;
 - phụ lục baseline tại HEAD `448bdb1` được giữ như bằng chứng lịch sử; phần
   current-state delta ở cuối tài liệu là nguồn định hướng cho Phase 11.
 
@@ -39,9 +49,8 @@ Các khoảng trống từng chặn Phase 10 đã được xử lý như sau:
 
 1. Learner answer, stable content identity, scoring result, answer spec,
    stimulus và explanation context đã có typed contract.
-2. Phase 11 được ghi `NOT_STARTED`, nhưng repo đã có editor, PDF import, draft,
-   publisher và revision flow khá lớn. Phase 11 phải được hiểu là
-   certification-aware authoring/import hardening, không phải xây mới từ đầu.
+2. Phase 11 đã harden editor, PDF import, draft, publisher và revision flow
+   hiện hữu theo contract certification-aware; không xây editor song song.
 3. Phase 13 được mô tả chủ yếu là visual polish, trong khi chưa phase nào sở hữu
    rõ learner player/result behavior cho `MULTIPLE_CHOICE`, `FILL_BLANK` và
    `MATCHING`. Đây là chức năng mới, không phải chỉ polish.
@@ -50,9 +59,11 @@ Các khoảng trống từng chặn Phase 10 đã được xử lý như sau:
 
 Khuyến nghị thứ tự thực hiện:
 
-1. Commit/push Phase 10 cùng closure evidence.
-2. Chạy Phase 11 audit-only để lập contract-to-editor/import gap map.
-3. Triển khai Phase 11-15 tuần tự; Phase 16 chỉ bắt đầu sau GO riêng.
+1. Phase 10 đã commit/push và đóng theo gate đã khai báo.
+2. Closure stabilization gate của Phase 11 đã đóng xanh; chờ user acceptance,
+   chưa commit/push và chưa audit/start Phase 12.
+3. Sau khi Phase 11 được chấp thuận, audit Phase 12 theo ownership/owner-lock
+   direction đã khóa; Phase 16 chỉ bắt đầu sau GO riêng.
 
 ## 3. Product north star
 
@@ -102,7 +113,7 @@ Các invariant bắt buộc:
 | 8 | `CLOSED_WITH_ACCEPTED_DEBT` | Speaking media/AI, Writing scoring, readiness checks, functional flow và boundary tests đã triển khai | Cao | Live Speaking AI vẫn NO-GO; debt phải trả ở Phase 12/13/15 |
 | 9 | `CLOSED_WITH_ACCEPTED_DEBT` | Immutable set/test/section/group/question versions và attempt lock đã có | Cao | Legacy reconstruction tiếp tục là best-effort compatibility |
 | 10 | `CLOSED_WITH_ACCEPTED_DEBT` | Canonical contracts, deterministic scoring, V25 policy persistence, immutable policy snapshot, typed R/L explanation và stabilization đã triển khai | Cao | Debt được route rõ sang Phase 11/12/13/15 |
-| 11 | Ledger ghi `NOT_STARTED` | Authoring/import foundation thực tế đã tồn tại | Cao | Reclassify thành hardening + mở rộng program/question types |
+| 11 | `STABILIZED_PENDING_USER_ACCEPTANCE` | 11A-11G hoàn tất; 11H/closure stabilization gate `CLOSED_GREEN`: contract/template, typed editor/preview, all-skill Excel, guided PDF, single V26, focused/full-suite và runtime QA xanh | Cao | User acceptance, sau đó commit/push chỉ khi được yêu cầu rõ ràng; Phase 12 chưa bắt đầu |
 | 12 | `NOT_STARTED` | RBAC schema và asset foundation có sẵn, practice governance chưa nối đầy đủ | Cao | Ownership, permission, material security, prompt governance |
 | 13 | `NOT_STARTED` | Có learner player/result/progress UI cho loại cũ | Cao | New-type delivery, full-test mode, catalog scale, accessibility, polish |
 | 14 | `NOT_STARTED` | Chưa thấy content error-report/review workflow | Cao | Xây workflow gắn immutable content và correction version |
@@ -693,21 +704,134 @@ Exit criteria:
 Phase 11 phải bắt đầu bằng audit code hiện hữu, không xây song song một editor
 thứ hai.
 
-### 11A - Baseline and graph repair
+### Kết quả `PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE`
 
-- chốt draft schema có `tests -> sections -> groups -> questions`;
-- migration/adapter cho draft cũ chỉ có sections;
-- publisher tạo PracticeTest và gắn section đúng;
-- end-to-end authoring-to-learner contract test.
+Verdict: `GO_WITH_REQUIRED_FOUNDATION_FIXES`.
+
+Phase 10 đã hoàn tất đúng phạm vi assessment foundation. Các finding dưới đây
+không reopen Phase 8/10, nhưng 11A phải xử lý P0/P1 trước khi thêm loại chứng
+chỉ hay mở rộng UI:
+
+| Finding | Mức | Phân loại/định hướng |
+|---|---:|---|
+| Editor lưu `passageText`, publisher/revision restore chỉ persist `instruction` | P0 | Contract/data loss; sửa 11A, không chờ Phase 13 UI/UX |
+| Editor hiển thị mọi question type cho mọi skill và dùng legacy `GAP_FILL` | P1 | Policy/canonical mismatch; 11A-11C |
+| Draft validator chưa dùng cùng program policy resolver với publisher/runtime | P1 | Invalid config fail quá muộn; 11A/11D |
+| Draft/PDF category là enum/string tĩnh; PDF assembler mặc định TOPIK II | P1 | Thiếu program/template identity; 11B/11F |
+| PDF AI trả legacy options/answer key thay vì typed contract | P1 | Import normalization; 11F |
+| `points` là max point/weight nhưng objective attempt lưu raw earned points, Writing/Speaking lưu percentage | P1 | Score-unit contract; khóa ở 11A, không thay Phase 8 rubric formula |
+| PDF crop/region/request JSON mạnh nhưng khó cho người dùng phổ thông | P2 | Guided mode trong 11F; polish sâu ở Phase 13 |
+| Request JSON/system rules hiện diện trên lecturer surface | P1/P2 | Chuyển advanced/debug permission; Phase 11F/12C |
+| Chưa có Excel import bài thi | P1 product gap | Thêm deterministic 11E |
+| Revision hiện owner-only, restore mutate live graph, multi-test bị chặn | P1 governance | Phase 12B, không kéo vào 11A trừ metadata boundary |
+
+### Kết quả triển khai Phase 11 ngày 2026-07-11
+
+Status: `STABILIZED_PENDING_USER_ACCEPTANCE`.
+
+- 11A hoàn tất `practice-draft-v3`, stable client IDs, typed question/answer
+  contract, persisted stimulus/provenance round-trip và explicit score fields
+  `score_unit`, `earned_points`, `score_percentage` trong khi giữ `score` làm
+  compatibility field.
+- 11B thêm `assessment_exam_templates`, binding program-version/template trên
+  draft, live set và immutable set version; authoring catalog được resolve từ
+  database policy thay vì danh sách hard-code ở UI.
+- 11C editor hiện có type-specific control cho `SINGLE_CHOICE`,
+  `MULTIPLE_CHOICE`, `TRUE_FALSE_NOT_GIVEN`, `FILL_BLANK`, `MATCHING`, `ESSAY`
+  và `SPEAKING`; answer spec, scoring policy và approved profile được build theo
+  canonical contract.
+- 11D backend validator phát machine code theo template/program policy; safe
+  draft preview dùng learner delivery DTO và không trả answer spec,
+  explanation, profile hoặc listening transcript.
+- 11E có workbook `practice-excel-v2`, file mẫu sinh theo template và một
+  parser chung cho policy-enabled L/R/W/S. Contract giữ đúng
+  `Set > Test > Skill Section > Group > Question`; dòng lỗi vẫn hiện trong
+  preview nhưng bị bỏ khi confirm, còn câu hợp lệ được đánh số lại liên tục
+  trong lesson/section mà vẫn giữ số nguồn để truy vết.
+- Preview Excel tách rõ Test/Section, instruction/passage/transcript/media cấp
+  group, số câu nguồn/số câu sau import, media/prompt/note cấp câu, dạng/đáp án
+  và Option A-H. Tệp ảnh/audio đi kèm được ghép theo basename an toàn, preview
+  bằng `blob:` cục bộ và chỉ upload khi thực sự được dùng; không persist local
+  path. `MATCHING` dùng left IDs L1-L8 có text/image, Option A-H ở phía right và
+  pair map như `L1=A;L2=B`.
+- 11F có guided `FULL_SELECTED_PAGES`, advanced crop mode, synthetic traceable
+  page regions, canonical PDF assembler, confidence/review gate và payload
+  không lặp raw page text. Raw prompt/request chỉ dành cho Head/Admin.
+- 11G chỉ load hai module canonical mới cho authoring contract và safe preview;
+  sáu file editor cũ không được load đã bị xóa để tránh hai implementation
+  song song. Inline editor lớn vẫn là maintainability debt, không chặn correctness.
+- 11H đã chứng minh migration sạch V1-V26 và Hibernate validation. Focused
+  authoring gate đạt 31/31; final Excel/media/MATCHING gate đạt 47/47;
+  compatibility integration đạt 5/5. Full suite với Hikari
+  `maximum-pool-size=2`, `minimum-idle=0` đạt 1242 test, 0 failure, 0 error,
+  0 skip, BUILD SUCCESS trên JDK 17 và MySQL V26.
+- Closure focused rerun đạt 20/20 cho menu/UI contract và Excel controller
+  404/403 JSON boundary; static JS/inline-script parse và diff check đều xanh.
+- Runtime QA trên port 8082 xác nhận editor, linked PDF import, Excel action cho
+  R1/L1/W1/S1, L1 điều hướng đúng
+  `draftId=10&testNo=1&lessonCode=L1`, safe teacher preview có prompt/options
+  nhưng không lộ key/explanation, và centered native Excel dialog đều hoạt động.
+  Menu ba chấm, rename focus/select, delete confirmation/dismiss và ARIA state
+  đều đúng; không có console warning/error. Draft 10 không bị xóa.
+- Port 8080/8081/8082 đã được đóng sau QA.
+- V26 gộp toàn bộ thay đổi chưa release, không ship V27-V29. Binding
+  program-version/template vẫn nullable cho legacy rows; publisher mới bắt buộc
+  và persist binding trên live set lẫn immutable version, tránh rewrite dữ liệu
+  cũ chỉ để thỏa contract mới.
+- Không có real AI provider call trong các gate đã chạy.
+
+### Quyết định points và ảnh hưởng Phase 8
+
+- `question.points` là số điểm tối đa, đồng thời là trọng số tương đối của câu
+  trong tổng section/attempt.
+- Objective type chấm deterministic trên `earnedPoints / possiblePoints`.
+- Writing dùng raw rubric score rồi scale theo configured points; Speaking dùng
+  provider percentage rồi scale theo configured points. Công thức nội bộ Phase
+  8 vẫn hợp lệ.
+- Thay points có thể thay trọng số câu hỏi, nhưng không thay rubric/provider
+  score gốc. UI cần ghi rõ `Điểm tối đa / trọng số`.
+- Quyết định đã triển khai: `attempt.score` tiếp tục là compatibility field;
+  contract chuẩn đọc `earned_points` và `score_percentage`, còn `score_unit`
+  nói rõ giá trị gốc của attempt. TOPIK dùng default/allowed value theo template;
+  CUSTOM có thể cho sửa trọng số trong policy cho phép.
+
+### Mô hình program và template
+
+Không tạo table/parser riêng cho mỗi chứng chỉ. Dùng phân cấp:
+
+- `programCode`: TOPIK, KIIP, KLAT, CUSTOM...;
+- `programVersion`: version policy đang hiệu lực;
+- `examTemplateCode`: TOPIK_I, TOPIK_II, KIIP_LEVEL_TEST...;
+- template quyết định skill/section, timing, allowed question type, points và
+  profile mặc định; policy backend vẫn là source of truth.
+
+### 11A - Contract baseline and foundation fixes
+
+Implementation: `COMPLETED`.
+
+- version hóa canonical draft schema và adapter đọc draft legacy;
+- giữ stable client/content IDs qua manual, Excel, PDF và publish;
+- persist typed stimulus: instruction, reading passage, listening transcript,
+  audio/image references và provenance; publisher/revision dùng cùng contract;
+- khóa score-unit/weight contract và compatibility behavior;
+- đưa program policy resolver vào draft validator, fail early theo machine code;
+- end-to-end regression: manual draft -> publish -> learner -> explanation vẫn
+  nhận đúng passage/transcript, answer spec và immutable source identity.
 
 ### 11B - Program-aware authoring
 
-- chọn program, mode, skill và allowed question types;
-- UI chỉ hiển thị policy đã enable;
+Implementation: `COMPLETED`.
+
+- chọn program, program version, exam template, mode và skill từ dữ liệu server;
+- UI chỉ hiển thị question type/field/timing/points policy đã enable;
+- Speaking không hiển thị objective types nếu template không cho phép; Reading
+  và Listening không hiển thị ESSAY/SPEAKING ngoài custom policy;
 - lecturer không được tự tạo system rule;
 - custom program dùng approved default profiles.
 
 ### 11C - Type-specific editors
+
+Implementation: `COMPLETED`.
 
 - SINGLE_CHOICE: radio correct option;
 - MULTIPLE_CHOICE: checkbox correct options + scoring policy;
@@ -718,13 +842,42 @@ thứ hai.
 
 ### 11D - Validation and preview
 
+Implementation: `COMPLETED`.
+
 - shared backend validator là source of truth;
 - frontend validation chỉ hỗ trợ UX;
 - preview dùng cùng sanitized delivery DTO với learner player;
 - publish fail closed khi thiếu answer/stimulus/policy/profile;
 - warning và blocking code có machine-readable IDs.
 
-### 11E - PDF/AI import normalization
+### 11E - Deterministic Excel import
+
+Implementation: `COMPLETED`.
+
+- dùng một workbook contract versioned và một parser pipeline chung;
+- sinh file mẫu theo `examTemplateCode`, không duy trì parser riêng cho từng
+  chứng chỉ;
+- workbook v2 biểu diễn Set/Test/Skill/Group/Question, local section numbering,
+  group/question stimuli, answer/explanation trước Option A-H và optional
+  text/image/audio refs;
+- L/R/W/S đều có thể import khi policy enable; Excel là bulk-entry helper bên
+  trong manual authoring, không phải một product area tách rời;
+- flow: download template -> upload -> parse -> preview toàn bộ row -> confirm
+  valid rows -> compact imported numbering per lesson/section -> lecturer review
+  -> publish. Dòng lỗi luôn hiển thị để sửa nhưng tự bị bỏ khi confirm;
+- preview có cột riêng cho passage/transcript/media cấp group, media/prompt/note
+  cấp question, source/imported question number, answer và từng Option A-H;
+- companion media ghép bằng basename an toàn, chỉ upload ref thực sự được dùng
+  và normalize sang managed URL; local path không vào request/persistence;
+- MATCHING dùng stable left/right IDs, text hoặc image ở cả hai phía và correct
+  pair map; không ép matching vào các cột option text thuần;
+- program-specific template chỉ giới hạn type/default/required column theo
+  policy; Apache POI và pattern preview/validation hiện có được tái sử dụng;
+- AI chỉ có thể hỗ trợ map cột lạ trong tương lai, không tự tạo answer key.
+
+### 11F - PDF/AI normalization and stimulus/material binding
+
+Implementation: `COMPLETED`.
 
 - import output map vào canonical draft contract;
 - AI không được tự invent answer khi evidence không đủ;
@@ -732,46 +885,85 @@ thứ hai.
 - TOPIK import giữ SINGLE_CHOICE mặc định;
 - program khác dùng selected policy, không hard-code TOPIK prompt;
 - import prompt/output schema versioned và privacy-safe.
-
-### 11F - Stimulus and material binding
-
 - passage, instruction, image, audio và transcript là typed references;
 - one stimulus có thể phục vụ nhiều questions;
 - publish snapshot version-safe refs;
 - không lưu private path/storage key trong version row.
+- giữ page range và crop để giảm payload, nhưng thêm guided mode: đề xuất trang,
+  auto-region, preset theo template và chỉ yêu cầu xác nhận vùng bất định;
+- expert mode giữ region taxonomy/note/send-text/send-image; raw request JSON
+  chỉ hiện cho authorized debug/Admin/Head, không là lecturer workflow mặc định.
 
-### 11G - Editor maintainability
+### 11G - Editor maintainability and bounded usability
+
+Implementation: `COMPLETED_WITH_ACCEPTED_DEBT`.
 
 Editor template hiện khoảng 3.000 dòng và còn inline script lớn song song với
 các file static. Trước khi thêm nhiều type, cần tách dần state/tree/actions/
 validation thành module đang thực sự được load; xóa duplication chỉ sau contract
 test. Đây vẫn là Thymeleaf/JS hiện tại, không phải React migration.
 
+11G chỉ xử lý usability gắn trực tiếp với authoring/import correctness. Visual
+polish, responsive/accessibility sweep và learner UI vẫn thuộc Phase 13.
+
 ### 11H - Phase gate
 
+Implementation: `CLOSED_GREEN`.
+
 - manual authoring cho tất cả MVP types;
+- Excel import cho TOPIK và ít nhất một custom objective template;
 - PDF import ít nhất cho TOPIK single-choice và một custom objective type;
+- passage/transcript round-trip và explanation context không mất dữ liệu;
+- score-unit/weight contract có regression test cho objective/Writing/Speaking;
 - republish tạo version mới, old attempt không đổi;
 - ownership/permission tests pass;
 - no provider calls trong automated tests;
-- focused suites pass, sau đó full suite theo phase-gate policy.
+- focused Phase 11 gate 31/31 và final Excel/media/MATCHING gate 47/47 pass;
+- closure focused rerun 20/20 và full suite pool-bounded pass 1242/1242, không
+  failure/error/skip;
+- browser runtime pass cho editor, menu/rename/delete-confirm, PDF, Excel
+  R/L/W/S, exact L1 route, centered preview contract và sanitized teacher
+  preview; console không warning/error;
+- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; top-level Phase 11 chỉ
+  còn user acceptance trước commit/push, không tự động mở Phase 12.
 
 ## 10. Kế hoạch Phase 12 - Materials, Permissions and Governance
+
+Research boundary ngày 2026-07-11:
+
+- 96 screenshots/14 evidence groups chỉ phản ánh learner account trên nền tảng
+  tham khảo; không có teacher/admin evidence và không được dùng để suy diễn RBAC;
+- program/certificate switcher và certificate-specific progress cho thấy context
+  program phải xuyên suốt, nhưng Phase 12 phải tái sử dụng program-version /
+  exam-template model đã có, không tạo config theo route hoặc sao chép external UX;
+- Phase 12 chỉ bắt đầu sau audit riêng về schema, permission seed, ownership,
+  current revision service và material storage boundary của KSH.
 
 ### 12A - Permission model wiring
 
 - nối RBAC permission tables hiện có vào application authorization;
-- tách quyền create/edit/delete/publish/submit-for-review/approve;
+- tách quyền create, edit, delete, publish, archive, lock, unlock, restore và
+  emergency override; không thêm submit-for-review/approve vào normal flow;
 - role chỉ là default grant, ownership và scope vẫn được kiểm tra ở service;
-- test Lecturer, Head, Admin và cross-owner denial.
+- scope có program/certificate, owner/shared view và content state khi applicable;
+- test Lecturer, Head, Admin, owner, collaborator và cross-owner denial.
 
 ### 12B - Content lifecycle governance
 
-- `DRAFT -> IN_REVIEW -> APPROVED -> PUBLISHED -> ARCHIVED` nếu product chọn
-  approval flow;
-- Lecturer submit, Head approve/request changes, Admin override có audit;
-- direct publish chỉ cho role/policy được phép;
-- published mutation luôn tạo version mới.
+- dùng lifecycle gọn `DRAFT -> PUBLISHED -> ARCHIVED`; không bắt normal lecturer
+  flow đi qua `IN_REVIEW/APPROVED`;
+- có hai view `Của tôi` và `Được chia sẻ`; tài liệu public/shared có thể được
+  lecturer thuộc collaboration policy chỉnh sửa và publish trực tiếp;
+- owner có thể bật `LOCKED_BY_OWNER`. Khi khóa, lecturer khác không được edit,
+  restore hoặc publish version mới; owner có thể mở khóa;
+- không triển khai notification edit/publish trong scope 12B;
+- mọi edit/publish luôn tạo immutable revision/version mới, ghi actor, owner,
+  thời gian, source version, summary và diff metadata;
+- owner xem toàn bộ lịch sử và chọn bất kỳ version cũ nào để restore. Restore
+  tạo một revision mới từ snapshot đã chọn, không xóa/ghi đè lịch sử;
+- Admin/Head emergency override là quyền riêng, phải có reason và audit event;
+- service authorization kiểm tra collaboration policy và owner lock; UI ẩn nút
+  không được xem là security boundary.
 
 ### 12C - Prompt/rubric/scoring profile administration
 
@@ -780,6 +972,10 @@ test. Đây vẫn là Thymeleaf/JS hiện tại, không phải React migration.
 - fixture validation trước activation;
 - lecturer chỉ chọn approved version;
 - system rule và provider config không lộ ra learner/client.
+- cùng một resolved policy phải điều khiển manual editor, Excel template, PDF
+  normalization và Phase 13 learner delivery; không tạo policy riêng theo UI;
+- enabled skills/question types, option/count limits, timers và score-scale
+  metadata đều versioned theo program/certificate.
 
 ### 12D - Material security
 
@@ -808,129 +1004,239 @@ test. Đây vẫn là Thymeleaf/JS hiện tại, không phải React migration.
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
-Tên phase nên được hiểu rộng hơn "polish". New-type interaction là feature work
-hợp lệ của Phase 13, không phải bug Phase 8G.
+Tên phase phải được hiểu rộng hơn "polish". New-type interaction, attempt-state
+semantics, result evidence và progress actionability đều là feature work hợp lệ.
+Giữ route KSH `set -> test -> mode -> attempt -> result -> result/detail`; tài
+liệu PREP chỉ là capability reference learner-side, không phải mẫu sao chép.
 
-### 13A - Typed learner player
+Research input ngày 2026-07-11 gồm 96 learner screenshots/14 evidence groups và
+learner-visible IELTS/TOEIC-like routes. Không có teacher/admin account evidence;
+mọi teacher/admin assumption phải quay về KSH schema/RBAC. Speaking audio vẫn
+`PENDING_AUDIO_UAT` vì research không kiểm chứng được âm thanh hệ thống.
 
-- component/fragment theo canonical type;
-- keyboard và screen-reader semantics;
-- autosave typed learner answer;
-- restore/reload không mất state;
-- answer spec không xuất hiện trong HTML/JSON trước submit.
+Research chỉ bổ sung, không thay baseline cũ. Baseline preservation audit khóa
+ánh xạ sau; không mục nào được xem là hoàn tất chỉ vì đã được viết lại:
 
-### 13B - Result and explanation rendering
+| Baseline trước research | Vị trí giữ trong kế hoạch hợp nhất |
+|---|---|
+| Typed learner player | 13C, gồm type-specific fragment/component, keyboard/screen reader, autosave/restore và answer-leak guard |
+| Result and explanation rendering | 13D-13E, gồm mọi correctness/pending state, option/blank/pair evidence, teacher-vs-AI và limited Listening evidence |
+| Full-test and skill-specific flow | 13B-13C, gồm aggregate attempt/timer, resume/submit xuyên section và history theo attempt session |
+| Catalog scale | 13A và 13G, gồm server pagination/filter/search, bounded load, index/query review |
+| Progress analytics | 13F, giữ program/skill/type/policy dimensions và legacy/partial-credit semantics |
+| Retry and operational UX | 13F, giữ Speaking retry, explanation retry, idempotency/rate limit và refresh-no-provider-call |
+| Visual, encoding and accessibility | 13G, giữ UTF-8/mojibake, icon system, responsive/browser/a11y và overlap checks |
+| Functional gate | 13H, giữ canonical-type E2E, full/skill paths, catalog performance, accessibility và answer-leak checks |
 
-- correct/partial/incorrect/not-answered/pending/unscorable states;
-- multiple-choice option-level detail;
-- fill-blank per-blank aliases/evidence;
-- matching per-pair detail;
-- teacher explanation và AI artifact được phân biệt rõ;
-- limited evidence state cho Listening;
-- no official-equivalence wording.
+Các định hướng UI cũ về learning profile, practice library cards, set detail,
+skill list, result/progress/retake/detail navigation và mobile/responsive vẫn mở.
+Phase 9-11 đã hoàn tất contract/version/authoring prerequisites tương ứng nhưng
+không thay thế Phase 13 UI implementation hay Phase 15 UAT.
 
-### 13C - Full-test and skill-specific flow
+### Baseline Phase 13 trước research - `PRESERVED_PENDING_AUDIT`
 
-- chọn full test hoặc skill theo program policy;
-- aggregate attempt session/timer;
-- resume, submit và result navigation xuyên sections;
-- section-level failure không corrupt toàn session;
-- history/progress group đúng theo attempt session.
+Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 13 audit:
 
-### 13D - Catalog scale
+- Typed learner player: component/fragment theo canonical type; keyboard và
+  screen-reader semantics; typed-answer autosave; restore/reload không mất
+  state; answer spec không xuất hiện trong HTML/JSON trước submit.
+- Result and explanation rendering: correct/partial/incorrect/not-answered/
+  pending/unscorable; multiple-choice option detail; fill-blank per-blank
+  aliases/evidence; matching per-pair detail; phân biệt teacher explanation và
+  AI artifact; limited Listening evidence; không dùng official-equivalence wording.
+- Full-test and skill-specific flow: chọn mode theo program policy; aggregate
+  attempt session/timer; resume/submit/result xuyên section; section failure
+  không corrupt session; history/progress group đúng theo attempt session.
+- Catalog scale: server-side pagination/filter/search; program, level, skill,
+  type, teacher/class filters; bounded initial load; realistic query/index
+  review; không load hàng nghìn set/test card cùng lúc.
+- Progress analytics: program/skill/question-type/scoring-policy dimensions;
+  partial credit không thành binary; Writing/Speaking unavailable không thành
+  0; legacy compatibility rows có nhãn và handling rõ.
+- Retry and operational UX: policy-gated Speaking retry; explanation
+  unavailable/retry; idempotency/rate limit; refresh result không gọi provider.
+- Visual/encoding/accessibility: sửa mojibake/UTF-8 xuyên template, seed/import,
+  resource bundle và rendered page; bỏ emoji-style product icon, ưu tiên Lucide
+  hoặc consistent SVG; responsive/browser matrix; no overlap; focus, labels,
+  error summary và contrast; external product chỉ là inspiration.
+- Gate: functional E2E mỗi canonical type; full-test và skill paths; large
+  catalog performance; mobile/desktop accessibility; không answer leakage.
 
-- server-side pagination/filter/search;
-- program, level, skill, type, teacher/class filters;
-- bounded initial load;
-- query/index review với realistic data volume;
-- không load hàng nghìn set/test card một lần.
+### 13A - Library, hierarchy and state foundation
 
-### 13E - Progress analytics
+- server-backed library theo `Set > Test > Skill`, không flatten thành card độc lập;
+- program/certificate, level, skill, type, teacher/class filter phản ánh vào URL;
+- pagination/cursor, bounded initial load, loading/empty/error/retry rõ ràng;
+- incremental extraction editor/player code nếu cần, không React rewrite;
+- attempt state vocabulary dùng chung: `NOT_STARTED`, `IN_PROGRESS`,
+  `SUBMITTED`, `SCORING`, `SCORED`, `PARTIAL`, `FAILED`, `STALE`.
 
-- program/skill/question type/scoring policy dimensions;
-- partial credit không bị tính như binary sai;
-- Writing/Speaking unavailable score không biến thành 0;
-- legacy compatibility rows có nhãn/handling rõ.
+### 13B - Mode selection and preflight
 
-### 13F - Retry and operational UX
+- chọn full test hoặc skill-specific theo program policy;
+- hiển thị section, timer, media/permission requirement và submit behavior trước
+  khi bắt đầu;
+- latest submitted, best score, in-progress attempt và attempt count là các field
+  riêng; draft attempt không ghi đè latest submitted score;
+- resume/start/retake action phải suy ra từ state, không từ badge trang trí.
 
-- user-facing Speaking retry chỉ khi policy cho phép;
-- explanation unavailable/retry state;
-- idempotency và rate limit;
-- không gọi provider chỉ vì refresh result page.
+### 13C - Shared shell and skill-native player
 
-### 13G - Visual, encoding and accessibility polish
+- shared header/timer/navigation/save/exit-warning/resume shell;
+- type-specific fragment/component và typed learner controls cho mọi canonical
+  question type, keyboard/screen-reader semantics và autosave/restore không mất state;
+- Reading dùng passage-question behavior; Listening dùng sticky audio/transcript
+  policy; Writing giữ immutable original response/version; Speaking có mic
+  preflight, consent, capture/upload/process/failure state;
+- section-level failure không corrupt full-test session;
+- aggregate attempt session/timer, submit/resume navigation xuyên section và
+  history/progress grouping đúng theo attempt session;
+- answer spec/correct answer không xuất hiện trong HTML/JSON trước submit;
+- không gọi provider chỉ vì refresh player/result.
 
-- UTF-8/mojibake sweep;
-- consistent icon system;
-- responsive/mobile/browser matrix;
-- no overlapping controls/text;
-- focus states, labels, error summaries và contrast;
-- PREP-like reference chỉ là inspiration, không copy.
+### 13D - Result overview contract
 
-### 13H - Gate
+- exam-native score scale, level/band, completion và recent-attempt semantics;
+- giữ `score`, `scale`, `level`, `completion`, `timing` và
+  `feedbackAvailability` là field riêng, không suy ra lẫn nhau;
+- correct/partial/incorrect/not-answered/pending/unscorable summary có denominator;
+- `not_answered`, `not_qualified`, `capture_failed`, `graded` render khác nhau;
+- Writing/Speaking unavailable hoặc pending score không biến thành 0.
+
+### 13E - Evidence-based result detail
+
+- learner answer, official answer, teacher explanation và AI artifact phân biệt rõ;
+- multiple-choice option detail, fill-blank alias/evidence, matching pair detail;
+- Reading passage evidence anchor phải bền theo content version, không dùng raw
+  DOM offset; Listening transcript/audio evidence có timestamp/speaker khi có;
+- Writing/Speaking giữ original immutable và tách correction, upgraded answer,
+  sample/rubric/criterion evidence;
+- AI có confidence/limited-evidence state và không thay official answer key;
+- không dùng wording ngụ ý official equivalence cho AI score/feedback;
+- report entry point chuẩn bị context cho Phase 14.
+
+### 13F - Progress/profile aggregation and operational recovery
+
+- program/certificate, skill, question type và scoring-policy dimensions;
+- score trend/heatmap/attempt history luôn kèm sample size, recency và confidence;
+- partial credit không bị tính như binary sai; legacy rows có handling rõ;
+- insight deep-link tới `Practice more` theo skill/type thay vì dừng ở biểu đồ;
+- filter/empty/error/retry state đầy đủ;
+- user-facing Speaking retry chỉ xuất hiện khi policy cho phép;
+- explanation unavailable/retry state có idempotency và rate limit;
+- refresh player/result không tự gọi lại provider.
+
+### 13G - Responsive, accessibility and performance
+
+- fix Vietnamese/Korean mojibake như `Cáº¥p`, `Äá»c` và các artifact tương
+  tự trong template, database seed/import text, resource bundle và rendered
+  page; toàn bộ đường dữ liệu phải nhất quán UTF-8 và có UI/UAT regression;
+- tránh emoji-style product icon như `🚀`; ưu tiên Lucide hoặc consistent SVG
+  icon component. Phase 9G chỉ sửa một nhóm encoding hẹp, chưa đóng sweep này;
+- desktop/mobile/browser matrix, không overlap control/text;
+- focus state, label, error summary, contrast và reduced-motion where applicable;
+- large catalog/query/index review với realistic volume, không load hàng nghìn
+  set/test card cùng lúc;
+- PREP-like reference chỉ là inspiration, không copy brand/asset/content/CSS/API/URL.
+
+### 13H - Visual and journey gate
 
 - functional E2E cho mỗi canonical type;
-- full-test + skill-specific paths;
-- large catalog performance target đạt;
-- mobile/desktop accessibility smoke pass;
-- không có answer leakage.
+- full-test + skill-specific + resume/retake paths;
+- result overview/detail/progress deep-link journey;
+- partial/failure/pending/capture-error/empty states;
+- mobile/desktop accessibility và visual QA;
+- large-catalog performance target, UTF-8/icon sweep và multi-test/multi-skill
+  UAT phải đạt; research screenshots không thay thế gate này;
+- không answer leakage, no provider call trong default automated gate;
+- manual audio/device QA vẫn bắt buộc trước Speaking rollout.
 
 ## 12. Kế hoạch Phase 14 - Report an Error and Content Review
 
-### 14A - Report model
+Phase 14 phải là learner-visible review loop. Report state độc lập với content
+lifecycle `DRAFT/PUBLISHED/ARCHIVED` của Phase 12.
 
-Report phải gắn immutable identity:
+Research chỉ mở rộng Phase 14. Baseline model/workflow/authorization/correction/
+feedback/gate cũ được giữ theo ánh xạ: report model -> 14A-14B; workflow status
+-> 14C; authorization/privacy -> 14B và 14D; correction semantics -> 14D;
+notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 
-- program/set/test/section/question version;
-- attempt ID nếu người học report từ result;
-- target: prompt, option, answer, explanation, translation, stimulus, audio,
-  scoring hoặc UI;
-- category, description, reporter, timestamps và safe attachment refs.
+### Baseline Phase 14 trước research - `PRESERVED_PENDING_AUDIT`
 
-### 14B - Workflow
+- Report model gắn immutable program/set/test/section/question version, attempt
+  ID, target prompt/option/answer/explanation/translation/stimulus/audio/scoring/
+  UI, category, description, reporter, timestamps và safe attachment refs.
+- Workflow baseline giữ `OPEN`, `TRIAGED`, `IN_REVIEW`, `CHANGES_REQUESTED`,
+  `RESOLVED`, `REJECTED`, `DUPLICATE` cho tới khi audit quyết định migration hay
+  mapping sang candidate mới.
+- Authorization/privacy: Student chỉ report content được truy cập; Lecturer chỉ
+  xem content sở hữu/phụ trách; Head/Admin triage theo scope; learner answer/
+  audio chỉ hiện khi cần và có quyền; attachment/log không lộ secret.
+- Correction semantics: không mutate published version; content correction tạo
+  draft/new version; explanation correction tạo artifact mới và supersede bản
+  cũ; old attempt vẫn audit được; AI không tự publish.
+- Feedback loop: notification reporter/content owner; SLA/age dashboard;
+  duplicate grouping; metrics theo program/type/source/import; high-severity
+  wrong-answer có thể tạm block new attempts theo policy nhưng không xóa lịch sử.
+- Gate: report-to-correction-to-new-version E2E; permission/privacy tests;
+  immutable history; audit log đầy đủ.
 
-Đề xuất status:
+### 14A - Entry points and immutable context
 
-- `OPEN`
-- `TRIAGED`
-- `IN_REVIEW`
-- `CHANGES_REQUESTED`
-- `RESOLVED`
-- `REJECTED`
-- `DUPLICATE`
+- entry point từ player, question review và result detail;
+- server tự gắn program, set/test/section/group/question, content version,
+  attempt, reporter, timestamps, active view/tab và correlation ID;
+- target có thể là prompt, option, answer, explanation, translation, passage,
+  transcript, audio, scoring hoặc UI;
+- learner không phải nhập lại internal IDs/context.
 
-### 14C - Authorization and privacy
+### 14B - Learner form and evidence snapshot
 
-- Student report nội dung mình truy cập được;
-- Lecturer xem content mình sở hữu/phụ trách;
-- Head/Admin triage theo scope;
-- learner answer/audio chỉ hiển thị khi cần và có quyền;
-- attachment/log không lộ provider/storage secret.
+- structured category/reason, optional note và learner-safe confirmation;
+- description và safe attachment references thuộc report model, không gắn raw
+  local path/provider/storage secret;
+- evidence snapshot lấy đúng immutable version/attempt/view đang report;
+- screenshot/audio attachment là optional/category-dependent, có consent, MIME
+  inspection, size limit, private storage và retention policy;
+- không thu thập toàn màn hình hoặc dữ liệu ngoài scope mặc định.
 
-### 14D - Correction semantics
+### 14C - Deduplication and status history
 
-- không mutate published question version;
-- sửa content tạo draft/new published version;
-- sửa explanation tạo version artifact mới và đánh dấu artifact cũ superseded;
-- old attempt vẫn audit được artifact từng dùng;
-- không để AI tự động publish correction.
+- status baseline `OPEN`, `TRIAGED`, `IN_REVIEW`, `CHANGES_REQUESTED`,
+  `RESOLVED`, `REJECTED`, `DUPLICATE` phải được giữ để audit; research bổ sung
+  `NEW`, `NEEDS_INFO`. Phase 14 audit mới được chọn canonical vocabulary sau
+  khi map semantics và compatibility, không thay âm thầm;
+- dedupe theo immutable target/version/category và bounded time window;
+- learner thấy lịch sử/status/response an toàn, không thấy internal moderation note;
+- rate limit/abuse protection và idempotent submit.
 
-### 14E - Feedback loop
+### 14D - Reviewer queue and correction semantics
 
-- notification cho reporter và content owner;
-- SLA/age dashboard;
-- duplicate grouping;
-- metrics theo program/type/source/import;
-- high-severity wrong-answer report có thể tạm block new attempts theo policy,
-  nhưng không xóa lịch sử.
+- queue filter theo program/certificate, severity, status, owner/source/import và age;
+- Student chỉ report nội dung mình truy cập được;
+- Lecturer chỉ xem content mình sở hữu/phụ trách; Head/Admin theo action scope;
+- learner answer/audio chỉ hiện khi cần và có quyền; secret/storage key không lộ;
+- không mutate published question/explanation artifact;
+- correction tạo draft/new published version; sửa explanation tạo artifact mới
+  và đánh dấu artifact cũ superseded; old attempt/artifact vẫn audit được;
+- AI không được tự publish correction; reviewer action/reason/version đều audit.
 
-### 14F - Gate
+### 14E - Resolution feedback and operational loop
 
-- report-to-correction-to-new-version E2E;
-- permission/privacy tests;
-- immutable history preserved;
-- audit log đầy đủ.
+- notification/feedback cho reporter và content owner chỉ nói kết quả review
+  thực tế; có SLA/age dashboard, duplicate grouping và metrics theo
+  program/type/source/import;
+- UI không ngụ ý report đã đổi điểm trước khi score decision/corrected version
+  thật sự được review và publish;
+- high-severity wrong-answer report có thể tạm block new attempts theo policy
+  sau review, nhưng không xóa lịch sử;
+- confirmed defect tạo regression fixture và metrics theo program/type/source;
+
+### 14F - End-to-end gate
+
+- E2E report -> review -> correction -> new version -> learner feedback;
+- permission/privacy/dedupe/attachment/malformed-content UAT;
+- immutable history và audit trail đầy đủ.
 
 ## 13. Kế hoạch Phase 15 - Manual UAT and Release Hardening
 
@@ -1089,10 +1395,22 @@ riêng. Permission seed `ai.chatbot` không phải implementation.
 | Full-test attempt aggregate chưa có | 9/10 | P1 | 10 contract + 13 flow | Có cho full-test mode |
 | Draft ownership chưa enforce | Pre-10 baseline | RESOLVED | Pre-10 gate hoàn tất | Đã đóng |
 | Publisher không tạo test graph | Pre-10 baseline | RESOLVED | Pre-10 gate hoàn tất | Đã đóng |
-| Multiple choice bị collapse về MCQ | Pre-10 baseline | RESOLVED_BACKEND | 10A-10F hoàn tất | Phase 11/13 còn editor/player UI |
+| Multiple choice bị collapse về MCQ | Pre-10 baseline | RESOLVED_AUTHORING | 10A-10F + 11C hoàn tất | Phase 13 còn learner player UI |
 | AI explanation version-locked lifecycle thiếu | 9/10 | RESOLVED_BACKEND | 10G hoàn tất | Phase 13 còn typed rendering đầy đủ |
-| Listening thiếu explicit persisted transcript/evidence binding | 10/11 | P1 | 11F | Có cho trustworthy listening explanation rollout |
+| Manual editor `passageText` không được publisher/revision persist | Pre-11 audit | RESOLVED | 11A/11F hoàn tất | Đã đóng bằng live/version stimulus tests |
+| Objective và Writing/Speaking dùng khác score unit trong `attempt.score` | 8/10/11 | RESOLVED_CONTRACT | 11A/11C hoàn tất | Phase 13 dùng field chuẩn để render/report |
+| Listening thiếu explicit persisted transcript/evidence binding | 10/11 | RESOLVED_AUTHORING | 11F hoàn tất | Phase 13/15 còn learner UX và evidence UAT |
+| Draft/category chưa có first-class exam template identity | 10/11 | RESOLVED_AUTHORING | 11A/11B hoàn tất | Attempt delivery-policy lock rộng hơn vẫn ở 13C |
+| PDF AI import còn legacy answer key và TOPIK hard-code | Pre-11 audit | RESOLVED_AUTHORING | 11F hoàn tất | Provider/browser fixture UAT ở 15 |
+| Excel assessment import chưa có | Product feedback | RESOLVED_AUTHORING | 11E hoàn tất | Browser UAT và asset extension về sau |
+| Manual editor còn inline script lớn | 11G | P2 | 13A incremental | Không; hai canonical module đã tách và dead modules đã xóa |
+| PDF workspace còn inline/alert-heavy và expert-first ở một số nhánh | 11F/closure audit | P2 | 13C/15B incremental | Không cho correctness; có cho UX/UAT production |
+| Excel preview A-H/media rất rộng, phụ thuộc horizontal scroll | 11E/closure audit | P2 | 13G | Không; không được giảm evidence chỉ để thu gọn UI |
+| Companion media orphan cleanup/retention chưa hoàn chỉnh | 11E/12D | P1/P2 | 12D/15E | Có cho production asset lifecycle |
+| Upload mới dừng ở path/type/size; deep magic-byte/content inspection còn mở | 11/closure audit | P1/P2 | 15B/15E | Có cho public production upload |
+| External CDN/CSP/supply-chain hardening chưa rehearsal | Closure audit | P1/P2 | 15A/15E | Có theo production threat model |
 | Practice RBAC schema chưa được wire theo action | Hiện tại | P1 | 12A | Có |
+| Collaboration lock/full revision restore chưa có | Pre-11 audit | P1 | 12B | Có cho shared editing rollout |
 | Public authoring upload validation/lifecycle | Pre-10 baseline | PARTIAL | Path/type/size đã khóa; lifecycle Phase 12D | Có cho production |
 | Program-version identity chưa là first-class set-version/attempt lock | 10 | P1 | 13C trước multi-program rollout | Có cho multi-program delivery |
 | Type-specific lecturer editor/import normalization | 10/11 | P1 | 11B-11F | Có cho new-type authoring rollout |
@@ -1143,22 +1461,26 @@ Một phase chỉ được đề nghị đóng khi có:
 
 ## 18. Hành động tiếp theo được khuyến nghị
 
-Sau khi commit/push Phase 10, bước kế tiếp nên là một audit-only slice với tên:
+Audit-only slice sau đã hoàn tất:
 
 `PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE`
 
-Audit report cần trả lời đúng sáu câu:
+Kết quả sáu câu audit:
 
-1. Editor hiện serialize/deserialize mỗi canonical question type đến đâu?
-2. PDF/AI import đang tạo stable IDs và typed answer spec hay còn ghi legacy key?
-3. Passage/transcript/stimulus nào cần persistence và version binding mới?
-4. Preview/publish validator có cùng policy resolver với runtime hay chưa?
-5. Asset/annotation snapshot restore có giữ đúng source-region linkage không?
-6. Phase 11 có thể chia slice nhỏ nào mà không kéo learner UI Phase 13 vào sớm?
+1. Editor đã dùng server authoring catalog và canonical typed answer contract.
+2. PDF/AI import đã normalize selected template, stable IDs và typed contract
+   trước publish.
+3. Instruction, passage, transcript, media, image và provenance đã được persist
+   vào live graph và immutable group version.
+4. Draft validator, editor catalog và publisher cùng resolve program policy.
+5. Guided PDF regions giữ source-region IDs đến canonical draft; low-confidence
+   content bị chặn cho tới khi giáo viên xác nhận.
+6. Ranh giới Phase 11 được giữ: learner interaction/polish vẫn thuộc Phase 13,
+   governance/owner lock vẫn thuộc Phase 12.
 
-Sau audit, sửa P0/P1 authoring/import findings bằng focused slice trước. Chỉ
-bắt đầu Phase 11A sau user GO; không kéo Admin/Head governance Phase 12 hoặc
-learner rendering Phase 13 vào Phase 11.
+Current next action: user acceptance cho Phase 11 đã stabilized. Closure gate
+đã `CLOSED_GREEN`; chỉ stage/commit/push khi có yêu cầu rõ ràng. Phase 12 vẫn
+`NOT_STARTED` và cần một audit riêng sau acceptance.
 
 ## Phụ lục A - Historical baseline evidence map tại HEAD 448bdb1
 
@@ -1204,3 +1526,18 @@ thể dịch chuyển sau khi code thay đổi; luôn đọc lại source tại 
 | Import child IDOR và asset route mismatch | Đã bind session/annotation/region/asset/owner | import/region/asset ownership tests |
 | Draft upload dùng extension thô | Đã allowlist, size-bound và normalize destination | `PracticeDraftControllerUploadSecurityTest` |
 | Phase gate chưa có full evidence | Đã pass focused 41/41 và full 1208/1208 | Maven/JDK 26/MySQL V25 closure run |
+
+## Phụ lục C - Phase 11 current-state delta
+
+| Pre-11 finding | Trạng thái sau implementation | Evidence chính |
+|---|---|---|
+| Passage/transcript mất khi publish/restore | Typed stimulus persist ở live group và immutable group version | V26, publisher/revision/flow tests |
+| Category không đủ định danh variant | Program version và exam template là first-class authoring metadata | `assessment_exam_templates`, authoring catalog, V26 integration test |
+| Editor hiển thị type tĩnh | Skill/type/scoring/profile lấy từ server policy | `manage-authoring-contract.js`, editor contract test |
+| Draft validation lệch publisher | Backend validator dùng template/program policy và machine codes | `PracticeDraftValidator`, validator tests |
+| Preview có nguy cơ lộ key/context nghe | Safe preview chỉ trả delivery DTO; transcript/answer/profile bị loại | `PracticeDraftPreviewServiceTest` |
+| Không có deterministic spreadsheet import | Excel-v2 all-skill import, detailed valid/warning/error preview, compact numbering, A-H/media và typed MATCHING | Excel service/controller/template tests và browser smoke |
+| PDF flow quá chuyên gia và output legacy | Guided full-page mode, canonical assembler, confidence/review gate, debug RBAC | PDF payload/assembler/controller tests |
+| Score field mơ hồ | Giữ compatibility `score`, thêm explicit earned/percentage/unit | V26 và `PracticeAttemptScoreContractTest` |
+| Editor có dead JS implementation song song | Dead modules đã xóa; hai canonical module đang được load | UI contract và JS syntax checks |
+| Phase gate thiếu runtime/full-suite evidence | Focused closure 20/20, focused Excel/media/MATCHING 47/47, full suite 1242/1242 và editor/menu/PDF/Excel/preview runtime QA xanh | Maven JDK 17/MySQL V26 và controlled port 8082 QA; closure gate `CLOSED_GREEN` |

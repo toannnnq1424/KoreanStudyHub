@@ -1633,81 +1633,308 @@ Phase 10 operating process:
 ### Phase 11 — Lecturer Authoring & Import
 
 Status:
-NOT_STARTED
+STABILIZED_PENDING_USER_ACCEPTANCE
+
+`PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE` was completed as an
+audit-only slice on 2026-07-10. The user then explicitly approved complete
+Phase 11 implementation. Phase 11A-11G were implemented on 2026-07-11 and the
+11H automated/runtime stabilization gate is `CLOSED_GREEN`. The implementation
+remains `STABILIZED_PENDING_USER_ACCEPTANCE` until user acceptance and an
+explicit commit/push instruction. This gate closure does not start Phase 12.
+
+Implemented scope:
+
+- 11A introduced `practice-draft-v3`, stable client IDs, canonical typed
+  question/answer data, typed stimulus/provenance persistence and explicit
+  attempt score-unit/earned-points/percentage fields. Legacy `score` remains a
+  compatibility field, so Phase 8 rubric/provider formulas are unchanged.
+- 11B added V26 `assessment_exam_templates` and first-class program-version /
+  template identity on draft, live set and immutable set version. The server
+  authoring catalog resolves enabled skill/type/scoring/profile policy.
+- 11C hardened the existing Thymeleaf editor for `SINGLE_CHOICE`,
+  `MULTIPLE_CHOICE`, `TRUE_FALSE_NOT_GIVEN`, `FILL_BLANK`, `MATCHING`, `ESSAY`
+  and `SPEAKING`; fields and policy controls follow the selected template.
+- 11D added machine-coded backend validation and a sanitized draft preview
+  built from learner delivery DTOs. It omits correct answers, answer specs,
+  explanations, profile identities and listening transcript.
+- 11E added deterministic `practice-excel-v2` workbook generation, one parser
+  pipeline, row-level issues, centered preview and owner-scoped draft import
+  for TOPIK and custom templates. The contract is `Set > Test > Skill Section
+  > Group > Question`; enabled L/R/W/S skills can import when Admin/Head policy
+  permits it. Invalid rows remain visible in preview but confirm silently
+  excludes them, then compacts question numbers inside each lesson/section.
+  The source row/question number remains visible for traceability.
+- Excel preview exposes Test/Section, group instruction/passage/transcript,
+  group/question media, prompt, teacher note/explanation, answer and Option
+  A-H. Companion local image/audio files are matched by safe basename, rendered
+  from local `blob:` URLs before confirm, uploaded only when used, and converted
+  from `material:<ref>` to system-managed upload URLs. Full local paths are not
+  persisted or returned.
+- `MATCHING` uses stable left IDs `L1-L8` with dedicated text/image columns,
+  Option A-H as right-side text/image items, and a correct map such as
+  `L1=A;L2=B`. Preview shows both sides of each pair; pair IDs are validated
+  against the supplied left and right items.
+- 11F added guided full-selected-page PDF mode plus the existing advanced crop
+  mode, synthetic traceable regions, canonical draft assembly, confidence /
+  teacher-review gates and role-restricted raw prompt/request debug details.
+  Raw page text is represented once in selected regions, not duplicated in
+  page context and base text.
+- 11G removed six dead editor modules that were not loaded and added two
+  actually loaded canonical modules for authoring contract and preview. The
+  inline editor remains large and is accepted incremental-maintainability debt.
+- V26 also backfills existing draft/set/version bindings, group stimuli and
+  attempt score fields. Restore of a legacy revision preserves the current
+  authoring binding when the old snapshot has no Phase 11 metadata. All
+  unreleased Phase 11 migration work was squashed into the single
+  `V26__practice_authoring_contract.sql`; there are no V27-V29 files to ship.
+- Program-version/template columns on live sets and immutable set versions stay
+  nullable for legacy or historically ambiguous rows. New first-publish and
+  republish paths require and persist both bindings. This is an intentional
+  compatibility boundary: old attempts/sets are not silently rewritten merely
+  to satisfy the new authoring contract.
+- First publish now binds program version and exam template on the live set as
+  well as the immutable version; republish no longer has to repair metadata
+  omitted by the first publish.
+
+Phase 11 operating rules now locked:
+
+- backend policy and validator remain the source of truth; frontend checks are
+  only authoring assistance;
+- Admin/Head policy controls enabled skills, Excel availability, question
+  types, option count, max questions, points and profile routing. UI and
+  downloaded workbook must consume the same resolved policy;
+- objective answer keys are lecturer/import data, never inferred by AI during
+  scoring;
+- low-confidence PDF content cannot publish until teacher confirmation;
+- raw AI request/system prompt is not part of the normal Lecturer surface;
+- no provider call is allowed in the automated Phase 11 gate;
+- learner rendering for every new objective type remains Phase 13;
+- collaboration, immutable history UI and `LOCKED_BY_OWNER` remain Phase 12;
+- no React rewrite and no broad visual redesign are part of Phase 11.
+
+11H final evidence:
+
+- JS syntax checks passed for both loaded Phase 11 modules;
+- inline scripts in `editor.html` and `excel-import.html` parse successfully,
+  and `git diff --check` is clean;
+- focused authoring/import/PDF/score gate: 31 tests, 0 failures/errors/skips;
+- final focused Excel/media/MATCHING and related Phase 11 gate: 47 tests, 0
+  failures/errors/skips;
+- clean isolated MySQL migration V1-V26 and Hibernate schema validation passed;
+- V26/Phase 10 compatibility integration gate: 5 tests, 0 failures/errors;
+- closure rerun of the focused menu/Excel/controller stabilization tests:
+  20 tests, 0 failures, 0 errors, 0 skips;
+- final pool-bounded full suite on JDK 17 and MySQL V26:
+  `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh mvnw test
+  -Dspring.datasource.hikari.maximum-pool-size=2
+  -Dspring.datasource.hikari.minimum-idle=0`; 1242 tests, 0 failures, 0
+  errors, 0 skips, BUILD SUCCESS;
+- browser smoke on a controlled port 8082 passed with `admin@ksh.edu.vn`:
+  editor loaded the Set/Test/Skill/Group tree, PDF navigation opened the linked
+  draft import page, Excel navigation opened with exact draft/test/lesson
+  parameters, and R1/L1/W1/S1 each exposed the policy-enabled Excel action.
+  The closure rerun navigated L1 to
+  `draftId=10&testNo=1&lessonCode=L1` and returned safely to the editor;
+- the three-dot menu opens/closes with correct ARIA state, rename focuses and
+  selects the draft title, and delete requires native confirmation. The QA
+  dialog was dismissed and draft 10 remained intact;
+- teacher preview rendered real prompts and options and did not expose answer
+  keys/explanations; Excel preview uses a centered native dialog (`fixed`,
+  full inset, auto margin); runtime visual inspection found no incoherent
+  overlap in the preview and no browser console warning/error was observed;
+- temporary QA servers on ports 8080, 8081 and 8082 were stopped after smoke;
+- no real AI provider call was made.
+
+`PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`.
+
+Accepted debt and routing:
+
+- large inline manual-editor script: incremental extraction in Phase 13A;
+- PDF workspace still has a large inline/alert-heavy interaction surface:
+  guided UX and module extraction in Phase 13, operational hardening in Phase 15;
+- Excel preview intentionally exposes a wide A-H/media contract and currently
+  relies on horizontal scrolling: compact/sticky/responsive presentation in
+  Phase 13 without weakening row-level evidence;
+- unmatched/duplicate companion media filenames remain visible as pending
+  attachments; a future asset-bundle/folder manifest may improve bulk media UX
+  without ever trusting arbitrary local paths from spreadsheet cells;
+- companion media orphan cleanup/retention remains Phase 12D/15; deeper
+  magic-byte/content inspection and production upload rehearsal remain Phase 15;
+- external CDN/CSP/supply-chain hardening remains Phase 15;
+- typed learner controls/results for all new objective types: Phase 13B/C;
+- broader attempt delivery-policy/program-version lock: Phase 13C before
+  multi-program learner rollout;
+- granular action RBAC, shared editing and owner lock: Phase 12A/B;
+- Admin/Head template/prompt/rubric/scoring governance: Phase 12C;
+- provider/browser/device/load/migration rehearsal: Phase 15.
+
+Do not mark the top-level Phase 11 closed and do not commit/push yet. The
+closure stabilization gate is closed green; user acceptance is the remaining
+decision before any commit/push or Phase 12 audit/start.
 
 ### Phase 12 — Materials & Permissions
 
 Status:
 NOT_STARTED
 
+Phase 12B direction refined by the Phase 11 audit:
+
+- provide separate `Của tôi` and `Được chia sẻ` material views;
+- use a simple content state model: `DRAFT`, `PUBLISHED`, `ARCHIVED`; do not
+  require `IN_REVIEW` or `APPROVED` for the normal lecturer workflow;
+- published shared material can be edited and republished directly by a
+  lecturer allowed by the institutional collaboration policy;
+- the owner can enable `LOCKED_BY_OWNER`. While locked, other lecturers cannot
+  edit, restore or publish a new version; Admin/Head emergency override is
+  explicit and audited;
+- do not add edit/publish notifications as a Phase 12B requirement;
+- list the complete immutable revision history with actor, time, summary and
+  diff metadata. Restoring any selected historical version creates a new
+  revision and never deletes or rewrites history;
+- keep owner identity and all collaborator actions auditable. Lock/unlock and
+  Admin/Head override are separate audit events;
+- authorization remains service-side and action-based; the owner lock is not
+  implemented only as a hidden/disabled UI control.
+
+Phase 12 research preparation locked on 2026-07-11:
+
+- the supplied PREP research is learner-account evidence only. It does not
+  establish teacher/Admin behavior and must not be used as an RBAC acceptance
+  criterion;
+- program/certification identity must be first-class in permission scope,
+  template/profile governance, material views and later reviewer queues. Reuse
+  the Phase 10/11 program-version and exam-template model rather than adding
+  route-specific certificate configuration;
+- 12A must produce an action matrix for create, edit, publish, archive, lock,
+  unlock, restore and emergency override across Lecturer/Head/Admin, including
+  owner and cross-owner denial tests;
+- 12B keeps the simple `DRAFT`, `PUBLISHED`, `ARCHIVED` lifecycle. Report-ticket
+  states in Phase 14 are separate and must not reintroduce a mandatory content
+  approval workflow;
+- 12C owns immutable Admin/Head configuration for enabled skills, question
+  types, limits, timers, scoring and approved prompt/rubric/profile versions;
+- teacher/admin governance still requires KSH-native schema/RBAC audit and UAT.
+  No external teacher/admin journey was observed in the research input.
+
 ### Phase 13 — Results, Progress & UI/UX Polish
 
 Status:
 NOT_STARTED
 
-Important:
-Phase 13 is for visual polish and richer UX.
-Functional breakage belongs to Phase 8G.
+Phase 13 is learner-delivery feature work plus UX stabilization, not visual
+polish alone. It must preserve the existing KSH route chain
+`set -> test -> mode -> attempt -> result -> result/detail` and must not copy
+external branding, assets, content, CSS, API or URLs.
 
-Future UI/UX and import roadmap notes:
+Research basis and evidence boundary:
 
-These notes preserve user feedback for later planning only. They are not part
-of the current Phase 8H implementation, they are not a full UI/UX spec, and
-they must not start Phase 9, Phase 10, Phase 11, Phase 13, or Phase 15.
+- the two supplied research documents cover 96 learner screenshots in 14
+  evidence groups plus learner-visible IELTS/TOEIC-like routes;
+- observations from that account may inform capability and state design only;
+  teacher/admin behavior remains unobserved;
+- speaking controls/transcript/IPA were visually inspected, but audio accuracy
+  remains `PENDING_AUDIO_UAT` because system audio was not captured.
 
-- Mojibake / Unicode / UTF-8:
-  fix Vietnamese/Korean UI text corruption such as `Cáº¥p`, `Äá»c`, and
-  similar ASCII/encoding artifacts. Templates, database seed/import text,
-  resource bundles, and rendered pages must consistently use UTF-8. Add UI/UAT
-  checks so mojibake does not reappear.
-- Icons:
-  avoid emoji-style product UI icons such as `🚀`. Prefer Lucide icons or
-  consistent SVG icon components for a professional KSH interface.
-- PREP-like references:
-  screenshots from PREP-style products are inspiration only, not copy targets.
-  KSH should preserve its Vietnamese/Korean learner context and product style.
-- Future UI areas:
-  learning profile, practice library cards, test set detail, skill list,
-  result/progress/retake/detail navigation, and mobile/responsive polish.
-- Large catalog performance:
-  do not load thousands of practice sets/tests/cards at once. For catalogs such
-  as 6000 tests, use server-side pagination, filtering/search, lazy loading,
-  infinite scroll, or virtualization. Initial page load should fetch a bounded
-  number of items. This belongs mainly to Phase 13 UI/UX and may require
-  backend pagination/filter support if not already present.
-- Set/test/skill composition:
-  a practice set may contain multiple tests, and a practice test may contain
-  multiple skills/sections. Product flows should support both full-test
-  practice and skill-specific practice, similar to PREP-style skill selection.
-  Do not assume one set = one test. Do not assume one test = one skill.
-- Validation routing:
-  - Phase 9 immutable versions:
-    snapshot the set/test/section/question/skill structure so old attempts
-    remain stable.
-  - Phase 10 academic program/certification configuration:
-    define allowed skills, sections, timers, question types, and full-test vs
-    skill-specific practice modes.
-  - Phase 11 lecturer authoring/import:
-    validate imported content structure. A set must contain one or more tests,
-    a test must contain one or more sections/skills, sections must map to
-    supported skills, skill-specific practice must be possible where
-    configured, and invalid import structures must be rejected with clear
-    errors.
-  - Phase 13 UI/UX:
-    expose the set/test/skill selection UX and large-catalog browsing UX.
-  - Phase 15 UAT:
-    manually validate large catalogs, encoding, icons, and multi-test /
-    multi-skill flows.
-- Current phase guard:
-  do not implement this UI/UX or import work during Phase 8H. Do not start
-  Phase 9 until Phase 8H is closed, accepted, or explicitly deferred. React
-  modernization remains future-only after Phase 16. Live Speaking AI rollout
-  remains NO-GO.
+Research is additive. It must not replace or silently close older Phase 13/14
+directions that have not passed their own audit and UAT. The following baseline
+items remain explicitly open:
+
+- Mojibake / Unicode / UTF-8: fix Vietnamese/Korean UI corruption such as
+  `Cáº¥p`, `Äá»c` and similar encoding artifacts. Templates, database
+  seed/import text, resource bundles and rendered pages must consistently use
+  UTF-8. Add UI/UAT regression checks so mojibake does not reappear. Phase 9G
+  completed only a narrow cleanup, not this practice-wide sweep;
+- Icons: avoid emoji-style product UI icons such as `🚀`. Prefer Lucide icons
+  or a consistent SVG icon component system. This has not yet been audited or
+  completed across `/practice`;
+- retain the original learning-profile, practice-library, set-detail,
+  skill-list, result/progress/retake/detail and mobile/responsive roadmap;
+- retain bounded catalog loading and the full-test/skill-specific composition
+  rules. Do not assume one set equals one test or one test equals one skill;
+- retain the original validation routing: Phase 9 immutable structure, Phase 10
+  certification policy and Phase 11 import validation are prerequisites already
+  implemented, while Phase 13 still owns the learner UX and Phase 15 still owns
+  manual large-catalog/encoding/icon/multi-test/multi-skill UAT.
+
+Baseline-to-slice mapping is preserved: typed player -> 13C; result/explanation
+-> 13D-13E; full-test/skill flow -> 13B-13C; catalog scale -> 13A/13G;
+progress analytics and retry/operational UX -> 13F; visual/encoding/icons/a11y
+-> 13G; the original functional gate -> 13H.
+
+Required Phase 13 slices:
+
+- 13A: design/state foundation and bounded server-backed library preserving the
+  `Set > Test > Skill` hierarchy, program/certificate filter state in the URL,
+  pagination/cursor loading and explicit empty/error/loading states;
+- 13B: explicit full-test versus skill-mode selection and preflight. Keep
+  latest submitted, best score, in-progress attempt and attempt count as
+  separate concepts;
+- 13C: shared player shell with skill-native interaction, timer, navigation,
+  autosave, exit warning and resumable attempt states. Typed R/L/W/S controls
+  follow the Phase 10/11 contracts and never expose answer specs before submit;
+- 13D: result overview with exam-native score scales and recent-attempt
+  semantics. Preserve `score`, `scale`, `level`, `completion`, `timing` and
+  `feedbackAvailability` as distinct fields;
+- 13E: evidence-based result detail for learner answer, official answer,
+  explanation, passage/transcript anchors, rubric, correction, upgraded answer
+  and sample content. AI is advisory and cannot replace the official answer key;
+- 13F: progress/profile aggregation by program, skill and question type, with
+  filters, sample-size/recency/confidence context and deep links to practice.
+  Preserve the earlier operational UX scope: policy-gated Speaking retry,
+  explanation unavailable/retry states, idempotency and rate limits, and no
+  provider call caused only by refreshing a page;
+- 13G: responsive, accessibility, encoding and performance pass for large
+  catalogs. Complete the explicit UTF-8/mojibake regression sweep, replace
+  emoji product icons with Lucide/consistent SVG components, and prevent
+  overlapping controls/text;
+- 13H: visual QA and manual learner journeys across IELTS/TOEIC-like modes,
+  canonical question types, desktop/mobile and failure/empty states. The gate
+  must include large-catalog performance plus encoding/icon and multi-test /
+  multi-skill UAT; research evidence alone cannot satisfy this gate.
+
+Result states must not collapse distinct conditions. At minimum render
+`not_answered`, `not_qualified`, `capture_failed` and `graded` separately, and
+keep `NOT_STARTED`, `IN_PROGRESS`, `SUBMITTED`, `SCORING`, `SCORED`, `PARTIAL`,
+`FAILED` and `STALE` semantics consistent across library, player and result.
 
 ### Phase 14 — Report an Error & Content Review Workflow
 
 Status:
 NOT_STARTED
+
+Phase 14 is a learner-visible review loop, not only a backend ticket table:
+
+- 14A adds report entry points from player, question review and result detail.
+  The server auto-attaches program, set/test/section/group/question identity,
+  immutable content version, attempt, active view/tab, reporter/timestamps and
+  correlation context. Targets retain prompt, option, answer, explanation,
+  translation, stimulus/passage/transcript, audio, scoring and UI;
+- 14B provides structured reason/category, optional note and a safe evidence
+  snapshot. Screenshot/audio attachment is category-dependent, consented and
+  governed by retention/privacy rules;
+- 14C audits and locks deduplication and learner-safe status history. The older
+  roadmap vocabulary `OPEN`, `TRIAGED`, `IN_REVIEW`, `CHANGES_REQUESTED`,
+  `RESOLVED`, `REJECTED`, `DUPLICATE` must not be discarded; research adds
+  `NEW` and `NEEDS_INFO` as candidates. Phase 14 audit must map compatibility
+  and semantics before choosing the canonical set. These are report states,
+  not content lifecycle states;
+- 14D provides the reviewer queue with certificate/program scope, immutable
+  content/version/question context, severity, ownership and full audit trail.
+  A correction creates a draft/new published version; explanation correction
+  creates a new artifact and marks the old one superseded. History is never
+  mutated and AI never publishes a correction automatically;
+- 14E returns resolution feedback to the learner and owner, preserves the
+  original notification/SLA-age dashboard/duplicate-grouping/metrics scope,
+  and may temporarily block new attempts for a reviewed high-severity wrong
+  answer under policy without deleting history. Confirmed defects create
+  regression fixtures;
+- 14F is the explicit gate: report-to-review-to-correction-to-new-version E2E,
+  permission/privacy/deduplication/attachment/malformed-content UAT, immutable
+  history and complete audit log.
+
+The learner UI must never expose internal moderation notes and must never imply
+that a report changed a score until review is complete and the applicable
+corrected version or score decision has actually been published.
 
 ### Phase 15 — Manual UAT & Release Hardening
 
@@ -1947,22 +2174,26 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Phase 9G Immutable Version Stabilization & Encoding Cleanup | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AND_FOCUSED_TESTED | N/A | ac658dc32a6b98d01760fd2cce352825876d53e5 | Focused evidence: 9G-A null-group ambiguity rejection/fallback, 4 tests passed; 9G-B content hash fail-closed, 2 tests passed; 9G-C transcription retry multipart rebuild, 4 tests passed; 9G-D mojibake cleanup, 3 tests passed; 9G-F focused gate, 12 tests passed. User-approved full suite: `mvn test`; 1163 tests, 0 failures, 0 errors, 2 skipped, BUILD SUCCESS. No provider calls. | Rejects ambiguous null-group publish/version creation across multi-test or multi-section graphs; V24 baseline avoids wrong locks and uses compatibility fallback; runtime publish hash fails closed; transcription retry reopens audio stream; narrow UTF-8 cleanup applied. Phase 10/11/13 remain NOT_STARTED. | Commit/push Phase 9G stabilization, then Phase 10 audit. |
 | 2026-07-10 | Phase 10 Academic Program / Certification Configuration Decisions | NOT_STARTED | READY_FOR_IMPLEMENTATION_PLANNING | N/A | 97625154832b26cb71302814ecd4e91161c84bce | Docs-only decision record; no tests run, no provider calls. | Locked Phase 10 as backend assessment/program policy foundation: canonical MVP question types, MCQ aliasing, scoring policy contracts, normalized DB program config, answer spec/version snapshot requirements, Reading/Listening explanation context, and A→H implementation process. | Commit/push docs-only decision record, then begin Phase 10A only after user approval. |
 | 2026-07-10 | Phase 10 Assessment Foundation and Stabilization Gate | READY_FOR_IMPLEMENTATION_PLANNING | CLOSED_WITH_ACCEPTED_DEBT | this commit | 448bdb1 | Focused stabilization gate: 41 tests, 0 failures, 0 errors, 0 skips. Final full suite: 1208 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS on JDK 26.0.1 and isolated MySQL schema at V25. | Implemented 10A-10H canonical contracts, deterministic scoring, normalized policy persistence, immutable policy snapshots, typed R/L explanation, player redaction, ownership/graph fixes, import child-parent binding, upload path hardening, and error/log hygiene. Phase 10 closes with explicitly routed Phase 11/12/13/15 debt; live Speaking AI remains NO-GO. | Commit/push Phase 10; then begin Phase 11 audit-only baseline and contract-to-editor gap map after explicit user approval. |
+| 2026-07-10 | Pre-Phase 11 Authoring and Import Contract Gate | NOT_STARTED | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | N/A | b9cd754 | Audit-only source/schema/UI review; seven supplied screenshots mapped to editor, publisher, PDF import, scoring and revision code. No tests and no provider calls because no production code changed. | Phase 10 closure confirmed. Found P0 passage/transcript persistence loss risk, policy/legacy type mismatch, missing exam-template identity, legacy/TOPIK-hard-coded PDF normalization, score-unit inconsistency and missing deterministic Excel import. Phase 12B simplified to direct collaboration plus owner lock, immutable history and no notification requirement. | User review, then begin Phase 11A foundation fixes only after explicit approval. |
+| 2026-07-11 | Phase 11 Lecturer Authoring and Import Implementation | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | IMPLEMENTED_PENDING_REVIEW | N/A | b9cd754 | JS and inline-script syntax green; focused Phase 11 gate 31/31; final Excel/media/MATCHING gate 47/47; clean V1-V26 migration/Hibernate validation and compatibility integration green. Pool-bounded full suite: 1240 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS. Browser smoke passed for editor, PDF, R/L/W/S Excel actions, centered Excel preview contract and safe teacher preview; no console error or provider call. | Implemented 11A-11G canonical draft-v3/stimulus/score contract, single squashed V26 template persistence, Set/Test/Skill/Group hierarchy, policy-driven type editors, safe learner preview, Excel-v2 all-skill import with detailed row/media/options preview and compact numbering, typed MATCHING pairs, guided/canonical PDF flow, first-publish binding fix, confidence gates and dead-module cleanup. V26 preserves nullable legacy bindings while new publish requires metadata. Automated/runtime 11H is green. | Run the mandatory closure stabilization gate before top-level acceptance. |
+| 2026-07-11 | Phase 11 Closure Stabilization Gate | IMPLEMENTED_PENDING_REVIEW | STABILIZED_PENDING_USER_ACCEPTANCE | N/A | b9cd754 | Static JS/inline-script and diff checks green; focused closure rerun 20/20; final pool-bounded full suite 1242/1242, 0 failures/errors/skips, BUILD SUCCESS on JDK 17/MySQL V26. Runtime QA verified Set/Test/Skill/Group, menu ARIA, rename focus/select, dismissible delete confirm, sanitized preview, real PDF navigation, exact L1 Excel route and zero console warning/error. Ports 8080/8081/8082 were closed; no provider call. | `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`. Stabilization fixed menu semantics, delete-exit behavior, unused/raw editor state exposure, unused controller dependencies/logging and Excel JSON 403/404 handling. Research was merged additively; all prior Phase 13/14 baseline directions remain mapped and open until their own audit/UAT. | User acceptance, then stage/commit/push only on explicit instruction. Do not audit/start Phase 12 in this gate. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Commit/push the Phase 10 implementation, stabilization, migration, tests, and
-closure documentation. After that, begin Phase 11 with an audit-only baseline
-and contract-to-editor/import gap map, only after explicit user approval.
+Review/accept the stabilized Phase 11 implementation. The mandatory closure
+gate is `CLOSED_GREEN`; focused closure tests, the pool-bounded full suite and
+runtime QA are green. Commit/push only after an explicit user instruction, and
+do not audit/start Phase 12 in the same gate.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
-Phase 11+ remain NOT_STARTED. Live Speaking AI rollout remains NO-GO. React
-modernization remains future-only after Phase 16. Do not start Phase 11, Phase
-13, UI modernization, import expansion, or React modernization without the
-next explicit phase approval.
+Phase 11 is `STABILIZED_PENDING_USER_ACCEPTANCE`; Phase 12+ remain NOT_STARTED. Live
+Speaking AI rollout remains NO-GO. React modernization remains future-only
+after Phase 16. Do not mark Phase 11 closed, start Phase 12/13, or perform
+broad UI/React modernization without the next explicit phase approval.
 
 ## Long-Term Direction After Phase 16
 

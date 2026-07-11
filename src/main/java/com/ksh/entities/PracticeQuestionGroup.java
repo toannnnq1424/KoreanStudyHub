@@ -32,6 +32,21 @@ public class PracticeQuestionGroup {
     @Column(columnDefinition = "TEXT")
     private String instruction;
 
+    @Column(name = "stimulus_type", length = 40)
+    private String stimulusType;
+
+    @Column(name = "passage_text", columnDefinition = "LONGTEXT")
+    private String passageText;
+
+    @Column(name = "transcript_text", columnDefinition = "LONGTEXT")
+    private String transcriptText;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(name = "stimulus_provenance_json", columnDefinition = "JSON")
+    private String stimulusProvenanceJson;
+
     @Column(name = "audio_url", length = 500)
     private String audioUrl;
 
@@ -90,6 +105,18 @@ public class PracticeQuestionGroup {
     public String getInstruction() {
         return instruction;
     }
+
+    public String getStimulusType() { return stimulusType; }
+    public String getPassageText() { return passageText; }
+    public String getTranscriptText() { return transcriptText; }
+    public String getImageUrl() { return imageUrl; }
+    public String getStimulusProvenanceJson() { return stimulusProvenanceJson; }
+
+    public void setStimulusType(String stimulusType) { this.stimulusType = stimulusType; }
+    public void setPassageText(String passageText) { this.passageText = passageText; }
+    public void setTranscriptText(String transcriptText) { this.transcriptText = transcriptText; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public void setStimulusProvenanceJson(String stimulusProvenanceJson) { this.stimulusProvenanceJson = stimulusProvenanceJson; }
 
     public String getAudioUrl() {
         return audioUrl;

@@ -859,6 +859,9 @@ public class PracticeService {
 
     private double getNormalizedAttemptScore(PracticeAttempt attempt) {
         if (attempt.getScore() == null) return 0.0;
+        if (attempt.getScorePercentage() != null) {
+            return attempt.getScorePercentage().doubleValue();
+        }
         if ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill())) {
             return attempt.getScore().doubleValue();
         }
@@ -1363,6 +1366,11 @@ public class PracticeService {
                 g.getQuestionFrom(),
                 g.getQuestionTo(),
                 g.getInstruction(),
+                g.getStimulusType(),
+                g.getPassageText(),
+                g.getTranscriptText(),
+                g.getImageUrl(),
+                g.getStimulusProvenanceJson(),
                 g.getAudioUrl(),
                 exampleBox,
                 questions
@@ -1408,6 +1416,11 @@ public class PracticeService {
                     group.getQuestionFrom(),
                     group.getQuestionTo(),
                     group.getInstruction(),
+                    group.getStimulusType(),
+                    group.getPassageText(),
+                    group.getTranscriptText(),
+                    group.getImageUrl(),
+                    group.getStimulusProvenanceJson(),
                     group.getAudioUrl(),
                     exampleBox,
                     questionRows
@@ -1817,9 +1830,14 @@ public class PracticeService {
             LearnerAnswer learnerAnswer = readLearnerAnswer(type, rawLearnerAnswer, content);
             AssessmentSkill skill = AssessmentSkill.valueOf(attempt.getSkill());
             AssessmentStimulus stimulus = skill == AssessmentSkill.READING
-                    ? AssessmentStimulus.readingPassage(group.instruction(), "PUBLISHED_GROUP_SNAPSHOT")
+                    ? AssessmentStimulus.readingPassage(
+                            firstNonBlank(group.passageText(), group.instruction()),
+                            stimulusProvenance(group, "PUBLISHED_GROUP_SNAPSHOT"))
                     : AssessmentStimulus.listeningAudio(
-                            group.audioUrl(), null, "PUBLISHED_AUDIO_WITHOUT_TRANSCRIPT", false);
+                            group.audioUrl(),
+                            group.transcriptText(),
+                            stimulusProvenance(group, "PUBLISHED_GROUP_SNAPSHOT"),
+                            stimulusApproved(group));
             String programCode = lockedSnapshot
                     .map(PracticeVersionSnapshot::setVersion)
                     .map(PracticeSetVersion::getAssessmentProgramCode)
@@ -1875,6 +1893,29 @@ public class PracticeService {
 
     private static String firstNonBlank(String first, String second) {
         return isBlank(first) ? second : first;
+    }
+
+    private String stimulusProvenance(PracticeQuestionGroupRow group, String fallback) {
+        if (isBlank(group.stimulusProvenanceJson())) {
+            return fallback;
+        }
+        try {
+            String source = objectMapper.readTree(group.stimulusProvenanceJson()).path("source").asText("");
+            return source.isBlank() ? fallback : source;
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private boolean stimulusApproved(PracticeQuestionGroupRow group) {
+        if (isBlank(group.stimulusProvenanceJson())) {
+            return !isBlank(group.transcriptText());
+        }
+        try {
+            return objectMapper.readTree(group.stimulusProvenanceJson()).path("approved").asBoolean(false);
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private static boolean isBlank(String value) {
@@ -2057,6 +2098,11 @@ public class PracticeService {
                         group.questionFrom(),
                         group.questionTo(),
                         group.instruction(),
+                        group.stimulusType(),
+                        group.passageText(),
+                        null,
+                        group.imageUrl(),
+                        null,
                         group.audioUrl(),
                         group.exampleBox(),
                         group.questions().stream()
@@ -2434,7 +2480,7 @@ public class PracticeService {
                             ans, isCorrect, explanationJson));
                 }
                 reviewGroups.add(new ReviewGroupRow(g.groupLabel(), g.instruction(),
-                        g.instruction() != null ? g.instruction() : "",
+                        firstNonBlank(g.passageText(), firstNonBlank(g.transcriptText(), g.instruction())),
                         audioStorageService.resolveUrlSafe(g.audioUrl()), qRows));
             }
         }
@@ -2580,7 +2626,7 @@ public class PracticeService {
             groups.add(new ReviewGroupRow(
                     g.groupLabel(),
                     g.instruction(),
-                    g.instruction() != null ? g.instruction() : "",
+                    firstNonBlank(g.passageText(), firstNonBlank(g.transcriptText(), g.instruction())),
                     audioStorageService.resolveUrlSafe(g.audioUrl()),
                     questions
             ));

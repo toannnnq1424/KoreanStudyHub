@@ -124,6 +124,19 @@ class PracticeRevisionServiceTest {
     }
 
     @Test
+    void restoreLegacyRevisionPreservesExistingAuthoringBinding() throws Exception {
+        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
+
+        service.restoreRevision(7L, 99L);
+
+        org.mockito.ArgumentCaptor<PracticeSet> setCaptor =
+                org.mockito.ArgumentCaptor.forClass(PracticeSet.class);
+        verify(setRepository).save(setCaptor.capture());
+        assertEquals(123L, setCaptor.getValue().getAssessmentProgramVersionId());
+        assertEquals("TOPIK_II", setCaptor.getValue().getExamTemplateCode());
+    }
+
+    @Test
     void restoreRevisionWithLearnerHistoryBlocksBeforeGraphMutation() throws Exception {
         arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
         when(mutationGuard.lockAndAssertRestoreAllowed(10L))
@@ -215,6 +228,8 @@ class PracticeRevisionServiceTest {
         setEntityId(log, 7L);
         PracticeSet set = new PracticeSet("Set", "Description", "WRITING", "TOPIK_II",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
+        set.setAssessmentProgramVersionId(123L);
+        set.setExamTemplateCode("TOPIK_II");
         setEntityId(set, 10L);
         when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));

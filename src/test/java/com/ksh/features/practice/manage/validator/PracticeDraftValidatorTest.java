@@ -16,14 +16,19 @@ public class PracticeDraftValidatorTest {
           "document": {
             "detectedCategory": "TOPIK_II"
           },
+          "tests": [{"clientId":"test-1","testNo":1,"title":"Test 1"}],
           "sections": [
             {
               "title": "Phần Đọc",
               "skill": "READING",
+              "testNo": 1,
+              "testClientId": "test-1",
+              "lessonCode": "R1",
               "durationMinutes": 40,
               "groups": [
                 {
                   "label": "1-2",
+                  "groupCode": "R1.1",
                   "questionFrom": 1,
                   "questionTo": 2,
                   "instruction": "Chọn đáp án đúng",
@@ -66,13 +71,18 @@ public class PracticeDraftValidatorTest {
           "document": {
             "detectedCategory": "TOPIK_II"
           },
+          "tests": [{"clientId":"test-1","testNo":1,"title":"Test 1"}],
           "sections": [
             {
               "title": "Phần Đọc",
               "skill": "READING",
+              "testNo": 1,
+              "testClientId": "test-1",
+              "lessonCode": "R1",
               "groups": [
                 {
                   "label": "1",
+                  "groupCode": "R1.1",
                   "questions": [
                     {
                       "questionNo": 1,
@@ -90,7 +100,7 @@ public class PracticeDraftValidatorTest {
         """;
         PracticeDraftValidator.ValidationResult result = validator.validate(draftJson);
         assertTrue(result.hasBlocking());
-        assertTrue(result.messages().stream().anyMatch(m -> m.content().contains("ít nhất 2 đáp án")));
+        assertTrue(result.messages().stream().anyMatch(m -> "OPTION_COUNT_OUTSIDE_TEMPLATE".equals(m.code())));
     }
     @Test
     public void writingEssayBlankTaskIsBlocking() {
@@ -120,6 +130,61 @@ public class PracticeDraftValidatorTest {
         assertTrue(result.messages().stream().anyMatch(m ->
                 "WARNING".equals(m.type())
                         && m.content().contains("chưa có loại bài rõ ràng")));
+    }
+
+    @Test
+    public void pdfAiStimulusAndQuestionRequireExplicitLecturerReview() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(pdfAiDraft(false, true));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "STIMULUS_REVIEW_REQUIRED".equals(message.code())));
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "AI_QUESTION_REVIEW_REQUIRED".equals(message.code())));
+    }
+
+    @Test
+    public void reviewedPdfAiContentPassesReviewGate() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(pdfAiDraft(true, false));
+
+        assertFalse(result.messages().stream().anyMatch(message ->
+                "STIMULUS_REVIEW_REQUIRED".equals(message.code())
+                        || "AI_QUESTION_REVIEW_REQUIRED".equals(message.code())));
+    }
+
+    private String pdfAiDraft(boolean stimulusApproved, boolean questionReviewRequired) {
+        return """
+                {
+                  "document":{"detectedCategory":"TOPIK_II"},
+                  "tests":[{"clientId":"test-1","testNo":1,"title":"Test 1"}],
+                  "sections":[{
+                    "title":"Reading",
+                    "skill":"READING",
+                    "testNo":1,
+                    "testClientId":"test-1",
+                    "lessonCode":"R1",
+                    "groups":[{
+                      "label":"1",
+                      "groupCode":"R1.1",
+                      "stimulus":{
+                        "type":"READING_PASSAGE",
+                        "passageText":"본문",
+                        "provenance":{"source":"PDF_AI","approved":%s}
+                      },
+                      "questions":[{
+                        "questionNo":1,
+                        "questionType":"SINGLE_CHOICE",
+                        "prompt":"질문",
+                        "options":["A","B"],
+                        "answer":{"value":"1"},
+                        "points":2,
+                        "importSource":"PDF_AI",
+                        "reviewRequired":%s
+                      }]
+                    }]
+                  }]
+                }
+                """.formatted(stimulusApproved, questionReviewRequired);
     }
 
     @Test
@@ -175,6 +240,23 @@ public class PracticeDraftValidatorTest {
                         && m.content().contains("question type SPEAKING")));
     }
 
+    @Test
+    void questionNumberResetsInsideEverySkillSection() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(twoSkillDraft(1));
+
+        assertFalse(result.messages().stream().anyMatch(message ->
+                "QUESTION_NUMBER_NOT_LOCAL_SEQUENTIAL".equals(message.code())));
+    }
+
+    @Test
+    void globalQuestionNumberContinuationAcrossSkillsIsBlocked() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(twoSkillDraft(2));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "QUESTION_NUMBER_NOT_LOCAL_SEQUENTIAL".equals(message.code())
+                        && message.content().contains("L1")));
+    }
+
     private String writingDraftWithTask(String rawTaskValue) {
         return writingDraft("""
                     {
@@ -187,6 +269,27 @@ public class PracticeDraftValidatorTest {
                       "essayTaskType": %s
                     }
                 """.formatted(rawTaskValue));
+    }
+
+    private String twoSkillDraft(int listeningQuestionNo) {
+        return """
+                {
+                  "document":{"detectedCategory":"TOPIK_II"},
+                  "tests":[{"clientId":"test-1","testNo":1,"title":"Test 1"}],
+                  "sections":[
+                    {"title":"Reading","skill":"READING","testNo":1,"testClientId":"test-1","lessonCode":"R1",
+                     "groups":[{"label":"R1.1","groupCode":"R1.1","questions":[
+                       {"questionNo":1,"questionType":"SINGLE_CHOICE","prompt":"읽기 질문","points":1,
+                        "options":["A","B"],"answer":{"value":"1"},"explanationVi":"Giải thích"}
+                     ]}]},
+                    {"title":"Listening","skill":"LISTENING","testNo":1,"testClientId":"test-1","lessonCode":"L1",
+                     "groups":[{"label":"L1.1","groupCode":"L1.1","questions":[
+                       {"questionNo":%d,"questionType":"SINGLE_CHOICE","prompt":"듣기 질문","points":1,
+                        "options":["A","B"],"answer":{"value":"1"},"explanationVi":"Giải thích"}
+                     ]}]}
+                  ]
+                }
+                """.formatted(listeningQuestionNo);
     }
 
     private String writingDraftWithoutTask() {
@@ -239,19 +342,33 @@ public class PracticeDraftValidatorTest {
           "document": {
             "detectedCategory": "TOPIK_II"
           },
+          "tests": [{"clientId":"test-1","testNo":1,"title":"Test 1"}],
           "sections": [
             {
               "title": "Writing",
               "skill": "%s",
+              "testNo": 1,
+              "testClientId": "test-1",
+              "lessonCode": "%s",
               "groups": [
                 {
                   "label": "1",
+                  "groupCode": "%s.1",
                   "questions": [%s]
                 }
               ]
             }
           ]
         }
-        """.formatted(skill, questionJson);
+        """.formatted(skill, lessonCode(skill), lessonCode(skill), questionJson);
+    }
+
+    private static String lessonCode(String skill) {
+        return switch (skill) {
+            case "LISTENING" -> "L1";
+            case "WRITING" -> "W1";
+            case "SPEAKING" -> "S1";
+            default -> "R1";
+        };
     }
 }

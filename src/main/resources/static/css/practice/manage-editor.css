@@ -238,6 +238,11 @@ input, select, textarea, button {
   margin-left: 20px;
   padding-left: 0;
 }
+.test-children-container {
+  border-left: 1px solid #CBD5E1;
+  margin-left: 14px;
+  padding-left: 0;
+}
 .group-children-container {
   border-left: 1px solid #E2E8F0;
   margin-left: 28px;
@@ -266,6 +271,12 @@ input, select, textarea, button {
 }
 
 /* Specific Row Heights and Paddings */
+.tree-row.test-row {
+  min-height: 54px;
+  padding: 6px 10px 6px 8px !important;
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
 .tree-row.section-row {
   height: 52px;
   padding-left: 12px !important;
@@ -331,6 +342,10 @@ input, select, textarea, button {
 .tree-row.section-row .tree-text-title {
   font-size: 14px;
   font-weight: 600;
+}
+.tree-row.test-row .tree-text-title {
+  font-size: 14px;
+  font-weight: 700;
 }
 .tree-row.group-row .tree-text-title {
   font-size: 14px;

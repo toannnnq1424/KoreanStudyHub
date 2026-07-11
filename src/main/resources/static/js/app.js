@@ -8,6 +8,9 @@
 (function () {
   'use strict';
 
+  if (window.__KSH_SHARED_APP_INITIALIZED__) return;
+  window.__KSH_SHARED_APP_INITIALIZED__ = true;
+
   // ── Dropdown toggle ────────────────────────────────────────────────
   document.addEventListener('click', function (e) {
     // Close any open dropdown when clicking outside

@@ -2,11 +2,7 @@ package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePdfImportSession;
-import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.features.practice.ai.OpenAiProperties;
-import com.ksh.features.practice.repository.PracticePdfRegionAnnotationRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -14,19 +10,14 @@ import java.util.*;
 @Service
 public class PracticePdfPayloadPreviewService {
 
-    private static final Logger log = LoggerFactory.getLogger(PracticePdfPayloadPreviewService.class);
-
     private final PracticePdfAiPayloadBuilder payloadBuilder;
-    private final PracticePdfRegionAnnotationRepository annotationRepository;
     private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
 
     public PracticePdfPayloadPreviewService(PracticePdfAiPayloadBuilder payloadBuilder,
-                                            PracticePdfRegionAnnotationRepository annotationRepository,
                                             OpenAiProperties properties,
                                             ObjectMapper objectMapper) {
         this.payloadBuilder = payloadBuilder;
-        this.annotationRepository = annotationRepository;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -58,21 +49,17 @@ public class PracticePdfPayloadPreviewService {
 
         // Format regions metadata
         List<Map<String, Object>> regionsList = new ArrayList<>();
-        List<PracticePdfRegionAnnotation> allAnnos = annotationRepository.findBySessionIdOrderByPageNumberAscDisplayOrderAsc(session.getId());
-        for (PracticePdfRegionAnnotation ann : allAnnos) {
-            if (ann.getPageNumber() >= session.getSelectedStartPage() && ann.getPageNumber() <= session.getSelectedEndPage()) {
-                if ("IGNORE".equalsIgnoreCase(ann.getRegionType())) continue;
-
-                Map<String, Object> regMap = new LinkedHashMap<>();
-                regMap.put("regionId", "region-" + ann.getId());
-                regMap.put("page", ann.getPageNumber());
-                regMap.put("type", ann.getRegionType());
-                regMap.put("note", ann.getLecturerNote());
-                regMap.put("includeText", ann.getIncludeTextInAi() != false);
-                regMap.put("includeImage", ann.getIncludeImageInAi() != false);
-                regMap.put("saveToAssetLibrary", ann.getSaveToAssetLibrary() == true);
-                regionsList.add(regMap);
-            }
+        for (com.ksh.features.practice.manage.dto.AiDocumentImportRequest.RegionPayload region
+                : info.requestDto().getRegions()) {
+            Map<String, Object> regMap = new LinkedHashMap<>();
+            regMap.put("regionId", region.getRegionId());
+            regMap.put("page", region.getPageNumber());
+            regMap.put("type", region.getRegionType());
+            regMap.put("note", region.getLecturerNote());
+            regMap.put("includeText", Boolean.TRUE.equals(region.getSendText()));
+            regMap.put("includeImage", Boolean.TRUE.equals(region.getSendImage()));
+            regMap.put("saveToAssetLibrary", Boolean.TRUE.equals(region.getSaveToLibrary()));
+            regionsList.add(regMap);
         }
 
         // Format crops info
@@ -140,7 +127,7 @@ public class PracticePdfPayloadPreviewService {
             jsonPreviewStr = jsonPreview.toString();
         }
 
-        return new PayloadPreviewDto(sysPrompt, model, strategy, stats, regionsList, cropsList, jsonPreviewStr);
+        return new PayloadPreviewDto(true, sysPrompt, model, strategy, stats, regionsList, cropsList, jsonPreviewStr);
     }
 
     private String systemPrompt() {
@@ -220,11 +207,16 @@ public class PracticePdfPayloadPreviewService {
                 50. Không hợp nhất hai vùng chỉ vì chúng nằm gần nhau nếu lecturer đã gắn group khác nhau.
                 51. Nếu dữ liệu không đủ, trả draft chưa hoàn chỉnh kèm warning thay vì bịa.
 
+                XÁC NHẬN GIÁO VIÊN:
+                52. confidence của mỗi câu nằm trong khoảng 0 đến 1 và phản ánh độ chắc chắn dựa trên evidence.
+                53. reviewRequired phải là true khi confidence dưới 0.8, answerKey rỗng, loại câu chưa chắc chắn hoặc crop thiếu dữ liệu.
+
                 Trả về JSON đúng response schema, không markdown và không thêm văn bản ngoài JSON.
                 """;
     }
 
     public record PayloadPreviewDto(
+            boolean privilegedDetails,
             String systemPrompt,
             String model,
             String strategy,
@@ -232,5 +224,18 @@ public class PracticePdfPayloadPreviewService {
             List<Map<String, Object>> regions,
             List<Map<String, Object>> crops,
             String requestJsonPreview
-    ) {}
+    ) {
+        public PayloadPreviewDto redacted() {
+            return new PayloadPreviewDto(
+                    false,
+                    null,
+                    model,
+                    strategy,
+                    stats,
+                    regions,
+                    crops,
+                    null
+            );
+        }
+    }
 }

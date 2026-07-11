@@ -78,18 +78,21 @@ public class PracticePdfAiPayloadBuilder {
         // 3. Extract raw text from page range for total character stats
         StringBuilder rawTextBuilder = new StringBuilder();
         List<PageContext> pageContexts = new ArrayList<>();
+        Map<Integer, String> rawTextByPage = new LinkedHashMap<>();
         int totalRawChars = 0;
         for (int p = startPage; p <= endPage; p++) {
             PracticePdfPageExtraction ext = pageExtractionService.extractOrGetPageText(session, p);
             if (ext.getRawText() != null) {
+                rawTextByPage.put(p, ext.getRawText());
                 rawTextBuilder.append(ext.getRawText()).append("\n");
                 totalRawChars += ext.getRawCharCount();
 
                 PageContext context = new PageContext();
                 context.setPageNumber(p);
-                context.setRawText(ext.getRawText());
+                context.setRawText("");
                 context.setRawCharCount(ext.getRawCharCount());
                 context.setAllowEntityCreation(false);
+                context.setUsageRule("Page metadata only. Entity content must come from a traceable region.");
                 pageContexts.add(context);
             }
         }
@@ -192,6 +195,19 @@ public class PracticePdfAiPayloadBuilder {
             regionPayloads.add(rPayload);
         }
 
+        // Guided mode still needs traceable source IDs. Represent each selected page as a
+        // synthetic full-page region so the AI cannot create untraceable draft entities.
+        if ("FULL_SELECTED_PAGES".equalsIgnoreCase(strategy)) {
+            for (PageContext pageContext : pageContexts) {
+                RegionPayload pageRegion = fullPageRegion(
+                        pageContext, rawTextByPage.getOrDefault(pageContext.getPageNumber(), ""));
+                regionPayloads.add(pageRegion);
+                totalSelectedChars += pageContext.getRawCharCount() != null
+                        ? pageContext.getRawCharCount()
+                        : 0;
+            }
+        }
+
         // 5. Build section hints
         List<SectionHint> sectionHints = sectionDrafts.stream().map(sd -> {
             SectionHint sh = new SectionHint();
@@ -279,12 +295,44 @@ public class PracticePdfAiPayloadBuilder {
         summary.put("rawTextCharacters", totalRawChars);
         summary.put("selectedTextCharacters", totalSelectedChars);
         summary.put("finalSentTextCharacters", "FULL_SELECTED_PAGES".equalsIgnoreCase(strategy) ? totalRawChars : totalSelectedChars);
-        summary.put("activeRegionsCount", inRangeAnnos.size());
+        summary.put("activeRegionsCount", regionPayloads.size());
         summary.put("ignoredRegionsCount", ignoredCount);
         summary.put("estimatedImageBytes", totalEstimatedBytes);
         summary.put("validationErrorsCount", validationErrors.size());
 
         return new PayloadInfo(request, "", cropInfos, summary, validationErrors);
+    }
+
+    private RegionPayload fullPageRegion(PageContext pageContext, String rawText) {
+        RegionPayload payload = new RegionPayload();
+        payload.setRegionId("page-" + pageContext.getPageNumber());
+        payload.setPageNumber(pageContext.getPageNumber());
+        payload.setDisplayOrder(pageContext.getPageNumber());
+        payload.setRegionType("FULL_PAGE");
+        payload.setClassificationSource("SYSTEM_GUIDED");
+        payload.setSendText(true);
+        payload.setSendImage(false);
+        payload.setSendImageToAi(false);
+        payload.setKeepCropInSession(false);
+        payload.setSaveToLibrary(false);
+        payload.setDisplayInExam(false);
+        payload.setExpectedQuestionType("AUTO_DETECT");
+        payload.setPlacement("UNASSIGNED");
+        payload.setBbox(new NormalizedBoundingBox(0.0, 0.0, 1.0, 1.0));
+        payload.setLockedByLecturer(false);
+        payload.setOcrText(rawText);
+        payload.setLecturerNote("Tự nhận diện cấu trúc trong toàn bộ trang đã chọn.");
+        payload.setSuggestedNote("Tách nội dung theo thứ tự hiển thị và giữ sourceRegionId của trang.");
+
+        RegionLocks locks = new RegionLocks();
+        locks.setRegionType(false);
+        locks.setSection(false);
+        locks.setGroup(false);
+        locks.setQuestionRange(false);
+        locks.setQuestionType(false);
+        locks.setPlacement(false);
+        payload.setLocks(locks);
+        return payload;
     }
 
     private String getDefaultLecturerNote(String regionType) {

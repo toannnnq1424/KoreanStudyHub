@@ -50,6 +50,18 @@ public class PracticeDraft {
     @Column(name = "creation_method", length = 30)
     private String creationMethod;
 
+    @Column(name = "draft_schema_version", length = 40)
+    private String draftSchemaVersion;
+
+    @Column(name = "assessment_program_code", length = 40)
+    private String assessmentProgramCode;
+
+    @Column(name = "assessment_program_version_id")
+    private Long assessmentProgramVersionId;
+
+    @Column(name = "exam_template_code", length = 80)
+    private String examTemplateCode;
+
     @Version
     private Integer version = 0;
 
@@ -81,6 +93,13 @@ public class PracticeDraft {
         this.ownerId = ownerId;
         this.draftJson = draftJson;
         this.creationMethod = "MANUAL"; // default
+        this.draftSchemaVersion = "practice-draft-v3";
+        this.assessmentProgramCode = category != null && category.toUpperCase().startsWith("TOPIK")
+                ? "TOPIK"
+                : "CUSTOM";
+        this.examTemplateCode = "TOPIK_I".equalsIgnoreCase(category)
+                ? "TOPIK_I"
+                : (assessmentProgramCode.equals("TOPIK") ? "TOPIK_II" : "CUSTOM_FLEXIBLE");
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -188,4 +207,13 @@ public class PracticeDraft {
     public void setCreationMethod(String creationMethod) {
         this.creationMethod = creationMethod;
     }
+
+    public String getDraftSchemaVersion() { return draftSchemaVersion; }
+    public void setDraftSchemaVersion(String draftSchemaVersion) { this.draftSchemaVersion = draftSchemaVersion; }
+    public String getAssessmentProgramCode() { return assessmentProgramCode; }
+    public void setAssessmentProgramCode(String assessmentProgramCode) { this.assessmentProgramCode = assessmentProgramCode; }
+    public Long getAssessmentProgramVersionId() { return assessmentProgramVersionId; }
+    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) { this.assessmentProgramVersionId = assessmentProgramVersionId; }
+    public String getExamTemplateCode() { return examTemplateCode; }
+    public void setExamTemplateCode(String examTemplateCode) { this.examTemplateCode = examTemplateCode; }
 }

@@ -258,7 +258,10 @@ public class AssessmentContractCodec {
                 String fallbackId = "opt_" + (index + 1);
                 String id = node.isObject() ? node.path("id").asText(fallbackId) : fallbackId;
                 String text = node.isObject() ? node.path("text").asText("") : node.asText("");
-                options.add(new QuestionContent.Option(id, text));
+                String imageReference = node.isObject()
+                        ? node.path("imageReference").asText(node.path("imageUrl").asText(null))
+                        : null;
+                options.add(new QuestionContent.Option(id, text, imageReference));
             }
             return options;
         } catch (JsonProcessingException exception) {

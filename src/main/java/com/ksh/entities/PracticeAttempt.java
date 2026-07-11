@@ -88,6 +88,15 @@ public class PracticeAttempt {
     @Column(name = "total_points", precision = 6, scale = 2)
     private BigDecimal totalPoints;
 
+    @Column(name = "score_unit", length = 30)
+    private String scoreUnit;
+
+    @Column(name = "earned_points", precision = 8, scale = 2)
+    private BigDecimal earnedPoints;
+
+    @Column(name = "score_percentage", precision = 6, scale = 2)
+    private BigDecimal scorePercentage;
+
     @Column(name = "answers_json", columnDefinition = "JSON")
     private String answersJson;
 
@@ -171,6 +180,7 @@ public class PracticeAttempt {
         this.score = score;
         this.totalPoints = totalPoints;
         this.answersJson = answersJson;
+        synchronizeScoreContract(score, totalPoints);
         this.status = STATUS_SUBMITTED;
         this.submittedAt = LocalDateTime.now();
     }
@@ -182,6 +192,7 @@ public class PracticeAttempt {
         this.totalPoints = totalPoints;
         this.answersJson = answersJson;
         this.aiFeedbackJson = aiFeedbackJson;
+        synchronizeScoreContract(score, totalPoints);
         this.status = STATUS_GRADED;
         this.submittedAt = LocalDateTime.now();
     }
@@ -190,6 +201,7 @@ public class PracticeAttempt {
                                        Long usageId, String engine) {
         requireNotDiscarded();
         this.score = score;
+        synchronizeScoreContract(score, this.totalPoints);
         this.aiFeedbackJson = aiFeedbackJson;
         this.analysisStatus = ANALYSIS_SUCCEEDED;
         this.analysisCompletedAt = LocalDateTime.now();
@@ -206,6 +218,39 @@ public class PracticeAttempt {
         this.analysisUsageId = usageId;
     }
 
+    private void synchronizeScoreContract(BigDecimal compatibilityScore, BigDecimal possiblePoints) {
+        if (compatibilityScore == null) {
+            this.earnedPoints = null;
+            this.scorePercentage = null;
+            this.scoreUnit = null;
+            return;
+        }
+        boolean percentageCompatibility = "WRITING".equals(skill) || "SPEAKING".equals(skill);
+        if (percentageCompatibility) {
+            this.scoreUnit = "PERCENTAGE";
+            this.scorePercentage = clampPercentage(compatibilityScore);
+            this.earnedPoints = possiblePoints == null || possiblePoints.signum() <= 0
+                    ? null
+                    : this.scorePercentage.multiply(possiblePoints)
+                            .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            this.scoreUnit = "EARNED_POINTS";
+            BigDecimal nonNegative = compatibilityScore.max(BigDecimal.ZERO);
+            this.earnedPoints = possiblePoints == null || possiblePoints.signum() <= 0
+                    ? nonNegative
+                    : nonNegative.min(possiblePoints);
+            this.scorePercentage = possiblePoints == null || possiblePoints.signum() <= 0
+                    ? BigDecimal.ZERO
+                    : this.earnedPoints.multiply(BigDecimal.valueOf(100))
+                            .divide(possiblePoints, 2, java.math.RoundingMode.HALF_UP)
+                            .min(BigDecimal.valueOf(100));
+        }
+    }
+
+    private static BigDecimal clampPercentage(BigDecimal value) {
+        return value.max(BigDecimal.ZERO).min(BigDecimal.valueOf(100));
+    }
+
     public void discard(LocalDateTime discardedAt) {
         if (STATUS_DISCARDED.equals(status)) {
             return;
@@ -220,6 +265,9 @@ public class PracticeAttempt {
         this.discardedAt = discardedAt;
         score = null;
         totalPoints = null;
+        scoreUnit = null;
+        earnedPoints = null;
+        scorePercentage = null;
         answersJson = null;
         aiFeedbackJson = null;
         analysisStatus = ANALYSIS_NOT_REQUESTED;
@@ -264,6 +312,9 @@ public class PracticeAttempt {
     public String getAnalysisStatus() { return analysisStatus; }
     public BigDecimal getScore() { return score; }
     public BigDecimal getTotalPoints() { return totalPoints; }
+    public String getScoreUnit() { return scoreUnit; }
+    public BigDecimal getEarnedPoints() { return earnedPoints; }
+    public BigDecimal getScorePercentage() { return scorePercentage; }
     public String getAnswersJson() { return answersJson; }
     public String getAiFeedbackJson() { return aiFeedbackJson; }
     public LocalDateTime getAnalysisRequestedAt() { return analysisRequestedAt; }
@@ -286,8 +337,14 @@ public class PracticeAttempt {
     }
     public void setLockVersion(Long lockVersion) { this.lockVersion = lockVersion; }
     public void setAnalysisStatus(String analysisStatus) { this.analysisStatus = analysisStatus; }
-    public void setScore(BigDecimal score) { this.score = score; }
-    public void setTotalPoints(BigDecimal totalPoints) { this.totalPoints = totalPoints; }
+    public void setScore(BigDecimal score) {
+        this.score = score;
+        synchronizeScoreContract(score, totalPoints);
+    }
+    public void setTotalPoints(BigDecimal totalPoints) {
+        this.totalPoints = totalPoints;
+        synchronizeScoreContract(score, totalPoints);
+    }
     public void setAnswersJson(String answersJson) { this.answersJson = answersJson; }
     public void setAiFeedbackJson(String aiFeedbackJson) { this.aiFeedbackJson = aiFeedbackJson; }
     public void setAnalysisRequestedAt(LocalDateTime analysisRequestedAt) { this.analysisRequestedAt = analysisRequestedAt; }

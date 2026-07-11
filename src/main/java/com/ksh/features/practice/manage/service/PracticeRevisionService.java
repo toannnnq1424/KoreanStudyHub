@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PracticeRevisionService {
@@ -63,12 +65,6 @@ public class PracticeRevisionService {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Bạn không có quyền khôi phục học liệu này.");
         }
-        List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
-        if (tests.size() > 1) {
-            throw new IllegalStateException(
-                    "Không thể khôi phục snapshot cũ cho bộ đề có nhiều bài kiểm tra.");
-        }
-
         // Parse JSON snapshot
         JsonNode root;
         try {
@@ -82,10 +78,12 @@ public class PracticeRevisionService {
         questionRepository.deleteBySetId(setId);
         groupRepository.deleteBySetId(setId);
         sectionRepository.deleteBySetId(setId);
+        testRepository.deleteBySetId(setId);
         
         questionRepository.flush();
         groupRepository.flush();
         sectionRepository.flush();
+        testRepository.flush();
 
         // Restore set metadata
         JsonNode docNode = root.path("document");
@@ -97,26 +95,49 @@ public class PracticeRevisionService {
             set.setAssessmentProgramCode(programCode.isBlank()
                     ? programCodeForCategory(set.getTopikLevel())
                     : programCode);
+            Long programVersionId = nullableLong(docNode, "assessmentProgramVersionId");
+            if (programVersionId != null) {
+                set.setAssessmentProgramVersionId(programVersionId);
+            }
+            String examTemplateCode = nullableText(docNode, "examTemplateCode");
+            if (examTemplateCode != null) {
+                set.setExamTemplateCode(examTemplateCode);
+            }
+        }
+        if (root.path("materials").isArray()) {
+            try {
+                JsonNode metadata = set.getMetadataJson() == null || set.getMetadataJson().isBlank()
+                        ? objectMapper.createObjectNode()
+                        : objectMapper.readTree(set.getMetadataJson());
+                if (metadata instanceof com.fasterxml.jackson.databind.node.ObjectNode objectMetadata) {
+                    objectMetadata.set("materials", root.path("materials").deepCopy());
+                    set.setMetadataJson(objectMetadata.toString());
+                }
+            } catch (Exception exception) {
+                throw new IllegalArgumentException("Metadata tài nguyên snapshot không hợp lệ.", exception);
+            }
         }
         setRepository.save(set);
-        PracticeTest targetTest = tests.isEmpty()
-                ? testRepository.save(new PracticeTest(setId, set.getTitle(), set.getDescription(), 0, null))
-                : tests.get(0);
+        Map<String, PracticeTest> persistedTests = persistTests(root, set);
+        Map<Long, Integer> sectionOrderByTest = new LinkedHashMap<>();
 
         // Restore sections, groups and questions
         JsonNode sectionsNode = root.path("sections");
         if (sectionsNode.isArray()) {
             for (int sIdx = 0; sIdx < sectionsNode.size(); sIdx++) {
                 JsonNode sNode = sectionsNode.get(sIdx);
+                PracticeTest targetTest = resolveTestForSection(sNode, persistedTests);
+                int sectionDisplayOrder = sectionOrderByTest.getOrDefault(targetTest.getId(), 0);
+                sectionOrderByTest.put(targetTest.getId(), sectionDisplayOrder + 1);
                 PracticeSection section = new PracticeSection(
                         setId,
                         sNode.path("title").asText("Phần " + (sIdx + 1)),
                         sNode.path("skill").asText("READING"),
-                        "DEFAULT",
-                        "",
+                        sNode.path("lessonCode").asText("DEFAULT"),
+                        sNode.path("instructions").asText(""),
                         sNode.path("durationMinutes").asInt(40),
                         BigDecimal.valueOf(sNode.path("totalPoints").asDouble(100.0)),
-                        sIdx
+                        sectionDisplayOrder
                 );
                 section.setTestId(targetTest.getId());
                 PracticeSection savedSection = sectionRepository.save(section);
@@ -128,7 +149,7 @@ public class PracticeRevisionService {
                         
                         PracticeQuestionGroup group = new PracticeQuestionGroup(
                                 setId,
-                                gNode.path("label").asText("Câu"),
+                                gNode.path("groupCode").asText(gNode.path("label").asText("Câu")),
                                 1,
                                 1,
                                 gNode.path("instruction").asText(""),
@@ -137,6 +158,7 @@ public class PracticeRevisionService {
                                 gIdx
                         );
                         group.setSectionId(savedSection.getId());
+                        applyStimulus(group, gNode, sNode.path("skill").asText("READING"));
                         PracticeQuestionGroup savedGroup = groupRepository.save(group);
 
                         JsonNode questionsNode = gNode.path("questions");
@@ -148,7 +170,7 @@ public class PracticeRevisionService {
                                 JsonNode optsNode = qNode.path("options");
                                 if (optsNode.isArray()) {
                                     for (JsonNode opt : optsNode) {
-                                        optList.add(opt.asText(""));
+                                        optList.add(opt.isObject() ? opt.path("text").asText("") : opt.asText(""));
                                     }
                                 }
 
@@ -219,6 +241,45 @@ public class PracticeRevisionService {
         log.info("[Revision] Successfully restored Set ID={} to revision from logId={}", setId, logId);
     }
 
+    private Map<String, PracticeTest> persistTests(JsonNode root, PracticeSet set) {
+        Map<String, PracticeTest> result = new LinkedHashMap<>();
+        JsonNode tests = root.path("tests");
+        if (tests.isArray()) {
+            for (int index = 0; index < tests.size(); index++) {
+                JsonNode testNode = tests.get(index);
+                int testNo = testNode.path("testNo").asInt(index + 1);
+                Integer estimatedMinutes = nullableInteger(testNode, "estimatedMinutes");
+                PracticeTest saved = testRepository.save(new PracticeTest(
+                        set.getId(),
+                        testNode.path("title").asText("Test " + testNo),
+                        testNode.path("description").asText(""),
+                        index,
+                        estimatedMinutes != null && estimatedMinutes > 0 ? estimatedMinutes : null
+                ));
+                result.put(testNode.path("clientId").asText("test-" + testNo), saved);
+                result.put("no:" + testNo, saved);
+                result.putIfAbsent("default", saved);
+            }
+        }
+        if (result.isEmpty()) {
+            PracticeTest saved = testRepository.save(new PracticeTest(
+                    set.getId(), set.getTitle(), set.getDescription(), 0, null));
+            result.put("no:1", saved);
+            result.put("default", saved);
+        }
+        return result;
+    }
+
+    private static PracticeTest resolveTestForSection(JsonNode section,
+                                                      Map<String, PracticeTest> persistedTests) {
+        String clientId = section.path("testClientId").asText("");
+        PracticeTest test = clientId.isBlank() ? null : persistedTests.get(clientId);
+        if (test == null) test = persistedTests.get("no:" + section.path("testNo").asInt(1));
+        if (test == null) test = persistedTests.get("default");
+        if (test == null) throw new IllegalStateException("Snapshot section không tham chiếu test hợp lệ.");
+        return test;
+    }
+
     private void validateWritingTaskMetadata(JsonNode root) {
         JsonNode sections = root.path("sections");
         if (!sections.isArray()) {
@@ -244,6 +305,48 @@ public class PracticeRevisionService {
                 }
             }
         }
+    }
+
+    private void applyStimulus(PracticeQuestionGroup group, JsonNode groupNode, String skill) {
+        JsonNode stimulus = groupNode.path("stimulus");
+        String passage = firstNonBlank(stimulus.path("passageText").asText(""),
+                groupNode.path("passageText").asText(""));
+        String transcript = firstNonBlank(stimulus.path("transcriptText").asText(""),
+                groupNode.path("transcriptText").asText(""));
+        if (transcript.isBlank() && "LISTENING".equalsIgnoreCase(skill)) {
+            transcript = groupNode.path("passageText").asText("");
+        }
+        String type = stimulus.path("type").asText("");
+        if (type.isBlank()) {
+            type = "READING".equalsIgnoreCase(skill) && !passage.isBlank()
+                    ? "READING_PASSAGE"
+                    : ("LISTENING".equalsIgnoreCase(skill) ? "LISTENING_AUDIO" : "NONE");
+        }
+        group.setStimulusType(type);
+        group.setPassageText(blankToNull(passage));
+        group.setTranscriptText(blankToNull(transcript));
+        group.setImageUrl(blankToNull(firstNonBlank(stimulus.path("imageReference").asText(""),
+                groupNode.path("imageUrl").asText(""))));
+        if (stimulus.path("provenance").isObject()) {
+            try {
+                group.setStimulusProvenanceJson(objectMapper.writeValueAsString(stimulus.path("provenance")));
+            } catch (Exception exception) {
+                throw new IllegalArgumentException("Stimulus provenance không hợp lệ.", exception);
+            }
+        }
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? (second == null ? "" : second) : first;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private static Long nullableLong(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() || !value.canConvertToLong() ? null : value.longValue();
     }
 
     private WritingTaskType resolveWritingTaskTypeForRestore(String skill, String questionType, JsonNode question) {

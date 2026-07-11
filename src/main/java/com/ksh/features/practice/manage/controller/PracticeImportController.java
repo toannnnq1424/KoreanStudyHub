@@ -1,12 +1,11 @@
 package com.ksh.features.practice.manage.controller;
 
 import com.ksh.entities.PracticePdfImportSession;
+import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -23,15 +22,16 @@ import java.util.List;
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class PracticeImportController {
 
-    private static final Logger log = LoggerFactory.getLogger(PracticeImportController.class);
-
     private final PracticePdfImportSessionService importSessionService;
     private final PracticePdfImportSessionRepository sessionRepository;
+    private final AssessmentAuthoringCatalogService authoringCatalogService;
 
     public PracticeImportController(PracticePdfImportSessionService importSessionService,
-                                    PracticePdfImportSessionRepository sessionRepository) {
+                                    PracticePdfImportSessionRepository sessionRepository,
+                                    AssessmentAuthoringCatalogService authoringCatalogService) {
         this.importSessionService = importSessionService;
         this.sessionRepository = sessionRepository;
+        this.authoringCatalogService = authoringCatalogService;
     }
 
     @GetMapping("/practice/manage/import")
@@ -44,6 +44,7 @@ public class PracticeImportController {
         List<PracticePdfImportSession> recentSessions = sessionRepository
                 .findByUploaderIdOrderByCreatedAtDesc(user.getId());
         model.addAttribute("recentSessions", recentSessions);
+        model.addAttribute("authoringCatalog", authoringCatalogService.catalog());
         
         return "practice/manage/import-wizard";
     }
@@ -58,6 +59,8 @@ public class PracticeImportController {
         model.addAttribute("sessionId", sessionId);
         model.addAttribute("sessionInfo", session);
         model.addAttribute("draftId", session.getLinkedDraftId());
+        model.addAttribute("canViewAiRequest",
+                user.getRole() == com.ksh.security.Role.HEAD || user.getRole() == com.ksh.security.Role.ADMIN);
         
         return "practice/manage/import-workspace";
     }

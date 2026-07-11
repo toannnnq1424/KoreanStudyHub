@@ -47,6 +47,12 @@ public class PracticeSet {
     @Column(name = "assessment_program_code", nullable = false, length = 40)
     private String assessmentProgramCode;
 
+    @Column(name = "assessment_program_version_id")
+    private Long assessmentProgramVersionId;
+
+    @Column(name = "exam_template_code", length = 80)
+    private String examTemplateCode;
+
     @Column(nullable = false, length = 20)
     private String scope;
 
@@ -129,6 +135,10 @@ public class PracticeSet {
         return assessmentProgramCode;
     }
 
+    public Long getAssessmentProgramVersionId() { return assessmentProgramVersionId; }
+
+    public String getExamTemplateCode() { return examTemplateCode; }
+
     public String getScope() {
         return scope;
     }
@@ -187,6 +197,14 @@ public class PracticeSet {
 
     public void setAssessmentProgramCode(String assessmentProgramCode) {
         this.assessmentProgramCode = assessmentProgramCode;
+    }
+
+    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
+        this.assessmentProgramVersionId = assessmentProgramVersionId;
+    }
+
+    public void setExamTemplateCode(String examTemplateCode) {
+        this.examTemplateCode = examTemplateCode;
     }
 
     public void setScope(String scope) {

@@ -9,8 +9,8 @@ import com.ksh.entities.PracticePdfPageExtraction;
 import com.ksh.features.practice.manage.service.*;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Role;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +39,8 @@ public class PracticePdfImportApiController {
     private final PracticePdfImportSessionService sessionService;
     private final PracticePdfRegionService regionService;
     private final PracticePdfPageExtractionService pageExtractionService;
-    private final PracticePdfCropService cropService;
     private final LecturerAssetService assetService;
     private final LecturerAssetRepository assetRepository;
-    private final PracticeDraftAssetUsageRepository usageRepository;
     private final PracticePdfPayloadPreviewService payloadPreviewService;
     private final PracticePdfAiPayloadBuilder payloadBuilder;
     private final PracticePdfAiOrchestrator aiOrchestrator;
@@ -54,10 +52,8 @@ public class PracticePdfImportApiController {
     public PracticePdfImportApiController(PracticePdfImportSessionService sessionService,
                                           PracticePdfRegionService regionService,
                                           PracticePdfPageExtractionService pageExtractionService,
-                                          PracticePdfCropService cropService,
                                           LecturerAssetService assetService,
                                           LecturerAssetRepository assetRepository,
-                                          PracticeDraftAssetUsageRepository usageRepository,
                                           PracticePdfPayloadPreviewService payloadPreviewService,
                                           PracticePdfAiPayloadBuilder payloadBuilder,
                                           PracticePdfAiOrchestrator aiOrchestrator,
@@ -68,10 +64,8 @@ public class PracticePdfImportApiController {
         this.sessionService = sessionService;
         this.regionService = regionService;
         this.pageExtractionService = pageExtractionService;
-        this.cropService = cropService;
         this.assetService = assetService;
         this.assetRepository = assetRepository;
-        this.usageRepository = usageRepository;
         this.payloadPreviewService = payloadPreviewService;
         this.payloadBuilder = payloadBuilder;
         this.aiOrchestrator = aiOrchestrator;
@@ -201,7 +195,8 @@ public class PracticePdfImportApiController {
                                                                                                 @AuthenticationPrincipal KshUserDetails user) {
         PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
         PracticePdfPayloadPreviewService.PayloadPreviewDto dto = payloadPreviewService.getPreview(session);
-        return ResponseEntity.ok(dto);
+        boolean privileged = user.getRole() == Role.HEAD || user.getRole() == Role.ADMIN;
+        return ResponseEntity.ok(privileged ? dto : dto.redacted());
     }
 
     @PostMapping("/import-sessions/{sessionId}/generate")

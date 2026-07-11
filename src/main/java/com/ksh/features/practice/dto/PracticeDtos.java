@@ -58,10 +58,27 @@ public final class PracticeDtos {
         Integer questionFrom,
         Integer questionTo,
         String instruction,
+        String stimulusType,
+        String passageText,
+        String transcriptText,
+        String imageUrl,
+        String stimulusProvenanceJson,
         String audioUrl,
         ExampleBox exampleBox,
         List<PracticeQuestionRow> questions
     ) {
+        public PracticeQuestionGroupRow(Long id,
+                                        Long sectionId,
+                                        String groupLabel,
+                                        Integer questionFrom,
+                                        Integer questionTo,
+                                        String instruction,
+                                        String audioUrl,
+                                        ExampleBox exampleBox,
+                                        List<PracticeQuestionRow> questions) {
+            this(id, sectionId, groupLabel, questionFrom, questionTo, instruction,
+                    null, null, null, null, null, audioUrl, exampleBox, questions);
+        }
     }
 
     public record PracticeTestRow(Long id,

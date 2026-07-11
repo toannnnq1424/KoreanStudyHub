@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Nhập đề từ Excel | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" href="../../../static/css/app-shell.css" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-editor.css" th:href="@{/css/practice/manage-editor.css}">
+</head>
+<body class="pi-body">
+<main class="excel-import-page">
+  <div class="excel-import-shell">
+    <div class="excel-import-heading">
+      <div>
+        <div class="editor-eyebrow">Lecturer workspace</div>
+        <h1>Nhập dữ liệu Excel vào <span th:text="${lessonCode}">R1</span></h1>
+      </div>
+      <a th:href="${draftId != null ? '/practice/manage/drafts/' + draftId : '/practice/manage'}"
+         class="btn-action btn-sec">Quay lại</a>
+    </div>
+
+    <section class="excel-import-form">
+      <div class="excel-template-row">
+        <div>
+          <label class="form-label" for="template-code">Mẫu đề</label>
+          <select id="template-code" class="form-input" disabled>
+            <option th:each="template : ${authoringCatalog.templates}"
+                    th:value="${template.code}" th:text="${template.displayName}"
+                    th:selected="${template.code == selectedTemplateCode}">Mẫu đề</option>
+          </select>
+        </div>
+        <a id="download-template" class="btn-action btn-sec" href="#">Tải file mẫu</a>
+      </div>
+
+      <label class="form-label" for="excel-file">File XLSX</label>
+      <input id="excel-file" class="form-input" type="file"
+             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+
+      <label class="form-label excel-media-label" for="excel-media-files">Ảnh/audio đi kèm (tùy chọn)</label>
+      <input id="excel-media-files" class="form-input" type="file" multiple
+             accept=".png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.ogg,.webm,image/*,audio/*">
+      <div class="excel-field-hint">
+        Chọn các tệp được tham chiếu trong Excel. Hệ thống ghép theo tên tệp, hiển thị ngay trong preview
+        và chỉ tải những tệp thực sự được dùng khi xác nhận nhập.
+      </div>
+      <div id="page-error" class="excel-page-error" role="alert" hidden></div>
+
+      <div class="excel-form-actions">
+        <button id="preview-button" type="button" class="btn-action btn-pri">Xem trước dữ liệu</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog id="excel-preview-modal" class="excel-preview-modal" aria-labelledby="excel-preview-title">
+  <div class="excel-preview-dialog">
+    <header class="excel-preview-header">
+      <div>
+        <div class="editor-eyebrow">Excel preview</div>
+        <h2 id="excel-preview-title">Kiểm tra dữ liệu trước khi nhập</h2>
+      </div>
+      <button id="close-preview" class="excel-icon-button" type="button" aria-label="Đóng">&times;</button>
+    </header>
+
+    <div class="excel-preview-body">
+      <div class="excel-summary-grid" aria-label="Tổng hợp dữ liệu import">
+        <div class="excel-summary-item">
+          <span>Tổng số dòng</span>
+          <strong id="summary-total">0</strong>
+        </div>
+        <div class="excel-summary-item excel-summary-valid">
+          <span>Sẽ import</span>
+          <strong id="summary-importable">0</strong>
+        </div>
+        <div class="excel-summary-item excel-summary-warning">
+          <span>Cảnh báo</span>
+          <strong id="summary-warning">0</strong>
+        </div>
+        <div class="excel-summary-item excel-summary-error">
+          <span>Lỗi</span>
+          <strong id="summary-error">0</strong>
+        </div>
+      </div>
+
+      <div id="global-issue-list" class="excel-global-issues" hidden></div>
+
+      <div id="preview-filters" class="excel-filter-tabs" role="tablist" aria-label="Lọc trạng thái dòng">
+        <button type="button" class="is-active" data-filter="ALL" role="tab" aria-selected="true">Tất cả</button>
+        <button type="button" data-filter="ERROR" role="tab" aria-selected="false">Lỗi</button>
+        <button type="button" data-filter="WARNING" role="tab" aria-selected="false">Cảnh báo</button>
+        <button type="button" data-filter="VALID" role="tab" aria-selected="false">Hợp lệ</button>
+      </div>
+
+      <div class="excel-table-wrap">
+        <table class="excel-preview-table">
+          <thead>
+          <tr>
+            <th>Sheet / Dòng</th>
+            <th>Trạng thái</th>
+            <th>Test / Section</th>
+            <th>Nhóm / Hướng dẫn</th>
+            <th>Nhóm / Bài đọc</th>
+            <th>Nhóm / Transcript</th>
+            <th>Nhóm / Tài nguyên</th>
+            <th>Nhóm / Câu</th>
+            <th>Câu / Tài nguyên</th>
+            <th>Câu / Nội dung đề</th>
+            <th>Câu / Ghi chú GV</th>
+            <th>Dạng / Đáp án</th>
+            <th>Option A / Cặp 1</th>
+            <th>Option B / Cặp 2</th>
+            <th>Option C / Cặp 3</th>
+            <th>Option D / Cặp 4</th>
+            <th>Option E / Cặp 5</th>
+            <th>Option F / Cặp 6</th>
+            <th>Option G / Cặp 7</th>
+            <th>Option H / Cặp 8</th>
+          </tr>
+          </thead>
+          <tbody id="preview-rows"></tbody>
+        </table>
+        <div id="preview-empty" class="excel-preview-empty" hidden>Không có dòng phù hợp.</div>
+      </div>
+    </div>
+
+    <footer class="excel-preview-footer">
+      <div id="preview-metadata" class="excel-preview-metadata"></div>
+      <div class="excel-preview-actions">
+        <button id="choose-other-file" type="button" class="btn-action btn-sec">Chọn file khác</button>
+        <button id="confirm-import" type="button" class="btn-action btn-pri" disabled>Không có dòng hợp lệ</button>
+      </div>
+    </footer>
+  </div>
+</dialog>
+
+<style>
+  .excel-import-page{min-height:100vh;background:#f7f8fc;padding:32px 20px}
+  .excel-import-shell{max-width:980px;margin:0 auto}
+  .excel-import-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
+  .excel-import-heading h1{margin:4px 0 0;font-size:1.7rem;color:#172033;letter-spacing:0}
+  .excel-import-form{background:#fff;border:1px solid #e3e7ef;border-radius:8px;padding:24px}
+  .excel-template-row{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:12px;align-items:end;margin-bottom:20px}
+  .excel-form-actions{display:flex;justify-content:flex-end;margin-top:20px}
+  .excel-media-label{display:block;margin-top:16px}
+  .excel-field-hint{margin-top:7px;color:#667085;font-size:.82rem;line-height:1.45}
+  .excel-page-error{margin-top:14px;padding:11px 12px;border:1px solid #fecaca;border-radius:6px;background:#fff1f2;color:#9f1239;font-size:.86rem}
+  .excel-preview-modal{position:fixed;inset:0;margin:auto;width:min(1180px,calc(100vw - 32px));max-width:none;max-height:calc(100vh - 32px);padding:0;border:0;border-radius:8px;box-shadow:0 24px 70px rgba(23,32,51,.28);overflow:hidden;color:#172033}
+  .excel-preview-modal::backdrop{background:rgba(23,32,51,.58)}
+  .excel-preview-dialog{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(100vh - 32px);background:#fff}
+  .excel-preview-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid #e3e7ef}
+  .excel-preview-header h2{margin:3px 0 0;font-size:1.25rem;letter-spacing:0}
+  .excel-icon-button{width:36px;height:36px;border:0;background:transparent;color:#5f6b7a;font-size:1.75rem;line-height:1;cursor:pointer;border-radius:6px}
+  .excel-icon-button:hover,.excel-icon-button:focus-visible{background:#f1f3f7;color:#172033;outline:2px solid transparent}
+  .excel-preview-body{min-height:0;overflow:auto;padding:22px 24px}
+  .excel-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e3e7ef;border-radius:8px;overflow:hidden}
+  .excel-summary-item{min-height:92px;padding:16px 18px;border-right:1px solid #e3e7ef;background:#fafbfc}
+  .excel-summary-item:last-child{border-right:0}
+  .excel-summary-item span{display:block;color:#667085;font-size:.83rem}
+  .excel-summary-item strong{display:block;margin-top:7px;font-size:1.55rem;line-height:1}
+  .excel-summary-valid{background:#effaf4}.excel-summary-valid strong{color:#067647}
+  .excel-summary-warning{background:#fffaeb}.excel-summary-warning strong{color:#b54708}
+  .excel-summary-error{background:#fff1f3}.excel-summary-error strong{color:#b42318}
+  .excel-global-issues{margin-top:16px;border:1px solid #fecaca;border-radius:6px;background:#fff7f7;padding:10px 12px;color:#9f1239;font-size:.84rem}
+  .excel-global-issues>div+div{margin-top:6px}
+  .excel-filter-tabs{display:flex;gap:4px;margin:18px 0 10px}
+  .excel-filter-tabs button{border:1px solid #d9dee8;background:#fff;color:#475467;border-radius:6px;padding:7px 13px;font:inherit;font-size:.84rem;cursor:pointer}
+  .excel-filter-tabs button.is-active{border-color:#3559dc;background:#3559dc;color:#fff}
+  .excel-table-wrap{border:1px solid #e3e7ef;border-radius:8px;overflow:auto}
+  .excel-preview-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:3420px}
+  .excel-preview-table th{position:sticky;top:0;z-index:2;padding:10px 12px;background:#f7f8fb;color:#475467;text-align:left;font-size:.76rem;text-transform:uppercase;font-weight:700}
+  .excel-preview-table td{padding:11px 12px;border-top:1px solid #e9ecf2;vertical-align:top;font-size:.84rem;overflow-wrap:anywhere}
+  .excel-preview-table th:nth-child(1){width:150px}.excel-preview-table th:nth-child(2){width:110px}.excel-preview-table th:nth-child(3){width:145px}.excel-preview-table th:nth-child(4){width:190px}.excel-preview-table th:nth-child(5),.excel-preview-table th:nth-child(6){width:230px}.excel-preview-table th:nth-child(7),.excel-preview-table th:nth-child(9){width:220px}.excel-preview-table th:nth-child(8){width:155px}.excel-preview-table th:nth-child(10){width:260px}.excel-preview-table th:nth-child(11){width:250px}.excel-preview-table th:nth-child(12){width:190px}.excel-preview-table th:nth-child(n+13){width:180px}
+  .excel-row-error{background:#fff7f7}.excel-row-warning{background:#fffdf5}
+  .excel-status{display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;border-radius:999px;font-size:.75rem;font-weight:700}
+  .excel-status-valid{background:#dcfae6;color:#067647}.excel-status-warning{background:#fef0c7;color:#b54708}.excel-status-error{background:#fee4e2;color:#b42318}
+  .excel-row-prompt{color:#344054}.excel-row-note{margin-top:4px;color:#b42318;font-size:.78rem}.excel-row-note-warning{color:#b54708}
+  .excel-preview-image{display:block;max-width:150px;max-height:96px;object-fit:contain;margin-top:7px;border:1px solid #d9dee8;border-radius:6px;background:#fff}
+  .excel-preview-audio{display:block;width:190px;max-width:100%;height:32px;margin-top:7px}
+  .excel-media-ref{display:block;margin-top:5px;color:#475467;font-size:.75rem}
+  .excel-empty-value{color:#98a2b3}
+  .excel-preview-empty{padding:28px;text-align:center;color:#667085;font-size:.86rem}
+  .excel-preview-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 24px;border-top:1px solid #e3e7ef;background:#fafbfc}
+  .excel-preview-metadata{color:#667085;font-size:.82rem}
+  .excel-preview-actions{display:flex;justify-content:flex-end;gap:10px}
+  @media(max-width:760px){
+    .excel-import-heading,.excel-preview-footer{align-items:stretch;flex-direction:column}
+    .excel-template-row{grid-template-columns:1fr}.excel-template-row .btn-action{justify-content:center}
+    .excel-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .excel-summary-item:nth-child(2){border-right:0}.excel-summary-item:nth-child(-n+2){border-bottom:1px solid #e3e7ef}
+    .excel-preview-actions{display:grid;grid-template-columns:1fr 1fr}.excel-preview-actions .btn-action{justify-content:center}
+    .excel-preview-header,.excel-preview-body,.excel-preview-footer{padding-left:16px;padding-right:16px}
+  }
+</style>
+
+<script th:inline="javascript">
+  const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
+  const SELECTED_TEST_NO = /*[[${testNo}]]*/ null;
+  const SELECTED_LESSON_CODE = /*[[${lessonCode}]]*/ null;
+  const SELECTED_TEMPLATE_CODE = /*[[${selectedTemplateCode}]]*/ null;
+  const templateSelect = document.getElementById('template-code');
+  const fileInput = document.getElementById('excel-file');
+  const mediaFileInput = document.getElementById('excel-media-files');
+  const previewButton = document.getElementById('preview-button');
+  const previewModal = document.getElementById('excel-preview-modal');
+  const confirmImportButton = document.getElementById('confirm-import');
+  const pageError = document.getElementById('page-error');
+  const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+  const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+  let previewResult = null;
+  let activeFilter = 'ALL';
+  let pendingMediaByRef = new Map();
+  const mediaObjectUrls = new Map();
+
+  function updateTemplateLink() {
+    if (SELECTED_TEMPLATE_CODE) templateSelect.value = SELECTED_TEMPLATE_CODE;
+    document.getElementById('download-template').href = `/practice/manage/excel/templates/${encodeURIComponent(templateSelect.value)}`;
+    resetPreview();
+  }
+
+  function resetPreview() {
+    previewResult = null;
+    pendingMediaByRef = new Map();
+    clearMediaObjectUrls();
+    confirmImportButton.disabled = true;
+    pageError.hidden = true;
+    if (previewModal.open) previewModal.close();
+  }
+
+  function setLoading(button, loading, label) {
+    button.disabled = loading;
+    button.dataset.label = button.dataset.label || button.textContent;
+    button.textContent = loading ? label : button.dataset.label;
+  }
+
+  async function submit(action, mediaOverrides = null) {
+    if (!fileInput.files[0]) throw new Error('Vui lòng chọn file Excel.');
+    const body = new FormData();
+    body.append('file', fileInput.files[0]);
+    body.append('templateCode', templateSelect.value);
+    body.append('draftId', LINKED_DRAFT_ID);
+    body.append('testNo', SELECTED_TEST_NO);
+    body.append('lessonCode', SELECTED_LESSON_CODE);
+    if (mediaOverrides) body.append('mediaOverrides', JSON.stringify(mediaOverrides));
+    const headers = csrfHeader && csrfToken ? { [csrfHeader]: csrfToken } : {};
+    const response = await fetch(`/practice/manage/excel/${action}`, { method: 'POST', headers, body });
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      const redirectedToLogin = response.redirected && response.url.includes('/login');
+      throw new Error(redirectedToLogin
+        ? 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi thử import.'
+        : `Máy chủ không trả về dữ liệu JSON hợp lệ (HTTP ${response.status}). Bản nháp chưa bị thay đổi.`);
+    }
+    if (!response.ok) throw new Error(data.error || 'Không xử lý được file Excel.');
+    return data;
+  }
+
+  function statusLabel(status) {
+    if (status === 'ERROR') return 'Lỗi';
+    if (status === 'WARNING') return 'Cảnh báo';
+    return 'Hợp lệ';
+  }
+
+  function appendText(container, value, emptyLabel = '-') {
+    const block = document.createElement('div');
+    block.textContent = value || emptyLabel;
+    if (!value) block.className = 'excel-empty-value';
+    container.appendChild(block);
+  }
+
+  function clearMediaObjectUrls() {
+    mediaObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    mediaObjectUrls.clear();
+  }
+
+  function baseName(value) {
+    if (!value) return '';
+    return String(value).replaceAll('\\', '/').split('/').pop().trim().toLowerCase();
+  }
+
+  function mediaKindForFile(file) {
+    if (file.type?.startsWith('image/')) return 'image';
+    if (file.type?.startsWith('audio/')) return 'audio';
+    const extension = baseName(file.name).split('.').pop();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extension)) return 'image';
+    if (['mp3', 'wav', 'm4a', 'ogg', 'webm'].includes(extension)) return 'audio';
+    return null;
+  }
+
+  function inferredKind(fieldName) {
+    const field = String(fieldName || '').toLowerCase();
+    return field.includes('audio') || field === 'mediareference' ? 'audio' : 'image';
+  }
+
+  function rebuildPendingMediaIndex(draftJson) {
+    const pending = new Map();
+    if (!draftJson) return pending;
+    try {
+      const root = JSON.parse(draftJson);
+      (root.materials || []).forEach(material => {
+        if (!material?.materialRef) return;
+        pending.set(material.materialRef, {
+          sourceFileName: material.sourceFileName || material.materialRef,
+          kind: String(material.type || '').toLowerCase(),
+          used: false
+        });
+      });
+      const visit = (value, fieldName = '') => {
+        if (typeof value === 'string' && value.startsWith('material:')) {
+          const ref = value.substring('material:'.length);
+          const current = pending.get(ref) || {
+            sourceFileName: ref,
+            kind: inferredKind(fieldName),
+            used: false
+          };
+          current.kind = current.kind || inferredKind(fieldName);
+          current.used = true;
+          pending.set(ref, current);
+          return;
+        }
+        if (Array.isArray(value)) value.forEach(item => visit(item, fieldName));
+        else if (value && typeof value === 'object') {
+          Object.entries(value).forEach(([key, child]) => visit(child, key));
+        }
+      };
+      visit(root);
+    } catch (error) {
+      return new Map();
+    }
+    return new Map([...pending].filter(([, value]) => value.used));
+  }
+
+  function selectedMediaMatch(reference, expectedKind) {
+    if (!reference?.startsWith('material:')) return null;
+    const ref = reference.substring('material:'.length);
+    const pending = pendingMediaByRef.get(ref) || { sourceFileName: ref, kind: expectedKind };
+    const wanted = baseName(pending.sourceFileName || ref);
+    const matches = [...mediaFileInput.files].filter(file => baseName(file.name) === wanted);
+    if (matches.length !== 1) return null;
+    const file = matches[0];
+    const actualKind = mediaKindForFile(file);
+    const kind = pending.kind || expectedKind;
+    if (kind && actualKind && kind !== actualKind) return null;
+    return { file, kind: kind || actualKind };
+  }
+
+  function objectUrlFor(file) {
+    if (!mediaObjectUrls.has(file)) mediaObjectUrls.set(file, URL.createObjectURL(file));
+    return mediaObjectUrls.get(file);
+  }
+
+  function isRenderableReference(reference) {
+    return typeof reference === 'string'
+      && (reference.startsWith('/') || reference.startsWith('https://') || reference.startsWith('http://'));
+  }
+
+  function appendMedia(container, label, reference, kind) {
+    if (!reference) return;
+    const caption = document.createElement('strong');
+    caption.textContent = label;
+    container.appendChild(caption);
+    const localMatch = selectedMediaMatch(reference, kind);
+    const renderReference = isRenderableReference(reference)
+      ? reference
+      : (localMatch ? objectUrlFor(localMatch.file) : null);
+    if (renderReference) {
+      if (kind === 'image') {
+        const image = document.createElement('img');
+        image.className = 'excel-preview-image';
+        image.src = renderReference;
+        image.alt = label;
+        container.appendChild(image);
+      } else {
+        const audio = document.createElement('audio');
+        audio.className = 'excel-preview-audio';
+        audio.controls = true;
+        audio.preload = 'none';
+        audio.src = renderReference;
+        container.appendChild(audio);
+      }
+    }
+    const ref = document.createElement('span');
+    ref.className = 'excel-media-ref';
+    ref.textContent = localMatch
+      ? `Đã ghép tệp: ${localMatch.file.name}`
+      : reference.startsWith('material:')
+      ? `Chưa chọn tệp: ${reference.substring('material:'.length)}`
+      : reference;
+    container.appendChild(ref);
+  }
+
+  function mediaCell(imageReference, audioReference) {
+    const cell = document.createElement('td');
+    appendMedia(cell, 'Ảnh', imageReference, 'image');
+    appendMedia(cell, 'Audio', audioReference, 'audio');
+    if (!imageReference && !audioReference) appendText(cell, null);
+    return cell;
+  }
+
+  function renderRows() {
+    const visibleRows = (previewResult?.rows || []).filter(row => activeFilter === 'ALL' || row.status === activeFilter);
+    const tbody = document.getElementById('preview-rows');
+    const elements = visibleRows.map(row => {
+      const tr = document.createElement('tr');
+      if (row.status === 'ERROR') tr.className = 'excel-row-error';
+      if (row.status === 'WARNING') tr.className = 'excel-row-warning';
+
+      const sourceRow = document.createElement('td');
+      const sheetName = document.createElement('div');
+      sheetName.textContent = row.sheet || 'Questions';
+      const rowNumber = document.createElement('div');
+      rowNumber.className = 'excel-row-note-warning';
+      rowNumber.textContent = `Dòng ${row.row}`;
+      sourceRow.append(sheetName, rowNumber);
+      tr.appendChild(sourceRow);
+
+      const status = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = `excel-status excel-status-${row.status.toLowerCase()}`;
+      badge.textContent = statusLabel(row.status);
+      status.appendChild(badge);
+      tr.appendChild(status);
+
+      const lesson = document.createElement('td');
+      const skill = row.detail?.skill || '-';
+      lesson.textContent = `Test ${row.testNo || '-'} · ${row.lessonCode || '-'} (${skill})`;
+      tr.appendChild(lesson);
+
+      const groupInstruction = document.createElement('td');
+      appendText(groupInstruction, row.detail?.groupInstruction);
+      tr.appendChild(groupInstruction);
+
+      const groupPassage = document.createElement('td');
+      appendText(groupPassage, row.detail?.groupPassage);
+      tr.appendChild(groupPassage);
+
+      const groupTranscript = document.createElement('td');
+      appendText(groupTranscript, row.detail?.groupTranscript);
+      tr.appendChild(groupTranscript);
+
+      tr.appendChild(mediaCell(row.detail?.groupImageReference, row.detail?.groupAudioReference));
+
+      const group = document.createElement('td');
+      const sourceQuestion = document.createElement('div');
+      sourceQuestion.textContent = `${row.groupCode || '-'} · Câu file ${row.questionNoInSection || '-'}`;
+      group.appendChild(sourceQuestion);
+      if (row.importable && row.importedQuestionNo) {
+        const importedQuestion = document.createElement('div');
+        importedQuestion.className = 'excel-row-note-warning';
+        importedQuestion.textContent = `Sau nhập: Câu ${row.importedQuestionNo}`;
+        group.appendChild(importedQuestion);
+      }
+      tr.appendChild(group);
+
+      tr.appendChild(mediaCell(row.detail?.questionImageReference, row.detail?.questionAudioReference));
+
+      const prompt = document.createElement('td');
+      appendText(prompt, row.prompt || `Câu ${row.questionNoInSection || '-'}`);
+      tr.appendChild(prompt);
+
+      const teacher = document.createElement('td');
+      if (row.teacherExplanation) appendText(teacher, `Giải thích: ${row.teacherExplanation}`);
+      if (row.detail?.teacherNote) appendText(teacher, `Ghi chú: ${row.detail.teacherNote}`);
+      (row.messages || []).forEach(message => {
+        const note = document.createElement('div');
+        note.className = `excel-row-note${row.status === 'WARNING' ? ' excel-row-note-warning' : ''}`;
+        note.textContent = message;
+        teacher.appendChild(note);
+      });
+      if (!teacher.childNodes.length) appendText(teacher, null);
+      tr.appendChild(teacher);
+
+      const contract = document.createElement('td');
+      const type = document.createElement('div');
+      type.textContent = row.questionType || '-';
+      contract.appendChild(type);
+      const answer = document.createElement('div');
+      answer.className = 'excel-row-note-warning';
+      answer.textContent = `Đáp án: ${row.correctAnswer || '-'}`;
+      contract.appendChild(answer);
+      tr.appendChild(contract);
+
+      const options = row.detail?.options || [];
+      const pairs = row.detail?.matchingPairs || [];
+      for (let index = 0; index < 8; index++) {
+        const optionCell = document.createElement('td');
+        const option = options[index];
+        const pair = pairs[index];
+        if (pair) {
+          appendText(optionCell,
+            `${pair.leftId}: ${pair.leftText || '-'} → ${pair.rightId}: ${pair.rightText || '-'}`);
+          appendMedia(optionCell, `Ảnh ${pair.leftId}`, pair.leftImageReference, 'image');
+          appendMedia(optionCell, `Ảnh ${pair.rightId}`, pair.rightImageReference, 'image');
+        }
+        if (option && !pair) {
+          if (option.text) appendText(optionCell, `${option.label}: ${option.text}`);
+          appendMedia(optionCell, `Ảnh ${option.label}`, option.imageReference, 'image');
+        }
+        if (!pair && !option) appendText(optionCell, null);
+        tr.appendChild(optionCell);
+      }
+      return tr;
+    });
+    tbody.replaceChildren(...elements);
+    document.getElementById('preview-empty').hidden = elements.length > 0;
+  }
+
+  function updatePreviewMetadata() {
+    if (!previewResult) return;
+    const matched = [...pendingMediaByRef].filter(([ref, media]) =>
+      selectedMediaMatch(`material:${ref}`, media.kind)).length;
+    const mediaSummary = pendingMediaByRef.size
+      ? ` · ${matched}/${pendingMediaByRef.size} media đã ghép`
+      : '';
+    document.getElementById('preview-metadata').textContent =
+      `${previewResult.sectionCount} phần · ${previewResult.groupCount} nhóm · ${previewResult.totalPoints} điểm hợp lệ${mediaSummary}`;
+  }
+
+  function renderPreview(result) {
+    previewResult = result;
+    pendingMediaByRef = rebuildPendingMediaIndex(result.draftJson);
+    activeFilter = 'ALL';
+    document.getElementById('summary-total').textContent = result.questionCount;
+    document.getElementById('summary-importable').textContent = result.importableQuestionCount;
+    document.getElementById('summary-warning').textContent = result.warningRowCount;
+    document.getElementById('summary-error').textContent = result.errorRowCount;
+    updatePreviewMetadata();
+
+    const previewRowKeys = new Set((result.rows || []).map(row => row.questionId || `Questions:${row.row}`));
+    const globalIssues = (result.issues || []).filter(issue => !issue.rowKey || !previewRowKeys.has(issue.rowKey));
+    const globalIssueList = document.getElementById('global-issue-list');
+    globalIssueList.replaceChildren(...globalIssues.map(issue => {
+      const item = document.createElement('div');
+      item.textContent = `${issue.sheet}${issue.row ? ` dòng ${issue.row}` : ''}: ${issue.message}`;
+      return item;
+    }));
+    globalIssueList.hidden = globalIssues.length === 0;
+
+    document.querySelectorAll('#preview-filters button').forEach(button => {
+      const selected = button.dataset.filter === 'ALL';
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+    });
+    renderRows();
+    confirmImportButton.disabled = !result.canImport;
+    confirmImportButton.textContent = result.canImport
+      ? `Nhập ${result.importableQuestionCount} câu hợp lệ`
+      : 'Không có dòng hợp lệ';
+    if (!previewModal.open) previewModal.showModal();
+  }
+
+  async function uploadMediaFile(file, kind) {
+    if (!kind) throw new Error(`Không xác định được loại media của ${file.name}.`);
+    const body = new FormData();
+    body.append('file', file);
+    const headers = csrfHeader && csrfToken ? { [csrfHeader]: csrfToken } : {};
+    const response = await fetch(
+      `/practice/manage/drafts/${LINKED_DRAFT_ID}/upload-${kind}`,
+      { method: 'POST', headers, body }
+    );
+    const raw = await response.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      throw new Error(`Không tải được media ${file.name} (HTTP ${response.status}).`);
+    }
+    if (!response.ok || !data.url) throw new Error(data.error || `Không tải được media ${file.name}.`);
+    return data.url;
+  }
+
+  async function uploadPendingMedia() {
+    const overrides = {};
+    const uploadedFiles = new Map();
+    for (const [ref, media] of pendingMediaByRef) {
+      const match = selectedMediaMatch(`material:${ref}`, media.kind);
+      if (!match) continue;
+      if (!uploadedFiles.has(match.file)) {
+        uploadedFiles.set(match.file, await uploadMediaFile(match.file, match.kind));
+      }
+      overrides[ref] = uploadedFiles.get(match.file);
+    }
+    return overrides;
+  }
+
+  previewButton.addEventListener('click', async () => {
+    pageError.hidden = true;
+    setLoading(previewButton, true, 'Đang kiểm tra...');
+    try {
+      renderPreview(await submit('preview'));
+    } catch (error) {
+      pageError.textContent = error.message;
+      pageError.hidden = false;
+    } finally {
+      setLoading(previewButton, false, 'Đang kiểm tra...');
+    }
+  });
+
+  document.getElementById('preview-filters').addEventListener('click', event => {
+    const button = event.target.closest('button[data-filter]');
+    if (!button) return;
+    activeFilter = button.dataset.filter;
+    document.querySelectorAll('#preview-filters button').forEach(item => {
+      const selected = item === button;
+      item.classList.toggle('is-active', selected);
+      item.setAttribute('aria-selected', String(selected));
+    });
+    renderRows();
+  });
+
+  confirmImportButton.addEventListener('click', async () => {
+    if (!previewResult?.canImport) return;
+    const originalLabel = confirmImportButton.textContent;
+    confirmImportButton.disabled = true;
+    confirmImportButton.textContent = 'Đang tải media...';
+    try {
+      const mediaOverrides = await uploadPendingMedia();
+      confirmImportButton.textContent = 'Đang nhập...';
+      const result = await submit('import', mediaOverrides);
+      window.location.href = result.redirectUrl;
+    } catch (error) {
+      confirmImportButton.disabled = false;
+      confirmImportButton.textContent = originalLabel;
+      const globalIssueList = document.getElementById('global-issue-list');
+      globalIssueList.textContent = error.message;
+      globalIssueList.hidden = false;
+    }
+  });
+
+  document.getElementById('close-preview').addEventListener('click', () => previewModal.close());
+  document.getElementById('choose-other-file').addEventListener('click', () => {
+    previewModal.close();
+    fileInput.click();
+  });
+  templateSelect.addEventListener('change', updateTemplateLink);
+  fileInput.addEventListener('change', resetPreview);
+  mediaFileInput.addEventListener('change', () => {
+    clearMediaObjectUrls();
+    if (previewResult) {
+      renderRows();
+      updatePreviewMetadata();
+    }
+  });
+  window.addEventListener('beforeunload', clearMediaObjectUrls);
+  updateTemplateLink();
+</script>
+</body>
+</html>

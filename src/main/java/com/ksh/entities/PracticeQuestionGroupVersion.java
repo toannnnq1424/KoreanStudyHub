@@ -36,6 +36,21 @@ public class PracticeQuestionGroupVersion {
     @Column(columnDefinition = "TEXT")
     private String instruction;
 
+    @Column(name = "stimulus_type", length = 40)
+    private String stimulusType;
+
+    @Column(name = "passage_text", columnDefinition = "LONGTEXT")
+    private String passageText;
+
+    @Column(name = "transcript_text", columnDefinition = "LONGTEXT")
+    private String transcriptText;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(name = "stimulus_provenance_json", columnDefinition = "JSON")
+    private String stimulusProvenanceJson;
+
     @Column(name = "audio_url", length = 500)
     private String audioUrl;
 
@@ -56,6 +71,11 @@ public class PracticeQuestionGroupVersion {
         this.questionFrom = group.getQuestionFrom();
         this.questionTo = group.getQuestionTo();
         this.instruction = group.getInstruction();
+        this.stimulusType = group.getStimulusType();
+        this.passageText = group.getPassageText();
+        this.transcriptText = group.getTranscriptText();
+        this.imageUrl = group.getImageUrl();
+        this.stimulusProvenanceJson = group.getStimulusProvenanceJson();
         this.audioUrl = group.getAudioUrl();
         this.exampleJson = group.getExampleJson();
         this.displayOrder = group.getDisplayOrder();
@@ -69,6 +89,11 @@ public class PracticeQuestionGroupVersion {
     public Integer getQuestionFrom() { return questionFrom; }
     public Integer getQuestionTo() { return questionTo; }
     public String getInstruction() { return instruction; }
+    public String getStimulusType() { return stimulusType; }
+    public String getPassageText() { return passageText; }
+    public String getTranscriptText() { return transcriptText; }
+    public String getImageUrl() { return imageUrl; }
+    public String getStimulusProvenanceJson() { return stimulusProvenanceJson; }
     public String getAudioUrl() { return audioUrl; }
     public String getExampleJson() { return exampleJson; }
     public Integer getDisplayOrder() { return displayOrder; }
