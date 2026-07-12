@@ -133,6 +133,15 @@ public class LecturerAssetService {
             Long draftId, Long actorId,
             org.springframework.web.multipart.MultipartFile file,
             String assetType, long maxBytes) throws IOException {
+        return createDraftUploadAsset(
+                draftId, actorId, file, assetType, maxBytes, null);
+    }
+
+    @Transactional
+    public LecturerAsset createDraftUploadAsset(
+            Long draftId, Long actorId,
+            org.springframework.web.multipart.MultipartFile file,
+            String assetType, long maxBytes, String overrideReason) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Tệp tải lên rỗng.");
         }
@@ -142,7 +151,8 @@ public class LecturerAssetService {
         Long ownerId = actorId;
         if (authorizationService != null) {
             ownerId = authorizationService.requireDraft(
-                    draftId, actorId, PracticeAction.MATERIAL_MANAGE, null).ownerId();
+                    draftId, actorId, PracticeAction.MATERIAL_MANAGE,
+                    overrideReason).ownerId();
         } else {
             requireOwnedDraft(draftId, actorId);
         }
@@ -349,7 +359,16 @@ public class LecturerAssetService {
     public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
                                                     String sectionTempId, String groupTempId,
                                                     String questionTempId, String placement, String altText) {
-        Long draftOwnerId = requireManageableDraft(draftId, ownerId);
+        return linkAssetToDraft(draftId, assetId, ownerId, sectionTempId,
+                groupTempId, questionTempId, placement, altText, null);
+    }
+
+    @Transactional
+    public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
+                                                    String sectionTempId, String groupTempId,
+                                                    String questionTempId, String placement,
+                                                    String altText, String overrideReason) {
+        Long draftOwnerId = requireManageableDraft(draftId, ownerId, overrideReason);
         LecturerAsset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
         if (!"ACTIVE".equalsIgnoreCase(asset.getStatus())
@@ -379,7 +398,13 @@ public class LecturerAssetService {
 
     @Transactional
     public void unlinkAssetFromDraft(Long draftId, Long usageId, Long ownerId) {
-        requireManageableDraft(draftId, ownerId);
+        unlinkAssetFromDraft(draftId, usageId, ownerId, null);
+    }
+
+    @Transactional
+    public void unlinkAssetFromDraft(Long draftId, Long usageId, Long ownerId,
+                                     String overrideReason) {
+        requireManageableDraft(draftId, ownerId, overrideReason);
         PracticeDraftAssetUsage usage = usageRepository.findById(usageId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy liên kết asset."));
         if (!draftId.equals(usage.getDraftId())) {
@@ -403,13 +428,15 @@ public class LecturerAssetService {
         }
     }
 
-    private Long requireManageableDraft(Long draftId, Long actorId) {
+    private Long requireManageableDraft(Long draftId, Long actorId,
+                                        String overrideReason) {
         if (authorizationService == null) {
             requireOwnedDraft(draftId, actorId);
             return actorId;
         }
         return authorizationService.requireDraft(
-                draftId, actorId, PracticeAction.MATERIAL_MANAGE, null).ownerId();
+                draftId, actorId, PracticeAction.MATERIAL_MANAGE,
+                overrideReason).ownerId();
     }
 
     private boolean hasAnyReference(Long assetId) {

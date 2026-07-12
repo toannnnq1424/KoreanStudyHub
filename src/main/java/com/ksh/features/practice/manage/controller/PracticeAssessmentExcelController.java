@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.controller;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
+import com.ksh.features.practice.manage.service.PracticeOverrideContextService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
@@ -36,11 +37,20 @@ public class PracticeAssessmentExcelController {
 
     private final PracticeAssessmentExcelService excelService;
     private final AssessmentAuthoringCatalogService catalogService;
+    private final PracticeOverrideContextService overrideContextService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PracticeAssessmentExcelController(PracticeAssessmentExcelService excelService,
+                                             AssessmentAuthoringCatalogService catalogService,
+                                             PracticeOverrideContextService overrideContextService) {
+        this.excelService = excelService;
+        this.catalogService = catalogService;
+        this.overrideContextService = overrideContextService;
+    }
 
     public PracticeAssessmentExcelController(PracticeAssessmentExcelService excelService,
                                              AssessmentAuthoringCatalogService catalogService) {
-        this.excelService = excelService;
-        this.catalogService = catalogService;
+        this(excelService, catalogService, null);
     }
 
     @GetMapping
@@ -48,9 +58,12 @@ public class PracticeAssessmentExcelController {
                        @RequestParam("testNo") Integer testNo,
                        @RequestParam("lessonCode") String lessonCode,
                        @AuthenticationPrincipal KshUserDetails user,
+                       jakarta.servlet.http.HttpSession session,
                        Model model) {
+        String overrideReason = overrideReason(session, draftId, null);
         PracticeAssessmentExcelService.ExcelImportContext context =
-                excelService.requireExcelImportContext(draftId, user.getId(), testNo, lessonCode);
+                excelService.requireExcelImportContext(
+                        draftId, user.getId(), testNo, lessonCode, overrideReason);
         model.addAttribute("draftId", context.draft().getId());
         model.addAttribute("testNo", context.testNo());
         model.addAttribute("lessonCode", context.lessonCode());
@@ -77,10 +90,20 @@ public class PracticeAssessmentExcelController {
                                      @RequestParam("draftId") Long draftId,
                                      @RequestParam("testNo") Integer testNo,
                                      @RequestParam("lessonCode") String lessonCode,
-                                     @AuthenticationPrincipal KshUserDetails user) {
+                                     @RequestParam(value = "overrideReason", required = false)
+                                     String explicitOverrideReason,
+                                     @AuthenticationPrincipal KshUserDetails user,
+                                     jakarta.servlet.http.HttpSession session) {
         try {
+            String overrideReason = overrideReason(
+                    session, draftId, explicitOverrideReason);
             PracticeAssessmentExcelService.ExcelImportContext context =
-                    excelService.requireExcelImportContext(draftId, user.getId(), testNo, lessonCode);
+                    overrideReason == null
+                            ? excelService.requireExcelImportContext(
+                                    draftId, user.getId(), testNo, lessonCode)
+                            : excelService.requireExcelImportContext(
+                                    draftId, user.getId(), testNo, lessonCode,
+                                    overrideReason);
             return ResponseEntity.ok(excelService.preview(file, context.templateCode()));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
@@ -105,12 +128,26 @@ public class PracticeAssessmentExcelController {
                                          @RequestParam("testNo") Integer testNo,
                                          @RequestParam("lessonCode") String lessonCode,
                                          @RequestParam(value = "mediaOverrides", required = false) String mediaOverrides,
-                                         @AuthenticationPrincipal KshUserDetails user) {
+                                         @RequestParam(value = "overrideReason", required = false)
+                                         String explicitOverrideReason,
+                                         @AuthenticationPrincipal KshUserDetails user,
+                                         jakarta.servlet.http.HttpSession session) {
         try {
+            String overrideReason = overrideReason(
+                    session, draftId, explicitOverrideReason);
             PracticeAssessmentExcelService.ExcelImportContext context =
-                    excelService.requireExcelImportContext(draftId, user.getId(), testNo, lessonCode);
-            PracticeDraft draft = excelService.importDraft(
-                    file, context.templateCode(), context.draft().getId(), user.getId(), mediaOverrides);
+                    overrideReason == null
+                            ? excelService.requireExcelImportContext(
+                                    draftId, user.getId(), testNo, lessonCode)
+                            : excelService.requireExcelImportContext(
+                                    draftId, user.getId(), testNo, lessonCode,
+                                    overrideReason);
+            PracticeDraft draft = overrideReason == null
+                    ? excelService.importDraft(file, context.templateCode(),
+                            context.draft().getId(), user.getId(), mediaOverrides)
+                    : excelService.importDraft(file, context.templateCode(),
+                            context.draft().getId(), user.getId(), mediaOverrides,
+                            overrideReason);
             return ResponseEntity.ok(Map.of(
                     "draftId", draft.getId(),
                     "redirectUrl", "/practice/manage/drafts/" + draft.getId()
@@ -128,5 +165,30 @@ public class PracticeAssessmentExcelController {
             return ResponseEntity.internalServerError().body(Map.of(
                     "error", "Không thể hoàn tất nhập Excel. Bản nháp chưa bị thay đổi."));
         }
+    }
+
+    public ResponseEntity<?> preview(MultipartFile file, String templateCode,
+                                     Long draftId, Integer testNo, String lessonCode,
+                                     KshUserDetails user) {
+        return preview(file, templateCode, draftId, testNo, lessonCode,
+                null, user, null);
+    }
+
+    public ResponseEntity<?> importDraft(MultipartFile file, String templateCode,
+                                         Long draftId, Integer testNo, String lessonCode,
+                                         String mediaOverrides, KshUserDetails user) {
+        return importDraft(file, templateCode, draftId, testNo, lessonCode,
+                mediaOverrides, null, user, null);
+    }
+
+    private String overrideReason(jakarta.servlet.http.HttpSession session,
+                                  Long draftId, String explicitReason) {
+        if (overrideContextService == null || session == null) {
+            return explicitReason;
+        }
+        if (explicitReason != null && !explicitReason.isBlank()) {
+            overrideContextService.establishForDraft(session, draftId, explicitReason);
+        }
+        return overrideContextService.reasonForDraft(session, draftId, explicitReason);
     }
 }

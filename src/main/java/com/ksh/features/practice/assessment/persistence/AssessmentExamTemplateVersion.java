@@ -24,6 +24,9 @@ public class AssessmentExamTemplateVersion {
     @Column(name = "template_code", nullable = false, length = 80)
     private String templateCode;
 
+    @Column(name = "program_version_id", nullable = false)
+    private Long programVersionId;
+
     @Column(name = "version_number", nullable = false)
     private Integer versionNumber;
 
@@ -50,7 +53,14 @@ public class AssessmentExamTemplateVersion {
 
     public AssessmentExamTemplateVersion(String templateCode, Integer versionNumber,
                                          String configJson, Long createdBy) {
+        this(templateCode, null, versionNumber, configJson, createdBy);
+    }
+
+    public AssessmentExamTemplateVersion(String templateCode, Long programVersionId,
+                                         Integer versionNumber, String configJson,
+                                         Long createdBy) {
         this.templateCode = templateCode;
+        this.programVersionId = programVersionId;
         this.versionNumber = versionNumber;
         this.configJson = configJson;
         this.status = STATUS_DRAFT;
@@ -69,6 +79,7 @@ public class AssessmentExamTemplateVersion {
 
     public Long getId() { return id; }
     public String getTemplateCode() { return templateCode; }
+    public Long getProgramVersionId() { return programVersionId; }
     public Integer getVersionNumber() { return versionNumber; }
     public String getConfigJson() { return configJson; }
     public String getStatus() { return status; }

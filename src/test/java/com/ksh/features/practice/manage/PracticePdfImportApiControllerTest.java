@@ -48,6 +48,9 @@ class PracticePdfImportApiControllerTest {
     private PracticePdfPreviewService previewService;
 
     @MockBean
+    private PracticeOverrideContextService overrideContextService;
+
+    @MockBean
     private PracticePdfRegionService regionService;
 
     @MockBean
@@ -179,10 +182,43 @@ class PracticePdfImportApiControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(700))
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.contentUrl")
+                        .value("/practice/materials/700/content"))
+                .andExpect(jsonPath("$.storageKey").doesNotExist())
+                .andExpect(jsonPath("$.storageProvider").doesNotExist())
+                .andExpect(jsonPath("$.sha256").doesNotExist());
 
         verify(regionService).getAnnotation(100L, 500L, 1L);
         verify(assetService).promoteSessionRegionAsset(100L, 500L, 700L, 1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void assetListUsesSafeViewWithoutPrivateStorageMetadata() throws Exception {
+        LecturerAsset asset = new LecturerAsset();
+        asset.setId(700L);
+        asset.setOwnerLecturerId(1L);
+        asset.setStorageProvider("LOCAL");
+        asset.setStorageKey("lecturer-assets/1/private/secret.png");
+        asset.setSha256("secret-hash");
+        asset.setTitle("Ảnh câu hỏi");
+        asset.setAssetType("IMAGE");
+        asset.setStatus("ACTIVE");
+        asset.setVisibility("PRIVATE");
+        asset.setFileSize(120L);
+        when(assetService.getLibraryAssets(1L)).thenReturn(List.of(asset));
+
+        mockMvc.perform(get("/practice/manage/assets")
+                        .with(user(lecturerUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(700))
+                .andExpect(jsonPath("$[0].title").value("Ảnh câu hỏi"))
+                .andExpect(jsonPath("$[0].contentUrl")
+                        .value("/practice/materials/700/content"))
+                .andExpect(jsonPath("$[0].storageKey").doesNotExist())
+                .andExpect(jsonPath("$[0].storageProvider").doesNotExist())
+                .andExpect(jsonPath("$[0].sha256").doesNotExist());
     }
 
     @Test

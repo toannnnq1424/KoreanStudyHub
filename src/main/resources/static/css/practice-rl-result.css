@@ -806,7 +806,7 @@
   color: var(--rl-muted);
 }
 
-/* 📥 Bottom Navigator */
+/* Bottom Navigator */
 .rl-det-navigator {
   position: fixed;
   bottom: 0;

@@ -48,6 +48,7 @@ public class PracticePdfImportApiController {
     private final PracticeImportDraftService importDraftService;
     private final PracticeImportSnapshotService snapshotService;
     private final PracticePdfPreviewService previewService;
+    private final PracticeOverrideContextService overrideContextService;
 
     public PracticePdfImportApiController(PracticePdfImportSessionService sessionService,
                                           PracticePdfRegionService regionService,
@@ -60,7 +61,8 @@ public class PracticePdfImportApiController {
                                           PracticePdfDraftAssembler draftAssembler,
                                           PracticeImportDraftService importDraftService,
                                           PracticeImportSnapshotService snapshotService,
-                                          PracticePdfPreviewService previewService) {
+                                          PracticePdfPreviewService previewService,
+                                          PracticeOverrideContextService overrideContextService) {
         this.sessionService = sessionService;
         this.regionService = regionService;
         this.pageExtractionService = pageExtractionService;
@@ -73,6 +75,7 @@ public class PracticePdfImportApiController {
         this.importDraftService = importDraftService;
         this.snapshotService = snapshotService;
         this.previewService = previewService;
+        this.overrideContextService = overrideContextService;
     }
 
     @PostMapping("/import-sessions")
@@ -84,13 +87,16 @@ public class PracticePdfImportApiController {
                                                               @RequestParam(value = "targetTestNo", required = false) Integer targetTestNo,
                                                               @RequestParam(value = "targetSkill", required = false) String targetSkill,
                                                               @RequestParam(value = "targetLessonCode", required = false) String targetLessonCode,
-                                                              @AuthenticationPrincipal KshUserDetails user) throws Exception {
+                                                              @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
+                                                              @AuthenticationPrincipal KshUserDetails user,
+                                                              jakarta.servlet.http.HttpSession httpSession) throws Exception {
         String requestedTemplate = examTemplateCode == null || examTemplateCode.isBlank()
                 ? legacyExamCategory
                 : examTemplateCode;
         PracticePdfImportSession session = sessionService.createSession(
                 user.getId(), file, requestedTemplate, title, linkedDraftId,
-                targetTestNo, targetSkill, targetLessonCode);
+                targetTestNo, targetSkill, targetLessonCode,
+                overrideReason(httpSession, linkedDraftId, explicitOverrideReason));
         // Save initial snapshot
         snapshotService.saveSnapshot(session.getId(), user.getId());
         return ResponseEntity.ok(session);
@@ -210,7 +216,9 @@ public class PracticePdfImportApiController {
 
     @PostMapping("/import-sessions/{sessionId}/generate")
     public ResponseEntity<?> generateDraft(@PathVariable Long sessionId,
-                                           @AuthenticationPrincipal KshUserDetails user) {
+                                           @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
+                                           @AuthenticationPrincipal KshUserDetails user,
+                                           jakarta.servlet.http.HttpSession httpSession) {
         // AI job is run in a separate transaction B. Failure doesn't rollback crops or session annotations
         PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
         sessionService.updateStatus(sessionId, "PROCESSING");
@@ -229,7 +237,9 @@ public class PracticePdfImportApiController {
                 ));
             }
             String rawAiJson = aiOrchestrator.callAi(payloadInfo, sessionId, session.getExtractionStrategy());
-            PracticeDraft draft = draftAssembler.assembleAndSaveDraft(session, rawAiJson, user.getId());
+            PracticeDraft draft = draftAssembler.assembleAndSaveDraft(
+                    session, rawAiJson, user.getId(), overrideReason(
+                            httpSession, session.getLinkedDraftId(), explicitOverrideReason));
             sessionService.updateStatus(sessionId, "AI_COMPLETED");
             return ResponseEntity.ok(draft);
         } catch (Exception e) {
@@ -245,29 +255,51 @@ public class PracticePdfImportApiController {
 
     @PostMapping("/import-sessions/{sessionId}/create-manual-draft")
     public ResponseEntity<PracticeDraft> createManualDraft(@PathVariable Long sessionId,
-                                                           @AuthenticationPrincipal KshUserDetails user) {
-        PracticeDraft draft = importDraftService.createManualDraftFromSession(sessionId, user.getId());
+                                                           @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
+                                                           @AuthenticationPrincipal KshUserDetails user,
+                                                           jakarta.servlet.http.HttpSession httpSession) {
+        PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
+        PracticeDraft draft = importDraftService.createManualDraftFromSession(
+                sessionId, user.getId(), overrideReason(
+                        httpSession, session.getLinkedDraftId(), explicitOverrideReason));
         return ResponseEntity.ok(draft);
     }
 
     @PostMapping("/import-sessions/{sessionId}/attach-to-draft")
     public ResponseEntity<PracticeDraft> attachToDraft(@PathVariable Long sessionId,
                                                        @RequestParam("targetDraftId") Long targetDraftId,
-                                                       @AuthenticationPrincipal KshUserDetails user) {
-        PracticeDraft draft = importDraftService.attachToExistingDraft(sessionId, targetDraftId, user.getId());
+                                                       @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
+                                                       @AuthenticationPrincipal KshUserDetails user,
+                                                       jakarta.servlet.http.HttpSession httpSession) {
+        PracticeDraft draft = importDraftService.attachToExistingDraft(
+                sessionId, targetDraftId, user.getId(), overrideReason(
+                        httpSession, targetDraftId, explicitOverrideReason));
         return ResponseEntity.ok(draft);
+    }
+
+    private String overrideReason(jakarta.servlet.http.HttpSession session,
+                                  Long draftId, String explicitReason) {
+        if (draftId == null) return null;
+        if (explicitReason != null && !explicitReason.isBlank()) {
+            overrideContextService.establishForDraft(session, draftId, explicitReason);
+        }
+        return overrideContextService.reasonForDraft(session, draftId, explicitReason);
     }
 
     // Lecturer asset library endpoints
 
     @GetMapping("/assets")
-    public ResponseEntity<List<LecturerAsset>> getAssetsList(@RequestParam(value = "sessionId", required = false) Long sessionId,
-                                                             @AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<List<AssetView>> getAssetsList(
+            @RequestParam(value = "sessionId", required = false) Long sessionId,
+            @AuthenticationPrincipal KshUserDetails user) {
+        List<LecturerAsset> assets;
         if (sessionId != null) {
             sessionService.getSession(sessionId, user.getId());
-            return ResponseEntity.ok(assetService.getSessionAssets(sessionId, user.getId()));
+            assets = assetService.getSessionAssets(sessionId, user.getId());
+        } else {
+            assets = assetService.getLibraryAssets(user.getId());
         }
-        return ResponseEntity.ok(assetService.getLibraryAssets(user.getId()));
+        return ResponseEntity.ok(assets.stream().map(AssetView::from).toList());
     }
 
     @GetMapping("/assets/{assetId}/content")
@@ -280,9 +312,9 @@ public class PracticePdfImportApiController {
     }
 
     @PatchMapping("/assets/{assetId}")
-    public ResponseEntity<LecturerAsset> updateAsset(@PathVariable Long assetId,
-                                                     @RequestBody UpdateAssetRequest req,
-                                                     @AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<AssetView> updateAsset(@PathVariable Long assetId,
+                                                 @RequestBody UpdateAssetRequest req,
+                                                 @AuthenticationPrincipal KshUserDetails user) {
         LecturerAsset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
         if (!asset.getOwnerLecturerId().equals(user.getId())) {
@@ -300,7 +332,7 @@ public class PracticePdfImportApiController {
             asset.setStatus("TEMPORARY");
         }
         asset.setUpdatedAt(LocalDateTime.now());
-        return ResponseEntity.ok(assetRepository.save(asset));
+        return ResponseEntity.ok(AssetView.from(assetRepository.save(asset)));
     }
 
     @DeleteMapping("/assets/{assetId}")
@@ -311,14 +343,14 @@ public class PracticePdfImportApiController {
     }
 
     @PostMapping("/import-sessions/{sessionId}/regions/{regionId}/promote-asset")
-    public ResponseEntity<LecturerAsset> promoteAsset(@PathVariable Long sessionId,
-                                                      @PathVariable Long regionId,
-                                                      @RequestParam("assetId") Long assetId,
-                                                      @AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<AssetView> promoteAsset(@PathVariable Long sessionId,
+                                                  @PathVariable Long regionId,
+                                                  @RequestParam("assetId") Long assetId,
+                                                  @AuthenticationPrincipal KshUserDetails user) {
         regionService.getAnnotation(sessionId, regionId, user.getId());
         LecturerAsset asset = assetService.promoteSessionRegionAsset(
                 sessionId, regionId, assetId, user.getId());
-        return ResponseEntity.ok(asset);
+        return ResponseEntity.ok(AssetView.from(asset));
     }
 
     @PostMapping("/drafts/{draftId}/assets")
@@ -343,5 +375,54 @@ public class PracticePdfImportApiController {
     public record SaveStateRequest(Integer currentPage, Integer startPage, Integer endPage, String extractionStrategy) {}
     public record PageRangeRequest(Integer startPage, Integer endPage, String extractionMode) {}
     public record UpdateAssetRequest(String title, String tagsJson, String assetType, String lecturerNote, String status) {}
+
+    public record AssetView(Long id,
+                            Long sourceImportSessionId,
+                            Long sourceRegionId,
+                            String originalFilename,
+                            String mimeType,
+                            boolean contentVerified,
+                            Integer width,
+                            Integer height,
+                            Long fileSize,
+                            String assetType,
+                            String title,
+                            String altText,
+                            String sourceType,
+                            Integer sourcePageNumber,
+                            String lecturerNote,
+                            String tagsJson,
+                            String status,
+                            String visibility,
+                            LocalDateTime retentionUntil,
+                            LocalDateTime createdAt,
+                            LocalDateTime updatedAt,
+                            String contentUrl) {
+        static AssetView from(LecturerAsset asset) {
+            return new AssetView(
+                    asset.getId(),
+                    asset.getSourceImportSessionId(),
+                    asset.getSourceRegionId(),
+                    asset.getOriginalFilename(),
+                    asset.getMimeType(),
+                    asset.isContentVerified(),
+                    asset.getWidth(),
+                    asset.getHeight(),
+                    asset.getFileSize(),
+                    asset.getAssetType(),
+                    asset.getTitle(),
+                    asset.getAltText(),
+                    asset.getSourceType(),
+                    asset.getSourcePageNumber(),
+                    asset.getLecturerNote(),
+                    asset.getTagsJson(),
+                    asset.getStatus(),
+                    asset.getVisibility(),
+                    asset.getRetentionUntil(),
+                    asset.getCreatedAt(),
+                    asset.getUpdatedAt(),
+                    "/practice/materials/" + asset.getId() + "/content");
+        }
+    }
     public record LinkAssetRequest(Long assetId, String sectionTempId, String groupTempId, String questionTempId, String placement, String altText) {}
 }

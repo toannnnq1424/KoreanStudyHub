@@ -21,15 +21,26 @@ public class PracticeAuthorizationService {
     private final PracticeDraftRepository draftRepository;
     private final PracticeSetRepository setRepository;
     private final PracticeAuthoringCollaborationRepository collaborationRepository;
+    private final PracticeGovernanceAuditService auditService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PracticeAuthorizationService(JdbcTemplate jdbcTemplate,
+                                        PracticeDraftRepository draftRepository,
+                                        PracticeSetRepository setRepository,
+                                        PracticeAuthoringCollaborationRepository collaborationRepository,
+                                        PracticeGovernanceAuditService auditService) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.draftRepository = draftRepository;
+        this.setRepository = setRepository;
+        this.collaborationRepository = collaborationRepository;
+        this.auditService = auditService;
+    }
 
     public PracticeAuthorizationService(JdbcTemplate jdbcTemplate,
                                         PracticeDraftRepository draftRepository,
                                         PracticeSetRepository setRepository,
                                         PracticeAuthoringCollaborationRepository collaborationRepository) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.draftRepository = draftRepository;
-        this.setRepository = setRepository;
-        this.collaborationRepository = collaborationRepository;
+        this(jdbcTemplate, draftRepository, setRepository, collaborationRepository, null);
     }
 
     public void requireGlobal(Long actorId, PracticeAction action) {
@@ -48,7 +59,7 @@ public class PracticeAuthorizationService {
         return count != null && count > 0;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Decision requireDraft(Long draftId, Long actorId, PracticeAction action,
                                  String overrideReason) {
         requireGlobal(actorId, action);
@@ -76,10 +87,11 @@ public class PracticeAuthorizationService {
         if ((!locked || canReadLocked(action)) && grantAllows) {
             return new Decision(draft.getOwnerId(), false, locked, true);
         }
-        return requireOverride(actorId, action, overrideReason, draft.getOwnerId(), locked);
+        return requireOverride(actorId, action, overrideReason, draft.getOwnerId(), locked,
+                PracticeAuthoringCollaboration.TARGET_DRAFT, draftId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Decision requireSet(Long setId, Long actorId, PracticeAction action,
                                String overrideReason) {
         requireGlobal(actorId, action);
@@ -96,10 +108,10 @@ public class PracticeAuthorizationService {
             return new Decision(set.getCreatedBy(), false, set.isOwnerLocked(), true);
         }
         return requireOverride(actorId, action, overrideReason, set.getCreatedBy(),
-                set.isOwnerLocked());
+                set.isOwnerLocked(), PracticeAuthoringCollaboration.TARGET_SET, setId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Decision requireSetOwnerOrOverride(Long setId, Long actorId,
                                               PracticeAction action,
                                               String overrideReason) {
@@ -110,10 +122,10 @@ public class PracticeAuthorizationService {
             return new Decision(set.getCreatedBy(), false, set.isOwnerLocked(), true);
         }
         return requireOverride(actorId, action, overrideReason, set.getCreatedBy(),
-                set.isOwnerLocked());
+                set.isOwnerLocked(), PracticeAuthoringCollaboration.TARGET_SET, setId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Decision requireDraftOwnerOrOverride(Long draftId, Long actorId,
                                                 PracticeAction action,
                                                 String overrideReason) {
@@ -124,16 +136,27 @@ public class PracticeAuthorizationService {
             return new Decision(draft.getOwnerId(), false, draft.isOwnerLocked(), true);
         }
         return requireOverride(actorId, action, overrideReason, draft.getOwnerId(),
-                draft.isOwnerLocked());
+                draft.isOwnerLocked(), PracticeAuthoringCollaboration.TARGET_DRAFT, draftId);
     }
 
     private Decision requireOverride(Long actorId, PracticeAction action, String reason,
-                                     Long ownerId, boolean locked) {
+                                     Long ownerId, boolean locked,
+                                     String targetType, Long targetId) {
         if (!hasPermission(actorId, PracticeAction.EMERGENCY_OVERRIDE)) {
             throw denied(action);
         }
         if (reason == null || reason.isBlank()) {
             throw new AccessDeniedException("Override khẩn cấp phải có lý do.");
+        }
+        String normalizedReason = reason.trim();
+        if (normalizedReason.length() > 500) {
+            throw new AccessDeniedException(
+                    "Lý do override không được vượt quá 500 ký tự.");
+        }
+        if (auditService != null) {
+            auditService.record("EMERGENCY_OVERRIDE_AUTHORIZED", targetType, targetId,
+                    ownerId, actorId, null, true, normalizedReason, null,
+                    "{\"action\":\"" + action.name() + "\"}");
         }
         return new Decision(ownerId, true, locked, false);
     }

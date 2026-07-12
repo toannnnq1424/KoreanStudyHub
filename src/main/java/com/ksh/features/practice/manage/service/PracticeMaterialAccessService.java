@@ -12,6 +12,7 @@ import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.core.io.Resource;
@@ -31,6 +32,7 @@ public class PracticeMaterialAccessService {
     private final PracticeDraftAssetUsageRepository legacyUsageRepository;
     private final PracticeSetRepository setRepository;
     private final PracticeAttemptRepository attemptRepository;
+    private final PracticePublishedVersionRepository publishedVersionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final PracticeAuthorizationService authorizationService;
     private final PracticeGovernanceAuditService auditService;
@@ -42,6 +44,7 @@ public class PracticeMaterialAccessService {
             PracticeDraftAssetUsageRepository legacyUsageRepository,
             PracticeSetRepository setRepository,
             PracticeAttemptRepository attemptRepository,
+            PracticePublishedVersionRepository publishedVersionRepository,
             EnrollmentRepository enrollmentRepository,
             PracticeAuthorizationService authorizationService,
             PracticeGovernanceAuditService auditService,
@@ -51,6 +54,7 @@ public class PracticeMaterialAccessService {
         this.legacyUsageRepository = legacyUsageRepository;
         this.setRepository = setRepository;
         this.attemptRepository = attemptRepository;
+        this.publishedVersionRepository = publishedVersionRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
@@ -112,7 +116,16 @@ public class PracticeMaterialAccessService {
                 return true;
             }
             PracticeSet set = setRepository.findById(reference.getSetId()).orElse(null);
-            if (set == null || !PracticeSet.STATUS_PUBLISHED.equals(set.getStatus())) continue;
+            if (set == null) continue;
+            if (canReadSetTarget(reference.getSetId(), actorId)) return true;
+            if (!PracticeSet.STATUS_PUBLISHED.equals(set.getStatus())) continue;
+            Long currentVersionId = publishedVersionRepository
+                    .findFirstBySetIdAndStatusOrderByVersionNumberDesc(
+                            reference.getSetId(),
+                            com.ksh.entities.PracticePublishedVersion.STATUS_PUBLISHED)
+                    .map(com.ksh.entities.PracticePublishedVersion::getId)
+                    .orElse(null);
+            if (!reference.getPublishedVersionId().equals(currentVersionId)) continue;
             if (PracticeSet.SCOPE_GLOBAL.equals(set.getScope())) return true;
             if (set.getClassId() != null && enrollmentRepository
                     .findByUserIdAndClassId(actorId, set.getClassId())
@@ -120,15 +133,17 @@ public class PracticeMaterialAccessService {
                     .isPresent()) {
                 return true;
             }
-            try {
-                authorizationService.requireSet(
-                        set.getId(), actorId, PracticeAction.READ, null);
-                return true;
-            } catch (EntityNotFoundException | AccessDeniedException ignored) {
-                // Continue with other references.
-            }
         }
         return false;
+    }
+
+    private boolean canReadSetTarget(Long setId, Long actorId) {
+        try {
+            authorizationService.requireSet(setId, actorId, PracticeAction.READ, null);
+            return true;
+        } catch (EntityNotFoundException | AccessDeniedException ignored) {
+            return false;
+        }
     }
 
     private MaterialContent content(LecturerAsset asset) throws IOException {

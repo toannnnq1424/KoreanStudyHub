@@ -8,6 +8,7 @@ import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplateVe
 import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateRepository;
 import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateVersionRepository;
 import com.ksh.features.practice.assessment.repository.AssessmentProgramVersionRepository;
+import com.ksh.features.practice.assessment.repository.AssessmentProgramRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class AssessmentAuthoringCatalogService {
     private final AssessmentExamTemplateRepository templateRepository;
     private final AssessmentExamTemplateVersionRepository templateVersionRepository;
     private final AssessmentProgramVersionRepository programVersionRepository;
+    private final AssessmentProgramRepository programRepository;
     private final AssessmentProgramPolicyService policyService;
     private final ObjectMapper objectMapper;
 
@@ -34,11 +36,13 @@ public class AssessmentAuthoringCatalogService {
             AssessmentExamTemplateRepository templateRepository,
             AssessmentExamTemplateVersionRepository templateVersionRepository,
             AssessmentProgramVersionRepository programVersionRepository,
+            AssessmentProgramRepository programRepository,
             AssessmentProgramPolicyService policyService,
             ObjectMapper objectMapper) {
         this.templateRepository = templateRepository;
         this.templateVersionRepository = templateVersionRepository;
         this.programVersionRepository = programVersionRepository;
+        this.programRepository = programRepository;
         this.policyService = policyService;
         this.objectMapper = objectMapper;
     }
@@ -48,12 +52,13 @@ public class AssessmentAuthoringCatalogService {
             AssessmentProgramVersionRepository programVersionRepository,
             AssessmentProgramPolicyService policyService,
             ObjectMapper objectMapper) {
-        this(templateRepository, null, programVersionRepository, policyService, objectMapper);
+        this(templateRepository, null, programVersionRepository, null, policyService, objectMapper);
     }
 
     @Transactional(readOnly = true)
     public AuthoringCatalog catalog() {
         List<ExamTemplatePolicy> templates = templateRepository.findByEnabledTrueOrderByDisplayNameAsc().stream()
+                .filter(this::belongsToEnabledProgram)
                 .map(this::toPolicy)
                 .toList();
         return new AuthoringCatalog(SCHEMA_VERSION, templates);
@@ -63,8 +68,16 @@ public class AssessmentAuthoringCatalogService {
     public ExamTemplatePolicy requireTemplate(String code) {
         String normalized = normalizeTemplateCode(code);
         return templateRepository.findByCodeAndEnabledTrue(normalized)
+                .filter(this::belongsToEnabledProgram)
                 .map(this::toPolicy)
                 .orElseThrow(() -> new IllegalArgumentException("Exam template is not enabled: " + normalized));
+    }
+
+    private boolean belongsToEnabledProgram(AssessmentExamTemplate template) {
+        if (programRepository == null || template.getProgramCode() == null) return true;
+        return programRepository.findById(template.getProgramCode())
+                .filter(com.ksh.features.practice.assessment.persistence.AssessmentProgram::isEnabled)
+                .isPresent();
     }
 
     public static String defaultTemplateForCategory(String category) {
@@ -86,13 +99,20 @@ public class AssessmentAuthoringCatalogService {
     }
 
     private ExamTemplatePolicy toPolicy(AssessmentExamTemplate template) {
-        AssessmentProgramVersion version = programVersionRepository.findById(template.getProgramVersionId())
+        ResolvedTemplate resolvedTemplate = activeTemplate(template);
+        AssessmentProgramVersion version = programVersionRepository
+                .findById(resolvedTemplate.programVersionId())
                 .filter(candidate -> "ACTIVE".equals(candidate.getStatus()))
                 .orElseThrow(() -> new IllegalStateException(
                         "Exam template references an inactive program version: " + template.getCode()));
+        if (template.getProgramCode() != null
+                && !template.getProgramCode().equals(version.getProgramCode())) {
+            throw new IllegalStateException(
+                    "Exam template references another program: " + template.getCode());
+        }
         JsonNode config;
         try {
-            config = objectMapper.readTree(activeTemplateConfig(template));
+            config = objectMapper.readTree(resolvedTemplate.configJson());
         } catch (Exception exception) {
             throw new IllegalStateException("Invalid exam template config: " + template.getCode(), exception);
         }
@@ -169,9 +189,9 @@ public class AssessmentAuthoringCatalogService {
         );
     }
 
-    private String activeTemplateConfig(AssessmentExamTemplate template) {
+    private ResolvedTemplate activeTemplate(AssessmentExamTemplate template) {
         if (templateVersionRepository == null || template.getActiveVersionId() == null) {
-            return template.getConfigJson();
+            return new ResolvedTemplate(template.getProgramVersionId(), template.getConfigJson());
         }
         AssessmentExamTemplateVersion version = templateVersionRepository
                 .findById(template.getActiveVersionId())
@@ -180,7 +200,12 @@ public class AssessmentAuthoringCatalogService {
                         .equals(candidate.getStatus()))
                 .orElseThrow(() -> new IllegalStateException(
                         "Exam template active version is invalid: " + template.getCode()));
-        return version.getConfigJson();
+        Long programVersionId = version.getProgramVersionId() == null
+                ? template.getProgramVersionId() : version.getProgramVersionId();
+        return new ResolvedTemplate(programVersionId, version.getConfigJson());
+    }
+
+    private record ResolvedTemplate(Long programVersionId, String configJson) {
     }
 
     private static int positive(JsonNode node, int fallback) {

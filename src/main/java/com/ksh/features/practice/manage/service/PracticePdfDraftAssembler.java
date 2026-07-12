@@ -57,6 +57,13 @@ public class PracticePdfDraftAssembler {
 
     @Transactional
     public PracticeDraft assembleAndSaveDraft(PracticePdfImportSession session, String aiRawJson, Long userId) {
+        return assembleAndSaveDraft(session, aiRawJson, userId, null);
+    }
+
+    @Transactional
+    public PracticeDraft assembleAndSaveDraft(PracticePdfImportSession session,
+                                              String aiRawJson, Long userId,
+                                              String overrideReason) {
         // Parse AI response to check structure
         JsonNode aiRoot;
         try {
@@ -115,7 +122,8 @@ public class PracticePdfDraftAssembler {
         if (session.getLinkedDraftId() != null) {
             if (authorizationService != null) {
                 authorizationService.requireDraft(
-                        session.getLinkedDraftId(), userId, PracticeAction.EDIT, null);
+                        session.getLinkedDraftId(), userId, PracticeAction.EDIT,
+                        overrideReason);
                 draft = draftRepository.findById(session.getLinkedDraftId())
                         .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                                 "Bản nháp liên kết không tồn tại."));

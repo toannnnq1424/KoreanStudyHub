@@ -16,4 +16,8 @@ public interface AssessmentExamTemplateVersionRepository
 
     List<AssessmentExamTemplateVersion> findByTemplateCodeOrderByVersionNumberDesc(
             String templateCode);
+
+    List<AssessmentExamTemplateVersion>
+    findByTemplateCodeAndProgramVersionIdOrderByVersionNumberDesc(
+            String templateCode, Long programVersionId);
 }

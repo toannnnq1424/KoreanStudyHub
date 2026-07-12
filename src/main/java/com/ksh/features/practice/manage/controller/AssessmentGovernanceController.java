@@ -17,7 +17,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/practice/manage/governance/assessment")
-@PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+@PreAuthorize(Roles.PREAUTH_HEAD_OR_ADMIN)
 public class AssessmentGovernanceController {
 
     private final AssessmentGovernanceService governanceService;
@@ -40,6 +40,21 @@ public class AssessmentGovernanceController {
         return storageReadinessService.readiness();
     }
 
+    @GetMapping("/catalog")
+    public AssessmentGovernanceService.GovernanceCatalog catalog(
+            Authentication authentication) {
+        return governanceService.governanceCatalog(
+                userIdResolver.resolve(authentication));
+    }
+
+    @PostMapping("/programs")
+    public Object createProgram(
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+        return governanceService.createProgramRoot(
+                request.get("code"), userIdResolver.resolve(authentication));
+    }
+
     @PostMapping("/programs/{programCode}/versions")
     public Object createProgramVersion(
             @PathVariable String programCode,
@@ -49,31 +64,60 @@ public class AssessmentGovernanceController {
                 programCode, request, userIdResolver.resolve(authentication));
     }
 
+    @PostMapping("/programs/{programCode}/enabled")
+    public Object setProgramEnabled(
+            @PathVariable String programCode,
+            @RequestBody ProgramEnabledRequest request,
+            Authentication authentication) {
+        return governanceService.setProgramEnabled(programCode,
+                Boolean.TRUE.equals(request.enabled()),
+                userIdResolver.resolve(authentication), request.reason());
+    }
+
     @PostMapping("/programs/{programCode}/versions/{versionId}/activate")
     public Object activateProgramVersion(
             @PathVariable String programCode,
             @PathVariable Long versionId,
+            @RequestBody GovernanceActionRequest request,
             Authentication authentication) {
         return governanceService.activateProgramVersion(
-                programCode, versionId, userIdResolver.resolve(authentication));
+                programCode, versionId, userIdResolver.resolve(authentication),
+                request.reason());
     }
 
     @PostMapping("/templates/{templateCode}/versions")
     public Object createTemplateVersion(
             @PathVariable String templateCode,
-            @RequestBody Map<String, String> request,
+            @RequestBody TemplateVersionRequest request,
             Authentication authentication) {
+        Long actorId = userIdResolver.resolve(authentication);
+        if (request.programVersionId() == null) {
+            return governanceService.createTemplateVersion(
+                    templateCode, request.configJson(), actorId);
+        }
         return governanceService.createTemplateVersion(
-                templateCode, request.get("configJson"), userIdResolver.resolve(authentication));
+                templateCode, request.programVersionId(), request.configJson(),
+                actorId);
+    }
+
+    @PostMapping("/programs/{programCode}/templates")
+    public Object createTemplate(
+            @PathVariable String programCode,
+            @RequestBody AssessmentGovernanceService.TemplateRootRequest request,
+            Authentication authentication) {
+        return governanceService.createTemplateRoot(
+                programCode, request, userIdResolver.resolve(authentication));
     }
 
     @PostMapping("/templates/{templateCode}/versions/{versionId}/activate")
     public Object activateTemplateVersion(
             @PathVariable String templateCode,
             @PathVariable Long versionId,
+            @RequestBody GovernanceActionRequest request,
             Authentication authentication) {
         return governanceService.activateTemplateVersion(
-                templateCode, versionId, userIdResolver.resolve(authentication));
+                templateCode, versionId, userIdResolver.resolve(authentication),
+                request.reason());
     }
 
     @PostMapping("/profiles/scoring/{code}")
@@ -107,9 +151,33 @@ public class AssessmentGovernanceController {
     public Map<String, String> activateProfile(
             @PathVariable AssessmentGovernanceService.ProfileKind kind,
             @PathVariable Long profileId,
+            @RequestBody GovernanceActionRequest request,
             Authentication authentication) {
         governanceService.activateProfile(
-                kind, profileId, userIdResolver.resolve(authentication));
+                kind, profileId, userIdResolver.resolve(authentication),
+                request.reason());
         return Map.of("status", "active");
+    }
+
+    @PostMapping("/templates/{templateCode}/enabled")
+    public Object setTemplateEnabled(
+            @PathVariable String templateCode,
+            @RequestBody TemplateEnabledRequest request,
+            Authentication authentication) {
+        return governanceService.setTemplateEnabled(templateCode,
+                Boolean.TRUE.equals(request.enabled()),
+                userIdResolver.resolve(authentication), request.reason());
+    }
+
+    public record TemplateVersionRequest(Long programVersionId, String configJson) {
+    }
+
+    public record GovernanceActionRequest(String reason) {
+    }
+
+    public record TemplateEnabledRequest(Boolean enabled, String reason) {
+    }
+
+    public record ProgramEnabledRequest(Boolean enabled, String reason) {
     }
 }

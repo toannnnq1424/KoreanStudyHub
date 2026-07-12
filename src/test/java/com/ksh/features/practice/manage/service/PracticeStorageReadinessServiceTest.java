@@ -24,6 +24,7 @@ class PracticeStorageReadinessServiceTest {
                 "R2", "", "", "", "", "").readiness();
 
         assertEquals("LOCAL_ACTIVE_R2_NOT_CONFIGURED", result.state());
+        assertFalse(result.productionReady());
         assertFalse(result.r2ConfigurationPresent());
         assertFalse(result.r2AdapterInstalled());
         assertEquals(5, result.missingConfiguration().size());
@@ -35,6 +36,7 @@ class PracticeStorageReadinessServiceTest {
                 "R2", "account", "bucket", "endpoint", "access", "secret").readiness();
 
         assertEquals("LOCAL_ACTIVE_R2_ADAPTER_NOT_INSTALLED", result.state());
+        assertFalse(result.productionReady());
         assertTrue(result.r2ConfigurationPresent());
         assertTrue(result.missingConfiguration().isEmpty());
         assertFalse(result.toString().contains("secret"));
@@ -48,6 +50,7 @@ class PracticeStorageReadinessServiceTest {
 
         assertEquals("LOCAL_ACTIVE", result.state());
         assertEquals("LOCAL", result.activeProvider());
+        assertTrue(result.productionReady());
     }
 
     private PracticeStorageReadinessService service(

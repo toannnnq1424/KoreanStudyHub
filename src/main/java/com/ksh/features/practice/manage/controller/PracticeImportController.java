@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.controller;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
+import com.ksh.features.practice.manage.service.PracticeOverrideContextService;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -25,13 +26,16 @@ public class PracticeImportController {
     private final PracticePdfImportSessionService importSessionService;
     private final PracticePdfImportSessionRepository sessionRepository;
     private final AssessmentAuthoringCatalogService authoringCatalogService;
+    private final PracticeOverrideContextService overrideContextService;
 
     public PracticeImportController(PracticePdfImportSessionService importSessionService,
                                     PracticePdfImportSessionRepository sessionRepository,
-                                    AssessmentAuthoringCatalogService authoringCatalogService) {
+                                    AssessmentAuthoringCatalogService authoringCatalogService,
+                                    PracticeOverrideContextService overrideContextService) {
         this.importSessionService = importSessionService;
         this.sessionRepository = sessionRepository;
         this.authoringCatalogService = authoringCatalogService;
+        this.overrideContextService = overrideContextService;
     }
 
     @GetMapping("/practice/manage/import")
@@ -39,10 +43,14 @@ public class PracticeImportController {
                                       @RequestParam(value = "testNo", required = false) Integer testNo,
                                       @RequestParam(value = "lessonCode", required = false) String lessonCode,
                                       @AuthenticationPrincipal KshUserDetails user,
+                                      jakarta.servlet.http.HttpSession session,
                                       Model model) {
         model.addAttribute("draftId", draftId);
         PracticePdfImportSessionService.PdfImportStartContext targetContext =
-                importSessionService.resolveStartContext(draftId, testNo, lessonCode, user.getId());
+                importSessionService.resolveStartContext(draftId, testNo, lessonCode,
+                        user.getId(), draftId == null ? null
+                                : overrideContextService.reasonForDraft(
+                                        session, draftId, null));
         model.addAttribute("pdfImportContext", targetContext);
         model.addAttribute("selectedTemplateCode",
                 targetContext == null ? "TOPIK_II" : targetContext.templateCode());

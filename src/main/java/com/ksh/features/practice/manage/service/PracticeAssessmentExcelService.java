@@ -240,6 +240,17 @@ public class PracticeAssessmentExcelService {
                                      Long linkedDraftId,
                                      Long ownerId,
                                      String mediaOverridesJson) {
+        return importDraft(file, requestedTemplateCode, linkedDraftId, ownerId,
+                mediaOverridesJson, null);
+    }
+
+    @Transactional
+    public PracticeDraft importDraft(MultipartFile file,
+                                     String requestedTemplateCode,
+                                     Long linkedDraftId,
+                                     Long ownerId,
+                                     String mediaOverridesJson,
+                                     String overrideReason) {
         ExcelPreview preview = preview(file, requestedTemplateCode);
         if (!preview.canImport()) {
             throw new IllegalArgumentException("File Excel không còn dòng hợp lệ để nhập hoặc có lỗi cấp file.");
@@ -264,7 +275,7 @@ public class PracticeAssessmentExcelService {
                     finalJson);
             draft.setCreationMethod("EXCEL");
         } else {
-            draft = requireLinkedDraft(linkedDraftId, ownerId);
+            draft = requireLinkedDraft(linkedDraftId, ownerId, overrideReason);
             String importedTemplate = root.path("document").path("examTemplateCode").asText("");
             if (draft.getExamTemplateCode() != null
                     && !draft.getExamTemplateCode().equalsIgnoreCase(importedTemplate)) {
@@ -288,7 +299,8 @@ public class PracticeAssessmentExcelService {
         draft.setAssessmentProgramVersionId(root.path("document").path("assessmentProgramVersionId").longValue());
         draft.setExamTemplateCode(root.path("document").path("examTemplateCode").asText());
         PracticeDraft saved = draftRepository.save(draft);
-        linkManagedMedia(saved.getId(), ownerId, parseMediaOverrides(mediaOverridesJson));
+        linkManagedMedia(saved.getId(), ownerId,
+                parseMediaOverrides(mediaOverridesJson), overrideReason);
         return saved;
     }
 
@@ -392,6 +404,12 @@ public class PracticeAssessmentExcelService {
 
     @Transactional(readOnly = true)
     public PracticeDraft requireLinkedDraft(Long draftId, Long ownerId) {
+        return requireLinkedDraft(draftId, ownerId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PracticeDraft requireLinkedDraft(Long draftId, Long ownerId,
+                                            String overrideReason) {
         if (draftId == null) {
             throw new IllegalArgumentException("Nhập Excel phải được mở từ một bản nháp thủ công.");
         }
@@ -400,7 +418,8 @@ public class PracticeAssessmentExcelService {
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Bản nháp liên kết không tồn tại."));
         }
-        authorizationService.requireDraft(draftId, ownerId, PracticeAction.EDIT, null);
+        authorizationService.requireDraft(
+                draftId, ownerId, PracticeAction.EDIT, overrideReason);
         return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Bản nháp liên kết không tồn tại."));
@@ -411,7 +430,17 @@ public class PracticeAssessmentExcelService {
                                                         Long ownerId,
                                                         Integer testNo,
                                                         String lessonCode) {
-        PracticeDraft draft = requireLinkedDraft(draftId, ownerId);
+        return requireExcelImportContext(
+                draftId, ownerId, testNo, lessonCode, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ExcelImportContext requireExcelImportContext(Long draftId,
+                                                        Long ownerId,
+                                                        Integer testNo,
+                                                        String lessonCode,
+                                                        String overrideReason) {
+        PracticeDraft draft = requireLinkedDraft(draftId, ownerId, overrideReason);
         if (testNo == null || testNo <= 0 || lessonCode == null || lessonCode.isBlank()) {
             throw new IllegalArgumentException("Hãy mở Nhập Excel từ một phần kỹ năng trong editor.");
         }
@@ -454,7 +483,8 @@ public class PracticeAssessmentExcelService {
     }
 
     private void linkManagedMedia(Long draftId, Long actorId,
-                                  Map<String, String> overrides) {
+                                  Map<String, String> overrides,
+                                  String overrideReason) {
         if (assetService == null || overrides.isEmpty()) return;
         Set<Long> linked = new LinkedHashSet<>();
         for (String url : overrides.values()) {
@@ -463,12 +493,14 @@ public class PracticeAssessmentExcelService {
             Long assetId = Long.valueOf(matcher.group(1));
             if (!linked.add(assetId)) continue;
             assetService.linkAssetToDraft(draftId, assetId, actorId,
-                    null, null, null, "EXCEL_MEDIA", null);
+                    null, null, null, "EXCEL_MEDIA", null, overrideReason);
         }
     }
 
     private ObjectNode mergeImportedLessons(ObjectNode existing, ObjectNode imported) {
-        ObjectNode existingDocument = existing.with("document");
+        JsonNode currentDocument = existing.get("document");
+        ObjectNode existingDocument = currentDocument instanceof ObjectNode object
+                ? object : existing.putObject("document");
         JsonNode importedDocument = imported.path("document");
         for (String field : List.of("detectedCategory", "assessmentProgramCode",
                 "assessmentProgramVersionId", "assessmentProgramVersion", "examTemplateCode")) {

@@ -16,6 +16,9 @@ public class AssessmentProgram {
     @Column(name = "active_version_id")
     private Long activeVersionId;
 
+    @Column(nullable = false)
+    private boolean enabled = true;
+
     protected AssessmentProgram() {
     }
 
@@ -32,7 +35,15 @@ public class AssessmentProgram {
         return activeVersionId;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     public void activateVersion(Long activeVersionId) {
         this.activeVersionId = activeVersionId;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

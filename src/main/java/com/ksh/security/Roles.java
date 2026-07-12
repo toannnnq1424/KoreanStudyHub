@@ -27,6 +27,13 @@ public final class Roles {
     public static final String PREAUTH_LECTURER_OR_ABOVE =
             "hasAnyRole(" + LECTURER_OR_ABOVE + ")";
 
+    /** Comma-separated list usable for governance and reviewer-only routes. */
+    public static final String HEAD_OR_ADMIN = "'HEAD','ADMIN'";
+
+    /** Full SpEL for governance endpoints that lecturers must never enter. */
+    public static final String PREAUTH_HEAD_OR_ADMIN =
+            "hasAnyRole(" + HEAD_OR_ADMIN + ")";
+
     private Roles() {
         // utility class
     }

@@ -146,6 +146,47 @@ public class PracticeDraftServiceTest {
     }
 
     @Test
+    public void createDraftFromPublishedSetPreservesLegacyUngroupedQuestions() throws Exception {
+        PracticeSetRepository setRepository = Mockito.mock(PracticeSetRepository.class);
+        PracticeSectionRepository sectionRepository = Mockito.mock(PracticeSectionRepository.class);
+        PracticeQuestionGroupRepository groupRepository = Mockito.mock(PracticeQuestionGroupRepository.class);
+        PracticeQuestionRepository questionRepository = Mockito.mock(PracticeQuestionRepository.class);
+        PracticeDraftRepository localDraftRepository = Mockito.mock(PracticeDraftRepository.class);
+        PracticeDraftService fullService = new PracticeDraftService(
+                localDraftRepository,
+                setRepository,
+                sectionRepository,
+                groupRepository,
+                questionRepository,
+                objectMapper
+        );
+
+        PracticeSet set = new PracticeSet("Legacy set", "Description", "READING", "TOPIK_I",
+                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
+        setEntityId(set, 10L);
+        PracticeSection section = new PracticeSection(10L, "Reading", "READING", "DEFAULT",
+                "Đọc và chọn đáp án.", 40, BigDecimal.TEN, 0);
+        setEntityId(section, 20L);
+        PracticeQuestion question = new PracticeQuestion(10L, 1, "SINGLE_CHOICE", "레거시 질문",
+                "[\"A\",\"B\"]", "A", "Giải thích", BigDecimal.TEN, 0);
+
+        when(localDraftRepository.findByPublishedSetIdAndOwnerId(10L, 99L)).thenReturn(Optional.empty());
+        when(localDraftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(section));
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of());
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(10L)).thenReturn(List.of(question));
+
+        PracticeDraft draft = fullService.createDraftFromPublishedSet(10L, 99L);
+
+        JsonNode root = objectMapper.readTree(draft.getDraftJson());
+        JsonNode groupNode = root.path("sections").get(0).path("groups").get(0);
+        assertEquals("R1.1", groupNode.path("groupCode").asText());
+        assertEquals("레거시 질문", groupNode.path("questions").get(0).path("prompt").asText());
+        assertEquals(2, groupNode.path("questions").get(0).path("options").size());
+    }
+
+    @Test
     void crossOwnerCannotReadSaveOrDeleteDraft() {
         when(draftRepository.findByIdAndOwnerId(1L, 100L)).thenReturn(Optional.empty());
 

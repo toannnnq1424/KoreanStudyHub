@@ -44,6 +44,12 @@ public class PracticeImportDraftService {
 
     @Transactional
     public PracticeDraft createManualDraftFromSession(Long sessionId, Long userId) {
+        return createManualDraftFromSession(sessionId, userId, null);
+    }
+
+    @Transactional
+    public PracticeDraft createManualDraftFromSession(Long sessionId, Long userId,
+                                                      String overrideReason) {
         PracticePdfImportSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
         if (!session.getUploaderId().equals(userId)) {
@@ -54,7 +60,8 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
+        PracticeDraft aiDraft = editableDraft(
+                session.getLinkedDraftId(), userId, overrideReason);
 
         // Copy and elevate AI Draft to MANUAL mode
         PracticeDraft manualDraft = new PracticeDraft(
@@ -81,6 +88,12 @@ public class PracticeImportDraftService {
 
     @Transactional
     public PracticeDraft attachToExistingDraft(Long sessionId, Long targetDraftId, Long userId) {
+        return attachToExistingDraft(sessionId, targetDraftId, userId, null);
+    }
+
+    @Transactional
+    public PracticeDraft attachToExistingDraft(Long sessionId, Long targetDraftId,
+                                               Long userId, String overrideReason) {
         PracticePdfImportSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
         if (!session.getUploaderId().equals(userId)) {
@@ -91,9 +104,10 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
+        PracticeDraft aiDraft = editableDraft(
+                session.getLinkedDraftId(), userId, overrideReason);
 
-        PracticeDraft targetDraft = editableDraft(targetDraftId, userId);
+        PracticeDraft targetDraft = editableDraft(targetDraftId, userId, overrideReason);
 
         try {
             // Read target json & ai json to merge sections
@@ -128,13 +142,15 @@ public class PracticeImportDraftService {
         }
     }
 
-    private PracticeDraft editableDraft(Long draftId, Long actorId) {
+    private PracticeDraft editableDraft(Long draftId, Long actorId,
+                                        String overrideReason) {
         if (authorizationService == null) {
             return draftRepository.findByIdAndOwnerId(draftId, actorId)
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Không tìm thấy bản nháp tương ứng."));
         }
-        authorizationService.requireDraft(draftId, actorId, PracticeAction.EDIT, null);
+        authorizationService.requireDraft(
+                draftId, actorId, PracticeAction.EDIT, overrideReason);
         return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Không tìm thấy bản nháp tương ứng."));

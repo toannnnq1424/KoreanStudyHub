@@ -69,7 +69,22 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft getDraft(Long id, Long actorId) {
-        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.READ, null);
+        return getDraft(id, actorId, null);
+    }
+
+    @Transactional
+    public PracticeDraft getDraft(Long id, Long actorId, String overrideReason) {
+        PracticeDraft draft = authorizedDraft(
+                id, actorId, PracticeAction.READ, overrideReason);
+        normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
+        return draft;
+    }
+
+    @Transactional
+    public PracticeDraft openDraftForEdit(Long id, Long actorId,
+                                          String overrideReason) {
+        PracticeDraft draft = authorizedDraft(
+                id, actorId, PracticeAction.EDIT, overrideReason);
         normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
         return draft;
     }
@@ -126,7 +141,16 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson, String title, String description, Integer clientVersion) {
-        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.EDIT, null);
+        return saveDraftState(id, actorId, draftJson, title, description,
+                clientVersion, null);
+    }
+
+    @Transactional
+    public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson,
+                                        String title, String description,
+                                        Integer clientVersion, String overrideReason) {
+        PracticeDraft draft = authorizedDraft(
+                id, actorId, PracticeAction.EDIT, overrideReason);
 
         // Check optimistic locking clientVersion
         if (clientVersion != null && draft.getVersion() > clientVersion) {
@@ -173,9 +197,16 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft createDraftFromPublishedSet(Long setId, Long actorId) {
+        return createDraftFromPublishedSet(setId, actorId, null);
+    }
+
+    @Transactional
+    public PracticeDraft createDraftFromPublishedSet(Long setId, Long actorId,
+                                                     String overrideReason) {
         Long ownerId = actorId;
         if (authorizationService != null) {
-            ownerId = authorizationService.requireSet(setId, actorId, PracticeAction.EDIT, null).ownerId();
+            ownerId = authorizationService.requireSet(
+                    setId, actorId, PracticeAction.EDIT, overrideReason).ownerId();
         }
         PracticeSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
@@ -263,6 +294,8 @@ public class PracticeDraftService {
 
             java.util.List<java.util.Map<String, Object>> sectionsList = new java.util.ArrayList<>();
             java.util.List<PracticeSection> sections = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+            java.util.List<PracticeQuestionGroup> groups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
+            java.util.List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
             for (PracticeSection sec : sections) {
                 java.util.Map<String, Object> secMap = new java.util.HashMap<>();
                 secMap.put("title", sec.getTitle());
@@ -275,7 +308,6 @@ public class PracticeDraftService {
                 secMap.put("totalPoints", sec.getTotalPoints());
 
                 java.util.List<java.util.Map<String, Object>> groupsList = new java.util.ArrayList<>();
-                java.util.List<PracticeQuestionGroup> groups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
                 for (PracticeQuestionGroup grp : groups) {
                     Long grpSectionId = grp.getSectionId();
                     if (grpSectionId == null && !sections.isEmpty()) {
@@ -306,48 +338,45 @@ public class PracticeDraftService {
                         grpMap.put("stimulus", stimulus);
                         
                         java.util.List<java.util.Map<String, Object>> qsList = new java.util.ArrayList<>();
-                        java.util.List<PracticeQuestion> questions = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId);
                         for (PracticeQuestion q : questions) {
                             if (grp.getId().equals(q.getGroupId())) {
-                                java.util.Map<String, Object> qMap = new java.util.HashMap<>();
-                                qMap.put("questionNo", q.getQuestionNo());
-                                qMap.put("questionType", q.getQuestionType());
-                                qMap.put("prompt", q.getPrompt());
-                                qMap.put("points", q.getPoints());
-                                qMap.put("explanationVi", q.getExplanation());
-                                qMap.put("answerKey", q.getAnswerKey());
-                                qMap.put("canonicalQuestionType", q.getCanonicalQuestionType());
-                                qMap.put("scoringPolicyCode", q.getScoringPolicyCode());
-                                qMap.put("scoringProfileCode", q.getScoringProfileCode());
-                                qMap.put("scoringProfileVersion", q.getScoringProfileVersion());
-                                qMap.put("promptProfileCode", q.getPromptProfileCode());
-                                qMap.put("promptProfileVersion", q.getPromptProfileVersion());
-                                qMap.put("rubricProfileCode", q.getRubricProfileCode());
-                                qMap.put("rubricProfileVersion", q.getRubricProfileVersion());
-                                if (q.getQuestionContentJson() != null) {
-                                    qMap.put("questionContent", objectMapper.readTree(q.getQuestionContentJson()));
-                                }
-                                if (q.getAnswerSpecJson() != null) {
-                                    qMap.put("answerSpec", objectMapper.readTree(q.getAnswerSpecJson()));
-                                }
-                                if ("WRITING".equalsIgnoreCase(sec.getSkill())
-                                        && PracticeQuestion.TYPE_ESSAY.equals(q.getQuestionType())
-                                        && q.getWritingTaskType() != null) {
-                                    qMap.put("essayTaskType", q.getWritingTaskType().name());
-                                }
-                                
-                                if (q.getOptionsJson() != null) {
-                                    try {
-                                        qMap.put("options", objectMapper.readValue(q.getOptionsJson(), java.util.List.class));
-                                    } catch (Exception e) {
-                                        qMap.put("options", new java.util.ArrayList<>());
-                                    }
-                                }
-                                qsList.add(qMap);
+                                qsList.add(publishedQuestionToDraftMap(q, sec));
                             }
                         }
                         grpMap.put("questions", qsList);
                         groupsList.add(grpMap);
+                    }
+                }
+                if (sections.size() == 1) {
+                    java.util.List<PracticeQuestion> ungroupedQuestions = questions.stream()
+                            .filter(question -> question.getGroupId() == null)
+                            .toList();
+                    if (!ungroupedQuestions.isEmpty()) {
+                        String lessonCode = String.valueOf(secMap.get("lessonCode"));
+                        java.util.Map<String, Object> legacyGroup = new java.util.LinkedHashMap<>();
+                        legacyGroup.put("label", lessonCode + "." + (groupsList.size() + 1));
+                        legacyGroup.put("groupCode", lessonCode + "." + (groupsList.size() + 1));
+                        legacyGroup.put("instruction", sec.getInstructions());
+                        legacyGroup.put("stimulusType", "NONE");
+                        legacyGroup.put("passageText", null);
+                        legacyGroup.put("transcriptText", null);
+                        legacyGroup.put("imageUrl", null);
+                        legacyGroup.put("audioUrl", null);
+                        java.util.Map<String, Object> stimulus = new java.util.LinkedHashMap<>();
+                        stimulus.put("schemaVersion", PracticeDraftContractService.STIMULUS_SCHEMA_VERSION);
+                        stimulus.put("type", "NONE");
+                        stimulus.put("instruction", sec.getInstructions());
+                        stimulus.put("passageText", null);
+                        stimulus.put("transcriptText", null);
+                        stimulus.put("mediaReference", null);
+                        stimulus.put("imageReference", null);
+                        legacyGroup.put("stimulus", stimulus);
+                        java.util.List<java.util.Map<String, Object>> legacyQuestions = new java.util.ArrayList<>();
+                        for (PracticeQuestion question : ungroupedQuestions) {
+                            legacyQuestions.add(publishedQuestionToDraftMap(question, sec));
+                        }
+                        legacyGroup.put("questions", legacyQuestions);
+                        groupsList.add(legacyGroup);
                     }
                 }
                 secMap.put("groups", groupsList);
@@ -362,15 +391,60 @@ public class PracticeDraftService {
         }
     }
 
+    private java.util.Map<String, Object> publishedQuestionToDraftMap(
+            PracticeQuestion question,
+            PracticeSection section) throws Exception {
+        java.util.Map<String, Object> questionMap = new java.util.HashMap<>();
+        questionMap.put("questionNo", question.getQuestionNo());
+        questionMap.put("questionType", question.getQuestionType());
+        questionMap.put("prompt", question.getPrompt());
+        questionMap.put("points", question.getPoints());
+        questionMap.put("explanationVi", question.getExplanation());
+        questionMap.put("answerKey", question.getAnswerKey());
+        questionMap.put("canonicalQuestionType", question.getCanonicalQuestionType());
+        questionMap.put("scoringPolicyCode", question.getScoringPolicyCode());
+        questionMap.put("scoringProfileCode", question.getScoringProfileCode());
+        questionMap.put("scoringProfileVersion", question.getScoringProfileVersion());
+        questionMap.put("promptProfileCode", question.getPromptProfileCode());
+        questionMap.put("promptProfileVersion", question.getPromptProfileVersion());
+        questionMap.put("rubricProfileCode", question.getRubricProfileCode());
+        questionMap.put("rubricProfileVersion", question.getRubricProfileVersion());
+        if (question.getQuestionContentJson() != null) {
+            questionMap.put("questionContent", objectMapper.readTree(question.getQuestionContentJson()));
+        }
+        if (question.getAnswerSpecJson() != null) {
+            questionMap.put("answerSpec", objectMapper.readTree(question.getAnswerSpecJson()));
+        }
+        if ("WRITING".equalsIgnoreCase(section.getSkill())
+                && PracticeQuestion.TYPE_ESSAY.equals(question.getQuestionType())
+                && question.getWritingTaskType() != null) {
+            questionMap.put("essayTaskType", question.getWritingTaskType().name());
+        }
+        if (question.getOptionsJson() != null) {
+            try {
+                questionMap.put("options", objectMapper.readValue(
+                        question.getOptionsJson(), java.util.List.class));
+            } catch (Exception exception) {
+                questionMap.put("options", new java.util.ArrayList<>());
+            }
+        }
+        return questionMap;
+    }
+
     @Transactional
     public void deleteDraft(Long id, Long actorId) {
+        deleteDraft(id, actorId, null);
+    }
+
+    @Transactional
+    public void deleteDraft(Long id, Long actorId, String overrideReason) {
         PracticeDraft draft;
         if (authorizationService == null) {
             draft = draftRepository.findByIdAndOwnerId(id, actorId)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         } else {
             authorizationService.requireDraftOwnerOrOverride(
-                    id, actorId, PracticeAction.EDIT, null);
+                    id, actorId, PracticeAction.EDIT, overrideReason);
             draft = draftRepository.findById(id)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         }

@@ -2,6 +2,7 @@ package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeMaterialReference;
+import com.ksh.entities.PracticePublishedVersion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.practice.governance.PracticeAction;
@@ -10,6 +11,7 @@ import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,8 @@ class PracticeMaterialAccessServiceTest {
             mock(PracticeDraftAssetUsageRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
     private final PracticeAttemptRepository attemptRepository = mock(PracticeAttemptRepository.class);
+    private final PracticePublishedVersionRepository publishedVersionRepository =
+            mock(PracticePublishedVersionRepository.class);
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final PracticeAuthorizationService authorizationService =
             mock(PracticeAuthorizationService.class);
@@ -53,7 +57,7 @@ class PracticeMaterialAccessServiceTest {
     void setUp() {
         service = new PracticeMaterialAccessService(
                 assetRepository, referenceService, usageRepository, setRepository,
-                attemptRepository, enrollmentRepository, authorizationService,
+                attemptRepository, publishedVersionRepository, enrollmentRepository, authorizationService,
                 auditService, storageService);
     }
 
@@ -104,7 +108,57 @@ class PracticeMaterialAccessServiceTest {
     }
 
     @Test
-    void globalPublishedReferenceIsReadableByAuthenticatedLearner() throws Exception {
+    void currentGlobalPublishedReferenceIsReadableByAuthenticatedLearner() throws Exception {
+        LecturerAsset asset = asset(1L, 11L);
+        PracticeMaterialReference reference =
+                PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
+        PracticeSet set = new PracticeSet(
+                "Set", "", "LISTENING", "TOPIK_II", PracticeSet.SCOPE_GLOBAL,
+                null, null, "{}", PracticeSet.STATUS_PUBLISHED, 11L);
+        PracticePublishedVersion currentVersion = publishedVersion(55L);
+        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
+        when(referenceService.references(1L)).thenReturn(List.of(reference));
+        when(setRepository.findById(44L)).thenReturn(Optional.of(set));
+        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ, null))
+                .thenThrow(new AccessDeniedException("learner"));
+        when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
+                44L, PracticePublishedVersion.STATUS_PUBLISHED))
+                .thenReturn(Optional.of(currentVersion));
+        when(storageService.load("private/key.mp3"))
+                .thenReturn(new ByteArrayResource(new byte[]{1}));
+
+        service.load(1L, 99L);
+
+        verify(storageService).load("private/key.mp3");
+    }
+
+    @Test
+    void historicalGlobalReferenceIsDeniedWithoutMatchingAttempt() throws Exception {
+        LecturerAsset asset = asset(1L, 11L);
+        PracticeMaterialReference reference =
+                PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
+        PracticeSet set = new PracticeSet(
+                "Set", "", "LISTENING", "TOPIK_II", PracticeSet.SCOPE_GLOBAL,
+                null, null, "{}", PracticeSet.STATUS_PUBLISHED, 11L);
+        PracticePublishedVersion currentVersion = publishedVersion(66L);
+        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
+        when(referenceService.references(1L)).thenReturn(List.of(reference));
+        when(setRepository.findById(44L)).thenReturn(Optional.of(set));
+        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ, null))
+                .thenThrow(new AccessDeniedException("learner"));
+        when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
+                44L, PracticePublishedVersion.STATUS_PUBLISHED))
+                .thenReturn(Optional.of(currentVersion));
+        when(authorizationService.hasPermission(99L, PracticeAction.MEDIA_REVIEW))
+                .thenReturn(false);
+
+        assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
+
+        verify(storageService, never()).load(anyString());
+    }
+
+    @Test
+    void collaboratorCanReadHistoricalReferenceThroughSetAuthorization() throws Exception {
         LecturerAsset asset = asset(1L, 11L);
         PracticeMaterialReference reference =
                 PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
@@ -114,12 +168,17 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
+        when(authorizationService.requireSet(44L, 22L, PracticeAction.READ, null))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false, false, true));
         when(storageService.load("private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
-        service.load(1L, 99L);
+        service.load(1L, 22L);
 
         verify(storageService).load("private/key.mp3");
+        verify(publishedVersionRepository, never())
+                .findFirstBySetIdAndStatusOrderByVersionNumberDesc(
+                        44L, PracticePublishedVersion.STATUS_PUBLISHED);
     }
 
     @Test
@@ -227,5 +286,11 @@ class PracticeMaterialAccessServiceTest {
         asset.setStatus("ACTIVE");
         asset.setContentVerified(true);
         return asset;
+    }
+
+    private static PracticePublishedVersion publishedVersion(Long id) {
+        PracticePublishedVersion version = mock(PracticePublishedVersion.class);
+        when(version.getId()).thenReturn(id);
+        return version;
     }
 }

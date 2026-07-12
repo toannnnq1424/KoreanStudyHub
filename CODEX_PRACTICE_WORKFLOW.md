@@ -1821,7 +1821,7 @@ implementation required and received a separate explicit user GO.
 ### Phase 12 — Materials & Permissions
 
 Status:
-STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED
+COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED
 
 `PRE_PHASE_12_MATERIALS_PERMISSIONS_AND_GOVERNANCE_GATE` was completed as an
 audit-only slice on 2026-07-11 against committed HEAD `324dad9`.
@@ -2031,7 +2031,7 @@ Phase 12 implementation and automated stabilization outcome on 2026-07-12:
   production TODO/FIXME/HACK. UTF-8/mojibake cleanup and regression guards were
   retained.
 
-Gate state:
+Baseline gate state recorded before the post-commit continuation audit:
 
 - `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`;
 - `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN_BROWSER_QA_DEFERRED`;
@@ -2056,6 +2056,61 @@ Explicit remaining debt:
   editor/PDF-workspace UI remain bounded Phase 13/15 debt;
 - the consolidated browser route/UI pass remains required before declaring the
   Phase 12 closure gate green and opening Phase 13.
+
+Post-commit continuation audit on 2026-07-12:
+
+- the 1293/1293 JDK 26/MySQL V27 result remains valid baseline evidence, but it
+  does not close newly identified authorization/governance gaps;
+- `PracticeMaterialAccessService` currently allows a learner without a matching
+  historical attempt to read an old published-version asset when the set is
+  presently PUBLISHED/GLOBAL or the learner is a current class member. Phase 12
+  must resolve the current learner-visible version explicitly and deny old
+  version material unless the learner has an attempt locked to that version;
+- program/template settings are persisted in normalized and immutable-version
+  DB tables, but the product contract was refined after browser review: each
+  learner-facing certificate has one active scenario at a time, while immutable
+  scenario versions keep history. The current TOPIK root plus TOPIK I/TOPIK II
+  template compatibility model is not yet that target;
+- program activation can currently deactivate the program version referenced by
+  enabled template roots without creating/retargeting compatible immutable
+  template versions. The authoring catalog then rejects the inactive reference.
+  This is a P0 governance/catalog-consistency blocker;
+- emergency override is fail-closed but incomplete across create-edit,
+  autosave, publish, PDF/Excel attach and material mutation routes;
+- `/practice/materials/{assetId}/content` advertises byte Range without returning
+  206/Content-Range, and final closure evidence must run on the declared JDK 17
+  baseline rather than relying only on JDK 26;
+- Admin/Head assessment governance, unified material management, collaborator
+  grant/revoke and per-set full revision history still need bounded usable UI.
+  The existing editor history item is a placeholder alert;
+- the detailed execution contract is now canonicalized in
+  `docs/PRACTICE_PHASE_12_CONTINUATION_AND_CLOSURE_PLAN.md` under
+  `PHASE_12_POST_COMMIT_SECURITY_GOVERNANCE_AND_UI_CLOSURE`;
+- `PHASE_12_POST_COMMIT_AUDIT = ACTION_REQUIRED`,
+  `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN` and `PHASE_13_GO = NO_GO`.
+  No continuation production code was implemented by this documentation update.
+
+Phase 12 scope-reduction and future governance decision on 2026-07-12:
+
+- checkpoint work is carried on `feature/practice-reduce-scope`; this does not
+  close Phase 12 or authorize merge/product rollout;
+- target hierarchy is `certificate/program -> skill route -> task route`;
+- every enabled skill automatically has a standalone learner route. The old
+  `SKILL_SPECIFIC/FULL_TEST/BOTH` delivery selector must not appear as a policy
+  concept in the user-facing governance form;
+- full-test membership/order/timer belongs to the one active scenario version;
+- TOPIK II Writing Q51-Q54 are certificate-specific seed task routes, not a
+  global hard-code. Other certificates define their own dynamic tasks;
+- each task route resolves exact scoring, prompt and rubric profile versions.
+  Approved system rules must be readable/manageable by Admin/Head, while JSON
+  remains internal persistence and is never the normal form input;
+- lecturer authoring chooses certificate/program first; learner library and
+  progress expose certificate context. Invalid governance actions return a
+  friendly domain error, never a raw HTML error page;
+- the forward migration for this redesign starts after V28 and preserves all
+  old draft/published-version/attempt/result identities;
+- this redesign is future work requiring a separate implementation GO and is a
+  prerequisite for Phase 13 multi-certificate learner expansion.
 
 ### Phase 13 — Results, Progress & UI/UX Polish
 
@@ -2453,24 +2508,25 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-11 | Phase 11 Lecturer Authoring and Import Acceptance | STABILIZED_PENDING_USER_ACCEPTANCE | CLOSED_WITH_ACCEPTED_DEBT | 324dad9019e61d4c814c350c6ce6ac88247c8997 | b9cd7545e3f39e517453817de4ba76aaff2d14f3 | User explicitly approved stage/commit/push after the green closure gate; pushed `feature/practice` to origin. The accepted evidence remains focused closure 20/20, full suite 1242/1242 and runtime browser QA with no provider call. | Phase 11 is closed with its governance, material, learner UX and release debt routed to Phase 12/13/15. | Run the dedicated pre-Phase 12 audit-only gate; do not start implementation automatically. |
 | 2026-07-11 | Pre-Phase 12 Materials, Permissions and Governance Gate | NOT_STARTED | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | N/A | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Static source/schema/security audit of V4/V25/V26 RBAC, ownership, revision/republish behavior, material storage/delivery, profile/template governance and compatibility. No production code/migration changed, no tests rerun and no provider call. | Found four required P0 foundations: effective action permissions, collaboration/owner lock, append-only restore/republish, and unified private/published material identity with immutable references. P1 covers config governance, archive action and upload/retention hardening; Phase 12 remains `NOT_STARTED`. | User reviews the audit and docs; commit/push docs only on explicit instruction, then begin 12A only after a separate implementation GO. |
 | 2026-07-11 | Phase 11I PDF/Excel Teacher UX Correction | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AUTOMATED_GATE_GREEN_BROWSER_UAT_DEFERRED | N/A | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Compile and loaded-template JS checks green; focused and broad Practice/PDF/Excel regressions green; isolated Flyway V1-V27 plus Hibernate validation green; pool-bounded full suite 1244/1244, 0 failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27. Browser QA was explicitly removed by the user and no provider call was made. | Added program/template-first PDF target context, source/display numbering, reactive teacher-facing PDF controls, role-safe payload preview and compact/detail Excel preview. Browser QA is deferred to the mandatory end-of-Phase-12 route/dead-code/UI stabilization. Full Manual UAT and clean high-quality multi-certificate seed data remain Phase 15. | Review these uncommitted changes. Do not start Phase 12 until the user gives a separate implementation GO. |
-| 2026-07-12 | Phase 12 Materials, Permissions and Governance Implementation / Automated Stabilization | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED | this commit | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Focused gates: restore/governance 17/17, storage/material 22/22, governance hardening 13/13 and Practice integration 78/78. Fresh MySQL V1-V27/Hibernate validation and static security/route/migration/UTF-8 checks are green. Final pool-bounded full suite: 1293/1293, zero failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27; no provider call. Browser QA was explicitly skipped by the user. | Implemented 12A-12E action RBAC, collaboration/owner lock, archive lifecycle, append-only historical restore, immutable assessment governance, authenticated material delivery, content-signature checks, durable asset lifecycle and provider-neutral R2 readiness. `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`; closure remains open because browser QA was deferred. R2 integration, complete managed system-rule runtime migration, production Speaking media and release UAT remain routed debt. | User explicitly requested stage/commit/push of this checkpoint including `docs/research-input`. Next, review the deferred browser closure decision; do not merge or open Phase 13 without explicit instruction. |
+| 2026-07-12 | Phase 12 Materials, Permissions and Governance Implementation / Automated Stabilization | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED | this commit | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Focused gates: restore/governance 17/17, storage/material 22/22, governance hardening 13/13 and Practice integration 78/78. Fresh MySQL V1-V27/Hibernate validation and static security/route/migration/UTF-8 checks are green. Final pool-bounded full suite: 1293/1293, zero failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27; no provider call. Browser QA was not run in this checkpoint. | Implemented 12A-12E action RBAC, collaboration/owner lock, archive lifecycle, append-only historical restore, immutable assessment governance, authenticated material delivery, content-signature checks, durable asset lifecycle and provider-neutral R2 readiness. `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`; closure remained open because browser QA was deferred. A later clarification retained browser closure as mandatory. R2 integration, complete managed system-rule runtime migration, production Speaking media and release UAT remain routed debt. | User explicitly requested stage/commit/push of this checkpoint including `docs/research-input`. Next, review the deferred browser closure decision; do not merge or open Phase 13 without explicit instruction. |
+| 2026-07-12 | Phase 12 Post-commit Security, Governance and UI Closure Audit | COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED | ACTION_REQUIRED | N/A | 85b65e1 | Static source/schema/route audit plus fresh local DB inventory; no production code, migration, provider call or test rerun. Prior 1293/1293 remains historical baseline evidence. | Confirmed P0 historical-version material exposure and P0 program/template activation inconsistency; primary emergency override and material Range are incomplete; governance/material/collaborator/per-set-history UI plus JDK 17 and browser closure remain open. Scenario count is dynamic and must not be hard-coded. | Implement `docs/PRACTICE_PHASE_12_CONTINUATION_AND_CLOSURE_PLAN.md`; Phase 13 remains NO-GO. |
+| 2026-07-12 | Phase 12 Reduced-scope Continuation Checkpoint | ACTION_REQUIRED | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | this commit | 85b65e1 | JDK 17 focused continuation gate 62/62, V1-V28 and V27-V28 migration paths 3/3 each, and latest full-suite baseline 1319/1319 were green; the later legacy ungrouped-question compatibility fix passed its focused 6/6 test. Browser review exposed governance UX/model gaps, so closure remains open and a final full-suite rerun is still required before closure. | Preserves historical-material authorization, Range, override, bounded governance/material/history UI and legacy draft compatibility work. Records future one-active-scenario plus certificate -> skill -> task redesign without claiming it implemented. | Push `feature/practice-reduce-scope`; do not merge or start 12H/Phase 13 without a separate GO. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Review the committed Phase 12 feature-branch checkpoint and automated/static
-evidence. It was stage/commit/pushed only after explicit user instruction.
-`PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`, but the user explicitly
-skipped browser QA, so `PHASE_12_CLOSURE_STABILIZATION_GATE` remains
-`OPEN_BROWSER_QA_DEFERRED`. Do not merge, claim product GO or open Phase 13
-without the next explicit user instruction.
+Preserve the reduced-scope continuation checkpoint on
+`feature/practice-reduce-scope`. The future certificate/skill/task governance
+redesign in 12H needs a separate implementation GO. Do not merge, claim product
+GO or open Phase 13 before the remaining full-suite/browser closure gate is
+`CLOSED_GREEN` and the user gives a separate GO.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12 is
-`STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED`; Phase 13+ remain
+`COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED`; Phase 13+ remain
 NOT_STARTED. Live Speaking AI rollout remains NO-GO. React modernization
 remains future-only after Phase 16. Do not start Phase 13 or perform broad
 UI/React modernization without the next explicit phase approval.

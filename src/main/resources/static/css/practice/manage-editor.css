@@ -176,6 +176,15 @@ input, select, textarea, button {
   border-radius: 8px;
   transition: background 0.2s;
 }
+
+.dots-dropdown .dots-menu-disabled {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  cursor: not-allowed;
+}
 .dots-dropdown a:hover {
   background: #f1f5f9;
 }

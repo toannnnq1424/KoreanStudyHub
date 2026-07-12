@@ -127,10 +127,69 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
+    void phase12GovernanceUiKeepsBoundedAuditedOverrideAndImmutableHistoryFlows()
+            throws Exception {
+        String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
+        String revisions = read("src/main/resources/templates/practice/manage/revisions.html");
+        String governance = read("src/main/resources/templates/practice/manage/assessment-governance.html");
+        String governanceJs = read("src/main/resources/static/js/practice-assessment-governance.js");
+        String controller = read("src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
+
+        assertTrue(dashboard.contains("Can thiệp khẩn cấp"));
+        assertTrue(dashboard.contains("/override-edit"));
+        assertTrue(dashboard.contains("name=\"overrideReason\" required maxlength=\"500\""));
+        assertTrue(controller.contains("int reviewLimit = 50"));
+        assertTrue(controller.contains("findByCreatedByNotOrderByCreatedAtDesc"));
+        assertTrue(controller.contains("findByOwnerIdNotOrderByUpdatedAtDesc"));
+        assertTrue(revisions.contains("Mỗi lần xuất bản là một phiên bản bất biến"));
+        assertTrue(revisions.contains("row.requiresOverrideReason"));
+        assertTrue(revisions.contains("name=\"overrideReason\" required maxlength=\"500\""));
+        assertTrue(revisions.contains("/versions/{versionId}/restore"));
+        assertTrue(revisions.contains("selectedSet.assessmentProgramCode"));
+        assertTrue(revisions.contains("#lists.size(versions)"));
+        assertTrue(revisions.contains("row.version.status"));
+        assertTrue(revisions.contains("xuất bản 10 lần tạo v1-v10"));
+        assertTrue(revisions.contains("khôi phục v3 sẽ tạo v11"));
+        assertTrue(revisions.contains("Autosave bản nháp không tự tạo published revision"));
+        assertTrue(dashboard.contains("Program / Kịch bản"));
+        assertTrue(dashboard.contains("d.assessmentProgramCode"));
+        assertTrue(dashboard.contains("item.assessmentProgramCode"));
+        assertTrue(controller.contains("redirect:/practice/manage/revisions?setId="));
+        assertTrue(governance.contains("id=\"governance-action-dialog\""));
+        assertTrue(governance.contains("name=\"reason\" rows=\"4\" required maxlength=\"500\""));
+        assertTrue(governance.contains("Kích hoạt version cũ là rollback"));
+        assertTrue(governance.contains("data-governance-action=\"toggle-program\""));
+        assertTrue(governanceJs.contains("{reason: reason}"));
+        assertTrue(governanceJs.contains("'/enabled'"));
+        assertTrue(governanceJs.contains("executeGovernanceAction"));
+        assertFalse(controller.contains("/revisions/{logId}/restore"));
+    }
+
+    @Test
+    void phase12MaterialLibrarySeparatesMineAndSharedWithoutRawStorageLinks()
+            throws Exception {
+        String page = read("src/main/resources/templates/practice/manage/material-library.html");
+        String service = read("src/main/java/com/ksh/features/practice/manage/service/PracticeMaterialLibraryService.java");
+        String sidebar = read("src/main/resources/templates/fragments/practice-sidebar.html");
+
+        assertTrue(page.contains("Của tôi"));
+        assertTrue(page.contains("Được chia sẻ"));
+        assertTrue(page.contains("item.contentUrl"));
+        assertTrue(page.contains("item.referenceCount"));
+        assertTrue(page.contains("/practice/manage/materials/{id}/delete"));
+        assertFalse(page.contains("/uploads/"));
+        assertFalse(page.contains("storageKey"));
+        assertTrue(service.contains("/practice/materials/"));
+        assertFalse(service.contains("getStorageKey"));
+        assertTrue(sidebar.contains("/practice/manage/materials"));
+    }
+
+    @Test
     void renderedResourcesRemainUtf8AndAvoidEmojiStyleProductIcons() throws Exception {
         List<Path> roots = List.of(
                 Path.of("src/main/resources/templates"),
                 Path.of("src/main/resources/static/js"),
+                Path.of("src/main/resources/static/css"),
                 Path.of("src/main/resources/db/migration"));
         List<String> mojibakeMarkers = List.of("Cáº", "Ä", "Pháº", "Viáº", "â€", "ðŸ");
 
@@ -145,6 +204,26 @@ class PracticePhase11AuthoringUiContractTest {
                 }
             }
         }
+    }
+
+    @Test
+    void privatePracticeUploadsStayBehindAuthorizedMaterialControllers() throws Exception {
+        String security = read("src/main/java/com/ksh/config/SecurityConfig.java");
+        String draftController = read(
+                "src/main/java/com/ksh/features/practice/manage/controller/PracticeDraftController.java");
+        String materialController = read(
+                "src/main/java/com/ksh/features/practice/controller/PracticeMaterialController.java");
+
+        int privateRule = security.indexOf("/uploads/practice-audio/**");
+        int publicRule = security.indexOf(".requestMatchers(\"/uploads/**\").permitAll()");
+        assertTrue(privateRule >= 0 && privateRule < publicRule);
+        assertTrue(security.contains("/uploads/practice-images/**"));
+        assertTrue(security.contains("/uploads/lecturer-assets/**"));
+        assertTrue(security.substring(privateRule, publicRule).contains(".denyAll()"));
+        assertTrue(draftController.contains("/practice/materials/"));
+        assertFalse(draftController.contains("\"url\", \"/uploads/"));
+        assertTrue(materialController.contains("PracticeMaterialAccessService"));
+        assertTrue(materialController.contains("@PreAuthorize(\"isAuthenticated()\")"));
     }
 
     private static boolean containsEmojiStyleIcon(String content) {

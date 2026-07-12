@@ -36,6 +36,29 @@
       </svg>
       <span class="pi-nav-text">Lịch sử sửa đổi</span>
     </a>
+
+    <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+       th:href="@{/practice/manage/materials}"
+       class="pi-nav-item"
+       th:classappend="${activeItem == 'materials'} ? 'active'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <path d="M21 15l-5-5L5 21"/>
+      </svg>
+      <span class="pi-nav-text">Kho tài nguyên</span>
+    </a>
+
+    <a sec:authorize="hasAnyRole('HEAD','ADMIN')"
+       th:href="@{/practice/manage/assessment-governance}"
+       class="pi-nav-item"
+       th:classappend="${activeItem == 'governance'} ? 'active'">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7l8-4z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+      <span class="pi-nav-text">Cấu hình chứng chỉ</span>
+    </a>
   </nav>
 </aside>
 </html>

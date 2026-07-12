@@ -81,7 +81,7 @@ class Phase11AuthoringPersistenceIntegrationTest {
                 ORDER BY installed_rank DESC
                 LIMIT 1
                 """, String.class);
-        assertThat(currentVersion).isEqualTo("27");
+        assertThat(currentVersion).isEqualTo("28");
 
         Integer disabledExcelSkills = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
@@ -109,6 +109,34 @@ class Phase11AuthoringPersistenceIntegrationTest {
                 "assessment_program_code", "assessment_program_version_id",
                 "exam_template_code", "target_test_no", "target_skill",
                 "target_lesson_code");
+        assertColumns("assessment_programs", "enabled");
+        assertColumns("assessment_exam_templates", "program_code");
+        assertColumns("assessment_exam_template_versions", "program_version_id");
+
+        Integer scenarioRoots = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM assessment_exam_templates", Integer.class);
+        Integer versionedScenarioRoots = jdbcTemplate.queryForObject("""
+                SELECT COUNT(DISTINCT t.code)
+                FROM assessment_exam_templates t
+                JOIN assessment_programs p ON p.code = t.program_code
+                JOIN assessment_exam_template_versions v
+                  ON v.template_code = t.code
+                 AND v.program_version_id IS NOT NULL
+                WHERE JSON_VALID(t.config_json) = 1
+                """, Integer.class);
+        assertThat(scenarioRoots).isNotNull().isPositive();
+        assertThat(versionedScenarioRoots).isEqualTo(scenarioRoots);
+
+        Integer invalidActiveScenarioPointers = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM assessment_exam_templates t
+                JOIN assessment_exam_template_versions v ON v.id = t.active_version_id
+                JOIN assessment_program_versions p ON p.id = v.program_version_id
+                WHERE v.template_code <> t.code
+                   OR p.program_code <> t.program_code
+                   OR t.program_version_id <> v.program_version_id
+                """, Integer.class);
+        assertThat(invalidActiveScenarioPointers).isZero();
 
         Integer unboundPdfImportSessions = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)

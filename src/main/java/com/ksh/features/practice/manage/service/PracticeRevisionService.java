@@ -59,15 +59,20 @@ public class PracticeRevisionService {
      */
     @Transactional
     public Long restoreRevision(Long logId, Long actorId) {
+        return restoreRevision(logId, actorId, null);
+    }
+
+    @Transactional
+    public Long restoreRevision(Long logId, Long actorId, String overrideReason) {
         PracticeEditLog logEntry = editLogRepository.findById(logId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Lịch sử sửa đổi không tồn tại."));
         String snapshot = logEntry.getBeforeSnapshotJson();
         requireSnapshot(snapshot);
         PracticeAuthorizationService.Decision decision = authorizationService.requireSet(
-                logEntry.getSetId(), actorId, PracticeAction.RESTORE, null);
+                logEntry.getSetId(), actorId, PracticeAction.RESTORE, overrideReason);
         return applyAsNewVersion(logEntry.getSetId(), snapshot, null, decision,
-                actorId, null, "edit-log:" + logId);
+                actorId, overrideReason, "edit-log:" + logId);
     }
 
     @Transactional

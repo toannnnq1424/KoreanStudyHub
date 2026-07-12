@@ -3,7 +3,9 @@ package com.ksh.features.practice.assessment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplate;
 import com.ksh.features.practice.assessment.persistence.AssessmentProgramVersion;
+import com.ksh.features.practice.assessment.persistence.AssessmentProgram;
 import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateRepository;
+import com.ksh.features.practice.assessment.repository.AssessmentProgramRepository;
 import com.ksh.features.practice.assessment.repository.AssessmentProgramVersionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -51,6 +53,26 @@ class AssessmentAuthoringCatalogServiceTest {
                 "ALL_OR_NOTHING", "PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO");
         assertThat(multiple.promptProfile()).isEqualTo(new ProfileReference("CUSTOM_PROMPT", 2));
         assertThat(multiple.rubricProfile()).isEqualTo(new ProfileReference("CUSTOM_RUBRIC", 3));
+    }
+
+    @Test
+    void archivedProgramIsNotExposedByAuthoringCatalog() throws Exception {
+        AssessmentExamTemplateRepository templates = mock(AssessmentExamTemplateRepository.class);
+        AssessmentProgramVersionRepository versions = mock(AssessmentProgramVersionRepository.class);
+        AssessmentProgramRepository programs = mock(AssessmentProgramRepository.class);
+        AssessmentProgramPolicyService policies = mock(AssessmentProgramPolicyService.class);
+        AssessmentExamTemplate entity = templateEntity();
+        ReflectionTestUtils.setField(entity, "programCode", "CUSTOM");
+        AssessmentProgram program = new AssessmentProgram("CUSTOM", 12L);
+        program.setEnabled(false);
+        when(templates.findByEnabledTrueOrderByDisplayNameAsc()).thenReturn(List.of(entity));
+        when(programs.findById("CUSTOM")).thenReturn(Optional.of(program));
+        AssessmentAuthoringCatalogService service = new AssessmentAuthoringCatalogService(
+                templates, null, versions, programs, policies, new ObjectMapper());
+
+        AssessmentAuthoringCatalogService.AuthoringCatalog catalog = service.catalog();
+
+        assertThat(catalog.templates()).isEmpty();
     }
 
     private static AssessmentExamTemplate templateEntity() throws Exception {

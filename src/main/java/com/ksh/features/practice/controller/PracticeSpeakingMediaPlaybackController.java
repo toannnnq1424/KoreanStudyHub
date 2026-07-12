@@ -20,9 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -40,7 +37,6 @@ public class PracticeSpeakingMediaPlaybackController {
             .cachePrivate()
             .mustRevalidate();
     private static final String X_CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
-    private static final int BUFFER_SIZE = 8192;
 
     private final PracticeSpeakingMediaPlaybackService playbackService;
     private final AuthenticatedUserIdResolver userIdResolver;
@@ -62,21 +58,18 @@ public class PracticeSpeakingMediaPlaybackController {
         PracticeSpeakingMediaPlaybackService.PlaybackStream playback =
                 playbackService.openForOwner(userId, attemptId, questionId, mediaId);
 
-        ByteRange range = ByteRange.parse(rangeHeader, playback.byteSize());
+        PracticeByteRange.Selection range = PracticeByteRange.parse(
+                rangeHeader, playback.byteSize());
         if (range.unsatisfiable()) {
-            closeQuietly(playback.inputStream());
+            PracticeByteRange.closeQuietly(playback.inputStream());
             return response(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, playback.mimeType(), 0L)
                     .header(HttpHeaders.CONTENT_RANGE, "bytes */" + playback.byteSize())
                     .body(outputStream -> { });
         }
 
         long contentLength = range.length();
-        StreamingResponseBody body = outputStream -> {
-            try (InputStream input = playback.inputStream()) {
-                skipFully(input, range.start());
-                copyBounded(input, outputStream, contentLength);
-            }
-        };
+        StreamingResponseBody body = PracticeByteRange.body(
+                playback::inputStream, range);
 
         ResponseEntity.BodyBuilder builder = response(
                 range.partial() ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK,
@@ -101,108 +94,4 @@ public class PracticeSpeakingMediaPlaybackController {
                 .contentLength(contentLength);
     }
 
-    private static void copyBounded(InputStream input, java.io.OutputStream output, long byteSize) throws IOException {
-        byte[] buffer = new byte[BUFFER_SIZE];
-        long remaining = byteSize;
-        while (remaining > 0L) {
-            int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-            if (read == -1) {
-                return;
-            }
-            output.write(buffer, 0, read);
-            remaining -= read;
-        }
-    }
-
-    private static void skipFully(InputStream input, long bytes) throws IOException {
-        long remaining = bytes;
-        while (remaining > 0L) {
-            long skipped = input.skip(remaining);
-            if (skipped > 0L) {
-                remaining -= skipped;
-                continue;
-            }
-            if (input.read() == -1) {
-                throw new EOFException("Audio stream ended before requested range.");
-            }
-            remaining--;
-        }
-    }
-
-    private static void closeQuietly(InputStream input) {
-        try {
-            input.close();
-        } catch (IOException ignored) {
-            // Nothing useful can be returned to the client for a rejected range.
-        }
-    }
-
-    private record ByteRange(long start, long end, boolean partial, boolean unsatisfiable) {
-        private static ByteRange parse(String header, long total) {
-            if (header == null || header.isBlank()) {
-                return new ByteRange(0L, total - 1L, false, false);
-            }
-            String value = header.trim();
-            if (!value.startsWith("bytes=")) {
-                return unsatisfiable(total);
-            }
-            String spec = value.substring("bytes=".length()).trim();
-            if (spec.isBlank() || spec.contains(",")) {
-                return unsatisfiable(total);
-            }
-            int separator = spec.indexOf('-');
-            if (separator < 0 || separator != spec.lastIndexOf('-')) {
-                return unsatisfiable(total);
-            }
-
-            String startText = spec.substring(0, separator).trim();
-            String endText = spec.substring(separator + 1).trim();
-            if (startText.isEmpty()) {
-                Long suffixLength = parseDigits(endText);
-                if (suffixLength == null || suffixLength <= 0L) {
-                    return unsatisfiable(total);
-                }
-                long start = suffixLength >= total ? 0L : total - suffixLength;
-                return new ByteRange(start, total - 1L, true, false);
-            }
-
-            Long start = parseDigits(startText);
-            if (start == null || start >= total) {
-                return unsatisfiable(total);
-            }
-            long end = total - 1L;
-            if (!endText.isEmpty()) {
-                Long parsedEnd = parseDigits(endText);
-                if (parsedEnd == null || start > parsedEnd) {
-                    return unsatisfiable(total);
-                }
-                end = Math.min(parsedEnd, total - 1L);
-            }
-            return new ByteRange(start, end, true, false);
-        }
-
-        private static Long parseDigits(String text) {
-            if (text == null || text.isBlank()) {
-                return null;
-            }
-            for (int i = 0; i < text.length(); i++) {
-                if (!Character.isDigit(text.charAt(i))) {
-                    return null;
-                }
-            }
-            try {
-                return Long.parseLong(text);
-            } catch (NumberFormatException ex) {
-                return null;
-            }
-        }
-
-        private static ByteRange unsatisfiable(long total) {
-            return new ByteRange(0L, total - 1L, false, true);
-        }
-
-        private long length() {
-            return unsatisfiable ? 0L : end - start + 1L;
-        }
-    }
 }

@@ -9,6 +9,7 @@ public interface PracticeMaterialReferenceRepository
         extends JpaRepository<PracticeMaterialReference, Long> {
     List<PracticeMaterialReference> findByAssetId(Long assetId);
     List<PracticeMaterialReference> findByDraftId(Long draftId);
+    List<PracticeMaterialReference> findBySetId(Long setId);
     List<PracticeMaterialReference> findByPublishedVersionId(Long publishedVersionId);
     boolean existsByAssetIdAndDraftIdAndPlacement(Long assetId, Long draftId, String placement);
     boolean existsByAssetIdAndPublishedVersionIdAndPlacement(

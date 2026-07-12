@@ -71,5 +71,9 @@ public class PracticeStorageReadinessService {
                             String state, boolean r2ConfigurationPresent,
                             boolean r2AdapterInstalled, List<String> missingConfiguration,
                             String note) {
+        public boolean productionReady() {
+            return !"R2".equals(plannedProvider)
+                    || (r2ConfigurationPresent && r2AdapterInstalled);
+        }
     }
 }

@@ -19,7 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PracticeAuthorizationServiceTest {
@@ -29,13 +31,16 @@ class PracticeAuthorizationServiceTest {
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
     private final PracticeAuthoringCollaborationRepository collaborationRepository =
             mock(PracticeAuthoringCollaborationRepository.class);
+    private final PracticeGovernanceAuditService auditService =
+            mock(PracticeGovernanceAuditService.class);
 
     private PracticeAuthorizationService service;
 
     @BeforeEach
     void setUp() {
         service = new PracticeAuthorizationService(
-                jdbcTemplate, draftRepository, setRepository, collaborationRepository);
+                jdbcTemplate, draftRepository, setRepository, collaborationRepository,
+                auditService);
     }
 
     @Test
@@ -102,11 +107,17 @@ class PracticeAuthorizationServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> service.requireSet(10L, 33L, PracticeAction.EDIT, " "));
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireSet(
+                        10L, 33L, PracticeAction.EDIT, "x".repeat(501)));
 
         PracticeAuthorizationService.Decision decision =
-                service.requireSet(10L, 33L, PracticeAction.EDIT, "Sửa lỗi bảo mật");
+                service.requireSet(10L, 33L, PracticeAction.EDIT, "  Sửa lỗi bảo mật  ");
         assertTrue(decision.overrideUsed());
         assertFalse(decision.ownerOrCollaborator());
+        verify(auditService).record(eq("EMERGENCY_OVERRIDE_AUTHORIZED"), eq("SET"),
+                eq(10L), eq(11L), eq(33L), isNull(), eq(true),
+                eq("Sửa lỗi bảo mật"), isNull(), anyString());
     }
 
     @Test

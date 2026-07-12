@@ -12,6 +12,9 @@ import java.util.Optional;
 
 public interface AssessmentExamTemplateRepository extends JpaRepository<AssessmentExamTemplate, String> {
     List<AssessmentExamTemplate> findByEnabledTrueOrderByDisplayNameAsc();
+    List<AssessmentExamTemplate> findByProgramCodeOrderByDisplayNameAsc(String programCode);
+    List<AssessmentExamTemplate> findByProgramCodeAndEnabledTrueOrderByDisplayNameAsc(
+            String programCode);
     Optional<AssessmentExamTemplate> findByCodeAndEnabledTrue(String code);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

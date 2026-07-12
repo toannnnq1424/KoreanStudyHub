@@ -95,8 +95,20 @@ public class PracticePdfImportSessionService {
                                                   String requestedTemplateCode, String title,
                                                   Long linkedDraftId, Integer requestedTestNo,
                                                   String requestedSkill, String requestedLessonCode) throws IOException {
+        return createSession(uploaderId, file, requestedTemplateCode, title,
+                linkedDraftId, requestedTestNo, requestedSkill,
+                requestedLessonCode, null);
+    }
+
+    @Transactional
+    public PracticePdfImportSession createSession(Long uploaderId, MultipartFile file,
+                                                  String requestedTemplateCode, String title,
+                                                  Long linkedDraftId, Integer requestedTestNo,
+                                                  String requestedSkill,
+                                                  String requestedLessonCode,
+                                                  String overrideReason) throws IOException {
         PracticeDraft linkedDraft = linkedDraftId == null ? null
-                : authorizedDraft(linkedDraftId, uploaderId);
+                : authorizedDraft(linkedDraftId, uploaderId, overrideReason);
 
         AssessmentAuthoringCatalogService.ExamTemplatePolicy template = resolveTemplate(
                 requestedTemplateCode, linkedDraft);
@@ -144,8 +156,16 @@ public class PracticePdfImportSessionService {
     @Transactional(readOnly = true)
     public PdfImportStartContext resolveStartContext(Long draftId, Integer requestedTestNo,
                                                      String requestedLessonCode, Long ownerId) {
+        return resolveStartContext(
+                draftId, requestedTestNo, requestedLessonCode, ownerId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PdfImportStartContext resolveStartContext(Long draftId, Integer requestedTestNo,
+                                                     String requestedLessonCode, Long ownerId,
+                                                     String overrideReason) {
         if (draftId == null) return null;
-        PracticeDraft draft = authorizedDraft(draftId, ownerId);
+        PracticeDraft draft = authorizedDraft(draftId, ownerId, overrideReason);
         List<TargetSectionOption> sections = readTargetSections(draft);
         if (sections.isEmpty()) {
             throw new IllegalArgumentException("Bản nháp chưa có phần kỹ năng để nhập PDF.");
@@ -250,13 +270,15 @@ public class PracticePdfImportSessionService {
         }
     }
 
-    private PracticeDraft authorizedDraft(Long draftId, Long actorId) {
+    private PracticeDraft authorizedDraft(Long draftId, Long actorId,
+                                          String overrideReason) {
         if (authorizationService == null) {
             return draftRepository.findByIdAndOwnerId(draftId, actorId)
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Bản nháp liên kết không tồn tại."));
         }
-        authorizationService.requireDraft(draftId, actorId, PracticeAction.EDIT, null);
+        authorizationService.requireDraft(
+                draftId, actorId, PracticeAction.EDIT, overrideReason);
         return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Bản nháp liên kết không tồn tại."));
