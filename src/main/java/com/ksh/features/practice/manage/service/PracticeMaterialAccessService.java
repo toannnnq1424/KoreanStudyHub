@@ -1,0 +1,144 @@
+package com.ksh.features.practice.manage.service;
+
+import com.ksh.entities.Enrollment;
+import com.ksh.entities.LecturerAsset;
+import com.ksh.entities.PracticeDraftAssetUsage;
+import com.ksh.entities.PracticeMaterialReference;
+import com.ksh.entities.PracticeSet;
+import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
+import com.ksh.features.practice.repository.LecturerAssetRepository;
+import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeSetRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.core.io.Resource;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
+
+@Service
+public class PracticeMaterialAccessService {
+
+    private final LecturerAssetRepository assetRepository;
+    private final PracticeMaterialReferenceService referenceService;
+    private final PracticeDraftAssetUsageRepository legacyUsageRepository;
+    private final PracticeSetRepository setRepository;
+    private final PracticeAttemptRepository attemptRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final PracticeAuthorizationService authorizationService;
+    private final PracticeGovernanceAuditService auditService;
+    private final AssetStorageService storageService;
+
+    public PracticeMaterialAccessService(
+            LecturerAssetRepository assetRepository,
+            PracticeMaterialReferenceService referenceService,
+            PracticeDraftAssetUsageRepository legacyUsageRepository,
+            PracticeSetRepository setRepository,
+            PracticeAttemptRepository attemptRepository,
+            EnrollmentRepository enrollmentRepository,
+            PracticeAuthorizationService authorizationService,
+            PracticeGovernanceAuditService auditService,
+            AssetStorageService storageService) {
+        this.assetRepository = assetRepository;
+        this.referenceService = referenceService;
+        this.legacyUsageRepository = legacyUsageRepository;
+        this.setRepository = setRepository;
+        this.attemptRepository = attemptRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.authorizationService = authorizationService;
+        this.auditService = auditService;
+        this.storageService = storageService;
+    }
+
+    @Transactional
+    public MaterialContent load(Long assetId, Long actorId) throws IOException {
+        if (actorId == null) {
+            throw new AccessDeniedException("Bạn phải đăng nhập để truy cập tài nguyên này.");
+        }
+        LecturerAsset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tài nguyên."));
+        if (!asset.isContentVerified()) {
+            throw new AccessDeniedException("Tài nguyên chưa vượt qua kiểm tra nội dung.");
+        }
+        if (!Set.of("ACTIVE", "TEMPORARY", "ARCHIVED").contains(asset.getStatus())) {
+            throw new EntityNotFoundException("Tài nguyên đã được lên lịch xóa.");
+        }
+        if (actorId.equals(asset.getOwnerLecturerId()) || canReadThroughDraftReference(assetId, actorId)
+                || canReadPublished(assetId, actorId)) {
+            return content(asset);
+        }
+        if (authorizationService.hasPermission(actorId, PracticeAction.MEDIA_REVIEW)) {
+            MaterialContent content = content(asset);
+            auditService.record("MEDIA_REVIEWED", "ASSET", assetId,
+                    asset.getOwnerLecturerId(), actorId, null, false, null,
+                    null, "{\"storageProvider\":\"" + asset.getStorageProvider() + "\"}");
+            return content;
+        }
+        throw new AccessDeniedException("Bạn không có quyền truy cập tài nguyên này.");
+    }
+
+    private boolean canReadThroughDraftReference(Long assetId, Long actorId) {
+        for (PracticeMaterialReference reference : referenceService.references(assetId)) {
+            if (reference.getDraftId() != null
+                    && canReadDraftTarget(reference.getDraftId(), actorId)) return true;
+        }
+        List<PracticeDraftAssetUsage> legacy = legacyUsageRepository.findByAssetId(assetId);
+        return legacy.stream().anyMatch(usage -> canReadDraftTarget(usage.getDraftId(), actorId));
+    }
+
+    private boolean canReadDraftTarget(Long draftId, Long actorId) {
+        try {
+            authorizationService.requireDraft(draftId, actorId, PracticeAction.READ, null);
+            return true;
+        } catch (EntityNotFoundException | AccessDeniedException exception) {
+            return false;
+        }
+    }
+
+    private boolean canReadPublished(Long assetId, Long actorId) {
+        for (PracticeMaterialReference reference : referenceService.references(assetId)) {
+            if (reference.getSetId() == null || reference.getPublishedVersionId() == null) {
+                continue;
+            }
+            if (attemptRepository.existsByPublishedVersionIdAndUserId(
+                    reference.getPublishedVersionId(), actorId)) {
+                return true;
+            }
+            PracticeSet set = setRepository.findById(reference.getSetId()).orElse(null);
+            if (set == null || !PracticeSet.STATUS_PUBLISHED.equals(set.getStatus())) continue;
+            if (PracticeSet.SCOPE_GLOBAL.equals(set.getScope())) return true;
+            if (set.getClassId() != null && enrollmentRepository
+                    .findByUserIdAndClassId(actorId, set.getClassId())
+                    .filter(enrollment -> Enrollment.STATUS_ACTIVE.equals(enrollment.getStatus()))
+                    .isPresent()) {
+                return true;
+            }
+            try {
+                authorizationService.requireSet(
+                        set.getId(), actorId, PracticeAction.READ, null);
+                return true;
+            } catch (EntityNotFoundException | AccessDeniedException ignored) {
+                // Continue with other references.
+            }
+        }
+        return false;
+    }
+
+    private MaterialContent content(LecturerAsset asset) throws IOException {
+        Resource resource = storageService.load(asset.getStorageKey());
+        return new MaterialContent(resource,
+                asset.getMimeType() == null ? "application/octet-stream" : asset.getMimeType(),
+                asset.getOriginalFilename(), asset.getFileSize());
+    }
+
+    public record MaterialContent(Resource resource, String mimeType,
+                                  String filename, Long sizeBytes) {
+    }
+}

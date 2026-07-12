@@ -84,6 +84,12 @@ public class AiDocumentImportRequest {
         private Long sessionId;
         private String filename;
         private String examCategory;
+        private String assessmentProgramCode;
+        private Long assessmentProgramVersionId;
+        private String examTemplateCode;
+        private Integer targetTestNo;
+        private String targetSkill;
+        private String targetLessonCode;
         private Integer pageFrom;
         private Integer pageTo;
         private String sourceLanguage = "Korean";
@@ -115,6 +121,54 @@ public class AiDocumentImportRequest {
 
         public void setExamCategory(String examCategory) {
             this.examCategory = examCategory;
+        }
+
+        public String getAssessmentProgramCode() {
+            return assessmentProgramCode;
+        }
+
+        public void setAssessmentProgramCode(String assessmentProgramCode) {
+            this.assessmentProgramCode = assessmentProgramCode;
+        }
+
+        public Long getAssessmentProgramVersionId() {
+            return assessmentProgramVersionId;
+        }
+
+        public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
+            this.assessmentProgramVersionId = assessmentProgramVersionId;
+        }
+
+        public String getExamTemplateCode() {
+            return examTemplateCode;
+        }
+
+        public void setExamTemplateCode(String examTemplateCode) {
+            this.examTemplateCode = examTemplateCode;
+        }
+
+        public Integer getTargetTestNo() {
+            return targetTestNo;
+        }
+
+        public void setTargetTestNo(Integer targetTestNo) {
+            this.targetTestNo = targetTestNo;
+        }
+
+        public String getTargetSkill() {
+            return targetSkill;
+        }
+
+        public void setTargetSkill(String targetSkill) {
+            this.targetSkill = targetSkill;
+        }
+
+        public String getTargetLessonCode() {
+            return targetLessonCode;
+        }
+
+        public void setTargetLessonCode(String targetLessonCode) {
+            this.targetLessonCode = targetLessonCode;
         }
 
         public Integer getPageFrom() {
@@ -333,6 +387,8 @@ public class AiDocumentImportRequest {
         private String sectionTempId;
         private String label;
         private String skill;
+        private Integer testNo;
+        private String lessonCode;
         private Integer displayOrder;
         private Integer durationMinutes;
         private List<String> sourceRegionIds;
@@ -362,6 +418,22 @@ public class AiDocumentImportRequest {
 
         public void setSkill(String skill) {
             this.skill = skill;
+        }
+
+        public Integer getTestNo() {
+            return testNo;
+        }
+
+        public void setTestNo(Integer testNo) {
+            this.testNo = testNo;
+        }
+
+        public String getLessonCode() {
+            return lessonCode;
+        }
+
+        public void setLessonCode(String lessonCode) {
+            this.lessonCode = lessonCode;
         }
 
         public Integer getDisplayOrder() {

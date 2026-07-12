@@ -33,7 +33,8 @@ class PracticePublishedGraphMutationGuardTest {
         set = new PracticeSet("Set", "Description", "READING", "TOPIK_II",
                 "GLOBAL", null, null, "{}", PracticeSet.STATUS_PUBLISHED, 99L);
         when(setRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(set));
-        when(attemptRepository.findFirstIdBySetIdForShare(10L)).thenReturn(Optional.empty());
+        when(attemptRepository.findFirstUnversionedIdBySetIdForShare(10L))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -45,8 +46,9 @@ class PracticePublishedGraphMutationGuardTest {
     }
 
     @Test
-    void restoreBlockedWhenPracticeAttemptExists() {
-        when(attemptRepository.findFirstIdBySetIdForShare(10L)).thenReturn(Optional.of(77L));
+    void restoreBlockedWhenUnversionedPracticeAttemptExists() {
+        when(attemptRepository.findFirstUnversionedIdBySetIdForShare(10L))
+                .thenReturn(Optional.of(77L));
 
         PublishedPracticeGraphMutationBlockedException exception = assertThrows(
                 PublishedPracticeGraphMutationBlockedException.class,
@@ -55,6 +57,18 @@ class PracticePublishedGraphMutationGuardTest {
 
         assertEquals(PublishedPracticeGraphMutationBlockedException.RESTORE_MESSAGE, exception.getMessage());
         verify(submissionRepository, never()).existsBySetId(10L);
+    }
+
+    @Test
+    void restoreAllowedWhenEveryAttemptIsLockedToImmutableVersion() {
+        when(attemptRepository.findFirstIdBySetIdForShare(10L))
+                .thenReturn(Optional.of(77L));
+        when(attemptRepository.findFirstUnversionedIdBySetIdForShare(10L))
+                .thenReturn(Optional.empty());
+
+        assertSame(set, guard.lockAndAssertRestoreAllowed(10L));
+
+        verify(submissionRepository).existsBySetId(10L);
     }
 
     @Test
@@ -74,7 +88,7 @@ class PracticePublishedGraphMutationGuardTest {
         when(setRepository.findByIdForUpdate(404L)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> guard.lockAndAssertRepublishAllowed(404L));
-        verify(attemptRepository, never()).findFirstIdBySetIdForShare(404L);
+        verify(attemptRepository, never()).findFirstUnversionedIdBySetIdForShare(404L);
         verify(submissionRepository, never()).existsBySetId(404L);
     }
 }

@@ -48,4 +48,8 @@ public class AssessmentProgramVersion {
     public String getDisplayName() { return displayName; }
     public String getStatus() { return status; }
     public String getDefaultLanguage() { return defaultLanguage; }
+
+    public void activate() { this.status = "ACTIVE"; }
+    public void deactivate() { this.status = "INACTIVE"; }
+    public void archive() { this.status = "ARCHIVED"; }
 }

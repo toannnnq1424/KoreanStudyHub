@@ -26,52 +26,52 @@
         <div>
           <span style="font-size:0.75rem; font-weight:600; color:var(--pp-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Lịch sử chỉnh sửa</span>
           <h1 style="font-size:1.8rem; font-weight:800; color:var(--pp-text); margin:4px 0 0 0;">Lịch sử sửa đổi học liệu</h1>
-          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Theo dõi các thay đổi và khôi phục lại cấu trúc câu hỏi, đáp án từ các phiên bản lưu trữ trước đây.</p>
+          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Mỗi lần xuất bản là một phiên bản bất biến. Khôi phục sẽ tạo phiên bản mới và không sửa lịch sử cũ.</p>
         </div>
       </div>
 
       <!-- Revisions List Section -->
       <section class="pp-chart-card" style="padding: 28px;">
-        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Nhật ký thay đổi gần đây</h2>
+        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Phiên bản đã xuất bản</h2>
         
-        <div th:if="${#lists.isEmpty(revisions)}" class="pp-empty-state">
+        <div th:if="${#lists.isEmpty(versions)}" class="pp-empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <h4>Chưa ghi nhận thay đổi nào</h4>
-          <p>Lịch sử thay đổi sẽ tự động được ghi nhận mỗi khi bạn xuất bản cập nhật mới cho bộ đề luyện tập.</p>
+          <p>Phiên bản sẽ tự động được ghi nhận mỗi khi học liệu được xuất bản.</p>
         </div>
 
-        <div th:unless="${#lists.isEmpty(revisions)}" class="pp-table-wrapper">
+        <div th:unless="${#lists.isEmpty(versions)}" class="pp-table-wrapper">
           <table class="pp-table">
             <thead>
               <tr>
                 <th>Tên bộ đề</th>
-                <th>Thời gian chỉnh sửa</th>
-                <th>Người thực hiện</th>
-                <th>Nội dung thay đổi</th>
-                <th>Phân loại hành động</th>
+                <th>Phiên bản</th>
+                <th>Xuất bản lúc</th>
+                <th>Người xuất bản</th>
+                <th>Dấu vết nội dung</th>
                 <th style="text-align:right;">Hành động</th>
               </tr>
             </thead>
             <tbody>
-              <tr th:each="rev : ${revisions}">
+              <tr th:each="row : ${versions}">
                 <td>
-                  <div style="font-weight:700; color:var(--pp-text);" th:text="${setTitles.get(rev.setId) != null ? setTitles.get(rev.setId) : 'Học liệu không khả dụng'}">Đề thi mẫu</div>
-                  <span style="font-size:0.75rem; color:var(--pp-text-muted);" th:text="'Set ID: ' + ${rev.setId}">ID: 1</span>
+                  <div style="font-weight:700; color:var(--pp-text);" th:text="${row.set.title}">Đề thi mẫu</div>
+                  <span style="font-size:0.75rem; color:var(--pp-text-muted);" th:text="'Set ID: ' + ${row.set.id}">ID: 1</span>
                 </td>
                 <td>
-                  <span style="font-weight:600; color:var(--pp-text);" th:text="${#temporals.format(rev.editedAt, 'dd/MM/yyyy HH:mm:ss')}">01/07/2026 22:00:00</span>
+                  <span style="padding:4px 8px; border-radius:6px; background:#eef2ff; color:#4338ca; font-size:0.78rem; font-weight:700;" th:text="'v' + ${row.version.versionNumber}">v1</span>
                 </td>
                 <td>
-                  <span style="font-size:0.85rem; color:var(--pp-text); font-weight:600;" th:text="${authorsMap.get(rev.editedBy) != null ? authorsMap.get(rev.editedBy) : 'Hệ thống'}">Giáo viên A</span>
+                  <span style="font-weight:600; color:var(--pp-text);" th:text="${#temporals.format(row.version.publishedAt, 'dd/MM/yyyy HH:mm:ss')}">01/07/2026 22:00:00</span>
                 </td>
                 <td>
-                  <div style="font-size:0.85rem; color:var(--pp-text);" th:text="${rev.changeSummary}">Cập nhật cấu trúc học liệu qua editor</div>
+                  <span style="font-size:0.85rem; color:var(--pp-text); font-weight:600;" th:text="${authorsMap.get(row.version.publishedBy) != null ? authorsMap.get(row.version.publishedBy) : 'Hệ thống'}">Giáo viên A</span>
                 </td>
                 <td>
-                  <span style="padding:4px 8px; border-radius:6px; background:#f1f5f9; color:#475569; font-size:0.75rem; font-weight:600; text-transform:uppercase;" th:text="${rev.editType}">QUESTIONS</span>
+                  <code style="font-size:0.72rem; color:var(--pp-text-muted);" th:text="${row.version.contentHash != null ? #strings.substring(row.version.contentHash, 0, 12) : 'legacy'}">hash</code>
                 </td>
                 <td style="text-align:right;">
-                  <form th:action="@{/practice/manage/revisions/{id}/restore(id=${rev.id})}" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn khôi phục bộ luyện tập về phiên bản này không? Tất cả các câu hỏi hiện tại của bộ đề sẽ bị thay thế hoàn toàn.');" style="margin:0; display:inline-block;">
+                  <form th:action="@{/practice/manage/sets/{setId}/versions/{versionId}/restore(setId=${row.set.id},versionId=${row.version.id})}" method="post" onsubmit="return confirm('Tạo một phiên bản xuất bản mới từ phiên bản đã chọn? Lịch sử hiện tại sẽ được giữ nguyên.');" style="margin:0; display:inline-block;">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <button type="submit" class="pp-table-link" style="background:none; border:none; padding:0; cursor:pointer; font-weight:600;">Khôi phục</button>
                   </form>

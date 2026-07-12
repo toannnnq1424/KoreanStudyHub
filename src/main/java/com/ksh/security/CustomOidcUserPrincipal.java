@@ -52,7 +52,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         return username;
     }
 
-    // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // OidcUser delegation
 
     @Override public Map<String, Object> getClaims() { return delegate.getClaims(); }
     @Override public OidcUserInfo getUserInfo() { return delegate.getUserInfo(); }

@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit test for {@link ClassActivityWriter}. Verifies the JSON serialization
- * happy path, the Jackson-failure â†’ null fallback, and the
+ * happy path, the Jackson-failure -> null fallback, and the
  * {@code metadata = null} short-circuit.
  */
 class ClassActivityWriterTest {

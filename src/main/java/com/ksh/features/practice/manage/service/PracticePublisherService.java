@@ -19,6 +19,9 @@ import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ResolvedAssessmentPolicy;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
@@ -58,6 +61,9 @@ public class PracticePublisherService {
     private final AssessmentContractCodec assessmentContractCodec;
     private final AssessmentProgramPolicyService assessmentProgramPolicyService;
     private final PracticeDraftContractService draftContractService;
+    private final PracticeAuthorizationService authorizationService;
+    private final PracticeGovernanceAuditService governanceAuditService;
+    private final PracticeMaterialReferenceService materialReferenceService;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
@@ -72,7 +78,10 @@ public class PracticePublisherService {
                                      AssessmentProgramPolicyService assessmentProgramPolicyService,
                                      PracticeDraftContractService draftContractService,
                                      PracticeDraftValidator draftValidator,
-                                    ObjectMapper objectMapper) {
+                                     ObjectMapper objectMapper,
+                                     PracticeAuthorizationService authorizationService,
+                                     PracticeGovernanceAuditService governanceAuditService,
+                                     PracticeMaterialReferenceService materialReferenceService) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -86,6 +95,9 @@ public class PracticePublisherService {
         this.draftContractService = draftContractService;
         this.draftValidator = draftValidator;
         this.objectMapper = objectMapper;
+        this.authorizationService = authorizationService;
+        this.governanceAuditService = governanceAuditService;
+        this.materialReferenceService = materialReferenceService;
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
     }
@@ -101,13 +113,41 @@ public class PracticePublisherService {
                              PracticeDraftValidator draftValidator,
                              ObjectMapper objectMapper) {
         this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
-                editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper);
+                editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper,
+                null, null, null);
     }
 
     @Transactional
-    public Long publish(Long draftId, Long ownerId) {
-        PracticeDraft draft = draftRepository.findByIdAndOwnerId(draftId, ownerId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Bản nháp không tồn tại."));
+    public Long publish(Long draftId, Long actorId) {
+        return publish(draftId, actorId, null);
+    }
+
+    @Transactional
+    public Long publish(Long draftId, Long actorId, String overrideReason) {
+        return publishAuthorized(draftId, actorId, overrideReason, PracticeAction.PUBLISH);
+    }
+
+    @Transactional
+    public Long publishRestored(Long draftId, Long actorId, String overrideReason) {
+        return publishAuthorized(draftId, actorId, overrideReason, PracticeAction.RESTORE);
+    }
+
+    private Long publishAuthorized(Long draftId, Long actorId, String overrideReason,
+                                   PracticeAction authorizationAction) {
+        PracticeAuthorizationService.Decision authorization = null;
+        PracticeDraft draft;
+        if (authorizationService == null) {
+            draft = draftRepository.findByIdAndOwnerId(draftId, actorId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Bản nháp không tồn tại."));
+        } else {
+            authorization = authorizationService.requireDraft(
+                    draftId, actorId, authorizationAction, overrideReason);
+            draft = draftRepository.findById(draftId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Bản nháp không tồn tại."));
+        }
+        Long ownerId = authorization == null ? actorId : authorization.ownerId();
 
         // Parse JSON
         JsonNode root;
@@ -183,7 +223,7 @@ public class PracticePublisherService {
         String beforeSnapshot = null;
         if (draft.getPublishedSetId() != null) {
             set = mutationGuard.lockAndAssertRepublishAllowed(draft.getPublishedSetId());
-            if (!ownerId.equals(set.getCreatedBy())) {
+            if (authorizationService == null && !ownerId.equals(set.getCreatedBy())) {
                 throw new org.springframework.security.access.AccessDeniedException(
                         "Bạn không có quyền xuất bản học liệu này.");
             }
@@ -214,6 +254,7 @@ public class PracticePublisherService {
             set.setClassId(draft.getClassId());
             set.setMetadataJson(metaJson);
             set.setCreationMethod(draft.getCreationMethod());
+            set.setStatus(PracticeSet.STATUS_PUBLISHED);
         } else {
             set = new PracticeSet(
                     draft.getTitle(),
@@ -408,7 +449,7 @@ public class PracticePublisherService {
         // Save PracticeEditLog
         com.ksh.entities.PracticeEditLog logEntry = new com.ksh.entities.PracticeEditLog(
                 savedSet.getId(),
-                ownerId,
+                actorId,
                 "Cập nhật cấu trúc học liệu qua editor",
                 "{}",
                 beforeSnapshot,
@@ -417,8 +458,24 @@ public class PracticePublisherService {
         );
         editLogRepository.save(logEntry);
 
+        com.ksh.entities.PracticePublishedVersion publishedVersion = null;
         if (publishedVersionService != null) {
-            publishedVersionService.createPublishedVersion(savedSet.getId(), ownerId);
+            publishedVersion = publishedVersionService.createPublishedVersion(
+                    savedSet.getId(), actorId);
+        }
+
+        if (materialReferenceService != null && publishedVersion != null) {
+            materialReferenceService.promoteDraftReferences(
+                    draftId, savedSet.getId(), publishedVersion.getId());
+        }
+
+        if (governanceAuditService != null) {
+            governanceAuditService.record(
+                    beforeSnapshot == null ? "SET_PUBLISHED" : "SET_REPUBLISHED",
+                    "SET", savedSet.getId(), ownerId, actorId,
+                    publishedVersion == null ? null : publishedVersion.getId(),
+                    authorization != null && authorization.overrideUsed(), overrideReason,
+                    beforeSnapshot, afterSnapshot);
         }
 
         log.info("[Publisher] Complete publish draftId={} to setId={}", draftId, savedSet.getId());
@@ -471,8 +528,9 @@ public class PracticePublisherService {
     private String captureSetSnapshot(Long setId) {
         try {
             java.util.Map<String, Object> root = new java.util.HashMap<>();
-            PracticeSet set = setRepository.findById(setId).orElse(null);
-            if (set == null) return "{}";
+            PracticeSet set = setRepository.findById(setId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Học liệu không tồn tại."));
 
             java.util.Map<String, Object> doc = new java.util.HashMap<>();
             doc.put("title", set.getTitle());
@@ -600,7 +658,8 @@ public class PracticePublisherService {
             return objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             log.error("Failed to capture snapshot for setId={}", setId, e);
-            return "{}";
+            throw new IllegalStateException(
+                    "Không thể tạo snapshot lịch sử; xuất bản đã bị dừng an toàn.", e);
         }
     }
 

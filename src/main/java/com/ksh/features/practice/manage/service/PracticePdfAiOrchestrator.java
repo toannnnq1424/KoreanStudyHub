@@ -221,6 +221,8 @@ public class PracticePdfAiOrchestrator {
                 8. Group có thể là 1–5, 6–8, 11–14 hoặc phạm vi bất kỳ.
                 9. Giữ thứ tự pageNumber, displayOrder và thứ tự câu trên đề.
                 10. Không tạo section/group/question nếu không có sourceRegionIds.
+                10a. document.targetTestNo, targetSkill và targetLessonCode là đích do giảng viên chọn; không tạo section thuộc Test hoặc kỹ năng khác.
+                10b. questionNo trong phản hồi phải giữ số câu nhìn thấy trên PDF làm dấu vết nguồn. Hệ thống sẽ tự đánh lại số hiển thị trong targetLessonCode sau import.
 
                 LIÊN KẾT ẢNH:
                 11. Mỗi ảnh được gửi ngay sau một nhãn IMAGE_REGION.

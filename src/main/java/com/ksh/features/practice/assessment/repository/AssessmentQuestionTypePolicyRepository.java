@@ -3,6 +3,7 @@ package com.ksh.features.practice.assessment.repository;
 import com.ksh.features.practice.assessment.persistence.AssessmentQuestionTypePolicy;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AssessmentQuestionTypePolicyRepository extends JpaRepository<AssessmentQuestionTypePolicy, Long> {
@@ -10,4 +11,6 @@ public interface AssessmentQuestionTypePolicyRepository extends JpaRepository<As
             Long programVersionId,
             String skillCode,
             String canonicalQuestionType);
+    List<AssessmentQuestionTypePolicy>
+    findByProgramVersionIdOrderBySkillCodeAscCanonicalQuestionTypeAsc(Long programVersionId);
 }

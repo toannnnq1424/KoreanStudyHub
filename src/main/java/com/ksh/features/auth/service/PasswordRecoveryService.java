@@ -38,7 +38,7 @@ public class PasswordRecoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
-    /** 96 random bytes â†’ ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
+    /** 96 random bytes -> about 128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
     private static final int TOKEN_BYTES = 96;
     private static final int TOKEN_TTL_HOURS = 1;
 

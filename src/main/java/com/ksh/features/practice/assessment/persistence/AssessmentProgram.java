@@ -31,4 +31,8 @@ public class AssessmentProgram {
     public Long getActiveVersionId() {
         return activeVersionId;
     }
+
+    public void activateVersion(Long activeVersionId) {
+        this.activeVersionId = activeVersionId;
+    }
 }

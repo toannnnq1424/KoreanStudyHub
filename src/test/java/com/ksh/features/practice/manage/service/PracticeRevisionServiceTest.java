@@ -1,34 +1,36 @@
 package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticeEditLog;
-import com.ksh.entities.PracticeQuestion;
-import com.ksh.entities.PracticeQuestionGroup;
-import com.ksh.entities.PracticeSection;
+import com.ksh.entities.PracticePublishedVersion;
 import com.ksh.entities.PracticeSet;
-import com.ksh.entities.PracticeTest;
-import com.ksh.entities.WritingTaskType;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeEditLogRepository;
-import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
-import com.ksh.features.practice.repository.PracticeQuestionRepository;
-import com.ksh.features.practice.repository.PracticeSectionRepository;
+import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
-import com.ksh.features.practice.repository.PracticeTestRepository;
+import com.ksh.features.practice.service.PracticePublishedVersionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,269 +38,225 @@ import static org.mockito.Mockito.when;
 
 class PracticeRevisionServiceTest {
 
+    private final PracticeEditLogRepository editLogRepository =
+            mock(PracticeEditLogRepository.class);
+    private final PracticeDraftRepository draftRepository =
+            mock(PracticeDraftRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
-    private final PracticeTestRepository testRepository = mock(PracticeTestRepository.class);
-    private final PracticeSectionRepository sectionRepository = mock(PracticeSectionRepository.class);
-    private final PracticeQuestionGroupRepository groupRepository = mock(PracticeQuestionGroupRepository.class);
-    private final PracticeQuestionRepository questionRepository = mock(PracticeQuestionRepository.class);
-    private final PracticeEditLogRepository editLogRepository = mock(PracticeEditLogRepository.class);
-    private final PracticePublishedGraphMutationGuard mutationGuard = mock(PracticePublishedGraphMutationGuard.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final AtomicLong idSequence = new AtomicLong(100L);
-    private final List<PracticeQuestion> savedQuestions = new ArrayList<>();
+    private final PracticePublishedVersionRepository versionRepository =
+            mock(PracticePublishedVersionRepository.class);
+    private final PracticePublishedVersionService publishedVersionService =
+            mock(PracticePublishedVersionService.class);
+    private final PracticePublisherService publisherService = mock(PracticePublisherService.class);
+    private final PracticeAuthorizationService authorizationService =
+            mock(PracticeAuthorizationService.class);
+    private final PracticeGovernanceAuditService auditService =
+            mock(PracticeGovernanceAuditService.class);
 
     private PracticeRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new PracticeRevisionService(
-                setRepository,
-                testRepository,
-                sectionRepository,
-                groupRepository,
-                questionRepository,
                 editLogRepository,
-                mutationGuard,
-                objectMapper
-        );
-        when(setRepository.save(any(PracticeSet.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(testRepository.save(any(PracticeTest.class))).thenAnswer(invocation -> {
-            PracticeTest test = invocation.getArgument(0);
-            assignIdIfMissing(test);
-            return test;
-        });
-        when(sectionRepository.save(any(PracticeSection.class))).thenAnswer(invocation -> {
-            PracticeSection section = invocation.getArgument(0);
-            assignIdIfMissing(section);
-            return section;
-        });
-        when(groupRepository.save(any(PracticeQuestionGroup.class))).thenAnswer(invocation -> {
-            PracticeQuestionGroup group = invocation.getArgument(0);
-            assignIdIfMissing(group);
-            return group;
-        });
-        when(questionRepository.save(any(PracticeQuestion.class))).thenAnswer(invocation -> {
-            PracticeQuestion question = invocation.getArgument(0);
-            savedQuestions.add(question);
-            return question;
-        });
-        when(editLogRepository.save(any(PracticeEditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+                draftRepository,
+                setRepository,
+                versionRepository,
+                publishedVersionService,
+                publisherService,
+                authorizationService,
+                auditService,
+                new ObjectMapper());
     }
 
     @Test
-    void restoreRevisionPreservesExplicitWritingTaskMetadata() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
+    void restorePublishedVersionPublishesFreshVersionAndPreservesSource() throws Exception {
+        PracticeSet set = publishedSet(9L, 11L);
+        PracticePublishedVersion source = publishedVersion(71L, 9L, 3);
+        PracticePublishedVersion created = publishedVersion(88L, 9L, 4);
+        PracticeAuthorizationService.Decision decision =
+                new PracticeAuthorizationService.Decision(11L, true, false, false);
 
-        service.restoreRevision(7L, 99L);
+        when(authorizationService.requireSet(9L, 22L, PracticeAction.RESTORE,
+                "Khôi phục khẩn cấp")).thenReturn(decision);
+        when(versionRepository.findById(71L)).thenReturn(Optional.of(source));
+        when(publishedVersionService.draftSnapshotJson(71L, 9L))
+                .thenReturn(validSnapshot());
+        when(setRepository.findById(9L)).thenReturn(Optional.of(set));
+        when(draftRepository.saveAndFlush(any(PracticeDraft.class)))
+                .thenAnswer(invocation -> {
+                    PracticeDraft draft = invocation.getArgument(0);
+                    setId(draft, 50L);
+                    return draft;
+                });
+        when(publisherService.publishRestored(50L, 22L, "Khôi phục khẩn cấp"))
+                .thenReturn(9L);
+        when(versionRepository.findFirstBySetIdOrderByVersionNumberDesc(9L))
+                .thenReturn(Optional.of(source), Optional.of(created));
+        when(publishedVersionService.draftSnapshotJson(88L, 9L))
+                .thenReturn(validSnapshot());
 
-        assertEquals(1, savedQuestions.size());
-        assertEquals(WritingTaskType.Q53, savedQuestions.get(0).getWritingTaskType());
-        verify(testRepository).save(any(PracticeTest.class));
+        Long result = service.restorePublishedVersion(
+                9L, 71L, 22L, "Khôi phục khẩn cấp");
+
+        assertEquals(88L, result);
+        ArgumentCaptor<PracticeDraft> draftCaptor = ArgumentCaptor.forClass(PracticeDraft.class);
+        verify(draftRepository).saveAndFlush(draftCaptor.capture());
+        PracticeDraft temporary = draftCaptor.getValue();
+        assertEquals(11L, temporary.getOwnerId());
+        assertEquals(9L, temporary.getPublishedSetId());
+        assertEquals("RESTORE", temporary.getCreationMethod());
+        assertEquals(123L, temporary.getAssessmentProgramVersionId());
+        verify(publisherService).publishRestored(50L, 22L, "Khôi phục khẩn cấp");
+        verify(draftRepository).delete(temporary);
+        verify(draftRepository).flush();
+        ArgumentCaptor<String> beforeAudit = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> afterAudit = ArgumentCaptor.forClass(String.class);
+        verify(auditService).record(
+                eq("VERSION_RESTORED"), eq("SET"), eq(9L), eq(11L), eq(22L),
+                eq(71L), eq(true), eq("Khôi phục khẩn cấp"),
+                beforeAudit.capture(), afterAudit.capture());
+        var before = new ObjectMapper().readTree(beforeAudit.getValue());
+        var after = new ObjectMapper().readTree(afterAudit.getValue());
+        assertEquals("published-version:3", before.path("source").asText());
+        assertEquals(71L, before.path("publishedVersionId").asLong());
+        assertEquals(3, before.path("versionNumber").asInt());
+        assertTrue(before.path("snapshot").path("sections").isArray());
+        assertEquals("published-version:3", after.path("source").asText());
+        assertEquals(88L, after.path("publishedVersionId").asLong());
+        assertEquals(4, after.path("versionNumber").asInt());
+        assertTrue(after.path("snapshot").path("sections").isArray());
     }
 
     @Test
-    void restoreRevisionPreservesGeneralWritingTaskMetadata() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"GENERAL\""));
+    void restoreLegacyEditLogAlsoCreatesFreshPublishedVersion() throws Exception {
+        PracticeEditLog log = new PracticeEditLog(
+                9L, 11L, "Legacy", "{}", validSnapshot(), null, "QUESTIONS");
+        setId(log, 7L);
+        PracticeSet set = publishedSet(9L, 11L);
+        PracticePublishedVersion current = publishedVersion(70L, 9L, 4);
+        PracticePublishedVersion created = publishedVersion(89L, 9L, 5);
+        when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
+        when(authorizationService.requireSet(9L, 11L, PracticeAction.RESTORE, null))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false, false, true));
+        when(setRepository.findById(9L)).thenReturn(Optional.of(set));
+        when(draftRepository.saveAndFlush(any(PracticeDraft.class)))
+                .thenAnswer(invocation -> {
+                    PracticeDraft draft = invocation.getArgument(0);
+                    setId(draft, 51L);
+                    return draft;
+                });
+        when(publisherService.publishRestored(51L, 11L, null)).thenReturn(9L);
+        when(versionRepository.findFirstBySetIdOrderByVersionNumberDesc(9L))
+                .thenReturn(Optional.of(current), Optional.of(created));
+        when(publishedVersionService.draftSnapshotJson(70L, 9L))
+                .thenReturn(validSnapshot());
+        when(publishedVersionService.draftSnapshotJson(89L, 9L))
+                .thenReturn(validSnapshot());
 
-        service.restoreRevision(7L, 99L);
+        assertEquals(89L, service.restoreRevision(7L, 11L));
 
-        assertEquals(WritingTaskType.GENERAL, savedQuestions.get(0).getWritingTaskType());
+        verify(publisherService).publishRestored(51L, 11L, null);
+        verify(auditService).record(
+                eq("VERSION_RESTORED"), eq("SET"), eq(9L), eq(11L), eq(11L),
+                isNull(), eq(false), isNull(), anyString(), anyString());
     }
 
     @Test
-    void restoreRevisionMissingWritingTaskMetadataRestoresNull() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestionWithoutTask());
+    void restoreRejectsVersionFromAnotherSetBeforeBuildingDraft() throws Exception {
+        PracticePublishedVersion source = publishedVersion(71L, 10L, 3);
+        when(authorizationService.requireSet(9L, 11L, PracticeAction.RESTORE, null))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false, false, true));
+        when(versionRepository.findById(71L)).thenReturn(Optional.of(source));
 
-        service.restoreRevision(7L, 99L);
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.restorePublishedVersion(9L, 71L, 11L, null));
 
-        assertNull(savedQuestions.get(0).getWritingTaskType());
+        assertTrue(error.getMessage().contains("không thuộc"));
+        verify(publishedVersionService, never()).draftSnapshotJson(anyLong(), anyLong());
+        verify(draftRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void restoreRevisionIgnoresStaleNonWritingTaskMetadata() throws Exception {
-        arrangeRestoreSnapshot(snapshot("READING", snapshotQuestion("\"NOT_A_TASK\"")));
+    void restoreRejectsMissingSnapshotBeforeAuthorizationOrMutation() throws Exception {
+        PracticeEditLog log = new PracticeEditLog(
+                9L, 11L, "Legacy", "{}", "{}", null, "QUESTIONS");
+        setId(log, 7L);
+        when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
 
-        service.restoreRevision(7L, 99L);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.restoreRevision(7L, 11L));
 
-        assertNull(savedQuestions.get(0).getWritingTaskType());
+        verify(authorizationService, never()).requireSet(
+                anyLong(), anyLong(), any(PracticeAction.class), any());
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(publisherService, never()).publishRestored(anyLong(), anyLong(), any());
     }
 
     @Test
-    void restoreLegacyRevisionPreservesExistingAuthoringBinding() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
+    void crossOwnerDenialStopsBeforeDraftCreation() throws Exception {
+        PracticeEditLog log = new PracticeEditLog(
+                9L, 11L, "Legacy", "{}", validSnapshot(), null, "QUESTIONS");
+        setId(log, 7L);
+        when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
+        when(authorizationService.requireSet(9L, 22L, PracticeAction.RESTORE, null))
+                .thenThrow(new AccessDeniedException("denied"));
 
-        service.restoreRevision(7L, 99L);
+        assertThrows(AccessDeniedException.class,
+                () -> service.restoreRevision(7L, 22L));
 
-        org.mockito.ArgumentCaptor<PracticeSet> setCaptor =
-                org.mockito.ArgumentCaptor.forClass(PracticeSet.class);
-        verify(setRepository).save(setCaptor.capture());
-        assertEquals(123L, setCaptor.getValue().getAssessmentProgramVersionId());
-        assertEquals("TOPIK_II", setCaptor.getValue().getExamTemplateCode());
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(publisherService, never()).publishRestored(anyLong(), anyLong(), any());
     }
 
     @Test
-    void restoreRevisionWithLearnerHistoryBlocksBeforeGraphMutation() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
-        when(mutationGuard.lockAndAssertRestoreAllowed(10L))
-                .thenThrow(PublishedPracticeGraphMutationBlockedException.forRestore());
+    void versionsRequiresReadAndReturnsNewestFirst() {
+        List<PracticePublishedVersion> versions = List.of(
+                new PracticePublishedVersion(9L, 2, "PUBLISHED", "hash", 11L));
+        when(versionRepository.findBySetIdOrderByVersionNumberDesc(9L))
+                .thenReturn(versions);
 
-        PublishedPracticeGraphMutationBlockedException exception = assertThrows(
-                PublishedPracticeGraphMutationBlockedException.class,
-                () -> service.restoreRevision(7L, 99L));
+        assertEquals(versions, service.versions(9L, 11L));
 
-        assertEquals(PublishedPracticeGraphMutationBlockedException.RESTORE_MESSAGE, exception.getMessage());
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(questionRepository, never()).save(any());
-        verify(editLogRepository, never()).save(any());
+        verify(authorizationService).requireSet(9L, 11L, PracticeAction.READ, null);
     }
 
-    @Test
-    void restoreRevisionAcquiresGuardBeforeSnapshotValidation() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q51_52\""));
-
-        assertThrows(IllegalArgumentException.class, () -> service.restoreRevision(7L, 99L));
-
-        verify(mutationGuard).lockAndAssertRestoreAllowed(10L);
-        verify(questionRepository, never()).deleteBySetId(any());
-    }
-
-    @Test
-    void restoreRevisionInvalidWritingTaskMetadataFailsBeforeDelete() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q51_52\""));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> service.restoreRevision(7L, 99L));
-
-        assertEquals("Loại bài Writing không hợp lệ.", exception.getMessage());
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(questionRepository, never()).save(any());
-        verify(editLogRepository, never()).save(any());
-    }
-
-    @Test
-    void restoreRevisionLateBlankWritingTaskMetadataFailsBeforeDelete() throws Exception {
-        arrangeRestoreSnapshot(snapshot("WRITING",
-                snapshotQuestion("\"Q51\"") + "," + snapshotQuestion("\"\"")));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> service.restoreRevision(7L, 99L));
-
-        assertTrue(exception.getMessage().contains("Writing"));
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @Test
-    void restoreRevisionSpeakingEssayFailsBeforeDelete() throws Exception {
-        arrangeRestoreSnapshot(snapshot("SPEAKING", snapshotQuestionWithoutTask()));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> service.restoreRevision(7L, 99L));
-
-        assertTrue(exception.getMessage().contains("question type SPEAKING"));
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @Test
-    void crossOwnerCannotRestoreRevision() throws Exception {
-        arrangeRestoreQuestion(snapshotQuestion("\"Q53\""));
-
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
-                () -> service.restoreRevision(7L, 100L));
-
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).save(any());
-    }
-
-    private void arrangeRestoreQuestion(String questionJson) throws Exception {
-        arrangeRestoreSnapshot(snapshot("WRITING", questionJson));
-    }
-
-    private void arrangeRestoreSnapshot(String snapshotJson) throws Exception {
-        PracticeEditLog log = new PracticeEditLog(10L, 99L, "Change", "{}", snapshotJson, null, "QUESTIONS");
-        setEntityId(log, 7L);
-        PracticeSet set = new PracticeSet("Set", "Description", "WRITING", "TOPIK_II",
-                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
+    private static PracticeSet publishedSet(Long id, Long ownerId) throws Exception {
+        PracticeSet set = new PracticeSet(
+                "Set", "Description", "READING", "TOPIK_II", "GLOBAL",
+                null, null, "{}", "PUBLISHED", ownerId);
+        set.setAssessmentProgramCode("TOPIK");
         set.setAssessmentProgramVersionId(123L);
         set.setExamTemplateCode("TOPIK_II");
-        setEntityId(set, 10L);
-        when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
-        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-        when(mutationGuard.lockAndAssertRestoreAllowed(10L)).thenReturn(set);
+        setId(set, id);
+        return set;
     }
 
-    private String snapshotQuestion(String rawTaskValue) {
-        return """
-                {
-                  "questionNo": 1,
-                  "questionType": "ESSAY",
-                  "prompt": "Prompt",
-                  "answerKey": "",
-                  "explanationVi": "Explanation",
-                  "points": 10,
-                  "essayTaskType": %s
-                }
-                """.formatted(rawTaskValue);
+    private static PracticePublishedVersion publishedVersion(
+            Long id, Long setId, int versionNumber) throws Exception {
+        PracticePublishedVersion version = new PracticePublishedVersion(
+                setId, versionNumber, "PUBLISHED", "hash", 11L);
+        setId(version, id);
+        return version;
     }
 
-    private String snapshotQuestionWithoutTask() {
+    private static String validSnapshot() {
         return """
                 {
-                  "questionNo": 1,
-                  "questionType": "ESSAY",
-                  "prompt": "Prompt",
-                  "answerKey": "",
-                  "explanationVi": "Explanation",
-                  "points": 10
+                  "document": {
+                    "title": "Restored set",
+                    "description": "Description",
+                    "detectedCategory": "TOPIK_II",
+                    "assessmentProgramCode": "TOPIK",
+                    "assessmentProgramVersionId": 123,
+                    "examTemplateCode": "TOPIK_II"
+                  },
+                  "sections": []
                 }
                 """;
     }
 
-    private String snapshot(String skill, String questionJson) {
-        return """
-                {
-                  "document": {"title": "Set", "description": "Description", "detectedCategory": "TOPIK_II"},
-                  "sections": [
-                    {
-                      "title": "Section",
-                      "skill": "%s",
-                      "durationMinutes": 50,
-                      "totalPoints": 10,
-                      "groups": [
-                        {
-                          "label": "Group",
-                          "instruction": "",
-                          "questions": [%s]
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """.formatted(skill, questionJson);
-    }
-
-    private void assignIdIfMissing(Object entity) {
-        try {
-            Field field = entity.getClass().getDeclaredField("id");
-            field.setAccessible(true);
-            if (field.get(entity) == null) {
-                field.set(entity, idSequence.incrementAndGet());
-            }
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private void setEntityId(Object entity, Long id) throws Exception {
+    private static void setId(Object entity, Long id) throws Exception {
         Field field = entity.getClass().getDeclaredField("id");
         field.setAccessible(true);
         field.set(entity, id);

@@ -29,7 +29,7 @@
   </div>
 
   <div class="toolbar-right">
-    <a th:href="@{/practice/manage/import(draftId=${draft.id})}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)">
+    <a id="pdf-import-action" th:href="@{/practice/manage/import(draftId=${draft.id})}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Nhập lại từ PDF
     </a>
@@ -290,7 +290,7 @@
           </div>
 
           <div style="margin-top:10px;">
-            <a href="#" onclick="toggleAdvancedAudio(event)" style="font-size:0.78rem; color:var(--pp-accent); text-decoration:none; font-weight:600;">⚙️ Đường dẫn URL nâng cao</a>
+            <a href="#" onclick="toggleAdvancedAudio(event)" style="font-size:0.78rem; color:var(--pp-accent); text-decoration:none; font-weight:600;">Đường dẫn URL nâng cao</a>
             <div id="grp-audio-url-container" style="display:none; margin-top:8px;">
               <input type="text" id="grp-audio" class="form-input" placeholder="http://domain.com/audio.mp3" oninput="saveCurrentNode(); updateAudioPreview(this.value)">
             </div>
@@ -331,6 +331,7 @@
       <!-- E. Question Editor -->
       <div id="editor-question-card" class="editor-card" style="display:none;">
         <div class="editor-eyebrow" id="q-eyebrow">Câu hỏi số 1</div>
+        <div id="q-source-trace" style="display:none; margin:6px 0 16px; color:#667085; font-size:0.8rem;"></div>
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
           <div>
@@ -776,6 +777,9 @@
       renderTree();
       validateDraft();
       setupDropzone();
+      if (new URLSearchParams(window.location.search).get('preview') === '1') {
+        window.setTimeout(() => openPreviewModal(), 0);
+      }
     } catch (err) {
       console.error('[PracticeEditor] Initialization failed after binding click handlers:', err);
     }
@@ -1810,6 +1814,15 @@
       if (!q) return;
       document.getElementById('editor-question-card').style.display = 'block';
       document.getElementById('q-eyebrow').innerText = `Câu hỏi số ${q.questionNo} · ${DRAFT_DATA.sections[sIdx].title}`;
+      const sourceTrace = document.getElementById('q-source-trace');
+      const sourceQuestionNo = parseInt(q.sourceQuestionNo, 10);
+      if (q.importSource === 'PDF_AI' && sourceQuestionNo > 0) {
+        sourceTrace.style.display = 'block';
+        sourceTrace.textContent = `Nguồn PDF: câu ${sourceQuestionNo} · Hiển thị trong ${DRAFT_DATA.sections[sIdx].lessonCode}: câu ${q.questionNo}`;
+      } else {
+        sourceTrace.style.display = 'none';
+        sourceTrace.textContent = '';
+      }
       document.getElementById('q-no').value = q.questionNo;
       refreshQuestionTypeOptions(DRAFT_DATA.sections[sIdx].skill, q.questionType);
       document.getElementById('q-type').value = q.questionType;
@@ -1836,17 +1849,24 @@
 
   function updateExcelImportAvailability() {
     const action = document.getElementById('excel-import-action');
-    if (!action) return;
+    const pdfAction = document.getElementById('pdf-import-action');
     const section = selectedSectionContext();
     const skillPolicy = section
       ? window.PracticeAuthoringContract.skillPolicy(AUTHORING_CATALOG, DRAFT_DATA, section.skill)
       : null;
     const allowed = !!(section && skillPolicy && skillPolicy.excelImportEnabled !== false);
-    action.style.display = allowed ? 'flex' : 'none';
-    if (allowed) {
+    if (action) action.style.display = allowed ? 'flex' : 'none';
+    if (allowed && action) {
       action.href = `/practice/manage/excel?draftId=${encodeURIComponent(DRAFT_ID)}`
         + `&testNo=${encodeURIComponent(section.testNo)}`
         + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
+    }
+    if (pdfAction) {
+      pdfAction.href = section
+        ? `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
+          + `&testNo=${encodeURIComponent(section.testNo)}`
+          + `&lessonCode=${encodeURIComponent(section.lessonCode)}`
+        : `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`;
     }
   }
 
@@ -3776,7 +3796,7 @@
       card.className = 'asset-card';
       card.draggable = true;
       
-      const fileUrl = '/practice/manage/assets/' + asset.id + '/content';
+      const fileUrl = '/practice/materials/' + asset.id + '/content';
       card.ondragstart = (e) => {
         e.dataTransfer.setData("text/plain", fileUrl);
       };
@@ -3790,7 +3810,7 @@
           </div>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; border-top:1px solid #E5EAF2; padding-top:8px;">
-          <button class="pi-btn-secondary" style="padding:2px 6px; font-size:0.7rem; background:#fff;" onclick="insertAssetUrlToSelectedField('${fileUrl}')">Chèn</button>
+          <button class="pi-btn-secondary" style="padding:2px 6px; font-size:0.7rem; background:#fff;" onclick="insertAssetUrlToSelectedField(${asset.id}, '${fileUrl}')">Chèn</button>
           <button class="pi-btn-secondary" style="padding:2px 6px; font-size:0.7rem; color:var(--pp-error); border-color:rgba(220,76,100,0.1); background:#fff;" onclick="deleteLibraryAsset(${asset.id})">Xóa</button>
         </div>
       `;
@@ -3798,13 +3818,21 @@
     });
   }
  
-  function insertAssetUrlToSelectedField(url) {
+  async function insertAssetUrlToSelectedField(assetId, url) {
     const activeCard = document.querySelector('.editor-card:not([style*="display:none"]):not([style*="display: none"])');
     if (activeCard) {
       const imgInput = activeCard.querySelector('input[placeholder*="image"], input[placeholder*="ảnh"], input[id*="image"], input[id*="img"]');
       if (imgInput) {
         imgInput.value = url;
         imgInput.dispatchEvent(new Event('input', { bubbles: true }));
+        const token = document.querySelector('meta[name="_csrf"]').content;
+        const header = document.querySelector('meta[name="_csrf_header"]').content;
+        const linkResponse = await fetch(`/practice/manage/drafts/${DRAFT_ID}/assets`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', [header]: token},
+          body: JSON.stringify({assetId, placement: 'EDITOR_IMAGE', altText: ''})
+        });
+        if (!linkResponse.ok) throw new Error('Không thể liên kết ảnh với bản nháp.');
         alert("Đã chèn URL ảnh thành công!");
         return;
       }

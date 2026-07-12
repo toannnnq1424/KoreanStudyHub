@@ -77,11 +77,20 @@ public class PracticePdfImportApiController {
 
     @PostMapping("/import-sessions")
     public ResponseEntity<PracticePdfImportSession> uploadPdf(@RequestParam("file") MultipartFile file,
-                                                              @RequestParam(value = "examCategory", required = false) String examCategory,
+                                                              @RequestParam(value = "examTemplateCode", required = false) String examTemplateCode,
+                                                              @RequestParam(value = "examCategory", required = false) String legacyExamCategory,
                                                               @RequestParam(value = "title", required = false) String title,
                                                               @RequestParam(value = "linkedDraftId", required = false) Long linkedDraftId,
+                                                              @RequestParam(value = "targetTestNo", required = false) Integer targetTestNo,
+                                                              @RequestParam(value = "targetSkill", required = false) String targetSkill,
+                                                              @RequestParam(value = "targetLessonCode", required = false) String targetLessonCode,
                                                               @AuthenticationPrincipal KshUserDetails user) throws Exception {
-        PracticePdfImportSession session = sessionService.createSession(user.getId(), file, examCategory, title, linkedDraftId);
+        String requestedTemplate = examTemplateCode == null || examTemplateCode.isBlank()
+                ? legacyExamCategory
+                : examTemplateCode;
+        PracticePdfImportSession session = sessionService.createSession(
+                user.getId(), file, requestedTemplate, title, linkedDraftId,
+                targetTestNo, targetSkill, targetLessonCode);
         // Save initial snapshot
         snapshotService.saveSnapshot(session.getId(), user.getId());
         return ResponseEntity.ok(session);

@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,6 +63,8 @@ class PracticePdfDraftAssemblerContractTest {
         assertEquals("CUSTOM", saved.getCategory());
         assertEquals("CUSTOM", saved.getAssessmentProgramCode());
         assertNotNull(saved.getAssessmentProgramVersionId());
+        assertEquals(9, question.path("sourceQuestionNo").asInt());
+        assertEquals(1, question.path("questionNo").asInt());
         verify(sessions).updateDraftId(9L, 88L);
     }
 
@@ -93,6 +96,39 @@ class PracticePdfDraftAssemblerContractTest {
         assertTrue(question.path("reviewRequired").asBoolean());
     }
 
+    @Test
+    void linkedPdfImportAppendsOnlyToSelectedSectionAndKeepsSourceNumber() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        QuestionTypeResolver resolver = new QuestionTypeResolver();
+        AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
+        AssessmentAuthoringCatalogService catalog = mock(AssessmentAuthoringCatalogService.class);
+        when(catalog.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(customTemplate());
+        PracticeDraftContractService contract = new PracticeDraftContractService(
+                objectMapper, catalog, resolver, codec);
+        PracticeDraftRepository drafts = mock(PracticeDraftRepository.class);
+        PracticeDraft existing = new PracticeDraft("Bộ đề đang soạn", "Giữ mô tả", "CUSTOM",
+                "GLOBAL", null, "DRAFT", 7L, existingDraftJson());
+        ReflectionTestUtils.setField(existing, "id", 55L);
+        when(drafts.findByIdAndOwnerId(55L, 7L)).thenReturn(Optional.of(existing));
+        when(drafts.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PracticePdfDraftAssembler assembler = new PracticePdfDraftAssembler(
+                drafts, mock(PracticePdfImportSessionService.class), objectMapper, contract);
+        PracticePdfImportSession session = session();
+        session.setLinkedDraftId(55L);
+
+        PracticeDraft saved = assembler.assembleAndSaveDraft(session, aiResponse(), 7L);
+        JsonNode root = objectMapper.readTree(saved.getDraftJson());
+        JsonNode r1 = root.path("sections").path(0);
+        JsonNode importedQuestion = r1.path("groups").path(1).path("questions").path(0);
+
+        assertEquals("Bộ đề đang soạn", saved.getTitle());
+        assertEquals(2, root.path("sections").size());
+        assertEquals("R2", root.path("sections").path(1).path("lessonCode").asText());
+        assertEquals(2, importedQuestion.path("questionNo").asInt());
+        assertEquals(9, importedQuestion.path("sourceQuestionNo").asInt());
+        assertEquals("R1.2", r1.path("groups").path(1).path("groupCode").asText());
+    }
+
     private static AssessmentAuthoringCatalogService.ExamTemplatePolicy customTemplate() {
         return new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
                 "CUSTOM_FLEXIBLE", "Bai luyen tuy chinh", "CUSTOM", "CUSTOM", 12L, 1,
@@ -110,6 +146,12 @@ class PracticePdfDraftAssemblerContractTest {
                 LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now().plusHours(1));
         session.setId(9L);
         session.setExamCategory(category);
+        session.setExamTemplateCode(category);
+        session.setAssessmentProgramCode("CUSTOM_FLEXIBLE".equals(category) ? "CUSTOM" : "TOPIK");
+        session.setAssessmentProgramVersionId("CUSTOM_FLEXIBLE".equals(category) ? 12L : 10L);
+        session.setTargetTestNo(1);
+        session.setTargetSkill("READING");
+        session.setTargetLessonCode("R1");
         return session;
     }
 
@@ -128,7 +170,7 @@ class PracticePdfDraftAssemblerContractTest {
                       "passage": "Noi dung bai doc",
                       "sourceRegionIds": ["page-1"],
                       "questions": [{
-                        "questionNo": 1,
+                        "questionNo": 9,
                         "questionType": "MCQ_SINGLE",
                         "prompt": "Cau nao dung?",
                         "options": ["Phuong an A", "Phuong an B"],
@@ -138,6 +180,30 @@ class PracticePdfDraftAssemblerContractTest {
                       }]
                     }]
                   }]
+                }
+                """;
+    }
+
+    private static String existingDraftJson() {
+        return """
+                {
+                  "document": {"title": "Bộ đề đang soạn", "examTemplateCode": "CUSTOM_FLEXIBLE"},
+                  "sections": [
+                    {
+                      "testNo": 1, "lessonCode": "R1", "skill": "READING", "title": "Phần Đọc",
+                      "groups": [{
+                        "groupCode": "R1.1", "label": "R1.1",
+                        "questions": [{"questionNo": 1, "questionType": "SINGLE_CHOICE", "prompt": "Câu cũ", "options": ["A", "B"], "answerKey": "1"}]
+                      }]
+                    },
+                    {
+                      "testNo": 2, "lessonCode": "R2", "skill": "READING", "title": "Phần Đọc 2",
+                      "groups": [{
+                        "groupCode": "R2.1", "label": "R2.1",
+                        "questions": [{"questionNo": 1, "questionType": "SINGLE_CHOICE", "prompt": "Giữ lại", "options": ["A", "B"], "answerKey": "1"}]
+                      }]
+                    }
+                  ]
                 }
                 """;
     }

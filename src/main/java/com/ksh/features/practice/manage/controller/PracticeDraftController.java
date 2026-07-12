@@ -4,6 +4,7 @@ import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.manage.service.PracticeDraftService;
 import com.ksh.features.practice.manage.service.PracticeDraftPreviewService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
+import com.ksh.features.practice.manage.service.LecturerAssetService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
@@ -19,13 +20,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 @Controller
 @RequestMapping("/practice/manage")
@@ -40,39 +36,48 @@ public class PracticeDraftController {
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
             ".png", ".jpg", ".jpeg", ".gif", ".webp");
 
-    @org.springframework.beans.factory.annotation.Value("${app.upload.dir:uploads}")
-    private String rawUploadDir;
-
     private final PracticeDraftService draftService;
     private final PracticePublisherService publisherService;
     private final PracticeDraftValidator draftValidator;
     private final AssessmentAuthoringCatalogService authoringCatalogService;
     private final PracticeDraftPreviewService draftPreviewService;
+    private final LecturerAssetService assetService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService,
-                                   PracticeDraftPreviewService draftPreviewService) {
+                                   PracticeDraftPreviewService draftPreviewService,
+                                   LecturerAssetService assetService) {
         this.draftService = draftService;
         this.publisherService = publisherService;
         this.draftValidator = draftValidator;
         this.authoringCatalogService = authoringCatalogService;
         this.draftPreviewService = draftPreviewService;
+        this.assetService = assetService;
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator) {
-        this(draftService, publisherService, draftValidator, null);
+        this(draftService, publisherService, draftValidator, null, null, null);
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService) {
-        this(draftService, publisherService, draftValidator, authoringCatalogService, null);
+        this(draftService, publisherService, draftValidator, authoringCatalogService, null, null);
+    }
+
+    public PracticeDraftController(PracticeDraftService draftService,
+                                   PracticePublisherService publisherService,
+                                   PracticeDraftValidator draftValidator,
+                                   AssessmentAuthoringCatalogService authoringCatalogService,
+                                   PracticeDraftPreviewService draftPreviewService) {
+        this(draftService, publisherService, draftValidator, authoringCatalogService,
+                draftPreviewService, null);
     }
 
     @GetMapping("/create")
@@ -233,19 +238,14 @@ public class PracticeDraftController {
                                          @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
                                          @AuthenticationPrincipal KshUserDetails user) {
         try {
-            draftService.getDraft(draftId, user.getId());
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Tệp âm thanh rỗng."));
-            }
-            String originalFilename = file.getOriginalFilename();
-            String ext = validateUpload(file, AUDIO_EXTENSIONS, MAX_AUDIO_BYTES, "âm thanh");
-            String filename = UUID.randomUUID() + ext;
-            Path targetDir = uploadDirectory("practice-audio");
-            Path dest = safeUploadDestination(targetDir, filename);
-            file.transferTo(dest.toFile());
-
-            String relativeUrl = "/uploads/practice-audio/" + filename;
-            return ResponseEntity.ok(Map.of("url", relativeUrl, "filename", originalFilename));
+            validateFilename(file, AUDIO_EXTENSIONS, "âm thanh");
+            if (assetService == null) throw new IllegalStateException("Asset service unavailable.");
+            com.ksh.entities.LecturerAsset asset = assetService.createDraftUploadAsset(
+                    draftId, user.getId(), file, "AUDIO", MAX_AUDIO_BYTES);
+            return ResponseEntity.ok(Map.of(
+                    "assetId", asset.getId(),
+                    "url", "/practice/materials/" + asset.getId() + "/content",
+                    "filename", asset.getOriginalFilename()));
         } catch (org.springframework.security.access.AccessDeniedException
                  | jakarta.persistence.EntityNotFoundException e) {
             throw e;
@@ -264,19 +264,14 @@ public class PracticeDraftController {
                                                                  @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
                                                                  @AuthenticationPrincipal KshUserDetails user) {
         try {
-            draftService.getDraft(draftId, user.getId());
-            if (file.isEmpty()) {
-                return org.springframework.http.ResponseEntity.badRequest().body(Map.of("error", "Tệp ảnh rỗng."));
-            }
-            String originalFilename = file.getOriginalFilename();
-            String ext = validateUpload(file, IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, "ảnh");
-            String filename = UUID.randomUUID() + ext;
-            Path targetDir = uploadDirectory("practice-images");
-            Path dest = safeUploadDestination(targetDir, filename);
-            file.transferTo(dest.toFile());
-
-            String relativeUrl = "/uploads/practice-images/" + filename;
-            return org.springframework.http.ResponseEntity.ok(Map.of("url", relativeUrl, "filename", originalFilename));
+            validateFilename(file, IMAGE_EXTENSIONS, "ảnh");
+            if (assetService == null) throw new IllegalStateException("Asset service unavailable.");
+            com.ksh.entities.LecturerAsset asset = assetService.createDraftUploadAsset(
+                    draftId, user.getId(), file, "IMAGE", MAX_IMAGE_BYTES);
+            return org.springframework.http.ResponseEntity.ok(Map.of(
+                    "assetId", asset.getId(),
+                    "url", "/practice/materials/" + asset.getId() + "/content",
+                    "filename", asset.getOriginalFilename()));
         } catch (org.springframework.security.access.AccessDeniedException
                  | jakarta.persistence.EntityNotFoundException e) {
             throw e;
@@ -289,13 +284,9 @@ public class PracticeDraftController {
         }
     }
 
-    private static String validateUpload(org.springframework.web.multipart.MultipartFile file,
+    private static void validateFilename(org.springframework.web.multipart.MultipartFile file,
                                          Set<String> allowedExtensions,
-                                         long maxBytes,
                                          String fileLabel) {
-        if (file.getSize() > maxBytes) {
-            throw new IllegalArgumentException("Tệp " + fileLabel + " vượt quá dung lượng cho phép.");
-        }
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || originalFilename.isBlank()) {
             throw new IllegalArgumentException("Tên tệp " + fileLabel + " không hợp lệ.");
@@ -303,28 +294,9 @@ public class PracticeDraftController {
         int extensionIndex = originalFilename.lastIndexOf('.');
         String extension = extensionIndex < 0
                 ? ""
-                : originalFilename.substring(extensionIndex).toLowerCase(Locale.ROOT);
+                : originalFilename.substring(extensionIndex).toLowerCase(java.util.Locale.ROOT);
         if (!allowedExtensions.contains(extension)) {
             throw new IllegalArgumentException("Định dạng tệp " + fileLabel + " không được hỗ trợ.");
         }
-        return extension;
-    }
-
-    private Path uploadDirectory(String childDirectory) throws java.io.IOException {
-        Path uploadRoot = Paths.get(rawUploadDir).toAbsolutePath().normalize();
-        Path targetDirectory = uploadRoot.resolve(childDirectory).normalize();
-        if (!targetDirectory.startsWith(uploadRoot)) {
-            throw new IllegalArgumentException("Đường dẫn lưu tệp không hợp lệ.");
-        }
-        Files.createDirectories(targetDirectory);
-        return targetDirectory;
-    }
-
-    private static Path safeUploadDestination(Path targetDirectory, String filename) {
-        Path destination = targetDirectory.resolve(filename).normalize();
-        if (!destination.startsWith(targetDirectory)) {
-            throw new IllegalArgumentException("Đường dẫn lưu tệp không hợp lệ.");
-        }
-        return destination;
     }
 }

@@ -32,6 +32,9 @@ public class LecturerAsset {
     @Column(name = "mime_type")
     private String mimeType;
 
+    @Column(name = "content_verified", nullable = false)
+    private boolean contentVerified;
+
     @Column(name = "width")
     private Integer width;
 
@@ -79,6 +82,12 @@ public class LecturerAsset {
 
     @Column(name = "status", nullable = false)
     private String status = "TEMPORARY";
+
+    @Column(name = "visibility", nullable = false)
+    private String visibility = "PRIVATE";
+
+    @Column(name = "retention_until")
+    private LocalDateTime retentionUntil;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -154,6 +163,14 @@ public class LecturerAsset {
 
     public void setMimeType(String mimeType) {
         this.mimeType = mimeType;
+    }
+
+    public boolean isContentVerified() {
+        return contentVerified;
+    }
+
+    public void setContentVerified(boolean contentVerified) {
+        this.contentVerified = contentVerified;
     }
 
     public Integer getWidth() {
@@ -282,6 +299,22 @@ public class LecturerAsset {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public LocalDateTime getRetentionUntil() {
+        return retentionUntil;
+    }
+
+    public void setRetentionUntil(LocalDateTime retentionUntil) {
+        this.retentionUntil = retentionUntil;
     }
 
     public LocalDateTime getCreatedAt() {

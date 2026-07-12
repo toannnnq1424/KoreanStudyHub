@@ -23,6 +23,24 @@ public class PracticePdfImportSession {
     @Column(name = "exam_category")
     private String examCategory;
 
+    @Column(name = "assessment_program_code", length = 40)
+    private String assessmentProgramCode;
+
+    @Column(name = "assessment_program_version_id")
+    private Long assessmentProgramVersionId;
+
+    @Column(name = "exam_template_code", length = 80)
+    private String examTemplateCode;
+
+    @Column(name = "target_test_no")
+    private Integer targetTestNo;
+
+    @Column(name = "target_skill", length = 20)
+    private String targetSkill;
+
+    @Column(name = "target_lesson_code", length = 20)
+    private String targetLessonCode;
+
     @Column(name = "original_filename")
     private String originalFilename;
 
@@ -124,6 +142,54 @@ public class PracticePdfImportSession {
 
     public void setExamCategory(String examCategory) {
         this.examCategory = examCategory;
+    }
+
+    public String getAssessmentProgramCode() {
+        return assessmentProgramCode;
+    }
+
+    public void setAssessmentProgramCode(String assessmentProgramCode) {
+        this.assessmentProgramCode = assessmentProgramCode;
+    }
+
+    public Long getAssessmentProgramVersionId() {
+        return assessmentProgramVersionId;
+    }
+
+    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
+        this.assessmentProgramVersionId = assessmentProgramVersionId;
+    }
+
+    public String getExamTemplateCode() {
+        return examTemplateCode;
+    }
+
+    public void setExamTemplateCode(String examTemplateCode) {
+        this.examTemplateCode = examTemplateCode;
+    }
+
+    public Integer getTargetTestNo() {
+        return targetTestNo;
+    }
+
+    public void setTargetTestNo(Integer targetTestNo) {
+        this.targetTestNo = targetTestNo;
+    }
+
+    public String getTargetSkill() {
+        return targetSkill;
+    }
+
+    public void setTargetSkill(String targetSkill) {
+        this.targetSkill = targetSkill;
+    }
+
+    public String getTargetLessonCode() {
+        return targetLessonCode;
+    }
+
+    public void setTargetLessonCode(String targetLessonCode) {
+        this.targetLessonCode = targetLessonCode;
     }
 
     public String getOriginalFilename() {

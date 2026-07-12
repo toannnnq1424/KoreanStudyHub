@@ -118,7 +118,7 @@
 
       <!-- Sets Grid -->
       <section class="pp-chart-card" style="padding: 28px;">
-        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Danh sách tài liệu học tập</h2>
+        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Học liệu của tôi</h2>
         
         <div th:if="${#lists.isEmpty(sets)}" class="pp-empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -159,10 +159,50 @@
                 </td>
                 <td>
                   <span style="padding:4px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); color:#10b981; font-size:0.78rem; font-weight:600;" th:text="${item.status}">PUBLISHED</span>
+                  <span th:if="${item.ownerLocked}" style="margin-left:6px; padding:4px 8px; border-radius:6px; background:#fff7ed; color:#c2410c; font-size:0.75rem; font-weight:600;">Đã khóa</span>
                 </td>
                 <td>
                   <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem chi tiết</a>
-                  <a th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link">Sửa đề</a>
+                  <a th:if="${item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Sửa đề</a>
+                  <form th:if="${!item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/lock(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Khóa</button></form>
+                  <form th:if="${item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/unlock(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Mở khóa</button></form>
+                  <form th:if="${item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/archive(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Lưu trữ</button></form>
+                  <form th:if="${item.status == 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/unarchive(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Khôi phục</button></form>
+                  <details style="margin-top:8px;">
+                    <summary class="pp-table-link" style="cursor:pointer;">Chia sẻ</summary>
+                    <form th:action="@{/practice/manage/sets/{id}/share(id=${item.id})}" method="post" style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+                      <input name="email" type="email" required placeholder="lecturer@ksh.edu.vn" style="min-width:210px; padding:7px 9px; border:1px solid var(--pp-border); border-radius:6px;">
+                      <button type="submit" class="pi-btn-secondary" style="padding:7px 10px;">Cấp quyền sửa</button>
+                    </form>
+                  </details>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section th:if="${!#lists.isEmpty(sharedSets) || !#lists.isEmpty(sharedDrafts)}" class="pp-chart-card" style="padding:28px; margin-top:32px;">
+        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Được chia sẻ với tôi</h2>
+        <div class="pp-table-wrapper">
+          <table class="pp-table">
+            <thead><tr><th>Tên học liệu</th><th>Chủ sở hữu</th><th>Loại</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
+            <tbody>
+              <tr th:each="d : ${sharedDrafts}">
+                <td th:text="${d.title}">Bản nháp</td>
+                <td th:text="${authorsMap.get(d.ownerId) != null ? authorsMap.get(d.ownerId) : 'Giảng viên'}">Giảng viên</td>
+                <td>Bản nháp</td>
+                <td><span th:text="${d.ownerLocked ? 'Đã khóa' : d.status}">DRAFT</span></td>
+                <td><a th:href="@{/practice/manage/drafts/{id}(id=${d.id})}" class="pp-table-link" th:text="${d.ownerLocked ? 'Xem' : 'Mở biên soạn'}">Mở</a></td>
+              </tr>
+              <tr th:each="item : ${sharedSets}">
+                <td th:text="${item.title}">Học liệu</td>
+                <td th:text="${authorsMap.get(item.createdBy) != null ? authorsMap.get(item.createdBy) : 'Giảng viên'}">Giảng viên</td>
+                <td>Đã xuất bản</td>
+                <td><span th:text="${item.ownerLocked ? 'Đã khóa' : item.status}">PUBLISHED</span></td>
+                <td>
+                  <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem</a>
+                  <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link">Tạo bản sửa</a>
                 </td>
               </tr>
             </tbody>

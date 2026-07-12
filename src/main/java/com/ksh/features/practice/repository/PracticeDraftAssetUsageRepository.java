@@ -10,6 +10,8 @@ import java.util.List;
 public interface PracticeDraftAssetUsageRepository extends JpaRepository<PracticeDraftAssetUsage, Long> {
     List<PracticeDraftAssetUsage> findByDraftId(Long draftId);
     List<PracticeDraftAssetUsage> findByAssetId(Long assetId);
+    boolean existsByDraftIdAndAssetIdAndPlacement(
+            Long draftId, Long assetId, String placement);
     void deleteByDraftId(Long draftId);
     void deleteByDraftIdAndId(Long draftId, Long usageId);
 }

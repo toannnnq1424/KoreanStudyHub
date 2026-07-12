@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.*;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -28,6 +30,7 @@ public class PracticeDraftService {
     private final PracticeQuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
     private final PracticeDraftContractService draftContractService;
+    private final PracticeAuthorizationService authorizationService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -37,7 +40,8 @@ public class PracticeDraftService {
                                 PracticeQuestionGroupRepository groupRepository,
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper,
-                                PracticeDraftContractService draftContractService) {
+                                PracticeDraftContractService draftContractService,
+                                PracticeAuthorizationService authorizationService) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -46,10 +50,11 @@ public class PracticeDraftService {
         this.questionRepository = questionRepository;
         this.objectMapper = objectMapper;
         this.draftContractService = draftContractService;
+        this.authorizationService = authorizationService;
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository, ObjectMapper objectMapper) {
-        this(draftRepository, null, null, null, null, null, objectMapper, null);
+        this(draftRepository, null, null, null, null, null, objectMapper, null, null);
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -59,19 +64,21 @@ public class PracticeDraftService {
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper) {
         this(draftRepository, setRepository, null, sectionRepository, groupRepository, questionRepository,
-                objectMapper, null);
+                objectMapper, null, null);
     }
 
     @Transactional
-    public PracticeDraft getDraft(Long id, Long ownerId) {
-        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
-                .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+    public PracticeDraft getDraft(Long id, Long actorId) {
+        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.READ, null);
         normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
         return draft;
     }
 
     @Transactional
     public PracticeDraft getOrCreateEmptyDraft(Long ownerId) {
+        if (authorizationService != null) {
+            authorizationService.requireGlobal(ownerId, PracticeAction.CREATE);
+        }
         List<PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(ownerId);
         for (PracticeDraft d : drafts) {
             if (d.getPublishedSetId() == null && "DRAFT".equals(d.getStatus())) {
@@ -118,9 +125,8 @@ public class PracticeDraftService {
     }
 
     @Transactional
-    public PracticeDraft saveDraftState(Long id, Long ownerId, String draftJson, String title, String description, Integer clientVersion) {
-        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
-                .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+    public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson, String title, String description, Integer clientVersion) {
+        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.EDIT, null);
 
         // Check optimistic locking clientVersion
         if (clientVersion != null && draft.getVersion() > clientVersion) {
@@ -166,9 +172,17 @@ public class PracticeDraftService {
     }
 
     @Transactional
-    public PracticeDraft createDraftFromPublishedSet(Long setId, Long ownerId) {
-        PracticeSet set = setRepository.findByIdAndCreatedBy(setId, ownerId)
+    public PracticeDraft createDraftFromPublishedSet(Long setId, Long actorId) {
+        Long ownerId = actorId;
+        if (authorizationService != null) {
+            ownerId = authorizationService.requireSet(setId, actorId, PracticeAction.EDIT, null).ownerId();
+        }
+        PracticeSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
+        if (authorizationService == null && !ownerId.equals(set.getCreatedBy())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền sửa học liệu này.");
+        }
 
         java.util.Optional<PracticeDraft> existing = draftRepository.findByPublishedSetIdAndOwnerId(setId, ownerId);
         if (existing.isPresent()) {
@@ -206,8 +220,8 @@ public class PracticeDraftService {
     private String captureSetSnapshot(Long setId) {
         try {
             java.util.Map<String, Object> root = new java.util.HashMap<>();
-            PracticeSet set = setRepository.findById(setId).orElse(null);
-            if (set == null) return "{}";
+            PracticeSet set = setRepository.findById(setId)
+                    .orElseThrow(() -> new EntityNotFoundException("Học liệu không tồn tại."));
 
             java.util.Map<String, Object> doc = new java.util.HashMap<>();
             doc.put("title", set.getTitle());
@@ -343,14 +357,23 @@ public class PracticeDraftService {
             return objectMapper.writeValueAsString(root);
         } catch (Exception e) {
             log.error("Failed to capture snapshot for setId={}", setId, e);
-            return "{}";
+            throw new IllegalStateException(
+                    "Không thể tạo snapshot lịch sử; thao tác đã bị dừng an toàn.", e);
         }
     }
 
     @Transactional
-    public void deleteDraft(Long id, Long ownerId) {
-        PracticeDraft draft = draftRepository.findByIdAndOwnerId(id, ownerId)
-                .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+    public void deleteDraft(Long id, Long actorId) {
+        PracticeDraft draft;
+        if (authorizationService == null) {
+            draft = draftRepository.findByIdAndOwnerId(id, actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+        } else {
+            authorizationService.requireDraftOwnerOrOverride(
+                    id, actorId, PracticeAction.EDIT, null);
+            draft = draftRepository.findById(id)
+                    .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+        }
         draftRepository.delete(draft);
         log.info("[DraftService] Deleted draft id={}", id);
     }
@@ -415,5 +438,16 @@ public class PracticeDraftService {
         } catch (Exception exception) {
             throw new IllegalStateException("Không thể đọc stimulus provenance.", exception);
         }
+    }
+
+    private PracticeDraft authorizedDraft(Long id, Long actorId, PracticeAction action,
+                                          String overrideReason) {
+        if (authorizationService == null) {
+            return draftRepository.findByIdAndOwnerId(id, actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+        }
+        authorizationService.requireDraft(id, actorId, action, overrideReason);
+        return draftRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
     }
 }

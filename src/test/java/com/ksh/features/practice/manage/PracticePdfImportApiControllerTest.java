@@ -198,7 +198,7 @@ class PracticePdfImportApiControllerTest {
                 .andExpect(jsonPath("$.privilegedDetails").value(false))
                 .andExpect(jsonPath("$.systemPrompt").value(nullValue()))
                 .andExpect(jsonPath("$.requestJsonPreview").value(nullValue()))
-                .andExpect(jsonPath("$.model").value("safe-model"));
+                .andExpect(jsonPath("$.model").value(nullValue()));
     }
 
     @Test

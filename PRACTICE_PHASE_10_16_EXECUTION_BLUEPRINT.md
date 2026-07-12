@@ -18,25 +18,38 @@ liệu này không tự thay đổi trạng thái phase, không thay thế bằn
 không phải quyền tự động bắt đầu phase mới. Khi code, workflow và tài liệu này
 mâu thuẫn, dùng thứ tự ưu tiên đã ghi trong workflow.
 
-Cập nhật tổng hợp đến ngày 2026-07-11:
+Cập nhật tổng hợp đến ngày 2026-07-12:
 
 - `PRE_PHASE_10_SECURITY_AND_GRAPH_GATE` đã hoàn tất;
 - Phase 10A-10H đã triển khai và đóng với accepted debt;
-- migration hiện tại là `V25__assessment_program_configuration.sql`;
+- migration nền của Phase 10 là `V25__assessment_program_configuration.sql`;
 - focused stabilization gate đạt 41/41;
 - full suite cuối đạt 1208/1208, không failure/error/skip;
 - `PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE` đã hoàn tất audit-only với
   verdict `GO_WITH_REQUIRED_FOUNDATION_FIXES`;
-- Phase 11A-11G đã được triển khai ngày 2026-07-11; migration hiện tại là
+- Phase 11A-11G đã được triển khai ngày 2026-07-11; migration nền Phase 11 là
   `V26__practice_authoring_contract.sql`;
-- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; Phase 11 ở
-  `STABILIZED_PENDING_USER_ACCEPTANCE`: focused closure rerun đạt 20/20,
-  focused Excel/media/MATCHING đạt 47/47, clean V1-V26 integration gate xanh,
-  full suite pool-bounded đạt 1242/1242 không failure/error/skip và runtime QA
-  editor/menu/PDF/Excel/teacher preview đã pass; chỉ còn user acceptance trước
-  commit/push;
+- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; Phase 11 đã được user
+  chấp thuận, commit/push tại `324dad9` và đóng
+  `CLOSED_WITH_ACCEPTED_DEBT`: focused closure rerun đạt 20/20, focused
+  Excel/media/MATCHING đạt 47/47, clean V1-V26 integration gate xanh, full
+  suite pool-bounded đạt 1242/1242 không failure/error/skip và runtime QA
+  editor/menu/PDF/Excel/teacher preview đã pass;
+- `PRE_PHASE_12_MATERIALS_PERMISSIONS_AND_GOVERNANCE_GATE` đã hoàn tất
+  audit-only với verdict `AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES`;
+  sau implementation GO riêng, Phase 12A-12E và automated/static portion của
+  12F đã triển khai trên forward migration
+  `V27__practice_phase12_governance.sql`;
+- `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`: focused restore /
+  governance 17/17, storage/material 22/22, governance hardening 13/13,
+  Practice integration 78/78, fresh MySQL V1-V27/Hibernate validation và final
+  full suite 1293/1293 đều xanh, không provider call;
+- browser QA được user yêu cầu bỏ qua trong lượt này, nên
+  `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN_BROWSER_QA_DEFERRED`; chưa mở
+  Phase 13, chưa merge/product rollout; checkpoint được stage/commit/push trên
+  `feature/practice` sau chỉ thị rõ ràng của user;
 - phụ lục baseline tại HEAD `448bdb1` được giữ như bằng chứng lịch sử; phần
-  current-state delta ở cuối tài liệu là nguồn định hướng cho Phase 11.
+  current-state delta là nguồn định hướng cho Phase 11/12 và các phase sau.
 
 ## 2. Kết luận điều hành
 
@@ -60,10 +73,10 @@ Các khoảng trống từng chặn Phase 10 đã được xử lý như sau:
 Khuyến nghị thứ tự thực hiện:
 
 1. Phase 10 đã commit/push và đóng theo gate đã khai báo.
-2. Closure stabilization gate của Phase 11 đã đóng xanh; chờ user acceptance,
-   chưa commit/push và chưa audit/start Phase 12.
-3. Sau khi Phase 11 được chấp thuận, audit Phase 12 theo ownership/owner-lock
-   direction đã khóa; Phase 16 chỉ bắt đầu sau GO riêng.
+2. Phase 11 đã đóng xanh, được chấp thuận và push tại `324dad9`.
+3. Phase 12 đã triển khai và qua automated/static stabilization. User review
+   code/evidence và quyết định lượt browser closure còn defer; chỉ mở Phase 13
+   sau một quyết định rõ ràng. Phase 16 vẫn cần GO riêng.
 
 ## 3. Product north star
 
@@ -113,8 +126,8 @@ Các invariant bắt buộc:
 | 8 | `CLOSED_WITH_ACCEPTED_DEBT` | Speaking media/AI, Writing scoring, readiness checks, functional flow và boundary tests đã triển khai | Cao | Live Speaking AI vẫn NO-GO; debt phải trả ở Phase 12/13/15 |
 | 9 | `CLOSED_WITH_ACCEPTED_DEBT` | Immutable set/test/section/group/question versions và attempt lock đã có | Cao | Legacy reconstruction tiếp tục là best-effort compatibility |
 | 10 | `CLOSED_WITH_ACCEPTED_DEBT` | Canonical contracts, deterministic scoring, V25 policy persistence, immutable policy snapshot, typed R/L explanation và stabilization đã triển khai | Cao | Debt được route rõ sang Phase 11/12/13/15 |
-| 11 | `STABILIZED_PENDING_USER_ACCEPTANCE` | 11A-11G hoàn tất; 11H/closure stabilization gate `CLOSED_GREEN`: contract/template, typed editor/preview, all-skill Excel, guided PDF, single V26, focused/full-suite và runtime QA xanh | Cao | User acceptance, sau đó commit/push chỉ khi được yêu cầu rõ ràng; Phase 12 chưa bắt đầu |
-| 12 | `NOT_STARTED` | RBAC schema và asset foundation có sẵn, practice governance chưa nối đầy đủ | Cao | Ownership, permission, material security, prompt governance |
+| 11 | `CLOSED_WITH_ACCEPTED_DEBT` | 11A-11G hoàn tất; 11H/closure gate `CLOSED_GREEN`; commit/push `324dad9` gồm contract/template, typed editor/preview, all-skill Excel, guided PDF, single V26, focused/full-suite và runtime QA xanh | Cao | Governance/material/learner/release debt được route sang Phase 12/13/15 |
+| 12 | `STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED` | 12A-12E đã có action RBAC, collaboration/owner lock, archive, append-only restore, immutable assessment governance, private material delivery và durable asset lifecycle; 12F automated/static green 1293/1293 | Cao cho code đã test; runtime chưa được tuyên bố | User review; browser closure còn mở, R2/system-rule runtime/release debt được route rõ; chưa mở Phase 13 |
 | 13 | `NOT_STARTED` | Có learner player/result/progress UI cho loại cũ | Cao | New-type delivery, full-test mode, catalog scale, accessibility, polish |
 | 14 | `NOT_STARTED` | Chưa thấy content error-report/review workflow | Cao | Xây workflow gắn immutable content và correction version |
 | 15 | `NOT_STARTED` | Có test automation đáng kể nhưng chưa có release/UAT gate hoàn chỉnh | Cao | Manual UAT, load, security, migration rehearsal, provider/calibration GO |
@@ -727,7 +740,7 @@ chỉ hay mở rộng UI:
 
 ### Kết quả triển khai Phase 11 ngày 2026-07-11
 
-Status: `STABILIZED_PENDING_USER_ACCEPTANCE`.
+Status: `CLOSED_WITH_ACCEPTED_DEBT` at commit `324dad9`.
 
 - 11A hoàn tất `practice-draft-v3`, stable client IDs, typed question/answer
   contract, persisted stimulus/provenance round-trip và explicit score fields
@@ -924,10 +937,42 @@ Implementation: `CLOSED_GREEN`.
 - browser runtime pass cho editor, menu/rename/delete-confirm, PDF, Excel
   R/L/W/S, exact L1 route, centered preview contract và sanitized teacher
   preview; console không warning/error;
-- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; top-level Phase 11 chỉ
-  còn user acceptance trước commit/push, không tự động mở Phase 12.
+- `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`; top-level Phase 11 đã
+  được user chấp thuận, commit/push tại `324dad9` và đóng với routed debt. Việc
+  đóng Phase 11 không tự động mở Phase 12.
+
+### 11I - Post-closure PDF/Excel teacher UX correction
+
+Implementation: `IMPLEMENTED_AUTOMATED_GATE_GREEN_BROWSER_UAT_DEFERRED`.
+
+Đây là corrective stabilization có phạm vi hẹp sau phản hồi thực tế, không thay
+thế roadmap Phase 13 và không mở Phase 12:
+
+- PDF import dùng `program/version/template` làm context chính; `category` chỉ
+  còn compatibility metadata;
+- chọn rõ Test + skill section trước import; linked import chỉ append vào lesson
+  đã chọn, không ghi đè sibling section; số câu nguồn và số hiển thị tách riêng;
+- đổi loại nội dung phải render field ngay, không F5; UI mô tả nội dung sẽ hiện
+  thế nào trong bài học sinh;
+- Lecturer chỉ thấy preview nghiệp vụ; raw system/model/request giữ cho Head/Admin;
+- extracted text có bản dễ đọc và raw; AI output có learner-safe preview;
+- Excel mặc định xem theo hierarchy, shared group content hiển thị một lần, lỗi
+  có issue list/jump, còn bảng A-H/MATCHING/media giữ làm detail view;
+- V27 là forward migration sau commit V26, không squash/rewrite migration đã push;
+- compile/loaded-template JS, focused và broad Practice/PDF/Excel regression,
+  clean Flyway V1-V27 + Hibernate validation đều xanh;
+- final pool-bounded full suite: 1244 tests, 0 failure, 0 error, 0 skip,
+  `BUILD SUCCESS` trên JDK 26.0.1/MySQL V27;
+- browser QA của 11I được user yêu cầu bỏ qua. Không suy diễn runtime pass từ
+  automated evidence; lượt browser QA được gom vào stabilization cuối Phase 12,
+  còn full Manual UAT vẫn giữ ở Phase 15;
+- tại checkpoint 11I, thay đổi chưa stage/commit/push và Phase 12 vẫn
+  `NOT_STARTED`; user đã cấp implementation GO riêng sau checkpoint đó.
 
 ## 10. Kế hoạch Phase 12 - Materials, Permissions and Governance
+
+Current status:
+`STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED`.
 
 Research boundary ngày 2026-07-11:
 
@@ -936,71 +981,281 @@ Research boundary ngày 2026-07-11:
 - program/certificate switcher và certificate-specific progress cho thấy context
   program phải xuyên suốt, nhưng Phase 12 phải tái sử dụng program-version /
   exam-template model đã có, không tạo config theo route hoặc sao chép external UX;
-- Phase 12 chỉ bắt đầu sau audit riêng về schema, permission seed, ownership,
-  current revision service và material storage boundary của KSH.
+- Phase 12 chỉ được bắt đầu sau audit riêng về schema, permission seed,
+  ownership, current revision service và material storage boundary của KSH;
+  audit này đã hoàn tất và user đã cấp implementation GO riêng.
+
+### Kết quả `PRE_PHASE_12_MATERIALS_PERMISSIONS_AND_GOVERNANCE_GATE`
+
+Verdict: `AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES`.
+
+Audit đã chạy trên committed HEAD `324dad9`, chỉ đọc source/schema/test
+contract; không sửa production code/migration, không rerun test và không gọi
+provider. Tại thời điểm audit, top-level Phase 12 vẫn `NOT_STARTED` cho tới khi
+user duyệt implementation GO. GO đó đã được cấp sau đó; phần gap map dưới đây
+được giữ như acceptance criteria lịch sử. Implementation được ghi vào
+feature-branch checkpoint này theo chỉ thị stage/commit/push riêng của user.
+Commit/push trên `feature/practice` không đồng nghĩa được merge vào `main` hoặc
+product/live rollout; hai quyết định này vẫn NO-GO trước gate riêng.
+Một audit Codex chạy song song được dùng như bằng chứng bổ trợ, không thay thế
+audit này; các claim snapshot fail-open và DB/filesystem asset consistency đã
+được đọc lại trong local source trước khi đưa vào gap map.
+
+Foundation hiện có và phải giữ:
+
+- management routes đã chặn Student và các draft/PDF/asset service chính có
+  owner binding/cross-owner denial;
+- immutable set versions và attempt-version lock từ Phase 9 đã hoạt động;
+- V26 giữ program-version/template/profile identity trên authoring và publish;
+- raw PDF request/system detail được server redaction cho Lecturer;
+- CSRF được bật, temporary PDF session/asset có expiry cleanup.
+
+Gap map bắt buộc:
+
+| Mức | Gap hiện tại | Hệ quả | Slice sở hữu |
+|---|---|---|---|
+| P0 | V4 có roles/permissions/hierarchy/user overrides/effective view nhưng application không đọc effective permissions; practice controller chỉ dùng broad role check | Permission seed và override đang inert; Head/Admin không có emergency action rõ ràng | 12A |
+| P0 | Draft/set chỉ có owner/creator, không có collaboration scope hoặc owner lock | Không thể xây `Của tôi`/`Được chia sẻ` an toàn; cross-owner luôn deny hoặc phải mở quá rộng | 12A/12B |
+| P0 | Revision restore xóa/rebuild live graph; republish bị mutation guard chặn khi có bất kỳ attempt/submission | Không thể restore/republish thực tế sau khi học viên đã làm bài dù immutable version đã tồn tại | 12B |
+| P0 | `captureSetSnapshot()` bắt exception rồi trả `{}`; publish/edit log có thể thành công với history hỏng. Restore lại reject `{}` và rollback log hiện thiếu complete before snapshot | Audit trail có thể không restore/undo được dù thao tác được báo thành công | 12B, fail-closed snapshot/history |
+| P0 | `/uploads/**` public trong khi `lecturer_assets.visibility` chưa được map; owner-only asset content URL lại có thể được persist vào published graph | Draft/private asset có thể lộ, còn learner có thể không đọc được published asset | 12D |
+| P0 | Asset usage chỉ track draft; version rows copy URL string; delete/cleanup không tính live + immutable refs | Xóa draft/asset có thể làm hỏng nội dung đã publish hoặc lịch sử version | 12D |
+| P1 | Program/template/profile chỉ có runtime resolver, chưa có Admin/Head lifecycle; template config có thể mutate dưới stable code | Policy drift, rollback/audit không đáng tin; old content có thể resolve khác | 12C |
+| P1 | DB prompt profile có `system_rules` nhưng entity/runtime không dùng; Writing/Speaking rules còn hard-coded | Admin config chưa thực sự điều khiển evaluation policy | 12C |
+| P1 | `ARCHIVED` có trong schema nhưng không có archive/unarchive action | Lifecycle ghi trong docs chưa có operational path | 12B |
+| P1 | Direct upload mới kiểm tra path/extension/size; MIME response và active-orphan retention chưa hoàn chỉnh | Content spoofing, sai MIME và orphan storage còn rủi ro | 12D/15E |
+| P1/release | Asset promote copy/new-key/delete-old/save-DB và hard delete file-before-row không có durable transaction compensation | DB rollback/commit failure có thể làm DB/filesystem lệch; cleanup chỉ log không bảo đảm retry | 12D |
+| P2 | History diff, shared-list scale và material UX chưa có | Không chặn foundation nhưng cần trước UAT rộng | 12B/12D, polish ở 13G |
+| P2/release | Cloudflare R2 đã được chọn làm target về nguyên tắc nhưng chưa có API/bucket/domain/credential; virus scan và multi-node cleanup chưa chốt | Chặn live Speaking audio production, không chặn provider-neutral non-audio Phase 12 | 12D/12E/15E |
+
+### Ma trận quyền mục tiêu
+
+| Actor/context | Create | Edit/publish/restore | Archive | Lock/unlock | Emergency override | Config governance |
+|---|---|---|---|---|---|---|
+| Student | Deny | Deny | Deny | Deny | Deny | Deny |
+| Lecturer owner | Own content | Own content khi state hợp lệ | Own content | Own content | Deny | Deny |
+| Lecturer collaborator, unlocked | Theo grant | Chỉ shared content và action grant | Deny mặc định; cần grant riêng nếu product duyệt | Deny | Deny | Deny |
+| Unrelated Lecturer hoặc collaborator khi owner lock bật | Theo create grant riêng | Deny | Deny | Deny | Deny | Deny |
+| Head | Theo effective grant | Theo effective grant; cross-owner chỉ qua explicit override | Theo grant | Owner action hoặc explicit override | Có reason + audit | Theo approved governance grant |
+| Admin | Theo effective grant | System-wide nhưng vẫn qua invariant/audit | Theo grant | Owner action hoặc explicit override | Có reason + audit | Full approved governance action |
+
+Role chỉ cấp default grants. Mọi mutation phải đồng thời pass effective action
+permission, ownership/collaboration scope, content state và owner lock ở service
+boundary. Owner lock được check trước create-draft-from-published, autosave,
+manual/PDF/Excel attachment, publish/republish, restore và material mutation.
+
+### Boundary kiến trúc cho Phase 12
+
+Không big-bang refactor, nhưng cũng không tiếp tục nhét các concern mới vào
+inline editor, PDF workspace, Excel codec, `PracticePublisherService` hoặc
+`PracticeService` vốn đã lớn. Phase 12 nên tách theo trách nhiệm:
+
+- authorization decision boundary cho effective action + scope + lock;
+- revision application boundary cho snapshot, restore, append-only publish và
+  before/after audit;
+- material access boundary cho private authoring versus published delivery;
+- asset lifecycle boundary cho references, staged mutation, compensation,
+  retry và cleanup;
+- assessment governance boundary cho immutable config activation/rollback.
+
+Các tên như `PracticeAuthorizationService`, `PracticeMaterialAccessService`,
+`PracticeRevisionApplicationService`, `AssessmentGovernanceService` và
+`PracticeAssetLifecycleService` chỉ là tên minh họa trách nhiệm, không phải
+quyền tự động tạo class/schema trước khi đọc dependency hiện hữu.
+
+### Compatibility và migration rules
+
+- V26 đã commit/push, nên Phase 12 chỉ thêm forward migration; không sửa hoặc
+  squash ngược V26;
+- không rewrite/delete attempt, submission, published version hoặc policy
+  snapshot cũ;
+- giữ mutation guard fail-closed cho legacy/unversioned attempt không chứng
+  minh được source version; chỉ mở append-only update khi attempt đã lock an
+  toàn vào immutable version;
+- restore luôn tạo draft/revision/version mới từ version được chọn, không
+  rebuild live history tại chỗ;
+- owner là stable identity; actor/collaborator/override được audit riêng;
+- learner scope `GLOBAL/CLASS` không được tái dùng làm collaboration scope;
+- không invent table/column name trước implementation contract review; ưu tiên
+  adapter tương thích với schema hiện hữu;
+- normal shared edit/publish không cần notification theo quyết định product.
 
 ### 12A - Permission model wiring
 
-- nối RBAC permission tables hiện có vào application authorization;
-- tách quyền create, edit, delete, publish, archive, lock, unlock, restore và
-  emergency override; không thêm submit-for-review/approve vào normal flow;
-- role chỉ là default grant, ownership và scope vẫn được kiểm tra ở service;
-- scope có program/certificate, owner/shared view và content state khi applicable;
-- test Lecturer, Head, Admin, owner, collaborator và cross-owner denial.
+- định nghĩa canonical practice actions cho create/read/edit/delete/publish,
+  archive/unarchive, lock/unlock, restore, material mutation và emergency
+  override; không thêm submit-for-review/approve vào normal flow;
+- nối effective permission từ V4 vào application/service authorization;
+  user override có reason, expiry và deny precedence rõ; deny-by-default khi
+  permission key hoặc scope không resolve được;
+- role chỉ là default grant. Ownership, authoring collaboration, program scope,
+  state và owner lock vẫn là invariant riêng ở service;
+- không chỉ bảo vệ controller: autosave, import, publisher, revision và asset
+  service đều dùng cùng authorization component;
+- regression matrix cho Lecturer/Head/Admin, owner/collaborator/unrelated,
+  lock on/off, expired override và forged ID; Student luôn deny authoring;
+- deliverable: action catalog, decision table, service guard API, seed/adapter
+  plan và focused security test trước khi 12B dùng shared editing.
 
 ### 12B - Content lifecycle governance
 
 - dùng lifecycle gọn `DRAFT -> PUBLISHED -> ARCHIVED`; không bắt normal lecturer
   flow đi qua `IN_REVIEW/APPROVED`;
-- có hai view `Của tôi` và `Được chia sẻ`; tài liệu public/shared có thể được
-  lecturer thuộc collaboration policy chỉnh sửa và publish trực tiếp;
+- tạo explicit authoring collaboration policy/relation, tách khỏi learner
+  scope; có hai query/view `Của tôi` và `Được chia sẻ`;
+- tài liệu shared và unlocked có thể được lecturer đã được grant chỉnh sửa và
+  publish trực tiếp; owner identity không đổi theo actor gần nhất;
 - owner có thể bật `LOCKED_BY_OWNER`. Khi khóa, lecturer khác không được edit,
-  restore hoặc publish version mới; owner có thể mở khóa;
+  restore, attach import/material hoặc publish version mới; owner có thể mở
+  khóa. Head/Admin override phải là action riêng, có reason và audit;
 - không triển khai notification edit/publish trong scope 12B;
-- mọi edit/publish luôn tạo immutable revision/version mới, ghi actor, owner,
-  thời gian, source version, summary và diff metadata;
+- archive ngăn attempt mới/catalog publication nhưng không xóa attempt/history;
+  unarchive phải tuân theo permission và current policy validation;
+- mọi edit/publish/restore tạo immutable revision/version mới, ghi actor, owner,
+  thời gian, source version, summary và diff metadata; không mutate old version;
+- snapshot/history là publish invariant: serialize/validate thất bại phải fail
+  closed và rollback mutation; không dùng `{}` như successful history;
 - owner xem toàn bộ lịch sử và chọn bất kỳ version cũ nào để restore. Restore
-  tạo một revision mới từ snapshot đã chọn, không xóa/ghi đè lịch sử;
-- Admin/Head emergency override là quyền riêng, phải có reason và audit event;
-- service authorization kiểm tra collaboration policy và owner lock; UI ẩn nút
-  không được xem là security boundary.
+  khởi tạo draft/revision mới từ snapshot đã chọn rồi publish append-only, không
+  xóa/rebuild live history;
+- restore audit event có complete before/after snapshot hoặc immutable version
+  references đủ để tiếp tục restore/undo bằng cùng contract;
+- republish với version-locked attempts tạo version mới và old attempts tiếp
+  tục đọc old snapshot; legacy/unversioned path vẫn fail closed;
+- test owner lock trên mọi entry point, concurrent optimistic lock, restore bất
+  kỳ version, archive/unarchive và old-attempt invariants.
 
 ### 12C - Prompt/rubric/scoring profile administration
 
-- Admin/Head UI/API cho immutable profile versions;
-- activation/deactivation, audit log, rollback-by-version;
-- fixture validation trước activation;
+- Admin/Head API trước, bounded UI sau, cho immutable program/template/prompt/
+  rubric/scoring profile versions;
+- create version, validate, activate/deactivate atomically, audit actor/reason
+  và rollback bằng version/activation mới; không mutate config cũ dưới stable
+  code;
+- map approved `system_rules`/profile identity vào runtime evaluator qua typed
+  resolver; giữ hard-coded rule adapter chỉ làm legacy compatibility;
+- fixture validation trước activation gồm skill/type limits, exact/min/max
+  options, max tests/questions, timers, scoring scale, prompt/rubric references
+  và disabled skill;
 - lecturer chỉ chọn approved version;
-- system rule và provider config không lộ ra learner/client.
+- system rule, provider config và secret không lộ ra Lecturer/learner/client;
 - cùng một resolved policy phải điều khiển manual editor, Excel template, PDF
   normalization và Phase 13 learner delivery; không tạo policy riêng theo UI;
 - enabled skills/question types, option/count limits, timers và score-scale
-  metadata đều versioned theo program/certificate.
+  metadata đều versioned theo program/certificate;
+- old draft/set/version/attempt giữ resolved identity, cache key gồm immutable
+  config identity; test activation/rollback không làm đổi old attempts.
 
 ### 12D - Material security
 
-- validate MIME bằng content inspection, size, extension allowlist;
-- random server-side names, traversal/symlink protection;
-- public authoring content và private learner media là hai storage boundary;
-- signed/authenticated access khi material không public;
-- virus scanning hook nếu production requirement có;
-- lifecycle/ref-count/orphan cleanup và legal retention policy.
+- dùng một material identity/metadata contract cho manual, PDF và Excel; không
+  persist private local path, raw storage key hoặc ungoverned public URL;
+- tách private authoring delivery khỏi published learner delivery. Published
+  material phải learner-readable theo authorization nhưng draft/private asset
+  không được đi qua global `/uploads/**` public boundary;
+- live graph và immutable versions giữ durable material references thay vì chỉ
+  copy owner-only URL strings; material content response dùng đúng stored MIME;
+- track reference từ draft, live graph và immutable version trước delete;
+  xóa draft không được làm gãy published content/history;
+- validate content-derived MIME/magic bytes, size, extension allowlist, random
+  server name, traversal/symlink và archive/companion-bundle safety;
+- cleanup phân biệt TEMPORARY/ACTIVE/PUBLISHED/orphan, có grace period,
+  bounded batch, retry/audit và retention rule; không xóa object còn ref;
+- promote/delete dùng staged file mutation và transaction synchronization,
+  after-commit finalize hoặc durable compensation/outbox. Failure ở copy,
+  save, commit, delete cũ hay retry đều phải idempotent và quan sát được;
+- virus scanning hook/object storage adapter có thể defer theo deployment,
+  nhưng authorization, durable refs và private/published boundary là P0;
+- storage port phải provider-neutral. Có thể chuẩn bị disabled R2 adapter contract,
+  nhưng không thêm SDK call, network call, secret, bucket giả hoặc credential mẫu
+  khi API chưa được user cung cấp.
 
 ### 12E - Speaking media policy debt
 
-- quyết định object storage;
-- reviewer playback role policy;
-- persisted consent nếu cần;
-- multi-node cleanup strategy;
-- no public learner media URL.
+- định nghĩa reviewer playback action qua 12A, không cho role broad access;
+- Cloudflare R2 là production target đã chọn về nguyên tắc; ghi rõ local adapter
+  cho dev/single-node và R2 adapter vẫn `NOT_STARTED_API_UNAVAILABLE`;
+- chốt signed/authenticated playback, persisted consent, retention/legal hold và
+  multi-node cleanup trước khi bật media production;
+- không public learner media URL, không expose storage key;
+- non-audio Phase 12 có thể tiếp tục với debt được ghi rõ; live production
+  Speaking audio/AI vẫn NO-GO cho tới khi Phase 15 chấp thuận storage/UAT.
 
 ### 12F - Gate
 
-- permission matrix documented và tested;
-- không còn draft/import/asset IDOR;
-- profile change không làm đổi attempt cũ;
-- material security tests pass;
-- unresolved object storage decision vẫn là Phase 15 release blocker.
+- fresh V1-next migration và representative V26/legacy upgrade rehearsal pass;
+- complete action/IDOR matrix pass cho owner/collaborator/locked/override;
+- shared edit, restore bất kỳ version và republish với version-locked attempt
+  tạo append-only version; old attempts/submissions không đổi;
+- snapshot serialization/validation fault làm publish/restore fail closed;
+  rollback event luôn có complete reversible evidence;
+- archive/unarchive, actor/owner history, override reason và audit event pass;
+- config fixture validation, activation/rollback và cache/identity tests pass;
+- material draft privacy, published learner access, correct MIME, immutable ref
+  retention, delete/cleanup, forged URL/ID và DB/filesystem fault-injection /
+  compensation retry tests pass;
+- focused slices, full suite và browser UAT hợp nhất cho `Của tôi`/`Được chia
+  sẻ`, lock, history/restore, config và material delivery; no provider call
+  trong automated gate;
+- R2 API/bucket/domain/credential, object migration và multi-node rehearsal chưa
+  có vẫn là Phase 15 blocker cho live Speaking audio, không được báo production GO.
+
+#### 12F-Stabilization - Browser/route/dead-code gate trước Phase 13
+
+- chạy một browser QA toàn cảnh `/practice`: program/certificate, library,
+  Set > Test > Skill, manual/Excel/PDF authoring, preview/publish,
+  collaboration/lock/history/config/material, learner attempt/result và
+  cross-role denial. Dùng deterministic test fixtures đủ cho route/state
+  coverage; đây là lượt bù cho browser QA đã defer ở 11I;
+- stabilization cuối Phase 12 phải inventory controller/route/template/script,
+  phát hiện dead code, button chưa nối, redirect/parameter sai, valid-route
+  4xx/5xx, content không load, console/network error, UI overlap/vỡ và
+  mojibake. Fix theo slice nhỏ và rerun regression/full suite;
+- không mở Phase 13 trước khi `PHASE_12_CLOSURE_STABILIZATION_GATE =
+  CLOSED_GREEN`, ghi rõ evidence và dừng server tạm;
+- gate này không phải full Manual UAT và không kéo quyền drop database/bộ seed
+  chất lượng cao từ Phase 15 về Phase 12. Phase 15 vẫn sở hữu cross-browser /
+  device, dữ liệu thực tế, scale và release GO/NO-GO.
+
+### Kết quả implementation và stabilization ngày 2026-07-12
+
+| Slice | Kết quả thực tế |
+|---|---|
+| 12A | Canonical action RBAC, effective permission, explicit collaboration, owner lock, scoped Head/Admin override và immutable audit event đã được nối ở service boundary |
+| 12B | `DRAFT/PUBLISHED/ARCHIVED`, archive/unarchive và restore selected immutable version theo append-only draft/new-version flow; old history/attempt binding được giữ |
+| 12C | Immutable program/template/scoring/prompt/rubric versions, validation, row-locked activation và rollback-by-activation cho Admin/Head |
+| 12D | Governed `/practice/materials/{id}/content`, deny raw private upload paths, signature verification, durable material references và idempotent lifecycle task/retry/cleanup |
+| 12E | Provider-neutral storage/readiness boundary; local adapter cho development, Cloudflare R2 vẫn `NOT_STARTED_API_UNAVAILABLE`, không SDK/network/secret/fake credential |
+| 12F automated/static | Fresh MySQL V1-V27/Hibernate validation; focused 17/17 + 22/22 + 13/13 + 78/78; final full suite 1293/1293, zero failure/error/skip, `BUILD SUCCESS`, no provider call |
+
+Static stabilization còn xác nhận private-upload deny ordering, route bindings
+cho upload/material/restore/governance, worker scheduling, V1-V27-only migration
+inventory, effective permission seed/query và UTF-8/mojibake guards. Không có
+production TODO/FIXME/HACK mới trong boundary Phase 12.
+
+Gate verdict hiện tại:
+
+- `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`;
+- `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN_BROWSER_QA_DEFERRED` vì user yêu
+  cầu bỏ qua browser QA trong lượt này;
+- không suy diễn browser/runtime pass từ automated evidence; không mở Phase 13,
+  merge `main` hoặc product rollout trước quyết định riêng;
+- Manual UAT, clean high-quality seed cho TOPIK và các certificate khác,
+  cross-browser/device/load vẫn giữ nguyên ở Phase 15.
+
+Accepted/deferred debt không được phép mất dấu:
+
+- governance đã version/activate profile identity, nhưng migration toàn bộ
+  hard-coded Writing/Speaking prompt rules sang database-managed `system_rules`
+  chưa được tuyên bố hoàn tất; legacy adapters vẫn là compatibility path cho
+  tới focused evaluator migration, calibration và provider-safe UAT;
+- real Cloudflare R2 adapter, API/bucket/domain/credential policy, object
+  migration/reconciliation, virus scan và multi-node rehearsal nằm ở 15E. Live
+  Speaking audio/AI tiếp tục NO-GO;
+- history diff/large shared-material UX và inline editor/PDF workspace lớn được
+  route sang Phase 13/15;
+- browser route/UI closure pass vẫn là điều kiện để đổi closure gate thành
+  `CLOSED_GREEN` và bắt đầu Phase 13.
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
@@ -1254,6 +1509,26 @@ mọi feature còn thiếu.
 
 ### 15B - Manual browser/device UAT
 
+- dữ liệu development hiện tại chỉ là fixture thử nghiệm, không phải Manual UAT
+  hoặc product evidence;
+- khi Phase 15 Manual UAT bắt đầu, user cho phép drop/recreate **chỉ database
+  local/UAT chuyên dụng** sau khi xác minh schema/environment; tuyệt đối không
+  áp dụng cho production hoặc database chưa xác định. Chạy fresh migration và
+  representative legacy-upgrade rehearsal trước khi load data;
+- dùng deterministic/versioned UAT fixture pack hoặc UAT-only seed loader, tách
+  khỏi production Flyway seed nếu chưa có duyệt riêng. Nội dung phải là tiếng
+  Hàn thực tế, original/licensed, teacher-reviewed và không dùng placeholder;
+- seed theo mọi program/certificate Admin/Head đã bật, không chỉ TOPIK: TOPIK I,
+  TOPIK II, KSH custom, KIIP, KLAT, KLPT, OPIc, TOPIK Speaking và certificate
+  thêm sau này. Mỗi pack resolve từ immutable config thật; không mang count,
+  skill, type, timer hay scoring rule của TOPIK sang certificate khác;
+- mỗi certificate có set đại diện, nhiều test khi policy cho phép, mọi skill /
+  question type được bật, shared group material, question material, profile /
+  rubric/scoring và valid/warning/invalid import fixtures;
+- fixture TOPIK II full-form tối thiểu có 50 Reading, 50 Listening và Writing
+  51, 52, 53, 54, kèm local numbering, answer key, teacher explanation,
+  passage/transcript và media placement. Certificate khác theo đúng config đã
+  approved của chính nó;
 - Chrome, Firefox, Safari/Edge theo target support;
 - desktop/mobile;
 - recorder permission denied/revoked/retry;
@@ -1261,6 +1536,10 @@ mọi feature còn thiếu.
 - full-test resume/timer;
 - all question types và result explanations;
 - Korean/Vietnamese IME, Unicode và spacing.
+
+Phase 15 Manual UAT là release gate riêng, không bị di chuyển sang Phase 12.
+Stabilization cuối Phase 12 chỉ bảo đảm code/route/UI hiện hữu đủ sạch để bắt đầu
+Phase 13.
 
 ### 15C - Performance and scale
 
@@ -1283,7 +1562,10 @@ mọi feature còn thiếu.
 
 ### 15E - Production storage and privacy
 
-- object storage decision/implementation;
+- triển khai Cloudflare R2 sau khi user cấp API/bucket/domain policy; adapter
+  vẫn disabled trước thời điểm đó;
+- checksum-based local-to-R2 migration rehearsal, idempotency, rollback và
+  orphan reconciliation;
 - encryption/access policy;
 - retention/deletion/consent;
 - backup/restore;
@@ -1406,12 +1688,20 @@ riêng. Permission seed `ai.chatbot` không phải implementation.
 | Manual editor còn inline script lớn | 11G | P2 | 13A incremental | Không; hai canonical module đã tách và dead modules đã xóa |
 | PDF workspace còn inline/alert-heavy và expert-first ở một số nhánh | 11F/closure audit | P2 | 13C/15B incremental | Không cho correctness; có cho UX/UAT production |
 | Excel preview A-H/media rất rộng, phụ thuộc horizontal scroll | 11E/closure audit | P2 | 13G | Không; không được giảm evidence chỉ để thu gọn UI |
-| Companion media orphan cleanup/retention chưa hoàn chỉnh | 11E/12D | P1/P2 | 12D/15E | Có cho production asset lifecycle |
-| Upload mới dừng ở path/type/size; deep magic-byte/content inspection còn mở | 11/closure audit | P1/P2 | 15B/15E | Có cho public production upload |
+| Companion media orphan cleanup/retention chưa hoàn chỉnh | 11E/12D | P0/P1 | 12D/15E | Có cho production asset lifecycle |
+| Upload mới dừng ở path/type/size; deep magic-byte/content inspection còn mở | 11/closure audit | P1 | 12D/15B/15E | Có cho public production upload |
 | External CDN/CSP/supply-chain hardening chưa rehearsal | Closure audit | P1/P2 | 15A/15E | Có theo production threat model |
-| Practice RBAC schema chưa được wire theo action | Hiện tại | P1 | 12A | Có |
-| Collaboration lock/full revision restore chưa có | Pre-11 audit | P1 | 12B | Có cho shared editing rollout |
-| Public authoring upload validation/lifecycle | Pre-10 baseline | PARTIAL | Path/type/size đã khóa; lifecycle Phase 12D | Có cho production |
+| Practice RBAC schema/effective overrides chưa được wire theo action | Pre-12 audit | P0 | 12A | Có |
+| Collaboration scope và owner lock chưa có | Pre-12 audit | P0 | 12A/12B | Có cho shared editing rollout |
+| Restore mutate live graph; republish bị chặn khi đã có attempt | Pre-12 audit | P0 | 12B | Có cho immutable history/shared editing |
+| Snapshot capture fail-open thành `{}`; rollback log thiếu complete before evidence | Pre-12 audit bổ trợ | P0 | 12B | Có cho publish/history integrity |
+| Private/public/published material delivery đang mâu thuẫn | Pre-12 audit | P0 | 12D | Có; có nguy cơ leak hoặc learner không đọc được asset |
+| Published/version material refs chưa tham gia retention/delete guard | Pre-12 audit | P0 | 12D | Có cho lịch sử immutable |
+| DB/filesystem asset promote/delete chưa có durable compensation/retry | Pre-12 audit bổ trợ | P1/release | 12D | Có trước product rollout |
+| Program/template/profile activation có thể drift, chưa audit/rollback | Pre-12 audit | P1 | 12C | Có cho Admin/Head config rollout |
+| Prompt profile system rules chưa được runtime map | Pre-12 audit | P1 | 12C | Có cho configurable Writing/Speaking policy |
+| Archive/unarchive action chưa có dù schema có ARCHIVED | Pre-12 audit | P1 | 12B | Có cho lifecycle hoàn chỉnh |
+| Public authoring upload validation/lifecycle | Pre-10/Pre-12 audit | P0/P1 | 12D; deep release rehearsal ở 15E | Có cho production |
 | Program-version identity chưa là first-class set-version/attempt lock | 10 | P1 | 13C trước multi-program rollout | Có cho multi-program delivery |
 | Type-specific lecturer editor/import normalization | 10/11 | P1 | 11B-11F | Có cho new-type authoring rollout |
 | Typed new-type player/result rendering | 10/13 | P1 | 13A-13C | Có cho learner rollout |
@@ -1478,9 +1768,11 @@ Kết quả sáu câu audit:
 6. Ranh giới Phase 11 được giữ: learner interaction/polish vẫn thuộc Phase 13,
    governance/owner lock vẫn thuộc Phase 12.
 
-Current next action: user acceptance cho Phase 11 đã stabilized. Closure gate
-đã `CLOSED_GREEN`; chỉ stage/commit/push khi có yêu cầu rõ ràng. Phase 12 vẫn
-`NOT_STARTED` và cần một audit riêng sau acceptance.
+Current next action: user review Phase 12 implementation và automated/static
+evidence. `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`, nhưng
+`PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN_BROWSER_QA_DEFERRED` vì browser QA
+được user yêu cầu bỏ qua. Checkpoint đã được stage/commit/push theo chỉ thị rõ
+ràng; không merge, tuyên bố product GO hoặc mở Phase 13 nếu chưa có chỉ thị tiếp.
 
 ## Phụ lục A - Historical baseline evidence map tại HEAD 448bdb1
 

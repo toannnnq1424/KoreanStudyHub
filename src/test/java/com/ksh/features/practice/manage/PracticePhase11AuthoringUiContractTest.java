@@ -38,6 +38,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("groupCode"));
         assertTrue(editor.contains("reNumberSectionQuestions(sIdx)"));
         assertTrue(editor.contains("id=\"excel-import-action\""));
+        assertTrue(editor.contains("id=\"pdf-import-action\""));
+        assertTrue(editor.contains("`/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`"));
+        assertTrue(editor.contains("id=\"q-source-trace\""));
+        assertTrue(editor.contains("get('preview') === '1'"));
         assertTrue(editor.contains("onclick=\"handleEditorToolNavigation(event)\""));
         assertTrue(editor.contains("async function flushDraftBeforeNavigation()"));
         assertTrue(editor.contains("function toggleDotsDropdown(event)"));
@@ -61,7 +65,18 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
         assertTrue(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
         assertTrue(workspace.contains("data.privilegedDetails"));
+        assertTrue(workspace.contains("renderRegionSpecificFields(type, ann || {}, true)"));
+        assertTrue(workspace.contains("id=\"region-destination-summary\""));
+        assertTrue(workspace.contains("Cách AI đọc tài liệu"));
+        assertTrue(workspace.contains("function openLearnerPreview()"));
+        assertFalse(workspace.contains("Hybrid - Khuyên dùng"));
+        assertFalse(workspace.contains("📁"));
+        assertFalse(workspace.contains("📂"));
+        assertFalse(workspace.contains("🎯"));
         assertTrue(wizard.contains("authoringCatalog.templates"));
+        assertTrue(wizard.contains("name=\"examTemplateCode\""));
+        assertTrue(wizard.contains("id=\"target-section\"")
+                || wizard.contains("id=\"target-skill\""));
         assertFalse(wizard.contains("value=\"EXTENDED_PRACTICE\""));
         assertFalse(wizard.contains("value=\"GENERAL_KOREAN\""));
     }
@@ -75,6 +90,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("/practice/manage/excel/${action}"));
         assertTrue(excel.contains("id=\"excel-preview-modal\""));
         assertTrue(excel.contains("id=\"preview-rows\""));
+        assertTrue(excel.contains("id=\"excel-compact-preview\""));
+        assertTrue(excel.contains("data-view=\"DETAIL\""));
+        assertTrue(excel.contains("function renderIssuePanel(result)"));
+        assertTrue(excel.contains("sẽ tự động bị bỏ khi xác nhận"));
         assertTrue(excel.contains("data-filter=\"ERROR\""));
         assertTrue(excel.contains("importableQuestionCount"));
         assertTrue(excel.contains("result.canImport"));
@@ -105,6 +124,31 @@ class PracticePhase11AuthoringUiContractTest {
 
         assertTrue(head.contains("defer th:src=\"@{/js/app.js}\""));
         assertTrue(app.contains("__KSH_SHARED_APP_INITIALIZED__"));
+    }
+
+    @Test
+    void renderedResourcesRemainUtf8AndAvoidEmojiStyleProductIcons() throws Exception {
+        List<Path> roots = List.of(
+                Path.of("src/main/resources/templates"),
+                Path.of("src/main/resources/static/js"),
+                Path.of("src/main/resources/db/migration"));
+        List<String> mojibakeMarkers = List.of("Cáº", "Ä", "Pháº", "Viáº", "â€", "ðŸ");
+
+        for (Path root : roots) {
+            try (var paths = Files.walk(root)) {
+                for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                    String content = Files.readString(path);
+                    for (String marker : mojibakeMarkers) {
+                        assertFalse(content.contains(marker), "Mojibake marker " + marker + " in " + path);
+                    }
+                    assertFalse(containsEmojiStyleIcon(content), "Emoji-style product icon in " + path);
+                }
+            }
+        }
+    }
+
+    private static boolean containsEmojiStyleIcon(String content) {
+        return content.codePoints().anyMatch(codePoint -> codePoint >= 0x1F300 && codePoint <= 0x1FAFF);
     }
 
     private static String read(String path) throws Exception {

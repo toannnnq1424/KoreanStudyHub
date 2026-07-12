@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @Service
 public class PracticePublishedVersionService {
@@ -192,6 +193,16 @@ public class PracticePublishedVersionService {
         if (published.isEmpty() || set.isEmpty() || test.isEmpty() || section.isEmpty()) {
             return Optional.empty();
         }
+        if (!publishedVersionId.equals(set.get().getPublishedVersionId())
+                || !publishedVersionId.equals(test.get().getPublishedVersionId())
+                || !publishedVersionId.equals(section.get().getPublishedVersionId())
+                || !setVersionId.equals(test.get().getSetVersionId())
+                || !testVersionId.equals(section.get().getTestVersionId())
+                || !published.get().getSetId().equals(set.get().getSetId())) {
+            log.warn("Rejected inconsistent immutable practice snapshot ids: published={}, set={}, test={}, section={}",
+                    publishedVersionId, setVersionId, testVersionId, sectionVersionId);
+            return Optional.empty();
+        }
         return Optional.of(new PracticeVersionSnapshot(
                 published.get(),
                 set.get(),
@@ -199,6 +210,174 @@ public class PracticePublishedVersionService {
                 section.get(),
                 groupVersionRepository.findBySectionVersionIdOrderByDisplayOrderAscIdAsc(sectionVersionId),
                 questionVersionRepository.findBySectionVersionIdOrderByDisplayOrderAscQuestionNoAscIdAsc(sectionVersionId)));
+    }
+
+    @Transactional(readOnly = true)
+    public String draftSnapshotJson(Long publishedVersionId, Long expectedSetId) {
+        PracticePublishedVersion published = publishedVersionRepository.findById(publishedVersionId)
+                .orElseThrow(() -> new EntityNotFoundException("Phiên bản xuất bản không tồn tại."));
+        if (expectedSetId != null && !expectedSetId.equals(published.getSetId())) {
+            throw new IllegalArgumentException("Phiên bản không thuộc học liệu đã chọn.");
+        }
+        PracticeSetVersion set = setVersionRepository.findByPublishedVersionId(publishedVersionId)
+                .orElseThrow(() -> new IllegalStateException("Phiên bản thiếu snapshot cấp set."));
+        try {
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("schemaVersion", "practice-draft-v3");
+            Map<String, Object> document = new LinkedHashMap<>();
+            document.put("title", set.getTitle());
+            document.put("description", set.getDescription());
+            document.put("detectedCategory", set.getTopikLevel());
+            document.put("assessmentProgramCode", set.getAssessmentProgramCode());
+            document.put("assessmentProgramVersionId", set.getAssessmentProgramVersionId());
+            document.put("examTemplateCode", set.getExamTemplateCode());
+            document.put("restoredFromPublishedVersionId", publishedVersionId);
+            document.put("restoredFromVersionNumber", published.getVersionNumber());
+            root.put("document", document);
+
+            if (set.getMetadataJson() != null && !set.getMetadataJson().isBlank()) {
+                com.fasterxml.jackson.databind.JsonNode metadata = objectMapper.readTree(set.getMetadataJson());
+                if (metadata.path("materials").isArray()) {
+                    root.put("materials", objectMapper.convertValue(
+                            metadata.path("materials"), List.class));
+                }
+            }
+
+            List<Map<String, Object>> tests = new ArrayList<>();
+            List<Map<String, Object>> sections = new ArrayList<>();
+            List<PracticeTestVersion> testVersions = testVersionRepository
+                    .findByPublishedVersionIdOrderByDisplayOrderAscIdAsc(publishedVersionId);
+            for (int testIndex = 0; testIndex < testVersions.size(); testIndex++) {
+                PracticeTestVersion test = testVersions.get(testIndex);
+                int testNo = testIndex + 1;
+                String testClientId = "published-test-" + test.getId();
+                Map<String, Object> testNode = new LinkedHashMap<>();
+                testNode.put("clientId", testClientId);
+                testNode.put("testNo", testNo);
+                testNode.put("title", test.getTitle());
+                testNode.put("description", test.getDescription());
+                testNode.put("estimatedMinutes", test.getEstimatedMinutes());
+                tests.add(testNode);
+
+                for (PracticeSectionVersion section : sectionVersionRepository
+                        .findByTestVersionIdOrderByDisplayOrderAscIdAsc(test.getId())) {
+                    Map<String, Object> sectionNode = new LinkedHashMap<>();
+                    sectionNode.put("title", section.getTitle());
+                    sectionNode.put("skill", section.getSkill());
+                    sectionNode.put("sectionType", section.getSectionType());
+                    sectionNode.put("lessonCode", section.getSectionType());
+                    sectionNode.put("instructions", section.getInstructions());
+                    sectionNode.put("durationMinutes", section.getDurationMinutes());
+                    sectionNode.put("totalPoints", section.getTotalPoints());
+                    sectionNode.put("testNo", testNo);
+                    sectionNode.put("testClientId", testClientId);
+                    sectionNode.put("groups", versionGroups(section));
+                    sections.add(sectionNode);
+                }
+            }
+            if (tests.isEmpty()) {
+                throw new IllegalStateException("Phiên bản không có Practice Test.");
+            }
+            root.put("tests", tests);
+            root.put("sections", sections);
+            root.put("warnings", List.of());
+            return objectMapper.writeValueAsString(root);
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể dựng draft từ phiên bản bất biến.", exception);
+        }
+    }
+
+    private List<Map<String, Object>> versionGroups(PracticeSectionVersion section) throws Exception {
+        List<PracticeQuestionGroupVersion> groups = groupVersionRepository
+                .findBySectionVersionIdOrderByDisplayOrderAscIdAsc(section.getId());
+        List<PracticeQuestionVersion> questions = questionVersionRepository
+                .findBySectionVersionIdOrderByDisplayOrderAscQuestionNoAscIdAsc(section.getId());
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (PracticeQuestionGroupVersion group : groups) {
+            Map<String, Object> groupNode = new LinkedHashMap<>();
+            groupNode.put("label", group.getGroupLabel());
+            groupNode.put("groupCode", group.getGroupLabel());
+            groupNode.put("instruction", group.getInstruction());
+            groupNode.put("stimulusType", group.getStimulusType());
+            groupNode.put("passageText", group.getPassageText());
+            groupNode.put("transcriptText", group.getTranscriptText());
+            groupNode.put("imageUrl", group.getImageUrl());
+            groupNode.put("audioUrl", group.getAudioUrl());
+            Map<String, Object> stimulus = new LinkedHashMap<>();
+            stimulus.put("schemaVersion", "practice-stimulus-v1");
+            stimulus.put("type", group.getStimulusType());
+            stimulus.put("instruction", group.getInstruction());
+            stimulus.put("passageText", group.getPassageText());
+            stimulus.put("transcriptText", group.getTranscriptText());
+            stimulus.put("mediaReference", group.getAudioUrl());
+            stimulus.put("imageReference", group.getImageUrl());
+            if (group.getStimulusProvenanceJson() != null
+                    && !group.getStimulusProvenanceJson().isBlank()) {
+                stimulus.put("provenance", objectMapper.readTree(
+                        group.getStimulusProvenanceJson()));
+            }
+            groupNode.put("stimulus", stimulus);
+            groupNode.put("questions", questions.stream()
+                    .filter(question -> group.getId().equals(question.getGroupVersionId()))
+                    .map(this::versionQuestion)
+                    .toList());
+            result.add(groupNode);
+        }
+        List<PracticeQuestionVersion> ungrouped = questions.stream()
+                .filter(question -> question.getGroupVersionId() == null)
+                .toList();
+        if (!ungrouped.isEmpty()) {
+            Map<String, Object> fallback = new LinkedHashMap<>();
+            fallback.put("label", "Nhóm khôi phục");
+            fallback.put("groupCode", "RESTORED_UNGROUPED");
+            fallback.put("instruction", "");
+            fallback.put("questions", ungrouped.stream().map(this::versionQuestion).toList());
+            result.add(fallback);
+        }
+        return result;
+    }
+
+    private Map<String, Object> versionQuestion(PracticeQuestionVersion question) {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("questionNo", question.getQuestionNo());
+        node.put("questionType", question.getQuestionType());
+        node.put("canonicalQuestionType", question.getCanonicalQuestionType());
+        node.put("prompt", question.getPrompt());
+        node.put("answerKey", question.getAnswerKey());
+        node.put("answer", Map.of("value", question.getAnswerKey() == null
+                ? "" : question.getAnswerKey()));
+        node.put("explanationVi", question.getExplanation());
+        node.put("points", question.getPoints());
+        node.put("scoringPolicyCode", question.getScoringPolicyCode());
+        node.put("scoringProfileCode", question.getScoringProfileCode());
+        node.put("scoringProfileVersion", question.getScoringProfileVersion());
+        node.put("promptProfileCode", question.getPromptProfileCode());
+        node.put("promptProfileVersion", question.getPromptProfileVersion());
+        node.put("rubricProfileCode", question.getRubricProfileCode());
+        node.put("rubricProfileVersion", question.getRubricProfileVersion());
+        if (question.getWritingTaskType() != null) {
+            node.put("essayTaskType", question.getWritingTaskType().name());
+        }
+        putJson(node, "options", question.getOptionsJson(), List.of());
+        putJson(node, "questionContent", question.getQuestionContentJson(), null);
+        putJson(node, "answerSpec", question.getAnswerSpecJson(), null);
+        return node;
+    }
+
+    private void putJson(Map<String, Object> target, String key, String json,
+                         Object fallback) {
+        if (json == null || json.isBlank()) {
+            if (fallback != null) target.put(key, fallback);
+            return;
+        }
+        try {
+            target.put(key, objectMapper.readTree(json));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Snapshot field không phải JSON hợp lệ: " + key,
+                    exception);
+        }
     }
 
     private String contentHash(Long setId) {

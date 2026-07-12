@@ -652,6 +652,12 @@ Phase 8D remains on private local storage. This is suitable for development, tes
 and single-node staging only unless explicitly accepted for a small controlled deployment.
 Object storage must be revisited after a provider and runtime access policy are selected.
 
+Current planning update (2026-07-11): Cloudflare R2 is the selected production
+object-storage target in principle. This does not reopen or rewrite the historical
+Phase 8D-F decision: KSH has no R2 API credentials, bucket binding, public/custom
+domain or runtime access policy yet, so integration remains `NOT_STARTED` and
+local private storage remains the only implemented adapter.
+
 Top-level Phase 8D:
 CLOSED_WITH_ACCEPTED_DEBT
 
@@ -661,7 +667,9 @@ smoke/debt acceptance, and explicit production debt confirmation.
 
 Accepted debt:
 
-- `PRODUCTION_OBJECT_STORAGE_DEFERRED`; no production object-storage provider is selected.
+- Historical Phase 8D-F state was `PRODUCTION_OBJECT_STORAGE_DEFERRED`; the
+  later Cloudflare R2 target selection does not constitute an implemented or
+  production-approved provider.
 - Local private storage is limited to dev/test/single-node staging or an explicitly controlled deployment.
 - Cleanup supports the single-node MVP assumption; multi-node duplicate processing and version conflicts remain accepted.
 - Consent is session-only with no persisted or auditable consent record.
@@ -1633,14 +1641,15 @@ Phase 10 operating process:
 ### Phase 11 — Lecturer Authoring & Import
 
 Status:
-STABILIZED_PENDING_USER_ACCEPTANCE
+CLOSED_WITH_ACCEPTED_DEBT
 
 `PRE_PHASE_11_AUTHORING_AND_IMPORT_CONTRACT_GATE` was completed as an
 audit-only slice on 2026-07-10. The user then explicitly approved complete
 Phase 11 implementation. Phase 11A-11G were implemented on 2026-07-11 and the
 11H automated/runtime stabilization gate is `CLOSED_GREEN`. The implementation
-remains `STABILIZED_PENDING_USER_ACCEPTANCE` until user acceptance and an
-explicit commit/push instruction. This gate closure does not start Phase 12.
+was accepted, committed and pushed on 2026-07-11 as `324dad9`. Phase 11 is
+`CLOSED_WITH_ACCEPTED_DEBT`; its routed governance/material/learner/release debt
+remains open in Phase 12/13/15. This closure does not start Phase 12.
 
 Implemented scope:
 
@@ -1686,7 +1695,9 @@ Implemented scope:
   attempt score fields. Restore of a legacy revision preserves the current
   authoring binding when the old snapshot has no Phase 11 metadata. All
   unreleased Phase 11 migration work was squashed into the single
-  `V26__practice_authoring_contract.sql`; there are no V27-V29 files to ship.
+  `V26__practice_authoring_contract.sql`; commit `324dad9` shipped no V27-V29.
+  Any accepted post-closure correction must therefore use a forward migration
+  rather than modifying V26.
 - Program-version/template columns on live sets and immutable set versions stay
   nullable for legacy or historically ambiguous rows. New first-publish and
   republish paths require and persist both bindings. This is an intentional
@@ -1695,6 +1706,40 @@ Implemented scope:
 - First publish now binds program version and exam template on the live set as
   well as the immutable version; republish no longer has to repair metadata
   omitted by the first publish.
+
+Post-closure corrective slice 11I (2026-07-11):
+
+- status: `IMPLEMENTED_AUTOMATED_GATE_GREEN_BROWSER_UAT_DEFERRED`; this is a
+  bounded Phase 11 corrective stabilization and does not reopen the full Phase
+  or start Phase 12;
+- V27 adds program/template and target `Test/Skill/Lesson` context to PDF import
+  sessions. `category` remains a legacy compatibility value derived from the
+  resolved template; it is not the primary authoring selector;
+- linked PDF import targets one selected section, appends imported groups without
+  replacing sibling tests/sections, keeps `sourceQuestionNo`, and lets the draft
+  contract assign local display numbering in the destination lesson;
+- PDF wizard/workspace uses teacher-facing terms, renders question/image fields
+  immediately after content-type changes, shows learner-display semantics and
+  reuses the sanitized editor preview for `Xem như học sinh`;
+- normal Lecturer payload preview shows destination/content/image scope; model,
+  system prompt and raw request remain Head/Admin-only;
+- Excel preview defaults to a compact Test/Section/Group/Question view, shows
+  shared passage/transcript/media once, keeps row issues with jump links, and
+  retains the complete A-H/MATCHING/media table as an explicit detail view;
+- invalid Excel rows stay visible and are automatically excluded on confirm;
+  imported numbering is compacted deterministically in each lesson;
+- automated evidence is green: compile and loaded-template JavaScript checks,
+  focused contract/UI tests, the broader Practice authoring/PDF/Excel regression
+  bundle, clean isolated Flyway V1-V27 plus Hibernate validation, and the final
+  pool-bounded full suite all passed. The final suite ran 1244 tests with 0
+  failures, 0 errors and 0 skips on JDK 26.0.1/MySQL V27;
+- the user explicitly removed browser QA from this corrective slice. No browser
+  result is implied. The browser QA is consolidated into the mandatory
+  end-of-Phase-12 stabilization below; full Manual UAT remains Phase 15. No
+  provider call was made;
+- at the 11I checkpoint, those changes remained uncommitted and Phase 12 stayed
+  `NOT_STARTED` pending a separate GO. That implementation GO was granted later;
+  11I and Phase 12 are now reviewed together as one uncommitted worktree.
 
 Phase 11 operating rules now locked:
 
@@ -1750,10 +1795,11 @@ Phase 11 operating rules now locked:
 Accepted debt and routing:
 
 - large inline manual-editor script: incremental extraction in Phase 13A;
-- PDF workspace still has a large inline/alert-heavy interaction surface:
-  guided UX and module extraction in Phase 13, operational hardening in Phase 15;
-- Excel preview intentionally exposes a wide A-H/media contract and currently
-  relies on horizontal scrolling: compact/sticky/responsive presentation in
+- PDF workspace remains a large inline/alert-heavy interaction surface after
+  the bounded 11I wording/reactivity correction: module extraction and deeper
+  guided UX remain Phase 13, operational hardening remains Phase 15;
+- Excel keeps the wide A-H/media table as a secondary evidence view after 11I;
+  large-catalog responsiveness/accessibility and richer media mapping remain
   Phase 13 without weakening row-level evidence;
 - unmatched/duplicate companion media filenames remain visible as pending
   attachments; a future asset-bundle/folder manifest may improve bulk media UX
@@ -1768,14 +1814,146 @@ Accepted debt and routing:
 - Admin/Head template/prompt/rubric/scoring governance: Phase 12C;
 - provider/browser/device/load/migration rehearsal: Phase 15.
 
-Do not mark the top-level Phase 11 closed and do not commit/push yet. The
-closure stabilization gate is closed green; user acceptance is the remaining
-decision before any commit/push or Phase 12 audit/start.
+Top-level Phase 11 was accepted and closed with routed debt at commit
+`324dad9`. At that closure point Phase 12 remained `NOT_STARTED`; its later
+implementation required and received a separate explicit user GO.
 
 ### Phase 12 — Materials & Permissions
 
 Status:
-NOT_STARTED
+STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED
+
+`PRE_PHASE_12_MATERIALS_PERMISSIONS_AND_GOVERNANCE_GATE` was completed as an
+audit-only slice on 2026-07-11 against committed HEAD `324dad9`.
+
+Verdict:
+`AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES`.
+
+This verdict confirmed that Phase 12 was feasible, but did not itself start
+implementation. No production code, migration or provider call was made in
+that audit. The user subsequently gave an explicit implementation GO and the
+Phase 12 implementation was stabilized on 2026-07-12. The original
+gap map remains below as historical acceptance criteria. Neither the Phase 11
+commit nor this Phase 12 feature-branch checkpoint authorizes merge into
+`main` or product/live rollout; both remain NO-GO until their own explicit gate.
+
+A parallel Codex audit supplied supplementary findings rather than replacing
+this audit. Its snapshot fail-open and DB/filesystem asset-consistency claims
+were rechecked against local source before being added below.
+
+Audit positives that must be preserved:
+
+- Student routes are already separated from lecturer management routes;
+- draft, PDF-session, region and asset operations have owner checks and
+  cross-owner denial coverage;
+- immutable published versions and attempt-version locks exist from Phase 9;
+- V26 carries program-version/template/profile identity through authoring and
+  publish paths;
+- raw PDF request/system detail is redacted server-side for Lecturer and is
+  available only to Head/Admin;
+- CSRF remains enabled and temporary PDF sessions/assets have bounded expiry
+  cleanup.
+
+Required gap map:
+
+| Priority | Finding | Required routing |
+|---|---|---|
+| P0 | V4 permission tables, hierarchy and user overrides exist, but `/practice` authorization still uses broad role checks plus owner checks; effective action permissions are not wired into Java services | 12A must implement deny-by-default action authorization at service boundaries |
+| P0 | No authoring collaboration relation, shared scope, owner lock or audited emergency override exists | 12A/12B must define explicit shared-authoring policy and `LOCKED_BY_OWNER`; learner `GLOBAL/CLASS` scope must not be reused |
+| P0 | Restore replaces the live graph and republish is blocked once any attempt/submission exists | 12B must restore a selected version into a new draft/revision/version and add a safe append-only republish path while preserving legacy fail-closed behavior |
+| P0 | Publisher snapshot capture catches any exception and returns `{}`, so publish/edit logging can appear successful with unusable history; restore rejects `{}` and its rollback log has no complete before snapshot | 12B must fail closed when required history cannot be recorded and write complete before/after audit evidence for restore |
+| P0 | Private asset intent conflicts with delivery: `/uploads/**` is public, while owner-only `/practice/manage/assets/{id}/content` URLs can be persisted into published content that learners cannot read; published/version references are not part of deletion retention | 12D must introduce one governed material identity and separate private authoring access from published learner delivery with version-safe references |
+| P1 | Program/template/profile data is runtime read-only; activation, rollback, audit and immutable configuration administration do not exist. Prompt `system_rules` is not mapped into runtime and exam template config can drift under a stable code | 12C must add version-safe Admin/Head governance and one resolved policy consumed by manual, Excel, PDF and learner delivery |
+| P1 | `ARCHIVED` exists in schema but no archive/unarchive action exists; upload MIME response/content inspection and orphan/retention handling are incomplete | 12B/12D |
+| P1/release | Lecturer asset promote/delete performs filesystem mutation and database mutation without a durable compensation/outbox boundary; rollback or commit failure can leave DB and storage inconsistent | 12D must use staged mutation plus after-commit/failure compensation and durable bounded retry before product rollout |
+| P2 | Revision diff/history UX, large shared lists and material-management ergonomics are not implemented | Phase 12 bounded UX, then Phase 13 visual/accessibility work |
+| P2/release | Cloudflare R2 is the selected target in principle, but there is no API/bucket/domain/credential or multi-node cleanup contract; virus scanning is also undecided | 12D provider-neutral boundary plus 12E decision record; real R2 integration/rehearsal in Phase 15E; live Speaking audio remains NO-GO |
+
+Required authorization matrix:
+
+| Actor/context | Allowed authoring behavior |
+|---|---|
+| Student | No create/edit/publish/archive/lock/unlock/restore/config action; only consume authorized published content |
+| Lecturer owner | Create, read, edit, publish, archive, lock, unlock and restore own content subject to explicit action grants and state invariants |
+| Lecturer collaborator | View and, only when explicitly granted and owner lock is off, edit/publish/restore shared content; cannot change ownership or lock/unlock; archive is denied by default unless a separate grant is approved |
+| Unrelated Lecturer or any collaborator on locked content | Deny mutation server-side |
+| Head/Admin | Normal granted actions plus a separate emergency override; every override requires a reason and immutable audit event |
+
+The owner lock must be checked before draft creation from a published set,
+autosave, import attachment, publish/republish, restore and material mutation.
+Hiding or disabling a button is not authorization. Role may supply default
+grants, but effective permission, ownership/collaboration scope, content state
+and lock state must all pass at the service boundary.
+
+Compatibility and migration guards:
+
+- V26 is committed and pushed; Phase 12 uses forward-only migration numbering
+  and must not rewrite V26;
+- old attempts, submissions and immutable versions are never deleted, silently
+  re-bound or rewritten;
+- keep the current mutation guard for legacy/unversioned attempts that cannot
+  prove a safe immutable source; add append-only behavior only for safely
+  version-locked data;
+- owner identity stays stable while actor/collaborator actions are recorded
+  separately;
+- `PracticeSet` learner-delivery scope `GLOBAL/CLASS` is not an authoring
+  collaboration model;
+- exact table/column/API names require an implementation contract review of
+  the live schema. Do not invent equivalent fields or rename existing fields
+  merely for cleaner terminology;
+- no edit/publish notification is required by Phase 12B.
+
+Required execution order after explicit approval:
+
+Phase 12 must add bounded application services/components instead of continuing
+to place authorization, collaboration, revision and lifecycle logic directly
+inside the already large editor script, PDF workspace, Excel codec,
+`PracticePublisherService` or `PracticeService`. Suggested responsibilities are
+an authorization decision boundary, material-access boundary, revision
+application boundary, assessment-governance boundary and asset-lifecycle
+boundary; exact class names are decided only after implementation source review.
+
+- 12A: wire effective permissions, canonical practice actions, ownership,
+  collaboration scope and deny-by-default service checks; test the complete
+  Lecturer/Head/Admin owner/collaborator/cross-owner matrix;
+- 12B: add direct shared editing plus owner lock, archive behavior and
+  append-only restore/republish from any selected immutable version without
+  changing historical attempts; snapshot/history creation must fail closed and
+  every restore carries complete before/after evidence;
+- 12C: add immutable, auditable Admin/Head lifecycle for program/template,
+  prompt, rubric and scoring profiles; validate fixtures before activation and
+  rollback by version/activation rather than mutating old config;
+- 12D: unify manual/PDF/Excel material identity, private authoring delivery,
+  published learner delivery, durable version references, MIME/content checks,
+  retention/ref-count, transaction-aware compensation and durable bounded
+  orphan cleanup;
+- 12E: lock reviewer playback, consent, retention and multi-node cleanup policy.
+  Cloudflare R2 is the target, but no live adapter/network call, secret or fake
+  credential may be added before API/bucket details are explicitly supplied.
+  Non-audio Phase 12 work may continue; production Speaking audio stays blocked;
+- 12F: run fresh and representative legacy migration rehearsals, permission /
+  IDOR and lock/override tests, config activation/rollback tests, version-safe
+  restore/republish and snapshot-failure tests, material privacy/retention plus
+  DB/filesystem fault-injection tests, full suite and the consolidated browser
+  QA. No real provider call is allowed in the automated gate.
+
+End-of-Phase-12 stabilization is mandatory before Phase 13:
+
+- run one complete controlled browser QA journey across `/practice`:
+  program/certificate selection, library, Set > Test > Skill authoring, manual /
+  Excel / PDF import, preview, publish, shared/locked/history/config/material
+  flows, learner attempt/result paths and cross-role denial. Use sufficient
+  deterministic test fixtures for route/state coverage. This replaces the
+  browser pass deliberately skipped in 11I and does not replace Phase 15 Manual
+  UAT or its high-quality multi-certificate dataset;
+- the Phase 12 exit stabilization must inventory controllers/routes/templates/
+  loaded scripts and remove or explicitly route dead code. It must fail on a
+  broken click target, wrong redirect/parameter binding, 4xx/5xx on a valid
+  journey, missing content, console/network error, incoherent overlap or
+  mojibake. Fixes remain bounded and regression-tested;
+- Phase 13 cannot start until this stabilization is `CLOSED_GREEN`, the full
+  suite is green and temporary servers are stopped. Manual UAT remains a Phase
+  15 release gate and is not moved earlier by this stabilization requirement.
 
 Phase 12B direction refined by the Phase 11 audit:
 
@@ -1815,6 +1993,69 @@ Phase 12 research preparation locked on 2026-07-11:
   types, limits, timers, scoring and approved prompt/rubric/profile versions;
 - teacher/admin governance still requires KSH-native schema/RBAC audit and UAT.
   No external teacher/admin journey was observed in the research input.
+
+Phase 12 implementation and automated stabilization outcome on 2026-07-12:
+
+- 12A added canonical action-based authorization, effective role/permission
+  resolution, explicit authoring collaboration, owner lock, scoped Head/Admin
+  override and immutable governance audit events. Student, unrelated lecturer,
+  collaborator and locked-content denial remain service-side invariants;
+- 12B added the bounded `DRAFT/PUBLISHED/ARCHIVED` lifecycle and append-only
+  restore from any selected immutable version. Restore creates a fresh draft
+  and published version, preserves prior history/attempt bindings and records
+  complete before/after audit envelopes instead of replacing old history;
+- 12C added immutable Admin/Head governance for program, exam-template,
+  scoring, prompt and rubric versions with validation, row-locked activation
+  and rollback-by-activation semantics. Manual, Excel and PDF authoring continue
+  to resolve the same active program/template policy;
+- 12D replaced raw practice upload delivery with authenticated
+  `/practice/materials/{assetId}/content`, explicitly denies the private raw
+  upload namespaces, verifies supported content signatures, preserves draft /
+  published-version references and uses a durable idempotent lifecycle task
+  boundary for promotion, deletion, retry and orphan cleanup;
+- 12E keeps storage provider-neutral. Local storage remains the development
+  adapter; Cloudflare R2 is the selected production target but its adapter is
+  `NOT_STARTED_API_UNAVAILABLE`. No SDK, network call, secret, bucket/domain or
+  fake credential was introduced;
+- forward migration `V27__practice_phase12_governance.sql` carries the
+  unreleased 11I target-context delta and Phase 12 governance/material schema
+  without rewriting committed V26. Fresh MySQL V1-V27 migration plus Hibernate
+  validation is green and old attempt/version rows remain preserved;
+- focused evidence is green: restore/governance 17/17, storage/material 22/22,
+  governance hardening 13/13 and `PracticeIntegrationTest` 78/78. The final
+  pool-bounded full suite is 1293/1293, zero failures/errors/skips,
+  `BUILD SUCCESS` on JDK 26.0.1/MySQL V27; no provider call was made;
+- static closure checks confirmed the private upload deny ordering, governed
+  material/restore/upload routes, scheduling worker registration, V1-V27-only
+  migration inventory, effective permission seed/query and no newly introduced
+  production TODO/FIXME/HACK. UTF-8/mojibake cleanup and regression guards were
+  retained.
+
+Gate state:
+
+- `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`;
+- `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN_BROWSER_QA_DEFERRED`;
+- browser QA was explicitly skipped by the user for this run. Therefore this
+  document does not claim browser/runtime closure, top-level
+  `CLOSED_WITH_ACCEPTED_DEBT`, Phase 13 GO, merge GO or product rollout GO;
+- Phase 15 still owns full Manual UAT, clean high-quality multi-certificate
+  seed data, cross-browser/device/load testing and release approval. It was not
+  moved into Phase 12.
+
+Explicit remaining debt:
+
+- managed prompt/rubric/scoring identity and activation are implemented, but
+  replacing every legacy hard-coded Writing/Speaking prompt-rule adapter with
+  database-managed `system_rules` is not claimed complete. Existing runtime
+  adapters remain compatibility behavior until a focused evaluator migration,
+  calibration and provider-safe UAT is approved;
+- the real Cloudflare R2 adapter, bucket/domain/credential policy, local-to-R2
+  migration rehearsal, virus-scanning decision and multi-node reconciliation
+  remain Phase 15E blockers. Live Speaking audio/AI remains NO-GO;
+- history diff ergonomics, large shared-material lists and the large inline
+  editor/PDF-workspace UI remain bounded Phase 13/15 debt;
+- the consolidated browser route/UI pass remains required before declaring the
+  Phase 12 closure gate green and opening Phase 13.
 
 ### Phase 13 — Results, Progress & UI/UX Polish
 
@@ -1940,6 +2181,38 @@ corrected version or score decision has actually been published.
 
 Status:
 NOT_STARTED
+
+Manual UAT data contract (locked 2026-07-11):
+
+- the current development rows are experimental fixtures and are not accepted
+  as meaningful Manual UAT or product evidence;
+- when Phase 15 Manual UAT starts, the user authorizes dropping/recreating only
+  a dedicated local/UAT database. Never apply that permission to production or
+  an unidentified schema. Run fresh migration plus representative legacy
+  upgrade rehearsal before loading UAT fixtures;
+- use a deterministic, versioned UAT fixture pack or UAT-only seed loader,
+  separate from production Flyway seed data unless separately approved.
+  Content must be original/licensed, realistic Korean and teacher-reviewed,
+  rather than placeholder text;
+- coverage is program/certificate driven, not TOPIK-only. Seed every
+  Admin/Head-enabled certificate and approved template, including planned TOPIK
+  I, TOPIK II, KSH custom, KIIP, KLAT, KLPT, OPIc and TOPIK Speaking profiles
+  plus certificates added later. Generate set/test/skill/type/media data from
+  each certificate's resolved immutable config; never copy TOPIK constraints
+  into another certificate;
+- every enabled certificate needs at least one representative set, multiple
+  tests where policy permits, every enabled skill and question type, shared
+  group material, question material, profiles/rubrics/scoring and valid/warning/
+  invalid import cases;
+- the TOPIK II full-form fixture specifically includes 50 Reading questions,
+  50 Listening questions and Writing questions 51, 52, 53 and 54, with local
+  numbering, answer keys, teacher explanations, passages/transcripts and media
+  placement. Other certificates use their own approved counts, skills, timers,
+  scoring and profile contracts;
+- Phase 15 then runs the full Manual UAT/release matrix across roles, supported
+  browsers/devices, authoring/import, learner attempts/results, audio/media,
+  Unicode/IME, scale and operational failure states. This is distinct from the
+  bounded end-of-Phase-12 browser stabilization required before Phase 13.
 
 ### Phase 16 — Optional Chatbot AI
 
@@ -2177,23 +2450,30 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-10 | Pre-Phase 11 Authoring and Import Contract Gate | NOT_STARTED | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | N/A | b9cd754 | Audit-only source/schema/UI review; seven supplied screenshots mapped to editor, publisher, PDF import, scoring and revision code. No tests and no provider calls because no production code changed. | Phase 10 closure confirmed. Found P0 passage/transcript persistence loss risk, policy/legacy type mismatch, missing exam-template identity, legacy/TOPIK-hard-coded PDF normalization, score-unit inconsistency and missing deterministic Excel import. Phase 12B simplified to direct collaboration plus owner lock, immutable history and no notification requirement. | User review, then begin Phase 11A foundation fixes only after explicit approval. |
 | 2026-07-11 | Phase 11 Lecturer Authoring and Import Implementation | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | IMPLEMENTED_PENDING_REVIEW | N/A | b9cd754 | JS and inline-script syntax green; focused Phase 11 gate 31/31; final Excel/media/MATCHING gate 47/47; clean V1-V26 migration/Hibernate validation and compatibility integration green. Pool-bounded full suite: 1240 tests, 0 failures, 0 errors, 0 skips, BUILD SUCCESS. Browser smoke passed for editor, PDF, R/L/W/S Excel actions, centered Excel preview contract and safe teacher preview; no console error or provider call. | Implemented 11A-11G canonical draft-v3/stimulus/score contract, single squashed V26 template persistence, Set/Test/Skill/Group hierarchy, policy-driven type editors, safe learner preview, Excel-v2 all-skill import with detailed row/media/options preview and compact numbering, typed MATCHING pairs, guided/canonical PDF flow, first-publish binding fix, confidence gates and dead-module cleanup. V26 preserves nullable legacy bindings while new publish requires metadata. Automated/runtime 11H is green. | Run the mandatory closure stabilization gate before top-level acceptance. |
 | 2026-07-11 | Phase 11 Closure Stabilization Gate | IMPLEMENTED_PENDING_REVIEW | STABILIZED_PENDING_USER_ACCEPTANCE | N/A | b9cd754 | Static JS/inline-script and diff checks green; focused closure rerun 20/20; final pool-bounded full suite 1242/1242, 0 failures/errors/skips, BUILD SUCCESS on JDK 17/MySQL V26. Runtime QA verified Set/Test/Skill/Group, menu ARIA, rename focus/select, dismissible delete confirm, sanitized preview, real PDF navigation, exact L1 Excel route and zero console warning/error. Ports 8080/8081/8082 were closed; no provider call. | `PHASE_11_CLOSURE_STABILIZATION_GATE = CLOSED_GREEN`. Stabilization fixed menu semantics, delete-exit behavior, unused/raw editor state exposure, unused controller dependencies/logging and Excel JSON 403/404 handling. Research was merged additively; all prior Phase 13/14 baseline directions remain mapped and open until their own audit/UAT. | User acceptance, then stage/commit/push only on explicit instruction. Do not audit/start Phase 12 in this gate. |
+| 2026-07-11 | Phase 11 Lecturer Authoring and Import Acceptance | STABILIZED_PENDING_USER_ACCEPTANCE | CLOSED_WITH_ACCEPTED_DEBT | 324dad9019e61d4c814c350c6ce6ac88247c8997 | b9cd7545e3f39e517453817de4ba76aaff2d14f3 | User explicitly approved stage/commit/push after the green closure gate; pushed `feature/practice` to origin. The accepted evidence remains focused closure 20/20, full suite 1242/1242 and runtime browser QA with no provider call. | Phase 11 is closed with its governance, material, learner UX and release debt routed to Phase 12/13/15. | Run the dedicated pre-Phase 12 audit-only gate; do not start implementation automatically. |
+| 2026-07-11 | Pre-Phase 12 Materials, Permissions and Governance Gate | NOT_STARTED | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | N/A | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Static source/schema/security audit of V4/V25/V26 RBAC, ownership, revision/republish behavior, material storage/delivery, profile/template governance and compatibility. No production code/migration changed, no tests rerun and no provider call. | Found four required P0 foundations: effective action permissions, collaboration/owner lock, append-only restore/republish, and unified private/published material identity with immutable references. P1 covers config governance, archive action and upload/retention hardening; Phase 12 remains `NOT_STARTED`. | User reviews the audit and docs; commit/push docs only on explicit instruction, then begin 12A only after a separate implementation GO. |
+| 2026-07-11 | Phase 11I PDF/Excel Teacher UX Correction | CLOSED_WITH_ACCEPTED_DEBT | IMPLEMENTED_AUTOMATED_GATE_GREEN_BROWSER_UAT_DEFERRED | N/A | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Compile and loaded-template JS checks green; focused and broad Practice/PDF/Excel regressions green; isolated Flyway V1-V27 plus Hibernate validation green; pool-bounded full suite 1244/1244, 0 failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27. Browser QA was explicitly removed by the user and no provider call was made. | Added program/template-first PDF target context, source/display numbering, reactive teacher-facing PDF controls, role-safe payload preview and compact/detail Excel preview. Browser QA is deferred to the mandatory end-of-Phase-12 route/dead-code/UI stabilization. Full Manual UAT and clean high-quality multi-certificate seed data remain Phase 15. | Review these uncommitted changes. Do not start Phase 12 until the user gives a separate implementation GO. |
+| 2026-07-12 | Phase 12 Materials, Permissions and Governance Implementation / Automated Stabilization | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED | this commit | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Focused gates: restore/governance 17/17, storage/material 22/22, governance hardening 13/13 and Practice integration 78/78. Fresh MySQL V1-V27/Hibernate validation and static security/route/migration/UTF-8 checks are green. Final pool-bounded full suite: 1293/1293, zero failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27; no provider call. Browser QA was explicitly skipped by the user. | Implemented 12A-12E action RBAC, collaboration/owner lock, archive lifecycle, append-only historical restore, immutable assessment governance, authenticated material delivery, content-signature checks, durable asset lifecycle and provider-neutral R2 readiness. `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`; closure remains open because browser QA was deferred. R2 integration, complete managed system-rule runtime migration, production Speaking media and release UAT remain routed debt. | User explicitly requested stage/commit/push of this checkpoint including `docs/research-input`. Next, review the deferred browser closure decision; do not merge or open Phase 13 without explicit instruction. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Review/accept the stabilized Phase 11 implementation. The mandatory closure
-gate is `CLOSED_GREEN`; focused closure tests, the pool-bounded full suite and
-runtime QA are green. Commit/push only after an explicit user instruction, and
-do not audit/start Phase 12 in the same gate.
+Review the committed Phase 12 feature-branch checkpoint and automated/static
+evidence. It was stage/commit/pushed only after explicit user instruction.
+`PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`, but the user explicitly
+skipped browser QA, so `PHASE_12_CLOSURE_STABILIZATION_GATE` remains
+`OPEN_BROWSER_QA_DEFERRED`. Do not merge, claim product GO or open Phase 13
+without the next explicit user instruction.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
-Phase 11 is `STABILIZED_PENDING_USER_ACCEPTANCE`; Phase 12+ remain NOT_STARTED. Live
-Speaking AI rollout remains NO-GO. React modernization remains future-only
-after Phase 16. Do not mark Phase 11 closed, start Phase 12/13, or perform
-broad UI/React modernization without the next explicit phase approval.
+Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12 is
+`STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED`; Phase 13+ remain
+NOT_STARTED. Live Speaking AI rollout remains NO-GO. React modernization
+remains future-only after Phase 16. Do not start Phase 13 or perform broad
+UI/React modernization without the next explicit phase approval.
 
 ## Long-Term Direction After Phase 16
 

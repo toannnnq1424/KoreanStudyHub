@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public interface AssetStorageService {
+
+    String providerCode();
     
     StoredAsset store(InputStream content, String filename, String relativePath) throws IOException;
     
@@ -14,10 +16,13 @@ public interface AssetStorageService {
     
     void delete(String storageKey) throws IOException;
     
-    String createTemporaryUrl(String storageKey);
-    
     AssetMetadata inspect(String storageKey) throws IOException;
 
-    record StoredAsset(String storageKey, long sizeBytes, String sha256) {}
+    record StoredAsset(String storageKey, long sizeBytes, String sha256,
+                       boolean newlyCreated) {
+        public StoredAsset(String storageKey, long sizeBytes, String sha256) {
+            this(storageKey, sizeBytes, sha256, true);
+        }
+    }
     record AssetMetadata(int width, int height) {}
 }

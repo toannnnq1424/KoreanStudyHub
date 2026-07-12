@@ -135,6 +135,8 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
+                        .requestMatchers("/uploads/practice-audio/**", "/uploads/practice-images/**",
+                                "/uploads/lecturer-assets/**").denyAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)

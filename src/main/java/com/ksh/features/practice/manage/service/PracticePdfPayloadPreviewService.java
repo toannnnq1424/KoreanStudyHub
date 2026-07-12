@@ -47,6 +47,15 @@ public class PracticePdfPayloadPreviewService {
         stats.put("totalPages", session.getTotalPages());
         stats.put("selectedPagesCount", (session.getSelectedEndPage() - session.getSelectedStartPage() + 1));
 
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("assessmentProgramCode", session.getAssessmentProgramCode());
+        context.put("examTemplateCode", session.getExamTemplateCode());
+        context.put("targetTestNo", session.getTargetTestNo());
+        context.put("targetSkill", session.getTargetSkill());
+        context.put("targetLessonCode", session.getTargetLessonCode());
+        context.put("pageFrom", session.getSelectedStartPage());
+        context.put("pageTo", session.getSelectedEndPage());
+
         // Format regions metadata
         List<Map<String, Object>> regionsList = new ArrayList<>();
         for (com.ksh.features.practice.manage.dto.AiDocumentImportRequest.RegionPayload region
@@ -127,7 +136,8 @@ public class PracticePdfPayloadPreviewService {
             jsonPreviewStr = jsonPreview.toString();
         }
 
-        return new PayloadPreviewDto(true, sysPrompt, model, strategy, stats, regionsList, cropsList, jsonPreviewStr);
+        return new PayloadPreviewDto(true, sysPrompt, model, strategy, context,
+                stats, regionsList, cropsList, jsonPreviewStr);
     }
 
     private String systemPrompt() {
@@ -151,6 +161,8 @@ public class PracticePdfPayloadPreviewService {
                 8. Group có thể là 1–5, 6–8, 11–14 hoặc phạm vi bất kỳ.
                 9. Giữ thứ tự pageNumber, displayOrder và thứ tự câu trên đề.
                 10. Không tạo section/group/question nếu không có sourceRegionIds.
+                10a. document.targetTestNo, targetSkill và targetLessonCode là đích do giảng viên chọn; không tạo section thuộc Test hoặc kỹ năng khác.
+                10b. questionNo trong phản hồi phải giữ số câu nhìn thấy trên PDF làm dấu vết nguồn. Hệ thống sẽ tự đánh lại số hiển thị trong targetLessonCode sau import.
 
                 LIÊN KẾT ẢNH:
                 11. Mỗi ảnh được gửi ngay sau một nhãn IMAGE_REGION.
@@ -220,17 +232,28 @@ public class PracticePdfPayloadPreviewService {
             String systemPrompt,
             String model,
             String strategy,
+            Map<String, Object> context,
             Map<String, Object> stats,
             List<Map<String, Object>> regions,
             List<Map<String, Object>> crops,
             String requestJsonPreview
     ) {
+        public PayloadPreviewDto(boolean privilegedDetails, String systemPrompt, String model,
+                                 String strategy, Map<String, Object> stats,
+                                 List<Map<String, Object>> regions,
+                                 List<Map<String, Object>> crops,
+                                 String requestJsonPreview) {
+            this(privilegedDetails, systemPrompt, model, strategy, Map.of(), stats,
+                    regions, crops, requestJsonPreview);
+        }
+
         public PayloadPreviewDto redacted() {
             return new PayloadPreviewDto(
                     false,
                     null,
-                    model,
+                    null,
                     strategy,
+                    context,
                     stats,
                     regions,
                     crops,

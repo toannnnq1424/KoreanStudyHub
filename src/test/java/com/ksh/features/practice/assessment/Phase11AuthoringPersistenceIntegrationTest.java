@@ -73,7 +73,7 @@ class Phase11AuthoringPersistenceIntegrationTest {
     }
 
     @Test
-    void phase11SchemaCarriesAuthoringStimulusScoreAndMultiTestContracts() {
+    void phase11SchemaCarriesAuthoringStimulusScoreMultiTestAndPdfTargetContracts() {
         String currentVersion = jdbcTemplate.queryForObject("""
                 SELECT version
                 FROM flyway_schema_history
@@ -81,7 +81,7 @@ class Phase11AuthoringPersistenceIntegrationTest {
                 ORDER BY installed_rank DESC
                 LIMIT 1
                 """, String.class);
-        assertThat(currentVersion).isEqualTo("26");
+        assertThat(currentVersion).isEqualTo("27");
 
         Integer disabledExcelSkills = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
@@ -105,6 +105,19 @@ class Phase11AuthoringPersistenceIntegrationTest {
                 "stimulus_type", "passage_text", "transcript_text",
                 "image_url", "stimulus_provenance_json");
         assertColumns("practice_attempts", "score_unit", "earned_points", "score_percentage");
+        assertColumns("practice_pdf_import_sessions",
+                "assessment_program_code", "assessment_program_version_id",
+                "exam_template_code", "target_test_no", "target_skill",
+                "target_lesson_code");
+
+        Integer unboundPdfImportSessions = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM practice_pdf_import_sessions
+                WHERE assessment_program_code IS NULL
+                   OR assessment_program_version_id IS NULL
+                   OR exam_template_code IS NULL
+                """, Integer.class);
+        assertThat(unboundPdfImportSessions).isZero();
 
         Integer uniqueTemplateBindings = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
@@ -142,6 +155,68 @@ class Phase11AuthoringPersistenceIntegrationTest {
                 WHERE draft_schema_version <> 'practice-draft-v3'
                 """, Integer.class);
         assertThat(staleDraftContracts).isZero();
+    }
+
+    @Test
+    void phase12SchemaKeepsAttemptHistoryOnImmutableVersionsAndInstallsGovernanceBoundaries() {
+        Integer legacyLiveTestForeignKey = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.table_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND table_name = 'practice_attempts'
+                  AND constraint_name = 'fk_pa_test'
+                  AND constraint_type = 'FOREIGN KEY'
+                """, Integer.class);
+        assertThat(legacyLiveTestForeignKey).isZero();
+
+        List<String> immutableAttemptForeignKeys = jdbcTemplate.queryForList("""
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND table_name = 'practice_attempts'
+                  AND constraint_type = 'FOREIGN KEY'
+                """, String.class);
+        assertThat(immutableAttemptForeignKeys).contains(
+                "fk_pa_published_version",
+                "fk_pa_set_version",
+                "fk_pa_test_version",
+                "fk_pa_section_version");
+
+        Integer governanceTables = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name IN (
+                    'practice_authoring_collaborations',
+                    'practice_governance_audit_events',
+                    'assessment_exam_template_versions',
+                    'practice_material_references',
+                    'practice_asset_lifecycle_tasks'
+                  )
+                """, Integer.class);
+        assertThat(governanceTables).isEqualTo(5);
+
+        Integer phase12Permissions = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM permissions
+                WHERE feature_key IN (
+                    'practice.create', 'practice.read', 'practice.edit', 'practice.publish',
+                    'practice.archive', 'practice.lock', 'practice.restore',
+                    'practice.material.manage', 'practice.media.review',
+                    'practice.governance.manage', 'practice.override'
+                )
+                """, Integer.class);
+        assertThat(phase12Permissions).isEqualTo(11);
+
+        Integer materialReferenceUniqueIndexes = jdbcTemplate.queryForObject("""
+                SELECT COUNT(DISTINCT index_name)
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'practice_material_references'
+                  AND index_name IN ('uk_practice_material_draft_ref', 'uk_practice_material_version_ref')
+                  AND non_unique = 0
+                """, Integer.class);
+        assertThat(materialReferenceUniqueIndexes).isEqualTo(2);
     }
 
     private void assertColumns(String tableName, String... expectedColumns) {

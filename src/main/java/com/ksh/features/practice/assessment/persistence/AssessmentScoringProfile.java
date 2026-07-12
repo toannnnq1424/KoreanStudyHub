@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "assessment_scoring_profiles")
@@ -27,6 +28,15 @@ public class AssessmentScoringProfile {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(name = "governance_status", nullable = false, length = 20)
+    private String governanceStatus = "ACTIVE";
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
+
     protected AssessmentScoringProfile() {
     }
 
@@ -37,9 +47,24 @@ public class AssessmentScoringProfile {
         this.enabled = enabled;
     }
 
+    public AssessmentScoringProfile(String code, Integer versionNumber, String configJson,
+                                    Long createdBy) {
+        this(code, versionNumber, configJson, false);
+        this.governanceStatus = "DRAFT";
+        this.createdBy = createdBy;
+    }
+
     public Long getId() { return id; }
     public String getCode() { return code; }
     public Integer getVersionNumber() { return versionNumber; }
     public String getConfigJson() { return configJson; }
     public boolean isEnabled() { return enabled; }
+    public String getGovernanceStatus() { return governanceStatus; }
+    public Long getCreatedBy() { return createdBy; }
+    public LocalDateTime getActivatedAt() { return activatedAt; }
+    public void activate() {
+        this.enabled = true;
+        this.governanceStatus = "ACTIVE";
+        this.activatedAt = LocalDateTime.now();
+    }
 }

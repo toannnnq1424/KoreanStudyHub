@@ -181,7 +181,7 @@ public class PracticePdfAiPayloadBuilder {
                         base64Data = "data:" + asset.getMimeType() + ";base64," + Base64.getEncoder().encodeToString(bytes);
                     }
 
-                    String assetUrl = assetStorage.createTemporaryUrl(asset.getStorageKey());
+                    String assetUrl = "/practice/materials/" + asset.getId() + "/content";
                     String assetRef = "asset-import-" + sessionId + "-" + regionId;
                     rPayload.setAssetRef(assetRef);
 
@@ -214,6 +214,8 @@ public class PracticePdfAiPayloadBuilder {
             sh.setSectionTempId(sd.getTempId());
             sh.setLabel(sd.getTitle() != null ? sd.getTitle() : sd.getSkill());
             sh.setSkill(sd.getSkill());
+            sh.setTestNo(session.getTargetTestNo());
+            sh.setLessonCode(session.getTargetLessonCode());
             sh.setDisplayOrder(sd.getDisplayOrder());
             sh.setDurationMinutes(null);
             
@@ -225,6 +227,22 @@ public class PracticePdfAiPayloadBuilder {
             sh.setSourceRegionIds(srcIds);
             return sh;
         }).collect(Collectors.toList());
+
+        if (sectionHints.isEmpty() && session.getTargetSkill() != null
+                && session.getTargetLessonCode() != null) {
+            SectionHint target = new SectionHint();
+            target.setSectionTempId("target-" + session.getTargetLessonCode().toLowerCase(Locale.ROOT));
+            target.setLabel(skillLabel(session.getTargetSkill()));
+            target.setSkill(session.getTargetSkill());
+            target.setTestNo(session.getTargetTestNo());
+            target.setLessonCode(session.getTargetLessonCode());
+            target.setDisplayOrder(1);
+            target.setDurationMinutes(null);
+            target.setSourceRegionIds(regionPayloads.stream()
+                    .map(RegionPayload::getRegionId)
+                    .toList());
+            sectionHints = new ArrayList<>(List.of(target));
+        }
 
         // 6. Build group hints
         List<GroupHint> groupHints = groupDrafts.stream().map(gd -> {
@@ -275,6 +293,12 @@ public class PracticePdfAiPayloadBuilder {
         meta.setSessionId(sessionId);
         meta.setFilename(session.getOriginalFilename());
         meta.setExamCategory(session.getExamCategory() != null ? session.getExamCategory() : "TOPIK_II");
+        meta.setAssessmentProgramCode(session.getAssessmentProgramCode());
+        meta.setAssessmentProgramVersionId(session.getAssessmentProgramVersionId());
+        meta.setExamTemplateCode(session.getExamTemplateCode());
+        meta.setTargetTestNo(session.getTargetTestNo());
+        meta.setTargetSkill(session.getTargetSkill());
+        meta.setTargetLessonCode(session.getTargetLessonCode());
         meta.setPageFrom(startPage);
         meta.setPageTo(endPage);
         meta.setTotalExtractedCharacters(totalRawChars);
@@ -299,6 +323,10 @@ public class PracticePdfAiPayloadBuilder {
         summary.put("ignoredRegionsCount", ignoredCount);
         summary.put("estimatedImageBytes", totalEstimatedBytes);
         summary.put("validationErrorsCount", validationErrors.size());
+        summary.put("targetTestNo", session.getTargetTestNo());
+        summary.put("targetSkill", session.getTargetSkill());
+        summary.put("targetLessonCode", session.getTargetLessonCode());
+        summary.put("examTemplateCode", session.getExamTemplateCode());
 
         return new PayloadInfo(request, "", cropInfos, summary, validationErrors);
     }
@@ -346,6 +374,15 @@ public class PracticePdfAiPayloadBuilder {
             case "IMAGE_ASSET" -> "Đây là hình minh họa. Tham chiếu bằng assetRef, không diễn giải thành nội dung giả.";
             case "AUTO_DETECT" -> "Xác định vai trò dựa duy nhất trên nội dung vùng. Không suy diễn ngoài crop.";
             default -> "Xác định vai trò dựa duy nhất trên nội dung vùng.";
+        };
+    }
+
+    private static String skillLabel(String skill) {
+        return switch (skill == null ? "" : skill.toUpperCase(Locale.ROOT)) {
+            case "LISTENING" -> "Phần Nghe";
+            case "WRITING" -> "Phần Viết";
+            case "SPEAKING" -> "Phần Nói";
+            default -> "Phần Đọc";
         };
     }
 

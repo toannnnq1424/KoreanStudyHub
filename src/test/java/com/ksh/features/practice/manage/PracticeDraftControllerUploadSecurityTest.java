@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,7 +28,6 @@ class PracticeDraftControllerUploadSecurityTest {
                 draftService,
                 mock(PracticePublisherService.class),
                 mock(PracticeDraftValidator.class));
-        ReflectionTestUtils.setField(controller, "rawUploadDir", "target/test-practice-uploads");
         when(user.getId()).thenReturn(7L);
         when(draftService.getDraft(10L, 7L)).thenReturn(mock(PracticeDraft.class));
     }

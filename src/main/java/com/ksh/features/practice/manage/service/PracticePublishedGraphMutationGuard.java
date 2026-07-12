@@ -37,7 +37,7 @@ public class PracticePublishedGraphMutationGuard {
     private PracticeSet lockAndAssertNoLearnerHistory(Long setId, boolean restore) {
         PracticeSet set = setRepository.findByIdForUpdate(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
-        if (attemptRepository.findFirstIdBySetIdForShare(setId).isPresent()
+        if (attemptRepository.findFirstUnversionedIdBySetIdForShare(setId).isPresent()
                 || submissionRepository.existsBySetId(setId)) {
             throw restore
                     ? PublishedPracticeGraphMutationBlockedException.forRestore()

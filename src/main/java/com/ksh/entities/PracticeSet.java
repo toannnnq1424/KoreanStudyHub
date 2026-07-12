@@ -25,6 +25,7 @@ public class PracticeSet {
     public static final String SKILL_WRITING = "WRITING";
     public static final String SKILL_SPEAKING = "SPEAKING";
     public static final String STATUS_PUBLISHED = "PUBLISHED";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
     public static final String SCOPE_GLOBAL = "GLOBAL";
     public static final String SCOPE_CLASS = "CLASS";
 
@@ -76,6 +77,18 @@ public class PracticeSet {
 
     @Column(nullable = false, length = 20)
     private String status;
+
+    @Column(name = "owner_locked", nullable = false)
+    private boolean ownerLocked;
+
+    @Column(name = "locked_by")
+    private Long lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
@@ -163,6 +176,22 @@ public class PracticeSet {
         return status;
     }
 
+    public boolean isOwnerLocked() {
+        return ownerLocked;
+    }
+
+    public Long getLockedBy() {
+        return lockedBy;
+    }
+
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public LocalDateTime getArchivedAt() {
+        return archivedAt;
+    }
+
     public Long getCreatedBy() {
         return createdBy;
     }
@@ -217,6 +246,28 @@ public class PracticeSet {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void lock(Long actorId) {
+        this.ownerLocked = true;
+        this.lockedBy = actorId;
+        this.lockedAt = LocalDateTime.now();
+    }
+
+    public void unlock() {
+        this.ownerLocked = false;
+        this.lockedBy = null;
+        this.lockedAt = null;
+    }
+
+    public void archive() {
+        this.status = STATUS_ARCHIVED;
+        this.archivedAt = LocalDateTime.now();
+    }
+
+    public void restoreFromArchive() {
+        this.status = STATUS_PUBLISHED;
+        this.archivedAt = null;
     }
 
     public void setMetadataJson(String metadataJson) {

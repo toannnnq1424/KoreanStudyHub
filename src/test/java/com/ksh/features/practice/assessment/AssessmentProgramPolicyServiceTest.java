@@ -63,6 +63,7 @@ class AssessmentProgramPolicyServiceTest {
                 "ALL_OR_NOTHING", 20L, null, null);
         AssessmentScoringProfile scoringProfile = mock(AssessmentScoringProfile.class);
         when(scoringProfile.isEnabled()).thenReturn(true);
+        when(scoringProfile.getGovernanceStatus()).thenReturn("ACTIVE");
         when(scoringProfile.getCode()).thenReturn("TOPIK_SINGLE_CHOICE");
         when(scoringProfile.getVersionNumber()).thenReturn(1);
 
@@ -131,6 +132,35 @@ class AssessmentProgramPolicyServiceTest {
         AssessmentScoringProfile inactive = mock(AssessmentScoringProfile.class);
         when(inactive.isEnabled()).thenReturn(false);
         when(scoringProfileRepository.findById(20L)).thenReturn(Optional.of(inactive));
+
+        assertThatThrownBy(() -> service.resolve(
+                "TOPIK", AssessmentSkill.READING, CanonicalQuestionType.SINGLE_CHOICE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not active");
+    }
+
+    @Test
+    void enabledButDraftGovernanceProfileFailsClosed() {
+        AssessmentProgram program = new AssessmentProgram("TOPIK", 10L);
+        AssessmentProgramVersion version = mock(AssessmentProgramVersion.class);
+        when(version.getId()).thenReturn(10L);
+        when(version.getProgramCode()).thenReturn("TOPIK");
+        when(version.getVersionNumber()).thenReturn(1);
+        when(version.getStatus()).thenReturn("ACTIVE");
+        when(programRepository.findById("TOPIK")).thenReturn(Optional.of(program));
+        when(versionRepository.findById(10L)).thenReturn(Optional.of(version));
+        when(skillPolicyRepository.findByProgramVersionIdAndSkillCode(10L, "READING"))
+                .thenReturn(Optional.of(new AssessmentProgramSkillPolicy(
+                        10L, "READING", true, "SKILL_SPECIFIC")));
+        when(questionPolicyRepository.findByProgramVersionIdAndSkillCodeAndCanonicalQuestionType(
+                10L, "READING", "SINGLE_CHOICE"))
+                .thenReturn(Optional.of(new AssessmentQuestionTypePolicy(
+                        10L, "READING", "SINGLE_CHOICE", true,
+                        "ALL_OR_NOTHING", 20L, null, null)));
+        AssessmentScoringProfile draft = mock(AssessmentScoringProfile.class);
+        when(draft.isEnabled()).thenReturn(true);
+        when(draft.getGovernanceStatus()).thenReturn("DRAFT");
+        when(scoringProfileRepository.findById(20L)).thenReturn(Optional.of(draft));
 
         assertThatThrownBy(() -> service.resolve(
                 "TOPIK", AssessmentSkill.READING, CanonicalQuestionType.SINGLE_CHOICE))

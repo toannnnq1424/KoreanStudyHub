@@ -27,19 +27,31 @@ public class PracticeManageController {
     private final com.ksh.features.practice.manage.service.PracticeDraftService draftService;
     private final com.ksh.features.practice.repository.PracticeEditLogRepository editLogRepository;
     private final com.ksh.features.practice.manage.service.PracticeRevisionService revisionService;
+    private final com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository;
+    private final com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository;
+    private final com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService;
+    private final com.ksh.features.practice.governance.PracticeCollaborationService collaborationService;
  
     public PracticeManageController(PracticeSetRepository setRepository,
                                     PracticeDraftRepository draftRepository,
                                     com.ksh.features.auth.repository.UserRepository userRepository,
                                     com.ksh.features.practice.manage.service.PracticeDraftService draftService,
                                     com.ksh.features.practice.repository.PracticeEditLogRepository editLogRepository,
-                                    com.ksh.features.practice.manage.service.PracticeRevisionService revisionService) {
+                                    com.ksh.features.practice.manage.service.PracticeRevisionService revisionService,
+                                    com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository,
+                                    com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository,
+                                    com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService,
+                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService) {
         this.setRepository = setRepository;
         this.draftRepository = draftRepository;
         this.userRepository = userRepository;
         this.draftService = draftService;
         this.editLogRepository = editLogRepository;
         this.revisionService = revisionService;
+        this.publishedVersionRepository = publishedVersionRepository;
+        this.collaborationRepository = collaborationRepository;
+        this.lifecycleService = lifecycleService;
+        this.collaborationService = collaborationService;
     }
  
     @GetMapping("/sets/{setId}/edit")
@@ -82,9 +94,36 @@ public class PracticeManageController {
         }
 
         List<com.ksh.entities.PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(user.getId());
+
+        List<com.ksh.entities.PracticeAuthoringCollaboration> sharedGrants =
+                collaborationRepository.findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId());
+        java.util.Set<Long> sharedSetIds = sharedGrants.stream()
+                .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET
+                        .equals(grant.getTargetType()))
+                .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        java.util.Set<Long> sharedDraftIds = sharedGrants.stream()
+                .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_DRAFT
+                        .equals(grant.getTargetType()))
+                .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        List<PracticeSet> sharedSets = setRepository.findAllById(sharedSetIds).stream()
+                .filter(set -> status == null || status.isBlank() || status.equals(set.getStatus()))
+                .toList();
+        List<com.ksh.entities.PracticeDraft> sharedDrafts = draftRepository.findAllById(sharedDraftIds);
+        for (PracticeSet shared : sharedSets) {
+            userRepository.findById(shared.getCreatedBy())
+                    .ifPresent(owner -> authorsMap.put(shared.getCreatedBy(), owner.getFullName()));
+        }
+        for (com.ksh.entities.PracticeDraft shared : sharedDrafts) {
+            userRepository.findById(shared.getOwnerId())
+                    .ifPresent(owner -> authorsMap.put(shared.getOwnerId(), owner.getFullName()));
+        }
  
         model.addAttribute("sets", sets);
         model.addAttribute("drafts", drafts);
+        model.addAttribute("sharedSets", sharedSets);
+        model.addAttribute("sharedDrafts", sharedDrafts);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("authorsMap", authorsMap);
         model.addAttribute("activeStatus", status != null ? status : "ALL");
@@ -94,25 +133,98 @@ public class PracticeManageController {
 
     @GetMapping("/revisions")
     public String revisions(@AuthenticationPrincipal KshUserDetails user, Model model) {
-        List<com.ksh.entities.PracticeEditLog> revisions = editLogRepository.findBySetOwnerOrderByEditedAtDesc(user.getId());
-        
-        java.util.Map<Long, String> setTitles = new java.util.HashMap<>();
         java.util.Map<Long, String> authorsMap = new java.util.HashMap<>();
-        for (com.ksh.entities.PracticeEditLog log : revisions) {
-            if (!setTitles.containsKey(log.getSetId())) {
-                setRepository.findById(log.getSetId())
-                        .ifPresent(s -> setTitles.put(log.getSetId(), s.getTitle()));
-            }
-            if (log.getEditedBy() != null && !authorsMap.containsKey(log.getEditedBy())) {
-                userRepository.findById(log.getEditedBy())
-                        .ifPresent(u -> authorsMap.put(log.getEditedBy(), u.getFullName()));
+        model.addAttribute("authorsMap", authorsMap);
+        List<VersionHistoryRow> versions = new java.util.ArrayList<>();
+        List<PracticeSet> ownedSets = setRepository.findByCreatedByOrderByCreatedAtDesc(user.getId());
+        java.util.Set<Long> visibleSetIds = ownedSets.stream().map(PracticeSet::getId)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        collaborationRepository.findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId())
+                .stream()
+                .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET
+                        .equals(grant.getTargetType()))
+                .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
+                .forEach(visibleSetIds::add);
+        for (PracticeSet set : setRepository.findAllById(visibleSetIds)) {
+            for (com.ksh.entities.PracticePublishedVersion version :
+                    publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(set.getId())) {
+                versions.add(new VersionHistoryRow(version, set));
+                if (version.getPublishedBy() != null) {
+                    userRepository.findById(version.getPublishedBy())
+                            .ifPresent(actor -> authorsMap.put(
+                                    version.getPublishedBy(), actor.getFullName()));
+                }
             }
         }
-        
-        model.addAttribute("revisions", revisions);
-        model.addAttribute("setTitles", setTitles);
-        model.addAttribute("authorsMap", authorsMap);
+        versions.sort(java.util.Comparator.comparing(
+                (VersionHistoryRow row) -> row.version().getPublishedAt(),
+                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
+        model.addAttribute("versions", versions);
         return "practice/manage/revisions";
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/versions/{versionId}/restore")
+    public String restorePublishedVersion(
+            @org.springframework.web.bind.annotation.PathVariable Long setId,
+            @org.springframework.web.bind.annotation.PathVariable Long versionId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "overrideReason", required = false)
+            String overrideReason,
+            @AuthenticationPrincipal KshUserDetails user,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+        try {
+            revisionService.restorePublishedVersion(
+                    setId, versionId, user.getId(), overrideReason);
+            redirectAttributes.addFlashAttribute("success",
+                    "Đã tạo phiên bản xuất bản mới từ lịch sử đã chọn.");
+        } catch (Exception exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return "redirect:/practice/manage/revisions";
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/{action:lock|unlock|archive|unarchive}")
+    public String lifecycle(
+            @org.springframework.web.bind.annotation.PathVariable Long setId,
+            @org.springframework.web.bind.annotation.PathVariable String action,
+            @org.springframework.web.bind.annotation.RequestParam(value = "overrideReason", required = false)
+            String overrideReason,
+            @AuthenticationPrincipal KshUserDetails user,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+        try {
+            switch (action) {
+                case "lock" -> lifecycleService.lockSet(setId, user.getId(), overrideReason);
+                case "unlock" -> lifecycleService.unlockSet(setId, user.getId(), overrideReason);
+                case "archive" -> lifecycleService.archiveSet(setId, user.getId(), overrideReason);
+                case "unarchive" -> lifecycleService.unarchiveSet(setId, user.getId(), overrideReason);
+                default -> throw new IllegalArgumentException("Hành động không hợp lệ.");
+            }
+            redirectAttributes.addFlashAttribute("success", "Đã cập nhật trạng thái học liệu.");
+        } catch (Exception exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return "redirect:/practice/manage";
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/share")
+    public String shareSet(
+            @org.springframework.web.bind.annotation.PathVariable Long setId,
+            @org.springframework.web.bind.annotation.RequestParam String email,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean canEdit,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean canPublish,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean canRestore,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean canManageMaterial,
+            @AuthenticationPrincipal KshUserDetails user,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+        try {
+            collaborationService.shareSetByEmail(setId, email,
+                    new com.ksh.features.practice.governance.PracticeCollaborationService.Grants(
+                            canEdit, canPublish, canRestore, canManageMaterial),
+                    user.getId(), null);
+            redirectAttributes.addFlashAttribute("success", "Đã chia sẻ học liệu.");
+        } catch (Exception exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return "redirect:/practice/manage";
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/revisions/{logId}/restore")
@@ -128,5 +240,9 @@ public class PracticeManageController {
             redirectAttributes.addFlashAttribute("error", "Không thể khôi phục phiên bản lịch sử.");
         }
         return "redirect:/practice/manage/revisions";
+    }
+
+    public record VersionHistoryRow(com.ksh.entities.PracticePublishedVersion version,
+                                    PracticeSet set) {
     }
 }

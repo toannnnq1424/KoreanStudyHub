@@ -10,6 +10,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -25,6 +26,11 @@ public class LocalAssetStorageService implements AssetStorageService {
 
     public LocalAssetStorageService(@Value("${app.upload.dir:uploads}") String uploadDir) {
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+    }
+
+    @Override
+    public String providerCode() {
+        return "LOCAL";
     }
 
     @Override
@@ -49,35 +55,38 @@ public class LocalAssetStorageService implements AssetStorageService {
             throw new RuntimeException(e);
         }
 
-        long sizeBytes = 0;
-        try (DigestInputStream dis = new DigestInputStream(content, digest)) {
-            sizeBytes = Files.copy(dis, tempFile, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            long sizeBytes;
+            try (DigestInputStream dis = new DigestInputStream(content, digest)) {
+                sizeBytes = Files.copy(dis, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            byte[] hashBytes = digest.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            String sha256 = sb.toString();
+            String storedFilename = sha256 + safeExtension(filename);
+            Path targetFile = targetDir.resolve(storedFilename).normalize();
+            if (!targetFile.startsWith(targetDir)) {
+                throw new IllegalArgumentException("Tên tệp lưu trữ không hợp lệ.");
+            }
+
+            boolean newlyCreated;
+            try {
+                Files.move(tempFile, targetFile);
+                newlyCreated = true;
+            } catch (FileAlreadyExistsException duplicate) {
+                // The key is content-addressed, so the existing object has the same bytes.
+                newlyCreated = false;
+            }
+
+            String storageKey = cleanPath + "/" + storedFilename;
+            return new StoredAsset(storageKey, sizeBytes, sha256, newlyCreated);
+        } finally {
+            Files.deleteIfExists(tempFile);
         }
-
-        // Generate SHA-256 hex string
-        byte[] hashBytes = digest.digest();
-        StringBuilder sb = new StringBuilder();
-        for (byte b : hashBytes) {
-            sb.append(String.format("%02x", b));
-        }
-        String sha256 = sb.toString();
-
-        // Target stored filename using SHA-256 or UUID
-        String ext = "";
-        if (filename != null && filename.contains(".")) {
-            ext = filename.substring(filename.lastIndexOf("."));
-        } else {
-            ext = ".png";
-        }
-
-        String storedFilename = sha256 + ext;
-        Path targetFile = targetDir.resolve(storedFilename).normalize();
-
-        // Move temp file to final destination
-        Files.move(tempFile, targetFile, StandardCopyOption.REPLACE_EXISTING);
-
-        String storageKey = cleanPath + "/" + storedFilename;
-        return new StoredAsset(storageKey, sizeBytes, sha256);
     }
 
     @Override
@@ -104,11 +113,6 @@ public class LocalAssetStorageService implements AssetStorageService {
     }
 
     @Override
-    public String createTemporaryUrl(String storageKey) {
-        return "/uploads/" + storageKey;
-    }
-
-    @Override
     public AssetMetadata inspect(String storageKey) throws IOException {
         Path file = uploadRoot.resolve(storageKey).normalize();
         if (!file.startsWith(uploadRoot) || !Files.exists(file)) {
@@ -121,5 +125,13 @@ public class LocalAssetStorageService implements AssetStorageService {
             }
         }
         return new AssetMetadata(0, 0);
+    }
+
+    private static String safeExtension(String filename) {
+        if (filename == null || !filename.contains(".")) return ".bin";
+        String extension = filename.substring(filename.lastIndexOf('.'));
+        return extension.matches("\\.[A-Za-z0-9]{1,10}")
+                ? extension.toLowerCase(java.util.Locale.ROOT)
+                : ".bin";
     }
 }

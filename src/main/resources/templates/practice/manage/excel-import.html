@@ -60,13 +60,18 @@
     </header>
 
     <div class="excel-preview-body">
+      <div class="excel-preview-context">
+        <div><span>Tệp</span><strong id="preview-file-name">-</strong></div>
+        <div><span>Mẫu đề</span><strong id="preview-template-name">-</strong></div>
+        <div><span>Đích nhập</span><strong th:text="|Test ${testNo} · ${lessonCode}|">Test 1 · R1</strong></div>
+      </div>
       <div class="excel-summary-grid" aria-label="Tổng hợp dữ liệu import">
         <div class="excel-summary-item">
-          <span>Tổng số dòng</span>
+          <span>Dòng câu hỏi</span>
           <strong id="summary-total">0</strong>
         </div>
         <div class="excel-summary-item excel-summary-valid">
-          <span>Sẽ import</span>
+          <span>Sẽ nhập</span>
           <strong id="summary-importable">0</strong>
         </div>
         <div class="excel-summary-item excel-summary-warning">
@@ -74,21 +79,30 @@
           <strong id="summary-warning">0</strong>
         </div>
         <div class="excel-summary-item excel-summary-error">
-          <span>Lỗi</span>
+          <span>Bị loại</span>
           <strong id="summary-error">0</strong>
         </div>
       </div>
 
+      <div id="preview-import-notice" class="excel-import-notice"></div>
       <div id="global-issue-list" class="excel-global-issues" hidden></div>
 
-      <div id="preview-filters" class="excel-filter-tabs" role="tablist" aria-label="Lọc trạng thái dòng">
-        <button type="button" class="is-active" data-filter="ALL" role="tab" aria-selected="true">Tất cả</button>
-        <button type="button" data-filter="ERROR" role="tab" aria-selected="false">Lỗi</button>
-        <button type="button" data-filter="WARNING" role="tab" aria-selected="false">Cảnh báo</button>
-        <button type="button" data-filter="VALID" role="tab" aria-selected="false">Hợp lệ</button>
+      <div class="excel-preview-toolbar">
+        <div id="preview-filters" class="excel-filter-tabs" role="tablist" aria-label="Lọc trạng thái dòng">
+          <button type="button" class="is-active" data-filter="ALL" role="tab" aria-selected="true">Tất cả</button>
+          <button type="button" data-filter="ERROR" role="tab" aria-selected="false">Bị loại</button>
+          <button type="button" data-filter="WARNING" role="tab" aria-selected="false">Cảnh báo</button>
+          <button type="button" data-filter="VALID" role="tab" aria-selected="false">Hợp lệ</button>
+        </div>
+        <div id="preview-view-switch" class="excel-view-switch" role="group" aria-label="Cách xem dữ liệu">
+          <button type="button" class="is-active" data-view="STRUCTURE">Cấu trúc dễ kiểm tra</button>
+          <button type="button" data-view="DETAIL">Bảng chi tiết</button>
+        </div>
       </div>
 
-      <div class="excel-table-wrap">
+      <div id="excel-compact-preview" class="excel-compact-preview"></div>
+
+      <div id="excel-detail-preview" class="excel-table-wrap" hidden>
         <table class="excel-preview-table">
           <thead>
           <tr>
@@ -149,6 +163,9 @@
   .excel-icon-button{width:36px;height:36px;border:0;background:transparent;color:#5f6b7a;font-size:1.75rem;line-height:1;cursor:pointer;border-radius:6px}
   .excel-icon-button:hover,.excel-icon-button:focus-visible{background:#f1f3f7;color:#172033;outline:2px solid transparent}
   .excel-preview-body{min-height:0;overflow:auto;padding:22px 24px}
+  .excel-preview-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+  .excel-preview-context>div{padding:10px 12px;border:1px solid #e3e7ef;border-radius:6px;background:#fff;min-width:0}
+  .excel-preview-context span{display:block;color:#667085;font-size:.72rem}.excel-preview-context strong{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem}
   .excel-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e3e7ef;border-radius:8px;overflow:hidden}
   .excel-summary-item{min-height:92px;padding:16px 18px;border-right:1px solid #e3e7ef;background:#fafbfc}
   .excel-summary-item:last-child{border-right:0}
@@ -157,11 +174,18 @@
   .excel-summary-valid{background:#effaf4}.excel-summary-valid strong{color:#067647}
   .excel-summary-warning{background:#fffaeb}.excel-summary-warning strong{color:#b54708}
   .excel-summary-error{background:#fff1f3}.excel-summary-error strong{color:#b42318}
-  .excel-global-issues{margin-top:16px;border:1px solid #fecaca;border-radius:6px;background:#fff7f7;padding:10px 12px;color:#9f1239;font-size:.84rem}
-  .excel-global-issues>div+div{margin-top:6px}
-  .excel-filter-tabs{display:flex;gap:4px;margin:18px 0 10px}
+  .excel-import-notice{margin-top:12px;padding:10px 12px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1e40af;font-size:.84rem;font-weight:600}
+  .excel-global-issues{margin-top:12px;border:1px solid #fecaca;border-radius:6px;background:#fff7f7;padding:12px;color:#9f1239;font-size:.84rem}
+  .excel-issue-title{font-weight:800;margin-bottom:7px}.excel-issue-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #fee2e2}.excel-issue-row:first-of-type{border-top:0}
+  .excel-issue-jump{flex:0 0 auto;border:0;background:transparent;color:#3559dc;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+  .excel-preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 10px}
+  .excel-filter-tabs{display:flex;gap:4px;margin:0}
   .excel-filter-tabs button{border:1px solid #d9dee8;background:#fff;color:#475467;border-radius:6px;padding:7px 13px;font:inherit;font-size:.84rem;cursor:pointer}
   .excel-filter-tabs button.is-active{border-color:#3559dc;background:#3559dc;color:#fff}
+  .excel-view-switch{display:flex;border:1px solid #d9dee8;border-radius:6px;overflow:hidden;background:#fff}.excel-view-switch button{border:0;border-left:1px solid #d9dee8;background:#fff;color:#475467;padding:7px 11px;font:inherit;font-size:.8rem;cursor:pointer}.excel-view-switch button:first-child{border-left:0}.excel-view-switch button.is-active{background:#eef2ff;color:#2948c8;font-weight:700}
+  .excel-compact-preview{display:flex;flex-direction:column;gap:12px}.excel-compact-section{border:1px solid #d9dee8;border-radius:8px;overflow:hidden;background:#fff}.excel-compact-section-header{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;background:#f7f8fb;border-bottom:1px solid #e3e7ef}.excel-compact-section-title{font-weight:800}.excel-compact-section-meta{color:#667085;font-size:.78rem}
+  .excel-compact-group{padding:14px}.excel-compact-group+.excel-compact-group{border-top:1px solid #e3e7ef}.excel-compact-group-title{font-weight:750;margin-bottom:9px}.excel-shared-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.excel-shared-item{padding:9px 10px;border-left:3px solid #9fb2ff;background:#f8faff;font-size:.8rem;white-space:pre-wrap}.excel-shared-item strong{display:block;margin-bottom:3px;font-size:.72rem;color:#475467;text-transform:uppercase}
+  .excel-compact-question{display:grid;grid-template-columns:110px minmax(0,1fr) minmax(180px,.65fr);gap:12px;padding:12px;border:1px solid #e3e7ef;border-radius:7px;background:#fff}.excel-compact-question+.excel-compact-question{margin-top:8px}.excel-compact-question.excel-row-error{border-color:#fecaca}.excel-compact-question.excel-row-warning{border-color:#fde68a}.excel-question-source{font-size:.78rem;color:#667085}.excel-question-source strong{display:block;margin-bottom:6px;color:#172033;font-size:.86rem}.excel-question-prompt{font-weight:650;white-space:pre-wrap}.excel-question-contract{font-size:.8rem;color:#475467}.excel-question-options{grid-column:2/4;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.excel-question-option{padding:7px 9px;border:1px solid #e3e7ef;border-radius:5px;font-size:.8rem;background:#fafbfc}.excel-question-messages{grid-column:2/4;color:#b42318;font-size:.78rem}.excel-question-messages.is-warning{color:#b54708}
   .excel-table-wrap{border:1px solid #e3e7ef;border-radius:8px;overflow:auto}
   .excel-preview-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:3420px}
   .excel-preview-table th{position:sticky;top:0;z-index:2;padding:10px 12px;background:#f7f8fb;color:#475467;text-align:left;font-size:.76rem;text-transform:uppercase;font-weight:700}
@@ -186,6 +210,7 @@
     .excel-summary-item:nth-child(2){border-right:0}.excel-summary-item:nth-child(-n+2){border-bottom:1px solid #e3e7ef}
     .excel-preview-actions{display:grid;grid-template-columns:1fr 1fr}.excel-preview-actions .btn-action{justify-content:center}
     .excel-preview-header,.excel-preview-body,.excel-preview-footer{padding-left:16px;padding-right:16px}
+    .excel-preview-context{grid-template-columns:1fr}.excel-preview-toolbar{align-items:stretch;flex-direction:column}.excel-filter-tabs,.excel-view-switch{overflow:auto}.excel-compact-question{grid-template-columns:1fr}.excel-question-options,.excel-question-messages{grid-column:1}.excel-shared-content{grid-template-columns:1fr}
   }
 </style>
 
@@ -205,6 +230,7 @@
   const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
   let previewResult = null;
   let activeFilter = 'ALL';
+  let activeView = 'STRUCTURE';
   let pendingMediaByRef = new Map();
   const mediaObjectUrls = new Map();
 
@@ -255,7 +281,7 @@
   }
 
   function statusLabel(status) {
-    if (status === 'ERROR') return 'Lỗi';
+    if (status === 'ERROR') return 'Bị loại';
     if (status === 'WARNING') return 'Cảnh báo';
     return 'Hợp lệ';
   }
@@ -396,11 +422,220 @@
     return cell;
   }
 
+  function previewRowKey(row) {
+    return row.questionId || `${row.sheet || 'Questions'}:${row.row}`;
+  }
+
+  function visiblePreviewRows() {
+    return (previewResult?.rows || []).filter(row => activeFilter === 'ALL' || row.status === activeFilter);
+  }
+
+  function appendSharedContent(container, label, value, imageReference, audioReference) {
+    if (!value && !imageReference && !audioReference) return;
+    const item = document.createElement('div');
+    item.className = 'excel-shared-item';
+    const title = document.createElement('strong');
+    title.textContent = label;
+    item.appendChild(title);
+    if (value) appendText(item, value);
+    appendMedia(item, 'Ảnh', imageReference, 'image');
+    appendMedia(item, 'Audio', audioReference, 'audio');
+    container.appendChild(item);
+  }
+
+  function renderCompactRows() {
+    const container = document.getElementById('excel-compact-preview');
+    const rows = visiblePreviewRows();
+    const sections = new Map();
+    rows.forEach(row => {
+      const sectionKey = `${row.testNo || '-'}|${row.lessonCode || '-'}|${row.detail?.skill || '-'}`;
+      if (!sections.has(sectionKey)) sections.set(sectionKey, { row, groups: new Map() });
+      const section = sections.get(sectionKey);
+      const groupKey = row.groupCode || 'Chưa xác định nhóm';
+      if (!section.groups.has(groupKey)) section.groups.set(groupKey, []);
+      section.groups.get(groupKey).push(row);
+    });
+
+    const sectionElements = [...sections.values()].map(section => {
+      const wrapper = document.createElement('section');
+      wrapper.className = 'excel-compact-section';
+      const header = document.createElement('div');
+      header.className = 'excel-compact-section-header';
+      const title = document.createElement('div');
+      title.className = 'excel-compact-section-title';
+      title.textContent = `Test ${section.row.testNo || '-'} · ${section.row.lessonCode || '-'} · ${section.row.detail?.skill || '-'}`;
+      const meta = document.createElement('div');
+      meta.className = 'excel-compact-section-meta';
+      const count = [...section.groups.values()].flat().length;
+      meta.textContent = `${section.groups.size} nhóm · ${count} dòng câu hỏi`;
+      header.append(title, meta);
+      wrapper.appendChild(header);
+
+      section.groups.forEach((groupRows, groupCode) => {
+        const group = document.createElement('div');
+        group.className = 'excel-compact-group';
+        const groupTitle = document.createElement('div');
+        groupTitle.className = 'excel-compact-group-title';
+        groupTitle.textContent = `${groupCode} · ${groupRows.length} dòng`;
+        group.appendChild(groupTitle);
+
+        const first = groupRows[0];
+        const shared = document.createElement('div');
+        shared.className = 'excel-shared-content';
+        appendSharedContent(shared, 'Hướng dẫn chung', first.detail?.groupInstruction);
+        appendSharedContent(shared, 'Bài đọc dùng chung', first.detail?.groupPassage,
+          first.detail?.groupImageReference, null);
+        appendSharedContent(shared, 'Lời thoại dùng chung', first.detail?.groupTranscript,
+          null, first.detail?.groupAudioReference);
+        if (shared.childNodes.length) group.appendChild(shared);
+
+        groupRows.forEach(row => {
+          const question = document.createElement('article');
+          question.className = 'excel-compact-question';
+          question.dataset.rowKey = previewRowKey(row);
+          if (row.status === 'ERROR') question.classList.add('excel-row-error');
+          if (row.status === 'WARNING') question.classList.add('excel-row-warning');
+
+          const source = document.createElement('div');
+          source.className = 'excel-question-source';
+          const sourceTitle = document.createElement('strong');
+          sourceTitle.textContent = `Dòng ${row.row} · câu nguồn ${row.questionNoInSection || '-'}`;
+          const badge = document.createElement('span');
+          badge.className = `excel-status excel-status-${row.status.toLowerCase()}`;
+          badge.textContent = statusLabel(row.status);
+          source.append(sourceTitle, badge);
+          const after = document.createElement('div');
+          after.style.marginTop = '7px';
+          after.textContent = row.importable && row.importedQuestionNo
+            ? `Sau nhập: Câu ${row.importedQuestionNo}`
+            : 'Không được nhập';
+          source.appendChild(after);
+
+          const prompt = document.createElement('div');
+          prompt.className = 'excel-question-prompt';
+          prompt.textContent = row.prompt || '(Chưa có nội dung đề)';
+          appendMedia(prompt, 'Ảnh câu hỏi', row.detail?.questionImageReference, 'image');
+          appendMedia(prompt, 'Audio câu hỏi', row.detail?.questionAudioReference, 'audio');
+
+          const contract = document.createElement('div');
+          contract.className = 'excel-question-contract';
+          appendText(contract, `Dạng: ${row.questionType || '-'}`);
+          appendText(contract, `Đáp án: ${row.correctAnswer || '-'}`);
+          if (row.teacherExplanation) appendText(contract, `Giải thích: ${row.teacherExplanation}`);
+          if (row.detail?.teacherNote) appendText(contract, `Ghi chú: ${row.detail.teacherNote}`);
+          question.append(source, prompt, contract);
+
+          const optionArea = document.createElement('div');
+          optionArea.className = 'excel-question-options';
+          const pairs = row.detail?.matchingPairs || [];
+          const options = row.detail?.options || [];
+          (pairs.length ? pairs : options).forEach((item, index) => {
+            const option = document.createElement('div');
+            option.className = 'excel-question-option';
+            if (pairs.length) {
+              appendText(option, `${item.leftId}: ${item.leftText || '-'} → ${item.rightId}: ${item.rightText || '-'}`);
+              appendMedia(option, `Ảnh ${item.leftId}`, item.leftImageReference, 'image');
+              appendMedia(option, `Ảnh ${item.rightId}`, item.rightImageReference, 'image');
+            } else {
+              appendText(option, `${item.label || String.fromCharCode(65 + index)}: ${item.text || '(phương án bằng ảnh)'}`);
+              appendMedia(option, `Ảnh ${item.label || index + 1}`, item.imageReference, 'image');
+            }
+            optionArea.appendChild(option);
+          });
+          if (optionArea.childNodes.length) question.appendChild(optionArea);
+
+          if ((row.messages || []).length) {
+            const messages = document.createElement('div');
+            messages.className = `excel-question-messages${row.status === 'WARNING' ? ' is-warning' : ''}`;
+            messages.textContent = row.messages.join(' · ');
+            question.appendChild(messages);
+          }
+          group.appendChild(question);
+        });
+        wrapper.appendChild(group);
+      });
+      return wrapper;
+    });
+
+    if (!sectionElements.length) {
+      const empty = document.createElement('div');
+      empty.className = 'excel-preview-empty';
+      empty.textContent = 'Không có dòng phù hợp.';
+      sectionElements.push(empty);
+    }
+    container.replaceChildren(...sectionElements);
+  }
+
+  function renderIssuePanel(result) {
+    const panel = document.getElementById('global-issue-list');
+    const issues = [...(result.issues || [])];
+    const known = new Set(issues.map(issue => `${issue.rowKey || ''}|${issue.message}`));
+    (result.rows || []).forEach(row => (row.messages || []).forEach(message => {
+      const key = `${previewRowKey(row)}|${message}`;
+      if (!known.has(key)) {
+        known.add(key);
+        issues.push({ rowKey: previewRowKey(row), sheet: row.sheet, row: row.row, message });
+      }
+    }));
+    if (!issues.length) {
+      panel.hidden = true;
+      panel.replaceChildren();
+      return;
+    }
+    const title = document.createElement('div');
+    title.className = 'excel-issue-title';
+    title.textContent = `Cần chú ý (${issues.length})`;
+    const elements = issues.map(issue => {
+      const row = document.createElement('div');
+      row.className = 'excel-issue-row';
+      const message = document.createElement('span');
+      message.textContent = `${issue.sheet || 'Excel'}${issue.row ? ` · dòng ${issue.row}` : ''}: ${issue.message}`;
+      row.appendChild(message);
+      if (issue.rowKey) {
+        const jump = document.createElement('button');
+        jump.type = 'button';
+        jump.className = 'excel-issue-jump';
+        jump.textContent = 'Đi tới';
+        jump.addEventListener('click', () => jumpToPreviewRow(issue.rowKey));
+        row.appendChild(jump);
+      }
+      return row;
+    });
+    panel.replaceChildren(title, ...elements);
+    panel.hidden = false;
+  }
+
+  function jumpToPreviewRow(rowKey) {
+    activeFilter = 'ALL';
+    activeView = 'STRUCTURE';
+    syncPreviewControls();
+    renderAllPreviewViews();
+    document.querySelector(`[data-row-key="${CSS.escape(String(rowKey))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function syncPreviewControls() {
+    document.querySelectorAll('#preview-filters button').forEach(item => {
+      const selected = item.dataset.filter === activeFilter;
+      item.classList.toggle('is-active', selected);
+      item.setAttribute('aria-selected', String(selected));
+    });
+    document.querySelectorAll('#preview-view-switch button').forEach(item =>
+      item.classList.toggle('is-active', item.dataset.view === activeView));
+    document.getElementById('excel-compact-preview').hidden = activeView !== 'STRUCTURE';
+    document.getElementById('excel-detail-preview').hidden = activeView !== 'DETAIL';
+  }
+
+  function renderAllPreviewViews() {
+    renderCompactRows();
+    renderRows();
+  }
+
   function renderRows() {
-    const visibleRows = (previewResult?.rows || []).filter(row => activeFilter === 'ALL' || row.status === activeFilter);
+    const visibleRows = visiblePreviewRows();
     const tbody = document.getElementById('preview-rows');
     const elements = visibleRows.map(row => {
       const tr = document.createElement('tr');
+      tr.dataset.rowKey = previewRowKey(row);
       if (row.status === 'ERROR') tr.className = 'excel-row-error';
       if (row.status === 'WARNING') tr.className = 'excel-row-warning';
 
@@ -512,38 +747,30 @@
       ? ` · ${matched}/${pendingMediaByRef.size} media đã ghép`
       : '';
     document.getElementById('preview-metadata').textContent =
-      `${previewResult.sectionCount} phần · ${previewResult.groupCount} nhóm · ${previewResult.totalPoints} điểm hợp lệ${mediaSummary}`;
+      `${previewResult.sectionCount} phần · ${previewResult.groupCount} nhóm · ${previewResult.totalPoints} điểm hợp lệ · ${previewResult.errorRowCount} dòng bị loại${mediaSummary}`;
   }
 
   function renderPreview(result) {
     previewResult = result;
     pendingMediaByRef = rebuildPendingMediaIndex(result.draftJson);
     activeFilter = 'ALL';
+    activeView = 'STRUCTURE';
+    document.getElementById('preview-file-name').textContent = fileInput.files[0]?.name || '-';
+    document.getElementById('preview-template-name').textContent = templateSelect.selectedOptions[0]?.textContent || templateSelect.value;
     document.getElementById('summary-total').textContent = result.questionCount;
     document.getElementById('summary-importable').textContent = result.importableQuestionCount;
     document.getElementById('summary-warning').textContent = result.warningRowCount;
     document.getElementById('summary-error').textContent = result.errorRowCount;
+    document.getElementById('preview-import-notice').textContent = result.canImport
+      ? `${result.importableQuestionCount} câu sẽ được nhập. ${result.errorRowCount} dòng bị lỗi vẫn được hiển thị để kiểm tra và sẽ tự động bị bỏ khi xác nhận.`
+      : 'Không có câu hợp lệ để nhập. Hãy sửa file hoặc chọn file khác.';
     updatePreviewMetadata();
-
-    const previewRowKeys = new Set((result.rows || []).map(row => row.questionId || `Questions:${row.row}`));
-    const globalIssues = (result.issues || []).filter(issue => !issue.rowKey || !previewRowKeys.has(issue.rowKey));
-    const globalIssueList = document.getElementById('global-issue-list');
-    globalIssueList.replaceChildren(...globalIssues.map(issue => {
-      const item = document.createElement('div');
-      item.textContent = `${issue.sheet}${issue.row ? ` dòng ${issue.row}` : ''}: ${issue.message}`;
-      return item;
-    }));
-    globalIssueList.hidden = globalIssues.length === 0;
-
-    document.querySelectorAll('#preview-filters button').forEach(button => {
-      const selected = button.dataset.filter === 'ALL';
-      button.classList.toggle('is-active', selected);
-      button.setAttribute('aria-selected', String(selected));
-    });
-    renderRows();
+    renderIssuePanel(result);
+    syncPreviewControls();
+    renderAllPreviewViews();
     confirmImportButton.disabled = !result.canImport;
     confirmImportButton.textContent = result.canImport
-      ? `Nhập ${result.importableQuestionCount} câu hợp lệ`
+      ? `Nhập ${result.importableQuestionCount} câu`
       : 'Không có dòng hợp lệ';
     if (!previewModal.open) previewModal.showModal();
   }
@@ -604,7 +831,14 @@
       item.classList.toggle('is-active', selected);
       item.setAttribute('aria-selected', String(selected));
     });
-    renderRows();
+    renderAllPreviewViews();
+  });
+
+  document.getElementById('preview-view-switch').addEventListener('click', event => {
+    const button = event.target.closest('button[data-view]');
+    if (!button) return;
+    activeView = button.dataset.view;
+    syncPreviewControls();
   });
 
   confirmImportButton.addEventListener('click', async () => {
@@ -636,7 +870,7 @@
   mediaFileInput.addEventListener('change', () => {
     clearMediaObjectUrls();
     if (previewResult) {
-      renderRows();
+      renderAllPreviewViews();
       updatePreviewMetadata();
     }
   });

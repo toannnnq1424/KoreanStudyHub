@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplate;
 import com.ksh.features.practice.assessment.persistence.AssessmentProgramVersion;
+import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplateVersion;
 import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateRepository;
+import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateVersionRepository;
 import com.ksh.features.practice.assessment.repository.AssessmentProgramVersionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,19 +24,31 @@ public class AssessmentAuthoringCatalogService {
     public static final String SCHEMA_VERSION = "assessment-authoring-catalog-v1";
 
     private final AssessmentExamTemplateRepository templateRepository;
+    private final AssessmentExamTemplateVersionRepository templateVersionRepository;
     private final AssessmentProgramVersionRepository programVersionRepository;
     private final AssessmentProgramPolicyService policyService;
     private final ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AssessmentAuthoringCatalogService(
+            AssessmentExamTemplateRepository templateRepository,
+            AssessmentExamTemplateVersionRepository templateVersionRepository,
+            AssessmentProgramVersionRepository programVersionRepository,
+            AssessmentProgramPolicyService policyService,
+            ObjectMapper objectMapper) {
+        this.templateRepository = templateRepository;
+        this.templateVersionRepository = templateVersionRepository;
+        this.programVersionRepository = programVersionRepository;
+        this.policyService = policyService;
+        this.objectMapper = objectMapper;
+    }
 
     public AssessmentAuthoringCatalogService(
             AssessmentExamTemplateRepository templateRepository,
             AssessmentProgramVersionRepository programVersionRepository,
             AssessmentProgramPolicyService policyService,
             ObjectMapper objectMapper) {
-        this.templateRepository = templateRepository;
-        this.programVersionRepository = programVersionRepository;
-        this.policyService = policyService;
-        this.objectMapper = objectMapper;
+        this(templateRepository, null, programVersionRepository, policyService, objectMapper);
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +92,7 @@ public class AssessmentAuthoringCatalogService {
                         "Exam template references an inactive program version: " + template.getCode()));
         JsonNode config;
         try {
-            config = objectMapper.readTree(template.getConfigJson());
+            config = objectMapper.readTree(activeTemplateConfig(template));
         } catch (Exception exception) {
             throw new IllegalStateException("Invalid exam template config: " + template.getCode(), exception);
         }
@@ -153,6 +167,20 @@ public class AssessmentAuthoringCatalogService {
                 Map.copyOf(skills),
                 positive(config.path("maxTests"), 20)
         );
+    }
+
+    private String activeTemplateConfig(AssessmentExamTemplate template) {
+        if (templateVersionRepository == null || template.getActiveVersionId() == null) {
+            return template.getConfigJson();
+        }
+        AssessmentExamTemplateVersion version = templateVersionRepository
+                .findById(template.getActiveVersionId())
+                .filter(candidate -> template.getCode().equals(candidate.getTemplateCode()))
+                .filter(candidate -> AssessmentExamTemplateVersion.STATUS_ACTIVE
+                        .equals(candidate.getStatus()))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Exam template active version is invalid: " + template.getCode()));
+        return version.getConfigJson();
     }
 
     private static int positive(JsonNode node, int fallback) {

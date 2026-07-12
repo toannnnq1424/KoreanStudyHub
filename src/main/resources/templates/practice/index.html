@@ -130,7 +130,9 @@
 
           <!-- Empty state -->
           <section class="pi-empty" th:if="${#lists.isEmpty(sets)}">
-            <div class="pi-empty-icon">📚</div>
+            <div class="pi-empty-icon" aria-hidden="true">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
             <h3>Chưa có bộ luyện tập nào</h3>
             <p>Hãy upload đề thi PDF để tạo bộ luyện tập đầu tiên.</p>
             <a class="pi-btn-primary" sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')" th:href="@{/practice/manage/import}">Tạo đề từ PDF</a>

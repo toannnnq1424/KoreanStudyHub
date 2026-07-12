@@ -8,6 +8,8 @@ import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,13 +23,23 @@ public class PracticeImportDraftService {
     private final PracticeDraftRepository draftRepository;
     private final PracticePdfImportSessionRepository sessionRepository;
     private final ObjectMapper objectMapper;
+    private final PracticeAuthorizationService authorizationService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PracticeImportDraftService(PracticeDraftRepository draftRepository,
+                                      PracticePdfImportSessionRepository sessionRepository,
+                                      ObjectMapper objectMapper,
+                                      PracticeAuthorizationService authorizationService) {
+        this.draftRepository = draftRepository;
+        this.sessionRepository = sessionRepository;
+        this.objectMapper = objectMapper;
+        this.authorizationService = authorizationService;
+    }
 
     public PracticeImportDraftService(PracticeDraftRepository draftRepository,
                                       PracticePdfImportSessionRepository sessionRepository,
                                       ObjectMapper objectMapper) {
-        this.draftRepository = draftRepository;
-        this.sessionRepository = sessionRepository;
-        this.objectMapper = objectMapper;
+        this(draftRepository, sessionRepository, objectMapper, null);
     }
 
     @Transactional
@@ -42,8 +54,7 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = draftRepository.findByIdAndOwnerId(session.getLinkedDraftId(), userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy AI Draft tương ứng."));
+        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
 
         // Copy and elevate AI Draft to MANUAL mode
         PracticeDraft manualDraft = new PracticeDraft(
@@ -53,7 +64,7 @@ public class PracticeImportDraftService {
                 aiDraft.getScope(),
                 null,
                 "DRAFT",
-                userId,
+                aiDraft.getOwnerId(),
                 aiDraft.getDraftJson()
         );
         manualDraft.setCreationMethod("MANUAL"); // set to manual creation so it integrates with manual editor
@@ -80,11 +91,9 @@ public class PracticeImportDraftService {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
 
-        PracticeDraft aiDraft = draftRepository.findByIdAndOwnerId(session.getLinkedDraftId(), userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy AI Draft tương ứng."));
+        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
 
-        PracticeDraft targetDraft = draftRepository.findByIdAndOwnerId(targetDraftId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy bản biên soạn đích."));
+        PracticeDraft targetDraft = editableDraft(targetDraftId, userId);
 
         try {
             // Read target json & ai json to merge sections
@@ -117,5 +126,17 @@ public class PracticeImportDraftService {
             log.error("[ImportDraftService] Failed to attach import session to draft id={}", targetDraftId, e);
             throw new RuntimeException("Không thể ghép kết quả import vào bản nháp.", e);
         }
+    }
+
+    private PracticeDraft editableDraft(Long draftId, Long actorId) {
+        if (authorizationService == null) {
+            return draftRepository.findByIdAndOwnerId(draftId, actorId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Không tìm thấy bản nháp tương ứng."));
+        }
+        authorizationService.requireDraft(draftId, actorId, PracticeAction.EDIT, null);
+        return draftRepository.findById(draftId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Không tìm thấy bản nháp tương ứng."));
     }
 }

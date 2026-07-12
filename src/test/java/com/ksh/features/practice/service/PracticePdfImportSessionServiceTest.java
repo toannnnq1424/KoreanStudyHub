@@ -1,18 +1,24 @@
 package com.ksh.features.practice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePdfImportSession;
+import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
 import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.io.TempDir;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.ksh.features.practice.repository.PracticePdfRegionAnnotationRepository;
@@ -26,6 +32,9 @@ import static org.mockito.Mockito.*;
 
 class PracticePdfImportSessionServiceTest {
 
+    @TempDir
+    Path tempDir;
+
     private PracticePdfImportSessionRepository sessionRepository;
     private PracticePdfRegionAnnotationRepository annotationRepository;
     private PracticePdfPageExtractionRepository pageExtractionRepository;
@@ -33,6 +42,7 @@ class PracticePdfImportSessionServiceTest {
     private PracticeDraftRepository draftRepository;
     private PracticePdfStorageService storageService;
     private LecturerAssetService assetService;
+    private AssessmentAuthoringCatalogService catalogService;
     private PracticePdfImportSessionService sessionService;
 
     @BeforeEach
@@ -44,6 +54,7 @@ class PracticePdfImportSessionServiceTest {
         draftRepository = mock(PracticeDraftRepository.class);
         storageService = mock(PracticePdfStorageService.class);
         assetService = mock(LecturerAssetService.class);
+        catalogService = mock(AssessmentAuthoringCatalogService.class);
         
         sessionService = new PracticePdfImportSessionService(
                 sessionRepository,
@@ -52,7 +63,9 @@ class PracticePdfImportSessionServiceTest {
                 aiRequestAuditRepository,
                 draftRepository,
                 storageService,
-                assetService
+                assetService,
+                catalogService,
+                new ObjectMapper()
         );
     }
 
@@ -129,5 +142,39 @@ class PracticePdfImportSessionServiceTest {
 
         verifyNoInteractions(storageService);
         verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void createSessionPersistsResolvedTemplateAndStandaloneTarget() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        Path storedPdf = tempDir.resolve("reading.pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(storedPdf.toFile());
+        }
+
+        when(file.getOriginalFilename()).thenReturn("reading.pdf");
+        when(catalogService.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(
+                new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
+                        "CUSTOM_FLEXIBLE", "Bài luyện tùy chỉnh", "CUSTOM", "CUSTOM",
+                        12L, 1, Map.of("READING",
+                        new AssessmentAuthoringCatalogService.SkillAuthoringPolicy(
+                                40, BigDecimal.ONE, List.of("SINGLE_CHOICE")))));
+        when(storageService.store(file, 1L)).thenReturn(new PracticePdfStorageService.StoredPdf(
+                "practice-pdfs/1/test.pdf", storedPdf,
+                "reading.pdf", 20L));
+        when(sessionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PracticePdfImportSession result = sessionService.createSession(
+                1L, file, "CUSTOM_FLEXIBLE", "Reading", null,
+                2, "READING", "R2");
+
+        assertEquals("CUSTOM", result.getExamCategory());
+        assertEquals("CUSTOM", result.getAssessmentProgramCode());
+        assertEquals("CUSTOM_FLEXIBLE", result.getExamTemplateCode());
+        assertEquals(2, result.getTargetTestNo());
+        assertEquals("READING", result.getTargetSkill());
+        assertEquals("R2", result.getTargetLessonCode());
+        assertEquals("FULL_SELECTED_PAGES", result.getExtractionStrategy());
     }
 }

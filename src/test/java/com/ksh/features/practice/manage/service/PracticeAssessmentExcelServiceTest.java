@@ -175,7 +175,7 @@ class PracticeAssessmentExcelServiceTest {
         MockMultipartFile file = workbookFile(workbookWithImage);
         when(fixture.repository.save(any(PracticeDraft.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        String managedUrl = "/uploads/practice-images/123e4567-e89b-12d3-a456-426614174000.png";
+        String managedUrl = "/practice/materials/321/content";
 
         PracticeAssessmentExcelService.ExcelPreview preview = fixture.service.preview(file, template().code());
 

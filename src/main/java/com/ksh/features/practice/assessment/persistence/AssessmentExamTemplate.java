@@ -28,6 +28,9 @@ public class AssessmentExamTemplate {
     @Column(name = "config_json", nullable = false, columnDefinition = "JSON")
     private String configJson;
 
+    @Column(name = "active_version_id")
+    private Long activeVersionId;
+
     protected AssessmentExamTemplate() {
     }
 
@@ -37,4 +40,10 @@ public class AssessmentExamTemplate {
     public String getCategoryCode() { return categoryCode; }
     public boolean isEnabled() { return enabled; }
     public String getConfigJson() { return configJson; }
+    public Long getActiveVersionId() { return activeVersionId; }
+
+    public void activateVersion(Long versionId, String compatibilityConfigJson) {
+        this.activeVersionId = versionId;
+        this.configJson = compatibilityConfigJson;
+    }
 }

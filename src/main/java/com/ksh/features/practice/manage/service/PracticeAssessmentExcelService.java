@@ -14,6 +14,8 @@ import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
@@ -45,7 +47,7 @@ public class PracticeAssessmentExcelService {
     private static final long MAX_BYTES = 10L * 1024 * 1024;
     private static final int MAX_MEDIA_OVERRIDES = 200;
     private static final Pattern MANAGED_MEDIA_URL = Pattern.compile(
-            "^/uploads/practice-(?:images|audio)/[0-9a-fA-F-]{36}\\.(?:png|jpe?g|gif|webp|mp3|wav|m4a|ogg|webm)$");
+            "^/practice/materials/(\\d+)/content$");
     private static final Set<String> LEGACY_REQUIRED_SHEETS = Set.of(
             "Manifest", "Sections", "Groups", "Questions", "OptionsAnswers");
     private static final Set<String> FATAL_ISSUE_CODES = Set.of(
@@ -67,6 +69,32 @@ public class PracticeAssessmentExcelService {
     private final QuestionTypeResolver questionTypeResolver;
     private final ObjectMapper objectMapper;
     private final PracticeAssessmentExcelV2Codec v2Codec;
+    private final PracticeAuthorizationService authorizationService;
+    private final LecturerAssetService assetService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PracticeAssessmentExcelService(
+            AssessmentAuthoringCatalogService catalogService,
+            PracticeDraftContractService draftContractService,
+            PracticeDraftValidator draftValidator,
+            PracticeDraftRepository draftRepository,
+            AssessmentContractCodec contractCodec,
+            QuestionTypeResolver questionTypeResolver,
+            ObjectMapper objectMapper,
+            PracticeAuthorizationService authorizationService,
+            LecturerAssetService assetService) {
+        this.catalogService = catalogService;
+        this.draftContractService = draftContractService;
+        this.draftValidator = draftValidator;
+        this.draftRepository = draftRepository;
+        this.contractCodec = contractCodec;
+        this.questionTypeResolver = questionTypeResolver;
+        this.objectMapper = objectMapper;
+        this.authorizationService = authorizationService;
+        this.assetService = assetService;
+        this.v2Codec = new PracticeAssessmentExcelV2Codec(
+                draftContractService, draftValidator, contractCodec, objectMapper);
+    }
 
     public PracticeAssessmentExcelService(
             AssessmentAuthoringCatalogService catalogService,
@@ -76,15 +104,8 @@ public class PracticeAssessmentExcelService {
             AssessmentContractCodec contractCodec,
             QuestionTypeResolver questionTypeResolver,
             ObjectMapper objectMapper) {
-        this.catalogService = catalogService;
-        this.draftContractService = draftContractService;
-        this.draftValidator = draftValidator;
-        this.draftRepository = draftRepository;
-        this.contractCodec = contractCodec;
-        this.questionTypeResolver = questionTypeResolver;
-        this.objectMapper = objectMapper;
-        this.v2Codec = new PracticeAssessmentExcelV2Codec(
-                draftContractService, draftValidator, contractCodec, objectMapper);
+        this(catalogService, draftContractService, draftValidator, draftRepository,
+                contractCodec, questionTypeResolver, objectMapper, null, null);
     }
 
     public byte[] buildTemplate(String templateCode) {
@@ -233,6 +254,9 @@ public class PracticeAssessmentExcelService {
         PracticeDraft draft;
         String finalJson = writeJson(root);
         if (linkedDraftId == null) {
+            if (authorizationService != null) {
+                authorizationService.requireGlobal(ownerId, PracticeAction.CREATE);
+            }
             String title = root.path("document").path("title").asText("Bộ đề nhập từ Excel");
             String description = root.path("document").path("description").asText("");
             String category = root.path("document").path("detectedCategory").asText("CUSTOM");
@@ -263,7 +287,9 @@ public class PracticeAssessmentExcelService {
         draft.setAssessmentProgramCode(root.path("document").path("assessmentProgramCode").asText());
         draft.setAssessmentProgramVersionId(root.path("document").path("assessmentProgramVersionId").longValue());
         draft.setExamTemplateCode(root.path("document").path("examTemplateCode").asText());
-        return draftRepository.save(draft);
+        PracticeDraft saved = draftRepository.save(draft);
+        linkManagedMedia(saved.getId(), ownerId, parseMediaOverrides(mediaOverridesJson));
+        return saved;
     }
 
     private Map<String, String> parseMediaOverrides(String rawJson) {
@@ -308,8 +334,7 @@ public class PracticeAssessmentExcelService {
             String url = applicable.get(ref);
             if (url == null) continue;
             String type = material.path("type").asText("").toUpperCase(Locale.ROOT);
-            if (("IMAGE".equals(type) && !url.startsWith("/uploads/practice-images/"))
-                    || ("AUDIO".equals(type) && !url.startsWith("/uploads/practice-audio/"))) {
+            if (!url.matches("/practice/materials/\\d+/content")) {
                 throw new IllegalArgumentException("Tệp media không đúng loại tài nguyên trong Excel.");
             }
             material.put("managedReference", url);
@@ -370,7 +395,13 @@ public class PracticeAssessmentExcelService {
         if (draftId == null) {
             throw new IllegalArgumentException("Nhập Excel phải được mở từ một bản nháp thủ công.");
         }
-        return draftRepository.findByIdAndOwnerId(draftId, ownerId)
+        if (authorizationService == null) {
+            return draftRepository.findByIdAndOwnerId(draftId, ownerId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Bản nháp liên kết không tồn tại."));
+        }
+        authorizationService.requireDraft(draftId, ownerId, PracticeAction.EDIT, null);
+        return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Bản nháp liên kết không tồn tại."));
     }
@@ -419,6 +450,20 @@ public class PracticeAssessmentExcelService {
             return (ObjectNode) objectMapper.readTree(normalized.json());
         } catch (Exception exception) {
             throw new IllegalStateException("Không thể chuẩn hóa bản nháp hiện tại.", exception);
+        }
+    }
+
+    private void linkManagedMedia(Long draftId, Long actorId,
+                                  Map<String, String> overrides) {
+        if (assetService == null || overrides.isEmpty()) return;
+        Set<Long> linked = new LinkedHashSet<>();
+        for (String url : overrides.values()) {
+            java.util.regex.Matcher matcher = MANAGED_MEDIA_URL.matcher(url);
+            if (!matcher.matches()) continue;
+            Long assetId = Long.valueOf(matcher.group(1));
+            if (!linked.add(assetId)) continue;
+            assetService.linkAssetToDraft(draftId, assetId, actorId,
+                    null, null, null, "EXCEL_MEDIA", null);
         }
     }
 

@@ -36,9 +36,16 @@ public class PracticeImportController {
 
     @GetMapping("/practice/manage/import")
     public String showImportStartPage(@RequestParam(value = "draftId", required = false) Long draftId,
+                                      @RequestParam(value = "testNo", required = false) Integer testNo,
+                                      @RequestParam(value = "lessonCode", required = false) String lessonCode,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
         model.addAttribute("draftId", draftId);
+        PracticePdfImportSessionService.PdfImportStartContext targetContext =
+                importSessionService.resolveStartContext(draftId, testNo, lessonCode, user.getId());
+        model.addAttribute("pdfImportContext", targetContext);
+        model.addAttribute("selectedTemplateCode",
+                targetContext == null ? "TOPIK_II" : targetContext.templateCode());
         
         // Fetch recent import sessions for the user to list on the right column
         List<PracticePdfImportSession> recentSessions = sessionRepository

@@ -105,6 +105,7 @@ public class AssessmentProgramPolicyService {
         }
         AssessmentScoringProfile profile = scoringProfileRepository.findById(id)
                 .filter(AssessmentScoringProfile::isEnabled)
+                .filter(candidate -> "ACTIVE".equals(candidate.getGovernanceStatus()))
                 .orElseThrow(() -> new IllegalArgumentException("Assessment scoring profile is not active"));
         return new ProfileReference(profile.getCode(), profile.getVersionNumber());
     }
@@ -115,6 +116,7 @@ public class AssessmentProgramPolicyService {
         }
         AssessmentPromptProfile profile = promptProfileRepository.findById(id)
                 .filter(AssessmentPromptProfile::isEnabled)
+                .filter(candidate -> "ACTIVE".equals(candidate.getGovernanceStatus()))
                 .orElseThrow(() -> new IllegalArgumentException("Assessment prompt profile is not active"));
         return new ProfileReference(profile.getCode(), profile.getVersionNumber());
     }
@@ -125,6 +127,7 @@ public class AssessmentProgramPolicyService {
         }
         AssessmentRubricProfile profile = rubricProfileRepository.findById(id)
                 .filter(AssessmentRubricProfile::isEnabled)
+                .filter(candidate -> "ACTIVE".equals(candidate.getGovernanceStatus()))
                 .orElseThrow(() -> new IllegalArgumentException("Assessment rubric profile is not active"));
         return new ProfileReference(profile.getCode(), profile.getVersionNumber());
     }

@@ -116,6 +116,9 @@ class PracticeIntegrationTest {
     private PracticePublishedVersionService publishedVersionService;
 
     @Autowired
+    private com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository;
+
+    @Autowired
     private PracticeAttemptDiscardService attemptDiscardService;
 
     @Autowired
@@ -829,7 +832,7 @@ class PracticeIntegrationTest {
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 
         PracticeSection writingSection = new PracticeSection(
-                practiceSet.getId(), "Pháº§n Viáº¿t", "WRITING", "ESSAY", "Viáº¿t luáº­n", 50, BigDecimal.TEN, 2);
+                practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
         writingSection.setTestId(defaultTest.getId());
         writingSection = sectionRepository.saveAndFlush(writingSection);
 
@@ -1087,23 +1090,7 @@ class PracticeIntegrationTest {
         PracticeAttempt attempt = new PracticeAttempt(
                 student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         attemptRepository.saveAndFlush(attempt);
-        String snapshotJson = """
-        {
-          "document": { "title": "Restored title" },
-          "sections": []
-        }
-        """;
-        com.ksh.entities.PracticeEditLog log = editLogRepository.saveAndFlush(
-                new com.ksh.entities.PracticeEditLog(
-                        practiceSet.getId(),
-                        lecturer.getId(),
-                        "unsafe restore",
-                        "{}",
-                        snapshotJson,
-                        "{}",
-                        "QUESTIONS"
-                )
-        );
+        com.ksh.entities.PracticeEditLog log = createRestoreLog(practiceSet.getId(), "unsafe restore");
         long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()).size();
         List<PracticeQuestion> questionsBefore = questionRepository.findBySetIdOrderByDisplayOrderAsc(practiceSet.getId());
         String titleBefore = setRepository.findById(practiceSet.getId()).orElseThrow().getTitle();
@@ -1244,10 +1231,13 @@ class PracticeIntegrationTest {
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void startWinsAgainstRepublishAndGuardBlocksAfterLockRelease() throws Exception {
-        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Blocked republish");
+    void startWinsAgainstRepublishAndVersionLockedAttemptAllowsNewVersion() throws Exception {
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Versioned republish");
         List<Long> questionIdsBefore = questionIds(practiceSet.getId());
-        long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()).size();
+        int versionCountBefore = publishedVersionRepository
+                .findBySetIdOrderByVersionNumberDesc(practiceSet.getId()).size();
+        Long attemptVersionBeforeRepublish = publishedVersionRepository
+                .findFirstBySetIdOrderByVersionNumberDesc(practiceSet.getId()).orElseThrow().getId();
         CountDownLatch attemptCreated = new CountDownLatch(1);
         CountDownLatch releaseStart = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -1267,11 +1257,20 @@ class PracticeIntegrationTest {
             releaseStart.countDown();
 
             Long attemptId = start.get(5, TimeUnit.SECONDS);
-            assertFutureCause(republish, PublishedPracticeGraphMutationBlockedException.class);
-            assertTrue(attemptRepository.existsById(attemptId));
-            assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(questionIdsBefore);
-            assertThat(editLogRepository.findBySetIdOrderByEditedAtDesc(practiceSet.getId()))
-                    .hasSize((int) logCountBefore);
+            assertEquals(practiceSet.getId(), republish.get(5, TimeUnit.SECONDS));
+
+            PracticeAttempt lockedAttempt = attemptRepository.findById(attemptId).orElseThrow();
+            assertThat(lockedAttempt.getPublishedVersionId()).isEqualTo(attemptVersionBeforeRepublish);
+            assertThat(lockedAttempt.getSetVersionId()).isNotNull();
+            assertThat(lockedAttempt.getTestVersionId()).isNotNull();
+            assertThat(lockedAttempt.getSectionVersionId()).isNotNull();
+            assertThat(publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(practiceSet.getId()))
+                    .hasSize(versionCountBefore + 1);
+            assertThat(publishedVersionRepository.findFirstBySetIdOrderByVersionNumberDesc(practiceSet.getId()))
+                    .get()
+                    .extracting(com.ksh.entities.PracticePublishedVersion::getId)
+                    .isNotEqualTo(attemptVersionBeforeRepublish);
+            assertThat(questionIds(practiceSet.getId())).isNotEqualTo(questionIdsBefore);
         } finally {
             releaseStart.countDown();
             shutdownExecutor(executor);
@@ -1299,11 +1298,12 @@ class PracticeIntegrationTest {
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void resumeWinsAgainstRepublishAndReturnsExistingAttempt() throws Exception {
+    void resumeWinsAgainstRepublishAndPinsExistingAttemptBeforeNewVersion() throws Exception {
         PracticeAttempt existing = attemptRepository.saveAndFlush(new PracticeAttempt(
                 student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId()));
-        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Blocked resume republish");
-        List<Long> questionIdsBefore = questionIds(practiceSet.getId());
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Versioned resume republish");
+        int versionCountBefore = publishedVersionRepository
+                .findBySetIdOrderByVersionNumberDesc(practiceSet.getId()).size();
         CountDownLatch resumed = new CountDownLatch(1);
         CountDownLatch releaseResume = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -1322,11 +1322,21 @@ class PracticeIntegrationTest {
             releaseResume.countDown();
 
             assertEquals(existing.getId(), resume.get(5, TimeUnit.SECONDS));
-            assertFutureCause(republish, PublishedPracticeGraphMutationBlockedException.class);
+            assertEquals(practiceSet.getId(), republish.get(5, TimeUnit.SECONDS));
             assertEquals(1, attemptRepository.findAll().stream()
                     .filter(a -> practiceSet.getId().equals(a.getSetId()))
                     .count());
-            assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(questionIdsBefore);
+            PracticeAttempt lockedAttempt = attemptRepository.findById(existing.getId()).orElseThrow();
+            assertThat(lockedAttempt.getPublishedVersionId()).isNotNull();
+            assertThat(lockedAttempt.getSetVersionId()).isNotNull();
+            assertThat(lockedAttempt.getTestVersionId()).isNotNull();
+            assertThat(lockedAttempt.getSectionVersionId()).isNotNull();
+            assertThat(publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(practiceSet.getId()))
+                    .hasSize(versionCountBefore + 1);
+            assertThat(publishedVersionRepository.findFirstBySetIdOrderByVersionNumberDesc(practiceSet.getId()))
+                    .get()
+                    .extracting(com.ksh.entities.PracticePublishedVersion::getId)
+                    .isNotEqualTo(lockedAttempt.getPublishedVersionId());
         } finally {
             releaseResume.countDown();
             shutdownExecutor(executor);
