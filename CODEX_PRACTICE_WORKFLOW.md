@@ -2138,8 +2138,34 @@ refined on 2026-07-13 by an explicit product-scope reduction:
   but requires a separate decision;
 - canonical audit and execution contract:
   `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`;
-- `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE = OPEN` and Phase 13 remains
-  `NO_GO` until code/schema/UI/test/browser stabilization is green.
+- after commit `8c1cee8`, `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE =
+  PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`. Browser/product QA is not
+  claimed green for that checkpoint because the user explicitly skipped it;
+- current user direction is **doc-only Phase 13 reduced-scope cleanup**. This
+  is not Phase 13 implementation and does not reopen generic
+  program/certificate governance.
+
+Canonical map after reduce-scope:
+
+- `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md` is the source of truth for
+  product/domain reduction, schema reduction, allowed question types and what
+  was removed from Phase 12R.
+- `PRACTICE_PHASE_10_16_EXECUTION_BLUEPRINT.md` Section 11 is the source of
+  truth for Phase 13 planning after the reduction.
+- Any older section in any `.md` that requires program/certificate CRUD,
+  certificate selectors, TOPIK-level selectors, scenario/template governance,
+  Head/Admin content approval, DB-managed prompt/rubric/profile governance or
+  generic question-type policy is historical only unless a later explicit user
+  request reopens it.
+- "Canonical" in future practice docs means the reduced runtime contract:
+  one implicit KSH practice scope, `Set > Test > Skill > Group > Question`, five
+  question types, immutable history/material traceability and lecturer
+  collaboration. It no longer means the removed program/certificate policy
+  subsystem.
+- PREP/IELTS/TOEIC research is learning/reference input for learner-side
+  interaction patterns only. Do not copy brand, assets, content, CSS, API,
+  route structure or product claims. Do not access the live PREP site unless the
+  user explicitly grants permission and account details for that task.
 
 ### Phase 13 — Results, Progress & UI/UX Polish
 
@@ -2154,14 +2180,18 @@ external branding, assets, content, CSS, API or URLs.
 Phase 13 scope is one implicit KSH practice model: R/L single choice, fill blank
 and true/false/not-given; Writing Q51-Q54; and Speaking. Multi-certificate,
 program governance, `MULTIPLE_CHOICE` and `MATCHING` references below are
-historical research/roadmap evidence, not current acceptance criteria.
+historical research/roadmap evidence, not current acceptance criteria. If an
+older note says "program/certificate/canonical policy", read it through the
+reduced-scope map above before implementing anything.
 
 Research basis and evidence boundary:
 
 - the two supplied research documents cover 96 learner screenshots in 14
-  evidence groups plus learner-visible IELTS/TOEIC-like routes;
+  evidence groups plus learner-visible IELTS/TOEIC/PREP-like routes;
 - observations from that account may inform capability and state design only;
   teacher/admin behavior remains unobserved;
+- PREP is "học tập/tham khảo UI/UX" only. Live PREP access requires a separate
+  user approval/account for that specific task;
 - speaking controls/transcript/IPA were visually inspected, but audio accuracy
   remains `PENDING_AUDIO_UAT` because system audio was not captured.
 
@@ -2185,10 +2215,12 @@ items remain explicitly open:
   skill-list, result/progress/retake/detail and mobile/responsive roadmap;
 - retain bounded catalog loading and the full-test/skill-specific composition
   rules. Do not assume one set equals one test or one test equals one skill;
-- retain the original validation routing: Phase 9 immutable structure, Phase 10
-  certification policy and Phase 11 import validation are prerequisites already
-  implemented, while Phase 13 still owns the learner UX and Phase 15 still owns
-  manual large-catalog/encoding/icon/multi-test/multi-skill UAT.
+- retain the original validation routing after translating it through the
+  reduced-scope contract: Phase 9 immutable structure and Phase 11 import
+  validation remain prerequisites; Phase 10 certification-policy language is
+  historical backend evidence only and must not recreate program/certificate
+  governance. Phase 13 still owns the learner UX and Phase 15 still owns manual
+  large-catalog/encoding/icon/multi-test/multi-skill UAT.
 
 Baseline-to-slice mapping is preserved: typed player -> 13C; result/explanation
 -> 13D-13E; full-test/skill flow -> 13B-13C; catalog scale -> 13A/13G;
@@ -2252,8 +2284,8 @@ Phase 14 is a learner-visible review loop, not only a backend ticket table:
   `NEW` and `NEEDS_INFO` as candidates. Phase 14 audit must map compatibility
   and semantics before choosing the canonical set. These are report states,
   not content lifecycle states;
-- 14D provides the reviewer queue with certificate/program scope, immutable
-  content/version/question context, severity, ownership and full audit trail.
+- 14D provides the reviewer queue with reduced-scope set/test/skill context,
+  immutable content/version/question context, severity, ownership and full audit trail.
   A correction creates a draft/new published version; explanation correction
   creates a new artifact and marks the old one superseded. History is never
   mutated and AI never publishes a correction automatically;
@@ -2544,25 +2576,27 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-12 | Phase 12 Reduced-scope Continuation Checkpoint | ACTION_REQUIRED | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | this commit | 85b65e1 | JDK 17 focused continuation gate 62/62, V1-V28 and V27-V28 migration paths 3/3 each, and latest full-suite baseline 1319/1319 were green; the later legacy ungrouped-question compatibility fix passed its focused 6/6 test. Browser review exposed governance UX/model gaps, so closure remains open and a final full-suite rerun is still required before closure. | Preserves historical-material authorization, Range, override, bounded governance/material/history UI and legacy draft compatibility work. Records future one-active-scenario plus certificate -> skill -> task redesign without claiming it implemented. | Push `feature/practice-reduce-scope`; do not merge or start 12H/Phase 13 without a separate GO. |
 | 2026-07-13 | Phase 12R Single-Scope Reduction Audit | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | N/A | 59cbc78 | Static migration/entity/repository/route/reference inventory; no production code, migration, provider call or test rerun. Inventory found 96 total migration-created tables, 42 in the practice/assessment boundary, 10 generic assessment-governance tables, 2 Speaking-media tables to keep, 19 files with direct assessment-schema references, 31 generic-question-type files, 158 Speaking references and 27 governance-override references. | Multi-certificate/program governance and 12H are cancelled. Target is one implicit KSH scope: R/L single choice, fill blank and true/false/not-given without certificate caps; Writing exactly Q51-Q54; Speaking; Lecturer collaboration; immutable history/materials; and R/L AI explanation. Keep one five-value `question_type`, remove duplicate canonical type plus multiple-choice/matching. Mandatory target drops 14 tables; optional PDF-AI deferral drops six more. | Implement `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`; Phase 13 remains NO-GO. |
 | 2026-07-13 | Phase 12R Single-Scope Reduction Implementation / Practice Code Gate | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED | this commit | 59cbc78 | User narrowed closure to practice feature code only and explicitly skipped browser QA. JDK 17 practice-focused gate on fresh MySQL squashed V25: 860/860 tests, 0 failures/errors/skips. Final squash verification used fresh schema `ksh_reduce_scope_squashed_v25_final`: Flyway `25 - practice single scope final`, `PracticeQuestionRepositoryTest` 6/6, 82 base tables + 1 view, removed generic governance tables still present = 0, live/version question types exactly `ESSAY,FILL_BLANK,SINGLE_CHOICE,SPEAKING,TRUE_FALSE_NOT_GIVEN`. `git diff --check`, practice route/static/mojibake scans and app-port 8080-8090 scan were green. | Implemented single implicit KSH practice scope, removed program/certificate/category/governance/profile routes and tables, kept lecturer collaboration/history/material boundaries, kept Speaking, kept R/L AI explanation, fixed UUID option IDs leaking into wrong-answer analysis, corrected learner progress to count tests instead of per-skill question caps, and squashed V25-V29 into final-state `V25__practice_single_scope_final.sql` rather than copy-paste migration history. Browser QA is not claimed green in this checkpoint. | Commit/push `feature/practice-reduce-scope`. Phase 13 remains NO-GO until user gives separate approval; browser/product QA can be run later as its own gate if requested. |
+| 2026-07-13 | Phase 13 Reduced-Scope Documentation Cleanup | PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED | DOC_ONLY_PHASE_13_SCOPE_CLEANUP | N/A | 8c1cee8 | Documentation-only cleanup; no production code, migration, test, provider call or browser QA. | Reconciled canonical wording after reduce-scope: Phase 13 planning uses one implicit KSH practice scope, `Set > Test > Skill > Group > Question`, five question types, lecturer collaboration and immutable material/history boundaries. Older program/certificate/scenario/profile-governance directions are historical only when they conflict. PREP/IELTS/TOEIC research is học tập/tham khảo UI/UX only; live PREP access requires explicit user permission/account. | Review docs-only diff. Do not implement Phase 13 code or reopen generic governance without a separate GO. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Review and commit/push `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE` practice-code
-checkpoint from `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`. Do not continue
-12H generic certificate/skill/task governance. Do not merge, claim product GO or
-open Phase 13 until user gives a separate GO; browser/product QA was explicitly
-skipped for this checkpoint and must not be implied as green.
+Current required next action: complete doc-only Phase 13 reduced-scope cleanup
+after pushed commit `8c1cee8`. Do not continue 12H generic
+certificate/skill/task governance. Do not merge, claim product GO or implement
+Phase 13 code in this cleanup. Browser/product QA was explicitly skipped for
+the Phase 12R practice-code checkpoint and must not be implied as green.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
-`PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13+ remain
-NOT_STARTED until a separate user GO. Live Speaking AI rollout remains NO-GO. React modernization
-remains future-only after Phase 16. Do not start Phase 13 or perform broad
-UI/React modernization without the next explicit phase approval.
+`PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13 implementation remains
+NOT_STARTED until a separate user GO. Phase 13 documentation cleanup is allowed
+by the current user request. Live Speaking AI rollout remains NO-GO. React
+modernization remains future-only after Phase 16. Do not start Phase 13 code or
+perform broad UI/React modernization without the next explicit phase approval.
 
 ## Long-Term Direction After Phase 16
 

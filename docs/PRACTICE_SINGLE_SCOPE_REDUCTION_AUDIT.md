@@ -910,7 +910,27 @@ Phase 13 chỉ thiết kế UI/UX cho:
 
 Research IELTS/TOEIC/PREP vẫn là interaction evidence, không phải product scope,
 không tạo certificate selector, question type ngoài năm type đã chốt hay program
-governance.
+governance. PREP cụ thể chỉ là nguồn học tập/tham khảo UI/UX learner-side; không
+copy brand, asset, route, wording, CSS, API, content hoặc product claim. Nếu cần
+trải nghiệm trực tiếp PREP ở một task sau, Codex phải xin user cấp quyền và tài
+khoản trước khi truy cập.
+
+Canonical contract cho Phase 13 sau reduction:
+
+- một KSH practice library ngầm định, không có program/certificate/TOPIK-level;
+- `Set > Test > Skill > Group > Question` là hierarchy thật;
+- `question_type` chỉ còn năm giá trị:
+  `SINGLE_CHOICE`, `FILL_BLANK`, `TRUE_FALSE_NOT_GIVEN`, `ESSAY`, `SPEAKING`;
+- `SINGLE_CHOICE`, `FILL_BLANK` và `TRUE_FALSE_NOT_GIVEN` dùng cho
+  Reading/Listening; `ESSAY` dùng cho Writing Q51-Q54; `SPEAKING` dùng cho
+  Speaking;
+- full test và luyện riêng kỹ năng là lựa chọn learner UX dựa trên section thật
+  trong test, không phải certificate/program/scenario policy;
+- lecturer collaboration, owner lock, immutable history, private material
+  delivery, R/L deterministic scoring và AI explanation vẫn là boundary cần giữ;
+- các tài liệu/đoạn cũ nói tới program governance, certificate selector,
+  scenario/template version, DB-managed profile, Head/Admin content approval
+  hoặc generic question-type policy là superseded nếu mâu thuẫn với contract này.
 
 ## 12. Definition of Done
 
@@ -933,7 +953,9 @@ governance.
 - Speaking media/evaluator regression xanh;
 - migration và automated practice stabilization xanh; browser QA chỉ được tính
   khi user yêu cầu chạy lại trong một gate riêng;
-- docs canonical nhất quán;
+- docs canonical nhất quán: mọi file chính phải chỉ rõ reduced-scope contract là
+  nguồn thật, còn program/certificate/governance/PREP-copy directions cũ là
+  historical/reference-only khi mâu thuẫn;
 - user duyệt closure và cấp Phase 13 GO riêng.
 
 ## 13. Verdict

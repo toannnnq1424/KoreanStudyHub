@@ -1406,10 +1406,25 @@ Scope lock mới: Phase 13 chỉ triển khai một KSH practice scope ngầm đ
 item về multi-certificate và governance được giữ làm history nhưng không còn là
 acceptance criteria sản phẩm; Speaking vẫn là active scope.
 
+Doc-only cleanup ngày 2026-07-13: Section 11 này là định hướng canonical cho
+Phase 13 sau reduce-scope. Nếu các section cũ nói tới program/certificate,
+scenario/template, DB-managed prompt/rubric/profile governance, canonical
+policy table, Head/Admin approval hoặc multi-certificate routing thì coi là
+historical audit trail, không phải acceptance criteria hiện hành. "Canonical"
+trong Phase 13 nghĩa là contract runtime tối giản: một KSH practice scope ngầm
+định, `Set > Test > Skill > Group > Question`, năm question type đã chốt,
+immutable history/material traceability và lecturer collaboration.
+
 Research input ngày 2026-07-11 gồm 96 learner screenshots/14 evidence groups và
 learner-visible IELTS/TOEIC-like routes. Không có teacher/admin account evidence;
 mọi teacher/admin assumption phải quay về KSH schema/RBAC. Speaking audio vẫn
 `PENDING_AUDIO_UAT` vì research không kiểm chứng được âm thanh hệ thống.
+
+PREP/IELTS/TOEIC research là học tập/tham khảo UI/UX learner-side: information
+architecture, preflight, player shell, result/detail/progress states và error
+recovery. Không copy brand, asset, wording, CSS, API, route structure, content
+hoặc product claim. Không truy cập live PREP nếu user chưa cấp quyền và tài
+khoản trong đúng task cần truy cập.
 
 Research chỉ bổ sung, không thay baseline cũ. Baseline preservation audit khóa
 ánh xạ sau; không mục nào được xem là hoàn tất chỉ vì đã được viết lại:
@@ -1466,6 +1481,8 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 - skill và teacher/class filter phản ánh vào URL; không có certificate/program/
   TOPIK-level filter; question-type filter chỉ thêm nếu thật sự hữu ích cho
   learner trong năm type cố định;
+- thuật ngữ canonical trên UI/docs phải tránh gợi lại policy subsystem đã xóa;
+  dùng ngôn ngữ sản phẩm như "bộ đề", "bài test", "kỹ năng", "nhóm câu", "câu";
 - pagination/cursor, bounded initial load, loading/empty/error/retry rõ ràng;
 - incremental extraction editor/player code nếu cần, không React rewrite;
 - attempt state vocabulary dùng chung: `NOT_STARTED`, `IN_PROGRESS`,

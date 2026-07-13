@@ -17,6 +17,16 @@ Gate cha: `PHASE_12_CLOSURE_STABILIZATION_GATE = OPEN`
 > `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE`. Các phần security, immutable
 > history và material authorization vẫn phải được giữ khi giảm scope.
 
+> Doc-only cleanup 2026-07-13: file này là archived historical evidence. Các
+> section bên dưới về program/certificate/scenario, DB-managed prompt/rubric/
+> profile governance, Head/Admin override và multi-certificate learner routing
+> không còn là acceptance criteria. Khi mâu thuẫn, dùng canonical reduced-scope
+> contract trong `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md` và Section 11
+> của `PRACTICE_PHASE_10_16_EXECUTION_BLUEPRINT.md`. "Canonical" trong roadmap
+> hiện tại nghĩa là one implicit KSH practice scope, `Set > Test > Skill > Group
+> > Question`, five question types, lecturer collaboration, immutable history và
+> private material delivery.
+
 ## 1. Mục đích và quyết định điều hành
 
 Tài liệu này là kế hoạch tiếp tục Phase 12 sau post-commit audit. Nó bổ sung,
@@ -55,6 +65,11 @@ checkpoint này theo yêu cầu trực tiếp của user, nên tài liệu này 
 để claim browser/product closure xanh.
 
 ## 2. Trả lời contract lưu trữ program và kịch bản
+
+Historical/superseded section: nội dung dưới đây giải thích trạng thái DB trước
+reduce-scope và lý do phải bỏ generic governance. Không triển khai tiếp từ
+section này, không tạo lại program/certificate/scenario UI, và không dùng các
+route ví dụ bên dưới làm target Phase 13.
 
 ### 2.1 Những gì đã được lưu trong database
 
