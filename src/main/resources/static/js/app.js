@@ -137,32 +137,69 @@
     }
   };
 
-  // ── Toast helper (wraps iziToast loaded in head.html) ──────────────
+  // ── Toast helper ────────────────────────────────────────────
   // Usage:
   //   KshToast.success('Đã tạo lớp NILXM');
   //   KshToast.error('Có lỗi xảy ra');
   //   KshToast.info('Đang xử lý...');
-  // Falls back to console.log if iziToast script failed to load.
+  function toastStack() {
+    var stack = document.getElementById('kshToastStack');
+    if (stack) return stack;
+    stack = document.createElement('div');
+    stack.id = 'kshToastStack';
+    stack.className = 'ksh-toast-stack';
+    stack.setAttribute('aria-live', 'polite');
+    stack.setAttribute('aria-atomic', 'false');
+    document.body.appendChild(stack);
+    return stack;
+  }
+
   function showToast(type, message, title) {
     if (!message) return;
-    if (typeof window.iziToast === 'undefined') {
-      console.log('[Toast ' + type + ']', message);
-      return;
+    var toast = document.createElement('section');
+    toast.className = 'ksh-toast is-' + type;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
+    var content = document.createElement('div');
+    content.className = 'ksh-toast-content';
+    if (title) {
+      var heading = document.createElement('p');
+      heading.className = 'ksh-toast-title';
+      heading.textContent = title;
+      content.appendChild(heading);
     }
-    var common = {
-      message: message,
-      position: 'topRight',
-      timeout: 3500,
-      progressBar: true,
-      close: true,
-      transitionIn: 'fadeInLeft',
-      transitionOut: 'fadeOutRight'
-    };
-    if (title) common.title = title;
-    if (type === 'success') window.iziToast.success(common);
-    else if (type === 'error') { common.timeout = 5000; window.iziToast.error(common); }
-    else if (type === 'warning') window.iziToast.warning(common);
-    else window.iziToast.info(common);
+    var body = document.createElement('p');
+    body.className = 'ksh-toast-message';
+    body.textContent = message;
+    content.appendChild(body);
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'ksh-toast-close';
+    close.setAttribute('aria-label', 'Đóng thông báo');
+    close.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">' +
+      '<path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+      '</svg>';
+
+    var timer;
+    var dismissed = false;
+    function dismiss() {
+      if (dismissed) return;
+      dismissed = true;
+      window.clearTimeout(timer);
+      toast.classList.add('is-leaving');
+      window.setTimeout(function () { toast.remove(); }, 160);
+    }
+    close.addEventListener('click', dismiss);
+    toast.addEventListener('mouseenter', function () { window.clearTimeout(timer); });
+    toast.addEventListener('mouseleave', function () {
+      timer = window.setTimeout(dismiss, type === 'error' ? 5000 : 3500);
+    });
+
+    toast.appendChild(content);
+    toast.appendChild(close);
+    toastStack().appendChild(toast);
+    timer = window.setTimeout(dismiss, type === 'error' ? 5000 : 3500);
   }
 
   window.KshToast = {

@@ -23,7 +23,7 @@
   --radius: 8px;
   --shadow: 0 6px 24px rgba(32,34,39,.12);
   --shadow-sm: 0 2px 8px rgba(32,34,39,.08);
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────── */
@@ -128,6 +128,69 @@ img { display: block; max-width: 100%; }
 .text-success { color: var(--success); }
 .text-sm { font-size: 13px; }
 .text-xs { font-size: 12px; }
+
+/* ── Local toast notifications (window.KshToast) ──────────────────────────── */
+.ksh-toast-stack {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1200;
+  display: grid;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.ksh-toast {
+  --toast-accent: var(--primary);
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) 30px;
+  align-items: start;
+  gap: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  pointer-events: auto;
+  animation: ksh-toast-in .18s ease-out both;
+}
+.ksh-toast::before {
+  content: '';
+  align-self: stretch;
+  background: var(--toast-accent);
+}
+.ksh-toast.is-success { --toast-accent: var(--success); }
+.ksh-toast.is-error { --toast-accent: var(--danger); }
+.ksh-toast.is-warning { --toast-accent: #B7791F; }
+.ksh-toast-content { min-width: 0; padding: 13px 0; }
+.ksh-toast-title { margin: 0 0 2px; font-size: 13px; font-weight: 700; color: var(--heading); }
+.ksh-toast-message { margin: 0; overflow-wrap: anywhere; font-size: 13px; color: var(--muted); }
+.ksh-toast-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 7px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.ksh-toast-close:hover { background: var(--bg-soft); color: var(--fg); }
+.ksh-toast.is-leaving { animation: ksh-toast-out .15s ease-in both; }
+@keyframes ksh-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ksh-toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@media (max-width: 560px) {
+  .ksh-toast-stack { top: 12px; right: 12px; width: calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ksh-toast, .ksh-toast.is-leaving { animation: none; }
+}
 
 /* ── Confirm modal (window.KshModal.confirm) ───────────────────────── */
 /* Global modal styles backing the shared KshModal.confirm helper in app.js.

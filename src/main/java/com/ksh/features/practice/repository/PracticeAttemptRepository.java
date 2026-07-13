@@ -40,8 +40,8 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
     List<PracticeAttempt> findByUserIdAndStatusNotOrderByCreatedAtDesc(
             Long userId, String status);
 
-    List<PracticeAttempt> findByUserIdAndSetIdInAndStatusIn(
-            Long userId, List<Long> setIds, List<String> statuses);
+    List<PracticeAttempt> findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+            Long userId, List<Long> setIds, String status);
 
     Optional<PracticeAttempt> findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
             Long userId, Long testId, Long sectionId, String status);

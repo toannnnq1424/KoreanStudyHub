@@ -83,65 +83,6 @@ class PracticeServiceTest {
     }
 
     @Test
-    void testListPublished() {
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        when(setRepository.findByStatusOrderByCreatedAtDesc("PUBLISHED")).thenReturn(List.of(set));
-
-        List<PracticeSetRow> result = practiceService.listPublished();
-        assertEquals(1, result.size());
-        assertEquals("Title", result.get(0).title());
-    }
-
-    @Test
-    void setTestProgressCountsOnlyTestsWhoseEverySectionIsComplete() {
-        PracticeSetRow firstSet = new PracticeSetRow(
-                1L, "Set 1", "", "MIXED", "Tổng hợp", "{}", "MANUAL");
-        PracticeSetRow secondSet = new PracticeSetRow(
-                2L, "Set 2", "", "READING", "Đọc", "{}", "MANUAL");
-
-        com.ksh.entities.PracticeTest firstTest = mock(com.ksh.entities.PracticeTest.class);
-        when(firstTest.getId()).thenReturn(10L);
-        when(firstTest.getSetId()).thenReturn(1L);
-        com.ksh.entities.PracticeTest secondTest = mock(com.ksh.entities.PracticeTest.class);
-        when(secondTest.getId()).thenReturn(20L);
-        when(secondTest.getSetId()).thenReturn(1L);
-        com.ksh.entities.PracticeTest emptyTest = mock(com.ksh.entities.PracticeTest.class);
-        when(emptyTest.getId()).thenReturn(30L);
-        when(emptyTest.getSetId()).thenReturn(2L);
-
-        PracticeSection reading = mock(PracticeSection.class);
-        when(reading.getId()).thenReturn(101L);
-        when(reading.getTestId()).thenReturn(10L);
-        PracticeSection listening = mock(PracticeSection.class);
-        when(listening.getId()).thenReturn(102L);
-        when(listening.getTestId()).thenReturn(10L);
-        PracticeSection speaking = mock(PracticeSection.class);
-        when(speaking.getId()).thenReturn(103L);
-        when(speaking.getTestId()).thenReturn(20L);
-
-        PracticeAttempt readingAttempt = mock(PracticeAttempt.class);
-        when(readingAttempt.getSectionId()).thenReturn(101L);
-        PracticeAttempt listeningAttempt = mock(PracticeAttempt.class);
-        when(listeningAttempt.getSectionId()).thenReturn(102L);
-
-        when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(1L, 2L)))
-                .thenReturn(List.of(firstTest, secondTest, emptyTest));
-        when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(1L, 2L)))
-                .thenReturn(List.of(reading, listening, speaking));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusIn(
-                9L,
-                List.of(1L, 2L),
-                List.of(PracticeAttempt.STATUS_SUBMITTED, PracticeAttempt.STATUS_GRADED)))
-                .thenReturn(List.of(readingAttempt, listeningAttempt));
-
-        Map<Long, PracticeSetTestProgress> progress = practiceService.getSetTestProgress(
-                List.of(firstSet, secondSet), 9L);
-
-        assertEquals(new PracticeSetTestProgress(1, 2), progress.get(1L));
-        assertEquals(new PracticeSetTestProgress(0, 1), progress.get(2L));
-    }
-
-    @Test
     void testGetPracticeNotFound() {
         when(setRepository.findById(any())).thenReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class, () -> practiceService.getPractice(1L));
@@ -858,7 +799,8 @@ class PracticeServiceTest {
         setEntityId(section, 20L);
         when(sectionRepository.findAllById(any())).thenReturn(List.of(section));
 
-        LearningProgressOverview overview = practiceService.getLearningProgressOverview(2L, "Toan", "avatar.jpg");
+        LearningProgressOverview overview =
+                practiceService.getProgressPageData(2L, "Toan", "avatar.jpg").overview();
         assertNotNull(overview);
         assertEquals("Toan", overview.studentName());
         assertEquals("avatar.jpg", overview.avatarUrl());
@@ -901,7 +843,8 @@ class PracticeServiceTest {
         when(q1.getPoints()).thenReturn(BigDecimal.ONE);
         when(questionRepository.findBySetIdIn(anyList())).thenReturn(List.of(q1));
 
-        PracticeAnalytics analytics = practiceService.getPracticeAnalytics(2L);
+        PracticeAnalytics analytics =
+                practiceService.getProgressPageData(2L, "Toan", "").analytics();
         assertNotNull(analytics);
         assertFalse(analytics.weeklySkillMetrics().isEmpty());
         assertFalse(analytics.scoreTrend().isEmpty());
@@ -912,6 +855,57 @@ class PracticeServiceTest {
         assertTrue(readingMetric.isPresent());
         assertEquals(80.0, readingMetric.get().normalizedScore());
         assertEquals("READING", analytics.history().get(0).skill());
+    }
+
+    @Test
+    void progressPageDataReusesOneAttemptAndEntitySnapshot() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.markGraded(
+                BigDecimal.valueOf(8), BigDecimal.TEN, "{\"100\":\"1\"}", "{}");
+        setEntityId(attempt, 99L);
+        when(attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+
+        PracticeSet set = new PracticeSet(
+                "Reading Test", "Desc", "MIXED", "GLOBAL",
+                null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        when(setRepository.findAllById(any())).thenReturn(List.of(set));
+        com.ksh.entities.PracticeTest test =
+                new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        when(testRepository.findAllById(any())).thenReturn(List.of(test));
+        PracticeSection section = new PracticeSection(
+                1L, "Reading Section", "READING", "MCQ", "Desc",
+                40, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        when(sectionRepository.findAllById(any())).thenReturn(List.of(section));
+
+        PracticeQuestion question = mock(PracticeQuestion.class);
+        when(question.getId()).thenReturn(100L);
+        when(question.getSetId()).thenReturn(1L);
+        when(question.getQuestionType()).thenReturn("MCQ");
+        when(question.getAnswerKey()).thenReturn("1");
+        when(question.getPoints()).thenReturn(BigDecimal.ONE);
+        when(questionRepository.findBySetIdIn(anyList())).thenReturn(List.of(question));
+
+        PracticeProgressPageData page =
+                practiceService.getProgressPageData(2L, "Toan", "avatar.jpg");
+
+        assertEquals(1, page.overview().totalAttempts());
+        assertFalse(page.analytics().history().isEmpty());
+        verify(attemptRepository, times(1))
+                .findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                        2L, PracticeAttempt.STATUS_DISCARDED);
+        verify(attemptRepository, times(1))
+                .findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                        2L, PracticeAttempt.STATUS_DISCARDED);
+        verify(setRepository, times(1)).findAllById(any());
+        verify(testRepository, times(1)).findAllById(any());
+        verify(sectionRepository, times(1)).findAllById(any());
     }
 
     @Test
@@ -930,7 +924,8 @@ class PracticeServiceTest {
         when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
                 2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(recent100);
 
-        LearningProgressOverview overview = practiceService.getLearningProgressOverview(2L, "Toan", "");
+        LearningProgressOverview overview =
+                practiceService.getProgressPageData(2L, "Toan", "").overview();
 
         assertEquals(101, overview.totalAttempts());
         assertEquals(101, overview.totalCompletedTests());

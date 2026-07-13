@@ -15,6 +15,7 @@ public final class PracticeRoutes {
 
     public static final String HOME = "";
     public static final String HOME_SLASH = "/";
+    public static final String CATALOG_BATCH = "/catalog";
     public static final String SET_DETAIL = "/sets/{setId}";
     public static final String TEST_DETAIL = "/sets/{setId}/tests/{testId}";
     public static final String TEST_MODE = "/sets/{setId}/tests/{testId}/mode";

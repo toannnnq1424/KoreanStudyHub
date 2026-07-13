@@ -27,7 +27,105 @@ public final class PracticeDtos {
                                  String creationMethod) {
     }
 
-    public record PracticeSetTestProgress(int completedTests, int totalTests) {
+    public record PracticeCatalogQuery(String search, String skill,
+                                       Long classId, int batch) {
+    }
+
+    public record PracticeCatalogSkill(String code, String label) {
+    }
+
+    public record PracticeCatalogClassOption(Long id, String name) {
+    }
+
+    public record PracticeCatalogCard(
+            Long id,
+            String title,
+            String description,
+            String primarySkill,
+            List<PracticeCatalogSkill> skills,
+            int testCount,
+            int completedTests,
+            String visibilityLabel,
+            String state,
+            String stateLabel,
+            Long resumeAttemptId
+    ) {
+        public boolean hasSkill(String code) {
+            if (code == null) return false;
+            if (skills != null && skills.stream()
+                    .anyMatch(skill -> code.equalsIgnoreCase(skill.code()))) {
+                return true;
+            }
+            return (skills == null || skills.isEmpty())
+                    && code.equalsIgnoreCase(primarySkill);
+        }
+
+        public boolean multiSkill() {
+            return skills != null && skills.size() > 1;
+        }
+
+        public String coverSkill() {
+            return multiSkill() ? "MIXED" : primarySkill;
+        }
+
+        public String coverLabel() {
+            if (skills == null || skills.isEmpty()) return "LUYỆN TẬP";
+            if (skills.size() == 2) return "2 KỸ NĂNG";
+            if (skills.size() > 2) return "TỔNG HỢP";
+            return switch (skills.get(0).code()) {
+                case "LISTENING" -> "NGHE";
+                case "READING" -> "ĐỌC";
+                case "WRITING" -> "VIẾT";
+                case "SPEAKING" -> "NÓI";
+                default -> "LUYỆN TẬP";
+            };
+        }
+
+        public String skillSummary() {
+            if (skills == null || skills.isEmpty()) return "Chưa xác định";
+            return String.join(", ", skills.stream()
+                    .map(PracticeCatalogSkill::label)
+                    .toList());
+        }
+
+        public String skillCodes() {
+            if (skills == null || skills.isEmpty()) {
+                return primarySkill == null ? "" : primarySkill;
+            }
+            return String.join(",", skills.stream()
+                    .map(PracticeCatalogSkill::code)
+                    .toList());
+        }
+
+        public int progressPercent() {
+            if (testCount <= 0) return 0;
+            return Math.min(100, Math.max(0,
+                    (int) Math.round(completedTests * 100.0 / testCount)));
+        }
+    }
+
+    public record PracticeCatalogBatch(
+            List<PracticeCatalogCard> items,
+            List<PracticeCatalogClassOption> classes,
+            String search,
+            String skill,
+            Long classId,
+            int batch,
+            int batchSize,
+            long totalElements,
+            boolean hasMore
+    ) {
+        public int nextBatch() {
+            return batch + 1;
+        }
+
+        public PracticeCatalogCard resumeCard() {
+            if (items == null) return null;
+            return items.stream()
+                    .filter(item -> item.resumeAttemptId() != null)
+                    .findFirst()
+                    .orElse(null);
+        }
     }
 
 
@@ -700,6 +798,12 @@ public final class PracticeDtos {
             List<PerformanceHighlight> highlights,
             List<PracticeResultSummary> history
     ) {}
+
+    public record PracticeProgressPageData(
+            LearningProgressOverview overview,
+            PracticeAnalytics analytics
+    ) {}
+
     public record EliminatedOptionExplanation(
             String optionKey,
             String reasonVi

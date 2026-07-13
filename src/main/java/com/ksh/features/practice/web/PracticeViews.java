@@ -5,6 +5,7 @@ package com.ksh.features.practice.web;
  */
 public final class PracticeViews {
     public static final String INDEX = "practice/index";
+    public static final String CATALOG_CARDS = "practice/fragments/catalog-cards :: cards";
     public static final String SET_DETAIL = "practice/set-detail";
     public static final String TEST_DETAIL = "practice/test-detail";
     public static final String MODE = "practice/mode";

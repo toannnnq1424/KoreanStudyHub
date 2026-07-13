@@ -6,10 +6,45 @@
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   renderHeatmap();
-  renderOverviewCharts();
-  renderAnalyticsCharts();
   switchSkillAccordion('READING');
+  scheduleChartLoading();
 });
+
+function scheduleChartLoading() {
+  const loadWhenIdle = () => {
+    const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 0));
+    schedule(loadChartLibrary, { timeout: 1500 });
+  };
+  if (document.readyState === 'complete') loadWhenIdle();
+  else window.addEventListener('load', loadWhenIdle, { once: true });
+}
+
+function loadChartLibrary() {
+  if (typeof window.Chart !== 'undefined') {
+    renderOverviewCharts();
+    renderAnalyticsCharts();
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
+  script.async = true;
+  script.onload = () => {
+    renderOverviewCharts();
+    renderAnalyticsCharts();
+  };
+  script.onerror = renderChartFallbacks;
+  document.head.appendChild(script);
+}
+
+function renderChartFallbacks() {
+  document.querySelectorAll('.pp-chart-container').forEach(container => {
+    if (container.querySelector('.pp-chart-fallback')) return;
+    const message = document.createElement('p');
+    message.className = 'pp-chart-fallback';
+    message.textContent = 'Biểu đồ chưa tải được. Dữ liệu chi tiết vẫn có trong các bảng bên dưới.';
+    container.appendChild(message);
+  });
+}
 
 // ── TAB SWITCHING & SYNC ──
 function initTabs() {

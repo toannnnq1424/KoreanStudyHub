@@ -44,7 +44,6 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetRow;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestProgress;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView;
@@ -88,7 +87,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.function.Supplier;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
@@ -209,68 +207,6 @@ public class PracticeService {
         this.readTransactionTemplate = null;
         this.nonTransactionalTemplate = null;
         this.writeTransactionTemplate = null;
-    }
-
-    @Transactional(readOnly = true)
-    public List<PracticeSetRow> listPublished() {
-        return setRepository.findByStatusOrderByCreatedAtDesc(PracticeSet.STATUS_PUBLISHED)
-                .stream()
-                .map(PracticeService::toSetRow)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public Map<Long, PracticeSetTestProgress> getSetTestProgress(
-            List<PracticeSetRow> sets, Long userId) {
-        if (sets == null || sets.isEmpty()) {
-            return Map.of();
-        }
-
-        List<Long> setIds = sets.stream()
-                .map(PracticeSetRow::id)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (setIds.isEmpty()) {
-            return Map.of();
-        }
-
-        List<PracticeTest> tests = testRepository
-                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds);
-        Map<Long, List<PracticeSection>> sectionsByTestId = sectionRepository
-                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds)
-                .stream()
-                .filter(section -> section.getTestId() != null)
-                .collect(Collectors.groupingBy(PracticeSection::getTestId));
-        Set<Long> completedSectionIds = attemptRepository
-                .findByUserIdAndSetIdInAndStatusIn(
-                        userId,
-                        setIds,
-                        List.of(PracticeAttempt.STATUS_SUBMITTED, PracticeAttempt.STATUS_GRADED))
-                .stream()
-                .map(PracticeAttempt::getSectionId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        Map<Long, int[]> countersBySetId = new LinkedHashMap<>();
-        for (Long setId : setIds) {
-            countersBySetId.put(setId, new int[2]);
-        }
-        for (PracticeTest test : tests) {
-            int[] counters = countersBySetId.computeIfAbsent(test.getSetId(), ignored -> new int[2]);
-            counters[1]++;
-            List<PracticeSection> sections = sectionsByTestId.getOrDefault(test.getId(), List.of());
-            if (!sections.isEmpty() && sections.stream()
-                    .map(PracticeSection::getId)
-                    .allMatch(completedSectionIds::contains)) {
-                counters[0]++;
-            }
-        }
-
-        Map<Long, PracticeSetTestProgress> progressBySetId = new LinkedHashMap<>();
-        countersBySetId.forEach((setId, counters) -> progressBySetId.put(
-                setId, new PracticeSetTestProgress(counters[0], counters[1])));
-        return progressBySetId;
     }
 
     @Transactional(readOnly = true)
@@ -991,6 +927,7 @@ public class PracticeService {
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
+        if (ids.isEmpty()) return Map.of();
         Map<Long, PracticeSet> result = new LinkedHashMap<>();
         for (PracticeSet set : setRepository.findAllById(ids)) {
             result.put(set.getId(), set);
@@ -1004,6 +941,7 @@ public class PracticeService {
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
+        if (ids.isEmpty()) return Map.of();
         Map<Long, PracticeTest> result = new LinkedHashMap<>();
         for (PracticeTest test : testRepository.findAllById(ids)) {
             result.put(test.getId(), test);
@@ -1017,6 +955,7 @@ public class PracticeService {
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .toList();
+        if (ids.isEmpty()) return Map.of();
         Map<Long, PracticeSection> result = new LinkedHashMap<>();
         for (PracticeSection section : sectionRepository.findAllById(ids)) {
             result.put(section.getId(), section);
@@ -1025,12 +964,9 @@ public class PracticeService {
     }
 
     private com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview buildAttemptProgressOverview(
-            Long userId, String displayName, String avatarUrl) {
-        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
-                userId, PracticeAttempt.STATUS_DISCARDED);
-        List<PracticeAttempt> recentAttempts =
-                attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
-                        userId, PracticeAttempt.STATUS_DISCARDED);
+            String displayName, String avatarUrl, ProgressAttemptData data) {
+        List<PracticeAttempt> allAttempts = data.allAttempts();
+        List<PracticeAttempt> recentAttempts = data.recentAttempts();
         String[] skills = {"READING", "LISTENING", "WRITING", "SPEAKING"};
 
         List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> skillMetrics = new ArrayList<>();
@@ -1113,9 +1049,9 @@ public class PracticeService {
                     d.format(fmt), counts.get(d), mins.get(d)));
         }
 
-        Map<Long, PracticeSet> setsById = loadSetsById(recentAttempts);
-        Map<Long, PracticeTest> testsById = loadTestsById(recentAttempts);
-        Map<Long, PracticeSection> sectionsById = loadSectionsById(recentAttempts);
+        Map<Long, PracticeSet> setsById = data.setsById();
+        Map<Long, PracticeTest> testsById = data.testsById();
+        Map<Long, PracticeSection> sectionsById = data.sectionsById();
         List<PracticeAttempt> recent8 = recentAttempts.subList(0, Math.min(8, recentAttempts.size()));
         List<PracticeResultSummary> recentHistory = new ArrayList<>();
         for (PracticeAttempt attempt : recent8) {
@@ -1136,12 +1072,10 @@ public class PracticeService {
                 totalPracticeMinutes, recentAverageScore, skillMetrics, heatmap, recentHistory);
     }
 
-    private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics buildAttemptPracticeAnalytics(Long userId) {
-        List<PracticeAttempt> allAttempts = attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
-                userId, PracticeAttempt.STATUS_DISCARDED);
-        List<PracticeAttempt> recentAttempts =
-                attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
-                        userId, PracticeAttempt.STATUS_DISCARDED);
+    private com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics buildAttemptPracticeAnalytics(
+            ProgressAttemptData data) {
+        List<PracticeAttempt> allAttempts = data.allAttempts();
+        List<PracticeAttempt> recentAttempts = data.recentAttempts();
 
         if (allAttempts.isEmpty()) {
             return new com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics(
@@ -1186,9 +1120,9 @@ public class PracticeService {
                 .filter(this::hasValidProgressScore)
                 .toList();
         List<PracticeAttempt> last30Scored = scoredRecent.subList(0, Math.min(30, scoredRecent.size()));
-        Map<Long, PracticeSet> setsById = loadSetsById(recentAttempts);
-        Map<Long, PracticeTest> testsById = loadTestsById(recentAttempts);
-        Map<Long, PracticeSection> sectionsById = loadSectionsById(recentAttempts);
+        Map<Long, PracticeSet> setsById = data.setsById();
+        Map<Long, PracticeTest> testsById = data.testsById();
+        Map<Long, PracticeSection> sectionsById = data.sectionsById();
 
         List<com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint> scoreTrend = new ArrayList<>();
         java.time.format.DateTimeFormatter trendFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -1328,15 +1262,36 @@ public class PracticeService {
         return 0;
     }
 
-    @Transactional(readOnly = true)
-    public com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview getLearningProgressOverview(
-            Long userId, String displayName, String avatarUrl) {
-        return buildAttemptProgressOverview(userId, displayName, avatarUrl);
+    private ProgressAttemptData loadProgressAttemptData(Long userId) {
+        List<PracticeAttempt> allAttempts =
+                attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
+                        userId, PracticeAttempt.STATUS_DISCARDED);
+        List<PracticeAttempt> recentAttempts =
+                attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                        userId, PracticeAttempt.STATUS_DISCARDED);
+        return new ProgressAttemptData(
+                allAttempts,
+                recentAttempts,
+                loadSetsById(recentAttempts),
+                loadTestsById(recentAttempts),
+                loadSectionsById(recentAttempts));
     }
 
     @Transactional(readOnly = true)
-    public com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics getPracticeAnalytics(Long userId) {
-        return buildAttemptPracticeAnalytics(userId);
+    public com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData getProgressPageData(
+            Long userId, String displayName, String avatarUrl) {
+        ProgressAttemptData data = loadProgressAttemptData(userId);
+        return new com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData(
+                buildAttemptProgressOverview(displayName, avatarUrl, data),
+                buildAttemptPracticeAnalytics(data));
+    }
+
+    private record ProgressAttemptData(
+            List<PracticeAttempt> allAttempts,
+            List<PracticeAttempt> recentAttempts,
+            Map<Long, PracticeSet> setsById,
+            Map<Long, PracticeTest> testsById,
+            Map<Long, PracticeSection> sectionsById) {
     }
 
     private PracticeSet loadPublished(Long setId) {

@@ -4,8 +4,7 @@ package com.ksh.features.practice.web;
  * Model attribute names shared by practice controllers and templates.
  */
 public final class PracticeModelAttributes {
-    public static final String SETS = "sets";
-    public static final String SET_TEST_PROGRESS = "setTestProgress";
+    public static final String CATALOG = "catalog";
     public static final String VIEW = "view";
     public static final String SUBMISSIONS = "submissions";
     public static final String TEST_ID = "testId";

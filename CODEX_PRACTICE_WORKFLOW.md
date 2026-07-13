@@ -2170,7 +2170,7 @@ Canonical map after reduce-scope:
 ### Phase 13 — Results, Progress & UI/UX Polish
 
 Status:
-NOT_STARTED
+13A_COMPLETE_FOCUSED_GATE_GREEN
 
 Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. It must preserve the existing KSH route chain
@@ -2230,8 +2230,8 @@ progress analytics and retry/operational UX -> 13F; visual/encoding/icons/a11y
 Required Phase 13 slices:
 
 - 13A: design/state foundation and bounded server-backed library preserving the
-  `Set > Test > Skill` hierarchy and skill filter state in the URL,
-  pagination/cursor loading and explicit empty/error/loading states;
+  `Set > Test > Skill` hierarchy and skill filter state in the URL, viewport
+  lazy loading without page-number UI, and explicit empty/error/loading states;
 - 13B: explicit full-test versus skill-mode selection and preflight. Keep
   latest submitted, best score, in-progress attempt and attempt count as
   separate concepts;
@@ -2257,6 +2257,13 @@ Required Phase 13 slices:
   objective types, Writing Q51-Q54, Speaking, desktop/mobile and failure/empty states. The gate
   must include large-catalog performance plus encoding/icon and multi-test /
   multi-skill UAT; research evidence alone cannot satisfy this gate.
+
+Phase 13 slice protocol is mandatory: after each of 13A-13G, audit changed and
+obsolete routes, run only focused tests related to that slice, update the phase
+Markdown checkpoint, then commit and push before starting the next slice. The
+user performs interim visual review. Codex browser QA and the full regression
+suite are consolidated into 13H before Phase 13 closure, not repeated after
+every slice.
 
 Result states must not collapse distinct conditions. At minimum render
 `not_answered`, `not_qualified`, `capture_failed` and `graded` separately, and
@@ -2577,26 +2584,25 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-13 | Phase 12R Single-Scope Reduction Audit | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | N/A | 59cbc78 | Static migration/entity/repository/route/reference inventory; no production code, migration, provider call or test rerun. Inventory found 96 total migration-created tables, 42 in the practice/assessment boundary, 10 generic assessment-governance tables, 2 Speaking-media tables to keep, 19 files with direct assessment-schema references, 31 generic-question-type files, 158 Speaking references and 27 governance-override references. | Multi-certificate/program governance and 12H are cancelled. Target is one implicit KSH scope: R/L single choice, fill blank and true/false/not-given without certificate caps; Writing exactly Q51-Q54; Speaking; Lecturer collaboration; immutable history/materials; and R/L AI explanation. Keep one five-value `question_type`, remove duplicate canonical type plus multiple-choice/matching. Mandatory target drops 14 tables; optional PDF-AI deferral drops six more. | Implement `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`; Phase 13 remains NO-GO. |
 | 2026-07-13 | Phase 12R Single-Scope Reduction Implementation / Practice Code Gate | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED | this commit | 59cbc78 | User narrowed closure to practice feature code only and explicitly skipped browser QA. JDK 17 practice-focused gate on fresh MySQL squashed V25: 860/860 tests, 0 failures/errors/skips. Final squash verification used fresh schema `ksh_reduce_scope_squashed_v25_final`: Flyway `25 - practice single scope final`, `PracticeQuestionRepositoryTest` 6/6, 82 base tables + 1 view, removed generic governance tables still present = 0, live/version question types exactly `ESSAY,FILL_BLANK,SINGLE_CHOICE,SPEAKING,TRUE_FALSE_NOT_GIVEN`. `git diff --check`, practice route/static/mojibake scans and app-port 8080-8090 scan were green. | Implemented single implicit KSH practice scope, removed program/certificate/category/governance/profile routes and tables, kept lecturer collaboration/history/material boundaries, kept Speaking, kept R/L AI explanation, fixed UUID option IDs leaking into wrong-answer analysis, corrected learner progress to count tests instead of per-skill question caps, and squashed V25-V29 into final-state `V25__practice_single_scope_final.sql` rather than copy-paste migration history. Browser QA is not claimed green in this checkpoint. | Commit/push `feature/practice-reduce-scope`. Phase 13 remains NO-GO until user gives separate approval; browser/product QA can be run later as its own gate if requested. |
 | 2026-07-13 | Phase 13 Reduced-Scope Documentation Cleanup | PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED | DOC_ONLY_PHASE_13_SCOPE_CLEANUP | N/A | 8c1cee8 | Documentation-only cleanup; no production code, migration, test, provider call or browser QA. | Reconciled canonical wording after reduce-scope: Phase 13 planning uses one implicit KSH practice scope, `Set > Test > Skill > Group > Question`, five question types, lecturer collaboration and immutable material/history boundaries. Older program/certificate/scenario/profile-governance directions are historical only when they conflict. PREP/IELTS/TOEIC research is học tập/tham khảo UI/UX only; live PREP access requires explicit user permission/account. | Review docs-only diff. Do not implement Phase 13 code or reopen generic governance without a separate GO. |
+| 2026-07-14 | Phase 13A Learner Library and State Foundation | DOC_ONLY_PHASE_13_SCOPE_CLEANUP | COMPLETE_FOCUSED_GATE_GREEN | this commit | c362ef4 | JDK 17 focused unit/service/static gate 92/92, login integration 8/8 and selected catalog/progress Practice integration 8/8; zero failures/errors. Static route/dead-code and changed-script checks completed; no full suite, provider call or browser QA. Integration runtime used legacy schema V29, so this is not clean V1-V25 migration evidence. | Added bounded 12-card server catalog with viewport lazy loading, URL-backed filters, GLOBAL/CLASS learner access, real completed-test state, skill-aware cards and Baekho state cycling. Removed the superseded unbounded catalog/question-count pipeline. Authenticated `/login` now returns `/`; shared remote decoration no longer blocks page rendering, progress charts load after interaction-ready and overview/analytics reuse one server data snapshot. | Commit/push this checkpoint, then start 13B only afterward. Browser/manual closure remains consolidated in 13H. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Current required next action: complete doc-only Phase 13 reduced-scope cleanup
-after pushed commit `8c1cee8`. Do not continue 12H generic
-certificate/skill/task governance. Do not merge, claim product GO or implement
-Phase 13 code in this cleanup. Browser/product QA was explicitly skipped for
-the Phase 12R practice-code checkpoint and must not be implied as green.
+Current required next action: commit and push the completed Phase 13A focused
+checkpoint, then begin 13B only after that push. Do not continue 12H generic
+certificate/skill/task governance. Browser/product QA was not run for 13A and
+must not be implied as green; it is consolidated into mandatory 13H closure.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
-`PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13 implementation remains
-NOT_STARTED until a separate user GO. Phase 13 documentation cleanup is allowed
-by the current user request. Live Speaking AI rollout remains NO-GO. React
-modernization remains future-only after Phase 16. Do not start Phase 13 code or
-perform broad UI/React modernization without the next explicit phase approval.
+`PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13A is
+`COMPLETE_FOCUSED_GATE_GREEN` and 13B remains `NOT_STARTED` until the 13A commit
+is pushed. Live Speaking AI rollout remains NO-GO. React modernization remains
+future-only after Phase 16. Do not perform broad UI/React modernization.
 
 ## Long-Term Direction After Phase 16
 

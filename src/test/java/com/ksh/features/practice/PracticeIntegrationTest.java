@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.User;
+import com.ksh.entities.ClassEntity;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
@@ -32,9 +34,10 @@ import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestProgress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +55,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -87,6 +91,9 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeSetRepository setRepository;
+
+    @Autowired
+    private ClassRepository classRepository;
 
     @Autowired
     private PracticeQuestionRepository questionRepository;
@@ -220,17 +227,19 @@ class PracticeIntegrationTest {
         mockMvc.perform(get("/practice"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/index"))
-                .andExpect(model().attributeExists("sets"))
-                .andExpect(model().attributeExists("setTestProgress"))
+                .andExpect(model().attributeExists("catalog"))
                 .andExpect(result -> {
-                    @SuppressWarnings("unchecked")
-                    Map<Long, PracticeSetTestProgress> progress =
-                            (Map<Long, PracticeSetTestProgress>) result.getModelAndView()
-                                    .getModel().get("setTestProgress");
-                    assertThat(progress.get(practiceSet.getId()))
-                            .isEqualTo(new PracticeSetTestProgress(0, 1));
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    PracticeCatalogCard card = catalog.items().stream()
+                            .filter(item -> practiceSet.getId().equals(item.id()))
+                            .findFirst()
+                            .orElseThrow();
+                    assertThat(card.testCount()).isEqualTo(1);
+                    assertThat(card.completedTests()).isZero();
+                    assertThat(card.state()).isEqualTo("NOT_STARTED");
                 })
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("0/1 bài luyện")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("0/1")));
     }
 
     @Test
@@ -251,12 +260,13 @@ class PracticeIntegrationTest {
         mockMvc.perform(get("/practice"))
                 .andExpect(status().isOk())
                 .andExpect(result -> {
-                    @SuppressWarnings("unchecked")
-                    Map<Long, PracticeSetTestProgress> progress =
-                            (Map<Long, PracticeSetTestProgress>) result.getModelAndView()
-                                    .getModel().get("setTestProgress");
-                    assertThat(progress.get(practiceSet.getId()))
-                            .isEqualTo(new PracticeSetTestProgress(0, 1));
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    PracticeCatalogCard card = catalog.items().stream()
+                            .filter(item -> practiceSet.getId().equals(item.id()))
+                            .findFirst()
+                            .orElseThrow();
+                    assertThat(card.completedTests()).isZero();
                 });
 
         PracticeAttempt listeningAttempt = new PracticeAttempt(
@@ -268,14 +278,110 @@ class PracticeIntegrationTest {
         mockMvc.perform(get("/practice"))
                 .andExpect(status().isOk())
                 .andExpect(result -> {
-                    @SuppressWarnings("unchecked")
-                    Map<Long, PracticeSetTestProgress> progress =
-                            (Map<Long, PracticeSetTestProgress>) result.getModelAndView()
-                                    .getModel().get("setTestProgress");
-                    assertThat(progress.get(practiceSet.getId()))
-                            .isEqualTo(new PracticeSetTestProgress(1, 1));
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    PracticeCatalogCard card = catalog.items().stream()
+                            .filter(item -> practiceSet.getId().equals(item.id()))
+                            .findFirst()
+                            .orElseThrow();
+                    assertThat(card.completedTests()).isEqualTo(1);
                 })
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("1/1 bài luyện")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1/1")));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void catalogFiltersOnServerAndLoadsTheNextBoundedBatchAsAFragment() throws Exception {
+        String marker = "Lazy catalog " + System.nanoTime();
+        for (int index = 1; index <= 13; index++) {
+            setRepository.saveAndFlush(new PracticeSet(
+                    marker + " " + index,
+                    "Bộ đề kiểm tra lazy loading",
+                    PracticeSet.SKILL_READING,
+                    PracticeSet.SCOPE_GLOBAL,
+                    null,
+                    null,
+                    "{}",
+                    PracticeSet.STATUS_PUBLISHED,
+                    lecturer.getId()));
+        }
+
+        mockMvc.perform(get("/practice")
+                        .param("q", marker)
+                        .param("skill", PracticeSet.SKILL_READING))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/index"))
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    assertThat(catalog.search()).isEqualTo(marker);
+                    assertThat(catalog.skill()).isEqualTo(PracticeSet.SKILL_READING);
+                    assertThat(catalog.items()).hasSize(12);
+                    assertThat(catalog.totalElements()).isEqualTo(13);
+                    assertThat(catalog.hasMore()).isTrue();
+                    assertThat(catalog.nextBatch()).isEqualTo(1);
+                });
+
+        mockMvc.perform(get("/practice/catalog")
+                        .param("q", marker)
+                        .param("skill", PracticeSet.SKILL_READING)
+                        .param("batch", "1"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/fragments/catalog-cards :: cards"))
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    assertThat(catalog.items()).hasSize(1);
+                    assertThat(catalog.hasMore()).isFalse();
+                });
+
+        mockMvc.perform(get("/practice")
+                        .param("q", marker)
+                        .param("skill", PracticeSet.SKILL_SPEAKING))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    assertThat(catalog.items()).isEmpty();
+                    assertThat(catalog.totalElements()).isZero();
+                });
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void unrelatedClassSetIsHiddenFromCatalogAndDirectLearnerRoutes() throws Exception {
+        ClassEntity unrelatedClass = classRepository.saveAndFlush(new ClassEntity(
+                "Lớp riêng " + System.nanoTime(),
+                lecturer.getId(),
+                lecturer.getId(),
+                null,
+                LocalDate.now(),
+                LocalDate.now().plusMonths(1),
+                30));
+        String title = "Bộ đề lớp riêng " + System.nanoTime();
+        PracticeSet classSet = setRepository.saveAndFlush(new PracticeSet(
+                title,
+                "Chỉ thành viên lớp được xem",
+                PracticeSet.SKILL_READING,
+                PracticeSet.SCOPE_CLASS,
+                unrelatedClass.getId(),
+                null,
+                "{}",
+                PracticeSet.STATUS_PUBLISHED,
+                lecturer.getId()));
+
+        mockMvc.perform(get("/practice").param("q", title))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch) result.getModelAndView()
+                            .getModel().get("catalog");
+                    assertThat(catalog.items()).isEmpty();
+                })
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("data-set-id=\"" + classSet.getId() + "\""))));
+
+        mockMvc.perform(get("/practice/sets/" + classSet.getId()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1569,7 +1675,8 @@ class PracticeIntegrationTest {
                 .andExpect(status().isNotFound());
         assertThat(practiceService.getSetAttemptHistory(practiceSet.getId(), student.getId()))
                 .noneMatch(row -> row.id().equals(discarded.getId()));
-        assertThat(practiceService.getLearningProgressOverview(student.getId(), "Student", "").totalAttempts())
+        assertThat(practiceService.getProgressPageData(student.getId(), "Student", "")
+                .overview().totalAttempts())
                 .isZero();
 
         Long restartedId = practiceService.startAttempt(

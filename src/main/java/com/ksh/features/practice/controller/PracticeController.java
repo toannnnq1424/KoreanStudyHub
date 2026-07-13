@@ -3,12 +3,15 @@ package com.ksh.features.practice.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfDraftView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeSetRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
+import com.ksh.features.practice.service.PracticeCatalogService;
+import com.ksh.features.practice.service.PracticeLearnerAccessService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import com.ksh.features.practice.web.PracticeFormFields;
@@ -50,6 +53,8 @@ public class PracticeController {
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);
 
     private final PracticeService practiceService;
+    private final PracticeCatalogService catalogService;
+    private final PracticeLearnerAccessService learnerAccessService;
     private final PracticeAttemptDiscardService attemptDiscardService;
     private final PracticeSpeakingMediaService speakingMediaService;
     private final UserRepository userRepository;
@@ -59,6 +64,8 @@ public class PracticeController {
     private final boolean speakingMediaPlaybackEnabled;
 
     public PracticeController(PracticeService practiceService,
+                              PracticeCatalogService catalogService,
+                              PracticeLearnerAccessService learnerAccessService,
                               PracticeAttemptDiscardService attemptDiscardService,
                               PracticeSpeakingMediaService speakingMediaService,
                               UserRepository userRepository,
@@ -69,6 +76,8 @@ public class PracticeController {
                               @Value("${app.practice.speaking-media.playback-api-enabled:false}")
                               boolean speakingMediaPlaybackEnabled) {
         this.practiceService = practiceService;
+        this.catalogService = catalogService;
+        this.learnerAccessService = learnerAccessService;
         this.attemptDiscardService = attemptDiscardService;
         this.speakingMediaService = speakingMediaService;
         this.userRepository = userRepository;
@@ -79,13 +88,30 @@ public class PracticeController {
     }
 
     @GetMapping({PracticeRoutes.HOME, PracticeRoutes.HOME_SLASH})
-    public String index(@AuthenticationPrincipal KshUserDetails user, Model model) {
-        List<PracticeSetRow> sets = practiceService.listPublished();
-        model.addAttribute(PracticeModelAttributes.SETS, sets);
+    public String index(@AuthenticationPrincipal KshUserDetails user,
+                        @RequestParam(value = "q", defaultValue = "") String search,
+                        @RequestParam(value = "skill", defaultValue = "ALL") String skill,
+                        @RequestParam(value = "classId", required = false) Long classId,
+                        Model model) {
         model.addAttribute(
-                PracticeModelAttributes.SET_TEST_PROGRESS,
-                practiceService.getSetTestProgress(sets, user.getId()));
+                PracticeModelAttributes.CATALOG,
+                catalogService.loadBatch(
+                        user.getId(), new PracticeCatalogQuery(search, skill, classId, 0)));
         return PracticeViews.INDEX;
+    }
+
+    @GetMapping(PracticeRoutes.CATALOG_BATCH)
+    public String catalogBatch(@AuthenticationPrincipal KshUserDetails user,
+                               @RequestParam(value = "q", defaultValue = "") String search,
+                               @RequestParam(value = "skill", defaultValue = "ALL") String skill,
+                               @RequestParam(value = "classId", required = false) Long classId,
+                               @RequestParam(value = "batch", defaultValue = "1") int batch,
+                               Model model) {
+        model.addAttribute(
+                PracticeModelAttributes.CATALOG,
+                catalogService.loadBatch(
+                        user.getId(), new PracticeCatalogQuery(search, skill, classId, batch)));
+        return PracticeViews.CATALOG_CARDS;
     }
 
     // --- Legacy Redirects ---
@@ -129,6 +155,7 @@ public class PracticeController {
     public String setDetail(@PathVariable Long setId,
                             @AuthenticationPrincipal KshUserDetails user,
                             Model model) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         PracticeSetView view = practiceService.getPractice(setId);
         model.addAttribute(PracticeModelAttributes.VIEW, view);
         model.addAttribute(PracticeModelAttributes.SUBMISSIONS, practiceService.getSetAttemptHistory(setId, user.getId()));
@@ -140,6 +167,7 @@ public class PracticeController {
                              @PathVariable Long testId,
                              @AuthenticationPrincipal KshUserDetails user,
                              Model model) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         PracticeSetView view = practiceService.getPractice(setId);
         List<PracticeSection> testSections = practiceService.getSectionsForTest(setId, testId);
         Map<Long, PracticeAttempt> inProgressAttempts = practiceService.getInProgressAttemptsBySection(testId, user.getId());
@@ -172,7 +200,9 @@ public class PracticeController {
     @GetMapping(PracticeRoutes.TEST_MODE)
     public String testMode(@PathVariable Long setId,
                            @PathVariable Long testId,
+                           @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         PracticeSetView view = practiceService.getPractice(setId);
         model.addAttribute(PracticeModelAttributes.VIEW, view);
         model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
@@ -186,6 +216,7 @@ public class PracticeController {
                                 @RequestParam(PracticeFormFields.SECTION_ID) Long sectionId,
                                 @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                                 @AuthenticationPrincipal KshUserDetails user) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
         return PracticeRoutes.redirectToAttempt(attemptId, mode);
     }
@@ -413,10 +444,12 @@ public class PracticeController {
         String avatar = userEntity != null ? userEntity.getAvatarUrl() : "";
         if (avatar == null) avatar = "";
 
+        PracticeProgressPageData pageData =
+                practiceService.getProgressPageData(user.getId(), name, avatar);
         com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview overview =
-                practiceService.getLearningProgressOverview(user.getId(), name, avatar);
+                pageData.overview();
         com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics analytics =
-                practiceService.getPracticeAnalytics(user.getId());
+                pageData.analytics();
 
         model.addAttribute(PracticeModelAttributes.TAB, tab);
         model.addAttribute(PracticeModelAttributes.OVERVIEW, overview);
