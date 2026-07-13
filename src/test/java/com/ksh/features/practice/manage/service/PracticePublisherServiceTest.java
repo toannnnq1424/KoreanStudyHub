@@ -10,6 +10,7 @@ import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.WritingTaskType;
+import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeEditLogRepository;
@@ -20,20 +21,16 @@ import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -126,17 +123,10 @@ class PracticePublisherServiceTest {
     }
 
     @Test
-    void writingTaskTypeValuesRemainExact() {
-        assertArrayEquals(
-                new WritingTaskType[]{
-                        WritingTaskType.Q51,
-                        WritingTaskType.Q52,
-                        WritingTaskType.Q53,
-                        WritingTaskType.Q54,
-                        WritingTaskType.GENERAL
-                },
-                WritingTaskType.values()
-        );
+    void authoringRulesExposeOnlyFourWritingTasks() {
+        assertEquals(Set.of("Q51", "Q52", "Q53", "Q54"),
+                new PracticeContentRules().requiredWritingTasks().stream()
+                        .map(Enum::name).collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test
@@ -151,203 +141,51 @@ class PracticePublisherServiceTest {
                 """, sql);
     }
 
-    @ParameterizedTest
-    @EnumSource(WritingTaskType.class)
-    void publishPersistsWritingEssayTaskMetadata(WritingTaskType taskType) {
-        publish(newDraft(draftJson("WRITING", "ESSAY", taskType.name())));
+    @Test
+    void publishPersistsExactlyQ51ToQ54ForWriting() {
+        publish(newDraft(completeWritingDraftJson()));
 
-        assertEquals(1, savedQuestions.size());
-        assertEquals(taskType, savedQuestions.get(0).getWritingTaskType());
-        assertEquals(1, savedQuestions.get(0).getQuestionNo());
-        assertEquals(0, savedQuestions.get(0).getDisplayOrder());
-        assertEquals(1, savedGroups.get(0).getQuestionFrom());
-        assertEquals(1, savedGroups.get(0).getQuestionTo());
+        assertEquals(4, savedQuestions.size());
+        assertEquals(List.of(WritingTaskType.Q51, WritingTaskType.Q52,
+                        WritingTaskType.Q53, WritingTaskType.Q54),
+                savedQuestions.stream().map(PracticeQuestion::getWritingTaskType).toList());
+        assertEquals(List.of(51, 52, 53, 54),
+                savedQuestions.stream().map(PracticeQuestion::getQuestionNo).toList());
         assertEquals(1, savedTests.size());
         assertEquals(savedTests.get(0).getId(), savedSections.get(0).getTestId());
     }
 
     @Test
-    void publishAllowsMissingWritingEssayTaskMetadataAsNull() {
-        publish(newDraft(draftJsonWithoutTask("WRITING", "ESSAY")));
+    void incompleteWritingSectionIsBlockedBeforeGraphMutation() {
+        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q51"));
 
-        assertNull(savedQuestions.get(0).getWritingTaskType());
-    }
-
-    @Test
-    void firstPublishCarriesProgramVersionAndTemplateBinding() {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q53"));
-        draft.setAssessmentProgramCode("TOPIK");
-        draft.setAssessmentProgramVersionId(42L);
-        draft.setExamTemplateCode("TOPIK_II");
-
-        publish(draft);
-
-        assertEquals("TOPIK", savedSet.get().getAssessmentProgramCode());
-        assertEquals(42L, savedSet.get().getAssessmentProgramVersionId());
-        assertEquals("TOPIK_II", savedSet.get().getExamTemplateCode());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"", "   "})
-    void publishBlocksBlankWritingEssayTaskMetadataBeforeGraphMutation(String taskValue) {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", taskValue));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        assertEquals("Vui lòng chọn loại bài Writing cho câu tự luận.", exception.getMessage());
-        verify(setRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"Q51_52", "q53", "CUSTOM"})
-    void invalidWritingEssayTaskMetadataFailsBeforeGraphMutation(String taskValue) {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", taskValue));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        assertEquals("Loại bài Writing không hợp lệ.", exception.getMessage());
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
+        assertThrows(IllegalStateException.class, () -> publish(draft));
         verify(setRepository, never()).save(any());
         verify(questionRepository, never()).save(any());
     }
 
     @Test
-    void surroundingWhitespaceWritingEssayTaskMetadataIsInvalid() {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", " Q51 "));
+    void invalidWritingTaskFailsBeforeGraphMutation() {
+        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "GENERAL"));
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        assertEquals("Loại bài Writing không hợp lệ.", exception.getMessage());
+        assertThrows(IllegalStateException.class, () -> publish(draft));
         verify(setRepository, never()).save(any());
         verify(questionRepository, never()).save(any());
     }
 
     @Test
-    void nonTextualWritingEssayTaskMetadataFailsBeforeGraphMutation() {
-        PracticeDraft draft = newDraft(draftJsonWithRawTask("WRITING", "ESSAY", "53"));
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        assertEquals("Loại bài Writing không hợp lệ.", exception.getMessage());
-        verify(setRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @Test
-    void lateInvalidWritingEssayTaskMetadataFailsBeforeAnyDraftMutation() {
+    void crossSkillQuestionTypeIsBlocked() {
         PracticeDraft draft = newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "ESSAY", "Q51"),
-                questionJson("READING", "ESSAY", "Q54"),
-                questionJson("WRITING", "ESSAY", "Q52"),
-                questionJson("WRITING", "ESSAY", "Q51_52")
-        ));
+                questionJson("READING", "ESSAY", "Q54")));
 
-        assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
+        assertThrows(IllegalStateException.class, () -> publish(draft));
         verify(setRepository, never()).save(any());
-        verify(sectionRepository, never()).save(any());
-        verify(groupRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-        verify(draftRepository, never()).save(any());
-        verify(editLogRepository, never()).save(any());
-    }
-
-    @Test
-    void lateBlankWritingEssayTaskMetadataFailsBeforeAnyDraftMutation() {
-        PracticeDraft draft = newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "ESSAY", "Q51"),
-                questionJson("WRITING", "ESSAY", "Q52"),
-                questionJson("WRITING", "ESSAY", "")
-        ));
-
-        assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        verify(setRepository, never()).save(any());
-        verify(sectionRepository, never()).save(any());
-        verify(groupRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-        verify(draftRepository, never()).save(any());
-        verify(editLogRepository, never()).save(any());
-    }
-
-    @Test
-    void invalidRepublishMetadataDoesNotDeleteExistingGraph() {
-        PracticeDraft draft = newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "ESSAY", "Q51"),
-                questionJson("WRITING", "ESSAY", "NOT_A_TASK")
-        ));
-        draft.setPublishedSetId(77L);
-        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
-                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
-        assignId(existingSet, 77L);
-        savedSet.set(existingSet);
-
-        assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(setRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @Test
-    void blankRepublishMetadataDoesNotDeleteExistingGraph() {
-        PracticeDraft draft = newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "ESSAY", "Q51"),
-                questionJson("WRITING", "ESSAY", "")
-        ));
-        draft.setPublishedSetId(77L);
-        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
-                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
-        assignId(existingSet, 77L);
-        savedSet.set(existingSet);
-
-        assertThrows(IllegalArgumentException.class, () -> publish(draft));
-
-        verify(questionRepository, never()).deleteBySetId(any());
-        verify(groupRepository, never()).deleteBySetId(any());
-        verify(sectionRepository, never()).deleteBySetId(any());
-        verify(setRepository, never()).save(any());
-        verify(questionRepository, never()).save(any());
-    }
-
-    @Test
-    void staleEssayTaskMetadataIsIgnoredForMcqAndNonWritingQuestions() {
-        publish(newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "SINGLE_CHOICE", "Q53"),
-                questionJson("READING", "ESSAY", "Q54"),
-                questionJson("LISTENING", "ESSAY", "GENERAL")
-        )));
-
-        assertEquals(3, savedQuestions.size());
-        assertNull(savedQuestions.get(0).getWritingTaskType());
-        assertNull(savedQuestions.get(1).getWritingTaskType());
-        assertNull(savedQuestions.get(2).getWritingTaskType());
-    }
-
-    @Test
-    void invalidStaleEssayTaskMetadataIsIgnoredForNonTargetQuestions() {
-        publish(newDraft(draftJsonWithQuestions(
-                questionJson("WRITING", "SINGLE_CHOICE", "Q51_52"),
-                questionJsonWithRawTask("WRITING", "SINGLE_CHOICE", "53"),
-                questionJson("READING", "ESSAY", "NOT_A_TASK"),
-                questionJsonWithRawTask("LISTENING", "ESSAY", "{\"task\":\"Q54\"}"),
-                questionJsonWithRawTask("LISTENING", "ESSAY", "[\"Q54\"]")
-        )));
-
-        assertEquals(5, savedQuestions.size());
-        savedQuestions.forEach(question -> assertNull(question.getWritingTaskType()));
     }
 
     @Test
     void speakingEssayDraftIsBlockedBeforePublishingMutation() {
         PracticeDraft draft = newDraft(draftJsonWithQuestions(
-                questionJson("SPEAKING", "ESSAY", "GENERAL")
-        ));
+                questionJson("SPEAKING", "ESSAY", "Q54")));
 
         assertThrows(IllegalStateException.class, () -> publish(draft));
 
@@ -360,9 +198,9 @@ class PracticePublisherServiceTest {
 
     @Test
     void republishUsesCurrentDraftMetadataAndKeepsSectionLocalRenumbering() {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q52"));
+        PracticeDraft draft = newDraft(validReadingDraftJson());
         draft.setPublishedSetId(77L);
-        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
+        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
         assignId(existingSet, 77L);
         savedSet.set(existingSet);
@@ -371,15 +209,15 @@ class PracticePublisherServiceTest {
 
         assertEquals(77L, setId);
         verify(questionRepository).deleteBySetId(77L);
-        assertEquals(WritingTaskType.Q52, savedQuestions.get(0).getWritingTaskType());
+        assertNull(savedQuestions.get(0).getWritingTaskType());
         assertEquals(1, savedQuestions.get(0).getQuestionNo());
     }
 
     @Test
     void republishWithLearnerHistoryBlocksBeforeGraphOrMetadataMutation() {
-        PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "Q52"));
+        PracticeDraft draft = newDraft(validReadingDraftJson());
         draft.setPublishedSetId(77L);
-        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
+        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
         assignId(existingSet, 77L);
         savedSet.set(existingSet);
@@ -400,7 +238,7 @@ class PracticePublisherServiceTest {
 
     @Test
     void firstPublishDoesNotInvokeHistoryGuardForNewSet() {
-        publish(newDraft(draftJson("WRITING", "ESSAY", "Q52")));
+        publish(newDraft(validReadingDraftJson()));
 
         verify(mutationGuard, never()).lockAndAssertRepublishAllowed(any());
         assertEquals(1, savedEditLogs.size());
@@ -418,47 +256,17 @@ class PracticePublisherServiceTest {
     }
 
     @Test
-    void republishClearsMetadataWhenDraftRemovesTaskField() {
-        PracticeDraft draft = newDraft(draftJsonWithoutTask("WRITING", "ESSAY"));
-        draft.setPublishedSetId(88L);
-        PracticeSet existingSet = new PracticeSet("Old", "Old", "WRITING", "TOPIK_II",
-                "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
-        assignId(existingSet, 88L);
-        savedSet.set(existingSet);
-
-        publish(draft);
-
-        assertNull(savedQuestions.get(0).getWritingTaskType());
-    }
-
-    @Test
-    void publishSnapshotPreservesExplicitWritingTaskMetadata() throws Exception {
-        publish(newDraft(draftJson("WRITING", "ESSAY", "GENERAL")));
+    void publishSnapshotPreservesQ51ToQ54Identity() throws Exception {
+        publish(newDraft(completeWritingDraftJson()));
 
         assertEquals(1, savedEditLogs.size());
         JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
-        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
-        assertEquals("GENERAL", question.path("essayTaskType").asText());
-    }
-
-    @Test
-    void publishSnapshotOmitsNullWritingTaskMetadata() throws Exception {
-        publish(newDraft(draftJsonWithoutTask("WRITING", "ESSAY")));
-
-        JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
-        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
-        assertFalse(question.has("essayTaskType"));
-    }
-
-    @Test
-    void publishSnapshotOmitsStaleNonWritingTaskMetadata() throws Exception {
-        publish(newDraft(draftJsonWithQuestions(
-                questionJson("READING", "ESSAY", "Q54")
-        )));
-
-        JsonNode after = objectMapper.readTree(savedEditLogs.get(0).getAfterSnapshotJson());
-        JsonNode question = after.path("sections").get(0).path("groups").get(0).path("questions").get(0);
-        assertFalse(question.has("essayTaskType"));
+        JsonNode questions = after.path("sections").get(0).path("groups").get(0)
+                .path("questions");
+        assertEquals(List.of("Q51", "Q52", "Q53", "Q54"),
+                java.util.stream.StreamSupport.stream(questions.spliterator(), false)
+                        .map(question -> question.path("essayTaskType").asText())
+                        .toList());
     }
 
     @Test
@@ -536,15 +344,22 @@ class PracticePublisherServiceTest {
                 section.put("testNo", testNo);
                 section.put("testClientId", testClientId);
                 section.put("lessonCode", prefix + testNo);
-                int questionNo = 1;
+                int questionNo = "WRITING".equals(skill) ? 51 : 1;
                 for (int groupIndex = 0; groupIndex < section.path("groups").size(); groupIndex++) {
                     com.fasterxml.jackson.databind.node.ObjectNode group =
                             (com.fasterxml.jackson.databind.node.ObjectNode) section.path("groups").get(groupIndex);
                     group.put("clientId", "group-" + testNo + "-" + (groupIndex + 1));
                     group.put("groupCode", prefix + testNo + "." + (groupIndex + 1));
                     for (JsonNode value : group.path("questions")) {
-                        ((com.fasterxml.jackson.databind.node.ObjectNode) value)
-                                .put("questionNo", questionNo++);
+                        com.fasterxml.jackson.databind.node.ObjectNode question =
+                                (com.fasterxml.jackson.databind.node.ObjectNode) value;
+                        String task = question.path("essayTaskType").asText("");
+                        if ("WRITING".equals(skill) && task.matches("Q5[1-4]")) {
+                            question.put("questionNo", Integer.parseInt(task.substring(1)));
+                        } else {
+                            question.put("questionNo", questionNo);
+                        }
+                        questionNo = question.path("questionNo").asInt() + 1;
                     }
                 }
             }
@@ -555,7 +370,6 @@ class PracticePublisherServiceTest {
         return new PracticeDraft(
                 "Draft",
                 "Description",
-                "TOPIK_II",
                 "GLOBAL",
                 null,
                 "DRAFT",
@@ -566,6 +380,35 @@ class PracticePublisherServiceTest {
 
     private String draftJson(String skill, String questionType, String taskValue) {
         return draftJsonWithQuestions(questionJson(skill, questionType, taskValue));
+    }
+
+    private String validReadingDraftJson() {
+        return draftJsonWithQuestions(
+                questionJson("READING", "SINGLE_CHOICE", "Q54"));
+    }
+
+    private String completeWritingDraftJson() {
+        return """
+                {
+                  "document": {},
+                  "sections": [{
+                    "title": "Writing",
+                    "skill": "WRITING",
+                    "sectionType": "DEFAULT",
+                    "durationMinutes": 50,
+                    "totalPoints": 100,
+                    "groups": [{
+                      "label": "Writing Q51-Q54",
+                      "instruction": "Viết theo yêu cầu.",
+                      "questions": [%s]
+                    }]
+                  }]
+                }
+                """.formatted(String.join(",",
+                questionJson("WRITING", "ESSAY", "Q51"),
+                questionJson("WRITING", "ESSAY", "Q52"),
+                questionJson("WRITING", "ESSAY", "Q53"),
+                questionJson("WRITING", "ESSAY", "Q54")));
     }
 
     private String draftJsonWithoutTask(String skill, String questionType) {

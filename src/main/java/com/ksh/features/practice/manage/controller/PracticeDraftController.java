@@ -6,7 +6,6 @@ import com.ksh.features.practice.manage.service.PracticeDraftPreviewService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
-import com.ksh.features.practice.manage.service.PracticeOverrideContextService;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.security.KshUserDetails;
@@ -26,7 +25,7 @@ import java.util.Set;
 
 @Controller
 @RequestMapping("/practice/manage")
-@PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+@PreAuthorize(Roles.PREAUTH_LECTURER)
 public class PracticeDraftController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeDraftController.class);
@@ -43,7 +42,6 @@ public class PracticeDraftController {
     private final AssessmentAuthoringCatalogService authoringCatalogService;
     private final PracticeDraftPreviewService draftPreviewService;
     private final LecturerAssetService assetService;
-    private final PracticeOverrideContextService overrideContextService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftController(PracticeDraftService draftService,
@@ -51,21 +49,19 @@ public class PracticeDraftController {
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService,
                                    PracticeDraftPreviewService draftPreviewService,
-                                   LecturerAssetService assetService,
-                                   PracticeOverrideContextService overrideContextService) {
+                                   LecturerAssetService assetService) {
         this.draftService = draftService;
         this.publisherService = publisherService;
         this.draftValidator = draftValidator;
         this.authoringCatalogService = authoringCatalogService;
         this.draftPreviewService = draftPreviewService;
         this.assetService = assetService;
-        this.overrideContextService = overrideContextService;
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator) {
-        this(draftService, publisherService, draftValidator, null, null, null, null);
+        this(draftService, publisherService, draftValidator, null, null, null);
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
@@ -73,7 +69,7 @@ public class PracticeDraftController {
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService) {
         this(draftService, publisherService, draftValidator,
-                authoringCatalogService, null, null, null);
+                authoringCatalogService, null, null);
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
@@ -82,7 +78,7 @@ public class PracticeDraftController {
                                    AssessmentAuthoringCatalogService authoringCatalogService,
                                    PracticeDraftPreviewService draftPreviewService) {
         this(draftService, publisherService, draftValidator, authoringCatalogService,
-                draftPreviewService, null, null);
+                draftPreviewService, null);
     }
 
     @GetMapping("/create")
@@ -93,11 +89,9 @@ public class PracticeDraftController {
 
     @GetMapping("/drafts/{draftId}/exit")
     public String exitDraft(@PathVariable("draftId") Long draftId,
-                            @AuthenticationPrincipal KshUserDetails user,
-                            jakarta.servlet.http.HttpSession session) {
+                            @AuthenticationPrincipal KshUserDetails user) {
         try {
-            String reason = overrideReason(session, draftId, null);
-            PracticeDraft draft = draftService.getDraft(draftId, user.getId(), reason);
+            PracticeDraft draft = draftService.getDraft(draftId, user.getId());
             String json = draft.getDraftJson();
             boolean isEmpty = true;
             if (json != null && !json.isBlank()) {
@@ -111,23 +105,21 @@ public class PracticeDraftController {
                 }
             }
             if (isEmpty) {
-                draftService.deleteDraft(draftId, user.getId(), reason);
+                draftService.deleteDraft(draftId, user.getId());
                 log.info("[DraftController] Deleted empty draft id={} on exit", draftId);
             }
         } catch (Exception e) {
             log.error("[DraftController] Exit draft cleanup failed for draftId={}", draftId, e);
         }
-        clearOverrideContext(session, draftId);
         return "redirect:/practice/manage";
     }
 
     @GetMapping("/drafts/{draftId}")
     public String editDraft(@PathVariable("draftId") Long draftId,
                             @AuthenticationPrincipal KshUserDetails user,
-                            jakarta.servlet.http.HttpSession session,
                             Model model) {
         PracticeDraft draft = draftService.getDraft(
-                draftId, user.getId(), overrideReason(session, draftId, null));
+                draftId, user.getId());
         model.addAttribute("draft", draft);
         model.addAttribute("draftJson", draft.getDraftJson());
         if (authoringCatalogService != null) {
@@ -149,11 +141,8 @@ public class PracticeDraftController {
     @ResponseBody
     public ResponseEntity<?> previewDraft(@PathVariable("draftId") Long draftId,
                                           @RequestBody Map<String, Object> payload,
-                                          @AuthenticationPrincipal KshUserDetails user,
-                                          jakarta.servlet.http.HttpSession session) {
-        String reason = overrideReason(session, draftId,
-                stringValue(payload.get("overrideReason")));
-        draftService.getDraft(draftId, user.getId(), reason);
+                                          @AuthenticationPrincipal KshUserDetails user) {
+        draftService.getDraft(draftId, user.getId());
         if (draftPreviewService == null) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Draft preview unavailable."));
         }
@@ -173,8 +162,7 @@ public class PracticeDraftController {
     @ResponseBody
     public ResponseEntity<?> autosave(@PathVariable("draftId") Long draftId,
                                       @RequestBody Map<String, Object> payload,
-                                      @AuthenticationPrincipal KshUserDetails user,
-                                      jakarta.servlet.http.HttpSession session) {
+                                      @AuthenticationPrincipal KshUserDetails user) {
         try {
             String draftJson = (String) payload.get("draftJson");
             String title = (String) payload.get("title");
@@ -187,11 +175,9 @@ public class PracticeDraftController {
                 } catch (NumberFormatException ignored) {}
             }
 
-            String overrideReason = overrideReason(session, draftId,
-                    stringValue(payload.get("overrideReason")));
             PracticeDraft saved = draftService.saveDraftState(
                     draftId, user.getId(), draftJson, title, description,
-                    clientVersion, overrideReason);
+                    clientVersion);
             
             // Run validation on the fly to return to UI
             PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(saved.getDraftJson());
@@ -219,17 +205,11 @@ public class PracticeDraftController {
 
     @PostMapping("/drafts/{draftId}/publish")
     public String publishDraft(@PathVariable("draftId") Long draftId,
-                               @RequestParam(value = "overrideReason", required = false)
-                               String explicitOverrideReason,
                                @AuthenticationPrincipal KshUserDetails user,
-                               jakarta.servlet.http.HttpSession session,
                                RedirectAttributes redirectAttributes) {
         try {
-            String overrideReason = overrideReason(
-                    session, draftId, explicitOverrideReason);
             Long setId = publisherService.publish(
-                    draftId, user.getId(), overrideReason);
-            clearOverrideContext(session, draftId);
+                    draftId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Xuất bản bộ luyện tập thành công!");
             return "redirect:/practice/sets/" + setId;
         } catch (PublishedPracticeGraphMutationBlockedException e) {
@@ -244,15 +224,10 @@ public class PracticeDraftController {
 
     @PostMapping("/drafts/{draftId}/delete")
     public String deleteDraft(@PathVariable("draftId") Long draftId,
-                              @RequestParam(value = "overrideReason", required = false)
-                              String explicitOverrideReason,
                               @AuthenticationPrincipal KshUserDetails user,
-                              jakarta.servlet.http.HttpSession session,
                               RedirectAttributes redirectAttributes) {
         try {
-            draftService.deleteDraft(draftId, user.getId(),
-                    overrideReason(session, draftId, explicitOverrideReason));
-            clearOverrideContext(session, draftId);
+            draftService.deleteDraft(draftId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Đã xoá bản nháp thành công.");
             return "redirect:/practice/manage";
         } catch (Exception e) {
@@ -266,16 +241,12 @@ public class PracticeDraftController {
     @ResponseBody
     public ResponseEntity<?> uploadAudio(@PathVariable("draftId") Long draftId,
                                          @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
-                                         @RequestParam(value = "overrideReason", required = false)
-                                         String explicitOverrideReason,
-                                         @AuthenticationPrincipal KshUserDetails user,
-                                         jakarta.servlet.http.HttpSession session) {
+                                         @AuthenticationPrincipal KshUserDetails user) {
         try {
             validateFilename(file, AUDIO_EXTENSIONS, "âm thanh");
             if (assetService == null) throw new IllegalStateException("Asset service unavailable.");
             com.ksh.entities.LecturerAsset asset = assetService.createDraftUploadAsset(
-                    draftId, user.getId(), file, "AUDIO", MAX_AUDIO_BYTES,
-                    overrideReason(session, draftId, explicitOverrideReason));
+                    draftId, user.getId(), file, "AUDIO", MAX_AUDIO_BYTES);
             return ResponseEntity.ok(Map.of(
                     "assetId", asset.getId(),
                     "url", "/practice/materials/" + asset.getId() + "/content",
@@ -296,16 +267,12 @@ public class PracticeDraftController {
     @org.springframework.web.bind.annotation.ResponseBody
     public org.springframework.http.ResponseEntity<?> uploadImage(@PathVariable("draftId") Long draftId,
                                                                  @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
-                                                                 @RequestParam(value = "overrideReason", required = false)
-                                                                 String explicitOverrideReason,
-                                                                 @AuthenticationPrincipal KshUserDetails user,
-                                                                 jakarta.servlet.http.HttpSession session) {
+                                                                 @AuthenticationPrincipal KshUserDetails user) {
         try {
             validateFilename(file, IMAGE_EXTENSIONS, "ảnh");
             if (assetService == null) throw new IllegalStateException("Asset service unavailable.");
             com.ksh.entities.LecturerAsset asset = assetService.createDraftUploadAsset(
-                    draftId, user.getId(), file, "IMAGE", MAX_IMAGE_BYTES,
-                    overrideReason(session, draftId, explicitOverrideReason));
+                    draftId, user.getId(), file, "IMAGE", MAX_IMAGE_BYTES);
             return org.springframework.http.ResponseEntity.ok(Map.of(
                     "assetId", asset.getId(),
                     "url", "/practice/materials/" + asset.getId() + "/content",
@@ -320,20 +287,6 @@ public class PracticeDraftController {
             return ResponseEntity.internalServerError().body(Map.of(
                     "error", "Không thể lưu tệp ảnh."));
         }
-    }
-
-    public ResponseEntity<?> uploadAudio(
-            Long draftId,
-            org.springframework.web.multipart.MultipartFile file,
-            KshUserDetails user) {
-        return uploadAudio(draftId, file, null, user, null);
-    }
-
-    public ResponseEntity<?> uploadImage(
-            Long draftId,
-            org.springframework.web.multipart.MultipartFile file,
-            KshUserDetails user) {
-        return uploadImage(draftId, file, null, user, null);
     }
 
     private static void validateFilename(org.springframework.web.multipart.MultipartFile file,
@@ -352,24 +305,4 @@ public class PracticeDraftController {
         }
     }
 
-    private String overrideReason(jakarta.servlet.http.HttpSession session,
-                                  Long draftId, String explicitReason) {
-        if (overrideContextService == null) {
-            return explicitReason;
-        }
-        if (explicitReason != null && !explicitReason.isBlank()) {
-            overrideContextService.establishForDraft(session, draftId, explicitReason);
-        }
-        return overrideContextService.reasonForDraft(session, draftId, explicitReason);
-    }
-
-    private void clearOverrideContext(jakarta.servlet.http.HttpSession session, Long draftId) {
-        if (overrideContextService != null) {
-            overrideContextService.clearDraft(session, draftId);
-        }
-    }
-
-    private static String stringValue(Object value) {
-        return value == null ? null : value.toString();
-    }
 }

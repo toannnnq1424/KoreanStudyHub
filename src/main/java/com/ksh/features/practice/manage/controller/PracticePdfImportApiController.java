@@ -2,7 +2,7 @@ package com.ksh.features.practice.manage.controller;
 
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeDraft;
-import com.ksh.entities.PracticeDraftAssetUsage;
+import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.PracticePdfPageExtraction;
@@ -10,7 +10,6 @@ import com.ksh.features.practice.manage.service.*;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.security.KshUserDetails;
-import com.ksh.security.Role;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/practice/manage")
-@PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+@PreAuthorize(Roles.PREAUTH_LECTURER)
 public class PracticePdfImportApiController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticePdfImportApiController.class);
@@ -48,7 +47,6 @@ public class PracticePdfImportApiController {
     private final PracticeImportDraftService importDraftService;
     private final PracticeImportSnapshotService snapshotService;
     private final PracticePdfPreviewService previewService;
-    private final PracticeOverrideContextService overrideContextService;
 
     public PracticePdfImportApiController(PracticePdfImportSessionService sessionService,
                                           PracticePdfRegionService regionService,
@@ -61,8 +59,7 @@ public class PracticePdfImportApiController {
                                           PracticePdfDraftAssembler draftAssembler,
                                           PracticeImportDraftService importDraftService,
                                           PracticeImportSnapshotService snapshotService,
-                                          PracticePdfPreviewService previewService,
-                                          PracticeOverrideContextService overrideContextService) {
+                                          PracticePdfPreviewService previewService) {
         this.sessionService = sessionService;
         this.regionService = regionService;
         this.pageExtractionService = pageExtractionService;
@@ -75,28 +72,19 @@ public class PracticePdfImportApiController {
         this.importDraftService = importDraftService;
         this.snapshotService = snapshotService;
         this.previewService = previewService;
-        this.overrideContextService = overrideContextService;
     }
 
     @PostMapping("/import-sessions")
     public ResponseEntity<PracticePdfImportSession> uploadPdf(@RequestParam("file") MultipartFile file,
-                                                              @RequestParam(value = "examTemplateCode", required = false) String examTemplateCode,
-                                                              @RequestParam(value = "examCategory", required = false) String legacyExamCategory,
                                                               @RequestParam(value = "title", required = false) String title,
                                                               @RequestParam(value = "linkedDraftId", required = false) Long linkedDraftId,
                                                               @RequestParam(value = "targetTestNo", required = false) Integer targetTestNo,
                                                               @RequestParam(value = "targetSkill", required = false) String targetSkill,
                                                               @RequestParam(value = "targetLessonCode", required = false) String targetLessonCode,
-                                                              @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
-                                                              @AuthenticationPrincipal KshUserDetails user,
-                                                              jakarta.servlet.http.HttpSession httpSession) throws Exception {
-        String requestedTemplate = examTemplateCode == null || examTemplateCode.isBlank()
-                ? legacyExamCategory
-                : examTemplateCode;
+                                                              @AuthenticationPrincipal KshUserDetails user) throws Exception {
         PracticePdfImportSession session = sessionService.createSession(
-                user.getId(), file, requestedTemplate, title, linkedDraftId,
-                targetTestNo, targetSkill, targetLessonCode,
-                overrideReason(httpSession, linkedDraftId, explicitOverrideReason));
+                user.getId(), file, title, linkedDraftId,
+                targetTestNo, targetSkill, targetLessonCode);
         // Save initial snapshot
         snapshotService.saveSnapshot(session.getId(), user.getId());
         return ResponseEntity.ok(session);
@@ -210,15 +198,12 @@ public class PracticePdfImportApiController {
                                                                                                 @AuthenticationPrincipal KshUserDetails user) {
         PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
         PracticePdfPayloadPreviewService.PayloadPreviewDto dto = payloadPreviewService.getPreview(session);
-        boolean privileged = user.getRole() == Role.HEAD || user.getRole() == Role.ADMIN;
-        return ResponseEntity.ok(privileged ? dto : dto.redacted());
+        return ResponseEntity.ok(dto.redacted());
     }
 
     @PostMapping("/import-sessions/{sessionId}/generate")
     public ResponseEntity<?> generateDraft(@PathVariable Long sessionId,
-                                           @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
-                                           @AuthenticationPrincipal KshUserDetails user,
-                                           jakarta.servlet.http.HttpSession httpSession) {
+                                           @AuthenticationPrincipal KshUserDetails user) {
         // AI job is run in a separate transaction B. Failure doesn't rollback crops or session annotations
         PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
         sessionService.updateStatus(sessionId, "PROCESSING");
@@ -238,8 +223,7 @@ public class PracticePdfImportApiController {
             }
             String rawAiJson = aiOrchestrator.callAi(payloadInfo, sessionId, session.getExtractionStrategy());
             PracticeDraft draft = draftAssembler.assembleAndSaveDraft(
-                    session, rawAiJson, user.getId(), overrideReason(
-                            httpSession, session.getLinkedDraftId(), explicitOverrideReason));
+                    session, rawAiJson, user.getId());
             sessionService.updateStatus(sessionId, "AI_COMPLETED");
             return ResponseEntity.ok(draft);
         } catch (Exception e) {
@@ -255,35 +239,20 @@ public class PracticePdfImportApiController {
 
     @PostMapping("/import-sessions/{sessionId}/create-manual-draft")
     public ResponseEntity<PracticeDraft> createManualDraft(@PathVariable Long sessionId,
-                                                           @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
-                                                           @AuthenticationPrincipal KshUserDetails user,
-                                                           jakarta.servlet.http.HttpSession httpSession) {
-        PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
+                                                           @AuthenticationPrincipal KshUserDetails user) {
+        sessionService.getSession(sessionId, user.getId());
         PracticeDraft draft = importDraftService.createManualDraftFromSession(
-                sessionId, user.getId(), overrideReason(
-                        httpSession, session.getLinkedDraftId(), explicitOverrideReason));
+                sessionId, user.getId());
         return ResponseEntity.ok(draft);
     }
 
     @PostMapping("/import-sessions/{sessionId}/attach-to-draft")
     public ResponseEntity<PracticeDraft> attachToDraft(@PathVariable Long sessionId,
                                                        @RequestParam("targetDraftId") Long targetDraftId,
-                                                       @RequestParam(value = "overrideReason", required = false) String explicitOverrideReason,
-                                                       @AuthenticationPrincipal KshUserDetails user,
-                                                       jakarta.servlet.http.HttpSession httpSession) {
+                                                       @AuthenticationPrincipal KshUserDetails user) {
         PracticeDraft draft = importDraftService.attachToExistingDraft(
-                sessionId, targetDraftId, user.getId(), overrideReason(
-                        httpSession, targetDraftId, explicitOverrideReason));
+                sessionId, targetDraftId, user.getId());
         return ResponseEntity.ok(draft);
-    }
-
-    private String overrideReason(jakarta.servlet.http.HttpSession session,
-                                  Long draftId, String explicitReason) {
-        if (draftId == null) return null;
-        if (explicitReason != null && !explicitReason.isBlank()) {
-            overrideContextService.establishForDraft(session, draftId, explicitReason);
-        }
-        return overrideContextService.reasonForDraft(session, draftId, explicitReason);
     }
 
     // Lecturer asset library endpoints
@@ -354,21 +323,21 @@ public class PracticePdfImportApiController {
     }
 
     @PostMapping("/drafts/{draftId}/assets")
-    public ResponseEntity<PracticeDraftAssetUsage> linkAsset(@PathVariable Long draftId,
+    public ResponseEntity<PracticeMaterialReference> linkAsset(@PathVariable Long draftId,
                                                              @RequestBody LinkAssetRequest req,
                                                              @AuthenticationPrincipal KshUserDetails user) {
-        PracticeDraftAssetUsage usage = assetService.linkAssetToDraft(
+        PracticeMaterialReference reference = assetService.linkAssetToDraft(
                 draftId, req.assetId(), user.getId(), req.sectionTempId(), req.groupTempId(),
                 req.questionTempId(), req.placement(), req.altText()
         );
-        return ResponseEntity.ok(usage);
+        return ResponseEntity.ok(reference);
     }
 
-    @DeleteMapping("/drafts/{draftId}/assets/{usageId}")
+    @DeleteMapping("/drafts/{draftId}/assets/{referenceId}")
     public ResponseEntity<Void> unlinkAsset(@PathVariable Long draftId,
-                                            @PathVariable Long usageId,
+                                            @PathVariable Long referenceId,
                                             @AuthenticationPrincipal KshUserDetails user) {
-        assetService.unlinkAssetFromDraft(draftId, usageId, user.getId());
+        assetService.unlinkAssetFromDraft(draftId, referenceId, user.getId());
         return ResponseEntity.ok().build();
     }
 

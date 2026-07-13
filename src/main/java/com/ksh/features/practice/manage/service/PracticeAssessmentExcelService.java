@@ -108,26 +108,16 @@ public class PracticeAssessmentExcelService {
                 contractCodec, questionTypeResolver, objectMapper, null, null);
     }
 
-    public byte[] buildTemplate(String templateCode) {
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.requireTemplate(templateCode);
-        return v2Codec.buildTemplate(template);
+    public byte[] buildTemplate() {
+        return v2Codec.buildTemplate(catalogService.defaultTemplate());
     }
 
-    public ExcelPreview preview(MultipartFile file, String requestedTemplateCode) {
+    public ExcelPreview preview(MultipartFile file) {
         byte[] bytes = validateAndRead(file);
         List<ImportIssue> issues = new ArrayList<>();
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             if (workbook.getSheet("01_THONG_TIN_SET") != null) {
-                AssessmentAuthoringCatalogService.ExamTemplatePolicy requestedTemplate = null;
-                if (requestedTemplateCode != null && !requestedTemplateCode.isBlank()) {
-                    try {
-                        requestedTemplate = catalogService.requireTemplate(requestedTemplateCode);
-                    } catch (IllegalArgumentException exception) {
-                        issues.add(blocking("TEMPLATE_UNSUPPORTED", "01_THONG_TIN_SET", 0,
-                                "program_code", "Mẫu đề chưa được bật."));
-                    }
-                }
-                return v2Codec.preview(workbook, requestedTemplate, issues);
+                return v2Codec.preview(workbook, catalogService.defaultTemplate(), issues);
             }
             for (String required : LEGACY_REQUIRED_SHEETS) {
                 if (workbook.getSheet(required) == null) {
@@ -147,25 +137,7 @@ public class PracticeAssessmentExcelService {
                 issues.add(blocking("SCHEMA_VERSION_UNSUPPORTED", "Manifest", 2, "schemaVersion",
                         "Phiên bản file Excel không được hỗ trợ."));
             }
-            String templateCode = manifest.getOrDefault("examTemplateCode", requestedTemplateCode);
-            if (templateCode == null || templateCode.isBlank()) {
-                issues.add(blocking("TEMPLATE_REQUIRED", "Manifest", 3, "examTemplateCode",
-                        "Thiếu mã mẫu đề."));
-                return previewResult(null, issues, questionRows, 0, 0, BigDecimal.ZERO);
-            }
-            AssessmentAuthoringCatalogService.ExamTemplatePolicy template;
-            try {
-                template = catalogService.requireTemplate(templateCode);
-            } catch (IllegalArgumentException exception) {
-                issues.add(blocking("TEMPLATE_UNSUPPORTED", "Manifest", 3, "examTemplateCode",
-                        "Mẫu đề chưa được bật."));
-                return previewResult(null, issues, questionRows, 0, 0, BigDecimal.ZERO);
-            }
-            if (requestedTemplateCode != null && !requestedTemplateCode.isBlank()
-                    && !template.code().equalsIgnoreCase(requestedTemplateCode)) {
-                issues.add(blocking("TEMPLATE_MISMATCH", "Manifest", 3, "examTemplateCode",
-                        "File Excel không thuộc mẫu đề đã chọn."));
-            }
+            AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.defaultTemplate();
 
             Map<String, SectionBuilder> sections = readSections(workbook.getSheet("Sections"), template, issues);
             Map<String, GroupBuilder> groups = readGroups(workbook.getSheet("Groups"), sections, issues);
@@ -228,30 +200,17 @@ public class PracticeAssessmentExcelService {
 
     @Transactional
     public PracticeDraft importDraft(MultipartFile file,
-                                     String requestedTemplateCode,
                                      Long linkedDraftId,
                                      Long ownerId) {
-        return importDraft(file, requestedTemplateCode, linkedDraftId, ownerId, null);
+        return importDraft(file, linkedDraftId, ownerId, null);
     }
 
     @Transactional
     public PracticeDraft importDraft(MultipartFile file,
-                                     String requestedTemplateCode,
                                      Long linkedDraftId,
                                      Long ownerId,
                                      String mediaOverridesJson) {
-        return importDraft(file, requestedTemplateCode, linkedDraftId, ownerId,
-                mediaOverridesJson, null);
-    }
-
-    @Transactional
-    public PracticeDraft importDraft(MultipartFile file,
-                                     String requestedTemplateCode,
-                                     Long linkedDraftId,
-                                     Long ownerId,
-                                     String mediaOverridesJson,
-                                     String overrideReason) {
-        ExcelPreview preview = preview(file, requestedTemplateCode);
+        ExcelPreview preview = preview(file);
         if (!preview.canImport()) {
             throw new IllegalArgumentException("File Excel không còn dòng hợp lệ để nhập hoặc có lỗi cấp file.");
         }
@@ -270,17 +229,11 @@ public class PracticeAssessmentExcelService {
             }
             String title = root.path("document").path("title").asText("Bộ đề nhập từ Excel");
             String description = root.path("document").path("description").asText("");
-            String category = root.path("document").path("detectedCategory").asText("CUSTOM");
-            draft = new PracticeDraft(title, description, category, "GLOBAL", null, "DRAFT", ownerId,
+            draft = new PracticeDraft(title, description, "GLOBAL", null, "DRAFT", ownerId,
                     finalJson);
             draft.setCreationMethod("EXCEL");
         } else {
-            draft = requireLinkedDraft(linkedDraftId, ownerId, overrideReason);
-            String importedTemplate = root.path("document").path("examTemplateCode").asText("");
-            if (draft.getExamTemplateCode() != null
-                    && !draft.getExamTemplateCode().equalsIgnoreCase(importedTemplate)) {
-                throw new IllegalArgumentException("File Excel không thuộc mẫu đề của bản nháp hiện tại.");
-            }
+            draft = requireLinkedDraft(linkedDraftId, ownerId);
             ObjectNode existing = normalizedRoot(draft.getDraftJson(), draft.getCreationMethod());
             root = mergeImportedLessons(existing, root);
             PracticeDraftContractService.NormalizedDraft normalized =
@@ -292,15 +245,11 @@ public class PracticeAssessmentExcelService {
                 throw new IllegalStateException("Không thể đọc draft sau khi gộp Excel.", exception);
             }
         }
-        draft.setCategory(root.path("document").path("detectedCategory").asText(draft.getCategory()));
         draft.setDraftJson(finalJson);
         draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
-        draft.setAssessmentProgramCode(root.path("document").path("assessmentProgramCode").asText());
-        draft.setAssessmentProgramVersionId(root.path("document").path("assessmentProgramVersionId").longValue());
-        draft.setExamTemplateCode(root.path("document").path("examTemplateCode").asText());
         PracticeDraft saved = draftRepository.save(draft);
         linkManagedMedia(saved.getId(), ownerId,
-                parseMediaOverrides(mediaOverridesJson), overrideReason);
+                parseMediaOverrides(mediaOverridesJson));
         return saved;
     }
 
@@ -404,12 +353,6 @@ public class PracticeAssessmentExcelService {
 
     @Transactional(readOnly = true)
     public PracticeDraft requireLinkedDraft(Long draftId, Long ownerId) {
-        return requireLinkedDraft(draftId, ownerId, null);
-    }
-
-    @Transactional(readOnly = true)
-    public PracticeDraft requireLinkedDraft(Long draftId, Long ownerId,
-                                            String overrideReason) {
         if (draftId == null) {
             throw new IllegalArgumentException("Nhập Excel phải được mở từ một bản nháp thủ công.");
         }
@@ -419,7 +362,7 @@ public class PracticeAssessmentExcelService {
                             "Bản nháp liên kết không tồn tại."));
         }
         authorizationService.requireDraft(
-                draftId, ownerId, PracticeAction.EDIT, overrideReason);
+                draftId, ownerId, PracticeAction.EDIT);
         return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Bản nháp liên kết không tồn tại."));
@@ -430,17 +373,7 @@ public class PracticeAssessmentExcelService {
                                                         Long ownerId,
                                                         Integer testNo,
                                                         String lessonCode) {
-        return requireExcelImportContext(
-                draftId, ownerId, testNo, lessonCode, null);
-    }
-
-    @Transactional(readOnly = true)
-    public ExcelImportContext requireExcelImportContext(Long draftId,
-                                                        Long ownerId,
-                                                        Integer testNo,
-                                                        String lessonCode,
-                                                        String overrideReason) {
-        PracticeDraft draft = requireLinkedDraft(draftId, ownerId, overrideReason);
+        PracticeDraft draft = requireLinkedDraft(draftId, ownerId);
         if (testNo == null || testNo <= 0 || lessonCode == null || lessonCode.isBlank()) {
             throw new IllegalArgumentException("Hãy mở Nhập Excel từ một phần kỹ năng trong editor.");
         }
@@ -460,15 +393,11 @@ public class PracticeAssessmentExcelService {
         if (!Set.of("READING", "LISTENING", "WRITING", "SPEAKING").contains(skill)) {
             throw new IllegalArgumentException("Kỹ năng của phần thi không hỗ trợ nhập Excel.");
         }
-        String templateCode = draft.getExamTemplateCode();
-        if (templateCode == null || templateCode.isBlank()) {
-            templateCode = root.path("document").path("examTemplateCode").asText("");
-        }
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.requireTemplate(templateCode);
+        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.defaultTemplate();
         if (!template.requireSkill(skill).excelImportEnabled()) {
-            throw new IllegalArgumentException("Mẫu đề đã khóa nhập Excel cho kỹ năng này.");
+            throw new IllegalArgumentException("Kỹ năng này không hỗ trợ nhập Excel.");
         }
-        return new ExcelImportContext(draft, template.code(), testNo,
+        return new ExcelImportContext(draft, testNo,
                 selected.path("lessonCode").asText(), skill);
     }
 
@@ -483,8 +412,7 @@ public class PracticeAssessmentExcelService {
     }
 
     private void linkManagedMedia(Long draftId, Long actorId,
-                                  Map<String, String> overrides,
-                                  String overrideReason) {
+                                  Map<String, String> overrides) {
         if (assetService == null || overrides.isEmpty()) return;
         Set<Long> linked = new LinkedHashSet<>();
         for (String url : overrides.values()) {
@@ -493,7 +421,7 @@ public class PracticeAssessmentExcelService {
             Long assetId = Long.valueOf(matcher.group(1));
             if (!linked.add(assetId)) continue;
             assetService.linkAssetToDraft(draftId, assetId, actorId,
-                    null, null, null, "EXCEL_MEDIA", null, overrideReason);
+                    null, null, null, "EXCEL_MEDIA", null);
         }
     }
 
@@ -502,9 +430,10 @@ public class PracticeAssessmentExcelService {
         ObjectNode existingDocument = currentDocument instanceof ObjectNode object
                 ? object : existing.putObject("document");
         JsonNode importedDocument = imported.path("document");
-        for (String field : List.of("detectedCategory", "assessmentProgramCode",
-                "assessmentProgramVersionId", "assessmentProgramVersion", "examTemplateCode")) {
-            if (importedDocument.has(field)) existingDocument.set(field, importedDocument.get(field).deepCopy());
+        for (String field : List.of("title", "description")) {
+            if (importedDocument.has(field)) {
+                existingDocument.set(field, importedDocument.get(field).deepCopy());
+            }
         }
 
         ArrayNode existingTests = existing.withArray("tests");
@@ -571,11 +500,6 @@ public class PracticeAssessmentExcelService {
         ObjectNode document = root.putObject("document");
         document.put("title", manifest.getOrDefault("title", "Bộ đề nhập từ Excel"));
         document.put("description", manifest.getOrDefault("description", ""));
-        document.put("detectedCategory", template.categoryCode());
-        document.put("assessmentProgramCode", template.programCode());
-        document.put("assessmentProgramVersionId", template.programVersionId());
-        document.put("assessmentProgramVersion", template.programVersion());
-        document.put("examTemplateCode", template.code());
         ArrayNode sectionsNode = root.putArray("sections");
         root.putArray("warnings");
 
@@ -806,7 +730,6 @@ public class PracticeAssessmentExcelService {
         node.put("clientId", q.id);
         node.put("questionNo", q.questionNo);
         node.put("questionType", q.type.name());
-        node.put("canonicalQuestionType", q.type.name());
         node.put("prompt", q.prompt);
         node.put("points", q.points);
         node.put("explanationVi", q.explanationVi);
@@ -818,8 +741,6 @@ public class PracticeAssessmentExcelService {
         QuestionContent content = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
                 q.options.stream().map(option -> new QuestionContent.Option(option.id, option.text)).toList(),
-                q.matching.stream().map(pair -> new QuestionContent.Item(pair.leftId, pair.leftText)).toList(),
-                uniqueRightItems(q.matching),
                 q.blanks.stream().map(blank -> new QuestionContent.Blank(blank.id, blank.prompt)).toList()
         );
         AnswerSpec spec = new AnswerSpec(
@@ -828,9 +749,7 @@ public class PracticeAssessmentExcelService {
                 q.options.stream().filter(option -> option.correct).map(option -> option.id).toList(),
                 blankToNull(q.correctValue),
                 q.blanks.stream().map(blank -> new AnswerSpec.BlankAnswer(blank.id, blank.acceptedValues)).toList(),
-                matchingMap(q.matching),
-                q.scoringPolicy,
-                null, null, null
+                q.scoringPolicy
         );
         try {
             node.set("questionContent", objectMapper.readTree(contractCodec.writeQuestionContent(content, q.type)));
@@ -849,7 +768,7 @@ public class PracticeAssessmentExcelService {
         String legacyAnswer = legacyAnswer(q);
         node.put("answerKey", legacyAnswer);
         ObjectNode answer = node.putObject("answer");
-        answer.put("type", q.type == CanonicalQuestionType.MULTIPLE_CHOICE ? "MULTIPLE" : "SINGLE");
+        answer.put("type", "SINGLE");
         answer.put("value", legacyAnswer);
         return node;
     }
@@ -996,23 +915,9 @@ public class PracticeAssessmentExcelService {
                     issues, sheet.getSheetName(), rowIndex + 1, "points", rowKey);
             AssessmentAuthoringCatalogService.QuestionAuthoringPolicy authoringPolicy =
                     template.requireSkill(skill).questionPolicy(type.name());
-            String rawScoringPolicy = rows.value(row, "scoringPolicyCode");
-            String scoringPolicyCode = rawScoringPolicy.isBlank()
-                    ? (authoringPolicy == null ? scoringPolicy(type).name() : authoringPolicy.defaultScoringPolicyCode())
-                    : rawScoringPolicy.toUpperCase(Locale.ROOT);
-            ScoringPolicyCode scoringPolicy;
-            try {
-                scoringPolicy = ScoringPolicyCode.valueOf(scoringPolicyCode);
-                if (authoringPolicy != null
-                        && !authoringPolicy.allowedScoringPolicyCodes().contains(scoringPolicy.name())) {
-                    throw new IllegalArgumentException();
-                }
-            } catch (IllegalArgumentException exception) {
-                issues.add(blocking("SCORING_POLICY_NOT_ALLOWED_BY_TEMPLATE", sheet.getSheetName(),
-                        rowIndex + 1, "scoringPolicyCode",
-                        "Chính sách chấm điểm không được phép cho dạng câu hỏi này.", rowKey));
-                continue;
-            }
+            ScoringPolicyCode scoringPolicy = authoringPolicy == null
+                    ? scoringPolicy(type)
+                    : ScoringPolicyCode.valueOf(authoringPolicy.defaultScoringPolicyCode());
             QuestionBuilder question = new QuestionBuilder(
                     id, questionNo, type, rows.value(row, "prompt"), points, scoringPolicy,
                     rows.value(row, "explanationVi"), rows.value(row, "essayTaskType"),
@@ -1078,17 +983,6 @@ public class PracticeAssessmentExcelService {
                         .stream().map(String::trim).filter(value -> !value.isBlank()).toList();
                 question.blanks.add(new BlankBuilder(blankId, rows.value(row, "blankPrompt"), accepted));
             }
-            String leftId = rows.value(row, "leftId");
-            String rightId = rows.value(row, "rightId");
-            if (!leftId.isBlank() || !rightId.isBlank()) {
-                if (leftId.isBlank() || rightId.isBlank()) {
-                    issues.add(blocking("MATCHING_PAIR_INCOMPLETE", sheet.getSheetName(), rowIndex + 1, null,
-                            "Cặp nối phải có cả leftId và rightId.", question.id));
-                } else {
-                    question.matching.add(new MatchingBuilder(leftId, rows.value(row, "leftText"),
-                            rightId, rows.value(row, "rightText")));
-                }
-            }
         }
     }
 
@@ -1130,9 +1024,8 @@ public class PracticeAssessmentExcelService {
         Sheet sheet = workbook.createSheet("Manifest");
         row(sheet, 0, "key", "value");
         row(sheet, 1, "schemaVersion", SCHEMA_VERSION);
-        row(sheet, 2, "examTemplateCode", template.code());
-        row(sheet, 3, "title", template.displayName() + " - Bộ đề mẫu");
-        row(sheet, 4, "description", "");
+        row(sheet, 2, "title", "Bộ đề KSH mẫu");
+        row(sheet, 3, "description", "");
         autosize(sheet, 2);
     }
 
@@ -1140,16 +1033,15 @@ public class PracticeAssessmentExcelService {
                                    AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
         Sheet sheet = workbook.createSheet("Instructions");
         row(sheet, 0, "Mục", "Hướng dẫn");
-        row(sheet, 1, "Template", template.displayName() + " (" + template.code() + ")");
+        row(sheet, 1, "Phạm vi", "Bộ đề luyện tập KSH với bốn kỹ năng Reading, Listening, Writing và Speaking.");
         row(sheet, 2, "Quy trình", "Điền Sections -> Groups -> Questions -> OptionsAnswers, sau đó tải file lên để xem lỗi từng dòng trước khi tạo bản nháp.");
         row(sheet, 3, "ID", "sectionId, groupId, questionId và các item ID phải ổn định, không trùng trong cùng phạm vi.");
         row(sheet, 4, "SINGLE_CHOICE", "Mỗi phương án là một dòng OptionsAnswers; chỉ một dòng có isCorrect=TRUE.");
-        row(sheet, 5, "MULTIPLE_CHOICE", "Mỗi phương án là một dòng; đánh dấu tất cả đáp án đúng bằng isCorrect=TRUE.");
-        row(sheet, 6, "TRUE_FALSE_NOT_GIVEN", "Điền correctValue bằng TRUE, FALSE hoặc NOT_GIVEN.");
-        row(sheet, 7, "FILL_BLANK", "Mỗi ô trống dùng blankId; các đáp án chấp nhận ngăn cách bằng dấu | trong acceptedValues.");
-        row(sheet, 8, "MATCHING", "Mỗi cặp dùng leftId/leftText và rightId/rightText trên một dòng.");
-        row(sheet, 9, "ESSAY/SPEAKING", "Không nhập đáp án khách quan; hệ thống gắn profile chấm và prompt đã được phê duyệt theo template.");
-        int rowIndex = 11;
+        row(sheet, 5, "TRUE_FALSE_NOT_GIVEN", "Điền correctValue bằng TRUE, FALSE hoặc NOT_GIVEN.");
+        row(sheet, 6, "FILL_BLANK", "Mỗi ô trống dùng blankId; các đáp án chấp nhận ngăn cách bằng dấu | trong acceptedValues.");
+        row(sheet, 7, "ESSAY", "Writing chỉ gồm Q51, Q52, Q53 và Q54; mỗi task xuất hiện đúng một lần.");
+        row(sheet, 8, "SPEAKING", "Không nhập đáp án khách quan; hệ thống chấm theo luật Speaking nội bộ KSH.");
+        int rowIndex = 10;
         row(sheet, rowIndex++, "Kỹ năng", "Dạng câu được phép");
         for (Map.Entry<String, AssessmentAuthoringCatalogService.SkillAuthoringPolicy> entry
                 : template.skills().entrySet()) {
@@ -1182,28 +1074,22 @@ public class PracticeAssessmentExcelService {
 
     private void questionsSheet(Workbook workbook, AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
         Sheet sheet = workbook.createSheet("Questions");
-        row(sheet, 0, "questionId", "groupId", "questionNo", "questionType", "prompt", "points", "scoringPolicyCode",
+        row(sheet, 0, "questionId", "groupId", "questionNo", "questionType", "prompt", "points",
                 "explanationVi", "essayTaskType", "prepTimeSeconds", "responseTimeSeconds");
         String[] types = template.skills().values().stream()
                 .flatMap(policy -> policy.questionTypes().stream())
                 .distinct()
                 .toArray(String[]::new);
         addListValidation(sheet, 3, types);
-        String[] scoringPolicies = template.skills().values().stream()
-                .flatMap(policy -> policy.questionPolicies().values().stream())
-                .flatMap(policy -> policy.allowedScoringPolicyCodes().stream())
-                .distinct()
-                .toArray(String[]::new);
-        addListValidation(sheet, 6, scoringPolicies);
-        autosize(sheet, 11);
+        autosize(sheet, 10);
     }
 
     private void optionsAnswersSheet(Workbook workbook) {
         Sheet sheet = workbook.createSheet("OptionsAnswers");
         row(sheet, 0, "questionId", "optionId", "optionText", "isCorrect", "correctValue",
-                "blankId", "blankPrompt", "acceptedValues", "leftId", "leftText", "rightId", "rightText");
+                "blankId", "blankPrompt", "acceptedValues");
         addListValidation(sheet, 3, new String[]{"TRUE", "FALSE"});
-        autosize(sheet, 12);
+        autosize(sheet, 8);
     }
 
     private static void addListValidation(Sheet sheet, int column, String[] values) {
@@ -1237,22 +1123,9 @@ public class PracticeAssessmentExcelService {
             "READING", "Phần Đọc", "LISTENING", "Phần Nghe",
             "WRITING", "Phần Viết", "SPEAKING", "Phần Nói");
 
-    private static List<QuestionContent.Item> uniqueRightItems(List<MatchingBuilder> pairs) {
-        Map<String, String> values = new LinkedHashMap<>();
-        pairs.forEach(pair -> values.putIfAbsent(pair.rightId, pair.rightText));
-        return values.entrySet().stream().map(entry -> new QuestionContent.Item(entry.getKey(), entry.getValue())).toList();
-    }
-
-    private static Map<String, String> matchingMap(List<MatchingBuilder> pairs) {
-        Map<String, String> result = new LinkedHashMap<>();
-        pairs.forEach(pair -> result.put(pair.leftId, pair.rightId));
-        return result;
-    }
-
     private static ScoringPolicyCode scoringPolicy(CanonicalQuestionType type) {
         return switch (type) {
             case FILL_BLANK -> ScoringPolicyCode.NORMALIZED_EXACT;
-            case MATCHING -> ScoringPolicyCode.PER_PAIR;
             case ESSAY, SPEAKING -> ScoringPolicyCode.PROFILE_BASED;
             default -> ScoringPolicyCode.ALL_OR_NOTHING;
         };
@@ -1412,28 +1285,18 @@ public class PracticeAssessmentExcelService {
                                   String questionImageReference,
                                   String questionAudioReference,
                                   String teacherNote,
-                                  List<ImportOptionPreview> options,
-                                  List<ImportMatchingPairPreview> matchingPairs) {
+                                  List<ImportOptionPreview> options) {
         public ImportRowDetail {
             options = options == null ? List.of() : List.copyOf(options);
-            matchingPairs = matchingPairs == null ? List.of() : List.copyOf(matchingPairs);
         }
 
         static ImportRowDetail empty() {
             return new ImportRowDetail(null, null, null, null, null, null,
-                    null, null, null, List.of(), List.of());
+                    null, null, null, List.of());
         }
     }
 
     public record ImportOptionPreview(String label, String text, String imageReference) {
-    }
-
-    public record ImportMatchingPairPreview(String leftId,
-                                            String leftText,
-                                            String leftImageReference,
-                                            String rightId,
-                                            String rightText,
-                                            String rightImageReference) {
     }
 
     public record ExcelPreview(String draftJson, List<ImportIssue> issues, List<ImportRowPreview> rows,
@@ -1451,7 +1314,6 @@ public class PracticeAssessmentExcelService {
     }
 
     public record ExcelImportContext(PracticeDraft draft,
-                                     String templateCode,
                                      Integer testNo,
                                      String lessonCode,
                                      String skill) {
@@ -1512,7 +1374,6 @@ public class PracticeAssessmentExcelService {
         private String correctValue = "";
         private final List<OptionBuilder> options = new ArrayList<>();
         private final List<BlankBuilder> blanks = new ArrayList<>();
-        private final List<MatchingBuilder> matching = new ArrayList<>();
 
         private QuestionBuilder(String id, int questionNo, CanonicalQuestionType type, String prompt,
                                 BigDecimal points, ScoringPolicyCode scoringPolicy,
@@ -1528,7 +1389,6 @@ public class PracticeAssessmentExcelService {
 
     private record OptionBuilder(String id, String text, boolean correct) {}
     private record BlankBuilder(String id, String prompt, List<String> acceptedValues) {}
-    private record MatchingBuilder(String leftId, String leftText, String rightId, String rightText) {}
 
     private static final class SheetReader {
         private final DataFormatter formatter = new DataFormatter(Locale.ROOT);

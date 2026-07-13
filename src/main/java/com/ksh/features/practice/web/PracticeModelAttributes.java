@@ -5,9 +5,11 @@ package com.ksh.features.practice.web;
  */
 public final class PracticeModelAttributes {
     public static final String SETS = "sets";
+    public static final String SET_TEST_PROGRESS = "setTestProgress";
     public static final String VIEW = "view";
     public static final String SUBMISSIONS = "submissions";
     public static final String TEST_ID = "testId";
+    public static final String TEST_TITLE = "testTitle";
     public static final String SECTIONS = "sections";
     public static final String IN_PROGRESS_ATTEMPTS = "inProgressAttempts";
     public static final String MODE = "mode";

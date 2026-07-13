@@ -14,9 +14,7 @@ class AssessmentContractCodecTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AssessmentContractCodec codec = new AssessmentContractCodec(
-            objectMapper,
-            new QuestionTypeResolver()
-    );
+            objectMapper, new QuestionTypeResolver());
 
     @Test
     void answerSpecsRoundTripForEveryCanonicalType() {
@@ -29,7 +27,7 @@ class AssessmentContractCodecTest {
             String answerJson = codec.writeAnswerSpec(expected, decodedContent);
 
             assertThat(codec.readAnswerSpec(answerJson, decodedContent)).isEqualTo(expected);
-            assertThat(answerJson).doesNotContain("answerKey");
+            assertThat(answerJson).doesNotContain("answerKey", "profileCode");
         }
     }
 
@@ -37,13 +35,11 @@ class AssessmentContractCodecTest {
     void learnerAnswersRoundTripWithoutLegacyShape() {
         LearnerAnswer answer = new LearnerAnswer(
                 LearnerAnswer.SCHEMA_VERSION,
-                CanonicalQuestionType.MULTIPLE_CHOICE,
-                List.of("opt_1", "opt_3"),
+                CanonicalQuestionType.SINGLE_CHOICE,
+                List.of("opt_1"),
                 null,
                 Map.of(),
-                Map.of(),
-                null
-        );
+                null);
 
         String json = codec.writeLearnerAnswer(answer);
 
@@ -57,13 +53,10 @@ class AssessmentContractCodecTest {
                 QuestionContent.SCHEMA_VERSION,
                 List.of(
                         new QuestionContent.Option("opt_1", "A"),
-                        new QuestionContent.Option("opt_1", "B")
-                ),
-                List.of(), List.of(), List.of()
-        );
+                        new QuestionContent.Option("opt_1", "B")),
+                List.of());
         assertThatThrownBy(() -> codec.writeQuestionContent(
-                duplicateOptions,
-                CanonicalQuestionType.SINGLE_CHOICE))
+                duplicateOptions, CanonicalQuestionType.SINGLE_CHOICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Duplicate option ID");
 
@@ -74,10 +67,7 @@ class AssessmentContractCodecTest {
                 List.of("missing"),
                 null,
                 List.of(),
-                Map.of(),
-                ScoringPolicyCode.ALL_OR_NOTHING,
-                null, null, null
-        );
+                ScoringPolicyCode.ALL_OR_NOTHING);
         assertThatThrownBy(() -> codec.writeAnswerSpec(missingOption, content))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown option ID");
@@ -88,13 +78,9 @@ class AssessmentContractCodecTest {
                 List.of(),
                 null,
                 List.of(new AnswerSpec.BlankAnswer("blank_1", List.of("서울", "  서울 "))),
-                Map.of(),
-                ScoringPolicyCode.NORMALIZED_EXACT,
-                null, null, null
-        );
+                ScoringPolicyCode.NORMALIZED_EXACT);
         assertThatThrownBy(() -> codec.writeAnswerSpec(
-                duplicateNormalizedAliases,
-                contentFor(CanonicalQuestionType.FILL_BLANK)))
+                duplicateNormalizedAliases, contentFor(CanonicalQuestionType.FILL_BLANK)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Duplicate normalized accepted value");
     }
@@ -107,18 +93,17 @@ class AssessmentContractCodecTest {
                 CanonicalQuestionType.SINGLE_CHOICE,
                 "정답을 고르세요.",
                 contentFor(CanonicalQuestionType.SINGLE_CHOICE),
-                BigDecimal.ONE
-        );
+                BigDecimal.ONE);
 
         String json = objectMapper.writeValueAsString(payload);
 
         assertThat(json)
                 .contains("question-content-v1", "opt_1")
-                .doesNotContain("answerSpec", "correctOptionIds", "correctValue", "scoringProfileCode");
+                .doesNotContain("answerSpec", "correctOptionIds", "correctValue", "profileCode");
     }
 
     @Test
-    void legacyMcqOptionsKeysAndAnswersAdaptToStableIds() {
+    void legacyMcqAndGapFillAliasesAdaptButRemovedTypesFailClosed() {
         QuestionContent content = codec.adaptLegacyContent("[\"하나\",\"둘\",\"셋\"]", "MCQ");
         AnswerSpec answerSpec = codec.adaptLegacyAnswerSpec("MCQ", "B", content);
         LearnerAnswer learnerAnswer = codec.adaptLegacyLearnerAnswer("SINGLE_CHOICE", "2", content);
@@ -127,48 +112,28 @@ class AssessmentContractCodecTest {
                 .containsExactly("opt_1", "opt_2", "opt_3");
         assertThat(answerSpec.correctOptionIds()).containsExactly("opt_2");
         assertThat(learnerAnswer.selectedOptionIds()).containsExactly("opt_2");
-        assertThat(codec.writeAnswerSpec(answerSpec, content)).doesNotContain("answerKey");
-    }
-
-    @Test
-    void ambiguousLegacyMatchingStringsFailClosed() {
-        QuestionContent content = contentFor(CanonicalQuestionType.MATCHING);
-
-        assertThatThrownBy(() -> codec.adaptLegacyAnswerSpec(
-                "MATCHING_INFORMATION",
-                "1-A,2-B",
-                content))
+        assertThatThrownBy(() -> codec.adaptLegacyContent("[]", "MATCHING_INFORMATION"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("cannot be converted safely");
+                .hasMessageContaining("Unsupported canonical practice question type");
+        assertThatThrownBy(() -> codec.adaptLegacyContent("[]", "MCQ_MULTIPLE"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported canonical practice question type");
     }
 
     private QuestionContent contentFor(CanonicalQuestionType type) {
         return switch (type) {
-            case SINGLE_CHOICE, MULTIPLE_CHOICE -> new QuestionContent(
+            case SINGLE_CHOICE -> new QuestionContent(
                     QuestionContent.SCHEMA_VERSION,
                     List.of(
                             new QuestionContent.Option("opt_1", "하나"),
                             new QuestionContent.Option("opt_2", "둘"),
-                            new QuestionContent.Option("opt_3", "셋")
-                    ),
-                    List.of(), List.of(), List.of());
-            case TRUE_FALSE_NOT_GIVEN, ESSAY, SPEAKING -> QuestionContent.empty();
+                            new QuestionContent.Option("opt_3", "셋")),
+                    List.of());
             case FILL_BLANK -> new QuestionContent(
                     QuestionContent.SCHEMA_VERSION,
-                    List.of(), List.of(), List.of(),
-                    List.of(new QuestionContent.Blank("blank_1", "도시는 ____입니다.")));
-            case MATCHING -> new QuestionContent(
-                    QuestionContent.SCHEMA_VERSION,
                     List.of(),
-                    List.of(
-                            new QuestionContent.Item("left_1", "문단 1"),
-                            new QuestionContent.Item("left_2", "문단 2")
-                    ),
-                    List.of(
-                            new QuestionContent.Item("right_a", "제목 A"),
-                            new QuestionContent.Item("right_b", "제목 B")
-                    ),
-                    List.of());
+                    List.of(new QuestionContent.Blank("blank_1", "도시는 ____입니다.")));
+            case TRUE_FALSE_NOT_GIVEN, ESSAY, SPEAKING -> QuestionContent.empty();
         };
     }
 
@@ -176,31 +141,17 @@ class AssessmentContractCodecTest {
         return switch (type) {
             case SINGLE_CHOICE -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of("opt_2"), null,
-                    List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING,
-                    null, null, null);
-            case MULTIPLE_CHOICE -> new AnswerSpec(
-                    AnswerSpec.SCHEMA_VERSION, type, List.of("opt_1", "opt_3"), null,
-                    List.of(), Map.of(), ScoringPolicyCode.PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO,
-                    null, null, null);
+                    List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
             case TRUE_FALSE_NOT_GIVEN -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), "NOT_GIVEN",
-                    List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING,
-                    null, null, null);
+                    List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
             case FILL_BLANK -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
                     List.of(new AnswerSpec.BlankAnswer("blank_1", List.of("서울", "서울시"))),
-                    Map.of(), ScoringPolicyCode.NORMALIZED_EXACT,
-                    null, null, null);
-            case MATCHING -> new AnswerSpec(
-                    AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
-                    List.of(), Map.of("left_1", "right_a", "left_2", "right_b"),
-                    ScoringPolicyCode.PER_PAIR, null, null, null);
+                    ScoringPolicyCode.NORMALIZED_EXACT);
             case ESSAY, SPEAKING -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
-                    List.of(), Map.of(), ScoringPolicyCode.PROFILE_BASED,
-                    type == CanonicalQuestionType.ESSAY ? "TOPIK_WRITING_Q54_V1" : "TOPIK_SPEAKING_V1",
-                    type == CanonicalQuestionType.ESSAY ? "TOPIK_WRITING_PROMPT_V1" : "TOPIK_SPEAKING_PROMPT_V1",
-                    type == CanonicalQuestionType.ESSAY ? "TOPIK_WRITING_RUBRIC_V1" : "TOPIK_SPEAKING_RUBRIC_V1");
+                    List.of(), ScoringPolicyCode.PROFILE_BASED);
         };
     }
 }

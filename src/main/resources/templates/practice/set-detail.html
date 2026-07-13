@@ -36,7 +36,7 @@
                (${view.set().skill() == 'SPEAKING'} ? ' speaking' :
                (${view.set().skill() == 'LISTENING'} ? ' listening' :
                (${view.set().skill() == 'MIXED'} ? ' mixed' : ' reading')))">
-          <span class="pi-card-level" th:text="${view.set().categoryLabel()}">TOPIK II</span>
+          <span class="pi-card-level" th:text="${view.set().skillLabel()}">Đọc</span>
           <strong th:text="${view.set().skillLabel()}">READING</strong>
           <div class="pi-card-circle"></div>
         </div>

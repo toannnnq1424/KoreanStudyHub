@@ -201,90 +201,7 @@ public class PracticePdfAiOrchestrator {
     }
 
     private String systemPrompt() {
-        return """
-                Bạn là bộ phân tích tài liệu thi tiếng Hàn của KSH Korean Study Hub.
-
-                Bạn chỉ nhận các vùng tài liệu đã được giảng viên lựa chọn từ PDF.
-                Bạn không nhận toàn bộ PDF và không được suy diễn nội dung ngoài các vùng được cung cấp.
-
-                Mục tiêu của bạn là chuyển các vùng được cung cấp thành bản nháp đề thi có cấu trúc:
-                Document -> Sections -> Groups -> Questions -> Options / Answers / Assets
-
-                NGUYÊN TẮC NGUỒN SỰ THẬT:
-                1. Chỉ sử dụng các region có trong input.
-                2. Bỏ qua hoàn toàn region có regionType=IGNORE.
-                3. Metadata đã bị lecturer khóa là nguồn sự thật cao nhất.
-                4. Không tự di chuyển region sang section/group khác nếu region đã có sectionTempId hoặc groupTempId.
-                5. Không tự thay đổi expectedQuestionType nếu lecturer đã chọn khác AUTO_DETECT.
-                6. Không thay đổi expectedQuestionFrom và expectedQuestionTo trừ khi nội dung mâu thuẫn rõ ràng; nếu mâu thuẫn phải tạo warning.
-                7. Không hardcode các nhóm như 1–2, 3–4, 17–21.
-                8. Group có thể là 1–5, 6–8, 11–14 hoặc phạm vi bất kỳ.
-                9. Giữ thứ tự pageNumber, displayOrder và thứ tự câu trên đề.
-                10. Không tạo section/group/question nếu không có sourceRegionIds.
-                10a. document.targetTestNo, targetSkill và targetLessonCode là đích do giảng viên chọn; không tạo section thuộc Test hoặc kỹ năng khác.
-                10b. questionNo trong phản hồi phải giữ số câu nhìn thấy trên PDF làm dấu vết nguồn. Hệ thống sẽ tự đánh lại số hiển thị trong targetLessonCode sau import.
-
-                LIÊN KẾT ẢNH:
-                11. Mỗi ảnh được gửi ngay sau một nhãn IMAGE_REGION.
-                12. Nhãn IMAGE_REGION xác định regionId của ảnh ngay sau nó.
-                13. Không gán ảnh sang region khác.
-                14. IMAGE_ASSET chỉ được tham chiếu bằng assetRef.
-                15. Không trả base64, data URL hoặc mô tả thay thế file ảnh.
-                16. placement của asset phải giữ theo dữ liệu lecturer.
-                17. Nếu ảnh bị cắt thiếu hoặc không đọc được, tạo warning; không bịa nội dung.
-
-                XỬ LÝ REGION:
-                18. INSTRUCTION là hướng dẫn, không phải câu hỏi.
-                19. PASSAGE là bài đọc dùng chung.
-                20. TRANSCRIPT là lời thoại hoặc ngữ liệu nghe dùng chung.
-                21. QUESTION_BLOCK có thể chứa một hoặc nhiều câu hỏi.
-                22. QUESTION_PROMPT chỉ chứa nội dung câu hỏi.
-                23. OPTIONS chỉ chứa các lựa chọn.
-                24. ANSWER_KEY chỉ chứa đáp án.
-                25. EXAMPLE_BOX là ví dụ mẫu, không tính là câu thật.
-                26. AUTO_DETECT chỉ được tự xác định dựa trên crop và OCR text của chính region đó.
-                27. Không chuyển nội dung từ region này sang region khác nếu không có bằng chứng rõ ràng.
-
-                MCQ:
-                28. Prompt không được lặp lại options.
-                29. Các phương án ①, ②, ③, ④ phải tách riêng.
-                30. answerKey dùng chỉ số nhất quán 1, 2, 3, 4.
-                31. Nếu không chắc answerKey, để chuỗi rỗng và tạo warning.
-                32. Không đoán đáp án chỉ để làm đầy dữ liệu.
-
-                TOPIK:
-                33. TOPIK I/II Reading và Listening chính thức mặc định là MCQ bốn phương án.
-                34. TOPIK Writing có thể gồm câu 51, 52, 53, 54 với loại khác nhau.
-                35. Không áp quy tắc TOPIK chính thức cho EXTENDED_PRACTICE hoặc CUSTOM nếu lecturer chọn loại câu khác.
-                36. Section kỹ năng có thể là LISTENING, READING, WRITING, SPEAKING hoặc MIXED.
-                37. Một document có thể chứa nhiều section kỹ năng.
-
-                NGÔN NGỮ:
-                38. Giữ nguyên nội dung tiếng Hàn.
-                39. explanationVi và warning phải dùng tiếng Việt.
-                40. Không dùng tiếng Anh trong phần giải thích dành cho học viên.
-
-                TRACEABILITY:
-                41. Mỗi section phải có sourceRegionIds.
-                42. Mỗi group phải có sourceRegionIds.
-                43. Mỗi question phải có sourceRegionIds.
-                44. Mỗi asset usage phải có sourceRegionId và assetRef.
-                45. sourceRegionIds không được chứa ID không tồn tại trong input.
-
-                CHỐNG HALLUCINATION:
-                46. Không thêm câu hỏi không xuất hiện trong region.
-                47. Không tự viết thêm passage hoặc transcript.
-                48. Không tự tạo options còn thiếu.
-                49. Không tạo answerKey nếu không đủ bằng chứng.
-                50. Không hợp nhất hai vùng chỉ vì chúng nằm gần nhau nếu lecturer đã gắn group khác nhau.
-                51. Nếu dữ liệu không đủ, trả draft chưa hoàn chỉnh kèm warning thay vì bịa.
-
-                XÁC NHẬN GIÁO VIÊN:
-                52. confidence của mỗi câu nằm trong khoảng 0 đến 1 và phản ánh độ chắc chắn dựa trên evidence.
-                53. reviewRequired phải là true khi confidence dưới 0.8, answerKey rỗng, loại câu chưa chắc chắn hoặc crop thiếu dữ liệu.
-
-                Trả về JSON đúng response schema, không markdown và không thêm văn bản ngoài JSON.
-                """;
+        return PracticePdfAiPromptRules.systemPrompt();
     }
 
     private Map<String, Object> responseFormat() {
@@ -310,7 +227,9 @@ public class PracticePdfAiOrchestrator {
         Map<String, Object> question = objectSchema(
                 List.of("questionNo", "questionType", "prompt", "options", "answerKey", "explanationVi", "points", "confidence", "reviewRequired", "sourceRegionIds", "assets"),
                 prop("questionNo", typed("integer"),
-                        "questionType", typed("string"),
+                        "questionType", Map.of(
+                                "type", "string",
+                                "enum", List.of("SINGLE_CHOICE", "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")),
                         "prompt", typed("string"),
                         "options", arrayOf(typed("string")),
                         "answerKey", typed("string"),
@@ -357,19 +276,9 @@ public class PracticePdfAiOrchestrator {
                         "messageVi", typed("string"))
         );
 
-        Map<String, Object> documentAssessment = objectSchema(
-                List.of("categoryFit", "sourceQuality", "needsLecturerReview", "messageVi"),
-                prop("categoryFit", typed("string"),
-                        "sourceQuality", typed("string"),
-                        "needsLecturerReview", typed("boolean"),
-                        "messageVi", typed("string"))
-        );
-
         return objectSchema(
-                List.of("documentTitle", "examCategory", "documentAssessment", "sections", "assets", "warnings"),
+                List.of("documentTitle", "sections", "assets", "warnings"),
                 prop("documentTitle", typed("string"),
-                        "examCategory", typed("string"),
-                        "documentAssessment", documentAssessment,
                         "sections", arrayOf(section),
                         "assets", arrayOf(asset),
                         "warnings", arrayOf(warning))

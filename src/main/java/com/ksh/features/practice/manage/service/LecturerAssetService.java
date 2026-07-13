@@ -1,9 +1,8 @@
 package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
-import com.ksh.entities.PracticeDraftAssetUsage;
+import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.entities.PracticeAssetLifecycleTask;
 import com.ksh.features.practice.governance.PracticeAction;
@@ -28,7 +27,6 @@ public class LecturerAssetService {
     private static final Logger log = LoggerFactory.getLogger(LecturerAssetService.class);
 
     private final LecturerAssetRepository assetRepository;
-    private final PracticeDraftAssetUsageRepository usageRepository;
     private final PracticeDraftRepository draftRepository;
     private final AssetStorageService assetStorage;
     private final PracticeAuthorizationService authorizationService;
@@ -38,7 +36,6 @@ public class LecturerAssetService {
 
     @org.springframework.beans.factory.annotation.Autowired
     public LecturerAssetService(LecturerAssetRepository assetRepository,
-                                PracticeDraftAssetUsageRepository usageRepository,
                                 PracticeDraftRepository draftRepository,
                                 AssetStorageService assetStorage,
                                 PracticeAuthorizationService authorizationService,
@@ -46,7 +43,6 @@ public class LecturerAssetService {
                                 PracticeAssetLifecycleTaskRepository lifecycleTaskRepository,
                                 PracticeUploadContentVerifier contentVerifier) {
         this.assetRepository = assetRepository;
-        this.usageRepository = usageRepository;
         this.draftRepository = draftRepository;
         this.assetStorage = assetStorage;
         this.authorizationService = authorizationService;
@@ -56,17 +52,15 @@ public class LecturerAssetService {
     }
 
     public LecturerAssetService(LecturerAssetRepository assetRepository,
-                                PracticeDraftAssetUsageRepository usageRepository,
                                 PracticeDraftRepository draftRepository,
                                 AssetStorageService assetStorage) {
-        this(assetRepository, usageRepository, draftRepository, assetStorage,
+        this(assetRepository, draftRepository, assetStorage,
                 null, null, null, null);
     }
 
     public LecturerAssetService(LecturerAssetRepository assetRepository,
-                                PracticeDraftAssetUsageRepository usageRepository,
                                 AssetStorageService assetStorage) {
-        this(assetRepository, usageRepository, null, assetStorage,
+        this(assetRepository, null, assetStorage,
                 null, null, null, null);
     }
 
@@ -133,15 +127,6 @@ public class LecturerAssetService {
             Long draftId, Long actorId,
             org.springframework.web.multipart.MultipartFile file,
             String assetType, long maxBytes) throws IOException {
-        return createDraftUploadAsset(
-                draftId, actorId, file, assetType, maxBytes, null);
-    }
-
-    @Transactional
-    public LecturerAsset createDraftUploadAsset(
-            Long draftId, Long actorId,
-            org.springframework.web.multipart.MultipartFile file,
-            String assetType, long maxBytes, String overrideReason) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Tệp tải lên rỗng.");
         }
@@ -151,8 +136,7 @@ public class LecturerAssetService {
         Long ownerId = actorId;
         if (authorizationService != null) {
             ownerId = authorizationService.requireDraft(
-                    draftId, actorId, PracticeAction.MATERIAL_MANAGE,
-                    overrideReason).ownerId();
+                    draftId, actorId, PracticeAction.MATERIAL_MANAGE).ownerId();
         } else {
             requireOwnedDraft(draftId, actorId);
         }
@@ -298,16 +282,14 @@ public class LecturerAssetService {
         }
 
         // Draft references keep the private object intact until explicitly unlinked.
-        List<PracticeDraftAssetUsage> usages = usageRepository.findByAssetId(assetId);
-        boolean referenced = !usages.isEmpty()
-                || (materialReferenceService != null
-                    && materialReferenceService.hasAnyReference(assetId));
+        boolean referenced = materialReferenceService != null
+                && materialReferenceService.hasAnyReference(assetId);
         if (referenced) {
             // Keep in DB but mark deleted/archived so it won't be seen in general library queries
             asset.setDeletedAt(LocalDateTime.now());
             asset.setStatus("ARCHIVED");
             assetRepository.save(asset);
-            log.info("[AssetService] Soft deleted assetId={} due to active references count={}", assetId, usages.size());
+            log.info("[AssetService] Soft deleted assetId={} due to active references", assetId);
         } else {
             asset.setDeletedAt(LocalDateTime.now());
             asset.setStatus("DELETION_PENDING");
@@ -356,19 +338,10 @@ public class LecturerAssetService {
     }
 
     @Transactional
-    public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
+    public PracticeMaterialReference linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
                                                     String sectionTempId, String groupTempId,
                                                     String questionTempId, String placement, String altText) {
-        return linkAssetToDraft(draftId, assetId, ownerId, sectionTempId,
-                groupTempId, questionTempId, placement, altText, null);
-    }
-
-    @Transactional
-    public PracticeDraftAssetUsage linkAssetToDraft(Long draftId, Long assetId, Long ownerId,
-                                                    String sectionTempId, String groupTempId,
-                                                    String questionTempId, String placement,
-                                                    String altText, String overrideReason) {
-        Long draftOwnerId = requireManageableDraft(draftId, ownerId, overrideReason);
+        Long draftOwnerId = requireManageableDraft(draftId, ownerId);
         LecturerAsset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
         if (!"ACTIVE".equalsIgnoreCase(asset.getStatus())
@@ -379,47 +352,26 @@ public class LecturerAssetService {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Bạn không có quyền sử dụng asset này.");
         }
-        PracticeDraftAssetUsage usage = new PracticeDraftAssetUsage();
-        usage.setDraftId(draftId);
-        usage.setAssetId(assetId);
-        usage.setSectionTempId(sectionTempId);
-        usage.setGroupTempId(groupTempId);
-        usage.setQuestionTempId(questionTempId);
-        usage.setPlacement(placement);
-        usage.setAltText(altText);
-        usage.setCreatedAt(LocalDateTime.now());
-        
-        PracticeDraftAssetUsage saved = usageRepository.save(usage);
-        if (materialReferenceService != null) {
-            materialReferenceService.linkDraft(draftId, assetId, placement);
+        if (materialReferenceService == null) {
+            throw new IllegalStateException("Material reference service chưa được cấu hình.");
         }
-        return saved;
+        String referenceKey = referenceKey(sectionTempId, groupTempId,
+                questionTempId, placement);
+        String metadataJson = referenceMetadata(sectionTempId, groupTempId,
+                questionTempId, altText);
+        return materialReferenceService.linkDraft(draftId, assetId, placement,
+                referenceKey, metadataJson);
     }
 
     @Transactional
-    public void unlinkAssetFromDraft(Long draftId, Long usageId, Long ownerId) {
-        unlinkAssetFromDraft(draftId, usageId, ownerId, null);
-    }
-
-    @Transactional
-    public void unlinkAssetFromDraft(Long draftId, Long usageId, Long ownerId,
-                                     String overrideReason) {
-        requireManageableDraft(draftId, ownerId, overrideReason);
-        PracticeDraftAssetUsage usage = usageRepository.findById(usageId)
+    public void unlinkAssetFromDraft(Long draftId, Long referenceId, Long ownerId) {
+        requireManageableDraft(draftId, ownerId);
+        PracticeMaterialReference reference = materialReferenceService.referencesForDraft(draftId).stream()
+                .filter(value -> referenceId.equals(value.getId()))
+                .findFirst()
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy liên kết asset."));
-        if (!draftId.equals(usage.getDraftId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Bạn không có quyền xóa liên kết asset này.");
-        }
-        usageRepository.delete(usage);
-        usageRepository.flush();
-        if (materialReferenceService != null
-                && !usageRepository.existsByDraftIdAndAssetIdAndPlacement(
-                        draftId, usage.getAssetId(), usage.getPlacement())) {
-            materialReferenceService.unlinkDraft(
-                    draftId, usage.getAssetId(), usage.getPlacement());
-        }
-        queueArchivedAssetIfUnreferenced(usage.getAssetId());
+        materialReferenceService.unlinkDraftReference(draftId, referenceId);
+        queueArchivedAssetIfUnreferenced(reference.getAssetId());
     }
 
     private void requireOwnedDraft(Long draftId, Long ownerId) {
@@ -428,21 +380,39 @@ public class LecturerAssetService {
         }
     }
 
-    private Long requireManageableDraft(Long draftId, Long actorId,
-                                        String overrideReason) {
+    private Long requireManageableDraft(Long draftId, Long actorId) {
         if (authorizationService == null) {
             requireOwnedDraft(draftId, actorId);
             return actorId;
         }
         return authorizationService.requireDraft(
-                draftId, actorId, PracticeAction.MATERIAL_MANAGE,
-                overrideReason).ownerId();
+                draftId, actorId, PracticeAction.MATERIAL_MANAGE).ownerId();
     }
 
     private boolean hasAnyReference(Long assetId) {
-        return !usageRepository.findByAssetId(assetId).isEmpty()
-                || (materialReferenceService != null
-                    && materialReferenceService.hasAnyReference(assetId));
+        return materialReferenceService != null
+                && materialReferenceService.hasAnyReference(assetId);
+    }
+
+    private static String referenceKey(String sectionRef, String groupRef,
+                                       String questionRef, String placement) {
+        String value = String.join("|",
+                sectionRef == null ? "" : sectionRef,
+                groupRef == null ? "" : groupRef,
+                questionRef == null ? "" : questionRef,
+                placement == null ? "" : placement);
+        return value.length() <= 255 ? value : value.substring(0, 255);
+    }
+
+    private static String referenceMetadata(String sectionRef, String groupRef,
+                                            String questionRef, String altText) {
+        com.fasterxml.jackson.databind.node.ObjectNode metadata =
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+        if (sectionRef != null) metadata.put("sectionRef", sectionRef);
+        if (groupRef != null) metadata.put("groupRef", groupRef);
+        if (questionRef != null) metadata.put("questionRef", questionRef);
+        if (altText != null) metadata.put("altText", altText);
+        return metadata.isEmpty() ? null : metadata.toString();
     }
 
     private void queueArchivedAssetIfUnreferenced(Long assetId) {

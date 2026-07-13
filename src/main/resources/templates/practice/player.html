@@ -22,7 +22,7 @@
     </div>
     <div class="header-center">
       <div class="test-title-container">
-        <h1 class="test-title" th:text="${view.set().title()} + ' - ' + ${activeSectionTitle}">TOPIK II - Đọc hiểu</h1>
+        <h1 class="test-title" th:text="${view.set().title()} + ' - ' + ${activeSectionTitle}">Bài luyện tập - Phần Đọc</h1>
         <a class="group-dropdown-toggle" id="ksh-group-dropdown-toggle">
           Nhóm câu <span id="ksh-active-group-label">...</span> ∨
         </a>
@@ -81,7 +81,10 @@
     <section class="ksh-answer-pane">
       <!-- Re-expand button when collapsed -->
       <button type="button" class="ksh-expand-btn" id="ksh-expand-left" style="display:none;">
-        <span>▶ Mở rộng tài liệu</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+        <span>Mở rộng tài liệu</span>
       </button>
 
       <!-- Group Content Containers -->
@@ -215,7 +218,7 @@
                             placeholder="Nhập bài viết tiếng Hàn của bạn tại đây..."
                             style="width: 100%; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 15px; box-sizing: border-box; resize: vertical; line-height: 1.6;"
                             required></textarea>
-                  <em style="display: block; margin-top: 8px; font-size: 13px; color: var(--ksh-muted);">KSH sẽ chấm theo TOPIK Writing rubric, có mock mode nếu AI chưa sẵn sàng.</em>
+                  <em style="display: block; margin-top: 8px; font-size: 13px; color: var(--ksh-muted);">KSH sẽ chấm theo rubric Writing nội bộ, có chế độ dự phòng nếu AI chưa sẵn sàng.</em>
                 </label>
               </div>
             </div>
@@ -300,7 +303,7 @@
 <dialog id="ksh-speaking-consent" class="ksh-speaking-consent">
   <form method="dialog">
     <h2>Ghi âm câu trả lời Nói</h2>
-    <p>Bản ghi chỉ được dùng cho các tính năng luyện tập của Korean Study Hub, được giữ riêng tư trong tài khoản của bạn và tuân theo chính sách lưu giữ media Nói. Bạn có thể xóa và ghi lại trước khi nộp bài. Đây không phải chấm điểm TOPIK chính thức và hiện chưa có đánh giá phát âm bằng AI.</p>
+    <p>Bản ghi chỉ được dùng cho các tính năng luyện tập của Korean Study Hub, được giữ riêng tư trong tài khoản của bạn và tuân theo chính sách lưu giữ media Nói. Bạn có thể xóa và ghi lại trước khi nộp bài. Đây là điểm luyện tập nội bộ và hiện chưa có đánh giá phát âm bằng AI.</p>
     <label>
       <input id="ksh-speaking-consent-check" type="checkbox">
       Tôi hiểu và đồng ý ghi âm câu trả lời Nói của mình.

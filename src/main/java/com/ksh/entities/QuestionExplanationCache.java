@@ -28,9 +28,6 @@ public class QuestionExplanationCache {
     @Column(name = "test_id")
     private Long testId;
 
-    @Column(name = "program_code", length = 40)
-    private String programCode;
-
     @Column(name = "skill_type", nullable = false, length = 20)
     private String skillType;
 
@@ -57,12 +54,6 @@ public class QuestionExplanationCache {
 
     @Column(name = "prompt_version", nullable = false, length = 32)
     private String promptVersion;
-
-    @Column(name = "prompt_profile_code", length = 100)
-    private String promptProfileCode;
-
-    @Column(name = "prompt_profile_version")
-    private Integer promptProfileVersion;
 
     @Column(name = "schema_version", nullable = false, length = 32)
     private String schemaVersion;
@@ -116,10 +107,6 @@ public class QuestionExplanationCache {
         return testId;
     }
 
-    public String getProgramCode() {
-        return programCode;
-    }
-
     public String getSkillType() {
         return skillType;
     }
@@ -158,14 +145,6 @@ public class QuestionExplanationCache {
 
     public String getPromptVersion() {
         return promptVersion;
-    }
-
-    public String getPromptProfileCode() {
-        return promptProfileCode;
-    }
-
-    public Integer getPromptProfileVersion() {
-        return promptProfileVersion;
     }
 
     public String getSchemaVersion() {

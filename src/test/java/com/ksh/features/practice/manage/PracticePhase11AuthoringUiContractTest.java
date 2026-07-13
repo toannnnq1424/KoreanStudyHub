@@ -20,18 +20,19 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("/js/practice/manage-draft-preview.js"));
         assertFalse(editor.contains("/js/practice/manage-editor.js"));
         for (String type : List.of(
-                "SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE_NOT_GIVEN",
-                "FILL_BLANK", "MATCHING", "ESSAY", "SPEAKING")) {
+                "SINGLE_CHOICE", "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")) {
             assertTrue(editor.contains(type) || contract.contains(type), "Missing editor type " + type);
         }
+        assertFalse(editor.contains("MULTIPLE_CHOICE"));
+        assertFalse(editor.contains("MATCHING"));
         assertTrue(contract.contains("question-content-v1"));
         assertTrue(contract.contains("answer-spec-v1"));
         assertTrue(contract.contains("correctOptionIds"));
-        assertTrue(contract.contains("matchingPairs"));
+        assertFalse(contract.contains("matchingPairs"));
         assertTrue(contract.contains("acceptedValues"));
-        assertTrue(editor.contains("id=\"q-scoring-policy\""));
-        assertTrue(editor.contains("id=\"q-prompt-profile\""));
-        assertTrue(editor.contains("id=\"q-rubric-profile\""));
+        assertFalse(editor.contains("id=\"q-scoring-policy\""));
+        assertFalse(editor.contains("id=\"q-prompt-profile\""));
+        assertFalse(editor.contains("id=\"q-rubric-profile\""));
         assertTrue(editor.contains("/preview`"));
         assertTrue(editor.contains("id=\"editor-test-card\""));
         assertTrue(editor.contains("lessonCodeForSkill"));
@@ -44,6 +45,12 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("get('preview') === '1'"));
         assertTrue(editor.contains("onclick=\"handleEditorToolNavigation(event)\""));
         assertTrue(editor.contains("async function flushDraftBeforeNavigation()"));
+        assertTrue(editor.contains("onsubmit=\"return handlePublishSubmit(event);\""));
+        assertTrue(editor.contains("async function handlePublishSubmit(event)"));
+        assertTrue(editor.contains("function syncDraftDocumentTitle()"));
+        assertTrue(editor.contains("DRAFT_DATA.document.title = title"));
+        assertTrue(editor.contains("if (syncDraftDocumentTitle()) triggerAutosave();"));
+        assertTrue(editor.contains("Không thể xem trước vì bản nháp chưa lưu thành công."));
         assertTrue(editor.contains("function toggleDotsDropdown(event)"));
         assertTrue(editor.contains("function focusDraftTitle(event)"));
         assertTrue(editor.contains("function confirmDeleteDraft(event)"));
@@ -63,8 +70,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("id=\"mode-guided\""));
         assertTrue(workspace.contains("id=\"mode-advanced\""));
         assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
-        assertTrue(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
-        assertTrue(workspace.contains("data.privilegedDetails"));
+        assertFalse(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
+        assertFalse(workspace.contains("data.privilegedDetails"));
+        assertFalse(workspace.contains("JSON kỹ thuật"));
+        assertFalse(workspace.contains("Request JSON"));
         assertTrue(workspace.contains("renderRegionSpecificFields(type, ann || {}, true)"));
         assertTrue(workspace.contains("id=\"region-destination-summary\""));
         assertTrue(workspace.contains("Cách AI đọc tài liệu"));
@@ -73,8 +82,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(workspace.contains("📁"));
         assertFalse(workspace.contains("📂"));
         assertFalse(workspace.contains("🎯"));
-        assertTrue(wizard.contains("authoringCatalog.templates"));
-        assertTrue(wizard.contains("name=\"examTemplateCode\""));
+        assertFalse(wizard.contains("authoringCatalog.templates"));
+        assertFalse(wizard.contains("name=\"examTemplateCode\""));
+        assertTrue(wizard.contains("@{/practice/manage/create}"));
+        assertFalse(wizard.contains("@{/practice/manage/manual}"));
         assertTrue(wizard.contains("id=\"target-section\"")
                 || wizard.contains("id=\"target-skill\""));
         assertFalse(wizard.contains("value=\"EXTENDED_PRACTICE\""));
@@ -86,7 +97,7 @@ class PracticePhase11AuthoringUiContractTest {
         String excel = read("src/main/resources/templates/practice/manage/excel-import.html");
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
 
-        assertTrue(excel.contains("/practice/manage/excel/templates/"));
+        assertTrue(excel.contains("/practice/manage/excel/template"));
         assertTrue(excel.contains("/practice/manage/excel/${action}"));
         assertTrue(excel.contains("id=\"excel-preview-modal\""));
         assertTrue(excel.contains("id=\"preview-rows\""));
@@ -98,7 +109,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("importableQuestionCount"));
         assertTrue(excel.contains("result.canImport"));
         assertTrue(excel.contains("câu hợp lệ"));
-        assertTrue(excel.contains("templateCode"));
+        assertFalse(excel.contains("templateCode"));
         assertTrue(excel.contains("SELECTED_TEST_NO"));
         assertTrue(excel.contains("SELECTED_LESSON_CODE"));
         assertTrue(excel.contains("row.detail?.groupImageReference"));
@@ -107,8 +118,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("position:fixed;inset:0;margin:auto"));
         assertTrue(excel.contains("Nhóm / Bài đọc"));
         assertTrue(excel.contains("Nhóm / Transcript"));
-        assertTrue(excel.contains("Option H / Cặp 8"));
-        assertTrue(excel.contains("row.detail?.matchingPairs"));
+        assertTrue(excel.contains("Phương án H"));
+        assertFalse(excel.contains("matchingPairs"));
         assertTrue(excel.contains("id=\"excel-media-files\""));
         assertTrue(excel.contains("mediaOverrides"));
         assertTrue(excel.contains("URL.createObjectURL"));
@@ -127,42 +138,66 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void phase12GovernanceUiKeepsBoundedAuditedOverrideAndImmutableHistoryFlows()
+    void singleScopeUiRemovesAssessmentGovernanceAndKeepsImmutableHistoryFlows()
             throws Exception {
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
         String revisions = read("src/main/resources/templates/practice/manage/revisions.html");
-        String governance = read("src/main/resources/templates/practice/manage/assessment-governance.html");
-        String governanceJs = read("src/main/resources/static/js/practice-assessment-governance.js");
         String controller = read("src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
 
-        assertTrue(dashboard.contains("Can thiệp khẩn cấp"));
-        assertTrue(dashboard.contains("/override-edit"));
-        assertTrue(dashboard.contains("name=\"overrideReason\" required maxlength=\"500\""));
-        assertTrue(controller.contains("int reviewLimit = 50"));
-        assertTrue(controller.contains("findByCreatedByNotOrderByCreatedAtDesc"));
-        assertTrue(controller.contains("findByOwnerIdNotOrderByUpdatedAtDesc"));
         assertTrue(revisions.contains("Mỗi lần xuất bản là một phiên bản bất biến"));
-        assertTrue(revisions.contains("row.requiresOverrideReason"));
-        assertTrue(revisions.contains("name=\"overrideReason\" required maxlength=\"500\""));
         assertTrue(revisions.contains("/versions/{versionId}/restore"));
-        assertTrue(revisions.contains("selectedSet.assessmentProgramCode"));
+        assertFalse(revisions.contains("assessmentProgramCode"));
+        assertFalse(revisions.contains("examTemplateCode"));
         assertTrue(revisions.contains("#lists.size(versions)"));
         assertTrue(revisions.contains("row.version.status"));
         assertTrue(revisions.contains("xuất bản 10 lần tạo v1-v10"));
         assertTrue(revisions.contains("khôi phục v3 sẽ tạo v11"));
         assertTrue(revisions.contains("Autosave bản nháp không tự tạo published revision"));
-        assertTrue(dashboard.contains("Program / Kịch bản"));
-        assertTrue(dashboard.contains("d.assessmentProgramCode"));
-        assertTrue(dashboard.contains("item.assessmentProgramCode"));
+        assertTrue(dashboard.contains("KSH Practice"));
+        assertFalse(dashboard.contains("Program / Kịch bản"));
+        assertFalse(dashboard.contains("assessmentProgramCode"));
+        assertFalse(dashboard.contains("examTemplateCode"));
         assertTrue(controller.contains("redirect:/practice/manage/revisions?setId="));
-        assertTrue(governance.contains("id=\"governance-action-dialog\""));
-        assertTrue(governance.contains("name=\"reason\" rows=\"4\" required maxlength=\"500\""));
-        assertTrue(governance.contains("Kích hoạt version cũ là rollback"));
-        assertTrue(governance.contains("data-governance-action=\"toggle-program\""));
-        assertTrue(governanceJs.contains("{reason: reason}"));
-        assertTrue(governanceJs.contains("'/enabled'"));
-        assertTrue(governanceJs.contains("executeGovernanceAction"));
+        assertFalse(Files.exists(Path.of(
+                "src/main/resources/templates/practice/manage/assessment-governance.html")));
+        assertFalse(Files.exists(Path.of(
+                "src/main/resources/static/js/practice-assessment-governance.js")));
         assertFalse(controller.contains("/revisions/{logId}/restore"));
+    }
+
+    @Test
+    void practiceAuthoringRoutesAreLecturerOnlyAndExposeNoOverridePath()
+            throws Exception {
+        List<String> controllers = List.of(
+                "PracticeManageController.java",
+                "PracticeDraftController.java",
+                "PracticeAssessmentExcelController.java",
+                "PracticeImportController.java",
+                "PracticePdfImportApiController.java",
+                "PracticeMaterialLibraryPageController.java");
+        for (String filename : controllers) {
+            String source = read(
+                    "src/main/java/com/ksh/features/practice/manage/controller/" + filename);
+            assertTrue(source.contains("@PreAuthorize(Roles.PREAUTH_LECTURER)"),
+                    "Missing exact lecturer boundary in " + filename);
+            assertFalse(source.contains("PREAUTH_LECTURER_OR_ABOVE"));
+            assertFalse(source.contains("overrideReason"));
+        }
+
+        String security = read("src/main/java/com/ksh/config/SecurityConfig.java");
+        String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
+        assertTrue(security.contains(
+                ".requestMatchers(\"/practice/manage/**\").hasRole(Roles.LECTURER)"));
+        assertFalse(dashboard.contains("Can thiệp khẩn cấp"));
+        assertFalse(dashboard.contains("name=\"canEdit\""));
+        assertFalse(dashboard.contains("name=\"canPublish\""));
+        assertFalse(dashboard.contains("name=\"canRestore\""));
+        assertFalse(dashboard.contains("name=\"canManageMaterial\""));
+        assertTrue(dashboard.contains("Được cộng tác toàn bộ nội dung"));
+        assertFalse(Files.exists(Path.of(
+                "src/main/java/com/ksh/features/practice/manage/controller/PracticeCollaborationController.java")));
+        assertFalse(Files.exists(Path.of(
+                "src/main/java/com/ksh/features/practice/manage/service/PracticeOverrideContextService.java")));
     }
 
     @Test
@@ -182,6 +217,21 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(service.contains("/practice/materials/"));
         assertFalse(service.contains("getStorageKey"));
         assertTrue(sidebar.contains("/practice/manage/materials"));
+    }
+
+    @Test
+    void singleScopeLearnerUiDoesNotInventCertificateLevelsAndManageLinksMatchSecurity() throws Exception {
+        String index = read("src/main/resources/templates/practice/index.html");
+        String progress = read("src/main/resources/templates/practice/progress.html");
+        String sidebar = read("src/main/resources/templates/fragments/practice-sidebar.html");
+
+        assertTrue(index.contains("Kho luyện tập KSH"));
+        assertFalse(index.contains("Kho luyện tập TOPIK"));
+        assertFalse(progress.contains("TOPIK II Cấp"));
+        assertFalse(progress.contains("TOPIK I Cấp"));
+        assertTrue(index.contains("sec:authorize=\"hasRole('LECTURER')\""));
+        assertFalse(index.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+        assertFalse(sidebar.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
     }
 
     @Test

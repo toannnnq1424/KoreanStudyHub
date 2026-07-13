@@ -13,14 +13,10 @@ public class QuestionTypeResolver {
             Map.entry("MCQ", CanonicalQuestionType.SINGLE_CHOICE),
             Map.entry("MCQ_SINGLE", CanonicalQuestionType.SINGLE_CHOICE),
             Map.entry("SINGLE_CHOICE", CanonicalQuestionType.SINGLE_CHOICE),
-            Map.entry("MCQ_MULTIPLE", CanonicalQuestionType.MULTIPLE_CHOICE),
-            Map.entry("MULTIPLE_CHOICE", CanonicalQuestionType.MULTIPLE_CHOICE),
             Map.entry("TFNG", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("TRUE_FALSE_NOT_GIVEN", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("FILL_BLANK", CanonicalQuestionType.FILL_BLANK),
             Map.entry("GAP_FILL", CanonicalQuestionType.FILL_BLANK),
-            Map.entry("MATCHING", CanonicalQuestionType.MATCHING),
-            Map.entry("MATCHING_INFORMATION", CanonicalQuestionType.MATCHING),
             Map.entry("ESSAY", CanonicalQuestionType.ESSAY),
             Map.entry("SPEAKING", CanonicalQuestionType.SPEAKING)
     );

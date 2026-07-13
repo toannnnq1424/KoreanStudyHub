@@ -69,22 +69,14 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft getDraft(Long id, Long actorId) {
-        return getDraft(id, actorId, null);
-    }
-
-    @Transactional
-    public PracticeDraft getDraft(Long id, Long actorId, String overrideReason) {
-        PracticeDraft draft = authorizedDraft(
-                id, actorId, PracticeAction.READ, overrideReason);
+        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.READ);
         normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
         return draft;
     }
 
     @Transactional
-    public PracticeDraft openDraftForEdit(Long id, Long actorId,
-                                          String overrideReason) {
-        PracticeDraft draft = authorizedDraft(
-                id, actorId, PracticeAction.EDIT, overrideReason);
+    public PracticeDraft openDraftForEdit(Long id, Long actorId) {
+        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.EDIT);
         normalizeDraft(draft, draft.getDraftJson(), draft.getCreationMethod());
         return draft;
     }
@@ -114,7 +106,6 @@ public class PracticeDraftService {
         // Create basic empty multi-section structure
         ObjectNode root = objectMapper.createObjectNode();
         ObjectNode doc = objectMapper.createObjectNode();
-        doc.put("detectedCategory", "UNCLASSIFIED");
         doc.put("title", "Bộ đề luyện tập tự tạo");
         doc.put("confidence", 1.0);
         root.set("document", doc);
@@ -124,7 +115,6 @@ public class PracticeDraftService {
         PracticeDraft draft = new PracticeDraft(
                 "Bộ đề luyện tập tự tạo",
                 "Tạo thủ công bởi giáo viên",
-                "UNCLASSIFIED",
                 "GLOBAL",
                 null,
                 "DRAFT",
@@ -141,16 +131,7 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson, String title, String description, Integer clientVersion) {
-        return saveDraftState(id, actorId, draftJson, title, description,
-                clientVersion, null);
-    }
-
-    @Transactional
-    public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson,
-                                        String title, String description,
-                                        Integer clientVersion, String overrideReason) {
-        PracticeDraft draft = authorizedDraft(
-                id, actorId, PracticeAction.EDIT, overrideReason);
+        PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.EDIT);
 
         // Check optimistic locking clientVersion
         if (clientVersion != null && draft.getVersion() > clientVersion) {
@@ -160,9 +141,8 @@ public class PracticeDraftService {
         }
 
         String normalizedJson = normalizeDraft(draft, draftJson, draft.getCreationMethod());
-        JsonNode rootNode;
         try {
-            rootNode = objectMapper.readTree(normalizedJson);
+            objectMapper.readTree(normalizedJson);
         } catch (Exception e) {
             throw new IllegalArgumentException("Định dạng dữ liệu JSON không hợp lệ.");
         }
@@ -171,17 +151,6 @@ public class PracticeDraftService {
         }
         if (description != null) {
             draft.setDescription(description.trim());
-        }
-
-        // Sync category from JSON document metadata if present
-        if (rootNode != null && rootNode.has("document")) {
-            JsonNode docNode = rootNode.get("document");
-            if (docNode.has("detectedCategory")) {
-                String cat = docNode.get("detectedCategory").asText().trim();
-                if (!cat.isEmpty()) {
-                    draft.setCategory(cat);
-                }
-            }
         }
 
         // Maintain creationMethod fallback
@@ -197,16 +166,10 @@ public class PracticeDraftService {
 
     @Transactional
     public PracticeDraft createDraftFromPublishedSet(Long setId, Long actorId) {
-        return createDraftFromPublishedSet(setId, actorId, null);
-    }
-
-    @Transactional
-    public PracticeDraft createDraftFromPublishedSet(Long setId, Long actorId,
-                                                     String overrideReason) {
         Long ownerId = actorId;
         if (authorizationService != null) {
             ownerId = authorizationService.requireSet(
-                    setId, actorId, PracticeAction.EDIT, overrideReason).ownerId();
+                    setId, actorId, PracticeAction.EDIT).ownerId();
         }
         PracticeSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
@@ -233,7 +196,6 @@ public class PracticeDraftService {
         PracticeDraft draft = new PracticeDraft(
                 set.getTitle(),
                 set.getDescription(),
-                set.getTopikLevel(),
                 set.getScope(),
                 set.getClassId(),
                 "DRAFT",
@@ -257,10 +219,6 @@ public class PracticeDraftService {
             java.util.Map<String, Object> doc = new java.util.HashMap<>();
             doc.put("title", set.getTitle());
             doc.put("description", set.getDescription());
-            doc.put("detectedCategory", set.getTopikLevel());
-            doc.put("assessmentProgramCode", set.getAssessmentProgramCode());
-            doc.put("assessmentProgramVersionId", set.getAssessmentProgramVersionId());
-            doc.put("examTemplateCode", set.getExamTemplateCode());
             root.put("document", doc);
             root.put("schemaVersion", PracticeDraftContractService.SCHEMA_VERSION);
 
@@ -401,14 +359,6 @@ public class PracticeDraftService {
         questionMap.put("points", question.getPoints());
         questionMap.put("explanationVi", question.getExplanation());
         questionMap.put("answerKey", question.getAnswerKey());
-        questionMap.put("canonicalQuestionType", question.getCanonicalQuestionType());
-        questionMap.put("scoringPolicyCode", question.getScoringPolicyCode());
-        questionMap.put("scoringProfileCode", question.getScoringProfileCode());
-        questionMap.put("scoringProfileVersion", question.getScoringProfileVersion());
-        questionMap.put("promptProfileCode", question.getPromptProfileCode());
-        questionMap.put("promptProfileVersion", question.getPromptProfileVersion());
-        questionMap.put("rubricProfileCode", question.getRubricProfileCode());
-        questionMap.put("rubricProfileVersion", question.getRubricProfileVersion());
         if (question.getQuestionContentJson() != null) {
             questionMap.put("questionContent", objectMapper.readTree(question.getQuestionContentJson()));
         }
@@ -433,18 +383,12 @@ public class PracticeDraftService {
 
     @Transactional
     public void deleteDraft(Long id, Long actorId) {
-        deleteDraft(id, actorId, null);
-    }
-
-    @Transactional
-    public void deleteDraft(Long id, Long actorId, String overrideReason) {
         PracticeDraft draft;
         if (authorizationService == null) {
             draft = draftRepository.findByIdAndOwnerId(id, actorId)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         } else {
-            authorizationService.requireDraftOwnerOrOverride(
-                    id, actorId, PracticeAction.EDIT, overrideReason);
+            authorizationService.requireDraftOwner(id, actorId, PracticeAction.EDIT);
             draft = draftRepository.findById(id)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         }
@@ -495,11 +439,7 @@ public class PracticeDraftService {
         PracticeDraftContractService.NormalizedDraft normalized =
                 draftContractService.normalize(draftJson, source);
         draft.setDraftJson(normalized.json());
-        draft.setCategory(normalized.category());
         draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
-        draft.setAssessmentProgramCode(normalized.programCode());
-        draft.setAssessmentProgramVersionId(normalized.programVersionId());
-        draft.setExamTemplateCode(normalized.examTemplateCode());
         return normalized.json();
     }
 
@@ -514,13 +454,12 @@ public class PracticeDraftService {
         }
     }
 
-    private PracticeDraft authorizedDraft(Long id, Long actorId, PracticeAction action,
-                                          String overrideReason) {
+    private PracticeDraft authorizedDraft(Long id, Long actorId, PracticeAction action) {
         if (authorizationService == null) {
             return draftRepository.findByIdAndOwnerId(id, actorId)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         }
-        authorizationService.requireDraft(id, actorId, action, overrideReason);
+        authorizationService.requireDraft(id, actorId, action);
         return draftRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
     }

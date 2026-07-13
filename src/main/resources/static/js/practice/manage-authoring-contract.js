@@ -10,8 +10,7 @@
   }
 
   function currentTemplate(catalog, draft) {
-    const code = draft && draft.document ? draft.document.examTemplateCode : null;
-    return template(catalog, code);
+    return template(catalog, null);
   }
 
   function allowedSkills(catalog, draft) {
@@ -54,9 +53,6 @@
         acceptedValues: legacy ? [legacy] : []
       }];
     }
-    if (q.questionType === 'MATCHING' && !Array.isArray(q.matchingPairs)) {
-      q.matchingPairs = [];
-    }
     syncQuestionContract(q);
     return q;
   }
@@ -67,8 +63,6 @@
     const content = {
       schemaVersion: CONTENT_SCHEMA,
       options: [],
-      matchingLeftItems: [],
-      matchingRightItems: [],
       blanks: []
     };
     const answer = {
@@ -77,17 +71,10 @@
       correctOptionIds: [],
       correctValue: null,
       blanks: [],
-      matchingPairs: {},
-      scoringPolicyCode: q.scoringPolicyCode || previousSpec.scoringPolicyCode || scoringPolicy(type),
-      scoringProfileCode: q.scoringProfileCode || previousSpec.scoringProfileCode || null,
-      promptProfileCode: q.promptProfileCode || previousSpec.promptProfileCode || null,
-      rubricProfileCode: q.rubricProfileCode || previousSpec.rubricProfileCode || null,
-      scoringProfileVersion: q.scoringProfileVersion || previousSpec.scoringProfileVersion || null,
-      promptProfileVersion: q.promptProfileVersion || previousSpec.promptProfileVersion || null,
-      rubricProfileVersion: q.rubricProfileVersion || previousSpec.rubricProfileVersion || null
+      scoringPolicyCode: scoringPolicy(type)
     };
 
-    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_CHOICE') {
+    if (type === 'SINGLE_CHOICE') {
       content.options = (q.options || []).map(option => ({
         id: option.id,
         text: option.text || '',
@@ -110,19 +97,11 @@
       const firstValue = answer.blanks[0] && answer.blanks[0].acceptedValues[0] || '';
       q.answer = { type: 'FILL', value: firstValue };
       q.answerKey = firstValue;
-    } else if (type === 'MATCHING') {
-      const pairs = Array.isArray(q.matchingPairs) ? q.matchingPairs : [];
-      content.matchingLeftItems = pairs.map(pair => ({ id: pair.leftId, text: pair.leftText || '' }));
-      const rightById = new Map();
-      pairs.forEach(pair => rightById.set(pair.rightId, { id: pair.rightId, text: pair.rightText || '' }));
-      content.matchingRightItems = Array.from(rightById.values());
-      pairs.forEach(pair => { answer.matchingPairs[pair.leftId] = pair.rightId; });
-      q.answerKey = pairs.map((pair, index) => `${index + 1}-${index + 1}`).join(',');
     }
 
     content.imageReference = q.imageUrl || content.imageReference || null;
     content.audioReference = q.audioUrl || content.audioReference || null;
-    q.canonicalQuestionType = type;
+    delete q.canonicalQuestionType;
     q.questionContent = content;
     q.answerSpec = answer;
     return q;
@@ -130,7 +109,6 @@
 
   function scoringPolicy(type) {
     if (type === 'FILL_BLANK') return 'NORMALIZED_EXACT';
-    if (type === 'MATCHING') return 'PER_PAIR';
     if (type === 'ESSAY' || type === 'SPEAKING') return 'PROFILE_BASED';
     return 'ALL_OR_NOTHING';
   }
@@ -140,11 +118,11 @@
     if (!selected) return null;
     if (!draft.document) draft.document = {};
     draft.schemaVersion = 'practice-draft-v3';
-    draft.document.examTemplateCode = selected.code;
-    draft.document.detectedCategory = selected.categoryCode;
-    draft.document.assessmentProgramCode = selected.programCode;
-    draft.document.assessmentProgramVersionId = selected.programVersionId;
-    draft.document.assessmentProgramVersion = selected.programVersion;
+    delete draft.document.examTemplateCode;
+    delete draft.document.detectedCategory;
+    delete draft.document.assessmentProgramCode;
+    delete draft.document.assessmentProgramVersionId;
+    delete draft.document.assessmentProgramVersion;
     return selected;
   }
 

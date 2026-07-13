@@ -5,7 +5,6 @@ public record ExplanationContext(
         Long questionId,
         Long questionVersionId,
         Integer questionNo,
-        String programCode,
         AssessmentSkill skill,
         CanonicalQuestionType questionType,
         String prompt,
@@ -15,8 +14,7 @@ public record ExplanationContext(
         AssessmentStimulus stimulus,
         String teacherExplanation,
         String explanationLanguage,
-        String optionLabelMode,
-        ProfileReference promptProfile
+        String optionLabelMode
 ) {
     public static final String SCHEMA_VERSION = "explanation-context-v1";
 
@@ -25,8 +23,7 @@ public record ExplanationContext(
         if (!SCHEMA_VERSION.equals(schemaVersion)) {
             throw new IllegalArgumentException("Unsupported explanation context schema: " + schemaVersion);
         }
-        if (questionId == null || programCode == null || programCode.isBlank()
-                || skill == null || questionType == null || prompt == null
+        if (questionId == null || skill == null || questionType == null || prompt == null
                 || questionContent == null || answerSpec == null || stimulus == null) {
             throw new IllegalArgumentException("Explanation context is incomplete");
         }

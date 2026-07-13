@@ -45,13 +45,12 @@ class Phase10AssessmentFlowIntegrationTest {
     @Autowired private PracticeService practiceService;
 
     @Test
-    void topikPolicyPublishSnapshotSubmitScoreAndExplainFlowIsVersionLocked() {
+    void singleScopePublishSnapshotSubmitScoreAndExplainFlowIsVersionLocked() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         User student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         PracticeDraft draft = draftRepository.saveAndFlush(new PracticeDraft(
                 "Phase 10 TOPIK Reading",
                 "Assessment flow",
-                "TOPIK_II",
                 "GLOBAL",
                 null,
                 "DRAFT",
@@ -82,15 +81,10 @@ class Phase10AssessmentFlowIntegrationTest {
         PracticeSection section = sectionRepository.findBySetIdOrderByDisplayOrderAsc(setId).get(0);
         PracticeQuestion question = questionRepository.findBySetIdOrderByDisplayOrderAsc(setId).get(0);
 
-        assertThat(set.getAssessmentProgramCode()).isEqualTo("TOPIK");
         assertThat(section.getTestId()).isEqualTo(test.getId());
         assertThat(question.getQuestionType()).isEqualTo("SINGLE_CHOICE");
-        assertThat(question.getCanonicalQuestionType()).isEqualTo("SINGLE_CHOICE");
         assertThat(question.getQuestionContentJson()).contains("question-content-v1", "opt_1");
         assertThat(question.getAnswerSpecJson()).contains("answer-spec-v1", "opt_1");
-        assertThat(question.getScoringPolicyCode()).isEqualTo("ALL_OR_NOTHING");
-        assertThat(question.getScoringProfileCode()).isEqualTo("TOPIK_SINGLE_CHOICE");
-        assertThat(question.getScoringProfileVersion()).isEqualTo(1);
 
         Long attemptId = practiceService.startAttempt(
                 setId, test.getId(), section.getId(), student.getId());
@@ -107,11 +101,9 @@ class Phase10AssessmentFlowIntegrationTest {
                 attempt.getSetVersionId(),
                 attempt.getTestVersionId(),
                 attempt.getSectionVersionId()).orElseThrow();
-        assertThat(snapshot.setVersion().getAssessmentProgramCode()).isEqualTo("TOPIK");
         assertThat(snapshot.questions()).singleElement().satisfies(version -> {
-            assertThat(version.getCanonicalQuestionType()).isEqualTo("SINGLE_CHOICE");
+            assertThat(version.getQuestionType()).isEqualTo("SINGLE_CHOICE");
             assertThat(version.getAnswerSpecJson()).isEqualTo(question.getAnswerSpecJson());
-            assertThat(version.getScoringProfileVersion()).isEqualTo(1);
         });
 
         ReadingListeningResultView result = practiceService.getReadingListeningResult(

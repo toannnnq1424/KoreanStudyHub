@@ -1,4 +1,4 @@
-﻿# CODEX Practice Workflow Standard
+# CODEX Practice Workflow Standard
 
 Korean Study Hub — Feature `/practice`
 
@@ -1696,8 +1696,8 @@ Implemented scope:
   authoring binding when the old snapshot has no Phase 11 metadata. All
   unreleased Phase 11 migration work was squashed into the single
   `V26__practice_authoring_contract.sql`; commit `324dad9` shipped no V27-V29.
-  Any accepted post-closure correction must therefore use a forward migration
-  rather than modifying V26.
+  This was the historical Phase 11 contract before the later 2026-07-13
+  reduce-scope decision squashed V25-V29 into one large V25 in this branch.
 - Program-version/template columns on live sets and immutable set versions stay
   nullable for legacy or historically ambiguous rows. New first-publish and
   republish paths require and persist both bindings. This is an intentional
@@ -1821,7 +1821,7 @@ implementation required and received a separate explicit user GO.
 ### Phase 12 — Materials & Permissions
 
 Status:
-COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED
+SINGLE_SCOPE_REDUCTION_REQUIRED
 
 `PRE_PHASE_12_MATERIALS_PERMISSIONS_AND_GOVERNANCE_GATE` was completed as an
 audit-only slice on 2026-07-11 against committed HEAD `324dad9`.
@@ -2017,10 +2017,9 @@ Phase 12 implementation and automated stabilization outcome on 2026-07-12:
   adapter; Cloudflare R2 is the selected production target but its adapter is
   `NOT_STARTED_API_UNAVAILABLE`. No SDK, network call, secret, bucket/domain or
   fake credential was introduced;
-- forward migration `V27__practice_phase12_governance.sql` carries the
-  unreleased 11I target-context delta and Phase 12 governance/material schema
-  without rewriting committed V26. Fresh MySQL V1-V27 migration plus Hibernate
-  validation is green and old attempt/version rows remain preserved;
+- Historical checkpoint: `V27__practice_phase12_governance.sql` once carried
+  the unreleased 11I target-context delta and Phase 12 governance/material
+  schema. The current reduce-scope branch supersedes that with squashed V25;
 - focused evidence is green: restore/governance 17/17, storage/material 22/22,
   governance hardening 13/13 and `PracticeIntegrationTest` 78/78. The final
   pool-bounded full suite is 1293/1293, zero failures/errors/skips,
@@ -2107,10 +2106,40 @@ Phase 12 scope-reduction and future governance decision on 2026-07-12:
 - lecturer authoring chooses certificate/program first; learner library and
   progress expose certificate context. Invalid governance actions return a
   friendly domain error, never a raw HTML error page;
-- the forward migration for this redesign starts after V28 and preserves all
-  old draft/published-version/attempt/result identities;
+- historical redesign notes started after V28, but current reduce-scope branch
+  squashes V25-V29 before commit and preserves old draft/published-version/
+  attempt/result identities through the final V25 migration;
 - this redesign is future work requiring a separate implementation GO and is a
   prerequisite for Phase 13 multi-certificate learner expansion.
+
+The preceding multi-certificate redesign was superseded later on 2026-07-12 and
+refined on 2026-07-13 by an explicit product-scope reduction:
+
+- product has one implicit KSH practice scope; teacher/learner UI does not
+  select certificate, program, category or TOPIK I/TOPIK II;
+- Reading/Listening support `SINGLE_CHOICE`, `FILL_BLANK` and
+  `TRUE_FALSE_NOT_GIVEN`, with deterministic teacher-key/accepted-value
+  scoring and no certificate-driven question cap;
+- Writing keeps exactly Q51-Q54 and the existing code-owned evaluator/rubric;
+- Speaking remains a default skill, supports an arbitrary teacher-authored
+  question count and keeps media/evaluation/result guardrails;
+- the only target question types are `SINGLE_CHOICE`, `FILL_BLANK`,
+  `TRUE_FALSE_NOT_GIVEN`, `ESSAY` and `SPEAKING`; `MULTIPLE_CHOICE` and
+  `MATCHING` are removal targets;
+- the ten `assessment_*` governance tables, generic question-type policy/runtime
+  and Admin/Head content governance are removal targets;
+- content collaboration is Lecturer owner <-> Lecturer collaborator with owner
+  lock; Head/Admin approval and emergency override are not part of the reduced
+  workflow;
+- immutable versions, arbitrary historical restore, governed materials,
+  Reading/Listening AI explanation and attempt/result traceability remain;
+- migration inventory contains 42 practice/assessment tables. The mandatory
+  target removes 14 and leaves at most 28; deferring PDF-AI can reduce six more
+  but requires a separate decision;
+- canonical audit and execution contract:
+  `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`;
+- `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE = OPEN` and Phase 13 remains
+  `NO_GO` until code/schema/UI/test/browser stabilization is green.
 
 ### Phase 13 — Results, Progress & UI/UX Polish
 
@@ -2121,6 +2150,11 @@ Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. It must preserve the existing KSH route chain
 `set -> test -> mode -> attempt -> result -> result/detail` and must not copy
 external branding, assets, content, CSS, API or URLs.
+
+Phase 13 scope is one implicit KSH practice model: R/L single choice, fill blank
+and true/false/not-given; Writing Q51-Q54; and Speaking. Multi-certificate,
+program governance, `MULTIPLE_CHOICE` and `MATCHING` references below are
+historical research/roadmap evidence, not current acceptance criteria.
 
 Research basis and evidence boundary:
 
@@ -2134,6 +2168,10 @@ Research basis and evidence boundary:
 Research is additive. It must not replace or silently close older Phase 13/14
 directions that have not passed their own audit and UAT. The following baseline
 items remain explicitly open:
+
+- single-scope lock supersedes the earlier multi-certificate product directions
+  only. Speaking is a default skill and must keep its media/evaluation/result
+  guardrails. Research observations remain UX evidence only;
 
 - Mojibake / Unicode / UTF-8: fix Vietnamese/Korean UI corruption such as
   `Cáº¥p`, `Äá»c` and similar encoding artifacts. Templates, database
@@ -2160,31 +2198,31 @@ progress analytics and retry/operational UX -> 13F; visual/encoding/icons/a11y
 Required Phase 13 slices:
 
 - 13A: design/state foundation and bounded server-backed library preserving the
-  `Set > Test > Skill` hierarchy, program/certificate filter state in the URL,
+  `Set > Test > Skill` hierarchy and skill filter state in the URL,
   pagination/cursor loading and explicit empty/error/loading states;
 - 13B: explicit full-test versus skill-mode selection and preflight. Keep
   latest submitted, best score, in-progress attempt and attempt count as
   separate concepts;
 - 13C: shared player shell with skill-native interaction, timer, navigation,
-  autosave, exit warning and resumable attempt states. Typed R/L/W/S controls
-  follow the Phase 10/11 contracts and never expose answer specs before submit;
+  autosave, exit warning and resumable attempt states. Three R/L objective
+  controls plus Writing Q51-Q54 and Speaking never expose answer keys before
+  submit;
 - 13D: result overview with exam-native score scales and recent-attempt
   semantics. Preserve `score`, `scale`, `level`, `completion`, `timing` and
   `feedbackAvailability` as distinct fields;
 - 13E: evidence-based result detail for learner answer, official answer,
   explanation, passage/transcript anchors, rubric, correction, upgraded answer
   and sample content. AI is advisory and cannot replace the official answer key;
-- 13F: progress/profile aggregation by program, skill and question type, with
+- 13F: progress/profile aggregation by skill and Writing task, with
   filters, sample-size/recency/confidence context and deep links to practice.
-  Preserve the earlier operational UX scope: policy-gated Speaking retry,
-  explanation unavailable/retry states, idempotency and rate limits, and no
+  Preserve explanation unavailable/retry states, idempotency and rate limits, and no
   provider call caused only by refreshing a page;
 - 13G: responsive, accessibility, encoding and performance pass for large
   catalogs. Complete the explicit UTF-8/mojibake regression sweep, replace
   emoji product icons with Lucide/consistent SVG components, and prevent
   overlapping controls/text;
-- 13H: visual QA and manual learner journeys across IELTS/TOEIC-like modes,
-  canonical question types, desktop/mobile and failure/empty states. The gate
+- 13H: visual QA and manual learner journeys across full/skill modes, three R/L
+  objective types, Writing Q51-Q54, Speaking, desktop/mobile and failure/empty states. The gate
   must include large-catalog performance plus encoding/icon and multi-test /
   multi-skill UAT; research evidence alone cannot satisfy this gate.
 
@@ -2249,21 +2287,14 @@ Manual UAT data contract (locked 2026-07-11):
   separate from production Flyway seed data unless separately approved.
   Content must be original/licensed, realistic Korean and teacher-reviewed,
   rather than placeholder text;
-- coverage is program/certificate driven, not TOPIK-only. Seed every
-  Admin/Head-enabled certificate and approved template, including planned TOPIK
-  I, TOPIK II, KSH custom, KIIP, KLAT, KLPT, OPIc and TOPIK Speaking profiles
-  plus certificates added later. Generate set/test/skill/type/media data from
-  each certificate's resolved immutable config; never copy TOPIK constraints
-  into another certificate;
-- every enabled certificate needs at least one representative set, multiple
-  tests where policy permits, every enabled skill and question type, shared
-  group material, question material, profiles/rubrics/scoring and valid/warning/
-  invalid import cases;
-- the TOPIK II full-form fixture specifically includes 50 Reading questions,
-  50 Listening questions and Writing questions 51, 52, 53 and 54, with local
-  numbering, answer keys, teacher explanations, passages/transcripts and media
-  placement. Other certificates use their own approved counts, skills, timers,
-  scoring and profile contracts;
+- coverage uses one implicit KSH scope with representative sets, multiple tests,
+  all four skills, the three allowed R/L objective types, Writing Q51-Q54,
+  Speaking, shared group material, question material and valid/warning/invalid
+  import cases;
+- a full-form fixture specifically includes 50 Reading questions, 50 Listening
+  questions, Writing 51-54 and representative Speaking prompts, with local
+  numbering, answer keys/accepted values, teacher explanations,
+  passages/transcripts and media placement;
 - Phase 15 then runs the full Manual UAT/release matrix across roles, supported
   browsers/devices, authoring/import, learner attempts/results, audio/media,
   Unicode/IME, scale and operational failure states. This is distinct from the
@@ -2511,23 +2542,25 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-12 | Phase 12 Materials, Permissions and Governance Implementation / Automated Stabilization | AUDIT_COMPLETE_GO_WITH_REQUIRED_FOUNDATION_FIXES | STABILIZED_AUTOMATED_GATE_GREEN_BROWSER_QA_DEFERRED | this commit | 324dad9019e61d4c814c350c6ce6ac88247c8997 | Focused gates: restore/governance 17/17, storage/material 22/22, governance hardening 13/13 and Practice integration 78/78. Fresh MySQL V1-V27/Hibernate validation and static security/route/migration/UTF-8 checks are green. Final pool-bounded full suite: 1293/1293, zero failures/errors/skips, BUILD SUCCESS on JDK 26.0.1/MySQL V27; no provider call. Browser QA was not run in this checkpoint. | Implemented 12A-12E action RBAC, collaboration/owner lock, archive lifecycle, append-only historical restore, immutable assessment governance, authenticated material delivery, content-signature checks, durable asset lifecycle and provider-neutral R2 readiness. `PHASE_12_AUTOMATED_STABILIZATION_GATE = CLOSED_GREEN`; closure remained open because browser QA was deferred. A later clarification retained browser closure as mandatory. R2 integration, complete managed system-rule runtime migration, production Speaking media and release UAT remain routed debt. | User explicitly requested stage/commit/push of this checkpoint including `docs/research-input`. Next, review the deferred browser closure decision; do not merge or open Phase 13 without explicit instruction. |
 | 2026-07-12 | Phase 12 Post-commit Security, Governance and UI Closure Audit | COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED | ACTION_REQUIRED | N/A | 85b65e1 | Static source/schema/route audit plus fresh local DB inventory; no production code, migration, provider call or test rerun. Prior 1293/1293 remains historical baseline evidence. | Confirmed P0 historical-version material exposure and P0 program/template activation inconsistency; primary emergency override and material Range are incomplete; governance/material/collaborator/per-set-history UI plus JDK 17 and browser closure remain open. Scenario count is dynamic and must not be hard-coded. | Implement `docs/PRACTICE_PHASE_12_CONTINUATION_AND_CLOSURE_PLAN.md`; Phase 13 remains NO-GO. |
 | 2026-07-12 | Phase 12 Reduced-scope Continuation Checkpoint | ACTION_REQUIRED | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | this commit | 85b65e1 | JDK 17 focused continuation gate 62/62, V1-V28 and V27-V28 migration paths 3/3 each, and latest full-suite baseline 1319/1319 were green; the later legacy ungrouped-question compatibility fix passed its focused 6/6 test. Browser review exposed governance UX/model gaps, so closure remains open and a final full-suite rerun is still required before closure. | Preserves historical-material authorization, Range, override, bounded governance/material/history UI and legacy draft compatibility work. Records future one-active-scenario plus certificate -> skill -> task redesign without claiming it implemented. | Push `feature/practice-reduce-scope`; do not merge or start 12H/Phase 13 without a separate GO. |
+| 2026-07-13 | Phase 12R Single-Scope Reduction Audit | CHECKPOINT_IMPLEMENTED_FUTURE_REDESIGN_PLANNED | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | N/A | 59cbc78 | Static migration/entity/repository/route/reference inventory; no production code, migration, provider call or test rerun. Inventory found 96 total migration-created tables, 42 in the practice/assessment boundary, 10 generic assessment-governance tables, 2 Speaking-media tables to keep, 19 files with direct assessment-schema references, 31 generic-question-type files, 158 Speaking references and 27 governance-override references. | Multi-certificate/program governance and 12H are cancelled. Target is one implicit KSH scope: R/L single choice, fill blank and true/false/not-given without certificate caps; Writing exactly Q51-Q54; Speaking; Lecturer collaboration; immutable history/materials; and R/L AI explanation. Keep one five-value `question_type`, remove duplicate canonical type plus multiple-choice/matching. Mandatory target drops 14 tables; optional PDF-AI deferral drops six more. | Implement `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`; Phase 13 remains NO-GO. |
+| 2026-07-13 | Phase 12R Single-Scope Reduction Implementation / Practice Code Gate | AUDIT_COMPLETE_IMPLEMENTATION_REQUIRED | PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED | this commit | 59cbc78 | User narrowed closure to practice feature code only and explicitly skipped browser QA. JDK 17 practice-focused gate on fresh MySQL squashed V25: 860/860 tests, 0 failures/errors/skips. Final squash verification used fresh schema `ksh_reduce_scope_squashed_v25_final`: Flyway `25 - practice single scope final`, `PracticeQuestionRepositoryTest` 6/6, 82 base tables + 1 view, removed generic governance tables still present = 0, live/version question types exactly `ESSAY,FILL_BLANK,SINGLE_CHOICE,SPEAKING,TRUE_FALSE_NOT_GIVEN`. `git diff --check`, practice route/static/mojibake scans and app-port 8080-8090 scan were green. | Implemented single implicit KSH practice scope, removed program/certificate/category/governance/profile routes and tables, kept lecturer collaboration/history/material boundaries, kept Speaking, kept R/L AI explanation, fixed UUID option IDs leaking into wrong-answer analysis, corrected learner progress to count tests instead of per-skill question caps, and squashed V25-V29 into final-state `V25__practice_single_scope_final.sql` rather than copy-paste migration history. Browser QA is not claimed green in this checkpoint. | Commit/push `feature/practice-reduce-scope`. Phase 13 remains NO-GO until user gives separate approval; browser/product QA can be run later as its own gate if requested. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Preserve the reduced-scope continuation checkpoint on
-`feature/practice-reduce-scope`. The future certificate/skill/task governance
-redesign in 12H needs a separate implementation GO. Do not merge, claim product
-GO or open Phase 13 before the remaining full-suite/browser closure gate is
-`CLOSED_GREEN` and the user gives a separate GO.
+Review and commit/push `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE` practice-code
+checkpoint from `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`. Do not continue
+12H generic certificate/skill/task governance. Do not merge, claim product GO or
+open Phase 13 until user gives a separate GO; browser/product QA was explicitly
+skipped for this checkpoint and must not be implied as green.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
-Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12 is
-`COMMITTED_BASELINE_POST_AUDIT_CONTINUATION_REQUIRED`; Phase 13+ remain
-NOT_STARTED. Live Speaking AI rollout remains NO-GO. React modernization
+Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
+`PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13+ remain
+NOT_STARTED until a separate user GO. Live Speaking AI rollout remains NO-GO. React modernization
 remains future-only after Phase 16. Do not start Phase 13 or perform broad
 UI/React modernization without the next explicit phase approval.
 

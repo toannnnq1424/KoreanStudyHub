@@ -8,7 +8,6 @@ import java.text.Normalizer;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 @Component
@@ -31,10 +30,8 @@ public class AssessmentScoringEngine {
 
         return switch (spec.questionType()) {
             case SINGLE_CHOICE -> scoreSingleChoice(spec, answer, points);
-            case MULTIPLE_CHOICE -> scoreMultipleChoice(spec, answer, points);
             case TRUE_FALSE_NOT_GIVEN -> scoreTfng(spec, answer, points);
             case FILL_BLANK -> scoreFillBlank(spec, answer, points);
-            case MATCHING -> scoreMatching(spec, answer, points);
             case ESSAY, SPEAKING -> pendingAi(spec, points);
         };
     }
@@ -50,38 +47,6 @@ public class AssessmentScoringEngine {
         requireCount(answer.selectedOptionIds(), 1, "single-choice learner selection");
         boolean correct = spec.correctOptionIds().get(0).equals(answer.selectedOptionIds().get(0));
         return binary(correct, points, spec);
-    }
-
-    private AssessmentScoreResult scoreMultipleChoice(AnswerSpec spec,
-                                                      LearnerAnswer answer,
-                                                      BigDecimal points) {
-        requirePolicy(spec, Set.of(
-                ScoringPolicyCode.ALL_OR_NOTHING,
-                ScoringPolicyCode.PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO));
-        if (spec.correctOptionIds().isEmpty()) {
-            throw new IllegalArgumentException("Multiple-choice answer spec has no correct options");
-        }
-        if (answer.selectedOptionIds().isEmpty()) {
-            return result(AssessmentScoreStatus.NOT_ANSWERED, BigDecimal.ZERO, points, spec,
-                    0, spec.correctOptionIds().size());
-        }
-
-        Set<String> correct = new LinkedHashSet<>(spec.correctOptionIds());
-        Set<String> selected = new LinkedHashSet<>(answer.selectedOptionIds());
-        if (spec.scoringPolicyCode() == ScoringPolicyCode.ALL_OR_NOTHING) {
-            return binary(correct.equals(selected), points, spec, correct.size());
-        }
-
-        if (!correct.containsAll(selected)) {
-            return result(AssessmentScoreStatus.INCORRECT, BigDecimal.ZERO, points, spec, 0, correct.size());
-        }
-        int correctUnits = selected.size();
-        if (correctUnits == correct.size()) {
-            return result(AssessmentScoreStatus.CORRECT, points, points, spec, correctUnits, correct.size());
-        }
-        BigDecimal earned = proportional(points, correctUnits, correct.size());
-        return result(AssessmentScoreStatus.PARTIALLY_CORRECT, earned, points, spec,
-                correctUnits, correct.size());
     }
 
     private AssessmentScoreResult scoreTfng(AnswerSpec spec,
@@ -120,32 +85,6 @@ public class AssessmentScoringEngine {
             }
         }
         return aggregate(correctUnits, spec.blanks().size(), points, spec);
-    }
-
-    private AssessmentScoreResult scoreMatching(AnswerSpec spec,
-                                                LearnerAnswer answer,
-                                                BigDecimal points) {
-        requirePolicy(spec, Set.of(ScoringPolicyCode.PER_PAIR, ScoringPolicyCode.ALL_OR_NOTHING));
-        if (spec.matchingPairs().isEmpty()) {
-            throw new IllegalArgumentException("Matching answer spec has no pairs");
-        }
-        if (answer.matchingAnswers().isEmpty()) {
-            return result(AssessmentScoreStatus.NOT_ANSWERED, BigDecimal.ZERO, points, spec,
-                    0, spec.matchingPairs().size());
-        }
-
-        int correctUnits = 0;
-        for (Map.Entry<String, String> expected : spec.matchingPairs().entrySet()) {
-            if (expected.getValue().equals(answer.matchingAnswers().get(expected.getKey()))) {
-                correctUnits++;
-            }
-        }
-        if (spec.scoringPolicyCode() == ScoringPolicyCode.ALL_OR_NOTHING) {
-            boolean exact = correctUnits == spec.matchingPairs().size()
-                    && spec.matchingPairs().keySet().equals(answer.matchingAnswers().keySet());
-            return binary(exact, points, spec, spec.matchingPairs().size());
-        }
-        return aggregate(correctUnits, spec.matchingPairs().size(), points, spec);
     }
 
     private AssessmentScoreResult pendingAi(AnswerSpec spec, BigDecimal points) {

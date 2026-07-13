@@ -11,12 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PracticeEditorWritingTaskAuthoringTest {
 
     @Test
-    void essayTaskSelectorHasBlankAndGeneralOptions() throws Exception {
+    void essayTaskSelectorOnlyOffersTheFourPersistableWritingTasks() throws Exception {
         String template = Files.readString(Path.of("src/main/resources/templates/practice/manage/editor.html"));
 
         assertTrue(template.contains("id=\"q-essay-task\""));
         assertTrue(template.contains("<option value=\"\">"));
-        assertTrue(template.contains("<option value=\"GENERAL\">"));
+        assertTrue(template.contains("<option value=\"Q51\">"));
+        assertTrue(template.contains("<option value=\"Q52\">"));
+        assertTrue(template.contains("<option value=\"Q53\">"));
+        assertTrue(template.contains("<option value=\"Q54\">"));
+        assertFalse(template.contains("<option value=\"GENERAL\">"));
     }
 
     @Test

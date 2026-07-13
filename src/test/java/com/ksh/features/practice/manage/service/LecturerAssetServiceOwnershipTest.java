@@ -2,11 +2,10 @@ package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeDraft;
-import com.ksh.entities.PracticeDraftAssetUsage;
+import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticeAssetLifecycleTask;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeAssetLifecycleTaskRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,29 +25,40 @@ import static org.mockito.Mockito.when;
 class LecturerAssetServiceOwnershipTest {
 
     private final LecturerAssetRepository assetRepository = mock(LecturerAssetRepository.class);
-    private final PracticeDraftAssetUsageRepository usageRepository = mock(PracticeDraftAssetUsageRepository.class);
     private final PracticeDraftRepository draftRepository = mock(PracticeDraftRepository.class);
     private final AssetStorageService storage = mock(AssetStorageService.class);
+    private final PracticeMaterialReferenceService references =
+            mock(PracticeMaterialReferenceService.class);
+    private final PracticeAssetLifecycleTaskRepository tasks =
+            mock(PracticeAssetLifecycleTaskRepository.class);
 
     private LecturerAssetService service;
 
     @BeforeEach
     void setUp() {
-        service = new LecturerAssetService(assetRepository, usageRepository, draftRepository, storage);
+        service = new LecturerAssetService(
+                assetRepository, draftRepository, storage, null, references, tasks, null);
     }
 
     @Test
     void ownerCanLinkOwnedAssetToOwnedDraft() {
-        PracticeDraft draft = new PracticeDraft("Draft", "", "TOPIK_II", "GLOBAL",
+        PracticeDraft draft = new PracticeDraft("Draft", "",  "GLOBAL",
                 null, "DRAFT", 7L, "{}");
         LecturerAsset asset = new LecturerAsset();
         asset.setOwnerLecturerId(7L);
         when(draftRepository.findByIdAndOwnerId(10L, 7L)).thenReturn(Optional.of(draft));
         when(assetRepository.findById(20L)).thenReturn(Optional.of(asset));
-        when(usageRepository.save(any(PracticeDraftAssetUsage.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        PracticeMaterialReference reference =
+                PracticeMaterialReference.draft(20L, 10L, "QUESTION");
+        when(references.linkDraft(
+                org.mockito.ArgumentMatchers.eq(10L),
+                org.mockito.ArgumentMatchers.eq(20L),
+                org.mockito.ArgumentMatchers.eq("QUESTION"),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(reference);
 
-        PracticeDraftAssetUsage usage = service.linkAssetToDraft(
+        PracticeMaterialReference usage = service.linkAssetToDraft(
                 10L, 20L, 7L, "s1", "g1", "q1", "QUESTION", "alt");
 
         assertEquals(10L, usage.getDraftId());
@@ -57,7 +67,7 @@ class LecturerAssetServiceOwnershipTest {
 
     @Test
     void crossOwnerCannotLinkAssetOrUnlinkUsage() {
-        PracticeDraft draft = new PracticeDraft("Draft", "", "TOPIK_II", "GLOBAL",
+        PracticeDraft draft = new PracticeDraft("Draft", "",  "GLOBAL",
                 null, "DRAFT", 7L, "{}");
         LecturerAsset otherAsset = new LecturerAsset();
         otherAsset.setOwnerLecturerId(8L);
@@ -72,8 +82,9 @@ class LecturerAssetServiceOwnershipTest {
         assertThrows(jakarta.persistence.EntityNotFoundException.class,
                 () -> service.unlinkAssetFromDraft(10L, 30L, 8L));
 
-        verify(usageRepository, never()).save(any());
-        verify(usageRepository, never()).delete(any());
+        verify(references, never()).linkDraft(
+                any(), any(), any(), any(), any());
+        verify(references, never()).unlinkDraftReference(any(), any());
     }
 
     @Test
@@ -96,10 +107,8 @@ class LecturerAssetServiceOwnershipTest {
 
     @Test
     void temporaryCleanupPreservesAssetReferencedByDraft() {
-        PracticeMaterialReferenceService references = mock(PracticeMaterialReferenceService.class);
-        PracticeAssetLifecycleTaskRepository tasks = mock(PracticeAssetLifecycleTaskRepository.class);
         LecturerAssetService hardenedService = new LecturerAssetService(
-                assetRepository, usageRepository, draftRepository, storage,
+                assetRepository, draftRepository, storage,
                 null, references, tasks, null);
         LecturerAsset asset = new LecturerAsset();
         asset.setId(20L);
@@ -109,8 +118,7 @@ class LecturerAssetServiceOwnershipTest {
         asset.setStatus("TEMPORARY");
         when(assetRepository.findBySourceImportSessionIdAndOwnerLecturerId(100L, 7L))
                 .thenReturn(List.of(asset));
-        when(usageRepository.findByAssetId(20L))
-                .thenReturn(List.of(new PracticeDraftAssetUsage()));
+        when(references.hasAnyReference(20L)).thenReturn(true);
 
         hardenedService.cleanupTemporaryAssets(100L, 7L);
 

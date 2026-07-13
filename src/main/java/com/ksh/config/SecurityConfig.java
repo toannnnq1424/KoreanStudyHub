@@ -139,6 +139,7 @@ public class SecurityConfig {
                                 "/uploads/lecturer-assets/**").denyAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
+                        .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         .requestMatchers("/my/**", "/j/**").authenticated()

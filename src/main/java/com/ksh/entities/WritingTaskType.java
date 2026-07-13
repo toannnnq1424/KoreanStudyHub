@@ -4,6 +4,5 @@ public enum WritingTaskType {
     Q51,
     Q52,
     Q53,
-    Q54,
-    GENERAL
+    Q54
 }

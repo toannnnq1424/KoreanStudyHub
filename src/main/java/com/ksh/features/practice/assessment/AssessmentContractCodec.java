@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -68,8 +67,6 @@ public class AssessmentContractCodec {
         QuestionContent content = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
                 options,
-                List.of(),
-                List.of(),
                 blanks
         );
         validateQuestionContent(content, type);
@@ -85,30 +82,17 @@ public class AssessmentContractCodec {
             case SINGLE_CHOICE -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type,
                     List.of(resolveLegacyOptionId(answerKey, content)), null,
-                    List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING,
-                    null, null, null);
-            case MULTIPLE_CHOICE -> new AnswerSpec(
-                    AnswerSpec.SCHEMA_VERSION, type,
-                    splitLegacySelections(answerKey).stream()
-                            .map(value -> resolveLegacyOptionId(value, content))
-                            .toList(),
-                    null, List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING,
-                    null, null, null);
+                    List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
             case TRUE_FALSE_NOT_GIVEN -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), normalizedKey,
-                    List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING,
-                    null, null, null);
+                    List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
             case FILL_BLANK -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
                     List.of(new AnswerSpec.BlankAnswer("blank_1", List.of(required(answerKey, "answer key")))),
-                    Map.of(), ScoringPolicyCode.NORMALIZED_EXACT,
-                    null, null, null);
+                    ScoringPolicyCode.NORMALIZED_EXACT);
             case ESSAY, SPEAKING -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
-                    List.of(), Map.of(), ScoringPolicyCode.PROFILE_BASED,
-                    null, null, null);
-            case MATCHING -> throw new IllegalArgumentException(
-                    "Legacy matching answer strings cannot be converted safely without stable item IDs");
+                    List.of(), ScoringPolicyCode.PROFILE_BASED);
         };
         validateAnswerSpec(answerSpec, content);
         return answerSpec;
@@ -122,24 +106,16 @@ public class AssessmentContractCodec {
             case SINGLE_CHOICE -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type,
                     blank(rawAnswer) ? List.of() : List.of(resolveLegacyOptionId(rawAnswer, content)),
-                    null, Map.of(), Map.of(), null);
-            case MULTIPLE_CHOICE -> new LearnerAnswer(
-                    LearnerAnswer.SCHEMA_VERSION, type,
-                    splitLegacySelections(rawAnswer).stream()
-                            .map(value -> resolveLegacyOptionId(value, content))
-                            .toList(),
-                    null, Map.of(), Map.of(), null);
+                    null, java.util.Map.of(), null);
             case TRUE_FALSE_NOT_GIVEN -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type, List.of(),
-                    blank(rawAnswer) ? null : normalizeValue(rawAnswer), Map.of(), Map.of(), null);
+                    blank(rawAnswer) ? null : normalizeValue(rawAnswer), java.util.Map.of(), null);
             case FILL_BLANK -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type, List.of(), null,
-                    blank(rawAnswer) ? Map.of() : Map.of("blank_1", rawAnswer), Map.of(), null);
+                    blank(rawAnswer) ? java.util.Map.of() : java.util.Map.of("blank_1", rawAnswer), null);
             case ESSAY, SPEAKING -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type, List.of(), null,
-                    Map.of(), Map.of(), rawAnswer);
-            case MATCHING -> throw new IllegalArgumentException(
-                    "Legacy matching answer strings cannot be converted safely without stable item IDs");
+                    java.util.Map.of(), rawAnswer);
         };
         validateLearnerAnswer(learnerAnswer);
         return learnerAnswer;
@@ -150,17 +126,11 @@ public class AssessmentContractCodec {
         require(type, "question type");
         requireVersion(content.schemaVersion(), QuestionContent.SCHEMA_VERSION, "question content");
         uniqueIds(content.options(), QuestionContent.Option::id, "option");
-        uniqueIds(content.matchingLeftItems(), QuestionContent.Item::id, "left matching item");
-        uniqueIds(content.matchingRightItems(), QuestionContent.Item::id, "right matching item");
         uniqueIds(content.blanks(), QuestionContent.Blank::id, "blank");
 
         switch (type) {
-            case SINGLE_CHOICE, MULTIPLE_CHOICE -> requireNotEmpty(content.options(), "options");
+            case SINGLE_CHOICE -> requireNotEmpty(content.options(), "options");
             case FILL_BLANK -> requireNotEmpty(content.blanks(), "blanks");
-            case MATCHING -> {
-                requireNotEmpty(content.matchingLeftItems(), "left matching items");
-                requireNotEmpty(content.matchingRightItems(), "right matching items");
-            }
             case TRUE_FALSE_NOT_GIVEN, ESSAY, SPEAKING -> {
                 // No additional content fields are mandatory.
             }
@@ -180,13 +150,6 @@ public class AssessmentContractCodec {
             case SINGLE_CHOICE -> {
                 requireSize(spec.correctOptionIds(), 1, "single-choice correct option IDs");
                 requirePolicy(policy, Set.of(ScoringPolicyCode.ALL_OR_NOTHING), type);
-                requireReferences(spec.correctOptionIds(), ids(content.options(), QuestionContent.Option::id), "option");
-            }
-            case MULTIPLE_CHOICE -> {
-                requireNotEmpty(spec.correctOptionIds(), "multiple-choice correct option IDs");
-                requirePolicy(policy, Set.of(
-                        ScoringPolicyCode.ALL_OR_NOTHING,
-                        ScoringPolicyCode.PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO), type);
                 requireReferences(spec.correctOptionIds(), ids(content.options(), QuestionContent.Option::id), "option");
             }
             case TRUE_FALSE_NOT_GIVEN -> {
@@ -211,17 +174,6 @@ public class AssessmentContractCodec {
                             "normalized accepted value");
                 }
             }
-            case MATCHING -> {
-                requirePolicy(policy, Set.of(ScoringPolicyCode.PER_PAIR, ScoringPolicyCode.ALL_OR_NOTHING), type);
-                requireNotEmpty(spec.matchingPairs().entrySet(), "matching pairs");
-                Set<String> leftIds = ids(content.matchingLeftItems(), QuestionContent.Item::id);
-                Set<String> rightIds = ids(content.matchingRightItems(), QuestionContent.Item::id);
-                requireReferences(spec.matchingPairs().keySet(), leftIds, "left matching item");
-                requireReferences(spec.matchingPairs().values(), rightIds, "right matching item");
-                if (!leftIds.equals(spec.matchingPairs().keySet())) {
-                    throw new IllegalArgumentException("Every left matching item must have a correct pair");
-                }
-            }
             case ESSAY, SPEAKING -> requirePolicy(policy, Set.of(ScoringPolicyCode.PROFILE_BASED), type);
         }
     }
@@ -232,10 +184,6 @@ public class AssessmentContractCodec {
         CanonicalQuestionType type = require(answer.questionType(), "learner answer question type");
         rejectDuplicates(answer.selectedOptionIds(), "selected option ID");
         answer.blankAnswers().keySet().forEach(id -> required(id, "blank answer ID"));
-        answer.matchingAnswers().forEach((left, right) -> {
-            required(left, "left matching answer ID");
-            required(right, "right matching answer ID");
-        });
         if (type == CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN
                 && !blank(answer.selectedValue())
                 && !TFNG_VALUES.contains(normalizeValue(answer.selectedValue()))) {
@@ -292,16 +240,6 @@ public class AssessmentContractCodec {
                     ? normalized.charAt(0) - 'A'
                     : -1;
         }
-    }
-
-    private static List<String> splitLegacySelections(String value) {
-        if (blank(value)) {
-            return List.of();
-        }
-        return List.of(value.split("[,;/]")).stream()
-                .map(String::trim)
-                .filter(part -> !part.isBlank())
-                .toList();
     }
 
     private String write(Object value, String label) {

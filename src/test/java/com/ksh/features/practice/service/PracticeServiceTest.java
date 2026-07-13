@@ -84,12 +84,61 @@ class PracticeServiceTest {
 
     @Test
     void testListPublished() {
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_I", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findByStatusOrderByCreatedAtDesc("PUBLISHED")).thenReturn(List.of(set));
 
         List<PracticeSetRow> result = practiceService.listPublished();
         assertEquals(1, result.size());
         assertEquals("Title", result.get(0).title());
+    }
+
+    @Test
+    void setTestProgressCountsOnlyTestsWhoseEverySectionIsComplete() {
+        PracticeSetRow firstSet = new PracticeSetRow(
+                1L, "Set 1", "", "MIXED", "Tổng hợp", "{}", "MANUAL");
+        PracticeSetRow secondSet = new PracticeSetRow(
+                2L, "Set 2", "", "READING", "Đọc", "{}", "MANUAL");
+
+        com.ksh.entities.PracticeTest firstTest = mock(com.ksh.entities.PracticeTest.class);
+        when(firstTest.getId()).thenReturn(10L);
+        when(firstTest.getSetId()).thenReturn(1L);
+        com.ksh.entities.PracticeTest secondTest = mock(com.ksh.entities.PracticeTest.class);
+        when(secondTest.getId()).thenReturn(20L);
+        when(secondTest.getSetId()).thenReturn(1L);
+        com.ksh.entities.PracticeTest emptyTest = mock(com.ksh.entities.PracticeTest.class);
+        when(emptyTest.getId()).thenReturn(30L);
+        when(emptyTest.getSetId()).thenReturn(2L);
+
+        PracticeSection reading = mock(PracticeSection.class);
+        when(reading.getId()).thenReturn(101L);
+        when(reading.getTestId()).thenReturn(10L);
+        PracticeSection listening = mock(PracticeSection.class);
+        when(listening.getId()).thenReturn(102L);
+        when(listening.getTestId()).thenReturn(10L);
+        PracticeSection speaking = mock(PracticeSection.class);
+        when(speaking.getId()).thenReturn(103L);
+        when(speaking.getTestId()).thenReturn(20L);
+
+        PracticeAttempt readingAttempt = mock(PracticeAttempt.class);
+        when(readingAttempt.getSectionId()).thenReturn(101L);
+        PracticeAttempt listeningAttempt = mock(PracticeAttempt.class);
+        when(listeningAttempt.getSectionId()).thenReturn(102L);
+
+        when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(1L, 2L)))
+                .thenReturn(List.of(firstTest, secondTest, emptyTest));
+        when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(1L, 2L)))
+                .thenReturn(List.of(reading, listening, speaking));
+        when(attemptRepository.findByUserIdAndSetIdInAndStatusIn(
+                9L,
+                List.of(1L, 2L),
+                List.of(PracticeAttempt.STATUS_SUBMITTED, PracticeAttempt.STATUS_GRADED)))
+                .thenReturn(List.of(readingAttempt, listeningAttempt));
+
+        Map<Long, PracticeSetTestProgress> progress = practiceService.getSetTestProgress(
+                List.of(firstSet, secondSet), 9L);
+
+        assertEquals(new PracticeSetTestProgress(1, 2), progress.get(1L));
+        assertEquals(new PracticeSetTestProgress(0, 1), progress.get(2L));
     }
 
     @Test
@@ -100,7 +149,7 @@ class PracticeServiceTest {
 
     @Test
     void testGetPracticeNotPublished() {
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_I", "GLOBAL", null, null, null, "DRAFT", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "DRAFT", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         assertThrows(EntityNotFoundException.class, () -> practiceService.getPractice(1L));
@@ -108,7 +157,7 @@ class PracticeServiceTest {
 
     @Test
     void testGetPracticeWithGroups() {
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_I", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
@@ -137,7 +186,7 @@ class PracticeServiceTest {
 
     @Test
     void testGetPracticeFallbackGrouping() {
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_I", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
         when(groupRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of());
 
@@ -213,7 +262,7 @@ class PracticeServiceTest {
         attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
         when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
 
-        PracticeSet liveSet = new PracticeSet("Live title", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet liveSet = new PracticeSet("Live title", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(liveSet, 1L);
         when(setRepository.findById(1L)).thenReturn(Optional.of(liveSet));
 
@@ -230,7 +279,6 @@ class PracticeServiceTest {
         when(setVersion.getTitle()).thenReturn("Snapshot title");
         when(setVersion.getDescription()).thenReturn("");
         when(setVersion.getSkill()).thenReturn("READING");
-        when(setVersion.getTopikLevel()).thenReturn("TOPIK_I");
         when(setVersion.getMetadataJson()).thenReturn("{}");
         when(setVersion.getCreationMethod()).thenReturn("MANUAL");
 
@@ -254,7 +302,7 @@ class PracticeServiceTest {
         when(questionVersion.getGroupVersionId()).thenReturn(700L);
         when(questionVersion.getQuestionId()).thenReturn(11L);
         when(questionVersion.getQuestionNo()).thenReturn(1);
-        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_MCQ);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SINGLE_CHOICE);
         when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
         when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
         when(questionVersion.getAnswerKey()).thenReturn("A");
@@ -301,26 +349,18 @@ class PracticeServiceTest {
         com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
                 mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
 
-        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
         section.setTestId(10L);
         setEntityId(section, 20L);
-        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
+        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
                 "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
         ungrouped.setGroupId(null);
-        ungrouped.setCanonicalQuestionType("SINGLE_CHOICE");
         ungrouped.setQuestionContentJson("{\"schemaVersion\":\"question-content-v1\"}");
         ungrouped.setAnswerSpecJson("{\"schemaVersion\":\"answer-spec-v1\"}");
-        ungrouped.setScoringPolicyCode("ALL_OR_NOTHING");
-        ungrouped.setScoringProfileCode("TOPIK_SINGLE_CHOICE");
-        ungrouped.setScoringProfileVersion(1);
-        ungrouped.setPromptProfileCode("TOPIK_READING_EXPLANATION");
-        ungrouped.setPromptProfileVersion(2);
-        ungrouped.setRubricProfileCode("TOPIK_READING_RUBRIC");
-        ungrouped.setRubricProfileVersion(3);
         setEntityId(ungrouped, 11L);
 
         when(localSetRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -382,20 +422,10 @@ class PracticeServiceTest {
         assertEquals("[\"A\",\"B\"]", saved.getOptionsJson());
         assertEquals("A", saved.getAnswerKey());
         assertEquals("Snapshot explanation", saved.getExplanation());
-        assertEquals("SINGLE_CHOICE", saved.getCanonicalQuestionType());
+        assertEquals("SINGLE_CHOICE", saved.getQuestionType());
         assertEquals("{\"schemaVersion\":\"question-content-v1\"}", saved.getQuestionContentJson());
         assertEquals("{\"schemaVersion\":\"answer-spec-v1\"}", saved.getAnswerSpecJson());
-        assertEquals("ALL_OR_NOTHING", saved.getScoringPolicyCode());
-        assertEquals("TOPIK_SINGLE_CHOICE", saved.getScoringProfileCode());
-        assertEquals(1, saved.getScoringProfileVersion());
-        assertEquals("TOPIK_READING_EXPLANATION", saved.getPromptProfileCode());
-        assertEquals(2, saved.getPromptProfileVersion());
-        assertEquals("TOPIK_READING_RUBRIC", saved.getRubricProfileCode());
-        assertEquals(3, saved.getRubricProfileVersion());
-        org.mockito.ArgumentCaptor<PracticeSetVersion> setVersionCaptor =
-                org.mockito.ArgumentCaptor.forClass(PracticeSetVersion.class);
-        verify(setVersionRepository).save(setVersionCaptor.capture());
-        assertEquals("TOPIK", setVersionCaptor.getValue().getAssessmentProgramCode());
+        verify(setVersionRepository).save(any(PracticeSetVersion.class));
         verify(groupVersionRepository, never()).save(any());
     }
 
@@ -424,7 +454,7 @@ class PracticeServiceTest {
         com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
                 mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
 
-        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
@@ -434,7 +464,7 @@ class PracticeServiceTest {
         PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "MCQ", "", 10, BigDecimal.ONE, 1);
         secondSection.setTestId(10L);
         setEntityId(secondSection, 21L);
-        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
+        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
                 "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
         ungrouped.setGroupId(null);
         setEntityId(ungrouped, 11L);
@@ -491,7 +521,7 @@ class PracticeServiceTest {
         com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
                 mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
 
-        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest firstTest = new com.ksh.entities.PracticeTest(1L, "Test 1", "", 0, 10);
         setEntityId(firstTest, 10L);
@@ -503,7 +533,7 @@ class PracticeServiceTest {
         PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
         secondSection.setTestId(11L);
         setEntityId(secondSection, 21L);
-        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_MCQ, "Snapshot prompt",
+        PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
                 "[\"A\",\"B\"]", "A", "Snapshot explanation", BigDecimal.ONE, 0);
         ungrouped.setGroupId(null);
         setEntityId(ungrouped, 12L);
@@ -560,7 +590,7 @@ class PracticeServiceTest {
         com.ksh.features.practice.repository.PracticeQuestionRepository localQuestionRepository =
                 mock(com.ksh.features.practice.repository.PracticeQuestionRepository.class);
 
-        PracticeSet set = new PracticeSet("Snapshot set", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Snapshot set", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
@@ -609,7 +639,7 @@ class PracticeServiceTest {
         attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
         when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
 
-        PracticeSet liveSet = new PracticeSet("Live title", "", "READING", "TOPIK_I", "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet liveSet = new PracticeSet("Live title", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(liveSet, 1L);
         when(setRepository.findById(1L)).thenReturn(Optional.of(liveSet));
 
@@ -626,7 +656,6 @@ class PracticeServiceTest {
         when(setVersion.getTitle()).thenReturn("Snapshot title");
         when(setVersion.getDescription()).thenReturn("");
         when(setVersion.getSkill()).thenReturn("READING");
-        when(setVersion.getTopikLevel()).thenReturn("TOPIK_I");
         when(setVersion.getMetadataJson()).thenReturn("{}");
         when(setVersion.getCreationMethod()).thenReturn("MANUAL");
 
@@ -641,7 +670,7 @@ class PracticeServiceTest {
         when(questionVersion.getGroupVersionId()).thenReturn(null);
         when(questionVersion.getQuestionId()).thenReturn(11L);
         when(questionVersion.getQuestionNo()).thenReturn(1);
-        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_MCQ);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SINGLE_CHOICE);
         when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
         when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
         when(questionVersion.getAnswerKey()).thenReturn("A");
@@ -683,7 +712,7 @@ class PracticeServiceTest {
         setEntityId(attempt, 1L);
         when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
-        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         PracticeSection section = new PracticeSection(1L, "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 1);
@@ -717,7 +746,7 @@ class PracticeServiceTest {
         setEntityId(attempt, 1L);
         when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
-        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         PracticeSection section = new PracticeSection(1L, "Writing", "WRITING", "ESSAY", "Write", 50, BigDecimal.TEN, 1);
@@ -749,7 +778,7 @@ class PracticeServiceTest {
         setEntityId(attempt, 1L);
         when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
-        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         PracticeSection section = new PracticeSection(1L, "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 1);
@@ -786,7 +815,7 @@ class PracticeServiceTest {
         setEntityId(attempt, 1L);
         when(attemptRepository.findByIdAndUserId(any(), any())).thenReturn(Optional.of(attempt));
 
-        PracticeSet set = new PracticeSet("Title", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
 
         PracticeSection section = new PracticeSection(1L, "Section 1", "READING", "MCQ", "Desc", 40, BigDecimal.TEN, 1);
@@ -820,7 +849,7 @@ class PracticeServiceTest {
         when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
                 2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
         when(setRepository.findAllById(any())).thenReturn(List.of(
-                new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L)));
+                new PracticeSet("Reading Test", "Desc", "MIXED",  "GLOBAL", null, null, null, "PUBLISHED", 1L)));
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
         setEntityId(test, 10L);
         when(testRepository.findAllById(any())).thenReturn(List.of(test));
@@ -833,6 +862,7 @@ class PracticeServiceTest {
         assertNotNull(overview);
         assertEquals("Toan", overview.studentName());
         assertEquals("avatar.jpg", overview.avatarUrl());
+        assertEquals("Vững", overview.currentLevel());
         assertEquals(1, overview.totalAttempts());
         assertEquals(1, overview.totalCompletedTests());
         // Verify skill metric for READING is calculated
@@ -852,7 +882,7 @@ class PracticeServiceTest {
                 2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
         when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
                 2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "MIXED", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "MIXED",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         when(setRepository.findAllById(any())).thenReturn(List.of(set));
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test 1", "Desc", 1, 40);
@@ -905,6 +935,7 @@ class PracticeServiceTest {
         assertEquals(101, overview.totalAttempts());
         assertEquals(101, overview.totalCompletedTests());
         assertEquals(50.5, overview.recentAverageScore());
+        assertEquals("Đang tiến bộ", overview.currentLevel());
         assertEquals(8, overview.recentHistory().size());
     }
 
@@ -963,7 +994,7 @@ class PracticeServiceTest {
     }
 
     private PracticeAttempt arrangeObjectiveAttempt(String skill, String status, String existingAiFeedbackJson) {
-        PracticeSet set = new PracticeSet(skill + " Set", "Desc", skill, "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet(skill + " Set", "Desc", skill, "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, skill + " Section", skill, "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -999,7 +1030,7 @@ class PracticeServiceTest {
 
     @Test
     void testStartAttemptValidationAndSuccess() {
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1028,7 +1059,7 @@ class PracticeServiceTest {
     @Test
     void startAttemptLifecycleLogOmitsRawUserId() {
         Long privateUserId = 987654321L;
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1057,7 +1088,7 @@ class PracticeServiceTest {
 
     @Test
     void testStartAttemptReuseExisting() {
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1083,7 +1114,7 @@ class PracticeServiceTest {
 
     @Test
     void startAttemptRejectsWhenSectionDisappearsAfterSetLock() {
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection preLockSection = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1104,7 +1135,7 @@ class PracticeServiceTest {
 
     @Test
     void testStartAttemptInvalidSectionIdThrows() {
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1123,7 +1154,7 @@ class PracticeServiceTest {
 
     @Test
     void testStartAttemptSectionNotBelongingToTestThrows() {
-        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1167,7 +1198,7 @@ class PracticeServiceTest {
 
     @Test
     void testSubmitReadingAttemptSuccessful() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1205,44 +1236,11 @@ class PracticeServiceTest {
     }
 
     @Test
-    void submitTypedMultipleChoiceAwardsPartialCreditWithoutWrongSelections() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II",
-                "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 40);
-        setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "DEFAULT", "",
-                40, BigDecimal.valueOf(4), 0);
-        section.setTestId(10L);
-        setEntityId(section, 20L);
-        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        attempt.setStatus("IN_PROGRESS");
-        setEntityId(attempt, 99L);
-
-        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
-        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
-        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
-        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
-        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
-
-        PracticeQuestion question = typedMultipleChoiceQuestion();
-        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(question));
-        String typedAnswer = """
-                {"schemaVersion":"learner-answer-v1","questionType":"MULTIPLE_CHOICE","selectedOptionIds":["opt_1"]}
-                """.trim();
-
-        practiceService.submitAttempt(99L, 2L, Map.of("answer_101", typedAnswer));
-
-        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("2")));
-        assertEquals(0, attempt.getTotalPoints().compareTo(new BigDecimal("4")));
-        assertTrue(attempt.getAnswersJson().contains("learner-answer-v1"));
-    }
-
-    @Test
-    void versionLockedTypedGradingUsesAnswerSpecSnapshotInsteadOfLiveQuestion() {
+    void versionLockedSingleChoiceGradingUsesAnswerSpecSnapshotInsteadOfLiveQuestion() {
         PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
         practiceService.setPublishedVersionServiceForTests(versionService);
 
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II",
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",
                 "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 40);
         setEntityId(test, 10L);
@@ -1271,44 +1269,39 @@ class PracticeServiceTest {
         when(questionVersion.getQuestionNo()).thenReturn(1);
         when(questionVersion.getDisplayOrder()).thenReturn(0);
         when(questionVersion.getPrompt()).thenReturn("Snapshot prompt");
-        when(questionVersion.getQuestionType()).thenReturn("MULTIPLE_CHOICE");
-        when(questionVersion.getCanonicalQuestionType()).thenReturn("MULTIPLE_CHOICE");
+        when(questionVersion.getQuestionType()).thenReturn("SINGLE_CHOICE");
         when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\",\"C\"]");
         when(questionVersion.getQuestionContentJson()).thenReturn(questionContentJson());
-        when(questionVersion.getAnswerKey()).thenReturn("1,3");
+        when(questionVersion.getAnswerKey()).thenReturn("1");
         when(questionVersion.getAnswerSpecJson()).thenReturn(answerSpecJson());
-        when(questionVersion.getScoringPolicyCode())
-                .thenReturn("PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO");
         when(questionVersion.getPoints()).thenReturn(BigDecimal.valueOf(4));
         when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
                 new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
                         List.of(), List.of(questionVersion))));
 
-        PracticeQuestion liveQuestion = typedMultipleChoiceQuestion();
+        PracticeQuestion liveQuestion = typedSingleChoiceQuestion();
         liveQuestion.setAnswerSpecJson("""
-                {"schemaVersion":"answer-spec-v1","questionType":"MULTIPLE_CHOICE",\
+                {"schemaVersion":"answer-spec-v1","questionType":"SINGLE_CHOICE",\
                 "correctOptionIds":["opt_2"],"scoringPolicyCode":"ALL_OR_NOTHING"}
                 """);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(liveQuestion));
         String typedAnswer = """
-                {"schemaVersion":"learner-answer-v1","questionType":"MULTIPLE_CHOICE","selectedOptionIds":["opt_1"]}
+                {"schemaVersion":"learner-answer-v1","questionType":"SINGLE_CHOICE","selectedOptionIds":["opt_1"]}
                 """.trim();
 
         practiceService.submitAttempt(99L, 2L, Map.of("answer_101", typedAnswer));
 
-        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("2")));
+        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("4")));
         verify(questionRepository, never()).findById(any());
     }
 
-    private PracticeQuestion typedMultipleChoiceQuestion() {
+    private PracticeQuestion typedSingleChoiceQuestion() {
         PracticeQuestion question = new PracticeQuestion(
-                1L, 1, "MULTIPLE_CHOICE", "Choose", "[\"A\",\"B\",\"C\"]", "1,3", "",
+                1L, 1, "SINGLE_CHOICE", "Choose", "[\"A\",\"B\",\"C\"]", "2", "",
                 BigDecimal.valueOf(4), 0);
         setEntityId(question, 101L);
-        question.setCanonicalQuestionType("MULTIPLE_CHOICE");
         question.setQuestionContentJson(questionContentJson());
         question.setAnswerSpecJson(answerSpecJson());
-        question.setScoringPolicyCode("PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO");
         return question;
     }
 
@@ -1322,16 +1315,16 @@ class PracticeServiceTest {
 
     private String answerSpecJson() {
         return """
-                {"schemaVersion":"answer-spec-v1","questionType":"MULTIPLE_CHOICE",\
-                "correctOptionIds":["opt_1","opt_3"],\
-                "scoringPolicyCode":"PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO"}
+                {"schemaVersion":"answer-spec-v1","questionType":"SINGLE_CHOICE",\
+                "correctOptionIds":["opt_1"],\
+                "scoringPolicyCode":"ALL_OR_NOTHING"}
                 """;
     }
 
     @Test
     void testSubmitReadingDoesNotGenerateLegacyObjectiveExplanation() {
         String metaJson = "{\"skills\":[\"READING\"]}";
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, metaJson, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, metaJson, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1411,7 +1404,7 @@ class PracticeServiceTest {
 
     @Test
     void testSubmitAttemptIgnoresOtherSectionsQuestions() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1475,7 +1468,7 @@ class PracticeServiceTest {
 
     @Test
     void testGetReadingListeningResultLegacyFallback() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1519,7 +1512,7 @@ class PracticeServiceTest {
 
     @Test
     void testGetAttemptResultLegacyFallback() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1600,7 +1593,7 @@ class PracticeServiceTest {
 
     @Test
     void testSubmitAttemptThrowsOnInvalidPointsConfig() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -1869,7 +1862,7 @@ class PracticeServiceTest {
 
     @Test
     void speakingSubmitAggregatesMultipleQuestionsAndPersistsFeedbackMap() throws Exception {
-        PracticeSet set = new PracticeSet("Speaking Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Speaking Set", "Desc", "SPEAKING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
         setEntityId(test, 10L);
@@ -1942,7 +1935,7 @@ class PracticeServiceTest {
 
     @Test
     void speakingAiSubmitEvaluatesOnceAndPersistsVersionedEnvelope() throws Exception {
-        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
         setEntityId(test, 10L);
@@ -2002,7 +1995,7 @@ class PracticeServiceTest {
 
     @Test
     void speakingReEvaluateDoesNotCallRealSpeakingAiService() {
-        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Speaking AI Set", "Desc", "SPEAKING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
         setEntityId(test, 10L);
@@ -2052,7 +2045,7 @@ class PracticeServiceTest {
     }
 
     private void assertMixedLegacySpeakingEssayOrder(List<String> order) throws Exception {
-        PracticeSet set = new PracticeSet("Mixed Speaking Set", "Desc", "SPEAKING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Mixed Speaking Set", "Desc", "SPEAKING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "Desc", 1, 40);
         setEntityId(test, 10L);
@@ -2270,7 +2263,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingAggregationWithMcqAndEssay() throws Exception {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2322,7 +2315,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingSubmitUnavailableStoresFeedbackWithoutFakeScore() throws Exception {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2357,7 +2350,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingSubmitContractFailedStoresFeedbackWithoutFakeScore() throws Exception {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2392,7 +2385,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingFeedbackMapWritesObjectValuesNotTextualJson() throws Exception {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2431,7 +2424,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingAggregationClampsRawScoresBeforeWeighting() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2467,7 +2460,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingAggregationDoesNotApplyAdditionalLengthPenalty() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2508,7 +2501,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingAggregationScalesRawScoreByConfiguredQuestionPoints() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2549,7 +2542,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingSubmitConflictsWhenLockVersionChangesBeforePersist() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2590,7 +2583,7 @@ class PracticeServiceTest {
 
     @Test
     void testWritingSubmitMapsOptimisticLockFailureToConflict() {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2803,7 +2796,7 @@ class PracticeServiceTest {
             String feedbackJson,
             boolean stubAttemptLookup
     ) {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);
@@ -2844,7 +2837,7 @@ class PracticeServiceTest {
     }
 
     private PracticeAttempt arrangeSingleEssayWritingQuestionReEvaluationAttempt(String answersJson, String feedbackJson) {
-        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING", "TOPIK_II", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(1L, "Writing Section", "WRITING", "ESSAY", "Instruction", 60, BigDecimal.TEN, 1);

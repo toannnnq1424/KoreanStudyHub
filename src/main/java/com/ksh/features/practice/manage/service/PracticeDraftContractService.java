@@ -10,9 +10,13 @@ import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.PracticeContentRules;
+import com.ksh.entities.WritingTaskType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -27,15 +31,27 @@ public class PracticeDraftContractService {
     private final AssessmentAuthoringCatalogService catalogService;
     private final QuestionTypeResolver questionTypeResolver;
     private final AssessmentContractCodec contractCodec;
+    private final PracticeContentRules contentRules;
+
+    @Autowired
+    public PracticeDraftContractService(ObjectMapper objectMapper,
+                                        AssessmentAuthoringCatalogService catalogService,
+                                        QuestionTypeResolver questionTypeResolver,
+                                        AssessmentContractCodec contractCodec,
+                                        PracticeContentRules contentRules) {
+        this.objectMapper = objectMapper;
+        this.catalogService = catalogService;
+        this.questionTypeResolver = questionTypeResolver;
+        this.contractCodec = contractCodec;
+        this.contentRules = contentRules;
+    }
 
     public PracticeDraftContractService(ObjectMapper objectMapper,
                                         AssessmentAuthoringCatalogService catalogService,
                                         QuestionTypeResolver questionTypeResolver,
                                         AssessmentContractCodec contractCodec) {
-        this.objectMapper = objectMapper;
-        this.catalogService = catalogService;
-        this.questionTypeResolver = questionTypeResolver;
-        this.contractCodec = contractCodec;
+        this(objectMapper, catalogService, questionTypeResolver, contractCodec,
+                new PracticeContentRules());
     }
 
     public NormalizedDraft normalize(String draftJson, String source) {
@@ -54,16 +70,13 @@ public class PracticeDraftContractService {
     public NormalizedDraft normalize(ObjectNode root, String source) {
         root.put("schemaVersion", SCHEMA_VERSION);
         ObjectNode document = object(root, "document");
-        String category = text(document, "detectedCategory", "CUSTOM").toUpperCase(Locale.ROOT);
-        String templateCode = text(document, "examTemplateCode",
-                AssessmentAuthoringCatalogService.defaultTemplateForCategory(category));
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.requireTemplate(templateCode);
-
-        document.put("detectedCategory", template.categoryCode());
-        document.put("assessmentProgramCode", template.programCode());
-        document.put("assessmentProgramVersionId", template.programVersionId());
-        document.put("assessmentProgramVersion", template.programVersion());
-        document.put("examTemplateCode", template.code());
+        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.defaultTemplate();
+        document.remove(List.of(
+                "detectedCategory",
+                "assessmentProgramCode",
+                "assessmentProgramVersionId",
+                "assessmentProgramVersion",
+                "examTemplateCode"));
 
         ArrayNode sections = array(root, "sections");
         ArrayNode tests = normalizeTests(root, sections);
@@ -106,9 +119,18 @@ public class PracticeDraftContractService {
                     ensureId(question, "q");
                     String rawType = text(question, "questionType", skillPolicy.questionTypes().get(0));
                     CanonicalQuestionType canonicalType = questionTypeResolver.resolve(rawType);
+                    if (!skillPolicy.questionTypes().contains(canonicalType.name())) {
+                        throw new IllegalArgumentException(
+                                "Dạng " + canonicalType + " không được phép cho kỹ năng " + skill + ".");
+                    }
                     question.put("questionType", canonicalType.name());
-                    question.put("canonicalQuestionType", canonicalType.name());
-                    question.put("questionNo", questionNo++);
+                    question.remove("canonicalQuestionType");
+                    if ("WRITING".equals(skill)
+                            && canonicalType == CanonicalQuestionType.ESSAY) {
+                        question.put("questionNo", writingQuestionNumber(question));
+                    } else {
+                        question.put("questionNo", questionNo++);
+                    }
                     if (!question.hasNonNull("points") || question.path("points").decimalValue().signum() <= 0) {
                         question.put("points", skillPolicy.defaultPoints());
                     }
@@ -129,13 +151,17 @@ public class PracticeDraftContractService {
         if (!root.has("materials") || !root.path("materials").isArray()) {
             root.putArray("materials");
         }
-        return new NormalizedDraft(
-                root.toString(),
-                template.categoryCode(),
-                template.programCode(),
-                template.programVersionId(),
-                template.code()
-        );
+        return new NormalizedDraft(root.toString());
+    }
+
+    private int writingQuestionNumber(ObjectNode question) {
+        String rawTask = text(question, "essayTaskType", "");
+        try {
+            return contentRules.writingQuestionNumber(WritingTaskType.valueOf(rawTask));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(
+                    "Mỗi câu Writing phải chọn Q51, Q52, Q53 hoặc Q54.", exception);
+        }
     }
 
     private ArrayNode normalizeTests(ObjectNode root, ArrayNode sections) {
@@ -422,12 +448,6 @@ public class PracticeDraftContractService {
         }
     }
 
-    public record NormalizedDraft(
-            String json,
-            String category,
-            String programCode,
-            Long programVersionId,
-            String examTemplateCode
-    ) {
+    public record NormalizedDraft(String json) {
     }
 }

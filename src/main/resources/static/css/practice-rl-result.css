@@ -785,27 +785,6 @@
   color: var(--rl-muted);
 }
 
-.rl-matching-explanations {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.rl-match-exp-item {
-  background: var(--rl-bg-soft);
-  border: 1px solid var(--rl-neutral-border);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.rl-match-pair {
-  font-size: 13px;
-  color: var(--rl-blue);
-}
-.rl-match-reason {
-  margin-top: 4px;
-  font-size: 12.5px;
-  color: var(--rl-muted);
-}
-
 /* Bottom Navigator */
 .rl-det-navigator {
   position: fixed;

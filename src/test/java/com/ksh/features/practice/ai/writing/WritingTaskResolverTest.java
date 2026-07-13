@@ -15,7 +15,6 @@ class WritingTaskResolverTest {
         assertEquals("Q52", resolver.resolve(WritingTaskType.Q52, "Bài 53"));
         assertEquals("Q53", resolver.resolve(WritingTaskType.Q53, "Bài 51"));
         assertEquals("Q54", resolver.resolve(WritingTaskType.Q54, "Bài viết chung"));
-        assertEquals("GENERAL", resolver.resolve(WritingTaskType.GENERAL, "Bài 54"));
     }
 
     @Test

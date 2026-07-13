@@ -7,9 +7,7 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
-import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -21,13 +19,10 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.Optional;
-import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,8 +33,6 @@ class PracticeMaterialAccessServiceTest {
     private final LecturerAssetRepository assetRepository = mock(LecturerAssetRepository.class);
     private final PracticeMaterialReferenceService referenceService =
             mock(PracticeMaterialReferenceService.class);
-    private final PracticeDraftAssetUsageRepository usageRepository =
-            mock(PracticeDraftAssetUsageRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
     private final PracticeAttemptRepository attemptRepository = mock(PracticeAttemptRepository.class);
     private final PracticePublishedVersionRepository publishedVersionRepository =
@@ -47,8 +40,6 @@ class PracticeMaterialAccessServiceTest {
     private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final PracticeAuthorizationService authorizationService =
             mock(PracticeAuthorizationService.class);
-    private final PracticeGovernanceAuditService auditService =
-            mock(PracticeGovernanceAuditService.class);
     private final AssetStorageService storageService = mock(AssetStorageService.class);
 
     private PracticeMaterialAccessService service;
@@ -56,9 +47,9 @@ class PracticeMaterialAccessServiceTest {
     @BeforeEach
     void setUp() {
         service = new PracticeMaterialAccessService(
-                assetRepository, referenceService, usageRepository, setRepository,
+                assetRepository, referenceService, setRepository,
                 attemptRepository, publishedVersionRepository, enrollmentRepository, authorizationService,
-                auditService, storageService);
+                storageService);
     }
 
     @Test
@@ -97,8 +88,8 @@ class PracticeMaterialAccessServiceTest {
                 PracticeMaterialReference.draft(1L, 20L, "GROUP_AUDIO");
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
-        when(authorizationService.requireDraft(20L, 22L, PracticeAction.READ, null))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false, false, true));
+        when(authorizationService.requireDraft(20L, 22L, PracticeAction.READ))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
         when(storageService.load("private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
@@ -113,13 +104,13 @@ class PracticeMaterialAccessServiceTest {
         PracticeMaterialReference reference =
                 PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
         PracticeSet set = new PracticeSet(
-                "Set", "", "LISTENING", "TOPIK_II", PracticeSet.SCOPE_GLOBAL,
+                "Set", "", "LISTENING",  PracticeSet.SCOPE_GLOBAL,
                 null, null, "{}", PracticeSet.STATUS_PUBLISHED, 11L);
         PracticePublishedVersion currentVersion = publishedVersion(55L);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ, null))
+        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ))
                 .thenThrow(new AccessDeniedException("learner"));
         when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
@@ -138,19 +129,17 @@ class PracticeMaterialAccessServiceTest {
         PracticeMaterialReference reference =
                 PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
         PracticeSet set = new PracticeSet(
-                "Set", "", "LISTENING", "TOPIK_II", PracticeSet.SCOPE_GLOBAL,
+                "Set", "", "LISTENING",  PracticeSet.SCOPE_GLOBAL,
                 null, null, "{}", PracticeSet.STATUS_PUBLISHED, 11L);
         PracticePublishedVersion currentVersion = publishedVersion(66L);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ, null))
+        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ))
                 .thenThrow(new AccessDeniedException("learner"));
         when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
                 .thenReturn(Optional.of(currentVersion));
-        when(authorizationService.hasPermission(99L, PracticeAction.MEDIA_REVIEW))
-                .thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
 
@@ -163,13 +152,13 @@ class PracticeMaterialAccessServiceTest {
         PracticeMaterialReference reference =
                 PracticeMaterialReference.published(1L, 44L, 55L, "GROUP_AUDIO");
         PracticeSet set = new PracticeSet(
-                "Set", "", "LISTENING", "TOPIK_II", PracticeSet.SCOPE_GLOBAL,
+                "Set", "", "LISTENING",  PracticeSet.SCOPE_GLOBAL,
                 null, null, "{}", PracticeSet.STATUS_PUBLISHED, 11L);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 22L, PracticeAction.READ, null))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false, false, true));
+        when(authorizationService.requireSet(44L, 22L, PracticeAction.READ))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
         when(storageService.load("private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
@@ -206,51 +195,20 @@ class PracticeMaterialAccessServiceTest {
                 PracticeMaterialReference.draft(1L, 20L, "GROUP_AUDIO");
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
-        when(authorizationService.requireDraft(20L, 99L, PracticeAction.READ, null))
+        when(authorizationService.requireDraft(20L, 99L, PracticeAction.READ))
                 .thenThrow(new AccessDeniedException("denied"));
-        when(authorizationService.hasPermission(99L, PracticeAction.MEDIA_REVIEW))
-                .thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
         verify(storageService, never()).load(anyString());
     }
 
     @Test
-    void reviewerAccessIsAuditedWithoutStorageKeyDisclosure() throws Exception {
+    void unrelatedReviewerRoleHasNoSpecialMaterialAccess() throws Exception {
         LecturerAsset asset = asset(1L, 11L);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of());
-        when(usageRepository.findByAssetId(1L)).thenReturn(List.of());
-        when(authorizationService.hasPermission(33L, PracticeAction.MEDIA_REVIEW))
-                .thenReturn(true);
-        when(storageService.load("private/key.mp3"))
-                .thenReturn(new ByteArrayResource(new byte[]{1}));
-
-        service.load(1L, 33L);
-
-        verify(auditService).record(
-                eq("MEDIA_REVIEWED"), eq("ASSET"), eq(1L), eq(11L), eq(33L),
-                isNull(), eq(false), isNull(), isNull(),
-                eq("{\"storageProvider\":\"LOCAL\"}"));
-    }
-
-    @Test
-    void reviewerStorageFailureDoesNotWriteSuccessfulReviewAudit() throws Exception {
-        LecturerAsset asset = asset(1L, 11L);
-        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
-        when(referenceService.references(1L)).thenReturn(List.of());
-        when(usageRepository.findByAssetId(1L)).thenReturn(List.of());
-        when(authorizationService.hasPermission(33L, PracticeAction.MEDIA_REVIEW))
-                .thenReturn(true);
-        when(storageService.load("private/key.mp3"))
-                .thenThrow(new IOException("missing object"));
-
-        assertThrows(IOException.class, () -> service.load(1L, 33L));
-
-        verify(auditService, never()).record(
-                eq("MEDIA_REVIEWED"), eq("ASSET"), eq(1L), eq(11L), eq(33L),
-                isNull(), eq(false), isNull(), isNull(),
-                eq("{\"storageProvider\":\"LOCAL\"}"));
+        assertThrows(AccessDeniedException.class, () -> service.load(1L, 33L));
+        verify(storageService, never()).load(anyString());
     }
 
     @Test

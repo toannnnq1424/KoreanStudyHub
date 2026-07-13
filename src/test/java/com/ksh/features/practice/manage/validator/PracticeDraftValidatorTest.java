@@ -113,23 +113,21 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
-    public void writingEssayMissingTaskIsWarningOnly() {
+    public void writingEssayMissingTaskIsBlocking() {
         PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithoutTask());
 
-        assertFalse(result.hasBlocking());
+        assertTrue(result.hasBlocking());
         assertTrue(result.messages().stream().anyMatch(m ->
-                "WARNING".equals(m.type())
-                        && m.content().contains("chưa có loại bài rõ ràng")));
+                "WRITING_TASK_REQUIRED".equals(m.code())));
     }
 
     @Test
-    public void writingEssayNullTaskIsWarningOnly() {
+    public void writingEssayNullTaskIsBlocking() {
         PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("null"));
 
-        assertFalse(result.hasBlocking());
+        assertTrue(result.hasBlocking());
         assertTrue(result.messages().stream().anyMatch(m ->
-                "WARNING".equals(m.type())
-                        && m.content().contains("chưa có loại bài rõ ràng")));
+                "WRITING_TASK_REQUIRED".equals(m.code())));
     }
 
     @Test
@@ -188,11 +186,12 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
-    public void writingEssayGeneralTaskIsValid() {
+    public void writingEssayGeneralTaskIsBlocked() {
         PracticeDraftValidator.ValidationResult result = validator.validate(writingDraftWithTask("\"GENERAL\""));
 
-        assertFalse(result.hasBlocking());
-        assertFalse(result.messages().stream().anyMatch(m -> m.content().contains("Writing")));
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(m ->
+                "WRITING_TASK_UNSUPPORTED".equals(m.code())));
     }
 
     @Test
@@ -201,8 +200,8 @@ public class PracticeDraftValidatorTest {
 
         assertTrue(result.hasBlocking());
         assertTrue(result.messages().stream().anyMatch(m ->
-                "BLOCKING".equals(m.type())
-                        && m.content().equals("Loại bài Writing không hợp lệ.")));
+                "WRITING_TASK_UNSUPPORTED".equals(m.code())
+                        && m.content().contains("Q51, Q52, Q53 và Q54")));
     }
 
     @Test
@@ -217,10 +216,19 @@ public class PracticeDraftValidatorTest {
 
     @Test
     public void nonWritingInvalidTaskIsIgnored() {
-        PracticeDraftValidator.ValidationResult result = validator.validate(readingEssayWithTask("\"NOT_A_TASK\""));
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                readingQuestionWithStaleTask("\"NOT_A_TASK\""));
 
         assertFalse(result.hasBlocking());
         assertFalse(result.messages().stream().anyMatch(m -> m.content().contains("Writing")));
+    }
+
+    @Test
+    public void writingCompleteQ51ToQ54SetIsValid() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                completeWritingDraft());
+
+        assertFalse(result.hasBlocking());
     }
 
     @Test
@@ -260,7 +268,7 @@ public class PracticeDraftValidatorTest {
     private String writingDraftWithTask(String rawTaskValue) {
         return writingDraft("""
                     {
-                      "questionNo": 1,
+                      "questionNo": 51,
                       "questionType": "ESSAY",
                       "prompt": "Prompt",
                       "answer": { "value": "" },
@@ -295,7 +303,7 @@ public class PracticeDraftValidatorTest {
     private String writingDraftWithoutTask() {
         return writingDraft("""
                     {
-                      "questionNo": 1,
+                      "questionNo": 51,
                       "questionType": "ESSAY",
                       "prompt": "Prompt",
                       "answer": { "value": "" },
@@ -305,18 +313,28 @@ public class PracticeDraftValidatorTest {
                 """);
     }
 
-    private String readingEssayWithTask(String rawTaskValue) {
+    private String readingQuestionWithStaleTask(String rawTaskValue) {
         return draft("READING", """
                     {
                       "questionNo": 1,
-                      "questionType": "ESSAY",
+                      "questionType": "SINGLE_CHOICE",
                       "prompt": "Prompt",
-                      "answer": { "value": "" },
+                      "options": ["A", "B"],
+                      "answer": { "value": "1" },
                       "explanationVi": "Explanation",
                       "points": 10,
                       "essayTaskType": %s
                     }
                 """.formatted(rawTaskValue));
+    }
+
+    private String completeWritingDraft() {
+        return writingDraft("""
+                    {"questionNo":51,"questionType":"ESSAY","prompt":"Q51","points":10,"essayTaskType":"Q51"},
+                    {"questionNo":52,"questionType":"ESSAY","prompt":"Q52","points":10,"essayTaskType":"Q52"},
+                    {"questionNo":53,"questionType":"ESSAY","prompt":"Q53","points":30,"essayTaskType":"Q53"},
+                    {"questionNo":54,"questionType":"ESSAY","prompt":"Q54","points":50,"essayTaskType":"Q54"}
+                """);
     }
 
     private String speakingDraft(String questionType) {

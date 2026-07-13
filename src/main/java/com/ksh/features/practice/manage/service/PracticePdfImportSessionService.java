@@ -84,34 +84,21 @@ public class PracticePdfImportSessionService {
 
     @Transactional
     public PracticePdfImportSession createSession(Long uploaderId, MultipartFile file,
-                                                  String examTemplateCode, String title,
+                                                  String title,
                                                   Long linkedDraftId) throws IOException {
-        return createSession(uploaderId, file, examTemplateCode, title, linkedDraftId,
+        return createSession(uploaderId, file, title, linkedDraftId,
                 null, null, null);
     }
 
     @Transactional
     public PracticePdfImportSession createSession(Long uploaderId, MultipartFile file,
-                                                  String requestedTemplateCode, String title,
+                                                  String title,
                                                   Long linkedDraftId, Integer requestedTestNo,
                                                   String requestedSkill, String requestedLessonCode) throws IOException {
-        return createSession(uploaderId, file, requestedTemplateCode, title,
-                linkedDraftId, requestedTestNo, requestedSkill,
-                requestedLessonCode, null);
-    }
-
-    @Transactional
-    public PracticePdfImportSession createSession(Long uploaderId, MultipartFile file,
-                                                  String requestedTemplateCode, String title,
-                                                  Long linkedDraftId, Integer requestedTestNo,
-                                                  String requestedSkill,
-                                                  String requestedLessonCode,
-                                                  String overrideReason) throws IOException {
         PracticeDraft linkedDraft = linkedDraftId == null ? null
-                : authorizedDraft(linkedDraftId, uploaderId, overrideReason);
+                : authorizedDraft(linkedDraftId, uploaderId);
 
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = resolveTemplate(
-                requestedTemplateCode, linkedDraft);
+        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = authoringCatalogService.defaultTemplate();
         TargetSectionOption target = linkedDraft == null
                 ? standaloneTarget(template, requestedTestNo, requestedSkill)
                 : linkedTarget(linkedDraft, requestedTestNo, requestedLessonCode);
@@ -140,10 +127,6 @@ public class PracticePdfImportSessionService {
         );
         session.setCreatedBy(uploaderId);
         session.setTitle(finalTitle);
-        session.setExamCategory(template.categoryCode());
-        session.setAssessmentProgramCode(template.programCode());
-        session.setAssessmentProgramVersionId(template.programVersionId());
-        session.setExamTemplateCode(template.code());
         session.setTargetTestNo(target.testNo());
         session.setTargetSkill(target.skill());
         session.setTargetLessonCode(target.lessonCode());
@@ -156,16 +139,8 @@ public class PracticePdfImportSessionService {
     @Transactional(readOnly = true)
     public PdfImportStartContext resolveStartContext(Long draftId, Integer requestedTestNo,
                                                      String requestedLessonCode, Long ownerId) {
-        return resolveStartContext(
-                draftId, requestedTestNo, requestedLessonCode, ownerId, null);
-    }
-
-    @Transactional(readOnly = true)
-    public PdfImportStartContext resolveStartContext(Long draftId, Integer requestedTestNo,
-                                                     String requestedLessonCode, Long ownerId,
-                                                     String overrideReason) {
         if (draftId == null) return null;
-        PracticeDraft draft = authorizedDraft(draftId, ownerId, overrideReason);
+        PracticeDraft draft = authorizedDraft(draftId, ownerId);
         List<TargetSectionOption> sections = readTargetSections(draft);
         if (sections.isEmpty()) {
             throw new IllegalArgumentException("Bản nháp chưa có phần kỹ năng để nhập PDF.");
@@ -176,35 +151,9 @@ public class PracticePdfImportSessionService {
                         && requestedLessonCode.equalsIgnoreCase(section.lessonCode()))
                 .findFirst()
                 .orElse(sections.get(0));
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = resolveTemplate(null, draft);
+        AssessmentAuthoringCatalogService.ExamTemplatePolicy template = authoringCatalogService.defaultTemplate();
         template.requireSkill(selected.skill());
-        return new PdfImportStartContext(template.code(), template.programCode(),
-                template.programVersionId(), selected, sections);
-    }
-
-    private AssessmentAuthoringCatalogService.ExamTemplatePolicy resolveTemplate(
-            String requestedTemplateCode, PracticeDraft linkedDraft) {
-        String linkedTemplateCode = linkedDraft == null ? null : linkedDraft.getExamTemplateCode();
-        if ((linkedTemplateCode == null || linkedTemplateCode.isBlank()) && linkedDraft != null) {
-            linkedTemplateCode = documentText(linkedDraft, "examTemplateCode");
-        }
-        String templateCode = linkedTemplateCode;
-        if (templateCode == null || templateCode.isBlank()) {
-            templateCode = requestedTemplateCode;
-        }
-        AssessmentAuthoringCatalogService.ExamTemplatePolicy template;
-        try {
-            template = authoringCatalogService.requireTemplate(templateCode);
-        } catch (IllegalArgumentException exception) {
-            template = authoringCatalogService.requireTemplate(
-                    AssessmentAuthoringCatalogService.defaultTemplateForCategory(templateCode));
-        }
-        if (linkedTemplateCode != null && requestedTemplateCode != null
-                && !requestedTemplateCode.isBlank()
-                && !template.code().equalsIgnoreCase(requestedTemplateCode)) {
-            throw new IllegalArgumentException("Mẫu đề PDF phải trùng với bản nháp đang biên soạn.");
-        }
-        return template;
+        return new PdfImportStartContext(selected, sections);
     }
 
     private TargetSectionOption linkedTarget(PracticeDraft draft, Integer requestedTestNo,
@@ -228,8 +177,8 @@ public class PracticePdfImportSessionService {
             AssessmentAuthoringCatalogService.ExamTemplatePolicy template,
             Integer requestedTestNo, String requestedSkill) {
         int testNo = requestedTestNo == null ? 1 : requestedTestNo;
-        if (testNo <= 0 || testNo > template.maxTests()) {
-            throw new IllegalArgumentException("Số Test nằm ngoài giới hạn của mẫu đề.");
+        if (testNo <= 0) {
+            throw new IllegalArgumentException("Số Test phải lớn hơn 0.");
         }
         String skill = normalizeSkill(requestedSkill);
         if (skill == null) {
@@ -270,15 +219,14 @@ public class PracticePdfImportSessionService {
         }
     }
 
-    private PracticeDraft authorizedDraft(Long draftId, Long actorId,
-                                          String overrideReason) {
+    private PracticeDraft authorizedDraft(Long draftId, Long actorId) {
         if (authorizationService == null) {
             return draftRepository.findByIdAndOwnerId(draftId, actorId)
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Bản nháp liên kết không tồn tại."));
         }
         authorizationService.requireDraft(
-                draftId, actorId, PracticeAction.EDIT, overrideReason);
+                draftId, actorId, PracticeAction.EDIT);
         return draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Bản nháp liên kết không tồn tại."));
@@ -319,8 +267,7 @@ public class PracticePdfImportSessionService {
     public record TargetSectionOption(Integer testNo, String lessonCode, String skill, String title) {
     }
 
-    public record PdfImportStartContext(String templateCode, String programCode,
-                                        Long programVersionId, TargetSectionOption selected,
+    public record PdfImportStartContext(TargetSectionOption selected,
                                         List<TargetSectionOption> sections) {
         public PdfImportStartContext {
             sections = sections == null ? List.of() : List.copyOf(sections);

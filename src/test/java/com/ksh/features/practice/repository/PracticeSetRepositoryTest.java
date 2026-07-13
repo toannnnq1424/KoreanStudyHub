@@ -26,7 +26,6 @@ class PracticeSetRepositoryTest {
                 "TOPIK II - Đọc hiểu 35",
                 "Mô tả đề thi đọc hiểu TOPIK II kì 35",
                 "READING",
-                "TOPIK_II",
                 "GLOBAL",
                 null,
                 "practice-pdfs/test.pdf",

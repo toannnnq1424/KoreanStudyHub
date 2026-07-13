@@ -28,7 +28,7 @@ class ReadingListeningTypedClientContractTest {
     @Test
     void typedProviderPayloadExcludesLearnerAnswerAndMediaReference() {
         ReadingListeningExplanationClient client = client();
-        ExplanationContext context = multipleChoiceContext();
+        ExplanationContext context = singleChoiceContext();
 
         String payload = ReflectionTestUtils.invokeMethod(client, "typedUserPayload", context);
 
@@ -38,7 +38,7 @@ class ReadingListeningTypedClientContractTest {
     }
 
     @Test
-    void multipleChoiceCleanerKeepsOnlyKnownWrongStableOptionIds() throws Exception {
+    void singleChoiceCleanerKeepsOnlyKnownWrongStableOptionIds() throws Exception {
         ReadingListeningExplanationClient client = client();
         String cleaned = client.cleanAndValidateJson("""
                 {"meaningVi":"m","evidenceQuote":"본문","correctReasonVi":"r",\
@@ -47,7 +47,7 @@ class ReadingListeningTypedClientContractTest {
                   {"optionKey":"opt_2","reasonVi":"wrong"},
                   {"optionKey":"unknown","reasonVi":"unknown"}
                 ]}
-                """, multipleChoiceContext());
+                """, singleChoiceContext());
 
         JsonNode root = objectMapper.readTree(cleaned);
         assertThat(root.path("eliminatedOptions").size()).isEqualTo(1);
@@ -56,7 +56,7 @@ class ReadingListeningTypedClientContractTest {
     }
 
     @Test
-    void fillBlankAndMatchingCleanersRejectFabricatedOptionEliminations() throws Exception {
+    void fillBlankCleanerRejectsFabricatedOptionEliminations() throws Exception {
         ReadingListeningExplanationClient client = client();
         String providerJson = """
                 {"meaningVi":"m","evidenceQuote":"본문","correctReasonVi":"r",\
@@ -67,11 +67,8 @@ class ReadingListeningTypedClientContractTest {
 
         JsonNode fill = objectMapper.readTree(client.cleanAndValidateJson(
                 providerJson, fillBlankContext()));
-        JsonNode matching = objectMapper.readTree(client.cleanAndValidateJson(
-                providerJson, matchingContext()));
 
         assertThat(fill.path("eliminatedOptions").size()).isZero();
-        assertThat(matching.path("eliminatedOptions").size()).isZero();
     }
 
     @Test
@@ -81,11 +78,11 @@ class ReadingListeningTypedClientContractTest {
         assertThat(client.cleanAndValidateJson("""
                 {"meaningVi":"m","evidenceQuote":"없는 인용","correctReasonVi":"r",\
                 "relatedTranslationVi":"t","eliminatedOptions":[]}
-                """, multipleChoiceContext())).isNull();
+                """, singleChoiceContext())).isNull();
         assertThat(client.cleanAndValidateJson("""
                 {"meaningVi":"","evidenceQuote":"본문","correctReasonVi":"r",\
                 "relatedTranslationVi":"t","eliminatedOptions":[]}
-                """, multipleChoiceContext())).isNull();
+                """, singleChoiceContext())).isNull();
     }
 
     private ReadingListeningExplanationClient client() {
@@ -96,46 +93,31 @@ class ReadingListeningTypedClientContractTest {
         return new ReadingListeningExplanationClient(properties, objectMapper);
     }
 
-    private ExplanationContext multipleChoiceContext() {
+    private ExplanationContext singleChoiceContext() {
         QuestionContent content = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
                 List.of(
                         new QuestionContent.Option("opt_1", "A"),
                         new QuestionContent.Option("opt_2", "B"),
-                        new QuestionContent.Option("opt_3", "C")
-                ),
-                List.of(), List.of(), List.of());
+                        new QuestionContent.Option("opt_3", "C")),
+                List.of());
         AnswerSpec spec = new AnswerSpec(
-                AnswerSpec.SCHEMA_VERSION, CanonicalQuestionType.MULTIPLE_CHOICE,
-                List.of("opt_1", "opt_3"), null, List.of(), Map.of(),
-                ScoringPolicyCode.ALL_OR_NOTHING, null, null, null);
-        return context(CanonicalQuestionType.MULTIPLE_CHOICE, content, spec);
+                AnswerSpec.SCHEMA_VERSION, CanonicalQuestionType.SINGLE_CHOICE,
+                List.of("opt_1"), null, List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+        return context(CanonicalQuestionType.SINGLE_CHOICE, content, spec);
     }
 
     private ExplanationContext fillBlankContext() {
         QuestionContent content = new QuestionContent(
-                QuestionContent.SCHEMA_VERSION, List.of(), List.of(), List.of(),
+                QuestionContent.SCHEMA_VERSION,
+                List.of(),
                 List.of(new QuestionContent.Blank("blank_1", "서울은 ___입니다.")));
         AnswerSpec spec = new AnswerSpec(
                 AnswerSpec.SCHEMA_VERSION, CanonicalQuestionType.FILL_BLANK,
                 List.of(), null,
                 List.of(new AnswerSpec.BlankAnswer("blank_1", List.of("도시"))),
-                Map.of(), ScoringPolicyCode.NORMALIZED_EXACT, null, null, null);
+                ScoringPolicyCode.NORMALIZED_EXACT);
         return context(CanonicalQuestionType.FILL_BLANK, content, spec);
-    }
-
-    private ExplanationContext matchingContext() {
-        QuestionContent content = new QuestionContent(
-                QuestionContent.SCHEMA_VERSION,
-                List.of(),
-                List.of(new QuestionContent.Item("left_1", "문단")),
-                List.of(new QuestionContent.Item("right_1", "제목")),
-                List.of());
-        AnswerSpec spec = new AnswerSpec(
-                AnswerSpec.SCHEMA_VERSION, CanonicalQuestionType.MATCHING,
-                List.of(), null, List.of(), Map.of("left_1", "right_1"),
-                ScoringPolicyCode.PER_PAIR, null, null, null);
-        return context(CanonicalQuestionType.MATCHING, content, spec);
     }
 
     private ExplanationContext context(CanonicalQuestionType type,
@@ -143,12 +125,12 @@ class ReadingListeningTypedClientContractTest {
                                        AnswerSpec spec) {
         return new ExplanationContext(
                 ExplanationContext.SCHEMA_VERSION,
-                1L, 10L, 1, "TOPIK", AssessmentSkill.READING, type, "질문",
+                1L, 10L, 1, AssessmentSkill.READING, type, "질문",
                 content, spec,
                 new LearnerAnswer(LearnerAnswer.SCHEMA_VERSION, type,
-                        List.of("opt_2"), null, Map.of(), Map.of(), null),
+                        type == CanonicalQuestionType.SINGLE_CHOICE ? List.of("opt_2") : List.of(),
+                        null, Map.of(), null),
                 AssessmentStimulus.readingPassage("본문", "TEACHER"),
-                "teacher", "vi", "NUMERIC", null
-        );
+                "teacher", "vi", "NUMERIC");
     }
 }

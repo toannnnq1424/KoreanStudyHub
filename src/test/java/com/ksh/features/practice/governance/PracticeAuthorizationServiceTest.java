@@ -3,9 +3,12 @@ package com.ksh.features.practice.governance;
 import com.ksh.entities.PracticeAuthoringCollaboration;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.User;
+import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,28 +22,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PracticeAuthorizationServiceTest {
 
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
     private final PracticeDraftRepository draftRepository = mock(PracticeDraftRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
     private final PracticeAuthoringCollaborationRepository collaborationRepository =
             mock(PracticeAuthoringCollaborationRepository.class);
-    private final PracticeGovernanceAuditService auditService =
-            mock(PracticeGovernanceAuditService.class);
-
     private PracticeAuthorizationService service;
 
     @BeforeEach
     void setUp() {
         service = new PracticeAuthorizationService(
-                jdbcTemplate, draftRepository, setRepository, collaborationRepository,
-                auditService);
+                jdbcTemplate, userRepository, draftRepository, setRepository,
+                collaborationRepository);
     }
 
     @Test
@@ -51,30 +50,27 @@ class PracticeAuthorizationServiceTest {
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
 
         PracticeAuthorizationService.Decision decision =
-                service.requireSet(10L, 11L, PracticeAction.EDIT, null);
+                service.requireSet(10L, 11L, PracticeAction.EDIT);
 
         assertTrue(decision.ownerLocked());
-        assertTrue(decision.ownerOrCollaborator());
-        assertFalse(decision.overrideUsed());
     }
 
     @Test
-    void collaboratorGrantIsActionSpecific() throws Exception {
+    void collaboratorGrantAllowsCanonicalContentActions() throws Exception {
         PracticeSet set = set(10L, 11L);
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                "SET", 10L, 11L, 22L, true, false, true, true, 11L);
+                10L, 22L);
         allow(22L, PracticeAction.EDIT);
         allow(22L, PracticeAction.PUBLISH);
-        deny(22L, PracticeAction.EMERGENCY_OVERRIDE);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
-                .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        "SET", 10L, 22L)).thenReturn(Optional.of(grant));
+                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
+                        10L, 22L)).thenReturn(Optional.of(grant));
 
-        assertTrue(service.requireSet(10L, 22L, PracticeAction.EDIT, null)
-                .ownerOrCollaborator());
-        assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 22L, PracticeAction.PUBLISH, null));
+        assertFalse(service.requireSet(10L, 22L, PracticeAction.EDIT)
+                .ownerLocked());
+        assertFalse(service.requireSet(10L, 22L, PracticeAction.PUBLISH)
+                .ownerLocked());
     }
 
     @Test
@@ -82,42 +78,29 @@ class PracticeAuthorizationServiceTest {
         PracticeSet set = set(10L, 11L);
         set.lock(11L);
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                "SET", 10L, 11L, 22L, true, true, true, true, 11L);
+                10L, 22L);
         allow(22L, PracticeAction.EDIT);
-        deny(22L, PracticeAction.EMERGENCY_OVERRIDE);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
-                .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        "SET", 10L, 22L)).thenReturn(Optional.of(grant));
+                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
+                        10L, 22L)).thenReturn(Optional.of(grant));
 
         assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 22L, PracticeAction.EDIT, null));
+                () -> service.requireSet(10L, 22L, PracticeAction.EDIT));
     }
 
     @Test
-    void emergencyOverrideRequiresReasonAndIsReported() throws Exception {
+    void unrelatedLecturerCannotMutateOwnerContent() throws Exception {
         PracticeSet set = set(10L, 11L);
         set.lock(11L);
         allow(33L, PracticeAction.EDIT);
-        allow(33L, PracticeAction.EMERGENCY_OVERRIDE);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
-                .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        "SET", 10L, 33L)).thenReturn(Optional.empty());
+                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
+                        10L, 33L)).thenReturn(Optional.empty());
 
         assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 33L, PracticeAction.EDIT, " "));
-        assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(
-                        10L, 33L, PracticeAction.EDIT, "x".repeat(501)));
-
-        PracticeAuthorizationService.Decision decision =
-                service.requireSet(10L, 33L, PracticeAction.EDIT, "  Sửa lỗi bảo mật  ");
-        assertTrue(decision.overrideUsed());
-        assertFalse(decision.ownerOrCollaborator());
-        verify(auditService).record(eq("EMERGENCY_OVERRIDE_AUTHORIZED"), eq("SET"),
-                eq(10L), eq(11L), eq(33L), isNull(), eq(true),
-                eq("Sửa lỗi bảo mật"), isNull(), anyString());
+                () -> service.requireSet(10L, 33L, PracticeAction.EDIT));
     }
 
     @Test
@@ -127,7 +110,41 @@ class PracticeAuthorizationServiceTest {
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
 
         assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 11L, PracticeAction.EDIT, null));
+                () -> service.requireSet(10L, 11L, PracticeAction.EDIT));
+    }
+
+    @Test
+    void studentHeadAndAdminCannotAuthorEvenWithDirectPermission() {
+        for (Role role : new Role[]{Role.STUDENT, Role.HEAD, Role.ADMIN}) {
+            Long actorId = 100L + role.ordinal();
+            allowPermissionOnly(actorId, PracticeAction.CREATE);
+            User actor = activeUser(role);
+            when(userRepository.findById(actorId)).thenReturn(Optional.of(actor));
+
+            assertThrows(AccessDeniedException.class,
+                    () -> service.requireGlobal(actorId, PracticeAction.CREATE));
+        }
+    }
+
+    @Test
+    void inactiveOrLockedLecturerCannotAuthor() {
+        User inactive = mock(User.class);
+        when(inactive.getRole()).thenReturn(Role.LECTURER);
+        when(inactive.isActive()).thenReturn(false);
+        when(userRepository.findById(41L)).thenReturn(Optional.of(inactive));
+        allowPermissionOnly(41L, PracticeAction.CREATE);
+
+        User locked = mock(User.class);
+        when(locked.getRole()).thenReturn(Role.LECTURER);
+        when(locked.isActive()).thenReturn(true);
+        when(locked.isLocked()).thenReturn(true);
+        when(userRepository.findById(42L)).thenReturn(Optional.of(locked));
+        allowPermissionOnly(42L, PracticeAction.CREATE);
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireGlobal(41L, PracticeAction.CREATE));
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireGlobal(42L, PracticeAction.CREATE));
     }
 
     @Test
@@ -135,25 +152,31 @@ class PracticeAuthorizationServiceTest {
         PracticeSet set = set(10L, 11L);
         set.lock(11L);
         PracticeDraft draft = new PracticeDraft(
-                "Draft", "", "TOPIK_II", "GLOBAL", null,
+                "Draft", "",  "GLOBAL", null,
                 "DRAFT", 11L, "{}");
         setId(draft, 20L);
         draft.setPublishedSetId(10L);
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                "DRAFT", 20L, 11L, 22L, true, true, true, true, 11L);
+                10L, 22L);
         allow(22L, PracticeAction.EDIT);
-        deny(22L, PracticeAction.EMERGENCY_OVERRIDE);
         when(draftRepository.findById(20L)).thenReturn(Optional.of(draft));
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
-                .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        "DRAFT", 20L, 22L)).thenReturn(Optional.of(grant));
+                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
+                        10L, 22L)).thenReturn(Optional.of(grant));
 
         assertThrows(AccessDeniedException.class,
-                () -> service.requireDraft(20L, 22L, PracticeAction.EDIT, null));
+                () -> service.requireDraft(20L, 22L, PracticeAction.EDIT));
     }
 
     private void allow(Long actorId, PracticeAction action) {
+        User lecturer = activeUser(Role.LECTURER);
+        when(userRepository.findById(actorId))
+                .thenReturn(Optional.of(lecturer));
+        allowPermissionOnly(actorId, action);
+    }
+
+    private void allowPermissionOnly(Long actorId, PracticeAction action) {
         permission(actorId, action, 1);
     }
 
@@ -169,10 +192,18 @@ class PracticeAuthorizationServiceTest {
 
     private static PracticeSet set(Long id, Long ownerId) throws Exception {
         PracticeSet set = new PracticeSet(
-                "Set", "", "READING", "TOPIK_II", "GLOBAL",
+                "Set", "", "READING",  "GLOBAL",
                 null, null, "{}", "PUBLISHED", ownerId);
         setId(set, id);
         return set;
+    }
+
+    private static User activeUser(Role role) {
+        User user = mock(User.class);
+        when(user.getRole()).thenReturn(role);
+        when(user.isActive()).thenReturn(true);
+        when(user.isLocked()).thenReturn(false);
+        return user;
     }
 
     private static void setId(Object entity, Long id) throws Exception {

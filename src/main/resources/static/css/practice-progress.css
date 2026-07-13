@@ -874,14 +874,13 @@ body.pi-body {
   font: inherit;
 }
 
-.pp-grant-options,
-.pp-grant-edit-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
+.pp-grant-note {
+  display: block;
   margin: 10px 0;
+  color: var(--pp-text-muted);
   font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .pp-collaboration-form button {
@@ -900,7 +899,7 @@ body.pi-body {
 
 .pp-collaborator-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 2fr auto;
+  grid-template-columns: minmax(150px, 1fr) minmax(170px, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 12px 0;
@@ -917,11 +916,6 @@ body.pi-body {
   font-weight: 500;
 }
 
-.pp-grant-edit-form {
-  margin: 0;
-}
-
-.pp-grant-edit-form button,
 .pp-danger-link {
   border: 0;
   background: none;

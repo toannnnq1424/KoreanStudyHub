@@ -12,6 +12,7 @@ import java.util.List;
 public interface PracticeTestRepository extends JpaRepository<PracticeTest, Long> {
 
     List<PracticeTest> findBySetIdOrderByDisplayOrderAsc(Long setId);
+    List<PracticeTest> findBySetIdInOrderBySetIdAscDisplayOrderAsc(List<Long> setIds);
     void deleteBySetId(Long setId);
 
     @Query(value = "SELECT * FROM practice_tests WHERE id = :id FOR SHARE", nativeQuery = true)

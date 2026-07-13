@@ -21,17 +21,13 @@ public final class PracticeDtos {
         };
     }
 
-    public static String getCategoryLabel(String cat) {
-        if (cat == null || cat.isBlank()) return "Chưa phân loại";
-        return com.ksh.entities.PracticeCategory.fromString(cat).label();
-    }
-
-
     public record PracticeSetRow(Long id, String title, String description,
                                  String skill, String skillLabel,
-                                 String topikLevel, String categoryLabel,
-                                 String badgeText, String metadataJson,
+                                 String metadataJson,
                                  String creationMethod) {
+    }
+
+    public record PracticeSetTestProgress(int completedTests, int totalTests) {
     }
 
 
@@ -127,7 +123,7 @@ public final class PracticeDtos {
     }
 
     public record PracticePdfDraftView(String title, String description,
-                                       String skill, String topikLevel,
+                                       String skill,
                                        String scope, Long classId,
                                        String sourcePdfPath,
                                        String metadataJson,

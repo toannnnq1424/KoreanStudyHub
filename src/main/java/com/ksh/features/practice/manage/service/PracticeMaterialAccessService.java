@@ -2,15 +2,12 @@ package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.LecturerAsset;
-import com.ksh.entities.PracticeDraftAssetUsage;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
-import com.ksh.features.practice.governance.PracticeGovernanceAuditService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -29,35 +26,29 @@ public class PracticeMaterialAccessService {
 
     private final LecturerAssetRepository assetRepository;
     private final PracticeMaterialReferenceService referenceService;
-    private final PracticeDraftAssetUsageRepository legacyUsageRepository;
     private final PracticeSetRepository setRepository;
     private final PracticeAttemptRepository attemptRepository;
     private final PracticePublishedVersionRepository publishedVersionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final PracticeAuthorizationService authorizationService;
-    private final PracticeGovernanceAuditService auditService;
     private final AssetStorageService storageService;
 
     public PracticeMaterialAccessService(
             LecturerAssetRepository assetRepository,
             PracticeMaterialReferenceService referenceService,
-            PracticeDraftAssetUsageRepository legacyUsageRepository,
             PracticeSetRepository setRepository,
             PracticeAttemptRepository attemptRepository,
             PracticePublishedVersionRepository publishedVersionRepository,
             EnrollmentRepository enrollmentRepository,
             PracticeAuthorizationService authorizationService,
-            PracticeGovernanceAuditService auditService,
             AssetStorageService storageService) {
         this.assetRepository = assetRepository;
         this.referenceService = referenceService;
-        this.legacyUsageRepository = legacyUsageRepository;
         this.setRepository = setRepository;
         this.attemptRepository = attemptRepository;
         this.publishedVersionRepository = publishedVersionRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.authorizationService = authorizationService;
-        this.auditService = auditService;
         this.storageService = storageService;
     }
 
@@ -78,13 +69,6 @@ public class PracticeMaterialAccessService {
                 || canReadPublished(assetId, actorId)) {
             return content(asset);
         }
-        if (authorizationService.hasPermission(actorId, PracticeAction.MEDIA_REVIEW)) {
-            MaterialContent content = content(asset);
-            auditService.record("MEDIA_REVIEWED", "ASSET", assetId,
-                    asset.getOwnerLecturerId(), actorId, null, false, null,
-                    null, "{\"storageProvider\":\"" + asset.getStorageProvider() + "\"}");
-            return content;
-        }
         throw new AccessDeniedException("Bạn không có quyền truy cập tài nguyên này.");
     }
 
@@ -93,13 +77,12 @@ public class PracticeMaterialAccessService {
             if (reference.getDraftId() != null
                     && canReadDraftTarget(reference.getDraftId(), actorId)) return true;
         }
-        List<PracticeDraftAssetUsage> legacy = legacyUsageRepository.findByAssetId(assetId);
-        return legacy.stream().anyMatch(usage -> canReadDraftTarget(usage.getDraftId(), actorId));
+        return false;
     }
 
     private boolean canReadDraftTarget(Long draftId, Long actorId) {
         try {
-            authorizationService.requireDraft(draftId, actorId, PracticeAction.READ, null);
+            authorizationService.requireDraft(draftId, actorId, PracticeAction.READ);
             return true;
         } catch (EntityNotFoundException | AccessDeniedException exception) {
             return false;
@@ -139,7 +122,7 @@ public class PracticeMaterialAccessService {
 
     private boolean canReadSetTarget(Long setId, Long actorId) {
         try {
-            authorizationService.requireSet(setId, actorId, PracticeAction.READ, null);
+            authorizationService.requireSet(setId, actorId, PracticeAction.READ);
             return true;
         } catch (EntityNotFoundException | AccessDeniedException ignored) {
             return false;

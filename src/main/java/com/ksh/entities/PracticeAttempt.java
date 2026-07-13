@@ -17,8 +17,7 @@ import java.time.LocalDateTime;
  * A per-skill attempt by a learner. Each attempt belongs to exactly one
  * skill (READING, LISTENING, WRITING, SPEAKING) — never MIXED.
  *
- * Replaces the old PracticeSubmission for the new per-skill flow.
- * Old PracticeSubmission records are kept for legacy compatibility.
+ * Canonical learner attempt aggregate for every practice skill.
  */
 @Entity
 @Table(name = "practice_attempts")
@@ -109,9 +108,6 @@ public class PracticeAttempt {
     @Column(name = "analysis_completed_at")
     private LocalDateTime analysisCompletedAt;
 
-    @Column(name = "analysis_usage_id")
-    private Long analysisUsageId;
-
     @Column(name = "analysis_engine", length = 50)
     private String analysisEngine;
 
@@ -198,24 +194,22 @@ public class PracticeAttempt {
     }
 
     public void markAnalysisSucceeded(BigDecimal score, String aiFeedbackJson,
-                                       Long usageId, String engine) {
+                                      String engine) {
         requireNotDiscarded();
         this.score = score;
         synchronizeScoreContract(score, this.totalPoints);
         this.aiFeedbackJson = aiFeedbackJson;
         this.analysisStatus = ANALYSIS_SUCCEEDED;
         this.analysisCompletedAt = LocalDateTime.now();
-        this.analysisUsageId = usageId;
         this.analysisEngine = engine;
         this.status = STATUS_GRADED;
     }
 
-    public void markAnalysisFailed(String errorCode, Long usageId) {
+    public void markAnalysisFailed(String errorCode) {
         requireNotDiscarded();
         this.analysisStatus = ANALYSIS_FAILED;
         this.analysisCompletedAt = LocalDateTime.now();
         this.analysisErrorCode = errorCode;
-        this.analysisUsageId = usageId;
     }
 
     private void synchronizeScoreContract(BigDecimal compatibilityScore, BigDecimal possiblePoints) {
@@ -273,7 +267,6 @@ public class PracticeAttempt {
         analysisStatus = ANALYSIS_NOT_REQUESTED;
         analysisRequestedAt = null;
         analysisCompletedAt = null;
-        analysisUsageId = null;
         analysisEngine = null;
         analysisErrorCode = null;
         submittedAt = null;
@@ -319,7 +312,6 @@ public class PracticeAttempt {
     public String getAiFeedbackJson() { return aiFeedbackJson; }
     public LocalDateTime getAnalysisRequestedAt() { return analysisRequestedAt; }
     public LocalDateTime getAnalysisCompletedAt() { return analysisCompletedAt; }
-    public Long getAnalysisUsageId() { return analysisUsageId; }
     public String getAnalysisEngine() { return analysisEngine; }
     public String getAnalysisErrorCode() { return analysisErrorCode; }
     public LocalDateTime getStartedAt() { return startedAt; }

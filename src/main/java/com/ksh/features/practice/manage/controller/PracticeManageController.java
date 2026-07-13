@@ -17,7 +17,7 @@ import java.util.List;
  
 @Controller
 @RequestMapping("/practice/manage")
-@PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+@PreAuthorize(Roles.PREAUTH_LECTURER)
 public class PracticeManageController {
  
     private final PracticeSetRepository setRepository;
@@ -29,7 +29,6 @@ public class PracticeManageController {
     private final com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository;
     private final com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService;
     private final com.ksh.features.practice.governance.PracticeCollaborationService collaborationService;
-    private final com.ksh.features.practice.manage.service.PracticeOverrideContextService overrideContextService;
  
     public PracticeManageController(PracticeSetRepository setRepository,
                                     PracticeDraftRepository draftRepository,
@@ -39,8 +38,7 @@ public class PracticeManageController {
                                     com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository,
                                     com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository,
                                     com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService,
-                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService,
-                                    com.ksh.features.practice.manage.service.PracticeOverrideContextService overrideContextService) {
+                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService) {
         this.setRepository = setRepository;
         this.draftRepository = draftRepository;
         this.userRepository = userRepository;
@@ -50,62 +48,14 @@ public class PracticeManageController {
         this.collaborationRepository = collaborationRepository;
         this.lifecycleService = lifecycleService;
         this.collaborationService = collaborationService;
-        this.overrideContextService = overrideContextService;
     }
  
     @GetMapping("/sets/{setId}/edit")
     public String editSet(@org.springframework.web.bind.annotation.PathVariable("setId") Long setId,
-                          @AuthenticationPrincipal KshUserDetails user,
-                          jakarta.servlet.http.HttpSession session) {
-        String overrideReason = overrideContextService.reasonForSet(session, setId, null);
+                          @AuthenticationPrincipal KshUserDetails user) {
         com.ksh.entities.PracticeDraft draft = draftService.createDraftFromPublishedSet(
-                setId, user.getId(), overrideReason);
-        if (overrideReason != null) {
-            overrideContextService.establishForDraft(
-                    session, draft.getId(), overrideReason);
-        }
+                setId, user.getId());
         return "redirect:/practice/manage/drafts/" + draft.getId();
-    }
-
-    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/override-edit")
-    public String overrideEditSet(
-            @org.springframework.web.bind.annotation.PathVariable("setId") Long setId,
-            @org.springframework.web.bind.annotation.RequestParam("overrideReason")
-            String overrideReason,
-            @AuthenticationPrincipal KshUserDetails user,
-            jakarta.servlet.http.HttpSession session,
-            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
-        try {
-            com.ksh.entities.PracticeDraft draft = draftService
-                    .createDraftFromPublishedSet(setId, user.getId(), overrideReason);
-            overrideContextService.establishForSet(session, setId, overrideReason);
-            overrideContextService.establishForDraft(
-                    session, draft.getId(), overrideReason);
-            return "redirect:/practice/manage/drafts/" + draft.getId();
-        } catch (Exception exception) {
-            redirectAttributes.addFlashAttribute("error", exception.getMessage());
-            return "redirect:/practice/manage";
-        }
-    }
-
-    @org.springframework.web.bind.annotation.PostMapping("/drafts/{draftId}/override-edit")
-    public String overrideEditDraft(
-            @org.springframework.web.bind.annotation.PathVariable("draftId") Long draftId,
-            @org.springframework.web.bind.annotation.RequestParam("overrideReason")
-            String overrideReason,
-            @AuthenticationPrincipal KshUserDetails user,
-            jakarta.servlet.http.HttpSession session,
-            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
-        try {
-            com.ksh.entities.PracticeDraft draft = draftService.openDraftForEdit(
-                    draftId, user.getId(), overrideReason);
-            overrideContextService.establishForDraft(
-                    session, draft.getId(), overrideReason);
-            return "redirect:/practice/manage/drafts/" + draft.getId();
-        } catch (Exception exception) {
-            redirectAttributes.addFlashAttribute("error", exception.getMessage());
-            return "redirect:/practice/manage";
-        }
     }
  
     @GetMapping({"", "/"})
@@ -135,9 +85,7 @@ public class PracticeManageController {
             }
             List<com.ksh.entities.PracticeAuthoringCollaboration> grants =
                     collaborationRepository
-                            .findByTargetTypeAndTargetIdAndRevokedAtIsNull(
-                                    com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET,
-                                    s.getId());
+                            .findBySetIdAndRevokedAtIsNull(s.getId());
             collaboratorsBySet.put(s.getId(), grants);
             for (com.ksh.entities.PracticeAuthoringCollaboration grant : grants) {
                 userRepository.findById(grant.getCollaboratorId()).ifPresent(collaborator -> {
@@ -160,60 +108,19 @@ public class PracticeManageController {
         List<com.ksh.entities.PracticeAuthoringCollaboration> sharedGrants =
                 collaborationRepository.findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId());
         java.util.Set<Long> sharedSetIds = sharedGrants.stream()
-                .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET
-                        .equals(grant.getTargetType()))
-                .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        java.util.Set<Long> sharedDraftIds = sharedGrants.stream()
-                .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_DRAFT
-                        .equals(grant.getTargetType()))
-                .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
+                .map(com.ksh.entities.PracticeAuthoringCollaboration::getSetId)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
         List<PracticeSet> sharedSets = setRepository.findAllById(sharedSetIds).stream()
                 .filter(set -> status == null || status.isBlank() || status.equals(set.getStatus()))
                 .toList();
-        List<com.ksh.entities.PracticeDraft> sharedDrafts = draftRepository.findAllById(sharedDraftIds);
         for (PracticeSet shared : sharedSets) {
             userRepository.findById(shared.getCreatedBy())
                     .ifPresent(owner -> authorsMap.put(shared.getCreatedBy(), owner.getFullName()));
         }
-        for (com.ksh.entities.PracticeDraft shared : sharedDrafts) {
-            userRepository.findById(shared.getOwnerId())
-                    .ifPresent(owner -> authorsMap.put(shared.getOwnerId(), owner.getFullName()));
-        }
 
-        boolean canEmergencyOverride = user.getRole() == com.ksh.security.Role.HEAD
-                || user.getRole() == com.ksh.security.Role.ADMIN;
-        int reviewLimit = 50;
-        org.springframework.data.domain.Pageable reviewWindow =
-                org.springframework.data.domain.PageRequest.of(0, reviewLimit);
-        List<PracticeSet> reviewSets = canEmergencyOverride
-                ? setRepository.findByCreatedByNotOrderByCreatedAtDesc(
-                        user.getId(), reviewWindow)
-                : List.of();
-        List<com.ksh.entities.PracticeDraft> reviewDrafts = canEmergencyOverride
-                ? draftRepository.findByOwnerIdNotOrderByUpdatedAtDesc(
-                        user.getId(), reviewWindow)
-                : List.of();
-        for (PracticeSet review : reviewSets) {
-            userRepository.findById(review.getCreatedBy())
-                    .ifPresent(owner -> authorsMap.put(
-                            review.getCreatedBy(), owner.getFullName()));
-        }
-        for (com.ksh.entities.PracticeDraft review : reviewDrafts) {
-            userRepository.findById(review.getOwnerId())
-                    .ifPresent(owner -> authorsMap.put(
-                            review.getOwnerId(), owner.getFullName()));
-        }
- 
         model.addAttribute("sets", sets);
         model.addAttribute("drafts", drafts);
         model.addAttribute("sharedSets", sharedSets);
-        model.addAttribute("sharedDrafts", sharedDrafts);
-        model.addAttribute("reviewSets", reviewSets);
-        model.addAttribute("reviewDrafts", reviewDrafts);
-        model.addAttribute("canEmergencyOverride", canEmergencyOverride);
-        model.addAttribute("reviewLimit", reviewLimit);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("authorsMap", authorsMap);
         model.addAttribute("collaboratorEmailsMap", collaboratorEmailsMap);
@@ -234,35 +141,27 @@ public class PracticeManageController {
         List<PracticeSet> ownedSets = setRepository.findByCreatedByOrderByCreatedAtDesc(user.getId());
         java.util.Set<Long> visibleSetIds = ownedSets.stream().map(PracticeSet::getId)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        boolean canEmergencyOverride = user.getRole() == com.ksh.security.Role.HEAD
-                || user.getRole() == com.ksh.security.Role.ADMIN;
         if (requestedSetId != null) {
             PracticeSet requested = setRepository.findById(requestedSetId)
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Học liệu không tồn tại."));
             boolean collaborator = collaborationRepository
-                    .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                            com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET,
+                    .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
                             requestedSetId, user.getId())
                     .isPresent();
             if (!user.getId().equals(requested.getCreatedBy())
-                    && !collaborator && !canEmergencyOverride) {
+                    && !collaborator) {
                 throw new org.springframework.security.access.AccessDeniedException(
                         "Bạn không có quyền xem lịch sử học liệu này.");
             }
             visibleSetIds.clear();
             visibleSetIds.add(requestedSetId);
             selectedSet = requested;
-        } else if (canEmergencyOverride) {
-            setRepository.findAll().stream().map(PracticeSet::getId)
-                    .forEach(visibleSetIds::add);
         } else {
             collaborationRepository
                     .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId())
                     .stream()
-                    .filter(grant -> com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET
-                            .equals(grant.getTargetType()))
-                    .map(com.ksh.entities.PracticeAuthoringCollaboration::getTargetId)
+                    .map(com.ksh.entities.PracticeAuthoringCollaboration::getSetId)
                     .forEach(visibleSetIds::add);
         }
         for (PracticeSet set : setRepository.findAllById(visibleSetIds)) {
@@ -271,20 +170,15 @@ public class PracticeManageController {
                             set.getCreatedBy(), owner.getFullName()));
             java.util.Optional<com.ksh.entities.PracticeAuthoringCollaboration> grant =
                     collaborationRepository
-                            .findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                                    com.ksh.entities.PracticeAuthoringCollaboration.TARGET_SET,
+                            .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
                                     set.getId(), user.getId());
             boolean owner = user.getId().equals(set.getCreatedBy());
-            boolean normalRestoreGrant = !set.isOwnerLocked()
-                    && grant.map(com.ksh.entities.PracticeAuthoringCollaboration::isCanRestore)
-                    .orElse(false);
-            boolean canRestore = owner || normalRestoreGrant || canEmergencyOverride;
-            boolean requiresOverrideReason = canEmergencyOverride
-                    && !owner && !normalRestoreGrant;
+            boolean normalRestoreGrant = !set.isOwnerLocked() && grant.isPresent();
+            boolean canRestore = owner || normalRestoreGrant;
             for (com.ksh.entities.PracticePublishedVersion version :
                     publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(set.getId())) {
                 versions.add(new VersionHistoryRow(
-                        version, set, canRestore, requiresOverrideReason));
+                        version, set, canRestore));
                 if (version.getPublishedBy() != null) {
                     userRepository.findById(version.getPublishedBy())
                             .ifPresent(actor -> authorsMap.put(
@@ -296,7 +190,6 @@ public class PracticeManageController {
                 (VersionHistoryRow row) -> row.version().getPublishedAt(),
                 java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
         model.addAttribute("versions", versions);
-        model.addAttribute("canEmergencyOverride", canEmergencyOverride);
         model.addAttribute("currentUserId", user.getId());
         model.addAttribute("selectedSetId", requestedSetId);
         model.addAttribute("selectedSet", selectedSet);
@@ -307,16 +200,11 @@ public class PracticeManageController {
     public String restorePublishedVersion(
             @org.springframework.web.bind.annotation.PathVariable Long setId,
             @org.springframework.web.bind.annotation.PathVariable Long versionId,
-            @org.springframework.web.bind.annotation.RequestParam(value = "overrideReason", required = false)
-            String overrideReason,
             @AuthenticationPrincipal KshUserDetails user,
-            jakarta.servlet.http.HttpSession session,
             org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
-            String reason = overrideContextService.reasonForSet(
-                    session, setId, overrideReason);
             revisionService.restorePublishedVersion(
-                    setId, versionId, user.getId(), reason);
+                    setId, versionId, user.getId());
             redirectAttributes.addFlashAttribute("success",
                     "Đã tạo phiên bản xuất bản mới từ lịch sử đã chọn.");
         } catch (Exception exception) {
@@ -329,19 +217,14 @@ public class PracticeManageController {
     public String lifecycle(
             @org.springframework.web.bind.annotation.PathVariable Long setId,
             @org.springframework.web.bind.annotation.PathVariable String action,
-            @org.springframework.web.bind.annotation.RequestParam(value = "overrideReason", required = false)
-            String overrideReason,
             @AuthenticationPrincipal KshUserDetails user,
-            jakarta.servlet.http.HttpSession session,
             org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
-            String reason = overrideContextService.reasonForSet(
-                    session, setId, overrideReason);
             switch (action) {
-                case "lock" -> lifecycleService.lockSet(setId, user.getId(), reason);
-                case "unlock" -> lifecycleService.unlockSet(setId, user.getId(), reason);
-                case "archive" -> lifecycleService.archiveSet(setId, user.getId(), reason);
-                case "unarchive" -> lifecycleService.unarchiveSet(setId, user.getId(), reason);
+                case "lock" -> lifecycleService.lockSet(setId, user.getId());
+                case "unlock" -> lifecycleService.unlockSet(setId, user.getId());
+                case "archive" -> lifecycleService.archiveSet(setId, user.getId());
+                case "unarchive" -> lifecycleService.unarchiveSet(setId, user.getId());
                 default -> throw new IllegalArgumentException("Hành động không hợp lệ.");
             }
             redirectAttributes.addFlashAttribute("success", "Đã cập nhật trạng thái học liệu.");
@@ -355,19 +238,10 @@ public class PracticeManageController {
     public String shareSet(
             @org.springframework.web.bind.annotation.PathVariable Long setId,
             @org.springframework.web.bind.annotation.RequestParam String email,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean canEdit,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean canPublish,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean canRestore,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean canManageMaterial,
-            @org.springframework.web.bind.annotation.RequestParam(value = "overrideReason", required = false)
-            String overrideReason,
             @AuthenticationPrincipal KshUserDetails user,
             org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
-            collaborationService.shareSetByEmail(setId, email,
-                    new com.ksh.features.practice.governance.PracticeCollaborationService.Grants(
-                            canEdit, canPublish, canRestore, canManageMaterial),
-                    user.getId(), overrideReason);
+            collaborationService.shareSetByEmail(setId, email, user.getId());
             redirectAttributes.addFlashAttribute("success", "Đã chia sẻ học liệu.");
         } catch (Exception exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
@@ -384,7 +258,7 @@ public class PracticeManageController {
             org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
             collaborationService.revokeSet(
-                    setId, collaboratorId, user.getId(), null);
+                    setId, collaboratorId, user.getId());
             redirectAttributes.addFlashAttribute(
                     "success", "Đã thu hồi quyền cộng tác.");
         } catch (Exception exception) {
@@ -395,7 +269,6 @@ public class PracticeManageController {
 
     public record VersionHistoryRow(com.ksh.entities.PracticePublishedVersion version,
                                     PracticeSet set,
-                                    boolean canRestore,
-                                    boolean requiresOverrideReason) {
+                                    boolean canRestore) {
     }
 }

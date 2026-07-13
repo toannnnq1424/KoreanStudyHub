@@ -1,253 +1,82 @@
 package com.ksh.features.practice.assessment;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplate;
-import com.ksh.features.practice.assessment.persistence.AssessmentProgramVersion;
-import com.ksh.features.practice.assessment.persistence.AssessmentExamTemplateVersion;
-import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateRepository;
-import com.ksh.features.practice.assessment.repository.AssessmentExamTemplateVersionRepository;
-import com.ksh.features.practice.assessment.repository.AssessmentProgramVersionRepository;
-import com.ksh.features.practice.assessment.repository.AssessmentProgramRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Compatibility facade for authoring consumers. The catalog is code-owned and
+ * no longer resolves certificate, program, template, or profile rows from DB.
+ */
 @Service
 public class AssessmentAuthoringCatalogService {
 
-    public static final String SCHEMA_VERSION = "assessment-authoring-catalog-v1";
+    public static final String SCHEMA_VERSION = "practice-authoring-catalog-v2";
+    public static final String DEFAULT_TEMPLATE_CODE = "KSH_DEFAULT";
 
-    private final AssessmentExamTemplateRepository templateRepository;
-    private final AssessmentExamTemplateVersionRepository templateVersionRepository;
-    private final AssessmentProgramVersionRepository programVersionRepository;
-    private final AssessmentProgramRepository programRepository;
-    private final AssessmentProgramPolicyService policyService;
-    private final ObjectMapper objectMapper;
+    private final PracticeContentRules rules;
+    private final ExamTemplatePolicy defaultTemplate;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public AssessmentAuthoringCatalogService(
-            AssessmentExamTemplateRepository templateRepository,
-            AssessmentExamTemplateVersionRepository templateVersionRepository,
-            AssessmentProgramVersionRepository programVersionRepository,
-            AssessmentProgramRepository programRepository,
-            AssessmentProgramPolicyService policyService,
-            ObjectMapper objectMapper) {
-        this.templateRepository = templateRepository;
-        this.templateVersionRepository = templateVersionRepository;
-        this.programVersionRepository = programVersionRepository;
-        this.programRepository = programRepository;
-        this.policyService = policyService;
-        this.objectMapper = objectMapper;
+    public AssessmentAuthoringCatalogService(PracticeContentRules rules) {
+        this.rules = rules;
+        this.defaultTemplate = buildDefaultTemplate();
     }
 
-    public AssessmentAuthoringCatalogService(
-            AssessmentExamTemplateRepository templateRepository,
-            AssessmentProgramVersionRepository programVersionRepository,
-            AssessmentProgramPolicyService policyService,
-            ObjectMapper objectMapper) {
-        this(templateRepository, null, programVersionRepository, null, policyService, objectMapper);
-    }
-
-    @Transactional(readOnly = true)
     public AuthoringCatalog catalog() {
-        List<ExamTemplatePolicy> templates = templateRepository.findByEnabledTrueOrderByDisplayNameAsc().stream()
-                .filter(this::belongsToEnabledProgram)
-                .map(this::toPolicy)
-                .toList();
-        return new AuthoringCatalog(SCHEMA_VERSION, templates);
+        return new AuthoringCatalog(SCHEMA_VERSION, List.of(defaultTemplate));
     }
 
-    @Transactional(readOnly = true)
-    public ExamTemplatePolicy requireTemplate(String code) {
-        String normalized = normalizeTemplateCode(code);
-        return templateRepository.findByCodeAndEnabledTrue(normalized)
-                .filter(this::belongsToEnabledProgram)
-                .map(this::toPolicy)
-                .orElseThrow(() -> new IllegalArgumentException("Exam template is not enabled: " + normalized));
+    public ExamTemplatePolicy defaultTemplate() {
+        return defaultTemplate;
     }
 
-    private boolean belongsToEnabledProgram(AssessmentExamTemplate template) {
-        if (programRepository == null || template.getProgramCode() == null) return true;
-        return programRepository.findById(template.getProgramCode())
-                .filter(com.ksh.features.practice.assessment.persistence.AssessmentProgram::isEnabled)
-                .isPresent();
-    }
-
-    public static String defaultTemplateForCategory(String category) {
-        if (category == null) {
-            return "CUSTOM_FLEXIBLE";
-        }
-        return switch (category.trim().toUpperCase(Locale.ROOT)) {
-            case "TOPIK_I" -> "TOPIK_I";
-            case "TOPIK_II", "TOPIK_MIXED" -> "TOPIK_II";
-            default -> "CUSTOM_FLEXIBLE";
-        };
-    }
-
-    public static String normalizeTemplateCode(String code) {
-        if (code == null || code.isBlank()) {
-            throw new IllegalArgumentException("Exam template code is required");
-        }
-        return code.trim().toUpperCase(Locale.ROOT);
-    }
-
-    private ExamTemplatePolicy toPolicy(AssessmentExamTemplate template) {
-        ResolvedTemplate resolvedTemplate = activeTemplate(template);
-        AssessmentProgramVersion version = programVersionRepository
-                .findById(resolvedTemplate.programVersionId())
-                .filter(candidate -> "ACTIVE".equals(candidate.getStatus()))
-                .orElseThrow(() -> new IllegalStateException(
-                        "Exam template references an inactive program version: " + template.getCode()));
-        if (template.getProgramCode() != null
-                && !template.getProgramCode().equals(version.getProgramCode())) {
-            throw new IllegalStateException(
-                    "Exam template references another program: " + template.getCode());
-        }
-        JsonNode config;
-        try {
-            config = objectMapper.readTree(resolvedTemplate.configJson());
-        } catch (Exception exception) {
-            throw new IllegalStateException("Invalid exam template config: " + template.getCode(), exception);
-        }
-        if (!"assessment-template-v1".equals(config.path("schemaVersion").asText())) {
-            throw new IllegalStateException("Unsupported exam template schema: " + template.getCode());
-        }
-
+    private ExamTemplatePolicy buildDefaultTemplate() {
         Map<String, SkillAuthoringPolicy> skills = new LinkedHashMap<>();
-        JsonNode skillConfig = config.path("skills");
-        skillConfig.fields().forEachRemaining(entry -> {
-            AssessmentSkill skill;
-            try {
-                skill = AssessmentSkill.valueOf(entry.getKey());
-            } catch (IllegalArgumentException exception) {
-                throw new IllegalStateException("Unsupported skill in template " + template.getCode());
-            }
-            JsonNode node = entry.getValue();
-            if (node.has("enabled") && !node.path("enabled").asBoolean()) {
-                return;
-            }
-            List<String> enabledTypes = new ArrayList<>();
+        for (AssessmentSkill skill : AssessmentSkill.values()) {
             Map<String, QuestionAuthoringPolicy> questionPolicies = new LinkedHashMap<>();
-            for (JsonNode typeNode : node.path("questionTypes")) {
-                CanonicalQuestionType type;
-                try {
-                    type = CanonicalQuestionType.valueOf(typeNode.asText());
-                    ResolvedAssessmentPolicy resolved = policyService.resolve(
-                            version.getProgramCode(), skill, type);
-                    enabledTypes.add(type.name());
-                    List<String> scoringPolicies = scoringPolicies(node, type, resolved.scoringPolicyCode());
-                    JsonNode questionRule = node.path("questionRules").path(type.name());
-                    questionPolicies.put(type.name(), new QuestionAuthoringPolicy(
-                            type.name(),
-                            resolved.scoringPolicyCode().name(),
-                            scoringPolicies,
-                            resolved.scoringProfile(),
-                            resolved.promptProfile(),
-                            resolved.rubricProfile(),
-                            nonNegative(questionRule.path("minOptions"), defaultMinOptions(type)),
-                            nonNegative(questionRule.path("maxOptions"), defaultMaxOptions(type))
-                    ));
-                } catch (IllegalArgumentException ignored) {
-                    // Database policy is the source of truth; stale template entries are not exposed.
-                }
-            }
-            if (!enabledTypes.isEmpty()) {
-                skills.put(skill.name(), new SkillAuthoringPolicy(
-                        node.path("durationMinutes").asInt(40),
-                        decimal(node.path("defaultPoints"), BigDecimal.ONE),
-                        List.copyOf(enabledTypes),
-                        node.has("pointsEditable")
-                                ? node.path("pointsEditable").asBoolean()
-                                : !"TOPIK".equals(version.getProgramCode()),
-                        Map.copyOf(questionPolicies),
-                        positive(node.path("maxQuestions"), 200),
-                        node.has("excelImportEnabled")
-                                ? node.path("excelImportEnabled").asBoolean()
-                                : true
+            for (CanonicalQuestionType type : rules.allowedTypes(skill)) {
+                ScoringPolicyCode scoringPolicy = rules.scoringPolicy(type);
+                questionPolicies.put(type.name(), new QuestionAuthoringPolicy(
+                        type.name(),
+                        scoringPolicy.name(),
+                        List.of(scoringPolicy.name()),
+                        rules.minOptions(type),
+                        rules.maxOptions(type)
                 ));
             }
-        });
-        if (skills.isEmpty()) {
-            throw new IllegalStateException("Exam template has no enabled authoring skills: " + template.getCode());
+            skills.put(skill.name(), new SkillAuthoringPolicy(
+                    defaultDuration(skill),
+                    defaultPoints(skill),
+                    questionPolicies.keySet().stream().toList(),
+                    true,
+                    Map.copyOf(questionPolicies),
+                    true
+            ));
         }
         return new ExamTemplatePolicy(
-                template.getCode(),
-                template.getDisplayName(),
-                template.getCategoryCode(),
-                version.getProgramCode(),
-                version.getId(),
-                version.getVersionNumber(),
-                Map.copyOf(skills),
-                positive(config.path("maxTests"), 20)
+                DEFAULT_TEMPLATE_CODE,
+                "Đề luyện tập KSH",
+                Map.copyOf(skills)
         );
     }
 
-    private ResolvedTemplate activeTemplate(AssessmentExamTemplate template) {
-        if (templateVersionRepository == null || template.getActiveVersionId() == null) {
-            return new ResolvedTemplate(template.getProgramVersionId(), template.getConfigJson());
-        }
-        AssessmentExamTemplateVersion version = templateVersionRepository
-                .findById(template.getActiveVersionId())
-                .filter(candidate -> template.getCode().equals(candidate.getTemplateCode()))
-                .filter(candidate -> AssessmentExamTemplateVersion.STATUS_ACTIVE
-                        .equals(candidate.getStatus()))
-                .orElseThrow(() -> new IllegalStateException(
-                        "Exam template active version is invalid: " + template.getCode()));
-        Long programVersionId = version.getProgramVersionId() == null
-                ? template.getProgramVersionId() : version.getProgramVersionId();
-        return new ResolvedTemplate(programVersionId, version.getConfigJson());
+    private static int defaultDuration(AssessmentSkill skill) {
+        return switch (skill) {
+            case READING, LISTENING -> 40;
+            case WRITING -> 50;
+            case SPEAKING -> 30;
+        };
     }
 
-    private record ResolvedTemplate(Long programVersionId, String configJson) {
-    }
-
-    private static int positive(JsonNode node, int fallback) {
-        int value = node != null && node.canConvertToInt() ? node.asInt() : fallback;
-        return value > 0 ? value : fallback;
-    }
-
-    private static int nonNegative(JsonNode node, int fallback) {
-        int value = node != null && node.canConvertToInt() ? node.asInt() : fallback;
-        return value >= 0 ? value : fallback;
-    }
-
-    private static int defaultMinOptions(CanonicalQuestionType type) {
-        return type == CanonicalQuestionType.SINGLE_CHOICE || type == CanonicalQuestionType.MULTIPLE_CHOICE
-                ? 2 : 0;
-    }
-
-    private static int defaultMaxOptions(CanonicalQuestionType type) {
-        return type == CanonicalQuestionType.SINGLE_CHOICE || type == CanonicalQuestionType.MULTIPLE_CHOICE
-                ? 8 : 0;
-    }
-
-    private static BigDecimal decimal(JsonNode node, BigDecimal fallback) {
-        return node == null || !node.isNumber() ? fallback : node.decimalValue();
-    }
-
-    private static List<String> scoringPolicies(JsonNode skillConfig,
-                                                CanonicalQuestionType type,
-                                                ScoringPolicyCode fallback) {
-        List<String> result = new ArrayList<>();
-        JsonNode configured = skillConfig.path("scoringPolicies").path(type.name());
-        if (configured.isArray()) {
-            for (JsonNode node : configured) {
-                try {
-                    result.add(ScoringPolicyCode.valueOf(node.asText()).name());
-                } catch (IllegalArgumentException ignored) {
-                    // Invalid template values are not exposed.
-                }
-            }
-        }
-        if (!result.contains(fallback.name())) result.add(0, fallback.name());
-        return List.copyOf(new java.util.LinkedHashSet<>(result));
+    private static BigDecimal defaultPoints(AssessmentSkill skill) {
+        return switch (skill) {
+            case WRITING, SPEAKING -> BigDecimal.valueOf(100);
+            case READING, LISTENING -> BigDecimal.ONE;
+        };
     }
 
     public record AuthoringCatalog(String schemaVersion, List<ExamTemplatePolicy> templates) {
@@ -259,34 +88,17 @@ public class AssessmentAuthoringCatalogService {
     public record ExamTemplatePolicy(
             String code,
             String displayName,
-            String categoryCode,
-            String programCode,
-            Long programVersionId,
-            Integer programVersion,
-            Map<String, SkillAuthoringPolicy> skills,
-            Integer maxTests
+            Map<String, SkillAuthoringPolicy> skills
     ) {
         public ExamTemplatePolicy {
             skills = skills == null ? Map.of() : Map.copyOf(skills);
-            maxTests = maxTests == null || maxTests <= 0 ? 20 : maxTests;
-        }
-
-        public ExamTemplatePolicy(String code,
-                                  String displayName,
-                                  String categoryCode,
-                                  String programCode,
-                                  Long programVersionId,
-                                  Integer programVersion,
-                                  Map<String, SkillAuthoringPolicy> skills) {
-            this(code, displayName, categoryCode, programCode, programVersionId,
-                    programVersion, skills, 20);
         }
 
         public SkillAuthoringPolicy requireSkill(String rawSkill) {
             String skill = rawSkill == null ? "" : rawSkill.trim().toUpperCase(Locale.ROOT);
             SkillAuthoringPolicy policy = skills.get(skill);
             if (policy == null) {
-                throw new IllegalArgumentException("Skill is not enabled by template " + code + ": " + skill);
+                throw new IllegalArgumentException("Unsupported KSH practice skill: " + skill);
             }
             return policy;
         }
@@ -298,28 +110,17 @@ public class AssessmentAuthoringCatalogService {
             List<String> questionTypes,
             boolean pointsEditable,
             Map<String, QuestionAuthoringPolicy> questionPolicies,
-            Integer maxQuestions,
             boolean excelImportEnabled
     ) {
-        public SkillAuthoringPolicy {
-            questionTypes = questionTypes == null ? List.of() : List.copyOf(questionTypes);
-            questionPolicies = questionPolicies == null ? Map.of() : Map.copyOf(questionPolicies);
-            maxQuestions = maxQuestions == null || maxQuestions <= 0 ? 200 : maxQuestions;
-        }
-
-        public SkillAuthoringPolicy(Integer durationMinutes,
-                                    BigDecimal defaultPoints,
-                                    List<String> questionTypes,
-                                    boolean pointsEditable,
-                                    Map<String, QuestionAuthoringPolicy> questionPolicies) {
-            this(durationMinutes, defaultPoints, questionTypes, pointsEditable,
-                    questionPolicies, 200, true);
-        }
-
         public SkillAuthoringPolicy(Integer durationMinutes,
                                     BigDecimal defaultPoints,
                                     List<String> questionTypes) {
-            this(durationMinutes, defaultPoints, questionTypes, true, Map.of(), 200, true);
+            this(durationMinutes, defaultPoints, questionTypes, true, Map.of(), true);
+        }
+
+        public SkillAuthoringPolicy {
+            questionTypes = questionTypes == null ? List.of() : List.copyOf(questionTypes);
+            questionPolicies = questionPolicies == null ? Map.of() : Map.copyOf(questionPolicies);
         }
 
         public QuestionAuthoringPolicy questionPolicy(String rawType) {
@@ -331,9 +132,6 @@ public class AssessmentAuthoringCatalogService {
             String questionType,
             String defaultScoringPolicyCode,
             List<String> allowedScoringPolicyCodes,
-            ProfileReference scoringProfile,
-            ProfileReference promptProfile,
-            ProfileReference rubricProfile,
             Integer minOptions,
             Integer maxOptions
     ) {
@@ -343,18 +141,6 @@ public class AssessmentAuthoringCatalogService {
                     : List.copyOf(allowedScoringPolicyCodes);
             minOptions = minOptions == null || minOptions < 0 ? 0 : minOptions;
             maxOptions = maxOptions == null || maxOptions < minOptions ? minOptions : maxOptions;
-        }
-
-        public QuestionAuthoringPolicy(String questionType,
-                                       String defaultScoringPolicyCode,
-                                       List<String> allowedScoringPolicyCodes,
-                                       ProfileReference scoringProfile,
-                                       ProfileReference promptProfile,
-                                       ProfileReference rubricProfile) {
-            this(questionType, defaultScoringPolicyCode, allowedScoringPolicyCodes,
-                    scoringProfile, promptProfile, rubricProfile,
-                    defaultMinOptions(CanonicalQuestionType.valueOf(questionType)),
-                    defaultMaxOptions(CanonicalQuestionType.valueOf(questionType)));
         }
     }
 }

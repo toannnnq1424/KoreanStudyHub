@@ -34,7 +34,6 @@ import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.LearnerAnswer;
-import com.ksh.features.practice.assessment.ProfileReference;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
@@ -45,6 +44,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestProgress;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView;
@@ -85,8 +85,10 @@ import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.function.Supplier;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
@@ -215,6 +217,60 @@ public class PracticeService {
                 .stream()
                 .map(PracticeService::toSetRow)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, PracticeSetTestProgress> getSetTestProgress(
+            List<PracticeSetRow> sets, Long userId) {
+        if (sets == null || sets.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> setIds = sets.stream()
+                .map(PracticeSetRow::id)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (setIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<PracticeTest> tests = testRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds);
+        Map<Long, List<PracticeSection>> sectionsByTestId = sectionRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds)
+                .stream()
+                .filter(section -> section.getTestId() != null)
+                .collect(Collectors.groupingBy(PracticeSection::getTestId));
+        Set<Long> completedSectionIds = attemptRepository
+                .findByUserIdAndSetIdInAndStatusIn(
+                        userId,
+                        setIds,
+                        List.of(PracticeAttempt.STATUS_SUBMITTED, PracticeAttempt.STATUS_GRADED))
+                .stream()
+                .map(PracticeAttempt::getSectionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, int[]> countersBySetId = new LinkedHashMap<>();
+        for (Long setId : setIds) {
+            countersBySetId.put(setId, new int[2]);
+        }
+        for (PracticeTest test : tests) {
+            int[] counters = countersBySetId.computeIfAbsent(test.getSetId(), ignored -> new int[2]);
+            counters[1]++;
+            List<PracticeSection> sections = sectionsByTestId.getOrDefault(test.getId(), List.of());
+            if (!sections.isEmpty() && sections.stream()
+                    .map(PracticeSection::getId)
+                    .allMatch(completedSectionIds::contains)) {
+                counters[0]++;
+            }
+        }
+
+        Map<Long, PracticeSetTestProgress> progressBySetId = new LinkedHashMap<>();
+        countersBySetId.forEach((setId, counters) -> progressBySetId.put(
+                setId, new PracticeSetTestProgress(counters[0], counters[1])));
+        return progressBySetId;
     }
 
     @Transactional(readOnly = true)
@@ -997,7 +1053,7 @@ public class PracticeService {
 
         if (allAttempts.isEmpty()) {
             return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
-                    displayName, avatarUrl, "TOPIK II", 0, 0, 0, 0.0,
+                    displayName, avatarUrl, "Chưa có dữ liệu", 0, 0, 0, 0.0,
                     skillMetrics, List.of(), List.of());
         }
 
@@ -1066,17 +1122,13 @@ public class PracticeService {
             recentHistory.add(toAttemptSummary(attempt, setsById, testsById, sectionsById));
         }
 
-        String currentLevel = "TOPIK II Cấp 3";
+        String currentLevel = "Cần luyện thêm";
         if (recentAverageScore >= 80.0) {
-            currentLevel = "TOPIK II Cấp 6";
-        } else if (recentAverageScore >= 70.0) {
-            currentLevel = "TOPIK II Cấp 5";
-        } else if (recentAverageScore >= 60.0) {
-            currentLevel = "TOPIK II Cấp 4";
-        } else if (recentAverageScore < 40.0) {
-            currentLevel = "TOPIK I Cấp 1";
-        } else if (recentAverageScore < 50.0) {
-            currentLevel = "TOPIK I Cấp 2";
+            currentLevel = "Vững";
+        } else if (recentAverageScore >= 65.0) {
+            currentLevel = "Khá";
+        } else if (recentAverageScore >= 50.0) {
+            currentLevel = "Đang tiến bộ";
         }
 
         return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
@@ -1303,9 +1355,6 @@ public class PracticeService {
                 set.getDescription(),
                 set.getSkill(),
                 PracticeDtos.getSkillLabel(set.getSkill()),
-                set.getTopikLevel(),
-                PracticeDtos.getCategoryLabel(set.getTopikLevel()),
-                badgeText(set.getSkill(), set.getTopikLevel()),
                 set.getMetadataJson(),
                 set.getCreationMethod()
         );
@@ -1318,9 +1367,6 @@ public class PracticeService {
                 set.getDescription(),
                 set.getSkill(),
                 PracticeDtos.getSkillLabel(set.getSkill()),
-                set.getTopikLevel(),
-                PracticeDtos.getCategoryLabel(set.getTopikLevel()),
-                badgeText(set.getSkill(), set.getTopikLevel()),
                 set.getMetadataJson(),
                 set.getCreationMethod()
         );
@@ -1582,13 +1628,9 @@ public class PracticeService {
 
     private static boolean isAutoScoredByKey(String questionType) {
         return questionType != null && switch (questionType) {
-            case PracticeQuestion.TYPE_MCQ,
-                    PracticeQuestion.TYPE_SHORT_TEXT,
+            case PracticeQuestion.TYPE_SINGLE_CHOICE,
                     PracticeQuestion.TYPE_TRUE_FALSE_NOT_GIVEN,
-                    PracticeQuestion.TYPE_MATCHING_INFORMATION,
-                    PracticeQuestion.TYPE_FILL_BLANK,
-                    PracticeQuestion.TYPE_ORDERING,
-                    PracticeQuestion.TYPE_TEXT_COMPLETION -> true;
+                    PracticeQuestion.TYPE_FILL_BLANK -> true;
             default -> false;
         };
     }
@@ -1710,7 +1752,7 @@ public class PracticeService {
 
     private Optional<AssessmentScoreResult> scoreObjective(QuestionSnapshot question, String rawAnswer) {
         Optional<CanonicalQuestionType> resolvedType = questionTypeResolver.resolveOptional(
-                firstNonBlank(question.canonicalQuestionType(), question.questionType()));
+                question.questionType());
         if (resolvedType.isEmpty()) {
             if (isAutoScoredByKey(question.questionType())) {
                 return Optional.of(legacyBinaryScore(question, rawAnswer));
@@ -1729,9 +1771,6 @@ public class PracticeService {
                 throw new IllegalStateException("Question content has no answer spec for question ID "
                         + question.questionId());
             }
-            if (type == CanonicalQuestionType.MATCHING) {
-                return Optional.of(legacyBinaryScore(question, rawAnswer));
-            }
         }
 
         boolean legacyContract = isBlank(question.questionContentJson()) && isBlank(question.answerSpecJson());
@@ -1742,11 +1781,6 @@ public class PracticeService {
             AnswerSpec spec = isBlank(question.answerSpecJson())
                     ? assessmentContractCodec.adaptLegacyAnswerSpec(question.questionType(), question.answerKey(), content)
                     : assessmentContractCodec.readAnswerSpec(question.answerSpecJson(), content);
-            if (!isBlank(question.scoringPolicyCode())
-                    && !question.scoringPolicyCode().equals(spec.scoringPolicyCode().name())) {
-                throw new IllegalStateException("Scoring policy snapshot mismatch for question ID "
-                        + question.questionId());
-            }
             LearnerAnswer answer = readLearnerAnswer(type, rawAnswer, content);
             return Optional.of(assessmentScoringEngine.score(spec, answer, question.points()));
         } catch (IllegalArgumentException exception) {
@@ -1767,7 +1801,6 @@ public class PracticeService {
                     type,
                     List.of(),
                     null,
-                    Map.of(),
                     Map.of(),
                     null
             );
@@ -1819,7 +1852,7 @@ public class PracticeService {
         }
         try {
             CanonicalQuestionType type = questionTypeResolver.resolve(
-                    firstNonBlank(question.canonicalQuestionType(), question.questionType()));
+                    question.questionType());
             QuestionContent content = isBlank(question.questionContentJson())
                     ? assessmentContractCodec.adaptLegacyContent(question.optionsJson(), question.questionType())
                     : assessmentContractCodec.readQuestionContent(question.questionContentJson(), type);
@@ -1838,21 +1871,11 @@ public class PracticeService {
                             group.transcriptText(),
                             stimulusProvenance(group, "PUBLISHED_GROUP_SNAPSHOT"),
                             stimulusApproved(group));
-            String programCode = lockedSnapshot
-                    .map(PracticeVersionSnapshot::setVersion)
-                    .map(PracticeSetVersion::getAssessmentProgramCode)
-                    .filter(code -> !code.isBlank())
-                    .orElse(set.getAssessmentProgramCode());
-            ProfileReference promptProfile = isBlank(question.promptProfileCode())
-                    || question.promptProfileVersion() == null
-                    ? null
-                    : new ProfileReference(question.promptProfileCode(), question.promptProfileVersion());
             ExplanationContext context = new ExplanationContext(
                     ExplanationContext.SCHEMA_VERSION,
                     question.questionId(),
                     question.questionVersionId(),
                     question.questionNo(),
-                    programCode,
                     skill,
                     type,
                     question.prompt(),
@@ -1862,8 +1885,7 @@ public class PracticeService {
                     stimulus,
                     question.teacherExplanation(),
                     "vi",
-                    optionLabelMode,
-                    promptProfile
+                    optionLabelMode
             );
             String generated = readingListeningExplanationService.getOrCreateExplanation(
                     context, attempt.getTestId());
@@ -1931,15 +1953,6 @@ public class PracticeService {
                 .replace("／", "/")
                 .replace("，", ",")
                 .toUpperCase();
-    }
-
-    private static String badgeText(String skill, String topikLevel) {
-        String skillLbl = PracticeDtos.getSkillLabel(skill);
-        String catLbl = PracticeDtos.getCategoryLabel(topikLevel);
-        if ("Chưa phân loại".equals(catLbl)) {
-            return skillLbl;
-        }
-        return skillLbl + " · " + catLbl;
     }
 
 
@@ -2651,14 +2664,9 @@ public class PracticeService {
     private static String getQuestionTypeLabel(String type) {
         if (type == null) return "객관식 (Trắc nghiệm)";
         return switch (type) {
-            case PracticeQuestion.TYPE_MCQ, PracticeQuestion.TYPE_SINGLE_CHOICE -> "객관식 (Trắc nghiệm)";
-            case PracticeQuestion.TYPE_MULTIPLE_CHOICE -> "복수 선택 (Chọn nhiều đáp án)";
+            case PracticeQuestion.TYPE_SINGLE_CHOICE -> "객관식 (Trắc nghiệm)";
             case PracticeQuestion.TYPE_TRUE_FALSE_NOT_GIVEN -> "맞다/틀리다 (Đúng/Sai)";
-            case PracticeQuestion.TYPE_MATCHING_INFORMATION, PracticeQuestion.TYPE_MATCHING -> "선 잇기 (Nối thông tin)";
             case PracticeQuestion.TYPE_FILL_BLANK -> "빈칸 채우기 (Điền từ)";
-            case PracticeQuestion.TYPE_ORDERING -> "순서 배열 (Sắp xếp thứ tự)";
-            case PracticeQuestion.TYPE_TEXT_COMPLETION -> "문장 완성 (Hoàn thành câu)";
-            case PracticeQuestion.TYPE_SHORT_TEXT -> "단답형 (Trả lời ngắn)";
             case PracticeQuestion.TYPE_ESSAY -> "쓰기/주관식 (Tự luận)";
             case PracticeQuestion.TYPE_SPEAKING -> "말하기 (Nói)";
             default -> type;
@@ -2981,15 +2989,11 @@ public class PracticeService {
                             q.getDisplayOrder(),
                             q.getPrompt(),
                             q.getQuestionType(),
-                            q.getCanonicalQuestionType(),
                             q.getQuestionContentJson(),
                             q.getOptionsJson(),
                             q.getAnswerKey(),
                             q.getAnswerSpecJson(),
-                            q.getScoringPolicyCode(),
                             q.getExplanation(),
-                            q.getPromptProfileCode(),
-                            q.getPromptProfileVersion(),
                             q.getPoints(),
                             q.getWritingTaskType()
                     ))
@@ -3018,15 +3022,11 @@ public class PracticeService {
                 question.getDisplayOrder(),
                 question.getPrompt(),
                 question.getQuestionType(),
-                question.getCanonicalQuestionType(),
                 question.getQuestionContentJson(),
                 question.getOptionsJson(),
                 question.getAnswerKey(),
                 question.getAnswerSpecJson(),
-                question.getScoringPolicyCode(),
                 question.getExplanation(),
-                question.getPromptProfileCode(),
-                question.getPromptProfileVersion(),
                 question.getPoints(),
                 question.getWritingTaskType()
         );
@@ -3691,15 +3691,11 @@ public class PracticeService {
             Integer displayOrder,
             String prompt,
             String questionType,
-            String canonicalQuestionType,
             String questionContentJson,
             String optionsJson,
             String answerKey,
             String answerSpecJson,
-            String scoringPolicyCode,
             String teacherExplanation,
-            String promptProfileCode,
-            Integer promptProfileVersion,
             BigDecimal points,
             WritingTaskType writingTaskType
     ) {

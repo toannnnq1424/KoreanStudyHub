@@ -45,7 +45,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       Xem trước
     </button>
-    <form th:action="@{/practice/manage/drafts/{id}/publish(id=${draft.id})}" method="post" style="margin:0;" onsubmit="window.isExitingEditor = true;">
+    <form th:action="@{/practice/manage/drafts/{id}/publish(id=${draft.id})}" method="post" style="margin:0;" onsubmit="return handlePublishSubmit(event);">
       <button type="submit" id="btn-publish" class="btn-action btn-pri">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Xuất bản đề thi
@@ -152,7 +152,7 @@
       <div id="editor-placeholder" class="empty-workspace-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:16px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         <h3 style="margin:0 0 8px 0; font-size:1.2rem; font-weight:700; color:var(--pp-text);">Trình biên tập học liệu KSH</h3>
-        <p style="margin:0; font-size:0.88rem; color:var(--pp-text-muted);">Nhấp chọn phần thi, nhóm câu hỏi hoặc từng câu hỏi bên trái để bắt đầu chỉnh sửa cấu trúc đề TOPIK.</p>
+        <p style="margin:0; font-size:0.88rem; color:var(--pp-text-muted);">Nhấp chọn bài test, phần kỹ năng, nhóm hoặc câu hỏi bên trái để bắt đầu biên soạn.</p>
       </div>
 
       <!-- B. Draft Overview Editor -->
@@ -160,16 +160,6 @@
         <div class="editor-eyebrow">Bộ đề luyện tập</div>
         <h2 style="font-weight:800; font-size:1.5rem; margin:0 0 24px 0;">Tổng quan bộ đề</h2>
         
-        <div style="margin-bottom:20px;">
-          <label class="form-label">Chương trình / Mẫu đề</label>
-          <select id="draft-template" class="form-input" onchange="handleTemplateChange()">
-            <option th:each="template : ${authoringCatalog.templates}"
-                    th:value="${template.code}"
-                    th:text="${template.displayName}">Mẫu đề</option>
-          </select>
-          <input type="hidden" id="draft-category" value="CUSTOM">
-        </div>
-
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; background:#f8fafc; padding:16px; border-radius:10px; border:1px solid var(--pp-border);">
           <div>
             <label class="form-label" style="margin:0; font-size:0.75rem; text-transform:uppercase; color:#64748b;">Kỹ năng tổng hợp</label>
@@ -179,19 +169,11 @@
             <label class="form-label" style="margin:0; font-size:0.75rem; text-transform:uppercase; color:#64748b;">Cách tạo</label>
             <div id="draft-creation-method-display" style="font-weight:700; color:#1e293b; font-size:0.95rem; margin-top:4px; text-transform:uppercase;" th:text="${draft.creationMethod}">MANUAL</div>
           </div>
-          <div>
-            <label class="form-label" style="margin:0; font-size:0.75rem; text-transform:uppercase; color:#64748b;">Chương trình</label>
-            <div id="draft-program-display" style="font-weight:700; color:#1e293b; font-size:0.95rem; margin-top:4px;">CUSTOM</div>
-          </div>
-          <div>
-            <label class="form-label" style="margin:0; font-size:0.75rem; text-transform:uppercase; color:#64748b;">Phiên bản policy</label>
-            <div id="draft-program-version-display" style="font-weight:700; color:#1e293b; font-size:0.95rem; margin-top:4px;">1</div>
-          </div>
         </div>
 
         <div style="margin-bottom:20px;">
           <label class="form-label">Mô tả học liệu</label>
-          <textarea id="draft-description" class="form-textarea" style="height:100px;" placeholder="Ví dụ: Đề thi thử kỹ năng đọc nghe TOPIK cấp 3-6..." oninput="saveDraftMetadata()"></textarea>
+          <textarea id="draft-description" class="form-textarea" style="height:100px;" placeholder="Mô tả mục tiêu và nội dung của bộ đề..." oninput="saveDraftMetadata()"></textarea>
         </div>
       </div>
 
@@ -347,9 +329,7 @@
             <label class="form-label">Dạng câu hỏi</label>
             <select id="q-type" class="form-input" onchange="handleQuestionTypeChange()">
               <option value="SINGLE_CHOICE">객관식 (Trắc nghiệm chọn một)</option>
-              <option value="MULTIPLE_CHOICE">객관식 (Trắc nghiệm chọn nhiều)</option>
               <option value="TRUE_FALSE_NOT_GIVEN">맞다/틀리다 (Đúng/Sai)</option>
-              <option value="MATCHING">선 잇기 (Nối thông tin)</option>
               <option value="FILL_BLANK">빈칸 채우기 (Điền từ)</option>
               <option value="ESSAY">쓰기/주관식 (Tự luận)</option>
               <option value="SPEAKING">말하기 (Nói)</option>
@@ -381,11 +361,6 @@
           <button id="add-option-button" onclick="addOptionRow()" class="btn-action btn-sec" style="margin-top:8px; padding:6px 12px; font-size:0.8rem; width:100%; justify-content:center;">+ Thêm phương án</button>
         </div>
 
-        <div id="multiple-scoring-area" style="margin-bottom:24px; display:none;">
-          <label class="form-label" for="q-scoring-policy">Cách tính điểm khi chọn nhiều đáp án</label>
-          <select id="q-scoring-policy" class="form-input" onchange="saveCurrentNode()"></select>
-        </div>
-
         <!-- 2. True / False / Not Given configuration -->
         <div id="tfng-area" style="margin-bottom:24px; display:none;">
           <label class="form-label">Đáp án đúng</label>
@@ -400,13 +375,6 @@
               <input type="radio" name="tfng-correct" value="NOT_GIVEN" onchange="setTfngCorrect('NOT_GIVEN')"> NOT GIVEN
             </label>
           </div>
-        </div>
-
-        <!-- 3. Matching configuration -->
-        <div id="matching-area" style="margin-bottom:24px; display:none;">
-          <label class="form-label">Các cặp nối đúng</label>
-          <div id="matching-pairs-list"></div>
-          <button type="button" onclick="addMatchingPair()" class="btn-action btn-sec" style="margin-top:8px; width:100%; justify-content:center;">+ Thêm cặp</button>
         </div>
 
         <!-- 4. Gap Fill configuration -->
@@ -429,14 +397,13 @@
             </div>
           </div>
           <div style="margin-bottom:16px;">
-            <label class="form-label">Câu hỏi luận TOPIK</label>
+            <label class="form-label">Loại bài Writing</label>
             <select id="q-essay-task" class="form-input" onchange="saveCurrentNode()">
               <option value="">Chon loai bai Writing</option>
               <option value="Q51">Câu 51 (Điền cụm từ thư tín)</option>
               <option value="Q52">Câu 52 (Điền cụm từ giải thích)</option>
               <option value="Q53">Câu 53 (Viết biểu đồ - 200-300 từ)</option>
               <option value="Q54">Câu 54 (Viết luận văn - 600-700 từ)</option>
-              <option value="GENERAL">Bai viet tong quat</option>
             </select>
           </div>
           <div style="margin-bottom:16px;">
@@ -460,17 +427,6 @@
           <div style="margin-bottom:16px;">
             <label class="form-label">Bài nói mẫu tham khảo</label>
             <textarea id="q-speak-sample" class="form-textarea" style="height:100px;" placeholder="Văn bản hoặc âm thanh nói mẫu gợi ý..." oninput="saveCurrentNode()"></textarea>
-          </div>
-        </div>
-
-        <div id="approved-profile-area" style="margin-bottom:24px; display:none; grid-template-columns:1fr 1fr; gap:16px;">
-          <div>
-            <label class="form-label" for="q-prompt-profile">Prompt chấm được phê duyệt</label>
-            <select id="q-prompt-profile" class="form-input" onchange="saveCurrentNode()"></select>
-          </div>
-          <div>
-            <label class="form-label" for="q-rubric-profile">Rubric được phê duyệt</label>
-            <select id="q-rubric-profile" class="form-input" onchange="saveCurrentNode()"></select>
           </div>
         </div>
 
@@ -776,6 +732,7 @@
     // remain clickable even if validation/autosave has a server-side issue.
     try {
       DRAFT_DATA = normalizeDraftTree(DRAFT_DATA);
+      if (syncDraftDocumentTitle()) triggerAutosave();
       syncTemplateEditorControls();
       expandedNodes["test-0"] = true;
       expandedNodes["sec-0"] = true;
@@ -926,7 +883,7 @@
   }
 
   function defaultOptionsForQuestionType(type, skill = null) {
-    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_CHOICE' || type === 'MCQ') {
+    if (type === 'SINGLE_CHOICE') {
       const questionPolicy = skill
         ? window.PracticeAuthoringContract.questionPolicy(AUTHORING_CATALOG, DRAFT_DATA, skill, type)
         : null;
@@ -944,10 +901,8 @@
 
   const QUESTION_TYPE_LABELS = {
     SINGLE_CHOICE: '객관식 (Trắc nghiệm chọn một)',
-    MULTIPLE_CHOICE: '객관식 (Trắc nghiệm chọn nhiều)',
     TRUE_FALSE_NOT_GIVEN: '맞다/틀리다 (Đúng/Sai/Không có thông tin)',
     FILL_BLANK: '빈칸 채우기 (Điền từ)',
-    MATCHING: '선 잇기 (Nối thông tin)',
     ESSAY: '쓰기/주관식 (Tự luận)',
     SPEAKING: '말하기 (Nói)'
   };
@@ -960,16 +915,6 @@
   };
 
   function syncTemplateEditorControls() {
-    const template = window.PracticeAuthoringContract.currentTemplate(AUTHORING_CATALOG, DRAFT_DATA);
-    const templateSelect = document.getElementById('draft-template');
-    if (templateSelect && template) templateSelect.value = template.code;
-    const categoryInput = document.getElementById('draft-category');
-    if (categoryInput && template) categoryInput.value = template.categoryCode;
-    const programDisplay = document.getElementById('draft-program-display');
-    if (programDisplay && template) programDisplay.textContent = template.programCode;
-    const versionDisplay = document.getElementById('draft-program-version-display');
-    if (versionDisplay && template) versionDisplay.textContent = String(template.programVersion);
-
     const allowed = new Set(window.PracticeAuthoringContract.allowedSkills(AUTHORING_CATALOG, DRAFT_DATA));
     document.querySelectorAll('[data-editor-action="add-section"][data-skill]').forEach(button => {
       button.hidden = !allowed.has(button.dataset.skill);
@@ -1008,14 +953,6 @@
     select.value = canonicalSelected;
   }
 
-  const SCORING_POLICY_LABELS = {
-    ALL_OR_NOTHING: 'Đúng toàn bộ mới có điểm',
-    PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO: 'Chia điểm theo đáp án đúng; chọn sai thì 0 điểm',
-    NORMALIZED_EXACT: 'Khớp chính xác sau chuẩn hóa',
-    PER_PAIR: 'Tính điểm theo từng cặp đúng',
-    PROFILE_BASED: 'Chấm theo rubric/profile hệ thống'
-  };
-
   function refreshQuestionPolicyControls(section, question, type) {
     const skillPolicy = window.PracticeAuthoringContract.skillPolicy(
       AUTHORING_CATALOG, DRAFT_DATA, section.skill);
@@ -1023,67 +960,12 @@
       AUTHORING_CATALOG, DRAFT_DATA, section.skill, type);
     const pointsInput = document.getElementById('q-points');
     pointsInput.disabled = !!(skillPolicy && skillPolicy.pointsEditable === false);
-    pointsInput.title = pointsInput.disabled ? 'Điểm được khóa bởi mẫu đề.' : '';
-
-    const scoringArea = document.getElementById('multiple-scoring-area');
-    const scoringSelect = document.getElementById('q-scoring-policy');
-    scoringArea.style.display = type === 'MULTIPLE_CHOICE' ? 'block' : 'none';
-    if (type === 'MULTIPLE_CHOICE') {
-      const allowed = questionPolicy && Array.isArray(questionPolicy.allowedScoringPolicyCodes)
-        ? questionPolicy.allowedScoringPolicyCodes : ['ALL_OR_NOTHING'];
-      const selected = allowed.includes(question.scoringPolicyCode)
-        ? question.scoringPolicyCode
-        : (questionPolicy && questionPolicy.defaultScoringPolicyCode || allowed[0]);
-      scoringSelect.replaceChildren(...allowed.map(code => {
-        const option = document.createElement('option');
-        option.value = code;
-        option.textContent = SCORING_POLICY_LABELS[code] || code;
-        return option;
-      }));
-      scoringSelect.value = selected;
-      question.scoringPolicyCode = selected;
-    } else {
-      question.scoringPolicyCode = questionPolicy && questionPolicy.defaultScoringPolicyCode
-        || question.scoringPolicyCode;
-    }
-
-    const profileArea = document.getElementById('approved-profile-area');
-    const usesProfiles = type === 'ESSAY' || type === 'SPEAKING';
-    profileArea.style.display = usesProfiles ? 'grid' : 'none';
-    if (!usesProfiles) return;
-    const template = window.PracticeAuthoringContract.currentTemplate(AUTHORING_CATALOG, DRAFT_DATA);
-    const topikTaskProfile = template && template.programCode === 'TOPIK' && type === 'ESSAY';
-    populateApprovedProfile(document.getElementById('q-prompt-profile'),
-      topikTaskProfile ? null : questionPolicy && questionPolicy.promptProfile,
-      topikTaskProfile ? 'Tự động theo loại bài TOPIK' : 'Profile prompt mặc định');
-    populateApprovedProfile(document.getElementById('q-rubric-profile'),
-      topikTaskProfile ? null : questionPolicy && questionPolicy.rubricProfile,
-      topikTaskProfile ? 'Tự động theo loại bài TOPIK' : 'Rubric mặc định');
-    question.promptProfileCode = topikTaskProfile ? null : questionPolicy && questionPolicy.promptProfile && questionPolicy.promptProfile.code;
-    question.promptProfileVersion = topikTaskProfile ? null : questionPolicy && questionPolicy.promptProfile && questionPolicy.promptProfile.version;
-    question.rubricProfileCode = topikTaskProfile ? null : questionPolicy && questionPolicy.rubricProfile && questionPolicy.rubricProfile.code;
-    question.rubricProfileVersion = topikTaskProfile ? null : questionPolicy && questionPolicy.rubricProfile && questionPolicy.rubricProfile.version;
-    question.scoringProfileCode = questionPolicy && questionPolicy.scoringProfile && questionPolicy.scoringProfile.code;
-    question.scoringProfileVersion = questionPolicy && questionPolicy.scoringProfile && questionPolicy.scoringProfile.version;
+    pointsInput.title = pointsInput.disabled ? 'Điểm được hệ thống quản lý.' : '';
+    question.scoringPolicyCode = questionPolicy && questionPolicy.defaultScoringPolicyCode
+      || question.scoringPolicyCode;
   }
 
-  function populateApprovedProfile(select, profile, fallbackLabel) {
-    const option = document.createElement('option');
-    option.value = profile ? profile.code : '';
-    option.textContent = profile ? `${profile.code} v${profile.version}` : fallbackLabel;
-    select.replaceChildren(option);
-    select.value = option.value;
-  }
-
-  function handleTemplateChange() {
-    const code = document.getElementById('draft-template').value;
-    window.PracticeAuthoringContract.applyTemplateMetadata(AUTHORING_CATALOG, DRAFT_DATA, code);
-    syncTemplateEditorControls();
-    selectNode('draft');
-    triggerAutosave();
-  }
-
-  const WRITING_TASK_TYPES = ['Q51', 'Q52', 'Q53', 'Q54', 'GENERAL'];
+  const WRITING_TASK_TYPES = ['Q51', 'Q52', 'Q53', 'Q54'];
 
   function isWritingEssay(section, question) {
     return section && section.skill === 'WRITING' && question && question.questionType === 'ESSAY';
@@ -1136,10 +1018,7 @@
   function normalizeDraftTree(draft) {
     if (!draft || typeof draft !== 'object') draft = {};
     if (!draft.document || typeof draft.document !== 'object') draft.document = {};
-    const fallbackTemplate = draft.document.examTemplateCode
-      || (draft.document.detectedCategory === 'TOPIK_I' ? 'TOPIK_I'
-        : (String(draft.document.detectedCategory || '').startsWith('TOPIK') ? 'TOPIK_II' : 'CUSTOM_FLEXIBLE'));
-    window.PracticeAuthoringContract.applyTemplateMetadata(AUTHORING_CATALOG, draft, fallbackTemplate);
+    window.PracticeAuthoringContract.applyTemplateMetadata(AUTHORING_CATALOG, draft, 'KSH_DEFAULT');
     if (!Array.isArray(draft.sections)) draft.sections = [];
     if (!Array.isArray(draft.tests)) draft.tests = [];
     if (!Array.isArray(draft.materials)) draft.materials = [];
@@ -1194,7 +1073,7 @@
       sec.lessonCode = lessonCodeForSkill(sec.skill, test.testNo);
       sec.durationMinutes = parseInt(sec.durationMinutes, 10) || (sec.skill === 'WRITING' ? 50 : 40);
       sec.groups = Array.isArray(sec.groups) ? Array.from(sec.groups) : [];
-      let localQuestionNo = 1;
+      let localQuestionNo = sec.skill === 'WRITING' ? 51 : 1;
 
       sec.groups = sec.groups.map((group, gIdx) => {
         const grp = group && typeof group === 'object' ? group : {};
@@ -1218,15 +1097,19 @@
         grp.questions = grp.questions.map((question, qIdx) => {
           const q = question && typeof question === 'object' ? question : {};
           q.clientId = q.clientId || makeClientId('q');
-          q.questionNo = localQuestionNo++;
           q.questionType = q.questionType || defaultQuestionTypeForSkill(sec.skill);
+          q.questionNo = sec.skill === 'WRITING' && q.questionType === 'ESSAY'
+            && WRITING_TASK_TYPES.includes(q.essayTaskType)
+            ? Number(q.essayTaskType.substring(1))
+            : localQuestionNo;
+          localQuestionNo = q.questionNo + 1;
           q.prompt = q.prompt || '';
           q.explanationVi = q.explanationVi || '';
           q.points = parseFloat(q.points) || 2.0;
           q.answerKey = q.answerKey || '';
           q.options = Array.isArray(q.options) ? Array.from(q.options) : defaultOptionsForQuestionType(q.questionType, sec.skill);
           if (!q.answer && q.answerKey) {
-            q.answer = { type: q.questionType === 'MULTIPLE_CHOICE' ? 'MULTIPLE' : 'SINGLE', value: q.answerKey };
+            q.answer = { type: 'SINGLE', value: q.answerKey };
           }
           return window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
         });
@@ -1270,12 +1153,16 @@
     const sec = DRAFT_DATA.sections[sIdx];
     if (!sec || !Array.isArray(sec.groups)) return;
 
-    let nextNo = 1;
+    let nextNo = sec.skill === 'WRITING' ? 51 : 1;
     sec.groups.forEach((grp, groupIdx) => {
       grp.groupCode = `${sec.lessonCode}.${groupIdx + 1}`;
       if (Array.isArray(grp.questions)) {
         grp.questions.forEach(q => {
-          q.questionNo = nextNo++;
+          q.questionNo = sec.skill === 'WRITING' && q.questionType === 'ESSAY'
+            && WRITING_TASK_TYPES.includes(q.essayTaskType)
+            ? Number(q.essayTaskType.substring(1))
+            : nextNo;
+          nextNo = q.questionNo + 1;
         });
       }
       updateGroupQuestionRange(grp);
@@ -1763,7 +1650,6 @@
 
     if (type === 'draft') {
       document.getElementById('editor-draft-card').style.display = 'block';
-      document.getElementById('draft-category').value = DRAFT_DATA.document ? DRAFT_DATA.document.detectedCategory : 'CUSTOM';
       syncTemplateEditorControls();
       document.getElementById('draft-description').value = DRAFT_DATA.document ? DRAFT_DATA.document.description || '' : '';
     } else if (type === 'test') {
@@ -2131,9 +2017,7 @@
     if (!type) return "";
     switch (type) {
       case 'SINGLE_CHOICE': return '객관식 (Trắc nghiệm chọn một)';
-      case 'MULTIPLE_CHOICE': return '객관식 (Trắc nghiệm chọn nhiều)';
       case 'TRUE_FALSE_NOT_GIVEN': return '맞다/틀리다 (Đúng/Sai)';
-      case 'MATCHING': return '선 잇기 (Nối thông tin)';
       case 'GAP_FILL':
       case 'FILL_BLANK': return '빈칸 채우기 (Điền từ)';
       case 'ESSAY': return '쓰기/주관식 (Tự luận)';
@@ -2198,16 +2082,13 @@
     // Hide all area components
     document.getElementById('options-area').style.display = 'none';
     document.getElementById('tfng-area').style.display = 'none';
-    document.getElementById('matching-area').style.display = 'none';
     document.getElementById('gapfill-area').style.display = 'none';
     document.getElementById('essay-area').style.display = 'none';
     document.getElementById('speaking-area').style.display = 'none';
-    document.getElementById('multiple-scoring-area').style.display = 'none';
-    document.getElementById('approved-profile-area').style.display = 'none';
 
     refreshQuestionPolicyControls(section, q, type);
 
-    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_CHOICE') {
+    if (type === 'SINGLE_CHOICE') {
       document.getElementById('options-area').style.display = 'block';
       if (!Array.isArray(q.options) || q.options.length === 0) {
         q.options = defaultOptionsForQuestionType(type, section.skill);
@@ -2219,9 +2100,6 @@
       document.querySelectorAll('input[name="tfng-correct"]').forEach(rad => {
         rad.checked = (rad.value === val);
       });
-    } else if (type === 'MATCHING') {
-      document.getElementById('matching-area').style.display = 'block';
-      renderMatchingPairs(q);
     } else if (type === 'FILL_BLANK') {
       document.getElementById('gapfill-area').style.display = 'block';
       renderFillBlanks(q);
@@ -2319,17 +2197,8 @@
   function setCorrectOption(idx) {
     if (!currentNode) return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    if (q.questionType === 'MULTIPLE_CHOICE') {
-      const inputs = Array.from(document.querySelectorAll('input[name="correct-opt"]'));
-      const selected = inputs
-        .map((input, inputIdx) => input.checked ? String(inputIdx + 1) : null)
-        .filter(Boolean);
-      q.answer = { type: "MULTIPLE", value: selected.join(',') };
-      q.answerKey = selected.join(',');
-    } else {
-      q.answer = { type: "SINGLE", value: String(idx + 1) };
-      q.answerKey = String(idx + 1);
-    }
+    q.answer = { type: "SINGLE", value: String(idx + 1) };
+    q.answerKey = String(idx + 1);
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
   }
@@ -2374,7 +2243,7 @@
       return;
     }
     q.options.splice(idx, 1);
-    q.answer = { type: q.questionType === 'MULTIPLE_CHOICE' ? 'MULTIPLE' : 'SINGLE', value: '' };
+    q.answer = { type: 'SINGLE', value: '' };
     q.answerKey = '';
     window.PracticeAuthoringContract.syncQuestionContract(q);
     renderOptionRows(q);
@@ -2427,56 +2296,6 @@
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
     q.answer = { type: "TFNG", value: val };
     q.answerKey = val;
-    window.PracticeAuthoringContract.syncQuestionContract(q);
-    triggerAutosave();
-  }
-
-  function renderMatchingPairs(q) {
-    const container = document.getElementById('matching-pairs-list');
-    if (!container) return;
-    if (!Array.isArray(q.matchingPairs)) q.matchingPairs = [];
-    container.innerHTML = '';
-    q.matchingPairs.forEach((pair, index) => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:grid;grid-template-columns:1fr 32px 1fr 36px;gap:8px;align-items:center;margin-bottom:8px;';
-      row.innerHTML = `
-        <input class="form-input matching-left" data-index="${index}" value="${escapeHtml(pair.leftText || '')}" placeholder="Nội dung bên trái">
-        <span style="text-align:center;color:var(--pp-text-muted);">→</span>
-        <input class="form-input matching-right" data-index="${index}" value="${escapeHtml(pair.rightText || '')}" placeholder="Nội dung ghép đúng">
-        <button type="button" class="opt-delete-btn" onclick="removeMatchingPair(${index})" title="Xóa cặp">✕</button>`;
-      container.appendChild(row);
-    });
-    container.querySelectorAll('input').forEach(input => input.addEventListener('input', saveMatchingPairs));
-  }
-
-  function addMatchingPair() {
-    if (!currentNode || currentNode.type !== 'question') return;
-    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    if (!Array.isArray(q.matchingPairs)) q.matchingPairs = [];
-    q.matchingPairs.push({ leftId: makeClientId('left'), leftText: '', rightId: makeClientId('right'), rightText: '' });
-    renderMatchingPairs(q);
-    window.PracticeAuthoringContract.syncQuestionContract(q);
-    triggerAutosave();
-  }
-
-  function removeMatchingPair(index) {
-    if (!currentNode || currentNode.type !== 'question') return;
-    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    q.matchingPairs.splice(index, 1);
-    renderMatchingPairs(q);
-    window.PracticeAuthoringContract.syncQuestionContract(q);
-    triggerAutosave();
-  }
-
-  function saveMatchingPairs() {
-    if (!currentNode || currentNode.type !== 'question') return;
-    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    document.querySelectorAll('.matching-left').forEach(input => {
-      q.matchingPairs[Number(input.dataset.index)].leftText = input.value;
-    });
-    document.querySelectorAll('.matching-right').forEach(input => {
-      q.matchingPairs[Number(input.dataset.index)].rightText = input.value;
-    });
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
   }
@@ -2609,7 +2428,10 @@
       const grp = DRAFT_DATA.sections[sIdx].groups[gIdx];
       if (!grp || !grp.questions[qIdx]) return;
       const q = grp.questions[qIdx];
-      q.questionNo = parseInt(document.getElementById('q-no').value) || (qIdx + 1);
+      q.questionNo = DRAFT_DATA.sections[sIdx].skill === 'WRITING'
+        && WRITING_TASK_TYPES.includes(q.essayTaskType)
+        ? Number(q.essayTaskType.substring(1))
+        : (parseInt(document.getElementById('q-no').value) || (qIdx + 1));
       q.prompt = document.getElementById('q-prompt').value;
       q.points = parseFloat(document.getElementById('q-points').value) || 1.0;
       q.explanationVi = document.getElementById('q-explanation').value;
@@ -2619,20 +2441,14 @@
       
       const typeSel = document.getElementById('q-type').value;
       q.questionType = typeSel;
-      if (typeSel === 'MULTIPLE_CHOICE') {
-        q.scoringPolicyCode = document.getElementById('q-scoring-policy').value;
-      }
-      if (typeSel === 'ESSAY' || typeSel === 'SPEAKING') {
-        q.promptProfileCode = document.getElementById('q-prompt-profile').value || null;
-        q.rubricProfileCode = document.getElementById('q-rubric-profile').value || null;
-      }
-      if (typeSel === 'MATCHING') {
-        applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
-      } else if (typeSel === 'FILL_BLANK') {
+      if (typeSel === 'FILL_BLANK') {
         applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
       } else if (typeSel === 'ESSAY') {
         if (isWritingEssay(DRAFT_DATA.sections[sIdx], q)) {
           q.essayTaskType = document.getElementById('q-essay-task').value;
+          if (WRITING_TASK_TYPES.includes(q.essayTaskType)) {
+            q.questionNo = Number(q.essayTaskType.substring(1));
+          }
         } else {
           applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
         }
@@ -2658,8 +2474,7 @@
 
   function saveDraftMetadata() {
     if (!DRAFT_DATA.document) DRAFT_DATA.document = {};
-    const templateCode = document.getElementById('draft-template').value;
-    window.PracticeAuthoringContract.applyTemplateMetadata(AUTHORING_CATALOG, DRAFT_DATA, templateCode);
+    window.PracticeAuthoringContract.applyTemplateMetadata(AUTHORING_CATALOG, DRAFT_DATA, 'KSH_DEFAULT');
     DRAFT_DATA.document.description = document.getElementById('draft-description').value;
     syncTemplateEditorControls();
     triggerAutosave();
@@ -2923,7 +2738,16 @@
       return;
     }
 
-    const nextQNo = sec.groups.reduce((count, group) => count + group.questions.length, 0) + 1;
+    const existingWritingTasks = sec.groups.flatMap(group => group.questions || [])
+      .map(question => question.essayTaskType);
+    const nextWritingTask = WRITING_TASK_TYPES.find(task => !existingWritingTasks.includes(task));
+    if (sec.skill === 'WRITING' && !nextWritingTask) {
+      showEditorToast('Phần Writing đã có đủ Q51, Q52, Q53 và Q54.', 'warning');
+      return;
+    }
+    const nextQNo = sec.skill === 'WRITING'
+      ? Number(nextWritingTask.substring(1))
+      : sec.groups.reduce((count, group) => count + group.questions.length, 0) + 1;
 
     const policy = window.PracticeAuthoringContract.skillPolicy(AUTHORING_CATALOG, DRAFT_DATA, sec.skill);
     const qType = policy && policy.questionTypes[0] || defaultQuestionTypeForSkill(sec.skill);
@@ -2934,13 +2758,14 @@
       clientId: makeClientId('q'),
       questionNo: nextQNo,
       questionType: qType,
-      prompt: qType === "MCQ" || qType === "SINGLE_CHOICE" ? "Nội dung câu hỏi trắc nghiệm" : "Yêu cầu bài làm",
+      prompt: qType === "SINGLE_CHOICE" ? "Nội dung câu hỏi trắc nghiệm" : "Yêu cầu bài làm",
       options: options,
-      answer: qType === "MCQ" || qType === "SINGLE_CHOICE" ? { type: "SINGLE", value: answerKey } : null,
+      answer: qType === "SINGLE_CHOICE" ? { type: "SINGLE", value: answerKey } : null,
       answerKey: answerKey,
       explanationVi: "",
       points: policy ? Number(policy.defaultPoints) : 1.0
     };
+    if (sec.skill === 'WRITING') newQ.essayTaskType = nextWritingTask;
     applyWritingTaskState(sec, newQ, { materializeBlank: true });
     window.PracticeAuthoringContract.normalizeQuestion(newQ, makeClientId);
 
@@ -3103,6 +2928,9 @@
     }
     if (autosaveInFlight) return autosaveInFlight;
 
+    const titleInput = document.getElementById('draft-title').value;
+    syncDraftDocumentTitle();
+
     if (!isBackendDraftAvailable()) {
       const status = document.getElementById('autosave-status');
       if (status) {
@@ -3115,7 +2943,6 @@
       return Promise.resolve(true);
     }
 
-    const titleInput = document.getElementById('draft-title').value;
     const bodyPayload = {
       draftJson: JSON.stringify(DRAFT_DATA),
       title: titleInput,
@@ -3204,6 +3031,18 @@
     return draftDirty ? performAutosave() : true;
   }
 
+  function syncDraftDocumentTitle() {
+    const input = document.getElementById('draft-title');
+    if (!input) return false;
+    if (!DRAFT_DATA.document || typeof DRAFT_DATA.document !== 'object') {
+      DRAFT_DATA.document = {};
+    }
+    const title = input.value;
+    const changed = DRAFT_DATA.document.title !== title;
+    DRAFT_DATA.document.title = title;
+    return changed;
+  }
+
   async function handleEditorToolNavigation(event) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -3215,6 +3054,20 @@
     }
     window.isExitingEditor = true;
     window.location.assign(destination);
+  }
+
+  async function handlePublishSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (syncDraftDocumentTitle()) draftDirty = true;
+    const saved = await flushDraftBeforeNavigation();
+    if (!saved) {
+      showEditorToast('Không thể xuất bản vì bản nháp chưa lưu thành công.', 'error');
+      return false;
+    }
+    window.isExitingEditor = true;
+    form.submit();
+    return false;
   }
 
   function isBackendDraftAvailable() {
@@ -3374,20 +3227,20 @@
           const answerVal = (q.answer && q.answer.value) || q.answerKey || '';
           if (sec.skill === 'WRITING' && type === 'ESSAY') {
             if (!Object.prototype.hasOwnProperty.call(q, 'essayTaskType') || q.essayTaskType === null) {
-              messages.push({ type: 'WARNING', content: 'Cau Writing nay chua co loai bai ro rang. Ket qua cham co the tiep tuc dung co che tuong thich cu.', sIdx, gIdx, qIdx });
+              messages.push({ type: 'BLOCKING', content: 'Mỗi câu Writing phải chọn Q51, Q52, Q53 hoặc Q54.', sIdx, gIdx, qIdx });
             } else if (typeof q.essayTaskType !== 'string' || q.essayTaskType.trim() !== q.essayTaskType || !WRITING_TASK_TYPES.includes(q.essayTaskType)) {
               messages.push({
                 type: 'BLOCKING',
                 content: typeof q.essayTaskType === 'string' && q.essayTaskType.trim() === ''
-                  ? 'Vui long chon loai bai Writing cho cau tu luan.'
-                  : 'Loai bai Writing khong hop le.',
+                  ? 'Vui lòng chọn loại bài Writing.'
+                  : 'Loại bài Writing không hợp lệ.',
                 sIdx,
                 gIdx,
                 qIdx
               });
             }
           }
-          if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_CHOICE' || type === 'MCQ') {
+          if (type === 'SINGLE_CHOICE') {
             if (!Array.isArray(q.options) || q.options.length < 2) {
               messages.push({ type: 'BLOCKING', content: `Câu ${q.questionNo} cần ít nhất 2 phương án.`, sIdx, gIdx, qIdx });
             }
@@ -3404,14 +3257,25 @@
               messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_ANSWER_REQUIRED', content: `Câu ${q.questionNo} còn ô trống chưa có đáp án.`, sIdx, gIdx, qIdx });
             }
           }
-          if (type === 'MATCHING') {
-            const pairs = q.answerSpec && q.answerSpec.matchingPairs || {};
-            if (!Object.keys(pairs).length) {
-              messages.push({ type: 'BLOCKING', code: 'MATCHING_TYPED_ANSWER_REQUIRED', content: `Câu ${q.questionNo} chưa có cặp nối đúng.`, sIdx, gIdx, qIdx });
-            }
-          }
         });
       });
+      if (sec.skill === 'WRITING') {
+        const writingTasks = sec.groups.flatMap(group => group.questions || [])
+          .filter(question => question.questionType === 'ESSAY')
+          .map(question => question.essayTaskType);
+        const exactWritingSet = WRITING_TASK_TYPES.every(task => writingTasks.filter(value => value === task).length === 1)
+          && writingTasks.length === WRITING_TASK_TYPES.length;
+        if (!exactWritingSet) {
+          messages.push({
+            type: 'BLOCKING',
+            code: 'WRITING_TASK_SET_REQUIRED',
+            content: `Phần ${sec.lessonCode || sec.title} phải có đúng một câu Q51, Q52, Q53 và Q54.`,
+            sIdx,
+            gIdx: null,
+            qIdx: null
+          });
+        }
+      }
     });
 
     return {
@@ -3448,6 +3312,11 @@
 
   async function openPreviewModal() {
     try {
+      if (syncDraftDocumentTitle()) draftDirty = true;
+      const saved = await flushDraftBeforeNavigation();
+      if (!saved) {
+        throw new Error('Không thể xem trước vì bản nháp chưa lưu thành công.');
+      }
       const response = await fetch(`/practice/manage/drafts/${DRAFT_ID}/preview`, {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, csrfHeaders()),
@@ -3573,7 +3442,7 @@
       }
 
       let optionsHtml = '';
-      if (q.questionType === 'SINGLE_CHOICE' || q.questionType === 'MULTIPLE_CHOICE') {
+      if (q.questionType === 'SINGLE_CHOICE') {
         if (q.options) {
           q.options.forEach((opt, oIdx) => {
             const optionImage = opt && opt.imageReference
@@ -3596,13 +3465,6 @@
             </div>
           `;
         });
-      } else if (q.questionType === 'MATCHING') {
-        const left = q.questionContent && q.questionContent.matchingLeftItems || [];
-        const right = q.questionContent && q.questionContent.matchingRightItems || [];
-        optionsHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div>${left.map((item, index) => `<div class="preview-option">${index + 1}. ${escapeHtml(item.text)}</div>`).join('')}</div>
-          <div>${right.map((item, index) => `<div class="preview-option">${String.fromCharCode(65 + index)}. ${escapeHtml(item.text)}</div>`).join('')}</div>
-        </div>`;
       } else if (q.questionType === 'GAP_FILL' || q.questionType === 'FILL_BLANK') {
         const blanks = q.questionContent && q.questionContent.blanks || [];
         optionsHtml += blanks.map(blank => `<label style="display:block;margin-bottom:8px;font-size:0.82rem;font-weight:600;">${escapeHtml(blank.prompt || 'Điền vào chỗ trống')}<input class="form-input" disabled style="margin-top:4px;"></label>`).join('');

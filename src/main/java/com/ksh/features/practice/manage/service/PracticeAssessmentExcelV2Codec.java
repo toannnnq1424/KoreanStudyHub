@@ -50,21 +50,19 @@ final class PracticeAssessmentExcelV2Codec {
             "option_C_text", "option_C_image_ref", "option_D_text", "option_D_image_ref",
             "option_E_text", "option_E_image_ref", "option_F_text", "option_F_image_ref",
             "option_G_text", "option_G_image_ref", "option_H_text", "option_H_image_ref",
-            "rubric_profile_ref", "prompt_profile_ref", "extra_answer_schema", "teacher_note"
+            "writing_task", "teacher_note"
     };
     private static final String[] HEADER_NOTES = {
             "Số test: 1, 2...", "L1/R1/W1/S1, L2/R2...", "R1.1, L1.17...",
             "Số câu trong phần; không đếm xuyên kỹ năng", "Số câu trong nhóm",
             "Hướng dẫn chung tiếng Hàn", "Bài đọc hoặc transcript dùng chung", "Mã ảnh nhóm trong 02_TAI_NGUYEN",
             "Mã audio nhóm trong 02_TAI_NGUYEN", "Đề bài/câu hỏi tiếng Hàn", "Mã ảnh riêng của câu",
-            "Mã audio riêng của câu", "Loại câu hỏi", "Đáp án đúng; multiple dùng A,C; blank dùng B1=từ/từ",
+            "Mã audio riêng của câu", "Loại câu hỏi", "Đáp án đúng; single dùng A; blank dùng B1=từ/từ",
             "Giải thích tiếng Việt của giáo viên", "Điểm tối đa", "Chính sách chấm",
             "Nội dung A", "Ảnh A", "Nội dung B", "Ảnh B", "Nội dung C", "Ảnh C", "Nội dung D", "Ảnh D",
             "Nội dung E", "Ảnh E", "Nội dung F", "Ảnh F", "Nội dung G", "Ảnh G", "Nội dung H", "Ảnh H",
-            "Rubric profile", "Prompt profile", "Schema bổ sung", "Ghi chú giáo viên"
+            "Chỉ dùng Q51/Q52/Q53/Q54 cho Writing", "Ghi chú giáo viên"
     };
-    private static final String[] MATCHING_HEADERS = matchingColumns("matching_L", "_text", "_image_ref");
-    private static final String[] MATCHING_HEADER_NOTES = matchingNotes();
 
     private final PracticeDraftContractService draftContractService;
     private final PracticeDraftValidator draftValidator;
@@ -92,7 +90,8 @@ final class PracticeAssessmentExcelV2Codec {
             for (Map.Entry<String, CanonicalQuestionType> entry : QUESTION_SHEETS.entrySet()) {
                 if (supportsType(template, entry.getValue())) {
                     String skill = firstSkillForType(template, entry.getValue());
-                    int firstQuestion = nextQuestionBySkill.getOrDefault(skill, 1);
+                    int firstQuestion = entry.getValue() == CanonicalQuestionType.ESSAY
+                            ? 51 : nextQuestionBySkill.getOrDefault(skill, 1);
                     int groupNumber = nextGroupBySkill.getOrDefault(skill, 1);
                     questionSheet(workbook, entry.getKey(), entry.getValue(), template, styles,
                             skill, firstQuestion, groupNumber);
@@ -114,14 +113,14 @@ final class PracticeAssessmentExcelV2Codec {
         Sheet sheet = workbook.createSheet("00_HUONG_DAN");
         write(sheet, 0, styles.title(), "KSH TEACHER IMPORT TEMPLATE v2", "");
         write(sheet, 1, styles.header(), "Mục", "Hướng dẫn");
-        write(sheet, 2, null, "Mẫu đề", template.displayName() + " (" + template.code() + ")");
+        write(sheet, 2, null, "Phạm vi", "Học liệu luyện tập KSH");
         write(sheet, 3, null, "Cấu trúc", "Practice Set > Test > Kỹ năng L/R/W/S > Group > Question.");
         write(sheet, 4, null, "Đánh số", "Mỗi L1/R1/W1/S1 tự đánh số câu từ 1; không nối số giữa các kỹ năng.");
-        write(sheet, 5, null, "Đáp án", "correct_answer đứng trước option; multiple dùng A,C; fill blank dùng B1=빵/토스트.");
+        write(sheet, 5, null, "Đáp án", "correct_answer đứng trước option; single dùng A; fill blank dùng B1=빵/토스트.");
         write(sheet, 6, null, "Tài nguyên", "Ảnh/audio có thể gắn ở SECTION, GROUP hoặc QUESTION trong sheet 02_TAI_NGUYEN.");
         write(sheet, 7, null, "Dòng lỗi", "Màn xem trước luôn hiển thị lỗi; khi xác nhận, hệ thống tự bỏ dòng lỗi và nhập dòng hợp lệ.");
         write(sheet, 8, null, "Tệp cục bộ", "Đường dẫn trên máy giáo viên cần được tải lên lại; hệ thống không đọc trực tiếp ổ đĩa cá nhân.");
-        write(sheet, 9, null, "Quyền cấu hình", "Kỹ năng, dạng câu, số option và giới hạn câu do admin/head cấu hình theo chứng chỉ.");
+        write(sheet, 9, null, "Writing", "Phần Writing phải có đúng Q51, Q52, Q53 và Q54; Speaking không giới hạn số câu.");
         sheet.setColumnWidth(0, 24 * 256);
         sheet.setColumnWidth(1, 105 * 256);
         sheet.createFreezePane(0, 2);
@@ -137,11 +136,10 @@ final class PracticeAssessmentExcelV2Codec {
                 "Không chỉnh sửa", "Contract version");
         write(sheet, 3, null, "set_title", template.displayName() + " - Practice Set 01",
                 "Tên bộ đề hiển thị", "Practice Set title");
-        write(sheet, 4, null, "program_code", template.code(), "Chứng chỉ/mẫu đề", "Phải khớp cấu hình");
-        write(sheet, 5, null, "language", "ko", "Ngôn ngữ học", "Korean");
-        write(sheet, 6, null, "version_note", "Bản nhập Excel giáo viên", "Ghi chú phiên bản", "Optional");
-        write(sheet, 7, null, "tests_in_set", "1", "Các Test có trong Set", "Ví dụ: 1,2");
-        write(sheet, 8, null, "allowed_lessons_example", allowedLessonExample(template),
+        write(sheet, 4, null, "language", "ko", "Ngôn ngữ học", "Korean");
+        write(sheet, 5, null, "version_note", "Bản nhập Excel giáo viên", "Ghi chú phiên bản", "Optional");
+        write(sheet, 6, null, "tests_in_set", "1", "Các Test có trong Set", "Ví dụ: 1,2");
+        write(sheet, 7, null, "allowed_lessons_example", allowedLessonExample(template),
                 "Ví dụ mã phần", "Sinh từ cấu hình");
         autosize(sheet, 4, 58);
         sheet.createFreezePane(0, 2);
@@ -175,10 +173,8 @@ final class PracticeAssessmentExcelV2Codec {
                                int firstQuestion,
                                int groupNumber) {
         Sheet sheet = workbook.createSheet(sheetName);
-        String[] headers = type == CanonicalQuestionType.MATCHING
-                ? concat(HEADERS, MATCHING_HEADERS) : HEADERS;
-        String[] notes = type == CanonicalQuestionType.MATCHING
-                ? concat(HEADER_NOTES, MATCHING_HEADER_NOTES) : HEADER_NOTES;
+        String[] headers = HEADERS;
+        String[] notes = HEADER_NOTES;
         write(sheet, 0, styles.header(), (Object[]) headers);
         write(sheet, 1, styles.note(), (Object[]) notes);
         AssessmentAuthoringCatalogService.SkillAuthoringPolicy skillPolicy = template.requireSkill(skill);
@@ -186,7 +182,6 @@ final class PracticeAssessmentExcelV2Codec {
         for (int index = 0; index < 4; index++) {
             Object[] sample = sampleRow(type, skill, questionPolicy, skillPolicy,
                     firstQuestion + index, index + 1, groupNumber);
-            if (type == CanonicalQuestionType.MATCHING) sample = concat(sample, matchingSample());
             write(sheet, index + 2, null, sample);
         }
         for (int column = 0; column < headers.length; column++) {
@@ -201,7 +196,7 @@ final class PracticeAssessmentExcelV2Codec {
                               AssessmentAuthoringCatalogService.ExamTemplatePolicy template,
                               TemplateStyles styles) {
         Sheet sheet = workbook.createSheet("10_DANH_MUC");
-        write(sheet, 0, styles.header(), "skill", "enabled_question_types", "max_questions", "option_rules", "excel_import");
+        write(sheet, 0, styles.header(), "skill", "enabled_question_types", "option_rules", "excel_import");
         int row = 1;
         for (String skill : SKILL_ORDER) {
             AssessmentAuthoringCatalogService.SkillAuthoringPolicy policy = template.skills().get(skill);
@@ -211,10 +206,9 @@ final class PracticeAssessmentExcelV2Codec {
                     .map(candidate -> candidate.questionType() + ":" + candidate.minOptions() + "-" + candidate.maxOptions())
                     .reduce((left, right) -> left + "; " + right).orElse("-");
             write(sheet, row++, null, skill, String.join(",", policy.questionTypes()),
-                    policy.maxQuestions(), optionRules, policy.excelImportEnabled() ? "YES" : "NO");
+                    optionRules, policy.excelImportEnabled() ? "YES" : "NO");
         }
-        write(sheet, row + 1, styles.note(), "max_tests", template.maxTests(), "", "", "");
-        autosize(sheet, 5, 54);
+        autosize(sheet, 4, 54);
         sheet.createFreezePane(0, 1);
     }
 
@@ -240,7 +234,7 @@ final class PracticeAssessmentExcelV2Codec {
         values[14] = "Giải thích mẫu bằng tiếng Việt cho câu " + questionNo + ".";
         values[15] = skillPolicy.defaultPoints();
         values[16] = sampleScoring(type);
-        if (type == CanonicalQuestionType.SINGLE_CHOICE || type == CanonicalQuestionType.MULTIPLE_CHOICE) {
+        if (type == CanonicalQuestionType.SINGLE_CHOICE) {
             int min = questionPolicy == null ? 2 : questionPolicy.minOptions();
             int max = questionPolicy == null ? 8 : questionPolicy.maxOptions();
             int optionCount = Math.min(max, Math.max(min, 4));
@@ -251,69 +245,16 @@ final class PracticeAssessmentExcelV2Codec {
         if (type == CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN) {
             values[17] = "TRUE"; values[19] = "FALSE"; values[21] = "NOT_GIVEN";
         }
-        if (type == CanonicalQuestionType.MATCHING) {
-            values[17] = "매일 한국어를 공부합니다.";
-            values[19] = "주말에 운동합니다.";
-        }
-        if (type == CanonicalQuestionType.ESSAY || type == CanonicalQuestionType.SPEAKING) {
-            values[33] = questionPolicy != null && questionPolicy.rubricProfile() != null
-                    ? questionPolicy.rubricProfile().code() : "";
-            values[34] = questionPolicy != null && questionPolicy.promptProfile() != null
-                    ? questionPolicy.promptProfile().code() : "";
-        }
-        values[35] = sampleExtraSchema(type);
-        values[36] = "Câu mẫu tiếng Hàn " + questionNo;
-        return values;
-    }
-
-    private static Object[] matchingSample() {
-        Object[] values = new Object[MATCHING_HEADERS.length];
-        values[0] = "민수";
-        values[2] = "지영";
-        return values;
-    }
-
-    private static String[] matchingColumns(String prefix, String textSuffix, String imageSuffix) {
-        String[] values = new String[16];
-        for (int index = 0; index < 8; index++) {
-            int number = index + 1;
-            values[index * 2] = prefix + number + textSuffix;
-            values[index * 2 + 1] = prefix + number + imageSuffix;
-        }
-        return values;
-    }
-
-    private static String[] matchingNotes() {
-        String[] values = new String[16];
-        for (int index = 0; index < 8; index++) {
-            int number = index + 1;
-            values[index * 2] = "Nội dung bên trái L" + number;
-            values[index * 2 + 1] = "Ảnh bên trái L" + number;
-        }
-        return values;
-    }
-
-    private static String[] concat(String[] left, String[] right) {
-        String[] values = new String[left.length + right.length];
-        System.arraycopy(left, 0, values, 0, left.length);
-        System.arraycopy(right, 0, values, left.length, right.length);
-        return values;
-    }
-
-    private static Object[] concat(Object[] left, Object[] right) {
-        Object[] values = new Object[left.length + right.length];
-        System.arraycopy(left, 0, values, 0, left.length);
-        System.arraycopy(right, 0, values, left.length, right.length);
+        values[33] = type == CanonicalQuestionType.ESSAY ? "Q" + questionNo : "";
+        values[34] = "Câu mẫu tiếng Hàn " + questionNo;
         return values;
     }
 
     private static String sampleInstruction(CanonicalQuestionType type) {
         return switch (type) {
             case SINGLE_CHOICE -> "다음을 읽거나 듣고 알맞은 것을 고르십시오.";
-            case MULTIPLE_CHOICE -> "맞는 것을 모두 고르십시오.";
             case TRUE_FALSE_NOT_GIVEN -> "내용과 같으면 TRUE, 다르면 FALSE, 알 수 없으면 NOT_GIVEN을 고르십시오.";
             case FILL_BLANK -> "빈칸에 들어갈 알맞은 말을 쓰십시오.";
-            case MATCHING -> "각 항목을 알맞게 연결하십시오.";
             case ESSAY -> "다음 주제에 대해 쓰십시오.";
             case SPEAKING -> "다음 질문에 대답하십시오.";
         };
@@ -329,10 +270,8 @@ final class PracticeAssessmentExcelV2Codec {
     private static String samplePrompt(CanonicalQuestionType type, int number) {
         return switch (type) {
             case SINGLE_CHOICE -> "민수는 아침에 무엇을 합니까?";
-            case MULTIPLE_CHOICE -> "민수에 대한 설명으로 맞는 것을 모두 고르십시오.";
             case TRUE_FALSE_NOT_GIVEN -> "민수는 아침에 한국어를 공부합니다.";
             case FILL_BLANK -> "빈칸 B1에 들어갈 말을 쓰십시오.";
-            case MATCHING -> "사람과 알맞은 행동을 연결하십시오.";
             case ESSAY -> "한국어를 배우는 이유에 대해 쓰십시오. (" + number + ")";
             case SPEAKING -> "자기소개를 해 보십시오. (" + number + ")";
         };
@@ -341,31 +280,17 @@ final class PracticeAssessmentExcelV2Codec {
     private static String sampleAnswer(CanonicalQuestionType type) {
         return switch (type) {
             case SINGLE_CHOICE -> "A";
-            case MULTIPLE_CHOICE -> "A,C";
             case TRUE_FALSE_NOT_GIVEN -> "TRUE";
             case FILL_BLANK -> "B1=한국어/한국말";
-            case MATCHING -> "L1=A;L2=B";
             case ESSAY, SPEAKING -> "NO_OBJECTIVE_KEY";
         };
     }
 
     private static String sampleScoring(CanonicalQuestionType type) {
         return switch (type) {
-            case MULTIPLE_CHOICE -> "ALL_OR_NOTHING";
             case FILL_BLANK -> "NORMALIZED_TEXT";
-            case MATCHING -> "PAIR_MATCH";
             case ESSAY, SPEAKING -> "AI_EVALUATED";
             default -> "EXACT";
-        };
-    }
-
-    private static String sampleExtraSchema(CanonicalQuestionType type) {
-        return switch (type) {
-            case FILL_BLANK -> "BLANKS:B1 aliases with slash";
-            case MATCHING -> "MATCHING_PAIR_MAP";
-            case ESSAY -> "WRITING_PROFILE_REF";
-            case SPEAKING -> "SPEAKING_PROFILE_REF";
-            default -> type.name() + "_V1";
         };
     }
 
@@ -380,8 +305,8 @@ final class PracticeAssessmentExcelV2Codec {
             }
         }
         if (template == null) {
-            issues.add(issue("BLOCKING", "TEMPLATE_REQUIRED", "01_THONG_TIN_SET", 0,
-                    "program_code", "Phải chọn một mẫu đề đang được bật.", null));
+            issues.add(issue("BLOCKING", "CONTENT_RULES_UNAVAILABLE", "01_THONG_TIN_SET", 0,
+                    null, "Không tải được quy tắc nội dung KSH.", null));
         }
         if (hasFatal(issues)) return emptyPreview(issues);
 
@@ -391,15 +316,8 @@ final class PracticeAssessmentExcelV2Codec {
             issues.add(issue("BLOCKING", "SCHEMA_VERSION_UNSUPPORTED", "01_THONG_TIN_SET", 3,
                     "schema_version", "Phiên bản file Excel không được hỗ trợ.", null));
         }
-        String workbookProgram = setInfo.getOrDefault("program_code", "").trim();
-        if (!workbookProgram.isBlank() && !matchesTemplate(workbookProgram, template)) {
-            issues.add(issue("BLOCKING", "TEMPLATE_MISMATCH", "01_THONG_TIN_SET", 5,
-                    "program_code", "File Excel không thuộc mẫu đề đang chỉnh sửa.", null));
-        }
-
         Map<String, V2Material> materials = readMaterials(workbook.getSheet("02_TAI_NGUYEN"), issues);
         List<V2QuestionRow> rows = new ArrayList<>();
-        Map<String, Integer> questionCounts = new LinkedHashMap<>();
         Set<String> questionNumbers = new HashSet<>();
         Map<String, String> groupSignatures = new LinkedHashMap<>();
         boolean foundQuestionSheet = false;
@@ -420,7 +338,7 @@ final class PracticeAssessmentExcelV2Codec {
                 Row source = sheet.getRow(rowIndex);
                 if (reader.blank(source)) continue;
                 V2QuestionRow parsed = parseQuestionRow(reader, source, rowIndex + 1, entry.getValue(),
-                        template, materials, issues, questionCounts, questionNumbers, groupSignatures);
+                        template, materials, issues, questionNumbers, groupSignatures);
                 rows.add(parsed);
             }
         }
@@ -542,7 +460,6 @@ final class PracticeAssessmentExcelV2Codec {
             AssessmentAuthoringCatalogService.ExamTemplatePolicy template,
             Map<String, V2Material> materials,
             List<PracticeAssessmentExcelService.ImportIssue> issues,
-            Map<String, Integer> questionCounts,
             Set<String> questionNumbers,
             Map<String, String> groupSignatures) {
         String sheet = reader.sheetName();
@@ -559,9 +476,9 @@ final class PracticeAssessmentExcelV2Codec {
         String explanation = reader.value(row, "teacher_explanation_vi");
         BigDecimal points = positiveDecimal(reader.value(row, "points"));
 
-        if (testNo <= 0 || testNo > template.maxTests()) {
+        if (testNo <= 0) {
             rowBlocking(issues, "TEST_NUMBER_INVALID", sheet, excelRow, "test_no",
-                    "test_no phải từ 1 đến " + template.maxTests() + ".", rowKey);
+                    "test_no phải là số nguyên lớn hơn 0.", rowKey);
         }
         if (!LESSON_CODE.matcher(lessonCode).matches() || skill == null) {
             rowBlocking(issues, "LESSON_CODE_INVALID", sheet, excelRow, "lesson_code",
@@ -613,12 +530,6 @@ final class PracticeAssessmentExcelV2Codec {
                 } else {
                     questionPolicy = skillPolicy.questionPolicy(sheetType.name());
                 }
-                int count = questionCounts.merge(lessonCode, 1, Integer::sum);
-                if (count > skillPolicy.maxQuestions()) {
-                    rowBlocking(issues, "SECTION_QUESTION_LIMIT_EXCEEDED", sheet, excelRow,
-                            "question_no_in_section", "Phần " + lessonCode + " vượt giới hạn "
-                                    + skillPolicy.maxQuestions() + " câu.", rowKey);
-                }
             } catch (IllegalArgumentException exception) {
                 rowBlocking(issues, "SKILL_NOT_ALLOWED_BY_TEMPLATE", sheet, excelRow, "lesson_code",
                         "Kỹ năng " + skill + " không được bật trong mẫu đề.", rowKey);
@@ -626,11 +537,9 @@ final class PracticeAssessmentExcelV2Codec {
         }
 
         List<V2Option> options = readOptions(reader, row, materials, issues, rowKey, excelRow);
-        List<V2MatchingItem> matchingLeftItems = readMatchingLeftItems(
-                reader, row, materials, issues, rowKey, excelRow, sheetType);
         validateOptionCount(sheetType, options, questionPolicy, issues, sheet, excelRow, rowKey);
         AnswerData answer = parseAnswer(
-                sheetType, correctAnswer, options, matchingLeftItems, issues, sheet, excelRow, rowKey);
+                sheetType, correctAnswer, options, issues, sheet, excelRow, rowKey);
         if (explanation.isBlank() && ("READING".equals(skill) || "LISTENING".equals(skill))) {
             rowWarning(issues, "TEACHER_EXPLANATION_MISSING", sheet, excelRow, "teacher_explanation_vi",
                     "Nên bổ sung giải thích tiếng Việt để AI có ngữ cảnh tốt hơn.", rowKey);
@@ -654,19 +563,11 @@ final class PracticeAssessmentExcelV2Codec {
                     "Các dòng cùng group_code có nội dung dùng chung khác nhau; hệ thống giữ dòng đầu.", rowKey);
         }
 
-        String requestedRubric = normalizeProfileRef(reader.value(row, "rubric_profile_ref"));
-        String requestedPrompt = normalizeProfileRef(reader.value(row, "prompt_profile_ref"));
-        String approvedRubric = questionPolicy != null && questionPolicy.rubricProfile() != null
-                ? questionPolicy.rubricProfile().code() : null;
-        String approvedPrompt = questionPolicy != null && questionPolicy.promptProfile() != null
-                ? questionPolicy.promptProfile().code() : null;
-        if (!requestedRubric.isBlank() && approvedRubric != null && !requestedRubric.equals(approvedRubric)) {
-            rowWarning(issues, "RUBRIC_PROFILE_OVERRIDDEN", sheet, excelRow, "rubric_profile_ref",
-                    "Hệ thống sẽ dùng rubric được admin/head phê duyệt: " + approvedRubric + ".", rowKey);
-        }
-        if (!requestedPrompt.isBlank() && approvedPrompt != null && !requestedPrompt.equals(approvedPrompt)) {
-            rowWarning(issues, "PROMPT_PROFILE_OVERRIDDEN", sheet, excelRow, "prompt_profile_ref",
-                    "Hệ thống sẽ dùng prompt được admin/head phê duyệt: " + approvedPrompt + ".", rowKey);
+        String writingTask = reader.value(row, "writing_task").toUpperCase(Locale.ROOT);
+        if (sheetType == CanonicalQuestionType.ESSAY
+                && !Set.of("Q51", "Q52", "Q53", "Q54").contains(writingTask)) {
+            rowBlocking(issues, "WRITING_TASK_INVALID", sheet, excelRow, "writing_task",
+                    "Writing phải chọn một task Q51, Q52, Q53 hoặc Q54.", rowKey);
         }
 
         return new V2QuestionRow(
@@ -674,10 +575,9 @@ final class PracticeAssessmentExcelV2Codec {
                 skill, sheetType, groupInstruction, groupText, groupImage, groupAudio, prompt,
                 questionImage, questionAudio, correctAnswer, explanation, points,
                 scoringPolicy(sheetType, reader.value(row, "scoring_policy")), options,
-                matchingLeftItems, answer.blanks(), answer.matchingPairs(),
+                answer.blanks(),
                 answer.correctOptionLetters(), answer.correctValue(),
-                questionPolicy, approvedRubric, approvedPrompt,
-                reader.value(row, "extra_answer_schema"), reader.value(row, "teacher_note"));
+                writingTask, reader.value(row, "teacher_note"));
     }
 
     private List<V2Option> readOptions(
@@ -698,31 +598,6 @@ final class PracticeAssessmentExcelV2Codec {
         return options;
     }
 
-    private List<V2MatchingItem> readMatchingLeftItems(
-            SheetReader reader,
-            Row row,
-            Map<String, V2Material> materials,
-            List<PracticeAssessmentExcelService.ImportIssue> issues,
-            String rowKey,
-            int excelRow,
-            CanonicalQuestionType type) {
-        if (type != CanonicalQuestionType.MATCHING) return List.of();
-        List<V2MatchingItem> items = new ArrayList<>();
-        for (int number = 1; number <= 8; number++) {
-            String id = "L" + number;
-            String text = reader.value(row, "matching_" + id + "_text");
-            String image = resolveMaterial(reader.value(row, "matching_" + id + "_image_ref"),
-                    materials, issues, reader.sheetName(), excelRow,
-                    "matching_" + id + "_image_ref", rowKey);
-            if (!text.isBlank() || image != null) items.add(new V2MatchingItem(id, text, image));
-        }
-        if (items.isEmpty()) {
-            rowBlocking(issues, "MATCHING_LEFT_ITEMS_REQUIRED", reader.sheetName(), excelRow,
-                    "matching_L1_text", "Câu nối phải có ít nhất một mục bên trái.", rowKey);
-        }
-        return List.copyOf(items);
-    }
-
     private void validateOptionCount(
             CanonicalQuestionType type,
             List<V2Option> options,
@@ -731,14 +606,7 @@ final class PracticeAssessmentExcelV2Codec {
             String sheet,
             int row,
             String rowKey) {
-        if (type == CanonicalQuestionType.MATCHING) {
-            if (options.isEmpty() || options.size() > 8) {
-                rowBlocking(issues, "MATCHING_RIGHT_ITEMS_REQUIRED", sheet, row, "option_A_text",
-                        "Câu nối phải có từ 1 đến 8 mục bên phải ở Option A-H.", rowKey);
-            }
-            return;
-        }
-        if (type != CanonicalQuestionType.SINGLE_CHOICE && type != CanonicalQuestionType.MULTIPLE_CHOICE) return;
+        if (type != CanonicalQuestionType.SINGLE_CHOICE) return;
         int min = policy == null ? 2 : policy.minOptions();
         int max = policy == null ? 8 : policy.maxOptions();
         if (options.size() < min || options.size() > max) {
@@ -752,7 +620,6 @@ final class PracticeAssessmentExcelV2Codec {
             CanonicalQuestionType type,
             String raw,
             List<V2Option> options,
-            List<V2MatchingItem> matchingLeftItems,
             List<PracticeAssessmentExcelService.ImportIssue> issues,
             String sheet,
             int row,
@@ -767,18 +634,7 @@ final class PracticeAssessmentExcelV2Codec {
                             "Đáp án đúng phải là đúng một chữ cái của phương án hiện có.", rowKey);
                     yield AnswerData.empty();
                 }
-                yield new AnswerData(List.of(selected), null, List.of(), Map.of());
-            }
-            case MULTIPLE_CHOICE -> {
-                List<String> values = split(raw, ",").stream()
-                        .map(value -> value.toUpperCase(Locale.ROOT)).toList();
-                Set<String> unique = new LinkedHashSet<>(values);
-                if (values.isEmpty() || unique.size() != values.size() || !availableOptions.containsAll(unique)) {
-                    rowBlocking(issues, "MULTIPLE_CHOICE_ANSWER_INVALID", sheet, row, "correct_answer",
-                            "Đáp án chọn nhiều phải không rỗng, không trùng và theo dạng A,C.", rowKey);
-                    yield AnswerData.empty();
-                }
-                yield new AnswerData(List.copyOf(unique), null, List.of(), Map.of());
+                yield new AnswerData(List.of(selected), null, List.of());
             }
             case TRUE_FALSE_NOT_GIVEN -> {
                 String value = raw.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
@@ -787,7 +643,7 @@ final class PracticeAssessmentExcelV2Codec {
                             "Đáp án phải là TRUE, FALSE hoặc NOT_GIVEN.", rowKey);
                     yield AnswerData.empty();
                 }
-                yield new AnswerData(List.of(), value, List.of(), Map.of());
+                yield new AnswerData(List.of(), value, List.of());
             }
             case FILL_BLANK -> {
                 List<V2Blank> blanks = new ArrayList<>();
@@ -816,41 +672,9 @@ final class PracticeAssessmentExcelV2Codec {
                     rowBlockingOnce(issues, "FILL_BLANK_ANSWER_INVALID", sheet, row, "correct_answer",
                             "Câu điền từ phải có ít nhất một đáp án được chấp nhận.", rowKey);
                 }
-                yield new AnswerData(List.of(), null, List.copyOf(blanks), Map.of());
+                yield new AnswerData(List.of(), null, List.copyOf(blanks));
             }
-            case MATCHING -> {
-                Map<String, String> pairs = new LinkedHashMap<>();
-                for (String token : split(raw, ";")) {
-                    int separator = token.indexOf('=');
-                    if (separator <= 0 || separator == token.length() - 1) {
-                        pairs.clear();
-                        break;
-                    }
-                    String left = token.substring(0, separator).trim();
-                    String right = token.substring(separator + 1).trim().toUpperCase(Locale.ROOT);
-                    if (!left.matches("[A-Za-z][A-Za-z0-9_]*")
-                            || !right.matches("[A-H][A-Za-z0-9_]*") || pairs.putIfAbsent(left, right) != null) {
-                        pairs.clear();
-                        break;
-                    }
-                }
-                if (pairs.isEmpty()) {
-                    rowBlocking(issues, "MATCHING_ANSWER_INVALID", sheet, row, "correct_answer",
-                            "Câu nối phải có pair map theo dạng L1=A;L2=B.", rowKey);
-                } else {
-                    Set<String> leftIds = matchingLeftItems.stream().map(V2MatchingItem::id)
-                            .collect(java.util.stream.Collectors.toSet());
-                    Set<String> rightIds = options.stream().map(V2Option::letter)
-                            .collect(java.util.stream.Collectors.toSet());
-                    if (!leftIds.equals(pairs.keySet()) || !rightIds.containsAll(pairs.values())) {
-                        rowBlocking(issues, "MATCHING_PAIR_REFERENCE_INVALID", sheet, row, "correct_answer",
-                                "Pair map phải ánh xạ mọi mục trái L1-L8 tới Option A-H đang có.", rowKey);
-                    }
-                }
-                yield new AnswerData(List.of(), null, List.of(),
-                        java.util.Collections.unmodifiableMap(new LinkedHashMap<>(pairs)));
-            }
-            case ESSAY, SPEAKING -> new AnswerData(List.of(), null, List.of(), Map.of());
+            case ESSAY, SPEAKING -> new AnswerData(List.of(), null, List.of());
         };
     }
 
@@ -864,11 +688,6 @@ final class PracticeAssessmentExcelV2Codec {
         ObjectNode document = root.putObject("document");
         document.put("title", defaultText(setInfo.get("set_title"), template.displayName() + " - Bộ đề Excel"));
         document.put("description", defaultText(setInfo.get("version_note"), "Nhập từ Excel v2"));
-        document.put("detectedCategory", template.categoryCode());
-        document.put("assessmentProgramCode", template.programCode());
-        document.put("assessmentProgramVersionId", template.programVersionId());
-        document.put("assessmentProgramVersion", template.programVersion());
-        document.put("examTemplateCode", template.code());
         document.put("creationMethod", "EXCEL");
 
         ArrayNode testsNode = root.putArray("tests");
@@ -957,7 +776,6 @@ final class PracticeAssessmentExcelV2Codec {
                 + "-q" + String.format(Locale.ROOT, "%03d", row.questionNo()));
         question.put("questionNo", row.questionNo());
         question.put("questionType", row.type().name());
-        question.put("canonicalQuestionType", row.type().name());
         question.put("prompt", row.prompt());
         question.put("points", row.points());
         question.put("explanationVi", row.explanation());
@@ -966,7 +784,6 @@ final class PracticeAssessmentExcelV2Codec {
         nullable(question, "imageUrl", row.questionImage());
         nullable(question, "audioUrl", row.questionAudio());
         nullable(question, "teacherNote", row.teacherNote());
-        nullable(question, "extraAnswerSchema", row.extraAnswerSchema());
 
         List<QuestionContent.Option> contentOptions = row.options().stream()
                 .map(option -> new QuestionContent.Option("opt_" + option.letter(), option.text(), option.imageReference()))
@@ -974,21 +791,10 @@ final class PracticeAssessmentExcelV2Codec {
         List<QuestionContent.Blank> contentBlanks = row.blanks().stream()
                 .map(blank -> new QuestionContent.Blank(blank.id(), blank.id()))
                 .toList();
-        List<QuestionContent.Item> leftItems = row.matchingLeftItems().stream()
-                .map(item -> new QuestionContent.Item(item.id(), item.text(), item.imageReference()))
-                .toList();
-        List<QuestionContent.Item> rightItems = row.options().stream()
-                .map(option -> new QuestionContent.Item(
-                        "right_" + option.letter(), option.text(), option.imageReference()))
-                .toList();
-        Map<String, String> matchingPairs = new LinkedHashMap<>();
-        row.matchingPairs().forEach((left, right) -> matchingPairs.put(left, "right_" + right));
 
         QuestionContent content = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
                 contentOptions,
-                leftItems,
-                rightItems,
                 contentBlanks,
                 row.questionImage(),
                 row.questionAudio());
@@ -998,14 +804,7 @@ final class PracticeAssessmentExcelV2Codec {
                 row.correctOptionLetters().stream().map(letter -> "opt_" + letter).toList(),
                 row.correctValue(),
                 row.blanks().stream().map(blank -> new AnswerSpec.BlankAnswer(blank.id(), blank.acceptedValues())).toList(),
-                matchingPairs,
-                row.scoringPolicy(),
-                profileCode(row.questionPolicy() == null ? null : row.questionPolicy().scoringProfile()),
-                row.approvedPrompt(),
-                row.approvedRubric(),
-                profileVersion(row.questionPolicy() == null ? null : row.questionPolicy().scoringProfile()),
-                profileVersion(row.questionPolicy() == null ? null : row.questionPolicy().promptProfile()),
-                profileVersion(row.questionPolicy() == null ? null : row.questionPolicy().rubricProfile()));
+                row.scoringPolicy());
         try {
             question.set("questionContent", objectMapper.readTree(contractCodec.writeQuestionContent(content, row.type())));
             question.set("answerSpec", objectMapper.readTree(contractCodec.writeAnswerSpec(answerSpec, content)));
@@ -1037,33 +836,9 @@ final class PracticeAssessmentExcelV2Codec {
                 blank.acceptedValues().forEach(accepted::add);
             }
         }
-        if (!row.matchingPairs().isEmpty()) {
-            ArrayNode pairs = question.putArray("matchingPairs");
-            Map<String, V2MatchingItem> leftById = row.matchingLeftItems().stream()
-                    .collect(java.util.stream.Collectors.toMap(
-                            V2MatchingItem::id, item -> item, (left, right) -> left, LinkedHashMap::new));
-            Map<String, V2Option> rightById = row.options().stream()
-                    .collect(java.util.stream.Collectors.toMap(
-                            V2Option::letter, option -> option, (left, right) -> left, LinkedHashMap::new));
-            row.matchingPairs().forEach((left, right) -> {
-                ObjectNode value = pairs.addObject();
-                value.put("leftId", left);
-                V2MatchingItem leftItem = leftById.get(left);
-                V2Option rightItem = rightById.get(right);
-                value.put("leftText", leftItem == null ? left : leftItem.text());
-                nullable(value, "leftImageReference", leftItem == null ? null : leftItem.imageReference());
-                value.put("rightId", "right_" + right);
-                value.put("rightText", rightItem == null ? right : rightItem.text());
-                nullable(value, "rightImageReference", rightItem == null ? null : rightItem.imageReference());
-            });
-        }
         if (row.type() == CanonicalQuestionType.ESSAY) {
-            question.put("essayTaskType", essayTaskType(row));
+            question.put("essayTaskType", row.writingTask());
         }
-        nullable(question, "promptProfileCode", row.approvedPrompt());
-        nullable(question, "rubricProfileCode", row.approvedRubric());
-        nullable(question, "scoringProfileCode",
-                profileCode(row.questionPolicy() == null ? null : row.questionPolicy().scoringProfile()));
         return question;
     }
 
@@ -1120,23 +895,6 @@ final class PracticeAssessmentExcelV2Codec {
                 .map(option -> new PracticeAssessmentExcelService.ImportOptionPreview(
                         option.letter(), option.text(), option.imageReference()))
                 .toList();
-        Map<String, V2MatchingItem> leftById = row.matchingLeftItems().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        V2MatchingItem::id, item -> item, (left, right) -> left, LinkedHashMap::new));
-        Map<String, V2Option> rightById = row.options().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        V2Option::letter, option -> option, (left, right) -> left, LinkedHashMap::new));
-        List<PracticeAssessmentExcelService.ImportMatchingPairPreview> pairs = row.matchingPairs().entrySet().stream()
-                .map(pair -> {
-                    V2MatchingItem left = leftById.get(pair.getKey());
-                    V2Option right = rightById.get(pair.getValue());
-                    return new PracticeAssessmentExcelService.ImportMatchingPairPreview(
-                            pair.getKey(), left == null ? null : left.text(),
-                            left == null ? null : left.imageReference(),
-                            pair.getValue(), right == null ? null : right.text(),
-                            right == null ? null : right.imageReference());
-                })
-                .toList();
         return new PracticeAssessmentExcelService.ImportRowDetail(
                 row.skill(),
                 row.groupInstruction(),
@@ -1147,8 +905,7 @@ final class PracticeAssessmentExcelV2Codec {
                 row.questionImage(),
                 row.questionAudio(),
                 row.teacherNote(),
-                options,
-                pairs
+                options
         );
     }
 
@@ -1184,14 +941,8 @@ final class PracticeAssessmentExcelV2Codec {
     }
 
     private static ScoringPolicyCode scoringPolicy(CanonicalQuestionType type, String raw) {
-        String value = raw == null ? "" : raw.trim().toUpperCase(Locale.ROOT);
         return switch (type) {
-            case MULTIPLE_CHOICE -> value.contains("PARTIAL")
-                    ? ScoringPolicyCode.PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO
-                    : ScoringPolicyCode.ALL_OR_NOTHING;
             case FILL_BLANK -> ScoringPolicyCode.NORMALIZED_EXACT;
-            case MATCHING -> value.contains("ALL_OR_NOTHING")
-                    ? ScoringPolicyCode.ALL_OR_NOTHING : ScoringPolicyCode.PER_PAIR;
             case ESSAY, SPEAKING -> ScoringPolicyCode.PROFILE_BASED;
             default -> ScoringPolicyCode.ALL_OR_NOTHING;
         };
@@ -1202,8 +953,7 @@ final class PracticeAssessmentExcelV2Codec {
         if (row.type() == CanonicalQuestionType.FILL_BLANK) {
             return row.blanks().isEmpty() ? "" : row.blanks().get(0).acceptedValues().get(0);
         }
-        if (row.type() == CanonicalQuestionType.SINGLE_CHOICE
-                || row.type() == CanonicalQuestionType.MULTIPLE_CHOICE) {
+        if (row.type() == CanonicalQuestionType.SINGLE_CHOICE) {
             List<String> indexes = new ArrayList<>();
             for (String letter : row.correctOptionLetters()) {
                 for (int index = 0; index < row.options().size(); index++) {
@@ -1217,22 +967,11 @@ final class PracticeAssessmentExcelV2Codec {
 
     private static String legacyAnswerType(CanonicalQuestionType type) {
         return switch (type) {
-            case MULTIPLE_CHOICE -> "MULTIPLE";
             case TRUE_FALSE_NOT_GIVEN -> "TFNG";
             case FILL_BLANK -> "FILL_BLANK";
-            case MATCHING -> "MATCHING";
             case ESSAY, SPEAKING -> "PROFILE";
             default -> "SINGLE";
         };
-    }
-
-    private static String essayTaskType(V2QuestionRow row) {
-        String source = (nullToEmpty(row.extraAnswerSchema()) + " " + nullToEmpty(row.approvedRubric()))
-                .toUpperCase(Locale.ROOT);
-        for (String task : List.of("Q51", "Q52", "Q53", "Q54")) {
-            if (source.contains(task)) return task;
-        }
-        return "GENERAL";
     }
 
     private static String stimulusType(V2QuestionRow row) {
@@ -1241,14 +980,6 @@ final class PracticeAssessmentExcelV2Codec {
             return "LISTENING_AUDIO";
         }
         return "NONE";
-    }
-
-    private static boolean matchesTemplate(String workbookProgram,
-                                           AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
-        String value = workbookProgram.trim().toUpperCase(Locale.ROOT);
-        return value.equals(template.code().toUpperCase(Locale.ROOT))
-                || value.equals(template.categoryCode().toUpperCase(Locale.ROOT))
-                || value.equals(template.programCode().toUpperCase(Locale.ROOT));
     }
 
     private static String skillFromLesson(String lessonCode) {
@@ -1282,19 +1013,6 @@ final class PracticeAssessmentExcelV2Codec {
             case "SPEAKING" -> "Phần Nói";
             default -> "Phần Đọc";
         };
-    }
-
-    private static String profileCode(com.ksh.features.practice.assessment.ProfileReference profile) {
-        return profile == null ? null : profile.code();
-    }
-
-    private static Integer profileVersion(com.ksh.features.practice.assessment.ProfileReference profile) {
-        return profile == null ? null : profile.version();
-    }
-
-    private static String normalizeProfileRef(String value) {
-        String normalized = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
-        return normalized.endsWith("_V1") ? normalized.substring(0, normalized.length() - 3) : normalized;
     }
 
     private static String mediaSummary(V2QuestionRow row) {
@@ -1494,7 +1212,7 @@ final class PracticeAssessmentExcelV2Codec {
 
     private static String allowedLessonExample(AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
         List<String> codes = new ArrayList<>();
-        for (int testNo = 1; testNo <= Math.min(template.maxTests(), 2); testNo++) {
+        for (int testNo = 1; testNo <= 2; testNo++) {
             for (String skill : SKILL_ORDER) {
                 AssessmentAuthoringCatalogService.SkillAuthoringPolicy policy = template.skills().get(skill);
                 if (policy != null && policy.excelImportEnabled()) codes.add(skillPrefix(skill) + testNo);
@@ -1515,12 +1233,10 @@ final class PracticeAssessmentExcelV2Codec {
     private static Map<String, CanonicalQuestionType> questionSheets() {
         Map<String, CanonicalQuestionType> sheets = new LinkedHashMap<>();
         sheets.put("03_SINGLE_CHOICE", CanonicalQuestionType.SINGLE_CHOICE);
-        sheets.put("04_MULTIPLE_CHOICE", CanonicalQuestionType.MULTIPLE_CHOICE);
-        sheets.put("05_TRUE_FALSE_NG", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN);
-        sheets.put("06_FILL_BLANK", CanonicalQuestionType.FILL_BLANK);
-        sheets.put("07_MATCHING", CanonicalQuestionType.MATCHING);
-        sheets.put("08_ESSAY", CanonicalQuestionType.ESSAY);
-        sheets.put("09_SPEAKING", CanonicalQuestionType.SPEAKING);
+        sheets.put("04_TRUE_FALSE_NG", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN);
+        sheets.put("05_FILL_BLANK", CanonicalQuestionType.FILL_BLANK);
+        sheets.put("06_ESSAY", CanonicalQuestionType.ESSAY);
+        sheets.put("07_SPEAKING", CanonicalQuestionType.SPEAKING);
         return java.util.Collections.unmodifiableMap(sheets);
     }
 
@@ -1544,19 +1260,15 @@ final class PracticeAssessmentExcelV2Codec {
     private record V2Option(String letter, String text, String imageReference) {
     }
 
-    private record V2MatchingItem(String id, String text, String imageReference) {
-    }
-
     private record V2Blank(String id, List<String> acceptedValues) {
     }
 
     private record AnswerData(
             List<String> correctOptionLetters,
             String correctValue,
-            List<V2Blank> blanks,
-            Map<String, String> matchingPairs) {
+            List<V2Blank> blanks) {
         private static AnswerData empty() {
-            return new AnswerData(List.of(), null, List.of(), Map.of());
+            return new AnswerData(List.of(), null, List.of());
         }
     }
 
@@ -1583,15 +1295,10 @@ final class PracticeAssessmentExcelV2Codec {
             BigDecimal points,
             ScoringPolicyCode scoringPolicy,
             List<V2Option> options,
-            List<V2MatchingItem> matchingLeftItems,
             List<V2Blank> blanks,
-            Map<String, String> matchingPairs,
             List<String> correctOptionLetters,
             String correctValue,
-            AssessmentAuthoringCatalogService.QuestionAuthoringPolicy questionPolicy,
-            String approvedRubric,
-            String approvedPrompt,
-            String extraAnswerSchema,
+            String writingTask,
             String teacherNote) {
     }
 

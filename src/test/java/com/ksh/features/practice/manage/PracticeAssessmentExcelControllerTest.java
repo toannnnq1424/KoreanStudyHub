@@ -1,6 +1,5 @@
 package com.ksh.features.practice.manage;
 
-import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.manage.controller.PracticeAssessmentExcelController;
 import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
 import com.ksh.security.KshUserDetails;
@@ -20,8 +19,7 @@ import static org.mockito.Mockito.when;
 class PracticeAssessmentExcelControllerTest {
 
     private final PracticeAssessmentExcelService excelService = mock(PracticeAssessmentExcelService.class);
-    private final PracticeAssessmentExcelController controller = new PracticeAssessmentExcelController(
-            excelService, mock(AssessmentAuthoringCatalogService.class));
+    private final PracticeAssessmentExcelController controller = new PracticeAssessmentExcelController(excelService);
     private final KshUserDetails user = mock(KshUserDetails.class);
     private final MockMultipartFile file = new MockMultipartFile(
             "file", "questions.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -33,7 +31,7 @@ class PracticeAssessmentExcelControllerTest {
         when(excelService.requireExcelImportContext(7L, 9L, 1, "R1"))
                 .thenThrow(new EntityNotFoundException("Bản nháp liên kết không tồn tại."));
 
-        ResponseEntity<?> response = controller.preview(file, "CUSTOM_FLEXIBLE", 7L, 1, "R1", user);
+        ResponseEntity<?> response = controller.preview(file, 7L, 1, "R1", user);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals("Bản nháp liên kết không tồn tại.", error(response));
@@ -46,7 +44,7 @@ class PracticeAssessmentExcelControllerTest {
                 .thenThrow(new AccessDeniedException("forbidden"));
 
         ResponseEntity<?> response = controller.importDraft(
-                file, "CUSTOM_FLEXIBLE", 7L, 1, "R1", null, user);
+                file, 7L, 1, "R1", null, user);
 
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals("Bạn không có quyền nhập dữ liệu vào bản nháp này.", error(response));

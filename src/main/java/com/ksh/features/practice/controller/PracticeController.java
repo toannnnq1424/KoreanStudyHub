@@ -6,6 +6,7 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSetRow;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeService;
@@ -78,8 +79,12 @@ public class PracticeController {
     }
 
     @GetMapping({PracticeRoutes.HOME, PracticeRoutes.HOME_SLASH})
-    public String index(Model model) {
-        model.addAttribute(PracticeModelAttributes.SETS, practiceService.listPublished());
+    public String index(@AuthenticationPrincipal KshUserDetails user, Model model) {
+        List<PracticeSetRow> sets = practiceService.listPublished();
+        model.addAttribute(PracticeModelAttributes.SETS, sets);
+        model.addAttribute(
+                PracticeModelAttributes.SET_TEST_PROGRESS,
+                practiceService.getSetTestProgress(sets, user.getId()));
         return PracticeViews.INDEX;
     }
 
@@ -138,9 +143,15 @@ public class PracticeController {
         PracticeSetView view = practiceService.getPractice(setId);
         List<PracticeSection> testSections = practiceService.getSectionsForTest(setId, testId);
         Map<Long, PracticeAttempt> inProgressAttempts = practiceService.getInProgressAttemptsBySection(testId, user.getId());
+        String testTitle = view.tests().stream()
+                .filter(test -> testId.equals(test.id()))
+                .map(test -> test.title())
+                .findFirst()
+                .orElse("Bài kiểm tra");
 
         model.addAttribute(PracticeModelAttributes.VIEW, view);
         model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
+        model.addAttribute(PracticeModelAttributes.TEST_TITLE, testTitle);
         model.addAttribute(PracticeModelAttributes.SECTIONS, testSections);
         model.addAttribute(PracticeModelAttributes.IN_PROGRESS_ATTEMPTS, inProgressAttempts);
 
@@ -423,13 +434,13 @@ public class PracticeController {
     }
 
     @GetMapping(PracticeRoutes.MANAGE_UPLOAD)
-    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+    @PreAuthorize(Roles.PREAUTH_LECTURER)
     public String uploadFormRedirect() {
         return "redirect:/practice/manage/import";
     }
 
     @GetMapping(PracticeRoutes.MANAGE_MANUAL)
-    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+    @PreAuthorize(Roles.PREAUTH_LECTURER)
     public String manualFormRedirect() {
         return "redirect:/practice/manage/create";
     }

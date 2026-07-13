@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface PracticeSectionRepository extends JpaRepository<PracticeSection, Long> {
     List<PracticeSection> findBySetIdOrderByDisplayOrderAsc(Long setId);
+    List<PracticeSection> findBySetIdInOrderBySetIdAscDisplayOrderAsc(List<Long> setIds);
     void deleteBySetId(Long setId);
 
     @Query(value = "SELECT * FROM practice_sections WHERE id = :id FOR SHARE", nativeQuery = true)

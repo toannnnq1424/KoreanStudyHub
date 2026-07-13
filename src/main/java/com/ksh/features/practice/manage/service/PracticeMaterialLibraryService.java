@@ -2,14 +2,12 @@ package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeAuthoringCollaboration;
-import com.ksh.entities.PracticeDraftAssetUsage;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -34,7 +32,6 @@ public class PracticeMaterialLibraryService {
     private final LecturerAssetRepository assetRepository;
     private final PracticeAuthoringCollaborationRepository collaborationRepository;
     private final PracticeMaterialReferenceRepository referenceRepository;
-    private final PracticeDraftAssetUsageRepository legacyUsageRepository;
     private final PracticeAuthorizationService authorizationService;
     private final UserRepository userRepository;
 
@@ -42,13 +39,11 @@ public class PracticeMaterialLibraryService {
             LecturerAssetRepository assetRepository,
             PracticeAuthoringCollaborationRepository collaborationRepository,
             PracticeMaterialReferenceRepository referenceRepository,
-            PracticeDraftAssetUsageRepository legacyUsageRepository,
             PracticeAuthorizationService authorizationService,
             UserRepository userRepository) {
         this.assetRepository = assetRepository;
         this.collaborationRepository = collaborationRepository;
         this.referenceRepository = referenceRepository;
-        this.legacyUsageRepository = legacyUsageRepository;
         this.authorizationService = authorizationService;
         this.userRepository = userRepository;
     }
@@ -65,18 +60,9 @@ public class PracticeMaterialLibraryService {
                 .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(
                         actorId, PageRequest.of(0, COLLABORATION_LIMIT));
         for (PracticeAuthoringCollaboration grant : grants) {
-            if (PracticeAuthoringCollaboration.TARGET_DRAFT.equals(grant.getTargetType())) {
-                referenceRepository.findByDraftId(grant.getTargetId()).stream()
-                        .map(PracticeMaterialReference::getAssetId)
-                        .forEach(sharedAssetIds::add);
-                legacyUsageRepository.findByDraftId(grant.getTargetId()).stream()
-                        .map(PracticeDraftAssetUsage::getAssetId)
-                        .forEach(sharedAssetIds::add);
-            } else if (PracticeAuthoringCollaboration.TARGET_SET.equals(grant.getTargetType())) {
-                referenceRepository.findBySetId(grant.getTargetId()).stream()
-                        .map(PracticeMaterialReference::getAssetId)
-                        .forEach(sharedAssetIds::add);
-            }
+            referenceRepository.findBySetId(grant.getSetId()).stream()
+                    .map(PracticeMaterialReference::getAssetId)
+                    .forEach(sharedAssetIds::add);
             if (sharedAssetIds.size() >= VIEW_LIMIT) {
                 break;
             }
@@ -104,20 +90,14 @@ public class PracticeMaterialLibraryService {
     private MaterialView view(LecturerAsset asset, Map<Long, String> ownerNames) {
         List<PracticeMaterialReference> references =
                 referenceRepository.findByAssetId(asset.getId());
-        List<PracticeDraftAssetUsage> legacy =
-                legacyUsageRepository.findByAssetId(asset.getId());
         LinkedHashSet<String> placements = new LinkedHashSet<>();
         references.stream().map(PracticeMaterialReference::getPlacement)
-                .filter(value -> value != null && !value.isBlank())
-                .forEach(placements::add);
-        legacy.stream().map(PracticeDraftAssetUsage::getPlacement)
                 .filter(value -> value != null && !value.isBlank())
                 .forEach(placements::add);
         LinkedHashSet<String> scopes = new LinkedHashSet<>();
         references.stream().map(PracticeMaterialReference::getReferenceScope)
                 .filter(value -> value != null && !value.isBlank())
                 .forEach(scopes::add);
-        if (!legacy.isEmpty()) scopes.add("DRAFT_LEGACY");
         boolean deliverable = asset.isContentVerified()
                 && DELIVERABLE_STATUSES.contains(asset.getStatus());
         String mimeType = asset.getMimeType() == null
@@ -134,7 +114,7 @@ public class PracticeMaterialLibraryService {
                 asset.getStatus(),
                 asset.getVisibility(),
                 asset.isContentVerified(),
-                references.size() + legacy.size(),
+                references.size(),
                 List.copyOf(placements),
                 List.copyOf(scopes),
                 asset.getUpdatedAt(),

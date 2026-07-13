@@ -44,20 +44,18 @@
         </div>
         <div class="pp-hero-right">
           <div class="pp-level-item">
-            <span>Trình độ hiện tại</span>
-            <strong th:text="${overview.currentLevel()}">TOPIK II Cấp 3</strong>
+            <span>Mức độ hiện tại</span>
+            <strong th:text="${overview.currentLevel()}">Chưa có dữ liệu</strong>
           </div>
           <div class="pp-level-divider"></div>
           <div class="pp-level-item primary">
-            <span>Dự đoán tiếp theo</span>
-            <strong th:text="${overview.recentAverageScore() >= 80.0 ? 'TOPIK II Cấp 6' :
-                            (overview.recentAverageScore() >= 70.0 ? 'TOPIK II Cấp 5' :
-                            (overview.recentAverageScore() >= 60.0 ? 'TOPIK II Cấp 4' : 'TOPIK II Cấp 3'))}">TOPIK II Cấp 4</strong>
+            <span>Điểm TB gần đây</span>
+            <strong th:text="${overview.recentAverageScore()} + '%'">0%</strong>
           </div>
           <div class="pp-level-divider"></div>
           <div class="pp-level-item">
-            <span>Mục tiêu</span>
-            <strong>TOPIK II Cấp 5</strong>
+            <span>Lượt hoàn thành</span>
+            <strong th:text="${overview.totalCompletedTests()} + ' bài'">0 bài</strong>
           </div>
         </div>
       </div>
@@ -246,7 +244,7 @@
         <div class="pp-accordion-card">
           <div class="pp-chart-header" style="margin-bottom:20px;">
             <h3>Hiệu suất chi tiết dạng câu hỏi</h3>
-            <p>Tỉ lệ chính xác và điểm trung bình theo phân loại câu hỏi TOPIK</p>
+            <p>Tỉ lệ chính xác và điểm trung bình theo từng dạng câu hỏi</p>
           </div>
           
           <div class="pp-accordion-tabs">

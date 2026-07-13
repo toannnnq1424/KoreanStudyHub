@@ -692,7 +692,7 @@
           <span>/</span>
           <a th:href="@{/practice/manage/import}">Nhập PDF</a>
           <span>/</span>
-          <span style="font-weight:600;" th:text="${sessionInfo.originalFilename}">TOPIK.pdf</span>
+          <span style="font-weight:600;" th:text="${sessionInfo.originalFilename}">de-luyen-tap.pdf</span>
         </div>
         <div class="ws-title" th:text="${sessionInfo.title}">Đề thi bóc tách</div>
         <div style="font-size:0.72rem; color:var(--ksh-text-muted); font-weight:600;"
@@ -716,7 +716,6 @@
             </div>
             <div class="ai-pop-actions">
               <button type="button" class="pi-btn-primary" onclick="runAiAnalysis()">Thử lại AI</button>
-              <button sec:authorize="hasAnyRole('HEAD','ADMIN')" type="button" class="pi-btn-secondary" onclick="openPayloadPreview()">Xem request</button>
               <button type="button" class="pi-btn-secondary" onclick="convertDraftToManual()">Làm thủ công</button>
             </div>
           </div>
@@ -910,10 +909,9 @@
                   <label class="form-label">Kiểu câu hỏi mong muốn</label>
                   <select id="reg-q-type" class="form-select" onchange="updateSelectedRegionProperty()">
                     <option value="AUTO_DETECT">Tự nhận diện</option>
-                    <option value="MCQ_SINGLE">MCQ - Chọn 1 đáp án</option>
-                    <option value="MCQ_MULTIPLE">MCQ - Chọn nhiều đáp án</option>
+                    <option value="SINGLE_CHOICE">Trắc nghiệm - Chọn 1 đáp án</option>
+                    <option value="TRUE_FALSE_NOT_GIVEN">Đúng / Sai / Không có thông tin</option>
                     <option value="FILL_BLANK">Điền từ vào ô trống</option>
-                    <option value="SHORT_TEXT">Trả lời ngắn</option>
                     <option value="ESSAY">Tự luận (Essay)</option>
                     <option value="SPEAKING">Nói (Speaking)</option>
                   </select>
@@ -1027,8 +1025,6 @@
       <button class="preview-tab-btn active" id="p-tab-overview" onclick="switchPreviewTab('overview')">Tổng quan</button>
       <button class="preview-tab-btn" id="p-tab-regions" onclick="switchPreviewTab('regions')">Nội dung đã chọn</button>
       <button class="preview-tab-btn" id="p-tab-images" onclick="switchPreviewTab('images')">Ảnh đính kèm</button>
-      <button sec:authorize="hasAnyRole('HEAD','ADMIN')" class="preview-tab-btn" id="p-tab-text" onclick="switchPreviewTab('text')">Chi tiết kỹ thuật</button>
-      <button sec:authorize="hasAnyRole('HEAD','ADMIN')" class="preview-tab-btn" id="p-tab-request" onclick="switchPreviewTab('request')">JSON kỹ thuật</button>
     </div>
 
     <div class="preview-body silent-scroll">
@@ -1059,11 +1055,6 @@
         </div>
       </div>
 
-      <!-- Tab 2: Text -->
-      <div sec:authorize="hasAnyRole('HEAD','ADMIN')" id="p-panel-text" style="display:none;">
-        <pre id="p-text-content" style="background:var(--ksh-surface-sec); border:1px solid var(--ksh-border); padding:16px; border-radius:8px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:40vh; overflow-y:auto; margin:0;"></pre>
-      </div>
-
       <!-- Tab 3: Regions -->
       <div id="p-panel-regions" style="display:none;">
         <table style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
@@ -1088,14 +1079,6 @@
         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;" id="p-images-list">
           <!-- Dynamically populated crops -->
         </div>
-      </div>
-
-      <!-- Tab 5: Request JSON -->
-      <div sec:authorize="hasAnyRole('HEAD','ADMIN')" id="p-panel-request" style="display:none;">
-        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-          <button class="pi-btn-secondary" style="padding:6px 12px; font-size:0.75rem; background:#fff;" onclick="copyRequestJson()">Copy Request JSON</button>
-        </div>
-        <pre id="p-request-content" style="background:#1e293b; color:#f8fafc; padding:16px; border-radius:8px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:40vh; overflow-y:auto; margin:0;"></pre>
       </div>
 
     </div>
@@ -1180,11 +1163,9 @@
   const SESSION_ID = /*[[${sessionId}]]*/ null;
   const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
   const TOTAL_PAGES = /*[[${sessionInfo.totalPages}]]*/ 1;
-  const CAN_VIEW_AI_REQUEST = /*[[${canViewAiRequest}]]*/ false;
   const TARGET_TEST_NO = /*[[${sessionInfo.targetTestNo}]]*/ 1;
   const TARGET_SKILL = /*[[${sessionInfo.targetSkill}]]*/ 'READING';
   const TARGET_LESSON_CODE = /*[[${sessionInfo.targetLessonCode}]]*/ 'R1';
-  const EXAM_TEMPLATE_CODE = /*[[${sessionInfo.examTemplateCode}]]*/ null;
 </script>
 
 <script>
@@ -2152,12 +2133,6 @@
       document.getElementById('p-stat-regions').innerText = `${data.regions.length} vùng`;
       document.getElementById('p-stat-crops').innerText = `${stats.cropCount} ảnh`;
 
-      // Render Text Tab
-      const textContent = document.getElementById('p-text-content');
-      if (textContent && data.privilegedDetails) {
-        textContent.innerText = data.systemPrompt + "\n\n=== USER CONTENT ===\n\n" + data.requestJsonPreview;
-      }
-
       // Render Regions Tab
       const tableBody = document.getElementById('p-regions-table-body');
       tableBody.innerHTML = '';
@@ -2194,12 +2169,6 @@
         });
       }
 
-      // Render Request JSON Tab
-      const requestContent = document.getElementById('p-request-content');
-      if (requestContent && data.privilegedDetails) {
-        requestContent.innerText = data.requestJsonPreview;
-      }
-
       // Switch to Overview by default
       switchPreviewTab('overview');
 
@@ -2221,7 +2190,7 @@
     if (!activeTab) return;
     activeTab.classList.add('active');
 
-    const panels = ['overview', 'text', 'regions', 'images', 'request'];
+    const panels = ['overview', 'regions', 'images'];
     panels.forEach(p => {
       const panel = document.getElementById('p-panel-' + p);
       if (panel) panel.style.display = (p === tab) ? 'block' : 'none';
@@ -2235,13 +2204,6 @@
             .replaceAll('>', '&gt;')
             .replaceAll('"', '&quot;')
             .replaceAll("'", '&#039;');
-  }
-
-  function copyRequestJson() {
-    if (payloadPreviewData && payloadPreviewData.requestJsonPreview) {
-      navigator.clipboard.writeText(payloadPreviewData.requestJsonPreview);
-      alert("Đã copy Request JSON vào Clipboard.");
-    }
   }
 
   // ═══ RUN AI ANALYSIS & REVIEW DRAFT ═══

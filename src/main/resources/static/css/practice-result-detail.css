@@ -663,7 +663,7 @@
   margin-right: 4px;
 }
 
-.prd-topik-tip {
+.prd-exam-tip {
   font-size: 12.5px;
   color: #1e3a8a;
   background: #dbeafe;
@@ -671,7 +671,7 @@
   padding: 8px 12px;
   border: 1px solid #bfdbfe;
 }
-.prd-topik-tip span {
+.prd-exam-tip span {
   font-weight: 700;
   margin-right: 6px;
 }

@@ -42,18 +42,6 @@ public class PracticeSet {
     @Column(nullable = false, length = 20)
     private String skill;
 
-    @Column(name = "topik_level", length = 20)
-    private String topikLevel;
-
-    @Column(name = "assessment_program_code", nullable = false, length = 40)
-    private String assessmentProgramCode;
-
-    @Column(name = "assessment_program_version_id")
-    private Long assessmentProgramVersionId;
-
-    @Column(name = "exam_template_code", length = 80)
-    private String examTemplateCode;
-
     @Column(nullable = false, length = 20)
     private String scope;
 
@@ -105,16 +93,12 @@ public class PracticeSet {
     protected PracticeSet() {
     }
 
-    public PracticeSet(String title, String description, String skill, String topikLevel,
+    public PracticeSet(String title, String description, String skill,
                        String scope, Long classId, String sourcePdfPath, String metadataJson,
                        String status, Long createdBy) {
         this.title = title;
         this.description = description;
         this.skill = skill;
-        this.topikLevel = topikLevel;
-        this.assessmentProgramCode = topikLevel != null && topikLevel.toUpperCase().startsWith("TOPIK")
-                ? "TOPIK"
-                : "CUSTOM";
         this.scope = scope;
         this.classId = classId;
         this.sourcePdfPath = sourcePdfPath;
@@ -139,18 +123,6 @@ public class PracticeSet {
     public String getSkill() {
         return skill;
     }
-
-    public String getTopikLevel() {
-        return topikLevel;
-    }
-
-    public String getAssessmentProgramCode() {
-        return assessmentProgramCode;
-    }
-
-    public Long getAssessmentProgramVersionId() { return assessmentProgramVersionId; }
-
-    public String getExamTemplateCode() { return examTemplateCode; }
 
     public String getScope() {
         return scope;
@@ -218,22 +190,6 @@ public class PracticeSet {
 
     public void setSkill(String skill) {
         this.skill = skill;
-    }
-
-    public void setTopikLevel(String topikLevel) {
-        this.topikLevel = topikLevel;
-    }
-
-    public void setAssessmentProgramCode(String assessmentProgramCode) {
-        this.assessmentProgramCode = assessmentProgramCode;
-    }
-
-    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
-        this.assessmentProgramVersionId = assessmentProgramVersionId;
-    }
-
-    public void setExamTemplateCode(String examTemplateCode) {
-        this.examTemplateCode = examTemplateCode;
     }
 
     public void setScope(String scope) {

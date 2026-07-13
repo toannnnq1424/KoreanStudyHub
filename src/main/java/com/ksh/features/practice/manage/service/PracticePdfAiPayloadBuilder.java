@@ -292,10 +292,6 @@ public class PracticePdfAiPayloadBuilder {
         DocumentMetadata meta = new DocumentMetadata();
         meta.setSessionId(sessionId);
         meta.setFilename(session.getOriginalFilename());
-        meta.setExamCategory(session.getExamCategory() != null ? session.getExamCategory() : "TOPIK_II");
-        meta.setAssessmentProgramCode(session.getAssessmentProgramCode());
-        meta.setAssessmentProgramVersionId(session.getAssessmentProgramVersionId());
-        meta.setExamTemplateCode(session.getExamTemplateCode());
         meta.setTargetTestNo(session.getTargetTestNo());
         meta.setTargetSkill(session.getTargetSkill());
         meta.setTargetLessonCode(session.getTargetLessonCode());
@@ -303,7 +299,6 @@ public class PracticePdfAiPayloadBuilder {
         meta.setPageTo(endPage);
         meta.setTotalExtractedCharacters(totalRawChars);
         request.setDocument(meta);
-        request.setCategoryAssessment(detectCategoryAssessment(meta.getExamCategory(), session.getOriginalFilename(), basePageRangeText));
         request.setPageContexts(pageContexts);
 
         request.setSections(sectionHints);
@@ -326,7 +321,6 @@ public class PracticePdfAiPayloadBuilder {
         summary.put("targetTestNo", session.getTargetTestNo());
         summary.put("targetSkill", session.getTargetSkill());
         summary.put("targetLessonCode", session.getTargetLessonCode());
-        summary.put("examTemplateCode", session.getExamTemplateCode());
 
         return new PayloadInfo(request, "", cropInfos, summary, validationErrors);
     }
@@ -384,34 +378,6 @@ public class PracticePdfAiPayloadBuilder {
             case "SPEAKING" -> "Phần Nói";
             default -> "Phần Đọc";
         };
-    }
-
-    private CategoryAssessment detectCategoryAssessment(String declaredCategory, String filename, String text) {
-        String haystack = ((filename != null ? filename : "") + "\n" + (text != null ? text : "")).toUpperCase(Locale.ROOT);
-        CategoryAssessment assessment = new CategoryAssessment();
-        assessment.setDeclaredCategory(declaredCategory);
-        assessment.setDetectedCategory(declaredCategory);
-        assessment.setConfidence(0.25);
-        assessment.setConflict(false);
-        assessment.setLecturerConfirmedConflict(false);
-        assessment.setEvidence("");
-
-        if (haystack.contains("TOPIK I") && !haystack.contains("TOPIK II")) {
-            assessment.setDetectedCategory("TOPIK_I");
-            assessment.setConfidence(0.85);
-            assessment.setEvidence("Found TOPIK I marker in filename or extracted text.");
-        } else if (haystack.contains("TOPIK II")) {
-            assessment.setDetectedCategory("TOPIK_II");
-            assessment.setConfidence(0.85);
-            assessment.setEvidence("Found TOPIK II marker in filename or extracted text.");
-        }
-
-        if (declaredCategory != null && assessment.getDetectedCategory() != null
-                && assessment.getConfidence() != null && assessment.getConfidence() >= 0.8
-                && !declaredCategory.equalsIgnoreCase(assessment.getDetectedCategory())) {
-            assessment.setConflict(true);
-        }
-        return assessment;
     }
 
     public record CropInfo(String regionId, int pageNumber, String regionType, String assetRef, String placement, String url, String base64DataUrl, long byteSize) {}

@@ -11,12 +11,10 @@ public interface PracticeAuthoringCollaborationRepository
         extends JpaRepository<PracticeAuthoringCollaboration, Long> {
 
     Optional<PracticeAuthoringCollaboration>
-    findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-            String targetType, Long targetId, Long collaboratorId);
+    findBySetIdAndCollaboratorIdAndRevokedAtIsNull(Long setId, Long collaboratorId);
 
     Optional<PracticeAuthoringCollaboration>
-    findByTargetTypeAndTargetIdAndCollaboratorId(
-            String targetType, Long targetId, Long collaboratorId);
+    findBySetIdAndCollaboratorId(Long setId, Long collaboratorId);
 
     List<PracticeAuthoringCollaboration>
     findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(Long collaboratorId);
@@ -26,5 +24,5 @@ public interface PracticeAuthoringCollaborationRepository
             Long collaboratorId, Pageable pageable);
 
     List<PracticeAuthoringCollaboration>
-    findByTargetTypeAndTargetIdAndRevokedAtIsNull(String targetType, Long targetId);
+    findBySetIdAndRevokedAtIsNull(Long setId);
 }

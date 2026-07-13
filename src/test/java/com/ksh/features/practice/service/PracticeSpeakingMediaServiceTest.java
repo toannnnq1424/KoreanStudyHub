@@ -612,13 +612,14 @@ class PracticeSpeakingMediaServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("before submit");
 
-        PracticeQuestion essay = new PracticeQuestion(
-                fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
-        essay.setGroupId(fixture.groupId());
-        essay = questionRepository.saveAndFlush(essay);
-        Long essayId = essay.getId();
+        PracticeQuestion nonSpeakingQuestion = new PracticeQuestion(
+                fixture.setId(), 9, PracticeQuestion.TYPE_SINGLE_CHOICE,
+                "Objective question", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.TEN, 9);
+        nonSpeakingQuestion.setGroupId(fixture.groupId());
+        nonSpeakingQuestion = questionRepository.saveAndFlush(nonSpeakingQuestion);
+        Long nonSpeakingQuestionId = nonSpeakingQuestion.getId();
         assertThatThrownBy(() -> service.validateUploadTargetForOwner(
-                fixture.userId(), fixture.attemptId(), essayId))
+                fixture.userId(), fixture.attemptId(), nonSpeakingQuestionId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SPEAKING questions");
     }
@@ -733,13 +734,14 @@ class PracticeSpeakingMediaServiceTest {
         Fixture fixture = createSpeakingFixture("validationrollback");
         SpeakingMediaActivationResult first = service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("validationrollback-a.webm"));
-        PracticeQuestion essay = new PracticeQuestion(
-                fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
-        essay.setGroupId(fixture.groupId());
-        questionRepository.saveAndFlush(essay);
+        PracticeQuestion nonSpeakingQuestion = new PracticeQuestion(
+                fixture.setId(), 9, PracticeQuestion.TYPE_SINGLE_CHOICE,
+                "Objective question", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.TEN, 9);
+        nonSpeakingQuestion.setGroupId(fixture.groupId());
+        questionRepository.saveAndFlush(nonSpeakingQuestion);
 
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), essay.getId(), descriptor("validationrollback-b.webm")))
+                fixture.userId(), fixture.attemptId(), nonSpeakingQuestion.getId(), descriptor("validationrollback-b.webm")))
                 .isInstanceOf(IllegalStateException.class);
 
         List<PracticeSpeakingMedia> ready = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
@@ -794,12 +796,13 @@ class PracticeSpeakingMediaServiceTest {
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
                 .hasMessage("Speaking media target not found.");
 
-        PracticeQuestion essay = new PracticeQuestion(
-                fixture.setId(), 9, PracticeQuestion.TYPE_ESSAY, "Essay", "[]", "", "Explain", BigDecimal.TEN, 9);
-        essay.setGroupId(fixture.groupId());
-        questionRepository.saveAndFlush(essay);
+        PracticeQuestion nonSpeakingQuestion = new PracticeQuestion(
+                fixture.setId(), 9, PracticeQuestion.TYPE_SINGLE_CHOICE,
+                "Objective question", "[\"A\",\"B\"]", "1", "Explain", BigDecimal.TEN, 9);
+        nonSpeakingQuestion.setGroupId(fixture.groupId());
+        questionRepository.saveAndFlush(nonSpeakingQuestion);
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), essay.getId(), descriptor("essay.webm")))
+                fixture.userId(), fixture.attemptId(), nonSpeakingQuestion.getId(), descriptor("objective.webm")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SPEAKING questions");
 
@@ -1055,7 +1058,6 @@ class PracticeSpeakingMediaServiceTest {
                 "Speaking Media " + suffix,
                 "Desc",
                 "SPEAKING",
-                "TOPIK_II",
                 "GLOBAL",
                 null,
                 null,

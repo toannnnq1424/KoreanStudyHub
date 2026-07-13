@@ -1,7 +1,6 @@
 package com.ksh.features.practice.manage.validator;
 
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest;
-import com.ksh.features.practice.manage.dto.AiDocumentImportRequest.CategoryAssessment;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest.GroupHint;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest.RegionLocks;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest.RegionPayload;
@@ -29,21 +28,10 @@ public class ImportAiPayloadValidator {
         List<RegionPayload> regions = request.getRegions() != null ? request.getRegions() : List.of();
         List<GroupHint> groups = request.getGroups() != null ? request.getGroups() : List.of();
         List<SectionHint> sections = request.getSections() != null ? request.getSections() : List.of();
-        String examCategory = request.getDocument() != null ? request.getDocument().getExamCategory() : "";
-        CategoryAssessment categoryAssessment = request.getCategoryAssessment();
 
         if (regions.isEmpty()) {
             errors.add(new ValidationError("NO_VALID_REGIONS", "ERROR", List.of(),
                     "Chưa có vùng hợp lệ nào được gửi AI. Hãy khoanh ít nhất một vùng đề, đáp án, passage, transcript hoặc ảnh trước khi phân tích."));
-        }
-
-        if (categoryAssessment != null
-                && Boolean.TRUE.equals(categoryAssessment.getConflict())
-                && !Boolean.TRUE.equals(categoryAssessment.getLecturerConfirmedConflict())) {
-            errors.add(new ValidationError("CATEGORY_CONFLICT", "ERROR", List.of(),
-                    "Danh mục giáo viên chọn là " + nullSafe(categoryAssessment.getDeclaredCategory())
-                            + " nhưng tài liệu có dấu hiệu là " + nullSafe(categoryAssessment.getDetectedCategory())
-                            + ". Hãy đổi danh mục hoặc xác nhận vẫn muốn phân tích."));
         }
 
         List<String> validGroupIds = groups.stream()
@@ -132,18 +120,6 @@ public class ImportAiPayloadValidator {
             if (r.getSectionTempId() != null && !r.getSectionTempId().isBlank() && !validSectionIds.contains(r.getSectionTempId())) {
                 errors.add(new ValidationError("INVALID_SECTION_REFERENCE", "WARNING", List.of(rId),
                         "Vùng " + rId + " tham chiếu đến phần thi '" + r.getSectionTempId() + "' không tồn tại trong hints."));
-            }
-
-            if (examCategory != null && (examCategory.startsWith("TOPIK_I") || examCategory.startsWith("TOPIK_II"))
-                    && "QUESTION_BLOCK".equalsIgnoreCase(r.getRegionType())
-                    && r.getExpectedQuestionType() != null
-                    && !"AUTO_DETECT".equalsIgnoreCase(r.getExpectedQuestionType())) {
-                String qType = r.getExpectedQuestionType();
-                boolean isMcq = "MCQ_SINGLE".equalsIgnoreCase(qType) || "MCQ_MULTIPLE".equalsIgnoreCase(qType);
-                if (!isMcq) {
-                    errors.add(new ValidationError("TOPIK_NON_MCQ_WARNING", "WARNING", List.of(rId),
-                            "TOPIK Reading/Listening chính thức thường là MCQ. Loại câu '" + qType + "' của vùng " + rId + " có thể mâu thuẫn nếu đây không phải Writing hoặc bài tập mở rộng."));
-                }
             }
 
             for (int j = i + 1; j < regions.size(); j++) {
@@ -244,10 +220,6 @@ public class ImportAiPayloadValidator {
         double minArea = Math.min(w1 * h1, w2 * h2);
         if (minArea <= 0.0) return 0.0;
         return areaIntersection / minArea;
-    }
-
-    private String nullSafe(String value) {
-        return value == null || value.isBlank() ? "(chưa xác định)" : value;
     }
 
     private double safeDouble(Double value) {

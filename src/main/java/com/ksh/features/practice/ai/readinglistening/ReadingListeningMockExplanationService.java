@@ -132,20 +132,6 @@ public class ReadingListeningMockExplanationService {
     // Private helpers
     // ──────────────────────────────────────────────────────────────────────
 
-    private List<String> buildCorrectAnswers(String correctAnswer, String questionType) {
-        if (correctAnswer.isBlank()) return List.of();
-        // For ordering/matching questions the answer may be comma-separated
-        if (correctAnswer.contains(",")) {
-            List<String> parts = new ArrayList<>();
-            for (String part : correctAnswer.split(",")) {
-                String trimmed = part.trim();
-                if (!trimmed.isBlank()) parts.add(trimmed);
-            }
-            return parts;
-        }
-        return List.of(correctAnswer);
-    }
-
     private Map<String, Object> buildKeywords(String prompt, String passageText) {
         Map<String, Object> keywords = new LinkedHashMap<>();
         // Extract short Korean segments from prompt as question keywords

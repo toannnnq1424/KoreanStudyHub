@@ -38,6 +38,12 @@ public class PracticeMaterialReference {
     @Column(length = 64)
     private String placement;
 
+    @Column(name = "reference_key", nullable = false, length = 255)
+    private String referenceKey;
+
+    @Column(name = "reference_metadata_json", columnDefinition = "JSON")
+    private String referenceMetadataJson;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -46,11 +52,20 @@ public class PracticeMaterialReference {
 
     public static PracticeMaterialReference draft(Long assetId, Long draftId,
                                                   String placement) {
+        return draft(assetId, draftId, placement, "", null);
+    }
+
+    public static PracticeMaterialReference draft(Long assetId, Long draftId,
+                                                  String placement,
+                                                  String referenceKey,
+                                                  String referenceMetadataJson) {
         PracticeMaterialReference reference = new PracticeMaterialReference();
         reference.assetId = assetId;
         reference.draftId = draftId;
         reference.referenceScope = SCOPE_DRAFT;
         reference.placement = placement;
+        reference.referenceKey = referenceKey == null ? "" : referenceKey;
+        reference.referenceMetadataJson = referenceMetadataJson;
         return reference;
     }
 
@@ -63,6 +78,7 @@ public class PracticeMaterialReference {
         reference.publishedVersionId = publishedVersionId;
         reference.referenceScope = SCOPE_PUBLISHED_VERSION;
         reference.placement = placement;
+        reference.referenceKey = "";
         return reference;
     }
 
@@ -73,5 +89,7 @@ public class PracticeMaterialReference {
     public Long getPublishedVersionId() { return publishedVersionId; }
     public String getReferenceScope() { return referenceScope; }
     public String getPlacement() { return placement; }
+    public String getReferenceKey() { return referenceKey; }
+    public String getReferenceMetadataJson() { return referenceMetadataJson; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

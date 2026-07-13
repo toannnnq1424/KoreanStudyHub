@@ -9,7 +9,6 @@ import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,8 +30,6 @@ class PracticeMaterialLibraryServiceTest {
             mock(PracticeAuthoringCollaborationRepository.class);
     private final PracticeMaterialReferenceRepository referenceRepository =
             mock(PracticeMaterialReferenceRepository.class);
-    private final PracticeDraftAssetUsageRepository legacyUsageRepository =
-            mock(PracticeDraftAssetUsageRepository.class);
     private final PracticeAuthorizationService authorizationService =
             mock(PracticeAuthorizationService.class);
     private final UserRepository userRepository = mock(UserRepository.class);
@@ -43,7 +40,7 @@ class PracticeMaterialLibraryServiceTest {
     void setUp() {
         service = new PracticeMaterialLibraryService(
                 assetRepository, collaborationRepository, referenceRepository,
-                legacyUsageRepository, authorizationService, userRepository);
+                authorizationService, userRepository);
         when(collaborationRepository
                 .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(
                         any(Long.class), any(Pageable.class)))
@@ -61,7 +58,6 @@ class PracticeMaterialLibraryServiceTest {
         when(assetRepository.findByOwnerLecturerIdAndDeletedAtIsNullOrderByUpdatedAtDesc(
                 any(Long.class), any(Pageable.class))).thenReturn(List.of(asset));
         when(referenceRepository.findByAssetId(10L)).thenReturn(List.of(reference));
-        when(legacyUsageRepository.findByAssetId(10L)).thenReturn(List.of());
         when(userRepository.findAllById(any())).thenReturn(List.of(owner));
 
         PracticeMaterialLibraryService.Catalog catalog = service.catalog(7L);
@@ -80,8 +76,7 @@ class PracticeMaterialLibraryServiceTest {
     void collaboratorCatalogIncludesReferencedRetainedAssetThroughSafeEndpoint() {
         LecturerAsset shared = asset(30L, 9L, "ARCHIVED", true);
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                PracticeAuthoringCollaboration.TARGET_SET, 40L, 9L, 7L,
-                true, true, true, true, 9L);
+                40L, 7L);
         PracticeMaterialReference reference =
                 PracticeMaterialReference.published(30L, 40L, 50L, "GROUP_IMAGE");
         User owner = mock(User.class);
@@ -96,7 +91,6 @@ class PracticeMaterialLibraryServiceTest {
         when(referenceRepository.findBySetId(40L)).thenReturn(List.of(reference));
         when(assetRepository.findAllById(List.of(30L))).thenReturn(List.of(shared));
         when(referenceRepository.findByAssetId(30L)).thenReturn(List.of(reference));
-        when(legacyUsageRepository.findByAssetId(30L)).thenReturn(List.of());
         when(userRepository.findAllById(any())).thenReturn(List.of(owner));
 
         PracticeMaterialLibraryService.Catalog catalog = service.catalog(7L);

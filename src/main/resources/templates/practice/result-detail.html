@@ -558,7 +558,7 @@
           <div class="prd-finding-evidence prd-evidence-strength">"${escHtml(s.evidence)}"</div>
           <div class="prd-finding-explanation">${escHtml(s.explanationVi)}</div>
           ${s.whyItIsGood ? `<div class="prd-finding-extra"><strong>Vì sao tốt?</strong> ${escHtml(s.whyItIsGood)}</div>` : ''}
-          ${s.topikTip ? `<div class="prd-topik-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> TOPIK Tip</span> ${escHtml(s.topikTip)}</div>` : ''}
+          ${s.topikTip ? `<div class="prd-exam-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Gợi ý bài thi</span> ${escHtml(s.topikTip)}</div>` : ''}
         </div>
       `).join('');
     }
@@ -623,7 +623,7 @@
             <span class="prd-diff-correction">${escHtml(n.correction)}</span>
           </div>` : ''}
           <div class="prd-finding-explanation">${escHtml(n.explanationVi)}</div>
-          ${n.topikTip ? `<div class="prd-topik-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> TOPIK Tip</span> ${escHtml(n.topikTip)}</div>` : ''}
+          ${n.topikTip ? `<div class="prd-exam-tip"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Gợi ý bài thi</span> ${escHtml(n.topikTip)}</div>` : ''}
         </div>
       `).join('');
     }

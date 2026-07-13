@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticePdfImportSession;
-import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
@@ -57,13 +56,6 @@ public class PracticePdfDraftAssembler {
 
     @Transactional
     public PracticeDraft assembleAndSaveDraft(PracticePdfImportSession session, String aiRawJson, Long userId) {
-        return assembleAndSaveDraft(session, aiRawJson, userId, null);
-    }
-
-    @Transactional
-    public PracticeDraft assembleAndSaveDraft(PracticePdfImportSession session,
-                                              String aiRawJson, Long userId,
-                                              String overrideReason) {
         // Parse AI response to check structure
         JsonNode aiRoot;
         try {
@@ -73,28 +65,11 @@ public class PracticePdfDraftAssembler {
             throw new IllegalArgumentException("Dữ liệu phản hồi từ AI không đúng định dạng JSON.");
         }
 
-        // Standardize structure for draft editor compatibility
-        // The draft editor expects root format: { document: { title: "...", detectedCategory: "..." }, sections: [...] }
+        // Standardize the AI result for the shared KSH draft editor contract.
         ObjectNode editorRoot = objectMapper.createObjectNode();
         
         ObjectNode docMeta = objectMapper.createObjectNode();
         docMeta.put("title", session.getOriginalFilename().replaceFirst("(?i)\\.pdf$", ""));
-        String sessionCategory = session.getExamCategory() == null
-                ? "TOPIK_II"
-                : session.getExamCategory();
-        String templateCode = session.getExamTemplateCode();
-        if (templateCode == null || templateCode.isBlank()) {
-            templateCode = switch (sessionCategory.toUpperCase()) {
-                case "TOPIK_I", "TOPIK_II", "CUSTOM_FLEXIBLE" -> sessionCategory.toUpperCase();
-                default -> AssessmentAuthoringCatalogService.defaultTemplateForCategory(sessionCategory);
-            };
-        }
-        docMeta.put("detectedCategory", sessionCategory);
-        docMeta.put("examTemplateCode", templateCode);
-        putIfPresent(docMeta, "assessmentProgramCode", session.getAssessmentProgramCode());
-        if (session.getAssessmentProgramVersionId() != null) {
-            docMeta.put("assessmentProgramVersionId", session.getAssessmentProgramVersionId());
-        }
         docMeta.put("description", "Đề thi tự động bóc tách từ tệp PDF: " + session.getOriginalFilename());
         docMeta.put("sourceFileName", session.getOriginalFilename());
         docMeta.put("sourcePageFrom", session.getSelectedStartPage());
@@ -122,8 +97,7 @@ public class PracticePdfDraftAssembler {
         if (session.getLinkedDraftId() != null) {
             if (authorizationService != null) {
                 authorizationService.requireDraft(
-                        session.getLinkedDraftId(), userId, PracticeAction.EDIT,
-                        overrideReason);
+                        session.getLinkedDraftId(), userId, PracticeAction.EDIT);
                 draft = draftRepository.findById(session.getLinkedDraftId())
                         .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                                 "Bản nháp liên kết không tồn tại."));
@@ -140,20 +114,16 @@ public class PracticePdfDraftAssembler {
                 ? editorRoot
                 : mergeIntoLinkedDraft(draft, editorRoot, session);
         PracticeDraftContractService.NormalizedDraft normalized = draftContractService == null
-                ? new PracticeDraftContractService.NormalizedDraft(
-                        rootToNormalize.toString(), sessionCategory, session.getAssessmentProgramCode(),
-                        session.getAssessmentProgramVersionId(), templateCode)
+                ? new PracticeDraftContractService.NormalizedDraft(rootToNormalize.toString())
                 : draftContractService.normalize(rootToNormalize, "PDF_AI");
         String draftJson = normalized.json();
 
         if (draft != null) {
             draft.setDraftJson(draftJson);
-            draft.setCategory(normalized.category());
         } else {
             draft = new PracticeDraft(
                     session.getOriginalFilename().replaceFirst("(?i)\\.pdf$", ""),
                     "Tạo tự động từ PDF: " + session.getOriginalFilename(),
-                    normalized.category(),
                     "GLOBAL",
                     null,
                     "DRAFT",
@@ -164,9 +134,6 @@ public class PracticePdfDraftAssembler {
         }
 
         draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
-        draft.setAssessmentProgramCode(normalized.programCode());
-        draft.setAssessmentProgramVersionId(normalized.programVersionId());
-        draft.setExamTemplateCode(normalized.examTemplateCode());
         PracticeDraft savedDraft = draftRepository.save(draft);
 
         // Map draftId to import session

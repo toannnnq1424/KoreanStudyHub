@@ -6,7 +6,6 @@ public class AiDocumentImportRequest {
 
     private RequestMeta requestMeta;
     private DocumentMetadata document;
-    private CategoryAssessment categoryAssessment;
     private List<PageContext> pageContexts;
     private List<SectionHint> sections;
     private List<GroupHint> groups;
@@ -30,14 +29,6 @@ public class AiDocumentImportRequest {
 
     public void setDocument(DocumentMetadata document) {
         this.document = document;
-    }
-
-    public CategoryAssessment getCategoryAssessment() {
-        return categoryAssessment;
-    }
-
-    public void setCategoryAssessment(CategoryAssessment categoryAssessment) {
-        this.categoryAssessment = categoryAssessment;
     }
 
     public List<PageContext> getPageContexts() {
@@ -83,10 +74,6 @@ public class AiDocumentImportRequest {
     public static class DocumentMetadata {
         private Long sessionId;
         private String filename;
-        private String examCategory;
-        private String assessmentProgramCode;
-        private Long assessmentProgramVersionId;
-        private String examTemplateCode;
         private Integer targetTestNo;
         private String targetSkill;
         private String targetLessonCode;
@@ -113,38 +100,6 @@ public class AiDocumentImportRequest {
 
         public void setFilename(String filename) {
             this.filename = filename;
-        }
-
-        public String getExamCategory() {
-            return examCategory;
-        }
-
-        public void setExamCategory(String examCategory) {
-            this.examCategory = examCategory;
-        }
-
-        public String getAssessmentProgramCode() {
-            return assessmentProgramCode;
-        }
-
-        public void setAssessmentProgramCode(String assessmentProgramCode) {
-            this.assessmentProgramCode = assessmentProgramCode;
-        }
-
-        public Long getAssessmentProgramVersionId() {
-            return assessmentProgramVersionId;
-        }
-
-        public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
-            this.assessmentProgramVersionId = assessmentProgramVersionId;
-        }
-
-        public String getExamTemplateCode() {
-            return examTemplateCode;
-        }
-
-        public void setExamTemplateCode(String examTemplateCode) {
-            this.examTemplateCode = examTemplateCode;
         }
 
         public Integer getTargetTestNo() {
@@ -269,66 +224,6 @@ public class AiDocumentImportRequest {
 
         public void setCreatedAt(String createdAt) {
             this.createdAt = createdAt;
-        }
-    }
-
-    public static class CategoryAssessment {
-        private String declaredCategory;
-        private String detectedCategory;
-        private Double confidence;
-        private Boolean conflict;
-        private Boolean lecturerConfirmedConflict = false;
-        private String evidence;
-
-        public CategoryAssessment() {
-        }
-
-        public String getDeclaredCategory() {
-            return declaredCategory;
-        }
-
-        public void setDeclaredCategory(String declaredCategory) {
-            this.declaredCategory = declaredCategory;
-        }
-
-        public String getDetectedCategory() {
-            return detectedCategory;
-        }
-
-        public void setDetectedCategory(String detectedCategory) {
-            this.detectedCategory = detectedCategory;
-        }
-
-        public Double getConfidence() {
-            return confidence;
-        }
-
-        public void setConfidence(Double confidence) {
-            this.confidence = confidence;
-        }
-
-        public Boolean getConflict() {
-            return conflict;
-        }
-
-        public void setConflict(Boolean conflict) {
-            this.conflict = conflict;
-        }
-
-        public Boolean getLecturerConfirmedConflict() {
-            return lecturerConfirmedConflict;
-        }
-
-        public void setLecturerConfirmedConflict(Boolean lecturerConfirmedConflict) {
-            this.lecturerConfirmedConflict = lecturerConfirmedConflict;
-        }
-
-        public String getEvidence() {
-            return evidence;
-        }
-
-        public void setEvidence(String evidence) {
-            this.evidence = evidence;
         }
     }
 

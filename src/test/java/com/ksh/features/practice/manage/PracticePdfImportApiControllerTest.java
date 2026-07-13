@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -46,9 +48,6 @@ class PracticePdfImportApiControllerTest {
 
     @MockBean
     private PracticePdfPreviewService previewService;
-
-    @MockBean
-    private PracticeOverrideContextService overrideContextService;
 
     @MockBean
     private PracticePdfRegionService regionService;
@@ -238,19 +237,11 @@ class PracticePdfImportApiControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "HEAD")
-    void headPayloadPreviewRetainsAuthorizedDebugDetails() throws Exception {
-        KshUserDetails head = userDetails(1L, com.ksh.security.Role.HEAD);
-        PracticePdfImportSession session = session(1L);
-        when(sessionService.getSession(100L, 1L)).thenReturn(session);
-        when(payloadPreviewService.getPreview(session)).thenReturn(payloadPreview());
+    void controllerDeclaresExactLecturerBoundary() {
+        PreAuthorize boundary = PracticePdfImportApiController.class
+                .getAnnotation(PreAuthorize.class);
 
-        mockMvc.perform(get("/practice/manage/import-sessions/100/payload-preview")
-                        .with(user(head)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.privilegedDetails").value(true))
-                .andExpect(jsonPath("$.systemPrompt").value("SECRET_SYSTEM_PROMPT"))
-                .andExpect(jsonPath("$.requestJsonPreview").value("SECRET_REQUEST"));
+        assertEquals(com.ksh.security.Roles.PREAUTH_LECTURER, boundary.value());
     }
 
     private static PracticePdfPayloadPreviewService.PayloadPreviewDto payloadPreview() {

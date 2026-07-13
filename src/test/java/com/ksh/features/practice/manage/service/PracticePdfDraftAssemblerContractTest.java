@@ -6,20 +6,17 @@ import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
+import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -29,12 +26,12 @@ import static org.mockito.Mockito.when;
 class PracticePdfDraftAssemblerContractTest {
 
     @Test
-    void aiDraftUsesSelectedTemplateAndCanonicalTypedContracts() throws Exception {
+    void aiDraftUsesSingleScopeAndCanonicalTypedContracts() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         QuestionTypeResolver resolver = new QuestionTypeResolver();
         AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
-        AssessmentAuthoringCatalogService catalog = mock(AssessmentAuthoringCatalogService.class);
-        when(catalog.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(customTemplate());
+        AssessmentAuthoringCatalogService catalog =
+                new AssessmentAuthoringCatalogService(new PracticeContentRules());
         PracticeDraftContractService contract = new PracticeDraftContractService(
                 objectMapper, catalog, resolver, codec);
         PracticeDraftRepository drafts = mock(PracticeDraftRepository.class);
@@ -53,31 +50,26 @@ class PracticePdfDraftAssemblerContractTest {
         JsonNode question = group.path("questions").path(0);
 
         assertEquals("practice-draft-v3", root.path("schemaVersion").asText());
-        assertEquals("CUSTOM_FLEXIBLE", root.path("document").path("examTemplateCode").asText());
+        assertFalse(root.path("document").has("examTemplateCode"));
+        assertFalse(root.path("document").has("assessmentProgramCode"));
         assertEquals("SINGLE_CHOICE", question.path("questionType").asText());
         assertEquals("opt_2", question.path("answerSpec").path("correctOptionIds").path(0).asText());
         assertEquals("opt_1", question.path("questionContent").path("options").path(0).path("id").asText());
         assertEquals("READING_PASSAGE", group.path("stimulus").path("type").asText());
         assertEquals("PDF_AI", group.path("stimulus").path("provenance").path("source").asText());
         assertFalse(group.path("stimulus").path("provenance").path("approved").asBoolean());
-        assertEquals("CUSTOM", saved.getCategory());
-        assertEquals("CUSTOM", saved.getAssessmentProgramCode());
-        assertNotNull(saved.getAssessmentProgramVersionId());
         assertEquals(9, question.path("sourceQuestionNo").asInt());
         assertEquals(1, question.path("questionNo").asInt());
         verify(sessions).updateDraftId(9L, 88L);
     }
 
     @Test
-    void topikPdfImportKeepsSingleChoiceDefaultAndSourceReviewGate() throws Exception {
+    void pdfImportKeepsSingleChoiceDefaultAndSourceReviewGate() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         QuestionTypeResolver resolver = new QuestionTypeResolver();
         AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
-        AssessmentAuthoringCatalogService catalog = mock(AssessmentAuthoringCatalogService.class);
-        when(catalog.requireTemplate("TOPIK_II")).thenReturn(new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
-                "TOPIK_II", "TOPIK II", "TOPIK_II", "TOPIK", 10L, 1,
-                Map.of("READING", new AssessmentAuthoringCatalogService.SkillAuthoringPolicy(
-                        70, BigDecimal.valueOf(2), List.of("SINGLE_CHOICE")))));
+        AssessmentAuthoringCatalogService catalog =
+                new AssessmentAuthoringCatalogService(new PracticeContentRules());
         PracticeDraftContractService contract = new PracticeDraftContractService(
                 objectMapper, catalog, resolver, codec);
         PracticeDraftRepository drafts = mock(PracticeDraftRepository.class);
@@ -85,11 +77,10 @@ class PracticePdfDraftAssemblerContractTest {
         PracticePdfDraftAssembler assembler = new PracticePdfDraftAssembler(
                 drafts, mock(PracticePdfImportSessionService.class), objectMapper, contract);
 
-        PracticeDraft saved = assembler.assembleAndSaveDraft(session("TOPIK_II"), aiResponse(), 7L);
+        PracticeDraft saved = assembler.assembleAndSaveDraft(session(), aiResponse(), 7L);
         JsonNode question = objectMapper.readTree(saved.getDraftJson())
                 .path("sections").path(0).path("groups").path(0).path("questions").path(0);
 
-        assertEquals("TOPIK_II", saved.getCategory());
         assertEquals("SINGLE_CHOICE", question.path("questionType").asText());
         assertEquals("opt_2", question.path("answerSpec").path("correctOptionIds").path(0).asText());
         assertEquals("PDF_AI", question.path("importSource").asText());
@@ -101,12 +92,12 @@ class PracticePdfDraftAssemblerContractTest {
         ObjectMapper objectMapper = new ObjectMapper();
         QuestionTypeResolver resolver = new QuestionTypeResolver();
         AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
-        AssessmentAuthoringCatalogService catalog = mock(AssessmentAuthoringCatalogService.class);
-        when(catalog.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(customTemplate());
+        AssessmentAuthoringCatalogService catalog =
+                new AssessmentAuthoringCatalogService(new PracticeContentRules());
         PracticeDraftContractService contract = new PracticeDraftContractService(
                 objectMapper, catalog, resolver, codec);
         PracticeDraftRepository drafts = mock(PracticeDraftRepository.class);
-        PracticeDraft existing = new PracticeDraft("Bộ đề đang soạn", "Giữ mô tả", "CUSTOM",
+        PracticeDraft existing = new PracticeDraft("Bộ đề đang soạn", "Giữ mô tả",
                 "GLOBAL", null, "DRAFT", 7L, existingDraftJson());
         ReflectionTestUtils.setField(existing, "id", 55L);
         when(drafts.findByIdAndOwnerId(55L, 7L)).thenReturn(Optional.of(existing));
@@ -129,26 +120,11 @@ class PracticePdfDraftAssemblerContractTest {
         assertEquals("R1.2", r1.path("groups").path(1).path("groupCode").asText());
     }
 
-    private static AssessmentAuthoringCatalogService.ExamTemplatePolicy customTemplate() {
-        return new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
-                "CUSTOM_FLEXIBLE", "Bai luyen tuy chinh", "CUSTOM", "CUSTOM", 12L, 1,
-                Map.of("READING", new AssessmentAuthoringCatalogService.SkillAuthoringPolicy(
-                        40, BigDecimal.ONE, List.of("SINGLE_CHOICE", "MULTIPLE_CHOICE"))));
-    }
-
     private static PracticePdfImportSession session() {
-        return session("CUSTOM_FLEXIBLE");
-    }
-
-    private static PracticePdfImportSession session(String category) {
         PracticePdfImportSession session = new PracticePdfImportSession(
                 7L, "custom.pdf", "/tmp/custom.pdf", 1, "READY_FOR_AI",
                 LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now().plusHours(1));
         session.setId(9L);
-        session.setExamCategory(category);
-        session.setExamTemplateCode(category);
-        session.setAssessmentProgramCode("CUSTOM_FLEXIBLE".equals(category) ? "CUSTOM" : "TOPIK");
-        session.setAssessmentProgramVersionId("CUSTOM_FLEXIBLE".equals(category) ? 12L : 10L);
         session.setTargetTestNo(1);
         session.setTargetSkill("READING");
         session.setTargetLessonCode("R1");

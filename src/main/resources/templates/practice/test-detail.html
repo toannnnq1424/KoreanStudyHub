@@ -27,7 +27,7 @@
           <span>&gt;</span>
           <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" th:text="${view.set().title()}">Tên bộ đề</a>
           <span>&gt;</span>
-          <span>Bài thi Đầy đủ</span>
+          <span th:text="${testTitle}">Bài kiểm tra</span>
         </div>
       </div>
 

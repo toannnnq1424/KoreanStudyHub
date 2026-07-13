@@ -2,6 +2,8 @@ package com.ksh.features.practice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.QuestionExplanationCache;
 import com.ksh.features.practice.ai.OpenAiProperties;
@@ -23,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -131,7 +136,9 @@ public class ReadingListeningExplanationService {
             throw new IllegalArgumentException("Explanation context question type must be objective");
         }
         if (!context.stimulus().hasUsableEvidence()) {
-            return mockExplanationService.explain(context, "insufficient-approved-evidence");
+            return prepareForDisplay(
+                    mockExplanationService.explain(context, "insufficient-approved-evidence"),
+                    context);
         }
 
         VersionedCacheKeyParts versionedKey = buildCacheKeyParts(context);
@@ -141,7 +148,7 @@ public class ReadingListeningExplanationService {
         if (cached.isPresent()) {
             log.info("[ReadingListeningCache] Typed hit questionId={} questionVersionId={}",
                     context.questionId(), context.questionVersionId());
-            return cached.get();
+            return prepareForDisplay(cached.get(), context);
         }
 
         Object lock = cacheLocks.computeIfAbsent(keyParts.cacheKey(), key -> new Object());
@@ -149,24 +156,101 @@ public class ReadingListeningExplanationService {
             try {
                 cached = readValidCache(keyParts, context.questionId(), context.skill().name());
                 if (cached.isPresent()) {
-                    return cached.get();
+                    return prepareForDisplay(cached.get(), context);
                 }
                 long providerStart = PracticeAiMetrics.startNanos();
                 String aiJson = explanationClient.explain(context);
                 if (isValidExplanationJson(aiJson)) {
                     recordRlProvider(PracticeAiMetrics.ProviderOutcome.SUCCESS, providerStart);
                     writeVersionedCache(versionedKey, context, testId, aiJson);
-                    return aiJson;
+                    return prepareForDisplay(aiJson, context);
                 }
                 recordRlProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
                 String reason = openAiProperties.apiKey() == null || openAiProperties.apiKey().isBlank()
                         ? "api-key-not-configured"
                         : "provider-unavailable";
-                return mockExplanationService.explain(context, reason);
+                return prepareForDisplay(mockExplanationService.explain(context, reason), context);
             } finally {
                 cacheLocks.remove(keyParts.cacheKey(), lock);
             }
         }
+    }
+
+    /**
+     * Keeps stable option IDs in the provider/cache contract, but never exposes those
+     * internal IDs as learner-facing option labels.
+     */
+    private String prepareForDisplay(String explanationJson, ExplanationContext context) {
+        if (explanationJson == null || explanationJson.isBlank()) {
+            return explanationJson;
+        }
+        try {
+            JsonNode parsed = objectMapper.readTree(explanationJson);
+            if (!(parsed instanceof ObjectNode root)) {
+                return explanationJson;
+            }
+
+            Map<String, String> labelsByOptionId = new LinkedHashMap<>();
+            List<String> displayLabels = new java.util.ArrayList<>();
+            for (int index = 0; index < context.questionContent().options().size(); index++) {
+                String label = optionLabel(index, context.optionLabelMode());
+                labelsByOptionId.put(context.questionContent().options().get(index).id(), label);
+                displayLabels.add(label);
+            }
+
+            ArrayNode displayEliminated = objectMapper.createArrayNode();
+            JsonNode eliminatedOptions = root.path("eliminatedOptions");
+            if (eliminatedOptions.isArray()) {
+                for (JsonNode item : eliminatedOptions) {
+                    if (!(item instanceof ObjectNode option)) {
+                        continue;
+                    }
+                    String rawKey = option.path("optionKey").asText("").trim();
+                    String displayKey = labelsByOptionId.get(rawKey);
+                    if (displayKey == null && displayLabels.contains(rawKey)) {
+                        displayKey = rawKey;
+                    }
+                    if (displayKey == null || displayKey.isBlank()) {
+                        continue;
+                    }
+                    ObjectNode displayOption = option.deepCopy();
+                    displayOption.put("optionKey", displayKey);
+                    displayEliminated.add(displayOption);
+                }
+            }
+            root.set("eliminatedOptions", displayEliminated);
+
+            List<String> correctAnswers = new java.util.ArrayList<>();
+            for (String optionId : context.answerSpec().correctOptionIds()) {
+                String displayKey = labelsByOptionId.get(optionId);
+                if (displayKey != null && !displayKey.isBlank()) {
+                    correctAnswers.add(displayKey);
+                }
+            }
+            if (correctAnswers.isEmpty()
+                    && context.answerSpec().correctValue() != null
+                    && !context.answerSpec().correctValue().isBlank()) {
+                correctAnswers.add(context.answerSpec().correctValue());
+            }
+            if (correctAnswers.isEmpty()) {
+                for (com.ksh.features.practice.assessment.AnswerSpec.BlankAnswer blank
+                        : context.answerSpec().blanks()) {
+                    correctAnswers.addAll(blank.acceptedValues());
+                }
+            }
+            root.put("correctAnswer", String.join(", ", correctAnswers));
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception exception) {
+            log.warn("[ReadingListeningCache] Could not prepare explanation display questionId={} exception={}",
+                    context.questionId(), exceptionCategory(exception));
+            return explanationJson;
+        }
+    }
+
+    private static String optionLabel(int index, String optionLabelMode) {
+        return "ALPHA".equalsIgnoreCase(optionLabelMode)
+                ? String.valueOf((char) ('A' + index))
+                : String.valueOf(index + 1);
     }
 
     public ExplanationLearnerOverlay learnerOverlay(ExplanationContext context, BigDecimal possiblePoints) {
@@ -177,7 +261,6 @@ public class ReadingListeningExplanationService {
                     context.questionType(),
                     java.util.List.of(),
                     null,
-                    java.util.Map.of(),
                     java.util.Map.of(),
                     null
             );
@@ -274,7 +357,6 @@ public class ReadingListeningExplanationService {
                     context.questionId(),
                     context.questionVersionId(),
                     testId,
-                    normalize(context.programCode()),
                     context.skill().name(),
                     context.questionType().name(),
                     keyParts.questionHash(),
@@ -284,8 +366,6 @@ public class ReadingListeningExplanationService {
                     explanationJson,
                     keyParts.model(),
                     keyParts.promptVersion(),
-                    context.promptProfile() == null ? null : context.promptProfile().code(),
-                    context.promptProfile() == null ? null : context.promptProfile().version(),
                     keyParts.schemaVersion(),
                     keyParts.language()
             );
@@ -416,7 +496,6 @@ public class ReadingListeningExplanationService {
         String questionHash = sha256(framed(
                 normalize(context.schemaVersion()),
                 normalize(String.valueOf(context.questionVersionId())),
-                normalize(context.programCode()),
                 context.skill().name(),
                 context.questionType().name(),
                 normalize(context.prompt()),
@@ -424,9 +503,7 @@ public class ReadingListeningExplanationService {
                 answerSpecHash,
                 stimulusHash,
                 normalize(context.teacherExplanation()),
-                normalize(context.optionLabelMode()),
-                context.promptProfile() == null ? "" : normalize(context.promptProfile().code()),
-                context.promptProfile() == null ? "" : String.valueOf(context.promptProfile().version())
+                normalize(context.optionLabelMode())
         ));
         String model = normalize(explanationClient.model());
         String promptVersion = normalize(explanationClient.promptVersion());

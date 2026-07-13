@@ -29,8 +29,7 @@
               th:text="${selectedSet != null ? 'Lịch sử · ' + selectedSet.title : 'Lịch sử sửa đổi học liệu'}">Lịch sử sửa đổi học liệu</h1>
           <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Mỗi lần xuất bản là một phiên bản bất biến. Khôi phục sẽ tạo phiên bản mới và không sửa lịch sử cũ.</p>
           <p style="font-size:0.8rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Ví dụ: xuất bản 10 lần tạo v1-v10; khôi phục v3 sẽ tạo v11. Autosave bản nháp không tự tạo published revision.</p>
-          <p th:if="${selectedSet != null}" style="font-size:0.8rem; color:var(--pp-text-muted); margin:6px 0 0 0;"
-             th:text="${(!#strings.isEmpty(selectedSet.assessmentProgramCode) ? selectedSet.assessmentProgramCode : selectedSet.topikLevel) + (!#strings.isEmpty(selectedSet.examTemplateCode) ? ' · ' + selectedSet.examTemplateCode : '')}">TOPIK · TOPIK_II</p>
+          <p th:if="${selectedSet != null}" style="font-size:0.8rem; color:var(--pp-text-muted); margin:6px 0 0 0;">Học liệu luyện tập KSH</p>
         </div>
         <a th:if="${selectedSetId != null}" th:href="@{/practice/manage/revisions}" class="pi-btn-secondary" style="text-decoration:none; padding:9px 13px;">Xem toàn bộ</a>
       </div>
@@ -82,19 +81,10 @@
                   <code style="font-size:0.72rem; color:var(--pp-text-muted);" th:text="${row.version.contentHash != null ? #strings.substring(row.version.contentHash, 0, 12) : 'legacy'}">hash</code>
                 </td>
                 <td style="text-align:right;">
-                  <form th:if="${row.canRestore && !row.requiresOverrideReason}" th:action="@{/practice/manage/sets/{setId}/versions/{versionId}/restore(setId=${row.set.id},versionId=${row.version.id})}" method="post" onsubmit="return confirm('Tạo một phiên bản xuất bản mới từ phiên bản đã chọn? Lịch sử hiện tại sẽ được giữ nguyên.');" style="margin:0; display:inline-block;">
+                  <form th:if="${row.canRestore}" th:action="@{/practice/manage/sets/{setId}/versions/{versionId}/restore(setId=${row.set.id},versionId=${row.version.id})}" method="post" onsubmit="return confirm('Tạo một phiên bản xuất bản mới từ phiên bản đã chọn? Lịch sử hiện tại sẽ được giữ nguyên.');" style="margin:0; display:inline-block;">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <button type="submit" class="pp-table-link" style="background:none; border:none; padding:0; cursor:pointer; font-weight:600;">Khôi phục</button>
                   </form>
-                  <details th:if="${row.canRestore && row.requiresOverrideReason}" class="pp-override-details pp-override-details-right">
-                    <summary>Can thiệp và khôi phục</summary>
-                    <form th:action="@{/practice/manage/sets/{setId}/versions/{versionId}/restore(setId=${row.set.id},versionId=${row.version.id})}" method="post" onsubmit="return confirm('Tạo phiên bản mới từ lịch sử bằng quyền can thiệp khẩn cấp?');" class="pp-override-form">
-                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-                      <label th:for="'restore-override-' + ${row.version.id}">Lý do can thiệp</label>
-                      <textarea th:id="'restore-override-' + ${row.version.id}" name="overrideReason" required maxlength="500" rows="3" placeholder="Mô tả lý do cần khôi phục phiên bản này"></textarea>
-                      <button type="submit" class="pi-btn-primary">Xác nhận khôi phục</button>
-                    </form>
-                  </details>
                   <span th:unless="${row.canRestore}" style="font-size:0.78rem; color:var(--pp-text-muted);">Chỉ xem</span>
                 </td>
               </tr>

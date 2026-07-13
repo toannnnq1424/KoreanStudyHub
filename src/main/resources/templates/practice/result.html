@@ -37,7 +37,7 @@
           
           <p class="pi-cert-completion">
             Đã hoàn thành bài thi thử <span th:text="${result.set().skillLabel()}">Writing</span>
-            <strong th:text="'“' + ${result.set().title()} + '”'">"TOPIK II - Viết câu 53"</strong>
+            <strong th:text="'“' + ${result.set().title()} + '”'">"Bài luyện Viết Q53"</strong>
           </p>
 
           <!-- Scores row -->
@@ -57,7 +57,7 @@
           <div style="font-size: 13.5px; color: #64748b; font-weight: 600; display: flex; gap: 16px;">
             <span th:text="'Kỹ năng: ' + ${result.set().skillLabel()}">Writing</span>
             <span>•</span>
-            <span th:text="'Phân loại: ' + ${result.set().categoryLabel()}">TOPIK II</span>
+            <span th:text="'Kỹ năng: ' + ${result.set().skillLabel()}">Đọc</span>
           </div>
         </div>
 
@@ -70,7 +70,7 @@
               <!-- Speaking Icon (Microphone) -->
               <svg th:if="${result.set().skill() == 'SPEAKING'}" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               
-              <span th:text="${result.set().skillLabel()}">TOPIK WRITING</span>
+              <span th:text="${result.set().skillLabel()}">PHẦN VIẾT</span>
               <small>EVALUATED</small>
             </div>
           </div>
@@ -104,7 +104,7 @@
     <div class="pi-overview-analysis" id="pi-overview-analysis-card">
       <h2 class="pi-overview-title">Phân tích kết quả tổng quan</h2>
 
-      <!-- Cấp 1 Tabs: TOPIK Parts -->
+      <!-- Cấp 1: nhóm tiêu chí theo kỹ năng -->
       <div class="pi-part-tabs" id="pi-part-tabs-container">
         <!-- Will be dynamically populated via JS based on skill / title -->
       </div>

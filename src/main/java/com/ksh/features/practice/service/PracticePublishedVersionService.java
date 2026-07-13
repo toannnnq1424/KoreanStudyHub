@@ -227,10 +227,6 @@ public class PracticePublishedVersionService {
             Map<String, Object> document = new LinkedHashMap<>();
             document.put("title", set.getTitle());
             document.put("description", set.getDescription());
-            document.put("detectedCategory", set.getTopikLevel());
-            document.put("assessmentProgramCode", set.getAssessmentProgramCode());
-            document.put("assessmentProgramVersionId", set.getAssessmentProgramVersionId());
-            document.put("examTemplateCode", set.getExamTemplateCode());
             document.put("restoredFromPublishedVersionId", publishedVersionId);
             document.put("restoredFromVersionNumber", published.getVersionNumber());
             root.put("document", document);
@@ -343,20 +339,12 @@ public class PracticePublishedVersionService {
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("questionNo", question.getQuestionNo());
         node.put("questionType", question.getQuestionType());
-        node.put("canonicalQuestionType", question.getCanonicalQuestionType());
         node.put("prompt", question.getPrompt());
         node.put("answerKey", question.getAnswerKey());
         node.put("answer", Map.of("value", question.getAnswerKey() == null
                 ? "" : question.getAnswerKey()));
         node.put("explanationVi", question.getExplanation());
         node.put("points", question.getPoints());
-        node.put("scoringPolicyCode", question.getScoringPolicyCode());
-        node.put("scoringProfileCode", question.getScoringProfileCode());
-        node.put("scoringProfileVersion", question.getScoringProfileVersion());
-        node.put("promptProfileCode", question.getPromptProfileCode());
-        node.put("promptProfileVersion", question.getPromptProfileVersion());
-        node.put("rubricProfileCode", question.getRubricProfileCode());
-        node.put("rubricProfileVersion", question.getRubricProfileVersion());
         if (question.getWritingTaskType() != null) {
             node.put("essayTaskType", question.getWritingTaskType().name());
         }

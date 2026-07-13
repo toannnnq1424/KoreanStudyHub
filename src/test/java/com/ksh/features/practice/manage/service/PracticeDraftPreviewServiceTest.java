@@ -3,17 +3,12 @@ package com.ksh.features.practice.manage.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
+import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class PracticeDraftPreviewServiceTest {
 
@@ -22,8 +17,8 @@ class PracticeDraftPreviewServiceTest {
         ObjectMapper objectMapper = new ObjectMapper();
         QuestionTypeResolver resolver = new QuestionTypeResolver();
         AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
-        AssessmentAuthoringCatalogService catalog = mock(AssessmentAuthoringCatalogService.class);
-        when(catalog.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(template());
+        AssessmentAuthoringCatalogService catalog =
+                new AssessmentAuthoringCatalogService(new PracticeContentRules());
         PracticeDraftContractService contract = new PracticeDraftContractService(
                 objectMapper, catalog, resolver, codec);
         PracticeDraftPreviewService service = new PracticeDraftPreviewService(
@@ -42,13 +37,6 @@ class PracticeDraftPreviewServiceTest {
         assertFalse(serialized.contains("evil.example"));
         assertFalse(serialized.contains("answerSpec"));
         assertFalse(serialized.contains("correctOptionIds"));
-    }
-
-    private static AssessmentAuthoringCatalogService.ExamTemplatePolicy template() {
-        return new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
-                "CUSTOM_FLEXIBLE", "Custom", "CUSTOM", "CUSTOM", 12L, 1,
-                Map.of("LISTENING", new AssessmentAuthoringCatalogService.SkillAuthoringPolicy(
-                        40, BigDecimal.ONE, List.of("SINGLE_CHOICE"))));
     }
 
     private static String draftJson() {

@@ -18,15 +18,9 @@
 
     <section class="excel-import-form">
       <div class="excel-template-row">
-        <div>
-          <label class="form-label" for="template-code">Mẫu đề</label>
-          <select id="template-code" class="form-input" disabled>
-            <option th:each="template : ${authoringCatalog.templates}"
-                    th:value="${template.code}" th:text="${template.displayName}"
-                    th:selected="${template.code == selectedTemplateCode}">Mẫu đề</option>
-          </select>
-        </div>
-        <a id="download-template" class="btn-action btn-sec" href="#">Tải file mẫu</a>
+        <span></span>
+        <a id="download-template" class="btn-action btn-sec"
+           th:href="@{/practice/manage/excel/template}">Tải file mẫu</a>
       </div>
 
       <label class="form-label" for="excel-file">File XLSX</label>
@@ -62,7 +56,6 @@
     <div class="excel-preview-body">
       <div class="excel-preview-context">
         <div><span>Tệp</span><strong id="preview-file-name">-</strong></div>
-        <div><span>Mẫu đề</span><strong id="preview-template-name">-</strong></div>
         <div><span>Đích nhập</span><strong th:text="|Test ${testNo} · ${lessonCode}|">Test 1 · R1</strong></div>
       </div>
       <div class="excel-summary-grid" aria-label="Tổng hợp dữ liệu import">
@@ -118,14 +111,14 @@
             <th>Câu / Nội dung đề</th>
             <th>Câu / Ghi chú GV</th>
             <th>Dạng / Đáp án</th>
-            <th>Option A / Cặp 1</th>
-            <th>Option B / Cặp 2</th>
-            <th>Option C / Cặp 3</th>
-            <th>Option D / Cặp 4</th>
-            <th>Option E / Cặp 5</th>
-            <th>Option F / Cặp 6</th>
-            <th>Option G / Cặp 7</th>
-            <th>Option H / Cặp 8</th>
+            <th>Phương án A</th>
+            <th>Phương án B</th>
+            <th>Phương án C</th>
+            <th>Phương án D</th>
+            <th>Phương án E</th>
+            <th>Phương án F</th>
+            <th>Phương án G</th>
+            <th>Phương án H</th>
           </tr>
           </thead>
           <tbody id="preview-rows"></tbody>
@@ -218,8 +211,6 @@
   const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
   const SELECTED_TEST_NO = /*[[${testNo}]]*/ null;
   const SELECTED_LESSON_CODE = /*[[${lessonCode}]]*/ null;
-  const SELECTED_TEMPLATE_CODE = /*[[${selectedTemplateCode}]]*/ null;
-  const templateSelect = document.getElementById('template-code');
   const fileInput = document.getElementById('excel-file');
   const mediaFileInput = document.getElementById('excel-media-files');
   const previewButton = document.getElementById('preview-button');
@@ -233,12 +224,6 @@
   let activeView = 'STRUCTURE';
   let pendingMediaByRef = new Map();
   const mediaObjectUrls = new Map();
-
-  function updateTemplateLink() {
-    if (SELECTED_TEMPLATE_CODE) templateSelect.value = SELECTED_TEMPLATE_CODE;
-    document.getElementById('download-template').href = `/practice/manage/excel/templates/${encodeURIComponent(templateSelect.value)}`;
-    resetPreview();
-  }
 
   function resetPreview() {
     previewResult = null;
@@ -259,7 +244,6 @@
     if (!fileInput.files[0]) throw new Error('Vui lòng chọn file Excel.');
     const body = new FormData();
     body.append('file', fileInput.files[0]);
-    body.append('templateCode', templateSelect.value);
     body.append('draftId', LINKED_DRAFT_ID);
     body.append('testNo', SELECTED_TEST_NO);
     body.append('lessonCode', SELECTED_LESSON_CODE);
@@ -527,19 +511,12 @@
 
           const optionArea = document.createElement('div');
           optionArea.className = 'excel-question-options';
-          const pairs = row.detail?.matchingPairs || [];
           const options = row.detail?.options || [];
-          (pairs.length ? pairs : options).forEach((item, index) => {
+          options.forEach((item, index) => {
             const option = document.createElement('div');
             option.className = 'excel-question-option';
-            if (pairs.length) {
-              appendText(option, `${item.leftId}: ${item.leftText || '-'} → ${item.rightId}: ${item.rightText || '-'}`);
-              appendMedia(option, `Ảnh ${item.leftId}`, item.leftImageReference, 'image');
-              appendMedia(option, `Ảnh ${item.rightId}`, item.rightImageReference, 'image');
-            } else {
-              appendText(option, `${item.label || String.fromCharCode(65 + index)}: ${item.text || '(phương án bằng ảnh)'}`);
-              appendMedia(option, `Ảnh ${item.label || index + 1}`, item.imageReference, 'image');
-            }
+            appendText(option, `${item.label || String.fromCharCode(65 + index)}: ${item.text || '(phương án bằng ảnh)'}`);
+            appendMedia(option, `Ảnh ${item.label || index + 1}`, item.imageReference, 'image');
             optionArea.appendChild(option);
           });
           if (optionArea.childNodes.length) question.appendChild(optionArea);
@@ -715,22 +692,14 @@
       tr.appendChild(contract);
 
       const options = row.detail?.options || [];
-      const pairs = row.detail?.matchingPairs || [];
       for (let index = 0; index < 8; index++) {
         const optionCell = document.createElement('td');
         const option = options[index];
-        const pair = pairs[index];
-        if (pair) {
-          appendText(optionCell,
-            `${pair.leftId}: ${pair.leftText || '-'} → ${pair.rightId}: ${pair.rightText || '-'}`);
-          appendMedia(optionCell, `Ảnh ${pair.leftId}`, pair.leftImageReference, 'image');
-          appendMedia(optionCell, `Ảnh ${pair.rightId}`, pair.rightImageReference, 'image');
-        }
-        if (option && !pair) {
+        if (option) {
           if (option.text) appendText(optionCell, `${option.label}: ${option.text}`);
           appendMedia(optionCell, `Ảnh ${option.label}`, option.imageReference, 'image');
         }
-        if (!pair && !option) appendText(optionCell, null);
+        if (!option) appendText(optionCell, null);
         tr.appendChild(optionCell);
       }
       return tr;
@@ -756,7 +725,6 @@
     activeFilter = 'ALL';
     activeView = 'STRUCTURE';
     document.getElementById('preview-file-name').textContent = fileInput.files[0]?.name || '-';
-    document.getElementById('preview-template-name').textContent = templateSelect.selectedOptions[0]?.textContent || templateSelect.value;
     document.getElementById('summary-total').textContent = result.questionCount;
     document.getElementById('summary-importable').textContent = result.importableQuestionCount;
     document.getElementById('summary-warning').textContent = result.warningRowCount;
@@ -865,7 +833,6 @@
     previewModal.close();
     fileInput.click();
   });
-  templateSelect.addEventListener('change', updateTemplateLink);
   fileInput.addEventListener('change', resetPreview);
   mediaFileInput.addEventListener('change', () => {
     clearMediaObjectUrls();
@@ -875,7 +842,6 @@
     }
   });
   window.addEventListener('beforeunload', clearMediaObjectUrls);
-  updateTemplateLink();
 </script>
 </body>
 </html>

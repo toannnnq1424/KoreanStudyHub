@@ -3,6 +3,7 @@ package com.ksh.features.practice.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
+import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
 import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
@@ -16,9 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import com.ksh.features.practice.repository.PracticePdfRegionAnnotationRepository;
@@ -54,7 +52,7 @@ class PracticePdfImportSessionServiceTest {
         draftRepository = mock(PracticeDraftRepository.class);
         storageService = mock(PracticePdfStorageService.class);
         assetService = mock(LecturerAssetService.class);
-        catalogService = mock(AssessmentAuthoringCatalogService.class);
+        catalogService = new AssessmentAuthoringCatalogService(new PracticeContentRules());
         
         sessionService = new PracticePdfImportSessionService(
                 sessionRepository,
@@ -138,14 +136,14 @@ class PracticePdfImportSessionServiceTest {
         when(draftRepository.findByIdAndOwnerId(55L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(jakarta.persistence.EntityNotFoundException.class,
-                () -> sessionService.createSession(1L, file, "TOPIK_II", "Import", 55L));
+                () -> sessionService.createSession(1L, file, "Import", 55L));
 
         verifyNoInteractions(storageService);
         verify(sessionRepository, never()).save(any());
     }
 
     @Test
-    void createSessionPersistsResolvedTemplateAndStandaloneTarget() throws Exception {
+    void createSessionPersistsStandaloneTargetWithoutProgramMetadata() throws Exception {
         MultipartFile file = mock(MultipartFile.class);
         Path storedPdf = tempDir.resolve("reading.pdf");
         try (PDDocument document = new PDDocument()) {
@@ -154,24 +152,15 @@ class PracticePdfImportSessionServiceTest {
         }
 
         when(file.getOriginalFilename()).thenReturn("reading.pdf");
-        when(catalogService.requireTemplate("CUSTOM_FLEXIBLE")).thenReturn(
-                new AssessmentAuthoringCatalogService.ExamTemplatePolicy(
-                        "CUSTOM_FLEXIBLE", "Bài luyện tùy chỉnh", "CUSTOM", "CUSTOM",
-                        12L, 1, Map.of("READING",
-                        new AssessmentAuthoringCatalogService.SkillAuthoringPolicy(
-                                40, BigDecimal.ONE, List.of("SINGLE_CHOICE")))));
         when(storageService.store(file, 1L)).thenReturn(new PracticePdfStorageService.StoredPdf(
                 "practice-pdfs/1/test.pdf", storedPdf,
                 "reading.pdf", 20L));
         when(sessionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         PracticePdfImportSession result = sessionService.createSession(
-                1L, file, "CUSTOM_FLEXIBLE", "Reading", null,
+                1L, file, "Reading", null,
                 2, "READING", "R2");
 
-        assertEquals("CUSTOM", result.getExamCategory());
-        assertEquals("CUSTOM", result.getAssessmentProgramCode());
-        assertEquals("CUSTOM_FLEXIBLE", result.getExamTemplateCode());
         assertEquals(2, result.getTargetTestNo());
         assertEquals("READING", result.getTargetSkill());
         assertEquals("R2", result.getTargetLessonCode());

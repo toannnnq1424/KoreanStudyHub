@@ -303,7 +303,6 @@ public class ReadingListeningExplanationClient {
         payload.put("questionId", String.valueOf(context.questionId()));
         payload.put("questionVersionId", context.questionVersionId());
         payload.put("questionNo", context.questionNo());
-        payload.put("programCode", context.programCode());
         payload.put("skill", context.skill().name());
         payload.put("questionType", context.questionType().name());
         payload.put("prompt", context.prompt());
@@ -372,10 +371,8 @@ public class ReadingListeningExplanationClient {
     private static String typedSystemPrompt(CanonicalQuestionType questionType) {
         String typeRule = switch (questionType) {
             case SINGLE_CHOICE -> "Giải thích đúng một correctOptionId và loại từng option ID còn lại.";
-            case MULTIPLE_CHOICE -> "Giải thích đầy đủ tập correctOptionIds; không coi một đáp án đúng riêng lẻ là toàn bộ đáp án.";
             case TRUE_FALSE_NOT_GIVEN -> "Phân biệt nghiêm ngặt TRUE, FALSE và NOT_GIVEN dựa trên bằng chứng.";
             case FILL_BLANK -> "Giải thích từng blank ID và các acceptedValues; không tự thêm regex hay đáp án mới.";
-            case MATCHING -> "Giải thích từng cặp left ID -> right ID trong matchingPairs.";
             case ESSAY, SPEAKING -> throw new IllegalArgumentException(
                     "Reading/Listening explanation does not support subjective type " + questionType);
         };

@@ -33,7 +33,7 @@ public class SpeakingEvaluationPromptBuilder {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "SPEAKING");
         payload.put("platform", "KSH Korean Study Hub");
-        payload.put("score_policy", "KSH internal practice score only; not official TOPIK Speaking.");
+        payload.put("score_policy", "KSH internal practice score only; not an official certificate score.");
         payload.put("task", map(
                 "attempt_id", request.attemptId(),
                 "question_id", request.questionId(),

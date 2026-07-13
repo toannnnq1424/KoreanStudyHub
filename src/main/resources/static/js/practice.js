@@ -144,7 +144,7 @@
       : '';
     return `
       <section class="ksh-ai-summary overview">
-        <span>${escape(data.band_label || 'KSH TOPIK Writing')}</span>
+        <span>${escape(data.band_label || 'KSH Writing')}</span>
         <strong>${Math.round(parseFloat(data.percentage !== undefined ? data.percentage : toHundred(data.overall_score || data.score || 0)) || 0)}</strong><em class="ksh-score-denom">/100</em>
         ${raw}
         <p>${escape(data.summary_vi || data.summary || 'Chưa có nhận xét tổng quan.')}</p>
@@ -215,7 +215,7 @@
     return `
       <section class="ksh-ai-summary upgrade">
         <span>Bài viết nâng cấp</span>
-        <p>Giữ ý tưởng gốc, chỉnh văn phong TOPIK, ngữ pháp, cách chữ và từ vựng.</p>
+        <p>Giữ ý tưởng gốc, chỉnh văn phong bài thi, ngữ pháp, cách chữ và từ vựng.</p>
       </section>
       <section class="ksh-ai-text">
         <div>${parseAnnotatedText(upgraded, null) || 'KSH chưa có bản nâng cấp.'}</div>
@@ -320,17 +320,13 @@
           <label>
             <span>Kiểu câu hỏi</span>
             <select class="q-type">
-              ${['MCQ','TRUE_FALSE_NOT_GIVEN','MATCHING_INFORMATION','FILL_BLANK','ORDERING','TEXT_COMPLETION','SHORT_TEXT','ESSAY','SPEAKING']
+              ${['SINGLE_CHOICE','TRUE_FALSE_NOT_GIVEN','FILL_BLANK','ESSAY','SPEAKING']
                 .map((type) => {
                   let label = type;
                   switch(type) {
-                    case 'MCQ': label = '객관식 (Trắc nghiệm)'; break;
+                    case 'SINGLE_CHOICE': label = '객관식 (Trắc nghiệm chọn một)'; break;
                     case 'TRUE_FALSE_NOT_GIVEN': label = '맞다/틀리다 (Đúng/Sai)'; break;
-                    case 'MATCHING_INFORMATION': label = '선 잇기 (Nối thông tin)'; break;
                     case 'FILL_BLANK': label = '빈칸 채우기 (Điền từ)'; break;
-                    case 'ORDERING': label = '순서 배열 (Sắp xếp thứ tự)'; break;
-                    case 'TEXT_COMPLETION': label = '문장 완성 (Hoàn thành câu)'; break;
-                    case 'SHORT_TEXT': label = '단답형 (Trả lời ngắn)'; break;
                     case 'ESSAY': label = '쓰기/주관식 (Tự luận)'; break;
                     case 'SPEAKING': label = '말하기 (Nói)'; break;
                   }
@@ -375,7 +371,7 @@
     };
 
     addButtons.forEach((btn) => btn.addEventListener('click', () => {
-      list.appendChild(createCard({ questionType: 'MCQ', points: 1 }));
+      list.appendChild(createCard({ questionType: 'SINGLE_CHOICE', points: 1 }));
       refreshCount();
       list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }));
@@ -385,7 +381,6 @@
         title: document.getElementById('draftTitle').value.trim(),
         description: document.getElementById('draftDescription').value.trim(),
         skill: document.getElementById('draftSkill').value,
-        topikLevel: document.getElementById('draftLevel').value,
         scope: document.getElementById('draftScope').value,
         classId: document.getElementById('draftClassId').value || null,
         sourcePdfPath: null,
@@ -875,7 +870,7 @@
       if (!consentDialog || typeof consentDialog.showModal !== 'function') {
         return Promise.resolve(window.confirm(
           'Bản ghi chỉ dùng cho luyện tập, được giữ riêng tư và tuân theo chính sách lưu giữ media Nói. '
-          + 'Bạn có thể xóa trước khi nộp. Đây không phải chấm điểm TOPIK chính thức và hiện chưa có '
+          + 'Bạn có thể xóa trước khi nộp. Đây là điểm luyện tập nội bộ và hiện chưa có '
           + 'đánh giá phát âm bằng AI. Bạn đồng ý ghi âm?'
         )).then((accepted) => {
           if (accepted) rememberConsent();

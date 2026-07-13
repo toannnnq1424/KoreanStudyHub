@@ -116,8 +116,6 @@ public class PracticeDraftPreviewService {
         return new QuestionContent(
                 content.schemaVersion(),
                 options,
-                content.matchingLeftItems(),
-                content.matchingRightItems(),
                 content.blanks(),
                 safeMediaReference(content.imageReference()),
                 safeMediaReference(content.audioReference())

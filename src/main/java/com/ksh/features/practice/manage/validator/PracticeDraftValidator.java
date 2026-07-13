@@ -6,10 +6,10 @@ import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
-import com.ksh.features.practice.assessment.AssessmentProgramPolicyService;
 import com.ksh.features.practice.assessment.AssessmentSkill;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,25 +30,25 @@ public class PracticeDraftValidator {
 
     private final ObjectMapper objectMapper;
     private final AssessmentAuthoringCatalogService catalogService;
-    private final AssessmentProgramPolicyService policyService;
     private final AssessmentContractCodec contractCodec;
     private final QuestionTypeResolver questionTypeResolver;
+    private final PracticeContentRules contentRules;
 
     public PracticeDraftValidator(ObjectMapper objectMapper) {
-        this(objectMapper, null, null, null, new QuestionTypeResolver());
+        this(objectMapper, null, null, new QuestionTypeResolver(), new PracticeContentRules());
     }
 
     @Autowired
     public PracticeDraftValidator(ObjectMapper objectMapper,
                                   AssessmentAuthoringCatalogService catalogService,
-                                  AssessmentProgramPolicyService policyService,
                                   AssessmentContractCodec contractCodec,
-                                  QuestionTypeResolver questionTypeResolver) {
+                                  QuestionTypeResolver questionTypeResolver,
+                                  PracticeContentRules contentRules) {
         this.objectMapper = objectMapper;
         this.catalogService = catalogService;
-        this.policyService = policyService;
         this.contractCodec = contractCodec;
         this.questionTypeResolver = questionTypeResolver;
+        this.contentRules = contentRules;
     }
 
     public ValidationResult validate(String draftJson) {
@@ -61,18 +61,8 @@ public class PracticeDraftValidator {
         try {
             JsonNode root = objectMapper.readTree(draftJson);
             
-            // Validate category
-            JsonNode docNode = root.path("document");
-            String category = docNode.path("detectedCategory").asText("UNCLASSIFIED").trim();
-            String programCode = docNode.path("assessmentProgramCode").asText(
-                    category.toUpperCase().startsWith("TOPIK") ? "TOPIK" : "CUSTOM");
-            String templateCode = docNode.path("examTemplateCode").asText(
-                    AssessmentAuthoringCatalogService.defaultTemplateForCategory(category));
-            AssessmentAuthoringCatalogService.ExamTemplatePolicy template = resolveTemplate(
-                    messages, templateCode, programCode);
-            if (category.isEmpty() || "UNCLASSIFIED".equalsIgnoreCase(category)) {
-                messages.add(new ValidationMsg("BLOCKING", "Phân loại học liệu (Category) là bắt buộc trước khi xuất bản. Vui lòng chọn phân loại hợp lệ."));
-            }
+            AssessmentAuthoringCatalogService.ExamTemplatePolicy template =
+                    catalogService == null ? null : catalogService.defaultTemplate();
 
             TestIndex testIndex = validateTests(messages, root.path("tests"), template);
             JsonNode sections = root.path("sections");
@@ -96,8 +86,7 @@ public class PracticeDraftValidator {
                             template, skill);
 
                     JsonNode groups = sec.path("groups");
-                    int localQuestionNo = 1;
-                    int sectionQuestionCount = 0;
+                    int localQuestionNo = "WRITING".equals(skill) ? 51 : 1;
                     Set<String> groupCodes = new HashSet<>();
                     if (!groups.isArray() || groups.size() == 0) {
                         messages.add(new ValidationMsg("BLOCKING", String.format("Phần thi '%s' trống rỗng, không chứa Nhóm câu hỏi nào.", sTitle), sIdx, null, null));
@@ -114,7 +103,6 @@ public class PracticeDraftValidator {
                                 messages.add(new ValidationMsg("BLOCKING", String.format("Nhóm '%s' trong phần '%s' chưa có câu hỏi nào.", gLabel, sTitle), sIdx, gIdx, null));
                             } else {
                                 questionCount += questions.size();
-                                sectionQuestionCount += questions.size();
                                 for (int qIdx = 0; qIdx < questions.size(); qIdx++) {
                                     JsonNode q = questions.get(qIdx);
                                     int qNo = q.path("questionNo").asInt(qIdx + 1);
@@ -142,8 +130,7 @@ public class PracticeDraftValidator {
                                     CanonicalQuestionType canonicalType = resolveQuestionType(
                                             messages, type, sIdx, gIdx, qIdx);
                                     if (canonicalType != null) {
-                                        validatePolicy(messages, template, programCode, skill, canonicalType,
-                                                sIdx, gIdx, qIdx);
+                                        validatePolicy(messages, skill, canonicalType, sIdx, gIdx, qIdx);
                                     }
 
                                     if (prompt.isBlank()) {
@@ -162,8 +149,7 @@ public class PracticeDraftValidator {
                                     JsonNode options = q.path("options");
                                     JsonNode answer = q.path("answer");
 
-                                    if (canonicalType == CanonicalQuestionType.SINGLE_CHOICE
-                                            || canonicalType == CanonicalQuestionType.MULTIPLE_CHOICE) {
+                                    if (canonicalType == CanonicalQuestionType.SINGLE_CHOICE) {
                                         validateOptionCount(messages, skillPolicy, canonicalType, options,
                                                 qNo, sIdx, gIdx, qIdx);
                                         if (!hasLegacyOrTypedAnswer(q, answer)) {
@@ -185,15 +171,7 @@ public class PracticeDraftValidator {
                             }
                         }
                     }
-                    if (skillPolicy != null && sectionQuestionCount > skillPolicy.maxQuestions()) {
-                        messages.add(new ValidationMsg(
-                                "BLOCKING",
-                                "SECTION_QUESTION_LIMIT_EXCEEDED",
-                                "Phần " + sec.path("lessonCode").asText(sTitle) + " có "
-                                        + sectionQuestionCount + " câu, vượt giới hạn "
-                                        + skillPolicy.maxQuestions() + " câu của mẫu đề.",
-                                sIdx, null, null));
-                    }
+                    validateWritingSection(messages, sec, skill, sIdx);
                 }
             }
         } catch (Exception e) {
@@ -215,13 +193,6 @@ public class PracticeDraftValidator {
                     "TEST_REQUIRED",
                     "Bộ đề phải có ít nhất một Test trước các phần L/R/W/S."));
             return new TestIndex(clientIdByNumber, numberByClientId);
-        }
-        if (template != null && tests.size() > template.maxTests()) {
-            messages.add(new ValidationMsg(
-                    "BLOCKING",
-                    "TEST_LIMIT_EXCEEDED",
-                    "Bộ đề có " + tests.size() + " test, vượt giới hạn " + template.maxTests()
-                            + " test của mẫu đề."));
         }
         for (int index = 0; index < tests.size(); index++) {
             JsonNode test = tests.get(index);
@@ -378,25 +349,6 @@ public class PracticeDraftValidator {
                              Map<String, Integer> numberByClientId) {
     }
 
-    private AssessmentAuthoringCatalogService.ExamTemplatePolicy resolveTemplate(
-            List<ValidationMsg> messages, String templateCode, String programCode) {
-        if (catalogService == null) {
-            return null;
-        }
-        try {
-            AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.requireTemplate(templateCode);
-            if (!template.programCode().equalsIgnoreCase(programCode)) {
-                messages.add(new ValidationMsg("BLOCKING", "PROGRAM_TEMPLATE_MISMATCH",
-                        "Chương trình và mẫu đề không khớp nhau."));
-            }
-            return template;
-        } catch (IllegalArgumentException exception) {
-            messages.add(new ValidationMsg("BLOCKING", "EXAM_TEMPLATE_UNSUPPORTED",
-                    "Mẫu đề thi chưa được bật hoặc không tồn tại."));
-            return null;
-        }
-    }
-
     private void validateImportedStimulusReview(List<ValidationMsg> messages,
                                                 JsonNode group,
                                                 int sIdx,
@@ -448,35 +400,17 @@ public class PracticeDraftValidator {
     }
 
     private void validatePolicy(List<ValidationMsg> messages,
-                                AssessmentAuthoringCatalogService.ExamTemplatePolicy template,
-                                String programCode,
                                 String rawSkill,
                                 CanonicalQuestionType type,
                                 int sIdx,
                                 int gIdx,
                                 int qIdx) {
-        if (template != null) {
-            try {
-                AssessmentAuthoringCatalogService.SkillAuthoringPolicy skill = template.requireSkill(rawSkill);
-                if (!skill.questionTypes().contains(type.name())) {
-                    messages.add(new ValidationMsg("BLOCKING", "QUESTION_TYPE_NOT_ALLOWED_BY_TEMPLATE",
-                            "Dạng " + type + " không được phép cho kỹ năng " + rawSkill
-                                    + " trong mẫu " + template.displayName() + ".",
-                            sIdx, gIdx, qIdx));
-                    return;
-                }
-            } catch (IllegalArgumentException ignored) {
-                return;
-            }
-        }
-        if (policyService == null) {
-            return;
-        }
         try {
-            policyService.resolve(programCode, AssessmentSkill.valueOf(rawSkill.toUpperCase()), type);
+            AssessmentSkill skill = AssessmentSkill.valueOf(rawSkill.toUpperCase(Locale.ROOT));
+            contentRules.requireAllowed(skill, type);
         } catch (RuntimeException exception) {
-            messages.add(new ValidationMsg("BLOCKING", "QUESTION_TYPE_NOT_ENABLED_BY_PROGRAM",
-                    "Dạng " + type + " chưa được bật cho chương trình và kỹ năng đã chọn.",
+            messages.add(new ValidationMsg("BLOCKING", "QUESTION_TYPE_NOT_ALLOWED_FOR_SKILL",
+                    "Dạng " + type + " không được phép cho kỹ năng " + rawSkill + ".",
                     sIdx, gIdx, qIdx));
         }
     }
@@ -521,13 +455,7 @@ public class PracticeDraftValidator {
                             "Câu điền từ phải có ít nhất một đáp án được chấp nhận.", sIdx, gIdx, qIdx));
                 }
             }
-            case MATCHING -> {
-                if (typedSpec == null || !typedSpec.isObject()) {
-                    messages.add(new ValidationMsg("BLOCKING", "MATCHING_TYPED_ANSWER_REQUIRED",
-                            "Câu nối cặp phải cấu hình đầy đủ các cặp bằng ID ổn định.", sIdx, gIdx, qIdx));
-                }
-            }
-            case SINGLE_CHOICE, MULTIPLE_CHOICE, ESSAY, SPEAKING -> {
+            case SINGLE_CHOICE, ESSAY, SPEAKING -> {
                 // Existing checks or profile-based policy cover these types.
             }
         }
@@ -556,24 +484,6 @@ public class PracticeDraftValidator {
                     "SCORING_POLICY_NOT_ALLOWED_BY_TEMPLATE",
                     "Chính sách chấm điểm không được phép cho dạng " + type + ".",
                     sIdx, gIdx, qIdx));
-        }
-        validateProfileReference(messages, "PROMPT_PROFILE_NOT_ALLOWED", spec.promptProfileCode(),
-                policy.promptProfile(), sIdx, gIdx, qIdx);
-        validateProfileReference(messages, "RUBRIC_PROFILE_NOT_ALLOWED", spec.rubricProfileCode(),
-                policy.rubricProfile(), sIdx, gIdx, qIdx);
-    }
-
-    private void validateProfileReference(List<ValidationMsg> messages,
-                                          String code,
-                                          String selected,
-                                          com.ksh.features.practice.assessment.ProfileReference approved,
-                                          int sIdx,
-                                          int gIdx,
-                                          int qIdx) {
-        if (selected == null || selected.isBlank() || approved == null) return;
-        if (!approved.code().equals(selected)) {
-            messages.add(new ValidationMsg("BLOCKING", code,
-                    "Profile đã chọn không thuộc policy được phê duyệt.", sIdx, gIdx, qIdx));
         }
     }
 
@@ -621,8 +531,8 @@ public class PracticeDraftValidator {
         }
         JsonNode taskNode = question.get("essayTaskType");
         if (taskNode == null || taskNode.isNull()) {
-            messages.add(new ValidationMsg("WARNING",
-                    "Câu Writing này chưa có loại bài rõ ràng. Kết quả chấm có thể tiếp tục dùng cơ chế tương thích cũ.",
+            messages.add(new ValidationMsg("BLOCKING", "WRITING_TASK_REQUIRED",
+                    "Mỗi câu Writing phải chọn một task Q51, Q52, Q53 hoặc Q54.",
                     sIdx, gIdx, qIdx));
             return;
         }
@@ -636,9 +546,59 @@ public class PracticeDraftValidator {
             return;
         }
         try {
-            WritingTaskType.valueOf(value);
+            WritingTaskType taskType = WritingTaskType.valueOf(value);
+            if (!contentRules.requiredWritingTasks().contains(taskType)) {
+                messages.add(new ValidationMsg("BLOCKING", "WRITING_TASK_UNSUPPORTED",
+                        "Writing chỉ hỗ trợ Q51, Q52, Q53 và Q54.", sIdx, gIdx, qIdx));
+            }
         } catch (IllegalArgumentException e) {
-            messages.add(new ValidationMsg("BLOCKING", "Loại bài Writing không hợp lệ.", sIdx, gIdx, qIdx));
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "WRITING_TASK_UNSUPPORTED",
+                    "Loại bài Writing không hợp lệ; chỉ hỗ trợ Q51, Q52, Q53 và Q54.",
+                    sIdx,
+                    gIdx,
+                    qIdx));
+        }
+    }
+
+    private void validateWritingSection(List<ValidationMsg> messages,
+                                        JsonNode section,
+                                        String skill,
+                                        int sIdx) {
+        if (!"WRITING".equalsIgnoreCase(skill)) {
+            return;
+        }
+        Map<WritingTaskType, Integer> counts = new java.util.EnumMap<>(WritingTaskType.class);
+        JsonNode groups = section.path("groups");
+        if (groups.isArray()) {
+            for (JsonNode group : groups) {
+                JsonNode questions = group.path("questions");
+                if (!questions.isArray()) continue;
+                for (JsonNode question : questions) {
+                    String rawTask = question.path("essayTaskType").asText("").trim();
+                    if (rawTask.isBlank()) continue;
+                    try {
+                        WritingTaskType task = WritingTaskType.valueOf(rawTask);
+                        if (contentRules.requiredWritingTasks().contains(task)) {
+                            counts.merge(task, 1, Integer::sum);
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        // Per-question validation reports the invalid value.
+                    }
+                }
+            }
+        }
+        for (WritingTaskType required : contentRules.requiredWritingTasksInOrder()) {
+            int count = counts.getOrDefault(required, 0);
+            if (count != 1) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "WRITING_TASK_CARDINALITY_INVALID",
+                        "Phần Writing phải có đúng một câu " + required.name()
+                                + "; hiện có " + count + ".",
+                        sIdx, null, null));
+            }
         }
     }
 

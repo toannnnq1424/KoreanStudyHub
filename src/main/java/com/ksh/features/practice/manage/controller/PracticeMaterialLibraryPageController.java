@@ -16,7 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/practice/manage/materials")
-@PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
+@PreAuthorize(Roles.PREAUTH_LECTURER)
 public class PracticeMaterialLibraryPageController {
     private final PracticeMaterialLibraryService libraryService;
     private final LecturerAssetService assetService;

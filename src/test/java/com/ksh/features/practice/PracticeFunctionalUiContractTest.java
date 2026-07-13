@@ -27,6 +27,17 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
+    void libraryCardsRenderRealPerSetTestProgress() throws IOException {
+        String template = Files.readString(PRACTICE_TEMPLATES.resolve("index.html"));
+
+        assertThat(template).contains("setTestProgress.get(set.id())");
+        assertThat(template).contains("progress.completedTests()");
+        assertThat(template).contains("progress.totalTests()");
+        assertThat(template).doesNotContain("set.skill() == 'READING' ? 40");
+        assertThat(template).doesNotContain("set.skill() == 'LISTENING' ? 20");
+    }
+
+    @Test
     void modeCreateAttemptFormsSubmitSectionId() throws IOException {
         String template = Files.readString(PRACTICE_TEMPLATES.resolve("mode.html"));
 

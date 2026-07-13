@@ -8,10 +8,7 @@ public enum PracticeAction {
     ARCHIVE("practice.archive"),
     LOCK("practice.lock"),
     RESTORE("practice.restore"),
-    MATERIAL_MANAGE("practice.material.manage"),
-    MEDIA_REVIEW("practice.media.review"),
-    GOVERNANCE_MANAGE("practice.governance.manage"),
-    EMERGENCY_OVERRIDE("practice.override");
+    MATERIAL_MANAGE("practice.material.manage");
 
     private final String permissionKey;
 

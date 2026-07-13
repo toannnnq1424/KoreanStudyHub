@@ -1,6 +1,5 @@
 package com.ksh.features.practice.governance;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeAuthoringCollaboration;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
@@ -15,13 +14,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,38 +26,31 @@ class PracticeCollaborationServiceTest {
             mock(PracticeAuthoringCollaborationRepository.class);
     private final PracticeAuthorizationService authorizationService =
             mock(PracticeAuthorizationService.class);
-    private final PracticeGovernanceAuditService auditService =
-            mock(PracticeGovernanceAuditService.class);
     private final UserRepository userRepository = mock(UserRepository.class);
 
     private PracticeCollaborationService service;
 
     @BeforeEach
     void setUp() {
-        service = new PracticeCollaborationService(repository, authorizationService,
-                auditService, userRepository, new ObjectMapper());
+        service = new PracticeCollaborationService(
+                repository, authorizationService, userRepository);
     }
 
     @Test
-    void ownerCanGrantActionSpecificSetCollaborationAndAuditIt() {
+    void ownerCanGrantFixedSetCollaboration() {
         allowSetOwner(10L, 11L);
         User lecturer = activeUser(Role.LECTURER);
         when(userRepository.findById(22L)).thenReturn(Optional.of(lecturer));
-        when(repository.findByTargetTypeAndTargetIdAndCollaboratorId("SET", 10L, 22L))
+        when(repository.findBySetIdAndCollaboratorId(10L, 22L))
                 .thenReturn(Optional.empty());
         when(repository.save(any(PracticeAuthoringCollaboration.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         PracticeAuthoringCollaboration saved = service.shareSet(
-                10L, 22L, new PracticeCollaborationService.Grants(true, false, true, false),
-                11L, null);
+                10L, 22L, 11L);
 
-        assertEquals(11L, saved.getOwnerId());
+        assertEquals(10L, saved.getSetId());
         assertEquals(22L, saved.getCollaboratorId());
-        assertTrue(saved.isCanEdit());
-        assertTrue(saved.isCanRestore());
-        verify(auditService).record(eq("COLLABORATOR_GRANTED"), eq("SET"), eq(10L),
-                eq(11L), eq(11L), isNull(), eq(false), isNull(), isNull(), anyString());
     }
 
     @Test
@@ -72,12 +58,28 @@ class PracticeCollaborationServiceTest {
         allowSetOwner(10L, 11L);
 
         assertThrows(IllegalArgumentException.class,
-                () -> service.shareSet(10L, 11L, null, 11L, null));
+                () -> service.shareSet(10L, 11L, 11L));
 
         User student = activeUser(Role.STUDENT);
         when(userRepository.findById(22L)).thenReturn(Optional.of(student));
         assertThrows(IllegalArgumentException.class,
-                () -> service.shareSet(10L, 22L, null, 11L, null));
+                () -> service.shareSet(10L, 22L, 11L));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void ownerCannotGrantCollaborationToHeadOrAdmin() {
+        allowSetOwner(10L, 11L);
+
+        User head = activeUser(Role.HEAD);
+        when(userRepository.findById(22L)).thenReturn(Optional.of(head));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.shareSet(10L, 22L, 11L));
+
+        User admin = activeUser(Role.ADMIN);
+        when(userRepository.findById(23L)).thenReturn(Optional.of(admin));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.shareSet(10L, 23L, 11L));
         verify(repository, never()).save(any());
     }
 
@@ -89,36 +91,30 @@ class PracticeCollaborationServiceTest {
 
         assertThrows(EntityNotFoundException.class,
                 () -> service.shareSetByEmail(10L, "  lecturer@ksh.edu.vn  ",
-                        null, 11L, null));
+                        11L));
         verify(userRepository).findByEmailIgnoreCase("lecturer@ksh.edu.vn");
     }
 
     @Test
-    void revokeMarksGrantAndWritesBeforeAuditSnapshot() {
-        PracticeAuthorizationService.Decision decision =
-                new PracticeAuthorizationService.Decision(11L, true, false, false);
-        when(authorizationService.requireSetOwnerOrOverride(
-                10L, 33L, PracticeAction.EDIT, "Khắc phục quyền sai"))
-                .thenReturn(decision);
+    void ownerCanRevokeGrant() {
+        when(authorizationService.requireSetOwner(
+                10L, 11L, PracticeAction.EDIT))
+                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                "SET", 10L, 11L, 22L, true, true, true, true, 11L);
-        when(repository.findByTargetTypeAndTargetIdAndCollaboratorIdAndRevokedAtIsNull(
-                "SET", 10L, 22L)).thenReturn(Optional.of(grant));
+                10L, 22L);
+        when(repository.findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
+                10L, 22L)).thenReturn(Optional.of(grant));
 
-        service.revokeSet(10L, 22L, 33L, "Khắc phục quyền sai");
+        service.revokeSet(10L, 22L, 11L);
 
         assertNotNull(grant.getRevokedAt());
         verify(repository).save(grant);
-        verify(auditService).record(eq("COLLABORATOR_REVOKED"), eq("SET"), eq(10L),
-                eq(11L), eq(33L), isNull(), eq(true), eq("Khắc phục quyền sai"),
-                anyString(), isNull());
     }
 
     private void allowSetOwner(Long setId, Long ownerId) {
-        when(authorizationService.requireSetOwnerOrOverride(
-                setId, ownerId, PracticeAction.EDIT, null))
-                .thenReturn(new PracticeAuthorizationService.Decision(
-                        ownerId, false, false, true));
+        when(authorizationService.requireSetOwner(
+                setId, ownerId, PracticeAction.EDIT))
+                .thenReturn(new PracticeAuthorizationService.Decision(ownerId, false));
     }
 
     private static User activeUser(Role role) {

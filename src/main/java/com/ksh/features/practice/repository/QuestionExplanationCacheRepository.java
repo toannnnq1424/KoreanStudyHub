@@ -60,22 +60,19 @@ public interface QuestionExplanationCacheRepository extends JpaRepository<Questi
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Query(value = """
             INSERT INTO question_explanation_cache
-                (cache_key, question_id, question_version_id, test_id, program_code,
+                (cache_key, question_id, question_version_id, test_id,
                  skill_type, question_type, question_hash, stimulus_hash, answer_spec_hash,
                  correct_answer, explanation_json, ai_model, prompt_version,
-                 prompt_profile_code, prompt_profile_version, schema_version,
-                 explanation_language, created_at, updated_at)
+                 schema_version, explanation_language, created_at, updated_at)
             VALUES
-                (:cacheKey, :questionId, :questionVersionId, :testId, :programCode,
+                (:cacheKey, :questionId, :questionVersionId, :testId,
                  :skillType, :questionType, :questionHash, :stimulusHash, :answerSpecHash,
                  :correctAnswer, :explanationJson, :aiModel, :promptVersion,
-                 :promptProfileCode, :promptProfileVersion, :schemaVersion,
-                 :explanationLanguage, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                 :schemaVersion, :explanationLanguage, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON DUPLICATE KEY UPDATE
                 question_id = VALUES(question_id),
                 question_version_id = VALUES(question_version_id),
                 test_id = VALUES(test_id),
-                program_code = VALUES(program_code),
                 skill_type = VALUES(skill_type),
                 question_type = VALUES(question_type),
                 question_hash = VALUES(question_hash),
@@ -85,8 +82,6 @@ public interface QuestionExplanationCacheRepository extends JpaRepository<Questi
                 explanation_json = VALUES(explanation_json),
                 ai_model = VALUES(ai_model),
                 prompt_version = VALUES(prompt_version),
-                prompt_profile_code = VALUES(prompt_profile_code),
-                prompt_profile_version = VALUES(prompt_profile_version),
                 schema_version = VALUES(schema_version),
                 explanation_language = VALUES(explanation_language),
                 updated_at = CURRENT_TIMESTAMP
@@ -95,7 +90,6 @@ public interface QuestionExplanationCacheRepository extends JpaRepository<Questi
                          @Param("questionId") Long questionId,
                          @Param("questionVersionId") Long questionVersionId,
                          @Param("testId") Long testId,
-                         @Param("programCode") String programCode,
                          @Param("skillType") String skillType,
                          @Param("questionType") String questionType,
                          @Param("questionHash") String questionHash,
@@ -105,8 +99,6 @@ public interface QuestionExplanationCacheRepository extends JpaRepository<Questi
                          @Param("explanationJson") String explanationJson,
                          @Param("aiModel") String aiModel,
                          @Param("promptVersion") String promptVersion,
-                         @Param("promptProfileCode") String promptProfileCode,
-                         @Param("promptProfileVersion") Integer promptProfileVersion,
                          @Param("schemaVersion") String schemaVersion,
                          @Param("explanationLanguage") String explanationLanguage);
 }

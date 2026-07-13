@@ -44,7 +44,7 @@ public class PracticeDraftServiceTest {
 
     @Test
     public void testSaveDraftState() {
-        PracticeDraft draft = new PracticeDraft("Tiêu đề", "Mô tả", "TOPIK_II", "GLOBAL", null, "DRAFT", 99L, "{}");
+        PracticeDraft draft = new PracticeDraft("Tiêu đề", "Mô tả",  "GLOBAL", null, "DRAFT", 99L, "{}");
         when(draftRepository.findByIdAndOwnerId(1L, 99L)).thenReturn(Optional.of(draft));
         when(draftRepository.save(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(draftRepository.saveAndFlush(any(PracticeDraft.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -71,7 +71,7 @@ public class PracticeDraftServiceTest {
                 objectMapper
         );
 
-        PracticeSet set = new PracticeSet("Set", "Description", "WRITING", "TOPIK_II",
+        PracticeSet set = new PracticeSet("Set", "Description", "WRITING",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
         setEntityId(set, 10L);
         PracticeSection section = new PracticeSection(10L, "Writing", "WRITING", "DEFAULT",
@@ -116,7 +116,7 @@ public class PracticeDraftServiceTest {
                 objectMapper
         );
 
-        PracticeSet set = new PracticeSet("Set", "Description", "READING", "TOPIK_II",
+        PracticeSet set = new PracticeSet("Set", "Description", "READING",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
         setEntityId(set, 10L);
         PracticeSection section = new PracticeSection(10L, "Reading", "READING", "DEFAULT",
@@ -161,7 +161,7 @@ public class PracticeDraftServiceTest {
                 objectMapper
         );
 
-        PracticeSet set = new PracticeSet("Legacy set", "Description", "READING", "TOPIK_I",
+        PracticeSet set = new PracticeSet("Legacy set", "Description", "READING",
                 "GLOBAL", null, null, "{}", "PUBLISHED", 99L);
         setEntityId(set, 10L);
         PracticeSection section = new PracticeSection(10L, "Reading", "READING", "DEFAULT",

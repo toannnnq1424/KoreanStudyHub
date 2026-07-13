@@ -17,7 +17,7 @@ class AssessmentScoringEngineTest {
     @Test
     void singleChoiceScoresExactSelectionAndEmptyAnswer() {
         AnswerSpec spec = spec(CanonicalQuestionType.SINGLE_CHOICE,
-                List.of("opt_2"), null, List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+                List.of("opt_2"), null, List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
 
         assertScore(engine.score(spec, selected(CanonicalQuestionType.SINGLE_CHOICE, "opt_2"), points("2")),
                 AssessmentScoreStatus.CORRECT, "2");
@@ -28,154 +28,87 @@ class AssessmentScoringEngineTest {
     }
 
     @Test
-    void legacyMcqAndCanonicalSingleChoiceScoreEquivalently() {
+    void legacyMcqAliasAndCanonicalSingleChoiceScoreEquivalently() {
         AssessmentContractCodec codec = new AssessmentContractCodec(
-                new com.fasterxml.jackson.databind.ObjectMapper(),
-                new QuestionTypeResolver());
+                new com.fasterxml.jackson.databind.ObjectMapper(), new QuestionTypeResolver());
         QuestionContent content = codec.adaptLegacyContent("[\"A\",\"B\"]", "MCQ");
         AnswerSpec legacySpec = codec.adaptLegacyAnswerSpec("MCQ", "2", content);
         LearnerAnswer legacyAnswer = codec.adaptLegacyLearnerAnswer("MCQ", "B", content);
 
-        AssessmentScoreResult result = engine.score(legacySpec, legacyAnswer, BigDecimal.ONE);
-
-        assertThat(result.status()).isEqualTo(AssessmentScoreStatus.CORRECT);
-        assertThat(result.earnedPoints()).isEqualByComparingTo(BigDecimal.ONE);
+        assertScore(engine.score(legacySpec, legacyAnswer, BigDecimal.ONE),
+                AssessmentScoreStatus.CORRECT, "1");
     }
 
     @Test
-    void multipleChoiceSupportsAllOrNothingAndWrongZeroPartialPolicy() {
-        AnswerSpec allOrNothing = spec(CanonicalQuestionType.MULTIPLE_CHOICE,
-                List.of("a", "c"), null, List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING);
-        assertScore(engine.score(allOrNothing,
-                        selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a"), points("4")),
-                AssessmentScoreStatus.INCORRECT, "0");
-
-        AnswerSpec partial = spec(CanonicalQuestionType.MULTIPLE_CHOICE,
-                List.of("a", "c"), null, List.of(), Map.of(),
-                ScoringPolicyCode.PARTIAL_BY_CORRECT_OPTION_WITH_WRONG_ZERO);
-        AssessmentScoreResult oneOfTwo = engine.score(
-                partial,
-                selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a"),
-                points("3"));
-        assertScore(oneOfTwo, AssessmentScoreStatus.PARTIALLY_CORRECT, "1.5");
-        assertThat(oneOfTwo.correctUnits()).isEqualTo(1);
-        assertThat(oneOfTwo.totalUnits()).isEqualTo(2);
-
-        assertScore(engine.score(partial,
-                        selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a", "wrong"), points("3")),
-                AssessmentScoreStatus.INCORRECT, "0");
-        assertScore(engine.score(partial,
-                        selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a", "c"), points("3")),
-                AssessmentScoreStatus.CORRECT, "3");
-    }
-
-    @Test
-    void fillBlankUsesKoreanWhitespaceCaseAndUnicodeNfcNormalization() {
+    void fillBlankNormalizesUnicodeWhitespaceAndScoresPerBlank() {
         String decomposedKorean = Normalizer.normalize("한글", Normalizer.Form.NFD);
-        AnswerSpec spec = spec(CanonicalQuestionType.FILL_BLANK,
-                List.of(), null,
+        AnswerSpec spec = spec(CanonicalQuestionType.FILL_BLANK, List.of(), null,
                 List.of(
                         new AnswerSpec.BlankAnswer("b1", List.of("한글")),
-                        new AnswerSpec.BlankAnswer("b2", List.of("Seoul city"))
-                ),
-                Map.of(), ScoringPolicyCode.NORMALIZED_EXACT);
-        LearnerAnswer answer = answer(CanonicalQuestionType.FILL_BLANK,
-                List.of(), null,
-                Map.of("b1", "  " + decomposedKorean + " ", "b2", "seoul   CITY"),
-                Map.of(), null);
+                        new AnswerSpec.BlankAnswer("b2", List.of("Seoul city"))),
+                ScoringPolicyCode.NORMALIZED_EXACT);
 
-        assertScore(engine.score(spec, answer, points("5")), AssessmentScoreStatus.CORRECT, "5");
+        LearnerAnswer correct = answer(CanonicalQuestionType.FILL_BLANK, List.of(), null,
+                Map.of("b1", "  " + decomposedKorean + " ", "b2", "seoul   CITY"), null);
+        assertScore(engine.score(spec, correct, points("5")), AssessmentScoreStatus.CORRECT, "5");
 
-        LearnerAnswer punctuationMismatch = answer(CanonicalQuestionType.FILL_BLANK,
-                List.of(), null,
-                Map.of("b1", "한글!", "b2", "Seoul city"),
-                Map.of(), null);
-        assertScore(engine.score(spec, punctuationMismatch, points("5")),
+        LearnerAnswer partial = answer(CanonicalQuestionType.FILL_BLANK, List.of(), null,
+                Map.of("b1", "한글!", "b2", "Seoul city"), null);
+        assertScore(engine.score(spec, partial, points("5")),
                 AssessmentScoreStatus.PARTIALLY_CORRECT, "2.5");
-    }
-
-    @Test
-    void matchingAggregatesPerPairAndSupportsAllOrNothing() {
-        Map<String, String> pairs = Map.of("left_1", "right_a", "left_2", "right_b");
-        LearnerAnswer oneCorrect = answer(CanonicalQuestionType.MATCHING,
-                List.of(), null, Map.of(),
-                Map.of("left_1", "right_a", "left_2", "right_a"), null);
-        AnswerSpec perPair = spec(CanonicalQuestionType.MATCHING,
-                List.of(), null, List.of(), pairs, ScoringPolicyCode.PER_PAIR);
-
-        assertScore(engine.score(perPair, oneCorrect, points("3")),
-                AssessmentScoreStatus.PARTIALLY_CORRECT, "1.5");
-
-        AnswerSpec allOrNothing = spec(CanonicalQuestionType.MATCHING,
-                List.of(), null, List.of(), pairs, ScoringPolicyCode.ALL_OR_NOTHING);
-        assertScore(engine.score(allOrNothing, oneCorrect, points("3")),
-                AssessmentScoreStatus.INCORRECT, "0");
     }
 
     @Test
     void trueFalseNotGivenAndAiScoredTypesHaveExplicitStates() {
         AnswerSpec tfng = spec(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
-                List.of(), "NOT_GIVEN", List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+                List.of(), "NOT_GIVEN", List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
         LearnerAnswer selected = answer(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
-                List.of(), " not_given ", Map.of(), Map.of(), null);
+                List.of(), " not_given ", Map.of(), null);
         assertScore(engine.score(tfng, selected, BigDecimal.ONE), AssessmentScoreStatus.CORRECT, "1");
 
         for (CanonicalQuestionType type : List.of(CanonicalQuestionType.ESSAY, CanonicalQuestionType.SPEAKING)) {
-            AnswerSpec profileBased = spec(type, List.of(), null, List.of(), Map.of(),
-                    ScoringPolicyCode.PROFILE_BASED);
-            LearnerAnswer text = answer(type, List.of(), null, Map.of(), Map.of(), "response");
+            AnswerSpec profileBased = spec(type, List.of(), null, List.of(), ScoringPolicyCode.PROFILE_BASED);
+            LearnerAnswer text = answer(type, List.of(), null, Map.of(), "response");
             assertScore(engine.score(profileBased, text, points("10")),
                     AssessmentScoreStatus.PENDING_AI, "0");
         }
     }
 
     @Test
-    void malformedDuplicateOrMismatchedAnswersAndNegativePointsFailClosed() {
-        AnswerSpec spec = spec(CanonicalQuestionType.MULTIPLE_CHOICE,
-                List.of("a", "b"), null, List.of(), Map.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+    void malformedDuplicateMismatchedAndNegativeInputsFailClosed() {
+        AnswerSpec spec = spec(CanonicalQuestionType.SINGLE_CHOICE,
+                List.of("a"), null, List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
 
         assertThatThrownBy(() -> engine.score(
-                spec,
-                selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a", "a"),
-                BigDecimal.ONE))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Duplicate");
+                spec, selected(CanonicalQuestionType.SINGLE_CHOICE, "a", "a"), BigDecimal.ONE))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Duplicate");
         assertThatThrownBy(() -> engine.score(
-                spec,
-                selected(CanonicalQuestionType.SINGLE_CHOICE, "a"),
-                BigDecimal.ONE))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must match");
+                spec, selected(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN, "a"), BigDecimal.ONE))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("must match");
         assertThatThrownBy(() -> engine.score(
-                spec,
-                selected(CanonicalQuestionType.MULTIPLE_CHOICE, "a"),
-                points("-1")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("negative");
+                spec, selected(CanonicalQuestionType.SINGLE_CHOICE, "a"), points("-1")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("negative");
     }
 
     private static AnswerSpec spec(CanonicalQuestionType type,
                                    List<String> optionIds,
                                    String correctValue,
                                    List<AnswerSpec.BlankAnswer> blanks,
-                                   Map<String, String> pairs,
                                    ScoringPolicyCode policy) {
-        return new AnswerSpec(AnswerSpec.SCHEMA_VERSION, type, optionIds, correctValue,
-                blanks, pairs, policy, null, null, null);
+        return new AnswerSpec(AnswerSpec.SCHEMA_VERSION, type, optionIds, correctValue, blanks, policy);
     }
 
     private static LearnerAnswer selected(CanonicalQuestionType type, String... ids) {
-        return answer(type, List.of(ids), null, Map.of(), Map.of(), null);
+        return answer(type, List.of(ids), null, Map.of(), null);
     }
 
     private static LearnerAnswer answer(CanonicalQuestionType type,
                                         List<String> selectedIds,
                                         String selectedValue,
                                         Map<String, String> blanks,
-                                        Map<String, String> pairs,
                                         String text) {
         return new LearnerAnswer(LearnerAnswer.SCHEMA_VERSION, type, selectedIds,
-                selectedValue, blanks, pairs, text);
+                selectedValue, blanks, text);
     }
 
     private static BigDecimal points(String value) {

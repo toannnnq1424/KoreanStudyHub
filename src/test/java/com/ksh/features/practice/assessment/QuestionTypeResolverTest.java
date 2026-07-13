@@ -15,9 +15,7 @@ class QuestionTypeResolverTest {
     void legacyAliasesResolveToCanonicalTypes() {
         assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ"));
         assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ_SINGLE"));
-        assertEquals(CanonicalQuestionType.MULTIPLE_CHOICE, resolver.resolve("MCQ_MULTIPLE"));
         assertEquals(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN, resolver.resolve("TFNG"));
-        assertEquals(CanonicalQuestionType.MATCHING, resolver.resolve("matching_information"));
         assertEquals(CanonicalQuestionType.FILL_BLANK, resolver.resolve(" GAP_FILL "));
     }
 
@@ -34,6 +32,8 @@ class QuestionTypeResolverTest {
         assertThrows(IllegalArgumentException.class, () -> resolver.resolve("ORDERING"));
         assertThrows(IllegalArgumentException.class, () -> resolver.resolve("TEXT_COMPLETION"));
         assertThrows(IllegalArgumentException.class, () -> resolver.resolve("SHORT_TEXT"));
+        assertThrows(IllegalArgumentException.class, () -> resolver.resolve("MCQ_MULTIPLE"));
+        assertThrows(IllegalArgumentException.class, () -> resolver.resolve("MATCHING_INFORMATION"));
         assertThrows(IllegalArgumentException.class, () -> resolver.resolve(""));
         assertThrows(IllegalArgumentException.class, () -> resolver.resolve(null));
     }
@@ -41,8 +41,8 @@ class QuestionTypeResolverTest {
     @Test
     void objectiveClassificationIsExplicit() {
         assertTrue(CanonicalQuestionType.SINGLE_CHOICE.isObjective());
-        assertTrue(CanonicalQuestionType.MULTIPLE_CHOICE.isObjective());
-        assertTrue(CanonicalQuestionType.MATCHING.isObjective());
+        assertTrue(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN.isObjective());
+        assertTrue(CanonicalQuestionType.FILL_BLANK.isObjective());
         assertFalse(CanonicalQuestionType.ESSAY.isObjective());
         assertFalse(CanonicalQuestionType.SPEAKING.isObjective());
     }

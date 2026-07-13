@@ -20,18 +20,6 @@ public class PracticePdfImportSession {
     @Column(name = "title")
     private String title;
 
-    @Column(name = "exam_category")
-    private String examCategory;
-
-    @Column(name = "assessment_program_code", length = 40)
-    private String assessmentProgramCode;
-
-    @Column(name = "assessment_program_version_id")
-    private Long assessmentProgramVersionId;
-
-    @Column(name = "exam_template_code", length = 80)
-    private String examTemplateCode;
-
     @Column(name = "target_test_no")
     private Integer targetTestNo;
 
@@ -134,38 +122,6 @@ public class PracticePdfImportSession {
 
     public void setTitle(String title) {
         this.title = title;
-    }
-
-    public String getExamCategory() {
-        return examCategory;
-    }
-
-    public void setExamCategory(String examCategory) {
-        this.examCategory = examCategory;
-    }
-
-    public String getAssessmentProgramCode() {
-        return assessmentProgramCode;
-    }
-
-    public void setAssessmentProgramCode(String assessmentProgramCode) {
-        this.assessmentProgramCode = assessmentProgramCode;
-    }
-
-    public Long getAssessmentProgramVersionId() {
-        return assessmentProgramVersionId;
-    }
-
-    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) {
-        this.assessmentProgramVersionId = assessmentProgramVersionId;
-    }
-
-    public String getExamTemplateCode() {
-        return examTemplateCode;
-    }
-
-    public void setExamTemplateCode(String examTemplateCode) {
-        this.examTemplateCode = examTemplateCode;
     }
 
     public Integer getTargetTestNo() {

@@ -3,7 +3,6 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -27,11 +26,9 @@ class PracticeMaterialReferenceServiceTest {
     void promotionPreservesEveryPlacementForSharedAsset() {
         PracticeMaterialReferenceRepository referenceRepository =
                 mock(PracticeMaterialReferenceRepository.class);
-        PracticeDraftAssetUsageRepository usageRepository =
-                mock(PracticeDraftAssetUsageRepository.class);
         LecturerAssetRepository assetRepository = mock(LecturerAssetRepository.class);
         PracticeMaterialReferenceService service = new PracticeMaterialReferenceService(
-                referenceRepository, usageRepository, assetRepository);
+                referenceRepository, assetRepository);
         LecturerAsset asset = new LecturerAsset();
         asset.setId(7L);
         asset.setStatus("ARCHIVED");
@@ -40,7 +37,6 @@ class PracticeMaterialReferenceServiceTest {
         when(referenceRepository.findByDraftId(10L)).thenReturn(List.of(
                 PracticeMaterialReference.draft(7L, 10L, "GROUP_IMAGE"),
                 PracticeMaterialReference.draft(7L, 10L, "OPTION_A")));
-        when(usageRepository.findByDraftId(10L)).thenReturn(List.of());
         when(assetRepository.findById(7L)).thenReturn(Optional.of(asset));
         when(referenceRepository.save(any(PracticeMaterialReference.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

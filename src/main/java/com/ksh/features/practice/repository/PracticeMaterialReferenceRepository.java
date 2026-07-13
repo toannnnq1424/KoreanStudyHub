@@ -12,9 +12,12 @@ public interface PracticeMaterialReferenceRepository
     List<PracticeMaterialReference> findBySetId(Long setId);
     List<PracticeMaterialReference> findByPublishedVersionId(Long publishedVersionId);
     boolean existsByAssetIdAndDraftIdAndPlacement(Long assetId, Long draftId, String placement);
+    boolean existsByAssetIdAndDraftIdAndPlacementAndReferenceKey(
+            Long assetId, Long draftId, String placement, String referenceKey);
     boolean existsByAssetIdAndPublishedVersionIdAndPlacement(
             Long assetId, Long publishedVersionId, String placement);
     boolean existsByAssetIdAndReferenceScope(Long assetId, String referenceScope);
     void deleteByAssetIdAndDraftIdAndPlacement(
             Long assetId, Long draftId, String placement);
+    void deleteByIdAndDraftId(Long id, Long draftId);
 }

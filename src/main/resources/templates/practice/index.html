@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/head :: head('Kho luyện tập TOPIK | KSH', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Kho luyện tập | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
 </head>
@@ -23,12 +23,12 @@
         <!-- Hero Header -->
         <div class="pi-hero">
           <div class="pi-hero-text">
-            <h1>Kho luyện tập TOPIK</h1>
+            <h1>Kho luyện tập KSH</h1>
             <p class="pi-hero-desc">Nghe, Đọc, Viết, Nói — AI chấm điểm và phản hồi chi tiết bằng tiếng Việt.</p>
           </div>
           <div class="pi-hero-actions">
             <a class="pi-btn-primary"
-               sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+               sec:authorize="hasRole('LECTURER')"
                th:href="@{/practice/manage/create}">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Biên soạn đề thi
@@ -87,7 +87,7 @@
                    th:classappend="${set.skill() == 'WRITING'} ? ' writing' :
                      (${set.skill() == 'SPEAKING'} ? ' speaking' :
                      (${set.skill() == 'LISTENING'} ? ' listening' : ' reading'))">
-                <span class="pi-card-level" th:text="${set.categoryLabel()}">TOPIK II</span>
+                <span class="pi-card-level" th:text="${set.skillLabel()}">Đọc</span>
                 <strong class="pi-card-skill-name"
                         th:text="${set.skillLabel()}">READING</strong>
                 <em class="pi-card-platform">KSH STUDY GUIDE</em>
@@ -112,7 +112,8 @@
                 <div class="pi-card-bottom-row">
                   <span class="pi-progress-text"
                         th:attr="data-skill=${set.skill()}"
-                        th:text="${set.skill() == 'MIXED'} ? '0/1 bài thi' : ('0/' + (${set.skill() == 'READING' ? 40 : (set.skill() == 'LISTENING' ? 20 : (set.skill() == 'WRITING' ? 10 : 8))}) + ' bài luyện')">0/4 tests</span>
+                        th:with="progress=${setTestProgress.get(set.id())}"
+                        th:text="|${progress.completedTests()}/${progress.totalTests()} bài luyện|">0/0 bài luyện</span>
                   <div class="pi-card-skill-icons">
                     <!-- Headphones (Listening) -->
                     <svg th:classappend="${set.skill() == 'LISTENING' or (set.metadataJson != null and set.metadataJson.contains('LISTENING'))} ? 'active'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
@@ -135,7 +136,7 @@
             </div>
             <h3>Chưa có bộ luyện tập nào</h3>
             <p>Hãy upload đề thi PDF để tạo bộ luyện tập đầu tiên.</p>
-            <a class="pi-btn-primary" sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')" th:href="@{/practice/manage/import}">Tạo đề từ PDF</a>
+            <a class="pi-btn-primary" sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage/import}">Tạo đề từ PDF</a>
           </section>
         </div>
       </section>

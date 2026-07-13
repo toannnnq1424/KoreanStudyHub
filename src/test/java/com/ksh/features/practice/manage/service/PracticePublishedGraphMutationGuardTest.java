@@ -3,7 +3,6 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
-import com.ksh.features.practice.repository.PracticeSubmissionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,15 +21,13 @@ class PracticePublishedGraphMutationGuardTest {
 
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
     private final PracticeAttemptRepository attemptRepository = mock(PracticeAttemptRepository.class);
-    private final PracticeSubmissionRepository submissionRepository = mock(PracticeSubmissionRepository.class);
-
     private PracticePublishedGraphMutationGuard guard;
     private PracticeSet set;
 
     @BeforeEach
     void setUp() {
-        guard = new PracticePublishedGraphMutationGuard(setRepository, attemptRepository, submissionRepository);
-        set = new PracticeSet("Set", "Description", "READING", "TOPIK_II",
+        guard = new PracticePublishedGraphMutationGuard(setRepository, attemptRepository);
+        set = new PracticeSet("Set", "Description", "READING",
                 "GLOBAL", null, null, "{}", PracticeSet.STATUS_PUBLISHED, 99L);
         when(setRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(set));
         when(attemptRepository.findFirstUnversionedIdBySetIdForShare(10L))
@@ -56,7 +53,6 @@ class PracticePublishedGraphMutationGuardTest {
         );
 
         assertEquals(PublishedPracticeGraphMutationBlockedException.RESTORE_MESSAGE, exception.getMessage());
-        verify(submissionRepository, never()).existsBySetId(10L);
     }
 
     @Test
@@ -68,19 +64,6 @@ class PracticePublishedGraphMutationGuardTest {
 
         assertSame(set, guard.lockAndAssertRestoreAllowed(10L));
 
-        verify(submissionRepository).existsBySetId(10L);
-    }
-
-    @Test
-    void republishBlockedWhenLegacySubmissionExists() {
-        when(submissionRepository.existsBySetId(10L)).thenReturn(true);
-
-        PublishedPracticeGraphMutationBlockedException exception = assertThrows(
-                PublishedPracticeGraphMutationBlockedException.class,
-                () -> guard.lockAndAssertRepublishAllowed(10L)
-        );
-
-        assertEquals(PublishedPracticeGraphMutationBlockedException.REPUBLISH_MESSAGE, exception.getMessage());
     }
 
     @Test
@@ -89,6 +72,5 @@ class PracticePublishedGraphMutationGuardTest {
 
         assertThrows(EntityNotFoundException.class, () -> guard.lockAndAssertRepublishAllowed(404L));
         verify(attemptRepository, never()).findFirstUnversionedIdBySetIdForShare(404L);
-        verify(submissionRepository, never()).existsBySetId(404L);
     }
 }

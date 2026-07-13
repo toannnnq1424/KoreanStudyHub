@@ -116,8 +116,8 @@
             </div>
           </th:block>
 
-          <!-- TYPE: SHORT_ANSWER, FILL_BLANK, TEXT_COMPLETION -->
-          <th:block th:if="${q.questionType() == 'SHORT_TEXT' || q.questionType() == 'FILL_BLANK' || q.questionType() == 'TEXT_COMPLETION'}">
+          <!-- TYPE: FILL_BLANK -->
+          <th:block th:if="${q.questionType() == 'FILL_BLANK'}">
             <div class="rl-text-answer-review">
               <div class="rl-text-answer-row">
                 <span class="label">Câu trả lời của bạn:</span>
@@ -126,21 +126,6 @@
               </div>
               <div class="rl-text-answer-row">
                 <span class="label">Đáp án đúng:</span>
-                <strong class="text-success" th:text="${q.correctAnswer()}">correct answer</strong>
-              </div>
-            </div>
-          </th:block>
-
-          <!-- TYPE: ORDERING -->
-          <th:block th:if="${q.questionType() == 'ORDERING'}">
-            <div class="rl-text-answer-review">
-              <div class="rl-text-answer-row">
-                <span class="label">Thứ tự của bạn:</span>
-                <strong th:text="${#strings.isEmpty(q.userAnswer())} ? '(Không chọn)' : ${q.userAnswer()}"
-                        th:classappend="${q.isCorrect()} ? 'text-success' : 'text-danger'">answer</strong>
-              </div>
-              <div class="rl-text-answer-row">
-                <span class="label">Thứ tự đúng:</span>
                 <strong class="text-success" th:text="${q.correctAnswer()}">correct answer</strong>
               </div>
             </div>
@@ -401,19 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hasValidItems) {
         html += elimHtml;
       }
-    }
- 
-    // Matching explanation block (if present)
-    if (data.matchingExplanations && data.matchingExplanations.length > 0) {
-      html += `<div class="rl-exp-section-label">연결 해설 (Giải thích các phần ghép nối):</div>`;
-      html += `<div class="rl-matching-explanations">`;
-      data.matchingExplanations.forEach(m => {
-        html += `<div class="rl-match-exp-item">`;
-        html += `<span class="rl-match-pair"><strong>${esc(m.item)}</strong> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg> <strong>${esc(m.correctMatch)}</strong></span>`;
-        html += `<div class="rl-match-reason">${esc(m.reasonVi)}</div>`;
-        html += `</div>`;
-      });
-      html += `</div>`;
     }
  
     container.innerHTML = html;

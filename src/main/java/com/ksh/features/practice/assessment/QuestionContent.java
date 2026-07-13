@@ -8,8 +8,6 @@ import java.util.List;
 public record QuestionContent(
         String schemaVersion,
         List<Option> options,
-        List<Item> matchingLeftItems,
-        List<Item> matchingRightItems,
         List<Blank> blanks,
         String imageReference,
         String audioReference
@@ -19,21 +17,17 @@ public record QuestionContent(
     public QuestionContent {
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
         options = immutable(options);
-        matchingLeftItems = immutable(matchingLeftItems);
-        matchingRightItems = immutable(matchingRightItems);
         blanks = immutable(blanks);
     }
 
     public QuestionContent(String schemaVersion,
                            List<Option> options,
-                           List<Item> matchingLeftItems,
-                           List<Item> matchingRightItems,
                            List<Blank> blanks) {
-        this(schemaVersion, options, matchingLeftItems, matchingRightItems, blanks, null, null);
+        this(schemaVersion, options, blanks, null, null);
     }
 
     public static QuestionContent empty() {
-        return new QuestionContent(SCHEMA_VERSION, List.of(), List.of(), List.of(), List.of());
+        return new QuestionContent(SCHEMA_VERSION, List.of(), List.of());
     }
 
     private static <T> List<T> immutable(List<T> values) {
@@ -42,12 +36,6 @@ public record QuestionContent(
 
     public record Option(String id, String text, String imageReference) {
         public Option(String id, String text) {
-            this(id, text, null);
-        }
-    }
-
-    public record Item(String id, String text, String imageReference) {
-        public Item(String id, String text) {
             this(id, text, null);
         }
     }

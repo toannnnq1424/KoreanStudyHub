@@ -13,7 +13,6 @@ public record LearnerAnswer(
         List<String> selectedOptionIds,
         String selectedValue,
         Map<String, String> blankAnswers,
-        Map<String, String> matchingAnswers,
         String textAnswer
 ) {
     public static final String SCHEMA_VERSION = "learner-answer-v1";
@@ -22,7 +21,6 @@ public record LearnerAnswer(
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
         selectedOptionIds = selectedOptionIds == null ? List.of() : List.copyOf(selectedOptionIds);
         blankAnswers = immutable(blankAnswers);
-        matchingAnswers = immutable(matchingAnswers);
     }
 
     private static Map<String, String> immutable(Map<String, String> values) {

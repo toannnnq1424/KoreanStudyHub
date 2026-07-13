@@ -56,7 +56,6 @@ class PracticePdfAiPayloadBuilderGuidedModeTest {
         assertTrue(payload.requestDto().getRegions().get(0).getOcrText().contains("Trang hai"));
         assertTrue(payload.basePageRangeText().isEmpty());
         assertEquals(2, payload.statsSummary().get("activeRegionsCount"));
-        assertEquals("CUSTOM_FLEXIBLE", payload.requestDto().getDocument().getExamTemplateCode());
         assertEquals(2, payload.requestDto().getDocument().getTargetTestNo());
         assertEquals("R2", payload.requestDto().getDocument().getTargetLessonCode());
         assertEquals("R2", payload.requestDto().getSections().get(0).getLessonCode());
@@ -76,10 +75,6 @@ class PracticePdfAiPayloadBuilderGuidedModeTest {
         session.setId(9L);
         session.setSelectedStartPage(2);
         session.setSelectedEndPage(3);
-        session.setExamCategory("CUSTOM_FLEXIBLE");
-        session.setAssessmentProgramCode("CUSTOM");
-        session.setAssessmentProgramVersionId(12L);
-        session.setExamTemplateCode("CUSTOM_FLEXIBLE");
         session.setTargetTestNo(2);
         session.setTargetSkill("READING");
         session.setTargetLessonCode("R2");

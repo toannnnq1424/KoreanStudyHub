@@ -9,12 +9,13 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -33,7 +34,7 @@ class PracticeQuestionRepositoryTest {
         PracticeSet set = saveSet("Writing metadata " + taskType.name());
         PracticeQuestion question = new PracticeQuestion(
                 set.getId(),
-                1,
+                Integer.parseInt(taskType.name().substring(1)),
                 PracticeQuestion.TYPE_ESSAY,
                 "Prompt",
                 null,
@@ -52,11 +53,11 @@ class PracticeQuestionRepositoryTest {
     }
 
     @Test
-    void writingTaskTypeDefaultsToNullWhenUnset() {
+    void essayWithoutOneOfTheFourWritingTasksIsRejectedByTheDatabase() {
         PracticeSet set = saveSet("Writing metadata null");
         PracticeQuestion question = new PracticeQuestion(
                 set.getId(),
-                1,
+                51,
                 PracticeQuestion.TYPE_ESSAY,
                 "Prompt",
                 null,
@@ -66,10 +67,28 @@ class PracticeQuestionRepositoryTest {
                 0
         );
 
-        PracticeQuestion saved = questionRepository.saveAndFlush(question);
-        PracticeQuestion reloaded = questionRepository.findById(saved.getId()).orElseThrow();
+        assertThrows(JpaSystemException.class,
+                () -> questionRepository.saveAndFlush(question));
+    }
 
-        assertNull(reloaded.getWritingTaskType());
+    @Test
+    void writingTaskMustMatchThePersistedQuestionNumber() {
+        PracticeSet set = saveSet("Writing metadata mismatch");
+        PracticeQuestion question = new PracticeQuestion(
+                set.getId(),
+                51,
+                PracticeQuestion.TYPE_ESSAY,
+                "Prompt",
+                null,
+                "",
+                "",
+                BigDecimal.TEN,
+                0
+        );
+        question.setWritingTaskType(WritingTaskType.Q52);
+
+        assertThrows(JpaSystemException.class,
+                () -> questionRepository.saveAndFlush(question));
     }
 
     private PracticeSet saveSet(String title) {
@@ -77,7 +96,6 @@ class PracticeQuestionRepositoryTest {
                 title,
                 "Description",
                 PracticeSet.SKILL_WRITING,
-                "TOPIK_II",
                 PracticeSet.SCOPE_GLOBAL,
                 null,
                 null,

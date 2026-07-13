@@ -26,9 +26,6 @@ public class PracticeDraft {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, length = 50)
-    private String category;
-
     @Column(nullable = false, length = 20)
     private String scope;
 
@@ -37,15 +34,6 @@ public class PracticeDraft {
 
     @Column(nullable = false, length = 20)
     private String status;
-
-    @Column(name = "owner_locked", nullable = false)
-    private boolean ownerLocked;
-
-    @Column(name = "locked_by")
-    private Long lockedBy;
-
-    @Column(name = "locked_at")
-    private LocalDateTime lockedAt;
 
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
@@ -61,15 +49,6 @@ public class PracticeDraft {
 
     @Column(name = "draft_schema_version", length = 40)
     private String draftSchemaVersion;
-
-    @Column(name = "assessment_program_code", length = 40)
-    private String assessmentProgramCode;
-
-    @Column(name = "assessment_program_version_id")
-    private Long assessmentProgramVersionId;
-
-    @Column(name = "exam_template_code", length = 80)
-    private String examTemplateCode;
 
     @Version
     private Integer version = 0;
@@ -91,11 +70,10 @@ public class PracticeDraft {
         this.publishedSetId = publishedSetId;
     }
 
-    public PracticeDraft(String title, String description, String category, String scope,
+    public PracticeDraft(String title, String description, String scope,
                          Long classId, String status, Long ownerId, String draftJson) {
         this.title = title;
         this.description = description;
-        this.category = category;
         this.scope = scope;
         this.classId = classId;
         this.status = status;
@@ -103,12 +81,6 @@ public class PracticeDraft {
         this.draftJson = draftJson;
         this.creationMethod = "MANUAL"; // default
         this.draftSchemaVersion = "practice-draft-v3";
-        this.assessmentProgramCode = category != null && category.toUpperCase().startsWith("TOPIK")
-                ? "TOPIK"
-                : "CUSTOM";
-        this.examTemplateCode = "TOPIK_I".equalsIgnoreCase(category)
-                ? "TOPIK_I"
-                : (assessmentProgramCode.equals("TOPIK") ? "TOPIK_II" : "CUSTOM_FLEXIBLE");
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -145,14 +117,6 @@ public class PracticeDraft {
         this.description = description;
     }
 
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
     public String getScope() {
         return scope;
     }
@@ -173,32 +137,8 @@ public class PracticeDraft {
         return status;
     }
 
-    public boolean isOwnerLocked() {
-        return ownerLocked;
-    }
-
-    public Long getLockedBy() {
-        return lockedBy;
-    }
-
-    public LocalDateTime getLockedAt() {
-        return lockedAt;
-    }
-
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public void lock(Long actorId) {
-        this.ownerLocked = true;
-        this.lockedBy = actorId;
-        this.lockedAt = LocalDateTime.now();
-    }
-
-    public void unlock() {
-        this.ownerLocked = false;
-        this.lockedBy = null;
-        this.lockedAt = null;
     }
 
     public Long getOwnerId() {
@@ -243,10 +183,4 @@ public class PracticeDraft {
 
     public String getDraftSchemaVersion() { return draftSchemaVersion; }
     public void setDraftSchemaVersion(String draftSchemaVersion) { this.draftSchemaVersion = draftSchemaVersion; }
-    public String getAssessmentProgramCode() { return assessmentProgramCode; }
-    public void setAssessmentProgramCode(String assessmentProgramCode) { this.assessmentProgramCode = assessmentProgramCode; }
-    public Long getAssessmentProgramVersionId() { return assessmentProgramVersionId; }
-    public void setAssessmentProgramVersionId(Long assessmentProgramVersionId) { this.assessmentProgramVersionId = assessmentProgramVersionId; }
-    public String getExamTemplateCode() { return examTemplateCode; }
-    public void setExamTemplateCode(String examTemplateCode) { this.examTemplateCode = examTemplateCode; }
 }

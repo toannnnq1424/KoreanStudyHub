@@ -1,10 +1,8 @@
 package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
-import com.ksh.entities.PracticeDraftAssetUsage;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeDraftAssetUsageRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,32 +16,39 @@ import java.util.Set;
 public class PracticeMaterialReferenceService {
 
     private final PracticeMaterialReferenceRepository referenceRepository;
-    private final PracticeDraftAssetUsageRepository legacyUsageRepository;
     private final LecturerAssetRepository assetRepository;
 
     public PracticeMaterialReferenceService(
             PracticeMaterialReferenceRepository referenceRepository,
-            PracticeDraftAssetUsageRepository legacyUsageRepository,
             LecturerAssetRepository assetRepository) {
         this.referenceRepository = referenceRepository;
-        this.legacyUsageRepository = legacyUsageRepository;
         this.assetRepository = assetRepository;
     }
 
     @Transactional
     public PracticeMaterialReference linkDraft(Long draftId, Long assetId,
                                                String placement) {
+        return linkDraft(draftId, assetId, placement, "", null);
+    }
+
+    @Transactional
+    public PracticeMaterialReference linkDraft(Long draftId, Long assetId,
+                                               String placement, String referenceKey,
+                                               String referenceMetadataJson) {
         String normalizedPlacement = normalizePlacement(placement);
-        if (referenceRepository.existsByAssetIdAndDraftIdAndPlacement(
-                assetId, draftId, normalizedPlacement)) {
+        String normalizedKey = referenceKey == null ? "" : referenceKey.trim();
+        if (referenceRepository.existsByAssetIdAndDraftIdAndPlacementAndReferenceKey(
+                assetId, draftId, normalizedPlacement, normalizedKey)) {
             return referenceRepository.findByDraftId(draftId).stream()
                     .filter(reference -> assetId.equals(reference.getAssetId()))
                     .filter(reference -> normalizedPlacement.equals(reference.getPlacement()))
+                    .filter(reference -> normalizedKey.equals(reference.getReferenceKey()))
                     .findFirst()
                     .orElseThrow();
         }
         return referenceRepository.save(
-                PracticeMaterialReference.draft(assetId, draftId, normalizedPlacement));
+                PracticeMaterialReference.draft(assetId, draftId, normalizedPlacement,
+                        normalizedKey, referenceMetadataJson));
     }
 
     @Transactional
@@ -53,10 +58,6 @@ public class PracticeMaterialReferenceService {
         for (PracticeMaterialReference reference : referenceRepository.findByDraftId(draftId)) {
             assets.add(new AssetPlacement(
                     reference.getAssetId(), normalizePlacement(reference.getPlacement())));
-        }
-        for (PracticeDraftAssetUsage usage : legacyUsageRepository.findByDraftId(draftId)) {
-            assets.add(new AssetPlacement(
-                    usage.getAssetId(), normalizePlacement(usage.getPlacement())));
         }
         Set<Long> activatedAssets = new HashSet<>();
         for (AssetPlacement entry : assets) {
@@ -85,15 +86,24 @@ public class PracticeMaterialReferenceService {
                 assetId, draftId, normalizePlacement(placement));
     }
 
+    @Transactional
+    public void unlinkDraftReference(Long draftId, Long referenceId) {
+        referenceRepository.deleteByIdAndDraftId(referenceId, draftId);
+    }
+
     @Transactional(readOnly = true)
     public List<PracticeMaterialReference> references(Long assetId) {
         return referenceRepository.findByAssetId(assetId);
     }
 
     @Transactional(readOnly = true)
+    public List<PracticeMaterialReference> referencesForDraft(Long draftId) {
+        return referenceRepository.findByDraftId(draftId);
+    }
+
+    @Transactional(readOnly = true)
     public boolean hasAnyReference(Long assetId) {
-        return !referenceRepository.findByAssetId(assetId).isEmpty()
-                || !legacyUsageRepository.findByAssetId(assetId).isEmpty();
+        return !referenceRepository.findByAssetId(assetId).isEmpty();
     }
 
     @Transactional(readOnly = true)
