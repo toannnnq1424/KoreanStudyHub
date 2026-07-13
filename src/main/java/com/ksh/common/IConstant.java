@@ -326,7 +326,24 @@ public interface IConstant {
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
-    // ───────── Pagination ────────────────────────────────────────────
+    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
+    // Route prefix / canonical URL.
+    String BASE_MY_MESSAGES = "/my/messages";
+
+    // View names.
+    String VIEW_MESSAGING_INDEX        = "messaging/index";
+    String VIEW_MESSAGING_CONVERSATION = "messaging/conversation";
+    String VIEW_STUDENT_CLASS_MESSAGES = "student/class-messages";
+
+    // Model attribute keys.
+    String ATTR_CONVERSATIONS = "conversations";
+    String ATTR_CONVERSATION  = "conversation";
+    String ATTR_MSG_UNREAD    = "msgUnreadCount";
+    String ATTR_RECIPIENTS     = "recipients";
+    String ATTR_COMPOSE        = "compose";
+    String ATTR_COMPOSE_QUERY  = "composeQuery";
+
+    // Pagination.
     int DEFAULT_PAGE_SIZE = 20;
 
     // Lessons feature — shared paging (history tab page size).
@@ -348,4 +365,26 @@ public interface IConstant {
     // (status/q/size/…). Consumed by templates/fragments/pager.html.
     // Numbered-button window size lives in com.ksh.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
+
+    // ───────── Admin course categories (ksh-11.4) ────────────────────
+    // View names.
+    String VIEW_ADMIN_CATEGORIES      = "admin/categories";
+    String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";
+
+    // Tab key (admin sidebar active state).
+    String TAB_CATEGORIES = "categories";
+
+    // Model attribute keys.
+    String ATTR_CATEGORY_TREE    = "categoryTree";
+    String ATTR_CATEGORY_PARENTS = "categoryParents";
+    String ATTR_HAS_CHILDREN     = "hasChildren";
+    String ATTR_TARGET_ID        = "targetId";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_CATEGORY_CREATED = "Đã tạo danh mục ";
+    String MSG_CATEGORY_UPDATED = "Đã cập nhật danh mục";
+    String MSG_CATEGORY_DELETED = "Đã xoá danh mục";
+    String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
+    String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
+    String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
 }
