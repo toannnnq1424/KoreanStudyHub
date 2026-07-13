@@ -230,6 +230,8 @@ public interface IConstant {
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
+    // Moderator hide/unhide (ksh-11.7).
+    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
     // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
@@ -324,24 +326,7 @@ public interface IConstant {
     int DEFAULT_EXAM_PAGE_SIZE        = 12;
     int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
 
-    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
-    // Route prefix / canonical URL.
-    String BASE_MY_MESSAGES = "/my/messages";
-
-    // View names.
-    String VIEW_MESSAGING_INDEX        = "messaging/index";
-    String VIEW_MESSAGING_CONVERSATION = "messaging/conversation";
-    String VIEW_STUDENT_CLASS_MESSAGES = "student/class-messages";
-
-    // Model attribute keys.
-    String ATTR_CONVERSATIONS = "conversations";
-    String ATTR_CONVERSATION  = "conversation";
-    String ATTR_MSG_UNREAD    = "msgUnreadCount";
-    String ATTR_RECIPIENTS     = "recipients";
-    String ATTR_COMPOSE        = "compose";
-    String ATTR_COMPOSE_QUERY  = "composeQuery";
-
-    // Pagination.
+    // ───────── Pagination ────────────────────────────────────────────
     int DEFAULT_PAGE_SIZE = 20;
 
     // Lessons feature — shared paging (history tab page size).
