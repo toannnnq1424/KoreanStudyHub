@@ -2171,7 +2171,7 @@ Canonical map after reduce-scope:
 
 Status:
 13A_COMPLETE_FOCUSED_GATE_GREEN
-13B_COMPLETE_FOCUSED_GATE_GREEN
+13B_IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN
 
 Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. The reduced learner route contract is
@@ -2261,10 +2261,22 @@ Required Phase 13 slices:
   fail closed. The preflight does not start capture and does not replace 13C;
   preparation countdown, prompt playback, recording, upload confirmation and
   automatic next-question orchestration remain 13C scope;
-- 13C: shared player shell with skill-native interaction, timer, navigation,
-  autosave, exit warning and resumable attempt states. Three R/L objective
-  controls plus Writing Q51-Q54 and Speaking never expose answer keys before
-  submit;
+- 2026-07-14 authoring checkpoint: Speaking timing and prompt delivery are now
+  stored in the existing canonical `questionContent.speakingDelivery` JSON with
+  `promptAudioReference`, `promptPlayLimit`, `preparationSeconds` and
+  `responseSeconds`; no timing/policy table was added. Manual authoring exposes
+  per-question prompt audio and those three numeric controls, and teacher preview
+  reads the same canonical object. The JDK 17 authoring/preview gate is green
+  `41/41`; this evidence does not claim that microphone preflight or the learner
+  Speaking state machine is complete;
+- 13C: Reading, Listening and Writing may reuse the general player shell with
+  skill-native interaction, timer, navigation, autosave and exit warning.
+  Speaking must be routed to a dedicated `player-speaking` template and state
+  machine: immutable prompt audio playback, preparation countdown, mandatory
+  microphone recording, private upload confirmation and automatic next-question
+  transition. Speaking does not use a textarea as its primary answer and does
+  not retain a resumable draft after an interrupted exit. No player may expose
+  answer keys before submit;
 - 13D: result overview with exam-native score scales and recent-attempt
   semantics. Preserve `score`, `scale`, `level`, `completion`, `timing` and
   `feedbackAvailability` as distinct fields;
@@ -2614,18 +2626,25 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-14 | Phase 13A Learner Library and State Foundation | DOC_ONLY_PHASE_13_SCOPE_CLEANUP | COMPLETE_FOCUSED_GATE_GREEN | this commit | c362ef4 | JDK 17 focused unit/service/static gate 92/92, login integration 8/8 and selected catalog/progress Practice integration 8/8; zero failures/errors. Static route/dead-code and changed-script checks completed; no full suite, provider call or browser QA. Integration runtime used legacy schema V29, so this is not clean V1-V25 migration evidence. | Added bounded 12-card server catalog with viewport lazy loading, URL-backed filters, GLOBAL/CLASS learner access, real completed-test state, skill-aware cards and Baekho state cycling. Removed the superseded unbounded catalog/question-count pipeline. Authenticated `/login` now returns `/`; shared remote decoration no longer blocks page rendering, progress charts load after interaction-ready and overview/analytics reuse one server data snapshot. | Commit/push this checkpoint, then start 13B only afterward. Browser/manual closure remains consolidated in 13H. |
 | 2026-07-14 | Phase 13B Set/Test Detail Contract Audit | COMPLETE_FOCUSED_GATE_GREEN | IN_PROGRESS_DETAIL_CONTRACT_AUDITED | N/A | 25b5ffc | Static controller/template/DTO/repository/route audit only; no production code, provider call, test run or browser QA in this step. | Confirmed the current KSH set/test screenshots are the before-state, while supplied PREP screens are additive layout/interaction reference. Found set-wide history incorrectly reused as every test's status and test detail not rendering existing completed-attempt history. Locked `Set > Test > Skill > Attempt`: skills are attempted independently, latest two completed attempts are initially visible per skill, older attempts expand/collapse, and result links reuse canonical routes. | Implement a bounded detail presentation service and redesign both templates; then run focused tests/static route audit, update this checkpoint and commit/push before 13C. |
 | 2026-07-14 | Phase 13B Set/Test Detail and Speaking Preflight Implementation | IN_PROGRESS_DETAIL_CONTRACT_AUDITED | COMPLETE_FOCUSED_GATE_GREEN | this commit | 25b5ffc | JDK 17 focused gate: `PracticeSpeakingMediaServiceTest` 31/31, selected set/test/player `PracticeIntegrationTest` 7/7, and detail/UI contract tests 11/11; total 49/49 with zero failures/errors/skips on MySQL schema V25. Changed JavaScript passed `node --check`; route/dead-code and `git diff --check` scans were clean. No full suite, browser QA or provider call. | Replaced the old KSH set/test detail layouts with one KSH implementation informed by PREP interaction research; added per-test progress, independent per-skill latest-two/expandable attempt history and canonical result links. Removed the superseded mode screen while preserving its tested legacy redirect. Speaking start/resume is blocked by output, browser-recording, microphone-permission/live-track and private-upload preflight; test samples are never persisted. Speaking section metadata, ordered delivery content and recording targets resolve from the attempt's immutable published snapshot, remain stable after live edits and fail closed for new attempts without a valid lock. | Commit/push this checkpoint before 13C. Keep countdown, prompt playback, recording, upload confirmation and automatic next-question orchestration in 13C; browser/product QA remains consolidated in 13H. |
+| 2026-07-14 | Phase 13B Immutable Attempt Route Correction | COMPLETE_FOCUSED_GATE_GREEN | IN_PROGRESS_CORRECTION_ROUTE_GATE_GREEN | working tree | 3d5b944 | JDK 17 focused `PracticeServiceTest` 76/76, zero failures/errors. No full suite, browser QA or provider call. | Fixed the `/practice/sets/{setId}/tests/{testId}` start path so attempt reuse and delivery use one coherent immutable published/set/test/section version chain. Skill now comes from the locked section snapshot; stale live-skill/version attempts are discarded instead of being redirected into an incompatible player. | Keep 13B open until the full-screen microphone preflight and canonical `question_content_json.speakingDelivery` contract are implemented. Then complete dedicated `player-speaking` 13C authoring/player/preview orchestration before staging. |
+| 2026-07-14 | Phase 13B/13C Canonical Speaking Delivery Foundation | IN_PROGRESS_CORRECTION_ROUTE_GATE_GREEN | IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN | working tree | 3d5b944 | JDK 17 focused codec, normalization, validator, preview and immutable snapshot gate: 28/28; Excel template/preview/import gate: 4/4; zero failures/errors. No full suite, browser QA or provider call. | Added typed `question_content_json.speakingDelivery` with prompt audio reference, replay limit, preparation seconds and response seconds. Legacy top-level fields normalize into this object; new Speaking publication fails closed without prompt audio or valid limits; immutable question versions preserve the JSON exactly. Excel v2 now captures per-question prompt audio plus replay/preparation/response values into the same contract. No new timing or policy table was created. | Keep 13B open for full-screen microphone preflight. Continue 13C authoring/teacher-preview parity, dedicated player state machine, mandatory private recording upload, auto-next and discard-on-interrupt before staging. |
+| 2026-07-14 | Phase 13C Route Performance and Catalog Integrity Checkpoint | IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN | IN_PROGRESS_ROUTE_PERFORMANCE_FIXED | working tree | 3d5b944 | JDK 17 compile is green after implementation. Focused tests and final route/static audit are still pending before staging. No full suite, browser QA or provider call. | Addressed direct 13C entry-path regressions: non-Speaking attempt player now uses one `AttemptPlayerView` and one immutable snapshot instead of full live-set reload plus duplicate snapshot loads; progress analytics are bounded to the latest 100 non-discarded attempts; catalog rows are de-duplicated before rendering; first publish stores `draft.publishedSetId` to prevent same-draft duplicate sets; `practice_sections(set_id, skill)` index supports skill-filtered catalog lookup. Also fixed audited `th:classappend` quote bugs in set/test detail templates and the invalid duplicate gradient in `practice-index.css`. | Run focused performance/catalog/publisher/player tests and static dead-route scans next. Keep Speaking media reviewer playback as future review/result debt, because it does not block 13C learner state-machine delivery. Continue dedicated `player-speaking` orchestration before commit/push. |
+| 2026-07-15 | Phase 13C Temporary Continuation Checkpoint | IN_PROGRESS_ROUTE_PERFORMANCE_FIXED | TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE | working tree | 3d5b944 | Documentation/status checkpoint requested by user before final 13C gate. `git diff --check` passed; changed JavaScript syntax checks passed for `player-speaking.js`, `speaking-preflight.js`, `practice-test-detail.js`, `manage-authoring-contract.js` and `manage-draft-preview.js`; JDK 17 `mvn -DskipTests compile` passed at 2026-07-15 00:43 Asia/Ho_Chi_Minh. Static scans found no remaining broad attempt-player loads or bad `th:classappend` quoting after the route-performance/template/CSS patch. Focused tests must still be rerun before closure. No full suite, browser QA or provider call. | Current working tree contains full-screen Speaking preflight, canonical `question_content_json.speakingDelivery`, teacher authoring/preview parity, dedicated `player-speaking` assets, mandatory prompt-audio/recording direction, route-performance fixes, catalog de-duplication and first-publish duplicate-set prevention. This is a temporary GitHub safety checkpoint, not a green phase gate. | Next agent must read `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 7 first, rerun focused JDK 17 tests/static audits, fix only 13B/13C regressions, then update docs with exact evidence before marking 13C green. Do not reopen program/certificate governance or broad permission work unless it directly blocks learner Speaking delivery. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Current required next action: stage, commit and push the completed Phase 13B
-checkpoint before beginning 13C. Phase 13C may then implement the skill-native
-player and Speaking orchestration: preparation countdown, prompt playback,
-recording, private upload confirmation and automatic next-question transition.
-Do not combine Listening / Reading / Writing / Speaking into one attempt and do
-not continue 12H generic certificate/skill/task governance. Browser/product QA
-is consolidated into mandatory 13H closure.
+Current required next action: this branch contains a temporary 13C safety
+checkpoint, not a closed phase. Start by reading
+`docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 7, then rerun the
+focused performance/catalog/publisher/player tests plus static dead-route and
+changed-JS audits. Verify the dedicated `player-speaking` state machine:
+mandatory private audio upload, automatic next-question transition,
+discard-on-interrupt behavior and final submit. Do not combine Listening /
+Reading / Writing / Speaking into one attempt and do not continue 12H generic
+certificate/skill/task governance. Browser/product QA is consolidated into
+mandatory 13H closure unless the user explicitly requests otherwise.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
@@ -2633,7 +2652,8 @@ CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
 `PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13A is
 `COMPLETE_FOCUSED_GATE_GREEN` and 13B is
-`COMPLETE_FOCUSED_GATE_GREEN`. Live Speaking AI rollout remains NO-GO.
+`TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE`. Live Speaking AI rollout remains
+NO-GO.
 React modernization remains
 future-only after Phase 16. Do not perform broad UI/React modernization.
 

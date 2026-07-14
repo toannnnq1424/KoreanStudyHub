@@ -50,7 +50,8 @@ final class PracticeAssessmentExcelV2Codec {
             "option_C_text", "option_C_image_ref", "option_D_text", "option_D_image_ref",
             "option_E_text", "option_E_image_ref", "option_F_text", "option_F_image_ref",
             "option_G_text", "option_G_image_ref", "option_H_text", "option_H_image_ref",
-            "writing_task", "teacher_note"
+            "writing_task", "teacher_note", "speaking_prompt_play_limit",
+            "speaking_preparation_seconds", "speaking_response_seconds"
     };
     private static final String[] HEADER_NOTES = {
             "Số test: 1, 2...", "L1/R1/W1/S1, L2/R2...", "R1.1, L1.17...",
@@ -61,7 +62,9 @@ final class PracticeAssessmentExcelV2Codec {
             "Giải thích tiếng Việt của giáo viên", "Điểm tối đa", "Chính sách chấm",
             "Nội dung A", "Ảnh A", "Nội dung B", "Ảnh B", "Nội dung C", "Ảnh C", "Nội dung D", "Ảnh D",
             "Nội dung E", "Ảnh E", "Nội dung F", "Ảnh F", "Nội dung G", "Ảnh G", "Nội dung H", "Ảnh H",
-            "Chỉ dùng Q51/Q52/Q53/Q54 cho Writing", "Ghi chú giáo viên"
+            "Chỉ dùng Q51/Q52/Q53/Q54 cho Writing", "Ghi chú giáo viên",
+            "Số lần tự phát audio đề bài Speaking", "Số giây chuẩn bị Speaking",
+            "Số giây ghi âm câu trả lời Speaking"
     };
 
     private final PracticeDraftContractService draftContractService;
@@ -160,6 +163,12 @@ final class PracticeAssessmentExcelV2Codec {
                 "listening_17_21.mp3", "audio/t01_l_g17.mp3", "Audio chung câu 17-21");
         write(sheet, 5, null, "PASS_R1_G01", "GROUP", "R1", "R1.1", "", "PASSAGE_TEXT",
                 "이 글은 한국어 학습에 관한 내용입니다.", "", "Bài đọc chung");
+        for (int questionNo = 1; questionNo <= 4; questionNo++) {
+            String padded = String.format(Locale.ROOT, "%02d", questionNo);
+            write(sheet, 5 + questionNo, null, "AUD_T01_S_Q" + padded, "QUESTION", "S1", "S1.1",
+                    questionNo, "AUDIO", "speaking_prompt_" + padded + ".mp3",
+                    "audio/t01_s_q" + padded + ".mp3", "Audio đề bài riêng câu Speaking " + questionNo);
+        }
         autosize(sheet, 9, 46);
         sheet.createFreezePane(0, 2);
     }
@@ -247,6 +256,12 @@ final class PracticeAssessmentExcelV2Codec {
         }
         values[33] = type == CanonicalQuestionType.ESSAY ? "Q" + questionNo : "";
         values[34] = "Câu mẫu tiếng Hàn " + questionNo;
+        if (type == CanonicalQuestionType.SPEAKING) {
+            values[11] = "AUD_T01_S_Q" + String.format(Locale.ROOT, "%02d", questionNo);
+            values[35] = 1;
+            values[36] = 30;
+            values[37] = 60;
+        }
         return values;
     }
 
@@ -555,6 +570,27 @@ final class PracticeAssessmentExcelV2Codec {
                 issues, sheet, excelRow, "question_image_ref", rowKey);
         String questionAudio = resolveMaterial(reader.value(row, "question_audio_ref"), materials,
                 issues, sheet, excelRow, "question_audio_ref", rowKey);
+        Integer promptPlayLimit = nullablePositiveInt(reader.value(row, "speaking_prompt_play_limit"));
+        Integer preparationSeconds = nullableNonNegativeInt(reader.value(row, "speaking_preparation_seconds"));
+        Integer responseSeconds = nullablePositiveInt(reader.value(row, "speaking_response_seconds"));
+        if (sheetType == CanonicalQuestionType.SPEAKING) {
+            if (questionAudio == null || questionAudio.isBlank()) {
+                rowBlocking(issues, "SPEAKING_PROMPT_AUDIO_REQUIRED", sheet, excelRow,
+                        "question_audio_ref", "Speaking bắt buộc có audio đề bài riêng cho từng câu.", rowKey);
+            }
+            if (promptPlayLimit == null || promptPlayLimit > 10) {
+                rowBlocking(issues, "SPEAKING_PROMPT_PLAY_LIMIT_INVALID", sheet, excelRow,
+                        "speaking_prompt_play_limit", "Số lần phát audio phải từ 1 đến 10.", rowKey);
+            }
+            if (preparationSeconds == null || preparationSeconds > 600) {
+                rowBlocking(issues, "SPEAKING_PREPARATION_SECONDS_INVALID", sheet, excelRow,
+                        "speaking_preparation_seconds", "Thời gian chuẩn bị phải từ 0 đến 600 giây.", rowKey);
+            }
+            if (responseSeconds == null || responseSeconds > 1800) {
+                rowBlocking(issues, "SPEAKING_RESPONSE_SECONDS_INVALID", sheet, excelRow,
+                        "speaking_response_seconds", "Thời gian trả lời phải từ 1 đến 1800 giây.", rowKey);
+            }
+        }
 
         String signature = String.join("|", groupInstruction, groupText, nullToEmpty(groupImage), nullToEmpty(groupAudio));
         String previousSignature = groupSignatures.putIfAbsent(lessonCode + ":" + groupCode, signature);
@@ -577,7 +613,8 @@ final class PracticeAssessmentExcelV2Codec {
                 scoringPolicy(sheetType, reader.value(row, "scoring_policy")), options,
                 answer.blanks(),
                 answer.correctOptionLetters(), answer.correctValue(),
-                writingTask, reader.value(row, "teacher_note"));
+                writingTask, reader.value(row, "teacher_note"),
+                promptPlayLimit, preparationSeconds, responseSeconds);
     }
 
     private List<V2Option> readOptions(
@@ -792,12 +829,20 @@ final class PracticeAssessmentExcelV2Codec {
                 .map(blank -> new QuestionContent.Blank(blank.id(), blank.id()))
                 .toList();
 
+        QuestionContent.SpeakingDelivery speakingDelivery = row.type() == CanonicalQuestionType.SPEAKING
+                ? new QuestionContent.SpeakingDelivery(
+                        row.questionAudio(),
+                        row.promptPlayLimit() == null ? 1 : row.promptPlayLimit(),
+                        row.preparationSeconds() == null ? 30 : row.preparationSeconds(),
+                        row.responseSeconds() == null ? 60 : row.responseSeconds())
+                : null;
         QuestionContent content = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
                 contentOptions,
                 contentBlanks,
                 row.questionImage(),
-                row.questionAudio());
+                row.questionAudio(),
+                speakingDelivery);
         AnswerSpec answerSpec = new AnswerSpec(
                 AnswerSpec.SCHEMA_VERSION,
                 row.type(),
@@ -808,6 +853,12 @@ final class PracticeAssessmentExcelV2Codec {
         try {
             question.set("questionContent", objectMapper.readTree(contractCodec.writeQuestionContent(content, row.type())));
             question.set("answerSpec", objectMapper.readTree(contractCodec.writeAnswerSpec(answerSpec, content)));
+            if (speakingDelivery != null) {
+                nullable(question, "speakingPromptAudioUrl", speakingDelivery.promptAudioReference());
+                question.put("speakingPromptPlayLimit", speakingDelivery.promptPlayLimit());
+                question.put("prepTimeSeconds", speakingDelivery.preparationSeconds());
+                question.put("respTimeSeconds", speakingDelivery.responseSeconds());
+            }
         } catch (Exception exception) {
             throw new IllegalArgumentException("Không tạo được typed contract cho " + row.rowKey(), exception);
         }
@@ -1044,6 +1095,16 @@ final class PracticeAssessmentExcelV2Codec {
     private static Integer nullablePositiveInt(String raw) {
         int value = positiveInt(raw);
         return value > 0 ? value : null;
+    }
+
+    private static Integer nullableNonNegativeInt(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            int value = new BigDecimal(raw.trim()).intValueExact();
+            return value >= 0 ? value : null;
+        } catch (RuntimeException exception) {
+            return null;
+        }
     }
 
     private static BigDecimal positiveDecimal(String raw) {
@@ -1299,7 +1360,10 @@ final class PracticeAssessmentExcelV2Codec {
             List<String> correctOptionLetters,
             String correctValue,
             String writingTask,
-            String teacherNote) {
+            String teacherNote,
+            Integer promptPlayLimit,
+            Integer preparationSeconds,
+            Integer responseSeconds) {
     }
 
     private static final class SheetReader {

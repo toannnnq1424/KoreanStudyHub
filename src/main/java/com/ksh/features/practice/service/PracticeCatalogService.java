@@ -92,7 +92,14 @@ public class PracticeCatalogService {
                     query.batch(), BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
         }
 
-        List<PracticeSet> sets = setPage.getContent();
+        List<PracticeSet> sets = setPage.getContent().stream()
+                .collect(Collectors.toMap(
+                        PracticeSet::getId,
+                        Function.identity(),
+                        (left, right) -> left,
+                        LinkedHashMap::new))
+                .values().stream()
+                .toList();
         List<Long> setIds = sets.stream().map(PracticeSet::getId).toList();
         List<PracticeTest> tests = testRepository
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds);

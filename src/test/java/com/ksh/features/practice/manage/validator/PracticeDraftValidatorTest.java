@@ -249,6 +249,16 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
+    void speakingPromptAudioIsRequiredForNewDrafts() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                speakingDraft("SPEAKING").replace("/practice/materials/7/content", ""));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "SPEAKING_PROMPT_AUDIO_REQUIRED".equals(message.code())));
+    }
+
+    @Test
     void questionNumberResetsInsideEverySkillSection() {
         PracticeDraftValidator.ValidationResult result = validator.validate(twoSkillDraft(1));
 
@@ -308,7 +318,18 @@ public class PracticeDraftValidatorTest {
                       "prompt": "Prompt",
                       "answer": { "value": "" },
                       "explanationVi": "Explanation",
-                      "points": 10
+                      "points": 10,
+                      "questionContent": {
+                        "schemaVersion": "question-content-v1",
+                        "options": [],
+                        "blanks": [],
+                        "speakingDelivery": {
+                          "promptAudioReference": "/practice/materials/7/content",
+                          "promptPlayLimit": 2,
+                          "preparationSeconds": 30,
+                          "responseSeconds": 60
+                        }
+                      }
                     }
                 """);
     }
@@ -345,7 +366,18 @@ public class PracticeDraftValidatorTest {
                       "prompt": "Prompt",
                       "answer": { "value": "" },
                       "explanationVi": "Explanation",
-                      "points": 10
+                      "points": 10,
+                      "questionContent": {
+                        "schemaVersion": "question-content-v1",
+                        "options": [],
+                        "blanks": [],
+                        "speakingDelivery": {
+                          "promptAudioReference": "/practice/materials/7/content",
+                          "promptPlayLimit": 2,
+                          "preparationSeconds": 30,
+                          "responseSeconds": 60
+                        }
+                      }
                     }
                 """.formatted(questionType));
     }

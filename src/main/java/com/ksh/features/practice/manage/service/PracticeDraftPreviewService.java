@@ -113,12 +113,20 @@ public class PracticeDraftPreviewService {
                 .map(option -> new QuestionContent.Option(
                         option.id(), option.text(), safeMediaReference(option.imageReference())))
                 .toList();
+        QuestionContent.SpeakingDelivery speakingDelivery = content.speakingDelivery() == null
+                ? null
+                : new QuestionContent.SpeakingDelivery(
+                        safeMediaReference(content.speakingDelivery().promptAudioReference()),
+                        content.speakingDelivery().promptPlayLimit(),
+                        content.speakingDelivery().preparationSeconds(),
+                        content.speakingDelivery().responseSeconds());
         return new QuestionContent(
                 content.schemaVersion(),
                 options,
                 content.blanks(),
                 safeMediaReference(content.imageReference()),
-                safeMediaReference(content.audioReference())
+                safeMediaReference(content.audioReference()),
+                speakingDelivery
         );
     }
 

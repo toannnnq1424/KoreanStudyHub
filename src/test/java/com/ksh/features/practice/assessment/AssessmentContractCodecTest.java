@@ -86,6 +86,41 @@ class AssessmentContractCodecTest {
     }
 
     @Test
+    void speakingDeliveryRoundTripsAndRejectsInvalidTiming() {
+        QuestionContent content = contentFor(CanonicalQuestionType.SPEAKING);
+
+        String json = codec.writeQuestionContent(content, CanonicalQuestionType.SPEAKING);
+
+        assertThat(codec.readQuestionContent(json, CanonicalQuestionType.SPEAKING))
+                .isEqualTo(content);
+        assertThat(json).contains("speakingDelivery", "preparationSeconds", "responseSeconds");
+
+        QuestionContent invalid = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new QuestionContent.SpeakingDelivery("/practice/materials/7/content", 0, 30, 60));
+        assertThatThrownBy(() -> codec.writeQuestionContent(invalid, CanonicalQuestionType.SPEAKING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("speaking prompt play limit");
+        assertThatThrownBy(() -> codec.writeQuestionContent(content, CanonicalQuestionType.ESSAY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only valid for SPEAKING");
+    }
+
+    @Test
+    void historicalSpeakingContentWithoutDeliveryRemainsReadable() {
+        QuestionContent legacy = QuestionContent.empty();
+
+        String json = codec.writeQuestionContent(legacy, CanonicalQuestionType.SPEAKING);
+
+        assertThat(codec.readQuestionContent(json, CanonicalQuestionType.SPEAKING).speakingDelivery())
+                .isNull();
+    }
+
+    @Test
     void playerPayloadSerializationCannotLeakAnswerSpec() throws Exception {
         PlayerQuestionPayload payload = new PlayerQuestionPayload(
                 PlayerQuestionPayload.SCHEMA_VERSION,
@@ -133,7 +168,15 @@ class AssessmentContractCodecTest {
                     QuestionContent.SCHEMA_VERSION,
                     List.of(),
                     List.of(new QuestionContent.Blank("blank_1", "도시는 ____입니다.")));
-            case TRUE_FALSE_NOT_GIVEN, ESSAY, SPEAKING -> QuestionContent.empty();
+            case TRUE_FALSE_NOT_GIVEN, ESSAY -> QuestionContent.empty();
+            case SPEAKING -> new QuestionContent(
+                    QuestionContent.SCHEMA_VERSION,
+                    List.of(),
+                    List.of(),
+                    null,
+                    null,
+                    new QuestionContent.SpeakingDelivery(
+                            "/practice/materials/7/content", 2, 30, 60));
         };
     }
 

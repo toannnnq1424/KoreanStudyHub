@@ -19,9 +19,13 @@ public final class PracticeRoutes {
     public static final String SET_DETAIL = "/sets/{setId}";
     public static final String TEST_DETAIL = "/sets/{setId}/tests/{testId}";
     public static final String CREATE_ATTEMPT = "/sets/{setId}/tests/{testId}/attempts";
+    public static final String SPEAKING_PREFLIGHT =
+            "/sets/{setId}/tests/{testId}/sections/{sectionId}/speaking-check";
     public static final String ATTEMPT = "/attempts/{attemptId}";
+    public static final String ATTEMPT_SPEAKING_PREFLIGHT = "/attempts/{attemptId}/speaking-check";
     public static final String ATTEMPT_SUBMIT = "/attempts/{attemptId}/submit";
     public static final String ATTEMPT_DISCARD = "/attempts/{attemptId}/discard";
+    public static final String ATTEMPT_INTERRUPT = "/attempts/{attemptId}/interrupt";
     public static final String ATTEMPT_RE_EVALUATE = "/attempts/{attemptId}/re-evaluate";
     public static final String RESULT = "/attempts/{attemptId}/result";
     public static final String RESULT_DETAIL = "/attempts/{attemptId}/result/detail";
@@ -60,6 +64,14 @@ public final class PracticeRoutes {
                 .toUriString();
     }
 
+    public static String speakingPreflightPath(Long setId, Long testId, Long sectionId) {
+        return testDetailPath(setId, testId) + "/sections/" + sectionId + "/speaking-check";
+    }
+
+    public static String attemptSpeakingPreflightPath(Long attemptId) {
+        return attemptPath(attemptId) + "/speaking-check";
+    }
+
     public static String resultPath(Long attemptId) {
         return attemptPath(attemptId) + "/result";
     }
@@ -85,6 +97,14 @@ public final class PracticeRoutes {
 
     public static String redirectToAttempt(Long attemptId, String mode) {
         return redirect(attemptPath(attemptId, mode));
+    }
+
+    public static String redirectToSpeakingPreflight(Long setId, Long testId, Long sectionId) {
+        return redirect(speakingPreflightPath(setId, testId, sectionId));
+    }
+
+    public static String redirectToAttemptSpeakingPreflight(Long attemptId) {
+        return redirect(attemptSpeakingPreflightPath(attemptId));
     }
 
     public static String redirectToResult(Long attemptId) {

@@ -280,6 +280,16 @@ public class PracticeDraftContractService {
             }
         }
 
+        if (type == CanonicalQuestionType.SPEAKING) {
+            content = normalizeSpeakingDelivery(question, content);
+            try {
+                question.set("questionContent", objectMapper.readTree(
+                        contractCodec.writeQuestionContent(content, type)));
+            } catch (Exception ignored) {
+                return;
+            }
+        }
+
         if (question.path("answerSpec").isObject()) {
             return;
         }
@@ -295,6 +305,62 @@ public class PracticeDraftContractService {
         } catch (Exception ignored) {
             // Incomplete AI/Excel data remains editable and is blocked by the publisher validator.
         }
+    }
+
+    private QuestionContent normalizeSpeakingDelivery(ObjectNode question, QuestionContent content) {
+        QuestionContent.SpeakingDelivery current = content.speakingDelivery();
+        String promptAudioReference = firstNonBlank(
+                current == null ? null : current.promptAudioReference(),
+                text(question, "speakingPromptAudioUrl", ""),
+                text(question, "audioUrl", ""));
+        int promptPlayLimit = positiveOrDefault(
+                current == null ? null : current.promptPlayLimit(),
+                question.path("speakingPromptPlayLimit").asInt(0),
+                1);
+        int preparationSeconds = nonNegativeOrDefault(
+                current == null ? null : current.preparationSeconds(),
+                question.get("prepTimeSeconds"),
+                30);
+        int responseSeconds = positiveOrDefault(
+                current == null ? null : current.responseSeconds(),
+                question.path("respTimeSeconds").asInt(0),
+                60);
+
+        QuestionContent.SpeakingDelivery delivery = new QuestionContent.SpeakingDelivery(
+                promptAudioReference.isBlank() ? null : promptAudioReference,
+                promptPlayLimit,
+                preparationSeconds,
+                responseSeconds);
+        question.put("speakingPromptPlayLimit", promptPlayLimit);
+        question.put("prepTimeSeconds", preparationSeconds);
+        question.put("respTimeSeconds", responseSeconds);
+        putOrNull(question, "speakingPromptAudioUrl", promptAudioReference);
+        return new QuestionContent(
+                content.schemaVersion(),
+                content.options(),
+                content.blanks(),
+                content.imageReference(),
+                content.audioReference(),
+                delivery);
+    }
+
+    private static int positiveOrDefault(Integer canonicalValue, int legacyValue, int fallback) {
+        if (canonicalValue != null && canonicalValue > 0) return canonicalValue;
+        return legacyValue > 0 ? legacyValue : fallback;
+    }
+
+    private static int nonNegativeOrDefault(Integer canonicalValue, JsonNode legacyValue, int fallback) {
+        if (canonicalValue != null && canonicalValue >= 0) return canonicalValue;
+        return legacyValue != null && legacyValue.canConvertToInt() && legacyValue.asInt() >= 0
+                ? legacyValue.asInt()
+                : fallback;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value.trim();
+        }
+        return "";
     }
 
     private ArrayNode normalizeLegacyOptions(ObjectNode question) {

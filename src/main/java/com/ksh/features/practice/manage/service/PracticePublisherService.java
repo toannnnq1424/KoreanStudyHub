@@ -405,6 +405,7 @@ public class PracticePublisherService {
         }
 
         // Set draft status as PUBLISHED so we know it is done
+        draft.setPublishedSetId(savedSet.getId());
         draft.setStatus("PUBLISHED");
         draftRepository.save(draft);
 

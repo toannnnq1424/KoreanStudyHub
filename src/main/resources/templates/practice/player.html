@@ -9,7 +9,7 @@
       th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}"
       method="post"
       autocomplete="off"
-      th:attr="data-mode=${mode},data-speaking-media-upload-enabled=${speakingMediaUploadEnabled},data-speaking-media-playback-enabled=${speakingMediaPlaybackEnabled}">
+      th:attr="data-mode=${mode}">
   <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
   <!-- Redesigned Sticky Header -->
@@ -170,44 +170,6 @@
                 <input type="text" th:name="'answer_' + ${q.id()}" placeholder="Nhập câu trả lời..." style="width: 100%; height: 48px; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 15px; box-sizing: border-box;">
               </div>
               
-              <!-- Speaking input -->
-              <div class="ksh-speaking-input" th:if="${q.questionType() == 'SPEAKING'}">
-                <textarea th:name="'answer_' + ${q.id()}" rows="5" placeholder="Nhập câu trả lời Nói bằng văn bản..." style="width: 100%; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 15px; box-sizing: border-box; resize: vertical;"></textarea>
-                <section class="ksh-speaking-recorder"
-                         th:if="${speakingMediaUploadEnabled}"
-                         th:with="media=${speakingMediaByQuestionId[q.id()]}"
-                         th:attr="data-question-id=${q.id()},
-                                  data-upload-url=@{/practice/attempts/{attemptId}/questions/{questionId}/speaking-media(attemptId=${attemptId},questionId=${q.id()})},
-                                  data-media-id=${media != null ? media.mediaId() : ''},
-                                  data-playback-path=${media != null and speakingMediaPlaybackEnabled ? media.playbackPath() : ''},
-                                  data-media-mime=${media != null ? media.mimeType() : ''},
-                                  data-media-duration-ms=${media != null ? media.durationMs() : ''},
-                                  data-media-byte-size=${media != null ? media.byteSize() : ''},
-                                  data-media-lock-version=${media != null ? media.lockVersion() : ''}">
-                  <div class="ksh-speaking-recorder-actions">
-                    <button class="ksh-recorder-start" type="button">Ghi âm</button>
-                    <button class="ksh-recorder-stop" type="button" disabled>Dừng</button>
-                    <button class="ksh-recorder-upload" type="button" hidden>Tải bản ghi lên</button>
-                    <button class="ksh-recorder-retry" type="button" hidden>Thử tải lại</button>
-                    <button class="ksh-recorder-delete" type="button" th:hidden="${media == null}">Xóa bản ghi</button>
-                    <button class="ksh-recorder-rerecord" type="button" th:hidden="${media == null}">Ghi lại</button>
-                  </div>
-                  <audio class="ksh-recorder-preview"
-                         controls
-                         th:hidden="${media == null or !speakingMediaPlaybackEnabled}"
-                         th:src="${media != null and speakingMediaPlaybackEnabled ? media.playbackPath() : ''}"></audio>
-                  <progress class="ksh-recorder-progress" max="100" value="0" hidden></progress>
-                  <p class="ksh-recorder-status" role="status" aria-live="polite"
-                     th:text="${media != null} ? 'Bản ghi đã được lưu.' : 'Ghi âm là tùy chọn. Bạn vẫn có thể nộp câu trả lời bằng văn bản.'">
-                    Ghi âm là tùy chọn.
-                  </p>
-                </section>
-                <p class="ksh-recorder-unavailable"
-                   th:unless="${speakingMediaUploadEnabled}">
-                  Ghi âm chưa được bật. Bạn vẫn có thể trả lời bằng văn bản.
-                </p>
-              </div>
-
               <!-- Writing essay input -->
               <div class="ksh-writing-box" th:if="${q.questionType() == 'ESSAY'}">
                 <label class="ksh-writing-task" style="display: block;">
@@ -299,21 +261,6 @@
     <span>☰ Questions</span>
   </button>
 </form>
-
-<dialog id="ksh-speaking-consent" class="ksh-speaking-consent">
-  <form method="dialog">
-    <h2>Ghi âm câu trả lời Nói</h2>
-    <p>Bản ghi chỉ được dùng cho các tính năng luyện tập của Korean Study Hub, được giữ riêng tư trong tài khoản của bạn và tuân theo chính sách lưu giữ media Nói. Bạn có thể xóa và ghi lại trước khi nộp bài. Đây là điểm luyện tập nội bộ và hiện chưa có đánh giá phát âm bằng AI.</p>
-    <label>
-      <input id="ksh-speaking-consent-check" type="checkbox">
-      Tôi hiểu và đồng ý ghi âm câu trả lời Nói của mình.
-    </label>
-    <div class="ksh-speaking-consent-actions">
-      <button type="button" data-speaking-consent-cancel>Hủy</button>
-      <button type="button" data-speaking-consent-accept disabled>Đồng ý và tiếp tục</button>
-    </div>
-  </form>
-</dialog>
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/practice.js}"></script>

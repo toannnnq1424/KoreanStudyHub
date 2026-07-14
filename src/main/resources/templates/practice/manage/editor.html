@@ -414,14 +414,33 @@
 
         <!-- 6. Speaking configuration -->
         <div id="speaking-area" style="margin-bottom:24px; display:none;">
+          <div style="margin-bottom:16px; padding:12px 14px; border:1px solid #BFDBFE; border-radius:8px; background:#EFF6FF; color:#1E3A8A; font-size:0.82rem; line-height:1.55;">
+            Khi học viên vào câu này, hệ thống sẽ tự phát audio đề bài, đếm thời gian chuẩn bị, ghi âm câu trả lời rồi tự chuyển sang câu tiếp theo.
+          </div>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Audio đề bài <span style="color:var(--pp-error);">*</span></label>
+            <div class="audio-upload-box" id="speaking-prompt-audio-dropzone" onclick="document.getElementById('speaking-prompt-audio-file-input').click()">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              <p style="margin:0; font-size:0.85rem; font-weight:600;">Nhấp hoặc kéo thả audio của câu hỏi</p>
+              <span style="font-size:0.75rem; color:var(--pp-text-muted);">Học viên phải nghe audio này trước khi bắt đầu chuẩn bị</span>
+              <input type="file" id="speaking-prompt-audio-file-input" style="display:none;" accept="audio/*" onchange="handleSpeakingPromptAudioSelect(this)">
+            </div>
+            <div id="speaking-prompt-audio-upload-status" style="display:none; font-size:0.8rem; font-weight:600; margin-top:8px;"></div>
+            <div id="speaking-prompt-audio-preview-container" class="audio-player-container" style="display:none;"></div>
+          </div>
+          <div style="margin-bottom:16px; max-width:280px;">
+            <label class="form-label">Số lần phát audio đề bài</label>
+            <input type="number" id="q-speak-play-limit" class="form-input" min="1" max="10" value="1" oninput="saveCurrentNode()">
+            <div style="font-size:0.75rem; color:var(--pp-text-muted); margin-top:6px;">Từ 1 đến 10 lần. Player tự phát lần đầu khi mở câu.</div>
+          </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
             <div>
               <label class="form-label">Thời gian chuẩn bị (giây)</label>
-              <input type="number" id="q-speak-prep" class="form-input" placeholder="30" oninput="saveCurrentNode()">
+              <input type="number" id="q-speak-prep" class="form-input" min="0" max="600" value="30" oninput="saveCurrentNode()">
             </div>
             <div>
               <label class="form-label">Thời gian nói (giây)</label>
-              <input type="number" id="q-speak-resp" class="form-input" placeholder="60" oninput="saveCurrentNode()">
+              <input type="number" id="q-speak-resp" class="form-input" min="1" max="1800" value="60" oninput="saveCurrentNode()">
             </div>
           </div>
           <div style="margin-bottom:16px;">
@@ -1802,6 +1821,11 @@
     if (questionImgDropzone) {
       setupDropzoneEvents(questionImgDropzone, (file) => uploadImageFile(file, 'question'));
     }
+
+    const speakingPromptAudioDropzone = document.getElementById('speaking-prompt-audio-dropzone');
+    if (speakingPromptAudioDropzone) {
+      setupDropzoneEvents(speakingPromptAudioDropzone, uploadSpeakingPromptAudio);
+    }
   }
 
   function setupDropzoneEvents(dropzone, uploadFn) {
@@ -1827,7 +1851,11 @@
       } else {
         // Handle drag from sidebar asset library (text/plain URL)
         const droppedUrl = dt.getData('text/plain');
-        if (droppedUrl && droppedUrl.startsWith('/practice/manage/assets/')) {
+        if (droppedUrl && droppedUrl.startsWith('/practice/materials/')) {
+          if (dropzone.id === 'speaking-prompt-audio-dropzone') {
+            showEditorToast('Kho bên phải hiện chỉ chứa ảnh. Hãy chọn tệp audio cho câu Speaking.', 'warning');
+            return;
+          }
           // Determine target type from dropzone id
           const targetType = dropzone.id.includes('group') ? 'group' : 'question';
           const sIdx = currentNode.sIdx;
@@ -1855,6 +1883,12 @@
   function handleAudioSelect(input) {
     if (input.files && input.files[0]) {
       uploadAudioFile(input.files[0]);
+    }
+  }
+
+  function handleSpeakingPromptAudioSelect(input) {
+    if (input.files && input.files[0]) {
+      uploadSpeakingPromptAudio(input.files[0]);
     }
   }
 
@@ -1945,8 +1979,8 @@
     group.stimulus.imageReference = url || null;
   }
 
-  function uploadAudioFile(file) {
-    const statusText = document.getElementById('audio-upload-status');
+  function uploadDraftAudio(file, statusElementId, onUploaded) {
+    const statusText = document.getElementById(statusElementId);
     statusText.innerText = "Đang tải tệp âm thanh...";
     statusText.style.display = 'block';
     statusText.style.color = 'var(--pp-text-muted)';
@@ -1968,7 +2002,17 @@
     .then(data => {
       statusText.innerText = "Tải lên tệp thành công: " + data.filename;
       statusText.style.color = 'var(--pp-success)';
-      
+      onUploaded(data);
+      triggerAutosave();
+    })
+    .catch(err => {
+      statusText.innerText = "Lỗi: " + err.message;
+      statusText.style.color = 'var(--pp-error)';
+    });
+  }
+
+  function uploadAudioFile(file) {
+    uploadDraftAudio(file, 'audio-upload-status', (data) => {
       const sIdx = currentNode.sIdx;
       const gIdx = currentNode.gIdx;
       const group = DRAFT_DATA.sections[sIdx].groups[gIdx];
@@ -1976,13 +2020,22 @@
       if (!group.stimulus || typeof group.stimulus !== 'object') group.stimulus = {};
       group.stimulus.mediaReference = data.url;
       document.getElementById('grp-audio').value = data.url;
-      
       updateAudioPreview(data.url);
-      triggerAutosave();
-    })
-    .catch(err => {
-      statusText.innerText = "Lỗi: " + err.message;
-      statusText.style.color = 'var(--pp-error)';
+    });
+  }
+
+  function uploadSpeakingPromptAudio(file) {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const question = section.groups[currentNode.gIdx].questions[currentNode.qIdx];
+    if (!question || section.skill !== 'SPEAKING' || question.questionType !== 'SPEAKING') {
+      showEditorToast('Chỉ có thể gắn audio đề bài cho câu Speaking.', 'warning');
+      return;
+    }
+    uploadDraftAudio(file, 'speaking-prompt-audio-upload-status', (data) => {
+      question.speakingPromptAudioUrl = data.url;
+      window.PracticeAuthoringContract.syncQuestionContract(question);
+      updateSpeakingPromptAudioPreview(data.url);
     });
   }
 
@@ -2005,6 +2058,47 @@
     } else {
       container.style.display = 'none';
     }
+  }
+
+  function updateSpeakingPromptAudioPreview(url) {
+    const container = document.getElementById('speaking-prompt-audio-preview-container');
+    if (!container) return;
+    if (!url || !url.trim()) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    const safeUrl = escapeHtml(url);
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <span style="font-size:0.8rem; font-weight:700; color:var(--pp-text-muted);">Nghe thử audio đề bài</span>
+          <button type="button" class="btn-action btn-sec" onclick="removeSpeakingPromptAudio(event)" style="padding:6px 10px; color:var(--pp-error);" title="Bỏ audio đề bài">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Bỏ audio
+          </button>
+        </div>
+        <audio controls preload="metadata" src="${safeUrl}" style="width:100%;"></audio>
+      </div>
+    `;
+  }
+
+  function removeSpeakingPromptAudio(event) {
+    if (event) event.stopPropagation();
+    if (!currentNode || currentNode.type !== 'question') return;
+    const question = DRAFT_DATA.sections[currentNode.sIdx]
+      .groups[currentNode.gIdx].questions[currentNode.qIdx];
+    question.speakingPromptAudioUrl = '';
+    question.audioUrl = '';
+    if (question.questionContent && question.questionContent.speakingDelivery) {
+      question.questionContent.speakingDelivery.promptAudioReference = null;
+    }
+    window.PracticeAuthoringContract.syncQuestionContract(question);
+    updateSpeakingPromptAudioPreview('');
+    document.getElementById('speaking-prompt-audio-upload-status').style.display = 'none';
+    document.getElementById('speaking-prompt-audio-file-input').value = '';
+    triggerAutosave();
   }
 
   function toggleAdvancedAudio(event) {
@@ -2110,10 +2204,14 @@
       document.getElementById('q-essay-task').value = q.essayTaskType || '';
       document.getElementById('q-essay-sample').value = q.essaySample || '';
     } else if (type === 'SPEAKING') {
+      window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
       document.getElementById('speaking-area').style.display = 'block';
-      document.getElementById('q-speak-prep').value = q.prepTimeSeconds || '';
-      document.getElementById('q-speak-resp').value = q.respTimeSeconds || '';
+      document.getElementById('q-speak-play-limit').value = q.speakingPromptPlayLimit || 1;
+      document.getElementById('q-speak-prep').value = q.prepTimeSeconds ?? 30;
+      document.getElementById('q-speak-resp').value = q.respTimeSeconds || 60;
       document.getElementById('q-speak-sample').value = q.speakingSample || '';
+      updateSpeakingPromptAudioPreview(q.speakingPromptAudioUrl || '');
+      document.getElementById('speaking-prompt-audio-upload-status').style.display = 'none';
     }
 
     window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
@@ -2458,8 +2556,15 @@
         delete q.essayRubric;
       } else if (typeSel === 'SPEAKING') {
         applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
-        q.prepTimeSeconds = parseInt(document.getElementById('q-speak-prep').value) || 0;
-        q.respTimeSeconds = parseInt(document.getElementById('q-speak-resp').value) || 0;
+        const playLimit = parseInt(document.getElementById('q-speak-play-limit').value, 10);
+        const prepSeconds = parseInt(document.getElementById('q-speak-prep').value, 10);
+        const responseSeconds = parseInt(document.getElementById('q-speak-resp').value, 10);
+        q.speakingPromptPlayLimit = Number.isInteger(playLimit) && playLimit >= 1 && playLimit <= 10
+          ? playLimit : 1;
+        q.prepTimeSeconds = Number.isInteger(prepSeconds) && prepSeconds >= 0 && prepSeconds <= 600
+          ? prepSeconds : 30;
+        q.respTimeSeconds = Number.isInteger(responseSeconds) && responseSeconds >= 1 && responseSeconds <= 1800
+          ? responseSeconds : 60;
         q.speakingSample = document.getElementById('q-speak-sample').value;
       } else {
         applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
@@ -3475,11 +3580,19 @@
           </div>
         `;
       } else if (q.questionType === 'SPEAKING') {
+        const speakingDelivery = q.questionContent && q.questionContent.speakingDelivery || {};
+        const promptAudioUrl = q.speakingPromptAudioUrl || speakingDelivery.promptAudioReference || '';
+        const promptAudioHtml = promptAudioUrl
+          ? `<audio controls preload="metadata" src="${escapeHtml(promptAudioUrl)}" style="width:100%;"></audio>`
+          : `<div style="padding:10px 12px; border:1px solid #FCA5A5; border-radius:8px; background:#FEF2F2; color:#B91C1C; font-size:0.8rem; font-weight:600;">Chưa có audio đề bài bắt buộc.</div>`;
         optionsHtml += `
           <div style="display:flex; flex-direction:column; gap:10px;">
-            <div style="display:flex; gap:12px; font-size:0.8rem; font-weight:600; color:#475569;">
-              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Chuẩn bị: <strong>${q.prepTimeSeconds || 0}s</strong></span>
-              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Thời gian nói: <strong>${q.respTimeSeconds || 0}s</strong></span>
+            <div style="font-size:0.8rem; font-weight:700; color:#1E293B;">Player Speaking sẽ tự phát audio này trước khi đếm giờ</div>
+            ${promptAudioHtml}
+            <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.8rem; font-weight:600; color:#475569;">
+              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Phát tối đa: <strong>${q.speakingPromptPlayLimit || speakingDelivery.promptPlayLimit || 1} lần</strong></span>
+              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Chuẩn bị: <strong>${q.prepTimeSeconds ?? speakingDelivery.preparationSeconds ?? 30}s</strong></span>
+              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Thời gian nói: <strong>${q.respTimeSeconds || speakingDelivery.responseSeconds || 60}s</strong></span>
             </div>
           </div>
         `;

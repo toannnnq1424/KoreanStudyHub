@@ -34,10 +34,10 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
                   )
               and (
                     :skill = ''
-                    or upper(s.skill) = :skill
+                    or s.skill = :skill
                     or exists (
                         select section.id from PracticeSection section
-                        where section.setId = s.id and upper(section.skill) = :skill
+                        where section.setId = s.id and section.skill = :skill
                     )
                   )
             order by s.createdAt desc, s.id desc
@@ -58,10 +58,10 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
                   )
               and (
                     :skill = ''
-                    or upper(s.skill) = :skill
+                    or s.skill = :skill
                     or exists (
                         select section.id from PracticeSection section
-                        where section.setId = s.id and upper(section.skill) = :skill
+                        where section.setId = s.id and section.skill = :skill
                     )
                   )
             """)

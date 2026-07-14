@@ -45,6 +45,14 @@
     if (q.questionType === 'MCQ') q.questionType = 'SINGLE_CHOICE';
     q.options = Array.isArray(q.options) ? q.options.map(option => normalizeOption(option, makeId)) : [];
 
+    const delivery = q.questionContent && q.questionContent.speakingDelivery;
+    if (delivery && typeof delivery === 'object') {
+      q.speakingPromptAudioUrl = delivery.promptAudioReference || q.speakingPromptAudioUrl || q.audioUrl || '';
+      q.speakingPromptPlayLimit = positiveInteger(delivery.promptPlayLimit, 1);
+      q.prepTimeSeconds = nonNegativeInteger(delivery.preparationSeconds, 30);
+      q.respTimeSeconds = positiveInteger(delivery.responseSeconds, 60);
+    }
+
     if (q.questionType === 'FILL_BLANK' && (!Array.isArray(q.fillBlanks) || q.fillBlanks.length === 0)) {
       const legacy = String((q.answer && q.answer.value) || q.answerKey || '').trim();
       q.fillBlanks = [{
@@ -60,6 +68,10 @@
   function syncQuestionContract(q) {
     const type = q.questionType || 'SINGLE_CHOICE';
     const previousSpec = q.answerSpec && typeof q.answerSpec === 'object' ? q.answerSpec : {};
+    const previousContent = q.questionContent && typeof q.questionContent === 'object' ? q.questionContent : {};
+    const previousDelivery = previousContent.speakingDelivery && typeof previousContent.speakingDelivery === 'object'
+      ? previousContent.speakingDelivery
+      : {};
     const content = {
       schemaVersion: CONTENT_SCHEMA,
       options: [],
@@ -101,6 +113,22 @@
 
     content.imageReference = q.imageUrl || content.imageReference || null;
     content.audioReference = q.audioUrl || content.audioReference || null;
+    if (type === 'SPEAKING') {
+      const promptAudioReference = q.speakingPromptAudioUrl
+        || previousDelivery.promptAudioReference
+        || q.audioUrl
+        || null;
+      content.speakingDelivery = {
+        promptAudioReference,
+        promptPlayLimit: positiveInteger(q.speakingPromptPlayLimit || previousDelivery.promptPlayLimit, 1),
+        preparationSeconds: nonNegativeInteger(q.prepTimeSeconds ?? previousDelivery.preparationSeconds, 30),
+        responseSeconds: positiveInteger(q.respTimeSeconds || previousDelivery.responseSeconds, 60)
+      };
+      q.speakingPromptAudioUrl = promptAudioReference || '';
+      q.speakingPromptPlayLimit = content.speakingDelivery.promptPlayLimit;
+      q.prepTimeSeconds = content.speakingDelivery.preparationSeconds;
+      q.respTimeSeconds = content.speakingDelivery.responseSeconds;
+    }
     delete q.canonicalQuestionType;
     q.questionContent = content;
     q.answerSpec = answer;
@@ -111,6 +139,16 @@
     if (type === 'FILL_BLANK') return 'NORMALIZED_EXACT';
     if (type === 'ESSAY' || type === 'SPEAKING') return 'PROFILE_BASED';
     return 'ALL_OR_NOTHING';
+  }
+
+  function positiveInteger(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  function nonNegativeInteger(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
   }
 
   function applyTemplateMetadata(catalog, draft, templateCode) {

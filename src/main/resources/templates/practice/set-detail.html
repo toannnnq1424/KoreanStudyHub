@@ -33,7 +33,7 @@
           <p class="pd-eyebrow">Bộ đề luyện tập</p>
           <h1 id="set-title" th:text="${view.set().title()}">Tên bộ đề</h1>
           <div class="pd-skill-list" th:if="${!#lists.isEmpty(setSkills)}" aria-label="Các kỹ năng trong bộ đề">
-            <span class="pd-skill-chip" th:each="skill : ${setSkills}" th:classappend="|' is-${#strings.toLowerCase(skill.code())}'|">
+            <span class="pd-skill-chip" th:each="skill : ${setSkills}" th:classappend="${' is-' + #strings.toLowerCase(skill.code())}">
               <svg th:if="${skill.code() == 'LISTENING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19a2 2 0 0 0 2-2v-3h-3a2 2 0 0 0-2 2v3zM6 19a2 2 0 0 1-2-2v-3h3a2 2 0 0 1 2 2v3z"/></svg>
               <svg th:if="${skill.code() == 'READING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg>
               <svg th:if="${skill.code() == 'WRITING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
@@ -77,7 +77,7 @@
               <div class="pd-test-main">
                 <div class="pd-test-title-line">
                   <h3 th:text="${test.title()}">Bài test</h3>
-                  <span class="pd-state" th:classappend="|' is-${#strings.toLowerCase(test.state())}'|" th:text="${test.stateLabel()}">Chưa bắt đầu</span>
+                  <span class="pd-state" th:classappend="${' is-' + #strings.toLowerCase(test.state())}" th:text="${test.stateLabel()}">Chưa bắt đầu</span>
                 </div>
                 <p th:text="${test.description() != null && !#strings.isEmpty(test.description()) ? test.description() : 'Luyện tập các kỹ năng có trong bài và lưu riêng từng kết quả.'}">Mô tả bài test.</p>
                 <div class="pd-test-footer">
@@ -86,7 +86,7 @@
                     <span th:text="|Khoảng ${test.estimatedMinutes()} phút|">40 phút</span>
                   </span>
                   <span class="pd-mini-skills" aria-label="Các kỹ năng trong bài test">
-                    <i th:each="skill : ${test.skills()}" th:classappend="|' is-${#strings.toLowerCase(skill.code())}'|" th:title="${skill.label()}">
+                    <i th:each="skill : ${test.skills()}" th:classappend="${' is-' + #strings.toLowerCase(skill.code())}" th:title="${skill.label()}">
                       <svg th:if="${skill.code() == 'LISTENING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2M17 14h3v5h-3zM4 14h3v5H4z"/></svg>
                       <svg th:if="${skill.code() == 'READING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H3zM21 4h-6a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h6z"/></svg>
                       <svg th:if="${skill.code() == 'WRITING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5l4 4L7 21H3v-4z"/></svg>

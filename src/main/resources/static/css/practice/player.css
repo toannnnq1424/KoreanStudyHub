@@ -74,7 +74,6 @@
 .ksh-source-card,
 .ksh-question-card,
 .ksh-writing-box textarea,
-.ksh-speaking-questions article,
 .ksh-performance-card,
 .ksh-certificate,
 .ksh-detail-results,
@@ -150,13 +149,11 @@
   gap: 10px;
 }
 
-.ksh-writing-box span,
-.ksh-speaking-questions strong {
+.ksh-writing-box span {
   font-weight: 900;
 }
 
-.ksh-writing-box textarea,
-.ksh-speaking-questions textarea {
+.ksh-writing-box textarea {
   width: 100%;
   padding: 18px;
   border: 1px solid var(--ksh-line);
@@ -659,76 +656,4 @@ body {
     width: 100%;
     right: -100%;
   }
-}
-.ksh-speaking-recorder {
-  margin-top: 12px;
-  padding: 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.ksh-speaking-recorder-actions,
-.ksh-speaking-consent-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.ksh-speaking-recorder button,
-.ksh-speaking-consent button {
-  min-height: 40px;
-  padding: 8px 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2937;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.ksh-speaking-recorder button:disabled,
-.ksh-speaking-consent button:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-
-.ksh-recorder-preview,
-.ksh-recorder-progress {
-  width: 100%;
-  margin-top: 12px;
-}
-
-.ksh-recorder-status,
-.ksh-recorder-unavailable {
-  margin: 10px 0 0;
-  color: #475569;
-  font-size: 13px;
-}
-
-.ksh-speaking-consent {
-  width: min(520px, calc(100% - 32px));
-  padding: 22px;
-  border: 0;
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
-}
-
-.ksh-speaking-consent::backdrop {
-  background: rgba(15, 23, 42, .55);
-}
-
-.ksh-speaking-consent h2 {
-  margin: 0 0 10px;
-  font-size: 20px;
-}
-
-.ksh-speaking-consent p,
-.ksh-speaking-consent label {
-  line-height: 1.55;
-}
-
-.ksh-speaking-consent-actions {
-  justify-content: flex-end;
-  margin-top: 18px;
 }

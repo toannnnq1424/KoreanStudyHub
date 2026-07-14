@@ -21,8 +21,6 @@
   
   /* Skill gradients */
   --grad-listening: linear-gradient(135deg, #0284c7, #38bdf8);
-  --grad-reading:   gradient(135deg, #16a34a, #4ade80); /* Note: fallback below */
-  --grad-listening: linear-gradient(135deg, #0284c7, #38bdf8);
   --grad-reading:   linear-gradient(135deg, #16a34a, #4ade80);
   --grad-writing:   linear-gradient(135deg, #4f46e5, #818cf8);
   --grad-speaking:  linear-gradient(135deg, #7c3aed, #a78bfa);

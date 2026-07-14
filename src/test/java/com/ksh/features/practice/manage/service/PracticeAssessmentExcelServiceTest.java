@@ -72,6 +72,15 @@ class PracticeAssessmentExcelServiceTest {
         assertThat(root.path("schemaVersion").asText()).isEqualTo("practice-draft-v3");
         assertThat(root.path("document").has("examTemplateCode")).isFalse();
         assertThat(root.path("document").has("assessmentProgramCode")).isFalse();
+        JsonNode speaking = findQuestion(root, "SPEAKING");
+        assertThat(speaking.path("questionContent").path("speakingDelivery").path("promptAudioReference").asText())
+                .startsWith("material:AUD_T01_S_Q");
+        assertThat(speaking.path("questionContent").path("speakingDelivery").path("promptPlayLimit").asInt())
+                .isEqualTo(1);
+        assertThat(speaking.path("questionContent").path("speakingDelivery").path("preparationSeconds").asInt())
+                .isEqualTo(30);
+        assertThat(speaking.path("questionContent").path("speakingDelivery").path("responseSeconds").asInt())
+                .isEqualTo(60);
     }
 
     @Test
@@ -129,6 +138,17 @@ class PracticeAssessmentExcelServiceTest {
             for (JsonNode group : section.path("groups")) count += group.path("questions").size();
         }
         return count;
+    }
+
+    private static JsonNode findQuestion(JsonNode root, String questionType) {
+        for (JsonNode section : root.path("sections")) {
+            for (JsonNode group : section.path("groups")) {
+                for (JsonNode question : group.path("questions")) {
+                    if (questionType.equals(question.path("questionType").asText())) return question;
+                }
+            }
+        }
+        throw new AssertionError("Không tìm thấy câu " + questionType);
     }
 
     private static ExcelFixture fixture() {

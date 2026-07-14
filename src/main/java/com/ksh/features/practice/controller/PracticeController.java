@@ -43,6 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.util.List;
@@ -56,6 +57,7 @@ import java.util.stream.Collectors;
 public class PracticeController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);
+    private static final String SPEAKING_PREFLIGHT_SESSION_PREFIX = "practice.speaking.preflight.";
 
     private final PracticeService practiceService;
     private final PracticeCatalogService catalogService;
@@ -164,7 +166,7 @@ public class PracticeController {
                             @AuthenticationPrincipal KshUserDetails user,
                             Model model) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
-        PracticeSetView view = practiceService.getPractice(setId);
+        PracticeSetView view = practiceService.getPracticeSummary(setId);
         List<PracticeSetTestCard> testCards = detailPageService.buildTestCards(
                 setId, view.tests(), user.getId());
         model.addAttribute(PracticeModelAttributes.VIEW, view);
@@ -180,7 +182,7 @@ public class PracticeController {
                              @AuthenticationPrincipal KshUserDetails user,
                              Model model) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
-        PracticeSetView view = practiceService.getPractice(setId);
+        PracticeSetView view = practiceService.getPracticeSummary(setId);
         List<PracticeTestRow> tests = view.tests();
         int selectedIndex = -1;
         for (int index = 0; index < tests.size(); index++) {
@@ -216,8 +218,10 @@ public class PracticeController {
                                  @RequestParam("setId") Long setId,
                                  @RequestParam("testId") Long testId,
                                  @AuthenticationPrincipal KshUserDetails user,
+                                 HttpSession session,
                                  RedirectAttributes redirectAttributes) {
         attemptDiscardService.discardForOwner(attemptId, user.getId());
+        clearSpeakingPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
         return PracticeRoutes.redirectToTestDetail(setId, testId);
     }
@@ -229,8 +233,71 @@ public class PracticeController {
                                 @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                                 @AuthenticationPrincipal KshUserDetails user) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
+        PracticeSection section = requireSection(setId, testId, sectionId);
+        if ("SPEAKING".equals(section.getSkill())) {
+            return PracticeRoutes.redirectToSpeakingPreflight(setId, testId, sectionId);
+        }
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
         return PracticeRoutes.redirectToAttempt(attemptId, mode);
+    }
+
+    @GetMapping(PracticeRoutes.SPEAKING_PREFLIGHT)
+    public String speakingPreflight(@PathVariable Long setId,
+                                    @PathVariable Long testId,
+                                    @PathVariable Long sectionId,
+                                    @AuthenticationPrincipal KshUserDetails user,
+                                    Model model) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
+        PracticeSection section = requireSpeakingSection(setId, testId, sectionId);
+        addSpeakingPreflightModel(
+                model,
+                setId,
+                testId,
+                sectionId,
+                section.getTitle(),
+                PracticeRoutes.speakingPreflightPath(setId, testId, sectionId));
+        return PracticeViews.SPEAKING_PREFLIGHT;
+    }
+
+    @PostMapping(PracticeRoutes.SPEAKING_PREFLIGHT)
+    public String completeSpeakingPreflight(@PathVariable Long setId,
+                                            @PathVariable Long testId,
+                                            @PathVariable Long sectionId,
+                                            @AuthenticationPrincipal KshUserDetails user,
+                                            HttpSession session) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
+        requireSpeakingSection(setId, testId, sectionId);
+        requireSpeakingUploadEnabled();
+        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        markSpeakingPreflightComplete(session, attemptId);
+        return PracticeRoutes.redirectToAttempt(attemptId, "practice");
+    }
+
+    @GetMapping(PracticeRoutes.ATTEMPT_SPEAKING_PREFLIGHT)
+    public String attemptSpeakingPreflight(@PathVariable Long attemptId,
+                                           @AuthenticationPrincipal KshUserDetails user,
+                                           Model model) {
+        PracticeAttempt attempt = requireInProgressSpeakingAttempt(attemptId, user.getId());
+        PracticeService.SpeakingPlayerDelivery delivery =
+                practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+        addSpeakingPreflightModel(
+                model,
+                attempt.getSetId(),
+                attempt.getTestId(),
+                attempt.getSectionId(),
+                delivery.sectionTitle(),
+                PracticeRoutes.attemptSpeakingPreflightPath(attemptId));
+        return PracticeViews.SPEAKING_PREFLIGHT;
+    }
+
+    @PostMapping(PracticeRoutes.ATTEMPT_SPEAKING_PREFLIGHT)
+    public String completeAttemptSpeakingPreflight(@PathVariable Long attemptId,
+                                                   @AuthenticationPrincipal KshUserDetails user,
+                                                   HttpSession session) {
+        requireInProgressSpeakingAttempt(attemptId, user.getId());
+        requireSpeakingUploadEnabled();
+        markSpeakingPreflightComplete(session, attemptId);
+        return PracticeRoutes.redirectToAttempt(attemptId, "practice");
     }
 
     @GetMapping(PracticeRoutes.CREATE_ATTEMPT)
@@ -243,24 +310,44 @@ public class PracticeController {
     public String attempt(@PathVariable Long attemptId,
                           @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                           @AuthenticationPrincipal KshUserDetails user,
+                          HttpSession session,
                           Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
             log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, attempt.getStatus());
             return PracticeRoutes.redirectToResult(attemptId);
         }
-        
-        PracticeService.AttemptSectionDelivery delivery =
-                practiceService.getAttemptSectionDelivery(attemptId, user.getId());
 
-        PracticeSetView view = practiceService.getPractice(attempt.getSetId());
-        List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow> filteredGroups =
-                practiceService.getPlayerQuestionGroupsForAttempt(attemptId, user.getId());
+        if ("SPEAKING".equals(attempt.getSkill())) {
+            if (!speakingPreflightComplete(session, attemptId)) {
+                return PracticeRoutes.redirectToAttemptSpeakingPreflight(attemptId);
+            }
+            requireSpeakingUploadEnabled();
+            PracticeService.SpeakingPlayerDelivery speakingDelivery =
+                    practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+            try {
+                model.addAttribute(
+                        PracticeModelAttributes.SPEAKING_DELIVERY_JSON,
+                        objectMapper.writeValueAsString(speakingDelivery));
+            } catch (Exception exception) {
+                throw new IllegalStateException("Không thể chuẩn bị dữ liệu Speaking.", exception);
+            }
+            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+            model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, speakingDelivery.sectionTitle());
+            model.addAttribute(PracticeModelAttributes.SPEAKING_INTERRUPT_ACTION,
+                    PracticeRoutes.BASE + "/attempts/" + attemptId + "/interrupt");
+            model.addAttribute(PracticeModelAttributes.RETURN_URL,
+                    PracticeRoutes.testDetailPath(attempt.getSetId(), attempt.getTestId()));
+            model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED,
+                    speakingMediaUploadEnabled);
+            return PracticeViews.PLAYER_SPEAKING;
+        }
 
-        com.ksh.features.practice.dto.PracticeDtos.PracticeSetView filteredView = 
-                new com.ksh.features.practice.dto.PracticeDtos.PracticeSetView(view.set(), filteredGroups);
+        PracticeService.AttemptPlayerView playerView =
+                practiceService.getAttemptPlayerView(attemptId, user.getId());
+        PracticeService.AttemptSectionDelivery delivery = playerView.delivery();
 
-        model.addAttribute(PracticeModelAttributes.VIEW, filteredView);
+        model.addAttribute(PracticeModelAttributes.VIEW, playerView.view());
         model.addAttribute(PracticeModelAttributes.MODE, mode);
         model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
         
@@ -270,8 +357,6 @@ public class PracticeController {
                 delivery.durationMinutes() != null ? delivery.durationMinutes() * 60 : 2400);
         model.addAttribute(PracticeModelAttributes.SECTION_INDEX, 0);
         model.addAttribute(PracticeModelAttributes.TOTAL_SECTIONS, 1);
-        addSpeakingMediaModel(model, user.getId(), attempt, true);
-
         return PracticeViews.PLAYER;
     }
 
@@ -280,6 +365,7 @@ public class PracticeController {
                                 @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                                 @RequestParam Map<String, String> form,
                                 @AuthenticationPrincipal KshUserDetails user,
+                                HttpSession session,
                                 RedirectAttributes redirectAttributes) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
@@ -287,8 +373,20 @@ public class PracticeController {
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Lượt làm bài đã được nộp hoặc chấm điểm.");
         }
         practiceService.submitAttempt(attemptId, user.getId(), form);
+        clearSpeakingPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
         return PracticeRoutes.redirectToResult(attemptId);
+    }
+
+    @PostMapping(PracticeRoutes.ATTEMPT_INTERRUPT)
+    public org.springframework.http.ResponseEntity<Void> interruptAttempt(
+            @PathVariable Long attemptId,
+            @AuthenticationPrincipal KshUserDetails user,
+            HttpSession session) {
+        requireInProgressSpeakingAttempt(attemptId, user.getId());
+        attemptDiscardService.discardForOwner(attemptId, user.getId());
+        clearSpeakingPreflight(session, attemptId);
+        return org.springframework.http.ResponseEntity.noContent().build();
     }
 
     @GetMapping(PracticeRoutes.RESULT)
@@ -399,6 +497,81 @@ public class PracticeController {
 
     private String redirectToResultDetail(Long attemptId, Long questionId) {
         return PracticeRoutes.redirectToResultDetail(attemptId, questionId);
+    }
+
+    private PracticeSection requireSection(Long setId, Long testId, Long sectionId) {
+        PracticeSection section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Phần thi không tồn tại."));
+        if (!setId.equals(section.getSetId()) || !testId.equals(section.getTestId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Phần thi không thuộc bài luyện tập đã chọn.");
+        }
+        return section;
+    }
+
+    private PracticeSection requireSpeakingSection(Long setId, Long testId, Long sectionId) {
+        PracticeSection section = requireSection(setId, testId, sectionId);
+        if (!"SPEAKING".equals(section.getSkill())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Kiểm tra thiết bị chỉ áp dụng cho phần Speaking.");
+        }
+        return section;
+    }
+
+    private PracticeAttempt requireInProgressSpeakingAttempt(Long attemptId, Long userId) {
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, userId);
+        if (!"SPEAKING".equals(attempt.getSkill())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Lượt làm bài không thuộc kỹ năng Speaking.");
+        }
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Lượt Speaking đã kết thúc.");
+        }
+        return attempt;
+    }
+
+    private void addSpeakingPreflightModel(
+            Model model,
+            Long setId,
+            Long testId,
+            Long sectionId,
+            String sectionTitle,
+            String action) {
+        model.addAttribute(PracticeModelAttributes.SET_ID, setId);
+        model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
+        model.addAttribute(PracticeModelAttributes.SECTION_ID, sectionId);
+        model.addAttribute(PracticeModelAttributes.SECTION_TITLE, sectionTitle);
+        model.addAttribute(PracticeModelAttributes.SPEAKING_PREFLIGHT_ACTION, action);
+        model.addAttribute(PracticeModelAttributes.RETURN_URL,
+                PracticeRoutes.testDetailPath(setId, testId));
+        model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED,
+                speakingMediaUploadEnabled);
+    }
+
+    private void requireSpeakingUploadEnabled() {
+        if (!speakingMediaUploadEnabled) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Chức năng thu âm Speaking chưa sẵn sàng.");
+        }
+    }
+
+    private void markSpeakingPreflightComplete(HttpSession session, Long attemptId) {
+        session.setAttribute(SPEAKING_PREFLIGHT_SESSION_PREFIX + attemptId, Boolean.TRUE);
+    }
+
+    private boolean speakingPreflightComplete(HttpSession session, Long attemptId) {
+        return Boolean.TRUE.equals(
+                session.getAttribute(SPEAKING_PREFLIGHT_SESSION_PREFIX + attemptId));
+    }
+
+    private void clearSpeakingPreflight(HttpSession session, Long attemptId) {
+        session.removeAttribute(SPEAKING_PREFLIGHT_SESSION_PREFIX + attemptId);
     }
 
     private void addSpeakingMediaModel(

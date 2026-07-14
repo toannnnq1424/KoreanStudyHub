@@ -128,6 +128,13 @@ public class AssessmentContractCodec {
         uniqueIds(content.options(), QuestionContent.Option::id, "option");
         uniqueIds(content.blanks(), QuestionContent.Blank::id, "blank");
 
+        if (type != CanonicalQuestionType.SPEAKING && content.speakingDelivery() != null) {
+            throw new IllegalArgumentException("Speaking delivery is only valid for SPEAKING questions");
+        }
+        if (content.speakingDelivery() != null) {
+            validateSpeakingDelivery(content.speakingDelivery());
+        }
+
         switch (type) {
             case SINGLE_CHOICE -> requireNotEmpty(content.options(), "options");
             case FILL_BLANK -> requireNotEmpty(content.blanks(), "blanks");
@@ -135,6 +142,12 @@ public class AssessmentContractCodec {
                 // No additional content fields are mandatory.
             }
         }
+    }
+
+    private static void validateSpeakingDelivery(QuestionContent.SpeakingDelivery delivery) {
+        requireRange(delivery.promptPlayLimit(), 1, 10, "speaking prompt play limit");
+        requireRange(delivery.preparationSeconds(), 0, 600, "speaking preparation seconds");
+        requireRange(delivery.responseSeconds(), 1, 1800, "speaking response seconds");
     }
 
     public void validateAnswerSpec(AnswerSpec spec, QuestionContent content) {
@@ -311,6 +324,12 @@ public class AssessmentContractCodec {
     private static void requireNotEmpty(Iterable<?> values, String label) {
         if (!values.iterator().hasNext()) {
             throw new IllegalArgumentException("Missing " + label);
+        }
+    }
+
+    private static void requireRange(Integer value, int minimum, int maximum, String label) {
+        if (value == null || value < minimum || value > maximum) {
+            throw new IllegalArgumentException(label + " must be between " + minimum + " and " + maximum);
         }
     }
 

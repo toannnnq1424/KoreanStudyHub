@@ -12,6 +12,9 @@
           const content = question.content && typeof question.content === 'object'
             ? question.content
             : {};
+          const speakingDelivery = content.speakingDelivery && typeof content.speakingDelivery === 'object'
+            ? content.speakingDelivery
+            : {};
           totalPoints += points;
           return {
             questionNo: Number(question.questionNo) || questionIndex + 1,
@@ -21,8 +24,10 @@
             options: Array.isArray(content.options) ? content.options : [],
             imageUrl: content.imageReference || '',
             audioUrl: content.audioReference || '',
-            prepTimeSeconds: Number(question.prepTimeSeconds) || 0,
-            respTimeSeconds: Number(question.respTimeSeconds) || 0,
+            speakingPromptAudioUrl: speakingDelivery.promptAudioReference || '',
+            speakingPromptPlayLimit: Number(speakingDelivery.promptPlayLimit) || 1,
+            prepTimeSeconds: Number(speakingDelivery.preparationSeconds ?? question.prepTimeSeconds) || 0,
+            respTimeSeconds: Number(speakingDelivery.responseSeconds ?? question.respTimeSeconds) || 0,
             points
           };
         });

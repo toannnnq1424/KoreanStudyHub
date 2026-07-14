@@ -9,6 +9,8 @@ public final class PracticeViews {
     public static final String SET_DETAIL = "practice/set-detail";
     public static final String TEST_DETAIL = "practice/test-detail";
     public static final String PLAYER = "practice/player";
+    public static final String SPEAKING_PREFLIGHT = "practice/speaking-preflight";
+    public static final String PLAYER_SPEAKING = "practice/player-speaking";
     public static final String RESULT = "practice/result";
     public static final String RESULT_DETAIL = "practice/result-detail";
     public static final String READING_LISTENING_RESULT = "practice/rl-result";

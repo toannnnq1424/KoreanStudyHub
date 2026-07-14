@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -101,6 +103,36 @@ public class PracticeSpeakingMediaService {
                 .filter(media -> allowedQuestionIds.contains(media.getQuestionId()))
                 .map(this::view)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, SpeakingMediaIdentity> requireReadyMediaForOwner(
+            Long userId, Long attemptId, List<Long> questionIds) {
+        PracticeAttempt attempt = loadOwnedAttempt(attemptId, userId);
+        validateMutableAttempt(attempt);
+        Set<Long> allowedQuestionIds = immutableSpeakingQuestionIds(attempt);
+        if (questionIds == null || questionIds.isEmpty()
+                || questionIds.stream().anyMatch(id -> id == null || !allowedQuestionIds.contains(id))) {
+            throw new IllegalStateException("Speaking submission contains an invalid immutable question scope.");
+        }
+
+        Map<Long, SpeakingMediaIdentity> readyByQuestion = new LinkedHashMap<>();
+        for (PracticeSpeakingMedia media : mediaRepository.findByAttemptIdAndStatus(
+                attemptId, PracticeSpeakingMediaStatus.READY)) {
+            if (!questionIds.contains(media.getQuestionId())) {
+                continue;
+            }
+            if (readyByQuestion.put(media.getQuestionId(), identity(media)) != null) {
+                throw new IllegalStateException("Multiple READY speaking media rows detected.");
+            }
+        }
+        List<Long> missing = questionIds.stream()
+                .filter(questionId -> !readyByQuestion.containsKey(questionId))
+                .toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Mỗi câu Speaking phải có bản ghi âm đã lưu trước khi nộp bài.");
+        }
+        return Map.copyOf(readyByQuestion);
     }
 
     @Transactional

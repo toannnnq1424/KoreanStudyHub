@@ -245,6 +245,15 @@ class PracticePublisherServiceTest {
     }
 
     @Test
+    void firstPublishStoresPublishedSetIdOnDraftForFutureRepublish() {
+        PracticeDraft draft = newDraft(validReadingDraftJson());
+
+        Long setId = publish(draft);
+
+        assertEquals(setId, draft.getPublishedSetId());
+    }
+
+    @Test
     void crossOwnerCannotPublishDraft() {
         when(draftRepository.findByIdAndOwnerId(1L, 100L)).thenReturn(Optional.empty());
 

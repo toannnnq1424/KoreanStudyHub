@@ -159,6 +159,37 @@ class PracticeCatalogServiceTest {
         assertThat(batch.items().get(0).state()).isEqualTo("SUBMITTED");
     }
 
+    @Test
+    void duplicateRepositoryRowsRenderAsOneCatalogCard() {
+        PracticeSet set = set(SET_ID, "Bộ đề nhiều kỹ năng", PracticeSet.SKILL_READING);
+        PracticeTest test = test(TEST_ID, SET_ID);
+        PracticeSection reading = section(31L, SET_ID, TEST_ID, "READING", 1);
+        PracticeSection listening = section(32L, SET_ID, TEST_ID, "LISTENING", 2);
+        PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
+                eq(0L), eq(""), eq(""), eq(request)))
+                .thenReturn(new PageImpl<>(List.of(set, set), request, 2));
+        when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(test));
+        when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(reading, listening));
+        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of());
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID, new PracticeCatalogQuery(null, "ALL", null, 0));
+
+        assertThat(batch.items()).hasSize(1);
+        assertThat(batch.items().get(0).id()).isEqualTo(SET_ID);
+        assertThat(batch.items().get(0).skills()).extracting(skill -> skill.code())
+                .containsExactly("LISTENING", "READING");
+        verify(testRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
+    }
+
     private PracticeSet set(long id, String title, String skill) {
         PracticeSet set = new PracticeSet(
                 title, "Mô tả", skill, PracticeSet.SCOPE_GLOBAL, null,

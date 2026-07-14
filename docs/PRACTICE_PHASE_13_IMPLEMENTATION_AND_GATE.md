@@ -1,6 +1,6 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
 ## 1. Authority and scope lock
 
@@ -36,8 +36,8 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 |---|---|---|
 | Phase 13 entry audit | `COMPLETE` | Existing routes, repositories, DTOs, templates, CSS and attempt semantics inspected on 2026-07-14 |
 | 13A library/state foundation | `COMPLETE_FOCUSED_GATE_GREEN` | Bounded catalog, learner access, navigation/performance correction, focused tests and route/dead-code audit are complete; no browser QA is claimed |
-| 13B mode/preflight | `NOT_STARTED` | Start only after the 13A documentation, commit and push checkpoint |
-| 13C shared player | `NOT_STARTED` | Preserve answer-leak guard and version-locked attempts |
+| 13B detail/preflight/version lock | `WORKING_TREE_PREFLIGHT_IMPLEMENTED_FINAL_RERUN_PENDING` | Set/test detail was pushed; immutable attempt routing and canonical Speaking delivery were green on JDK 17 before the latest 13C edits. The working tree now includes the full-screen microphone preflight, but final rerun evidence is still required before marking 13B closed |
+| 13C skill-native players | `TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE` | Canonical Speaking delivery, authoring/preview parity, route-performance fixes and a dedicated `player-speaking` implementation are in the working tree. This is not closed: rerun focused tests/static audits after the checkpoint commit before claiming 13C green |
 | 13D result overview | `NOT_STARTED` | Keep score, scale, completion, timing and feedback availability separate |
 | 13E result evidence | `NOT_STARTED` | Separate official key, teacher explanation and AI artifact |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates only; no decorative percentages |
@@ -242,7 +242,215 @@ run by Codex in this slice, by explicit user direction. They remain user review
 input and are consolidated as mandatory browser evidence in 13H. Therefore
 13A is not a browser-QA or production-readiness claim.
 
-## 6. Phase closure rule
+## 6. 13B correction checkpoint and 13C boundary
+
+The first 13B implementation checkpoint delivered the reduced-scope set/test
+detail journey, independent skill attempts, latest-two expandable history and a
+blocking Speaking device check. User review then exposed two remaining contract
+gaps, so 13B is reopened rather than falsely marked complete.
+
+### 6.1 Immutable attempt-route correction
+
+- Attempt delivery now validates one coherent immutable chain:
+  `published version -> set version -> test version -> section version`.
+- The attempt skill is derived from the immutable section snapshot, not from a
+  mutable live section after publication.
+- An in-progress attempt is reused only when its skill and all four version-lock
+  IDs match the current immutable delivery. A stale/mismatched attempt is
+  discarded before a fresh attempt is created.
+- Focused evidence: JDK 17 `PracticeServiceTest` is green `76/76`, zero failures
+  and zero errors. No browser QA or provider call is claimed.
+
+### 6.2 Canonical Speaking delivery JSON
+
+Speaking timing and prompt-delivery settings belong in the existing canonical
+`practice_questions.question_content_json`, under a typed
+`speakingDelivery` object. Do not create another timing/policy table.
+
+Required shape:
+
+```json
+{
+  "schemaVersion": "question-content-v1",
+  "speakingDelivery": {
+    "promptAudioReference": "/practice/materials/{assetId}/content",
+    "promptPlayLimit": 1,
+    "preparationSeconds": 30,
+    "responseSeconds": 60
+  }
+}
+```
+
+The publisher must copy this JSON unchanged into
+`practice_question_versions.question_content_json`; the player reads only the
+attempt-locked version. A new Speaking question must fail publish when prompt
+audio or valid timing/play-limit values are missing. Legacy content may be read
+through a narrow compatibility path, but it must not weaken new authoring.
+
+Implementation checkpoint (2026-07-14):
+
+- `QuestionContent.SpeakingDelivery` is the typed canonical object; no timing,
+  replay-limit or prompt-delivery table was added.
+- Legacy top-level `speakingPromptAudioUrl`, `speakingPromptPlayLimit`,
+  `prepTimeSeconds` and `respTimeSeconds` values are normalized into the typed
+  object and mirrored only as a compatibility boundary.
+- New Speaking drafts fail publish without prompt audio or when replay,
+  preparation or response limits are invalid. Historical JSON without the new
+  object remains readable but cannot be used to weaken new publication.
+- Immutable `PracticeQuestionVersion` construction preserves the canonical JSON
+  exactly.
+- Excel v2 uses its existing per-question audio reference and adds teacher-facing
+  replay, preparation and response columns; its generated Speaking examples and
+  preview/import path produce the same canonical object.
+- Focused JDK 17 evidence: codec, normalization, validator, preview and immutable
+  snapshot tests are green `28/28`; Excel template/preview/import tests are green
+  `4/4`; zero failures and zero errors. No browser QA, full suite or provider call
+  is claimed.
+
+### 6.3 Speaking authoring and preview checkpoint
+
+- The manual editor now exposes prompt audio per Speaking question, replay limit,
+  preparation time and response time. It reuses the governed draft-audio upload
+  boundary and persists only the material content reference in canonical
+  `speakingDelivery`; no route or table was added for timing.
+- Removing prompt audio clears both the compatibility field and canonical
+  reference so stale audio cannot silently reappear during normalization.
+- The teacher preview reads the same canonical object as the learner contract,
+  renders the prompt audio player and delivery timings, and treats missing audio
+  as a blocking quality issue rather than inventing a text-only Speaking flow.
+- The editor's stale image-material drag URL was corrected to the governed
+  `/practice/materials/{id}/content` boundary. Its current material drawer remains
+  image-only; per-question prompt audio is selected through the dedicated audio
+  control.
+- Focused JDK 17 authoring/preview gate is green `41/41`, zero failures and zero
+  errors. The run covers the UI contract, canonical codec/normalizer/validator,
+  immutable preview and Excel import. No browser QA, full suite or provider call
+  is claimed.
+
+### 6.4 13B/13C Speaking implementation checkpoint
+
+Current working-tree state:
+
+- Full-screen KSH Speaking preflight is implemented as a separate route/template
+  before the learner enters the Speaking player. It checks output confirmation,
+  browser recording support, live microphone permission, in-memory test
+  recording/playback/quality state and retry. Device-check audio is never
+  uploaded.
+- Speaking dispatches away from the general player to dedicated
+  `player-speaking` template/CSS/JavaScript assets.
+- The intended state machine remains one question at a time:
+  `PROMPT_PLAYBACK -> PREPARING -> RECORDING -> UPLOADING -> QUESTION_DONE`, then
+  automatic next question or final submit. If autoplay is blocked, the player
+  must show an explicit learner action instead of silently advancing.
+- Recorded audio is the required primary answer; a textarea cannot substitute
+  for it. Leaving interrupts/discards the Speaking attempt and must not create a
+  resumable draft.
+- Teacher authoring and teacher preview expose the same prompt audio, playback
+  count, preparation time and response time used by the immutable learner
+  player.
+
+This checkpoint is intentionally not final 13C closure. The implementation was
+interrupted before the final post-cleanup focused rerun and static route audit,
+so the next agent must verify before marking this slice green.
+
+### 6.5 13C route-performance and UI integrity checkpoint
+
+User review during 13C exposed two direct product issues: `/practice` felt slow
+on refresh/navigation, and a set containing multiple skills could render as
+multiple catalog cards. A supplemental route audit also identified concrete
+template/CSS regressions. These items are in 13C scope because they affect the
+player entry path and the skill-native library/detail journey.
+
+Implementation checkpoint (2026-07-14):
+
+- Non-Speaking `/practice/attempts/{attemptId}` no longer loads the full live
+  set graph and then discards it. The controller now asks for a single
+  `AttemptPlayerView`, and the service reuses one immutable snapshot for both
+  section delivery and player question groups.
+- `/practice/progress` analytics are bounded to the latest 100 non-discarded
+  attempts for the current server-rendered view instead of loading every
+  historical attempt into memory.
+- The catalog service de-duplicates set rows defensively before enrichment, so
+  a multi-skill set must render as one card with multiple highlighted skills.
+- First publish now writes the published set ID back onto the draft, so future
+  publishes of the same draft update the same set instead of creating a new set
+  per skill-shaped publication path.
+- `practice_sections(set_id, skill)` is indexed for skill-filtered catalog
+  lookups, and the catalog query now compares normalized skill values directly.
+- The direct Thymeleaf `th:classappend` quote bug in set/test detail templates
+  is fixed so skill/state classes match the CSS selectors.
+- The duplicate/invalid gradient declaration in `practice-index.css` is removed.
+
+Additional checkpoint note (2026-07-15):
+
+- A supplemental audit of `/practice` was triaged. The template/CSS defects are
+  direct 13C regressions and have been patched. The legacy `/mode` references
+  are compatibility/history only. Speaking learner-media playback for
+  lecturer/admin review is deferred to result/review capability work because it
+  does not block learner Speaking delivery in 13C.
+- Static scans after the patch found no remaining broad attempt-player loads
+  (`getPractice(attempt...)`, duplicate `getAttemptSectionDelivery(attemptId)`,
+  duplicate `getPlayerQuestionGroupsForAttempt(attemptId)`) and no remaining bad
+  `th:classappend="|'...` pattern. The old unlimited attempt-repository method
+  was then removed, so focused tests must be rerun before closure.
+- Temporary checkpoint evidence before commit: `git diff --check` passed;
+  changed JavaScript syntax checks passed for `player-speaking.js`,
+  `speaking-preflight.js`, `practice-test-detail.js`,
+  `manage-authoring-contract.js` and `manage-draft-preview.js`; JDK 17
+  `mvn -DskipTests compile` passed at 2026-07-15 00:43 Asia/Ho_Chi_Minh.
+  Focused tests are still pending after the latest cleanup, so this evidence is
+  not enough to close 13C.
+
+Guardrail for future Codex work:
+
+- Player and detail routes must not call broad graph-loading methods when the
+  route only needs one attempt, one test or one skill section. Load the narrow
+  immutable snapshot once and pass it through the request path.
+- If a repository query can return duplicate parent rows because of joins or
+  skill filters, the service boundary must de-duplicate before rendering and
+  lock that behavior with a focused test.
+
+Deferred from this checkpoint:
+
+- The Speaking learner-media playback controller still only supports the
+  learner-owner path. Lecturer/admin review playback is a future result/review
+  capability, not a blocking 13C player-state-machine requirement.
+- The legacy `/mode` route remains intentionally removed from the active learner
+  journey; old aliases are compatibility redirects only. Any stale docs or tests
+  must describe this as historical compatibility rather than a live mode page.
+
+## 7. Continuation Prompt For The Next Agent
+
+Start by reading these files in order:
+
+1. `CODEX_PRACTICE_WORKFLOW.md`, especially the latest Phase 13 rows and
+   "Current Required Next Action".
+2. `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md`, especially Sections 1,
+   2 and 6.
+3. The current `git status --short`; do not stage `openspec-temp/`.
+4. The attached audit notes only as supporting evidence. Do not expand scope to
+   broad permissions unless it blocks the learner 13C flow.
+
+Continue with this sequence:
+
+1. Re-run static audits for `/practice` route performance, stale `/mode`
+   references, bad Thymeleaf classappend syntax, duplicate/invalid CSS variables
+   and changed JavaScript syntax.
+2. Re-run focused JDK 17 tests for `PracticeServiceTest`,
+   `PracticeCatalogServiceTest`, `PracticePublisherServiceTest`,
+   Speaking media/preflight/player contracts, canonical Speaking delivery codec,
+   draft validator, publisher and preview/import tests.
+3. Fix only failures related to 13B/13C: Speaking preflight, dedicated
+   `player-speaking`, mandatory prompt audio, mandatory recording upload,
+   auto-next, discard-on-interrupt, `/practice` catalog duplicate cards and route
+   performance. Do not restart program/certificate governance.
+4. Update this document and `CODEX_PRACTICE_WORKFLOW.md` after the rerun with
+   exact commands and counts.
+5. Commit/push a green 13C checkpoint only after the focused gate is actually
+   green. Browser/product QA remains consolidated in 13H unless the user
+   explicitly changes that.
+
+## 8. Phase closure rule
 
 Phase 13 cannot be marked complete after visual implementation alone. 13H must
 run a stabilization pass covering dead code, controller-template route wiring,

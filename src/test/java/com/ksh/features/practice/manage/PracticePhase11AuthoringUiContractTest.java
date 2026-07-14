@@ -15,6 +15,7 @@ class PracticePhase11AuthoringUiContractTest {
     void manualEditorLoadsCanonicalModulesAndCoversEveryMvpQuestionType() throws Exception {
         String editor = read("src/main/resources/templates/practice/manage/editor.html");
         String contract = read("src/main/resources/static/js/practice/manage-authoring-contract.js");
+        String preview = read("src/main/resources/static/js/practice/manage-draft-preview.js");
 
         assertTrue(editor.contains("/js/practice/manage-authoring-contract.js"));
         assertTrue(editor.contains("/js/practice/manage-draft-preview.js"));
@@ -60,6 +61,16 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(editor.contains("[PracticeEditor] state after"));
         assertTrue(contract.contains("question-content-v1"));
         assertFalse(editor.contains("['READING', 'LISTENING'].includes(section.skill)"));
+        assertTrue(editor.contains("id=\"speaking-prompt-audio-dropzone\""));
+        assertTrue(editor.contains("id=\"q-speak-play-limit\""));
+        assertTrue(editor.contains("function uploadSpeakingPromptAudio(file)"));
+        assertTrue(editor.contains("function updateSpeakingPromptAudioPreview(url)"));
+        assertTrue(editor.contains("question.speakingPromptAudioUrl = data.url"));
+        assertTrue(editor.contains("Player Speaking sẽ tự phát audio này"));
+        assertTrue(contract.contains("content.speakingDelivery"));
+        assertTrue(preview.contains("speakingDelivery.promptAudioReference"));
+        assertTrue(preview.contains("speakingDelivery.preparationSeconds"));
+        assertTrue(preview.contains("speakingDelivery.responseSeconds"));
     }
 
     @Test
@@ -225,7 +236,8 @@ class PracticePhase11AuthoringUiContractTest {
         String progress = read("src/main/resources/templates/practice/progress.html");
         String sidebar = read("src/main/resources/templates/fragments/practice-sidebar.html");
 
-        assertTrue(index.contains("Kho luyện tập KSH"));
+        assertTrue(index.contains("Kho luyện tập | KSH"));
+        assertTrue(index.contains("Bạch Hổ KSH"));
         assertFalse(index.contains("Kho luyện tập TOPIK"));
         assertFalse(progress.contains("TOPIK II Cấp"));
         assertFalse(progress.contains("TOPIK I Cấp"));

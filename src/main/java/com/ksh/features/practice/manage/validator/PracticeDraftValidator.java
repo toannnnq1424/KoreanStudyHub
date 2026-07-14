@@ -161,6 +161,8 @@ public class PracticeDraftValidator {
                                             sIdx, gIdx, qIdx);
 
                                     validateSpeakingQuestionType(messages, skill, type, sIdx, gIdx, qIdx);
+                                    validateSpeakingDelivery(messages, skill, canonicalType, q,
+                                            sIdx, gIdx, qIdx);
                                     validateWritingTaskMetadata(messages, skill, type, q, sIdx, gIdx, qIdx);
 
                                     String explanation = q.path("explanationVi").asText("");
@@ -516,6 +518,54 @@ public class PracticeDraftValidator {
                     gIdx,
                     qIdx
             ));
+        }
+    }
+
+    private void validateSpeakingDelivery(List<ValidationMsg> messages,
+                                          String skill,
+                                          CanonicalQuestionType type,
+                                          JsonNode question,
+                                          int sIdx,
+                                          int gIdx,
+                                          int qIdx) {
+        if (!"SPEAKING".equalsIgnoreCase(skill) || type != CanonicalQuestionType.SPEAKING) return;
+        JsonNode delivery = question.path("questionContent").path("speakingDelivery");
+        if (!delivery.isObject()) {
+            messages.add(new ValidationMsg("BLOCKING", "SPEAKING_DELIVERY_REQUIRED",
+                    "Câu Speaking phải có cấu hình audio, thời gian chuẩn bị và thời gian trả lời.",
+                    sIdx, gIdx, qIdx));
+            return;
+        }
+        if (delivery.path("promptAudioReference").asText("").isBlank()) {
+            messages.add(new ValidationMsg("BLOCKING", "SPEAKING_PROMPT_AUDIO_REQUIRED",
+                    "Câu Speaking phải có audio đề bài để tự phát khi bắt đầu câu.",
+                    sIdx, gIdx, qIdx));
+        }
+        validateIntegerRange(messages, delivery, "promptPlayLimit", 1, 10,
+                "SPEAKING_PLAY_LIMIT_INVALID", "Số lần phát audio Speaking phải từ 1 đến 10.",
+                sIdx, gIdx, qIdx);
+        validateIntegerRange(messages, delivery, "preparationSeconds", 0, 600,
+                "SPEAKING_PREPARATION_INVALID", "Thời gian chuẩn bị Speaking phải từ 0 đến 600 giây.",
+                sIdx, gIdx, qIdx);
+        validateIntegerRange(messages, delivery, "responseSeconds", 1, 1800,
+                "SPEAKING_RESPONSE_INVALID", "Thời gian trả lời Speaking phải từ 1 đến 1800 giây.",
+                sIdx, gIdx, qIdx);
+    }
+
+    private static void validateIntegerRange(List<ValidationMsg> messages,
+                                             JsonNode node,
+                                             String field,
+                                             int minimum,
+                                             int maximum,
+                                             String code,
+                                             String content,
+                                             int sIdx,
+                                             int gIdx,
+                                             int qIdx) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isIntegralNumber()
+                || value.asInt() < minimum || value.asInt() > maximum) {
+            messages.add(new ValidationMsg("BLOCKING", code, content, sIdx, gIdx, qIdx));
         }
     }
 

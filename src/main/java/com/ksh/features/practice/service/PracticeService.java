@@ -78,6 +78,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
@@ -87,6 +88,7 @@ import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
 @Service
@@ -111,6 +113,7 @@ public class PracticeService {
     private final SpeakingFeedbackCompatibilityReader speakingFeedbackReader;
     private final SpeakingFeedbackViewMapper speakingFeedbackViewMapper;
     private SpeakingEvaluationApplicationService speakingEvaluationApplicationService;
+    private PracticeSpeakingMediaService speakingMediaService;
     private final ReadingListeningExplanationService readingListeningExplanationService;
     private final AudioStorageService audioStorageService;
     private PracticePublishedVersionService publishedVersionService;
@@ -169,6 +172,11 @@ public class PracticeService {
     @Autowired(required = false)
     void setSpeakingEvaluationApplicationService(SpeakingEvaluationApplicationService speakingEvaluationApplicationService) {
         this.speakingEvaluationApplicationService = speakingEvaluationApplicationService;
+    }
+
+    @Autowired(required = false)
+    void setSpeakingMediaService(PracticeSpeakingMediaService speakingMediaService) {
+        this.speakingMediaService = speakingMediaService;
     }
 
     void setPublishedVersionServiceForTests(PracticePublishedVersionService publishedVersionService) {
@@ -234,6 +242,16 @@ public class PracticeService {
         return new PracticeSetView(toSetRow(set), groups, List.of(), tests);
     }
 
+    @Transactional(readOnly = true)
+    public PracticeSetView getPracticeSummary(Long setId) {
+        PracticeSet set = loadPublished(setId);
+        List<PracticeTestRow> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId)
+                .stream()
+                .map(PracticeService::toTestRow)
+                .toList();
+        return new PracticeSetView(toSetRow(set), List.of(), List.of(), tests);
+    }
+
     public Long reEvaluate(Long attemptId, Long userId) {
         WritingGradingSnapshot snapshot = executeRead(() -> loadWritingReEvaluationSnapshot(attemptId, userId));
         if (snapshot != null) {
@@ -246,6 +264,13 @@ public class PracticeService {
             NonWritingEssayGradingResult result =
                     executeNonTransactional(() -> gradeNonWritingEssaySnapshot(essaySnapshot, true));
             return executeWrite(() -> persistNonWritingEssayReEvaluationResult(essaySnapshot, result));
+        }
+        SpeakingGradingSnapshot speakingSnapshot =
+                executeRead(() -> loadSpeakingReEvaluationSnapshot(attemptId, userId));
+        if (speakingSnapshot != null) {
+            SpeakingGradingResult result =
+                    executeNonTransactional(() -> gradeSpeakingSnapshot(speakingSnapshot));
+            return executeWrite(() -> persistSpeakingGradingResult(speakingSnapshot, result, false));
         }
         return executeWrite(() -> reEvaluateInTransaction(attemptId, userId));
     }
@@ -1262,14 +1287,11 @@ public class PracticeService {
     }
 
     private ProgressAttemptData loadProgressAttemptData(Long userId) {
-        List<PracticeAttempt> allAttempts =
-                attemptRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(
-                        userId, PracticeAttempt.STATUS_DISCARDED);
         List<PracticeAttempt> recentAttempts =
                 attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
                         userId, PracticeAttempt.STATUS_DISCARDED);
         return new ProgressAttemptData(
-                allAttempts,
+                recentAttempts,
                 recentAttempts,
                 loadSetsById(recentAttempts),
                 loadTestsById(recentAttempts),
@@ -1389,7 +1411,12 @@ public class PracticeService {
     }
 
     private List<PracticeQuestionGroupRow> groupRowsForAttempt(PracticeAttempt attempt, PracticeSection liveSection) {
-        Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
+        return groupRowsForAttempt(attempt, liveSection, versionSnapshot(attempt));
+    }
+
+    private List<PracticeQuestionGroupRow> groupRowsForAttempt(PracticeAttempt attempt,
+                                                               PracticeSection liveSection,
+                                                               Optional<PracticeVersionSnapshot> snapshot) {
         if (snapshot.isEmpty()) {
             if ("SPEAKING".equals(attempt.getSkill())) {
                 throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
@@ -1455,29 +1482,82 @@ public class PracticeService {
     }
 
     @Transactional(readOnly = true)
+    public AttemptPlayerView getAttemptPlayerView(Long attemptId, Long userId) {
+        PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
+        rejectDiscardedAttempt(attempt);
+        if ("SPEAKING".equals(attempt.getSkill())) {
+            throw new IllegalArgumentException("Speaking attempts must use the dedicated speaking player.");
+        }
+
+        Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
+        if (snapshot.isPresent()) {
+            PracticeVersionSnapshot version = snapshot.get();
+            validateAttemptSnapshot(attempt, version);
+            PracticeSetView view = new PracticeSetView(
+                    toSetRow(version.setVersion()),
+                    redactPlayerGroups(groupRowsForAttempt(attempt, null, snapshot)));
+            return new AttemptPlayerView(view, attemptSectionDelivery(version));
+        }
+
+        PracticeSet set = loadPublished(attempt.getSetId());
+        PracticeSection section = liveSectionForAttempt(attempt);
+        PracticeSetView view = new PracticeSetView(
+                toSetRow(set),
+                redactPlayerGroups(groupRowsForAttempt(attempt, section, snapshot)));
+        return new AttemptPlayerView(view, attemptSectionDelivery(section));
+    }
+
+    @Transactional(readOnly = true)
     public AttemptSectionDelivery getAttemptSectionDelivery(Long attemptId, Long userId) {
         PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
         Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
         if (snapshot.isPresent()) {
             PracticeVersionSnapshot version = snapshot.get();
-            if (!attempt.getSetId().equals(version.setVersion().getSetId())
-                    || !attempt.getTestId().equals(version.testVersion().getTestId())
-                    || !attempt.getSectionId().equals(version.sectionVersion().getSectionId())
-                    || !attempt.getSkill().equals(version.sectionVersion().getSkill())) {
-                throw new IllegalStateException("Attempt delivery version is inconsistent.");
-            }
-            return new AttemptSectionDelivery(
-                    version.sectionVersion().getSectionId(),
-                    version.sectionVersion().getTitle(),
-                    version.sectionVersion().getSkill(),
-                    version.sectionVersion().getDurationMinutes());
+            validateAttemptSnapshot(attempt, version);
+            return attemptSectionDelivery(version);
         }
         if ("SPEAKING".equals(attempt.getSkill())) {
             throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
         }
+        return attemptSectionDelivery(liveSectionForAttempt(attempt));
+    }
+
+    private PracticeSection liveSectionForAttempt(PracticeAttempt attempt) {
         PracticeSection section = getSection(attempt.getSectionId());
+        if (!Objects.equals(attempt.getSetId(), section.getSetId())
+                || !Objects.equals(attempt.getTestId(), section.getTestId())
+                || !Objects.equals(attempt.getSkill(), section.getSkill())) {
+            throw new IllegalStateException("Section metadata mismatch with attempt");
+        }
+        return section;
+    }
+
+    private static void validateAttemptSnapshot(PracticeAttempt attempt, PracticeVersionSnapshot version) {
+        if (!Objects.equals(attempt.getSetId(), version.setVersion().getSetId())
+                || !Objects.equals(attempt.getTestId(), version.testVersion().getTestId())
+                || !Objects.equals(attempt.getSectionId(), version.sectionVersion().getSectionId())
+                || !Objects.equals(attempt.getSkill(), version.sectionVersion().getSkill())) {
+            throw new IllegalStateException("Attempt delivery version is inconsistent.");
+        }
+    }
+
+    private static AttemptSectionDelivery attemptSectionDelivery(PracticeVersionSnapshot version) {
+        return new AttemptSectionDelivery(
+                version.sectionVersion().getSectionId(),
+                version.sectionVersion().getTitle(),
+                version.sectionVersion().getSkill(),
+                version.sectionVersion().getDurationMinutes());
+    }
+
+    private static AttemptSectionDelivery attemptSectionDelivery(PracticeSection section) {
         return new AttemptSectionDelivery(
                 section.getId(), section.getTitle(), section.getSkill(), section.getDurationMinutes());
+    }
+
+    public record AttemptPlayerView(
+            PracticeSetView view,
+            AttemptSectionDelivery delivery
+    ) {
     }
 
     public record AttemptSectionDelivery(
@@ -1485,6 +1565,113 @@ public class PracticeService {
             String title,
             String skill,
             Integer durationMinutes
+    ) {
+    }
+
+    @Transactional(readOnly = true)
+    public SpeakingPlayerDelivery getSpeakingPlayerDelivery(Long attemptId, Long userId) {
+        PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Lượt Speaking đã kết thúc.");
+        }
+        if (!"SPEAKING".equals(attempt.getSkill())) {
+            throw new IllegalArgumentException("Lượt làm bài không thuộc kỹ năng Speaking.");
+        }
+
+        PracticeVersionSnapshot version = versionSnapshot(attempt)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Speaking attempt is missing an immutable delivery version."));
+        if (!attempt.getSetId().equals(version.setVersion().getSetId())
+                || !attempt.getTestId().equals(version.testVersion().getTestId())
+                || !attempt.getSectionId().equals(version.sectionVersion().getSectionId())
+                || !"SPEAKING".equals(version.sectionVersion().getSkill())) {
+            throw new IllegalStateException("Speaking attempt delivery version is inconsistent.");
+        }
+
+        Map<Long, String> groupLabels = version.groups().stream().collect(Collectors.toMap(
+                PracticeQuestionGroupVersion::getId,
+                group -> group.getGroupLabel() == null || group.getGroupLabel().isBlank()
+                        ? "Phần nói" : group.getGroupLabel(),
+                (left, right) -> left,
+                LinkedHashMap::new));
+
+        List<SpeakingPlayerQuestion> questions = version.questions().stream()
+                .sorted(Comparator.comparing(
+                                PracticeQuestionVersion::getDisplayOrder,
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(
+                                PracticeQuestionVersion::getQuestionNo,
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(
+                                PracticeQuestionVersion::getId,
+                                Comparator.nullsLast(Long::compareTo)))
+                .map(question -> toSpeakingPlayerQuestion(question, groupLabels))
+                .toList();
+        if (questions.isEmpty()) {
+            throw new IllegalStateException("Phần Speaking chưa có câu hỏi hợp lệ.");
+        }
+
+        return new SpeakingPlayerDelivery(
+                attempt.getId(),
+                attempt.getSetId(),
+                attempt.getTestId(),
+                attempt.getSectionId(),
+                version.setVersion().getTitle(),
+                version.testVersion().getTitle(),
+                version.sectionVersion().getTitle(),
+                questions);
+    }
+
+    private SpeakingPlayerQuestion toSpeakingPlayerQuestion(
+            PracticeQuestionVersion question, Map<Long, String> groupLabels) {
+        if (!PracticeQuestion.TYPE_SPEAKING.equals(question.getQuestionType())) {
+            throw new IllegalStateException(
+                    "Speaking delivery contains a non-SPEAKING question: " + question.getQuestionId());
+        }
+        QuestionContent content = assessmentContractCodec.readQuestionContent(
+                question.getQuestionContentJson(), CanonicalQuestionType.SPEAKING);
+        QuestionContent.SpeakingDelivery delivery = content.speakingDelivery();
+        if (delivery == null) {
+            throw new IllegalStateException(
+                    "Speaking question is missing canonical delivery settings: " + question.getQuestionId());
+        }
+        return new SpeakingPlayerQuestion(
+                question.getQuestionId(),
+                question.getQuestionNo(),
+                groupLabels.getOrDefault(question.getGroupVersionId(), "Phần nói"),
+                question.getPrompt(),
+                question.getPoints(),
+                delivery.promptAudioReference(),
+                delivery.promptPlayLimit(),
+                delivery.preparationSeconds(),
+                delivery.responseSeconds());
+    }
+
+    public record SpeakingPlayerDelivery(
+            Long attemptId,
+            Long setId,
+            Long testId,
+            Long sectionId,
+            String setTitle,
+            String testTitle,
+            String sectionTitle,
+            List<SpeakingPlayerQuestion> questions
+    ) {
+        public SpeakingPlayerDelivery {
+            questions = questions == null ? List.of() : List.copyOf(questions);
+        }
+    }
+
+    public record SpeakingPlayerQuestion(
+            Long questionId,
+            Integer questionNo,
+            String groupLabel,
+            String prompt,
+            BigDecimal points,
+            String promptAudioReference,
+            Integer promptPlayLimit,
+            Integer preparationSeconds,
+            Integer responseSeconds
     ) {
     }
 
@@ -2073,20 +2260,15 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Lượt làm bài không tồn tại"));
         rejectDiscardedAttempt(attempt);
-        if (versionSnapshot(attempt).isPresent()) {
-            return redactPlayerGroups(groupRowsForAttempt(attempt, null));
+        Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
+        if (snapshot.isPresent()) {
+            validateAttemptSnapshot(attempt, snapshot.get());
+            return redactPlayerGroups(groupRowsForAttempt(attempt, null, snapshot));
         }
         if ("SPEAKING".equals(attempt.getSkill())) {
             throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
         }
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-        if (!attempt.getSetId().equals(section.getSetId())
-                || !attempt.getTestId().equals(section.getTestId())
-                || !attempt.getSkill().equals(section.getSkill())) {
-            throw new IllegalStateException("Section metadata mismatch with attempt");
-        }
-        return redactPlayerGroups(groupRowsForAttempt(attempt, section));
+        return redactPlayerGroups(groupRowsForAttempt(attempt, liveSectionForAttempt(attempt), snapshot));
     }
 
     private static List<PracticeQuestionGroupRow> redactPlayerGroups(
@@ -2146,9 +2328,8 @@ public class PracticeService {
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bài thi này");
         }
 
-        String skill = section.getSkill();
-        if (skill == null || (!"READING".equals(skill) && !"LISTENING".equals(skill) &&
-            !"WRITING".equals(skill) && !"SPEAKING".equals(skill))) {
+        String liveSkill = section.getSkill();
+        if (!isSupportedSkill(liveSkill)) {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Skill không hợp lệ");
         }
@@ -2174,16 +2355,34 @@ public class PracticeService {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Section không thuộc bài thi này");
         }
-        if (!skill.equals(lockedSection.getSkill())) {
+        if (!liveSkill.equals(lockedSection.getSkill())) {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Skill không hợp lệ");
         }
 
         Optional<PracticeAttemptVersionLock> versionLock = Optional.empty();
+        String deliverySkill = liveSkill;
         if (publishedVersionService != null) {
             versionLock = publishedVersionService.latestLock(setId, testId, sectionId);
             if (versionLock.isEmpty()) {
-                throw new EntityNotFoundException("Bo luyen tap chua co phien ban xuat ban hop le");
+                throw new EntityNotFoundException("Bộ luyện tập chưa có phiên bản xuất bản hợp lệ");
+            }
+            PracticeAttemptVersionLock lock = versionLock.get();
+            PracticeVersionSnapshot snapshot = publishedVersionService.snapshot(
+                            lock.publishedVersionId(), lock.setVersionId(),
+                            lock.testVersionId(), lock.sectionVersionId())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Bộ luyện tập chưa có phiên bản xuất bản nhất quán"));
+            if (!setId.equals(snapshot.setVersion().getSetId())
+                    || !testId.equals(snapshot.testVersion().getTestId())
+                    || !sectionId.equals(snapshot.sectionVersion().getSectionId())
+                    || !isSupportedSkill(snapshot.sectionVersion().getSkill())) {
+                throw new IllegalStateException("Immutable attempt delivery does not match the requested section.");
+            }
+            deliverySkill = snapshot.sectionVersion().getSkill();
+            if (!deliverySkill.equals(liveSkill)) {
+                log.warn("Using immutable skill={} instead of mutable live skill={} for set={}, test={}, section={}",
+                        deliverySkill, liveSkill, setId, testId, sectionId);
             }
         }
 
@@ -2196,27 +2395,39 @@ public class PracticeService {
             if (setId.equals(attempt.getSetId()) &&
                 testId.equals(attempt.getTestId()) &&
                 sectionId.equals(attempt.getSectionId()) &&
-                skill.equals(attempt.getSkill()) &&
+                deliverySkill.equals(attempt.getSkill()) &&
                 userId.equals(attempt.getUserId()) &&
                 PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-                if (attempt.getPublishedVersionId() == null && versionLock.isPresent()) {
-                    PracticeAttemptVersionLock lock = versionLock.get();
-                    attempt.lockPublishedVersion(lock.publishedVersionId(), lock.setVersionId(),
-                            lock.testVersionId(), lock.sectionVersionId());
-                    attemptRepository.save(attempt);
+                if (versionLock.isEmpty() || hasVersionLock(attempt, versionLock.get())) {
+                    log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={}", attempt.getId());
+                    return attempt.getId();
                 }
-                log.info("[PracticeService] Reusing existing IN_PROGRESS PracticeAttempt id={}", attempt.getId());
-                return attempt.getId();
             }
+            attempt.discard(LocalDateTime.now());
+            attemptRepository.save(attempt);
+            log.warn("[PracticeService] Discarded stale IN_PROGRESS PracticeAttempt id={} before restart",
+                    attempt.getId());
         }
 
-        PracticeAttempt attempt = new PracticeAttempt(userId, setId, testId, skill, sectionId);
+        PracticeAttempt attempt = new PracticeAttempt(userId, setId, testId, deliverySkill, sectionId);
         versionLock.ifPresent(lock -> attempt.lockPublishedVersion(
                 lock.publishedVersionId(), lock.setVersionId(), lock.testVersionId(), lock.sectionVersionId()));
         attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
         PracticeAttempt saved = attemptRepository.save(attempt);
         log.info("[PracticeService] Created new PracticeAttempt id={} section={}", saved.getId(), sectionId);
         return saved.getId();
+    }
+
+    private static boolean isSupportedSkill(String skill) {
+        return "READING".equals(skill) || "LISTENING".equals(skill)
+                || "WRITING".equals(skill) || "SPEAKING".equals(skill);
+    }
+
+    private static boolean hasVersionLock(PracticeAttempt attempt, PracticeAttemptVersionLock lock) {
+        return Objects.equals(attempt.getPublishedVersionId(), lock.publishedVersionId())
+                && Objects.equals(attempt.getSetVersionId(), lock.setVersionId())
+                && Objects.equals(attempt.getTestVersionId(), lock.testVersionId())
+                && Objects.equals(attempt.getSectionVersionId(), lock.sectionVersionId());
     }
 
     public Long submitAttempt(Long attemptId, Long userId, Map<String, String> form) {
@@ -2891,41 +3102,42 @@ public class PracticeService {
             Long userId,
             Map<String, String> form
     ) {
-        if (speakingEvaluationApplicationService == null || !speakingEvaluationApplicationService.enabled()) {
-            return null;
-        }
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Khong tim thay luot lam bai"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
         if (!"SPEAKING".equals(attempt.getSkill())) {
             return null;
         }
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new IllegalStateException("Luot lam bai da duoc nop hoac cham diem.");
+            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
         }
 
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section khong ton tai"));
-        validateAttemptSection(attempt, section);
-        loadPublished(attempt.getSetId());
-        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
-        if (containsEssay(questions) || !containsSpeaking(questions)) {
-            return null;
+        PracticeVersionSnapshot version = versionSnapshot(attempt)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Speaking attempt is missing an immutable delivery version."));
+        if (!attempt.getSetId().equals(version.setVersion().getSetId())
+                || !attempt.getTestId().equals(version.testVersion().getTestId())
+                || !attempt.getSectionId().equals(version.sectionVersion().getSectionId())
+                || !"SPEAKING".equals(version.sectionVersion().getSkill())) {
+            throw new IllegalStateException("Speaking attempt delivery version is inconsistent.");
         }
+        loadPublished(attempt.getSetId());
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, attempt.getSectionId());
+        if (questions.isEmpty()
+                || questions.stream().anyMatch(question ->
+                        !PracticeQuestion.TYPE_SPEAKING.equals(question.questionType()))) {
+            throw new IllegalStateException("Speaking section may only contain canonical SPEAKING questions.");
+        }
+        validateWritingQuestionPoints(questions);
+        if (speakingMediaService == null) {
+            throw new IllegalStateException("Speaking media validation is unavailable.");
+        }
+        List<Long> questionIds = questions.stream().map(QuestionSnapshot::questionId).toList();
+        speakingMediaService.requireReadyMediaForOwner(userId, attemptId, questionIds);
 
         Map<String, String> answers = new LinkedHashMap<>();
-        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
-            try {
-                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
-                answers.putAll(prev);
-            } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
-                        exceptionCategory(e));
-            }
+        for (Long questionId : questionIds) {
+            answers.put(String.valueOf(questionId), "AUDIO_SUBMITTED");
         }
-        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
-                answers,
-                form,
-                questions.stream().map(QuestionSnapshot::questionId).toList());
 
         return new SpeakingGradingSnapshot(
                 attempt.getId(),
@@ -2935,6 +3147,56 @@ public class PracticeService {
                 attempt.getSectionId(),
                 attempt.getSkill(),
                 PracticeAttempt.STATUS_IN_PROGRESS,
+                attempt.getLockVersion(),
+                attempt.getAnswersJson(),
+                attempt.getAiFeedbackJson(),
+                attempt.getScore(),
+                attempt.getTotalPoints(),
+                writeJson(answers),
+                answers,
+                questions);
+    }
+
+    private SpeakingGradingSnapshot loadSpeakingReEvaluationSnapshot(Long attemptId, Long userId) {
+        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
+        if (!"SPEAKING".equals(attempt.getSkill())) {
+            return null;
+        }
+        if (attempt.getPublishedVersionId() == null
+                || attempt.getSetVersionId() == null
+                || attempt.getTestVersionId() == null
+                || attempt.getSectionVersionId() == null) {
+            return null;
+        }
+
+        PracticeVersionSnapshot version = versionSnapshot(attempt)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Speaking attempt is missing an immutable delivery version."));
+        if (!attempt.getSetId().equals(version.setVersion().getSetId())
+                || !attempt.getTestId().equals(version.testVersion().getTestId())
+                || !attempt.getSectionId().equals(version.sectionVersion().getSectionId())
+                || !"SPEAKING".equals(version.sectionVersion().getSkill())) {
+            throw new IllegalStateException("Speaking attempt delivery version is inconsistent.");
+        }
+        loadPublished(attempt.getSetId());
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, attempt.getSectionId());
+        if (questions.isEmpty()
+                || questions.stream().anyMatch(question ->
+                        !PracticeQuestion.TYPE_SPEAKING.equals(question.questionType()))) {
+            throw new IllegalStateException("Speaking section may only contain canonical SPEAKING questions.");
+        }
+        validateWritingQuestionPoints(questions);
+        Map<String, String> answers = readAnswers(attempt.getAnswersJson());
+
+        return new SpeakingGradingSnapshot(
+                attempt.getId(),
+                attempt.getUserId(),
+                attempt.getSetId(),
+                attempt.getTestId(),
+                attempt.getSectionId(),
+                attempt.getSkill(),
+                attempt.getStatus(),
                 attempt.getLockVersion(),
                 attempt.getAnswersJson(),
                 attempt.getAiFeedbackJson(),
@@ -3081,6 +3343,14 @@ public class PracticeService {
     }
 
     private SpeakingGradingResult gradeSpeakingSnapshot(SpeakingGradingSnapshot snapshot) {
+        if (speakingEvaluationApplicationService == null || !speakingEvaluationApplicationService.enabled()) {
+            BigDecimal total = snapshot.questions().stream()
+                    .map(QuestionSnapshot::points)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return new SpeakingGradingResult(
+                    null, total, snapshot.answersToPersistJson(), null);
+        }
+
         BigDecimal earnedPoints = BigDecimal.ZERO;
         BigDecimal total = BigDecimal.ZERO;
         boolean allSpeakingScoreBearing = true;
@@ -3089,11 +3359,7 @@ public class PracticeService {
 
         for (QuestionSnapshot q : snapshot.questions()) {
             total = total.add(q.points());
-            String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
-            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
-            if (objectiveScore.isPresent()) {
-                earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
-            } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
+            if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
                 SpeakingEvaluationApplicationService.Evaluation evaluation =
                         speakingEvaluationApplicationService.evaluateQuestion(
                                 new SpeakingEvaluationApplicationService.EvaluationInput(
@@ -3103,7 +3369,7 @@ public class PracticeService {
                                         q.prompt(),
                                         null,
                                         q.answerKey(),
-                                        answer,
+                                        "",
                                         storedByQuestion.get(q.questionId())));
                 SpeakingEvaluationResult result = evaluation.result();
                 if (result == null) {

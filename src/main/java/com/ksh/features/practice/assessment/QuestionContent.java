@@ -10,7 +10,8 @@ public record QuestionContent(
         List<Option> options,
         List<Blank> blanks,
         String imageReference,
-        String audioReference
+        String audioReference,
+        SpeakingDelivery speakingDelivery
 ) {
     public static final String SCHEMA_VERSION = "question-content-v1";
 
@@ -22,8 +23,16 @@ public record QuestionContent(
 
     public QuestionContent(String schemaVersion,
                            List<Option> options,
+                           List<Blank> blanks,
+                           String imageReference,
+                           String audioReference) {
+        this(schemaVersion, options, blanks, imageReference, audioReference, null);
+    }
+
+    public QuestionContent(String schemaVersion,
+                           List<Option> options,
                            List<Blank> blanks) {
-        this(schemaVersion, options, blanks, null, null);
+        this(schemaVersion, options, blanks, null, null, null);
     }
 
     public static QuestionContent empty() {
@@ -41,5 +50,13 @@ public record QuestionContent(
     }
 
     public record Blank(String id, String prompt) {
+    }
+
+    public record SpeakingDelivery(
+            String promptAudioReference,
+            Integer promptPlayLimit,
+            Integer preparationSeconds,
+            Integer responseSeconds
+    ) {
     }
 }

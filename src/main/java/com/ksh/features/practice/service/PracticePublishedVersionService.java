@@ -173,6 +173,19 @@ public class PracticePublishedVersionService {
         if (setVersion.isEmpty() || testVersion.isEmpty() || sectionVersion.isEmpty()) {
             return Optional.empty();
         }
+        if (!setId.equals(publishedVersion.get().getSetId())
+                || !setId.equals(setVersion.get().getSetId())
+                || !publishedVersionId.equals(setVersion.get().getPublishedVersionId())
+                || !publishedVersionId.equals(testVersion.get().getPublishedVersionId())
+                || !publishedVersionId.equals(sectionVersion.get().getPublishedVersionId())
+                || !setVersion.get().getId().equals(testVersion.get().getSetVersionId())
+                || !testId.equals(testVersion.get().getTestId())
+                || !testVersion.get().getId().equals(sectionVersion.get().getTestVersionId())
+                || !sectionId.equals(sectionVersion.get().getSectionId())) {
+            log.warn("Rejected inconsistent latest practice version chain for set={}, test={}, section={}",
+                    setId, testId, sectionId);
+            return Optional.empty();
+        }
         return Optional.of(new PracticeAttemptVersionLock(
                 publishedVersionId,
                 setVersion.get().getId(),

@@ -9,6 +9,7 @@ public final class PracticeModelAttributes {
     public static final String TEST_CARDS = "testCards";
     public static final String SET_SKILLS = "setSkills";
     public static final String TEST_ID = "testId";
+    public static final String TEST_TITLE = "testTitle";
     public static final String SELECTED_TEST = "selectedTest";
     public static final String PREVIOUS_TEST = "previousTest";
     public static final String NEXT_TEST = "nextTest";
@@ -23,6 +24,13 @@ public final class PracticeModelAttributes {
     public static final String SPEAKING_MEDIA_BY_QUESTION_ID = "speakingMediaByQuestionId";
     public static final String SPEAKING_MEDIA_PLAYBACK_ENABLED = "speakingMediaPlaybackEnabled";
     public static final String SPEAKING_MEDIA_UPLOAD_ENABLED = "speakingMediaUploadEnabled";
+    public static final String SPEAKING_DELIVERY_JSON = "speakingDeliveryJson";
+    public static final String SPEAKING_PREFLIGHT_ACTION = "speakingPreflightAction";
+    public static final String SPEAKING_INTERRUPT_ACTION = "speakingInterruptAction";
+    public static final String RETURN_URL = "returnUrl";
+    public static final String SET_ID = "setId";
+    public static final String SECTION_ID = "sectionId";
+    public static final String SECTION_TITLE = "sectionTitle";
     public static final String ACTIVE_SECTION_TITLE = "activeSectionTitle";
     public static final String ACTIVE_SECTION_SKILL = "activeSectionSkill";
     public static final String ACTIVE_SECTION_DURATION = "activeSectionDuration";
