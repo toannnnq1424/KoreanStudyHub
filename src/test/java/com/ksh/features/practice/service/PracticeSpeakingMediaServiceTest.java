@@ -620,8 +620,8 @@ class PracticeSpeakingMediaServiceTest {
         Long nonSpeakingQuestionId = nonSpeakingQuestion.getId();
         assertThatThrownBy(() -> service.validateUploadTargetForOwner(
                 fixture.userId(), fixture.attemptId(), nonSpeakingQuestionId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("SPEAKING questions");
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
     }
 
     @Test
@@ -650,6 +650,52 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.userId(), fixture.attemptId(), otherSectionQuestionId))
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
                 .hasMessage("Speaking media target not found.");
+    }
+
+    @Test
+    void speakingDeliveryAndMediaScopeRemainLockedToPublishedVersion() {
+        Fixture fixture = createSpeakingFixture("immutable-delivery");
+        PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        PracticeVersionSnapshot snapshot = publishedVersionService.snapshot(
+                attempt.getPublishedVersionId(),
+                attempt.getSetVersionId(),
+                attempt.getTestVersionId(),
+                attempt.getSectionVersionId()).orElseThrow();
+
+        jdbcTemplate.update(
+                "UPDATE practice_sections SET title = 'Live title changed', skill = 'READING', duration_minutes = 1 WHERE id = ?",
+                fixture.sectionId());
+        jdbcTemplate.update(
+                "UPDATE practice_questions SET question_type = 'SINGLE_CHOICE' WHERE id = ?",
+                fixture.speakingQuestionId());
+
+        PracticeService.AttemptSectionDelivery delivery = practiceService.getAttemptSectionDelivery(
+                fixture.attemptId(), fixture.userId());
+        assertThat(delivery.title()).isEqualTo(snapshot.sectionVersion().getTitle());
+        assertThat(delivery.durationMinutes()).isEqualTo(snapshot.sectionVersion().getDurationMinutes());
+        assertThat(delivery.skill()).isEqualTo("SPEAKING");
+        assertThat(practiceService.getPlayerQuestionGroupsForAttempt(
+                fixture.attemptId(), fixture.userId()))
+                .flatExtracting(group -> group.questions())
+                .singleElement()
+                .satisfies(question -> {
+                    assertThat(question.questionType()).isEqualTo(PracticeQuestion.TYPE_SPEAKING);
+                    assertThat(question.prompt()).isEqualTo("Speaking prompt 1");
+                });
+        service.validateUploadTargetForOwner(
+                fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId());
+    }
+
+    @Test
+    void speakingMediaFailsClosedWhenAttemptHasNoImmutableVersionLock() {
+        Fixture fixture = createSpeakingFixture("missing-version-lock");
+        PracticeAttempt unlocked = attemptRepository.saveAndFlush(new PracticeAttempt(
+                fixture.userId(), fixture.setId(), fixture.testId(), "SPEAKING", fixture.sectionId()));
+
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(), unlocked.getId(), fixture.speakingQuestionId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("immutable delivery version");
     }
 
     @Test
@@ -742,7 +788,7 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), nonSpeakingQuestion.getId(), descriptor("validationrollback-b.webm")))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
 
         List<PracticeSpeakingMedia> ready = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
                 fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.READY);
@@ -752,14 +798,12 @@ class PracticeSpeakingMediaServiceTest {
 
     @Test
     void differentQuestionsCanEachHaveOneReadyMedia() {
-        Fixture fixture = createSpeakingFixture("twoquestions");
-        PracticeQuestion secondQuestion = speakingQuestion(fixture.setId(), fixture.groupId(), 2);
-        questionRepository.saveAndFlush(secondQuestion);
+        Fixture fixture = createSpeakingFixture("twoquestions", 2);
 
         service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), descriptor("twoquestions-a.webm"));
         service.activateValidatedMediaForOwner(
-                fixture.userId(), fixture.attemptId(), secondQuestion.getId(), descriptor("twoquestions-b.webm"));
+                fixture.userId(), fixture.attemptId(), fixture.secondSpeakingQuestionId(), descriptor("twoquestions-b.webm"));
 
         assertThat(mediaRepository.findByAttemptIdAndStatus(fixture.attemptId(), PracticeSpeakingMediaStatus.READY))
                 .hasSize(2);
@@ -803,8 +847,8 @@ class PracticeSpeakingMediaServiceTest {
         questionRepository.saveAndFlush(nonSpeakingQuestion);
         assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
                 fixture.userId(), fixture.attemptId(), nonSpeakingQuestion.getId(), descriptor("objective.webm")))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("SPEAKING questions");
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Speaking media target not found.");
 
         assertThatThrownBy(() -> descriptor("../secret.webm"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -1052,6 +1096,10 @@ class PracticeSpeakingMediaServiceTest {
     }
 
     private Fixture createSpeakingFixture(String label) {
+        return createSpeakingFixture(label, 1);
+    }
+
+    private Fixture createSpeakingFixture(String label, int questionCount) {
         User student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         String suffix = label + "-" + System.nanoTime();
         PracticeSet set = setRepository.saveAndFlush(new PracticeSet(
@@ -1074,12 +1122,23 @@ class PracticeSpeakingMediaServiceTest {
                 set.getId(), "1", 1, 1, "Instruction", null, null, 1);
         group.setSectionId(section.getId());
         group = groupRepository.saveAndFlush(group);
-        PracticeQuestion question = speakingQuestion(set.getId(), group.getId(), 1);
-        question = questionRepository.saveAndFlush(question);
+        List<PracticeQuestion> questions = new ArrayList<>();
+        for (int number = 1; number <= questionCount; number++) {
+            questions.add(questionRepository.saveAndFlush(
+                    speakingQuestion(set.getId(), group.getId(), number)));
+        }
         publishedVersionService.createPublishedVersion(set.getId(), student.getId());
-        PracticeAttempt attempt = attemptRepository.saveAndFlush(new PracticeAttempt(
-                student.getId(), set.getId(), test.getId(), "SPEAKING", section.getId()));
-        return new Fixture(student.getId(), set.getId(), test.getId(), section.getId(), group.getId(), question.getId(), attempt.getId());
+        Long attemptId = practiceService.startAttempt(
+                set.getId(), test.getId(), section.getId(), student.getId());
+        return new Fixture(
+                student.getId(),
+                set.getId(),
+                test.getId(),
+                section.getId(),
+                group.getId(),
+                questions.get(0).getId(),
+                questions.size() > 1 ? questions.get(1).getId() : null,
+                attemptId);
     }
 
     private PracticeQuestion speakingQuestion(Long setId, Long groupId, int number) {
@@ -1231,6 +1290,7 @@ class PracticeSpeakingMediaServiceTest {
             Long sectionId,
             Long groupId,
             Long speakingQuestionId,
+            Long secondSpeakingQuestionId,
             Long attemptId
     ) {}
 }

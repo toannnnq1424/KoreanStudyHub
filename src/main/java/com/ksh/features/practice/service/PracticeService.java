@@ -37,7 +37,6 @@ import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerReviewRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
@@ -1392,6 +1391,12 @@ public class PracticeService {
     private List<PracticeQuestionGroupRow> groupRowsForAttempt(PracticeAttempt attempt, PracticeSection liveSection) {
         Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
         if (snapshot.isEmpty()) {
+            if ("SPEAKING".equals(attempt.getSkill())) {
+                throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
+            }
+            if (liveSection == null) {
+                throw new IllegalStateException("Live section is required for a legacy attempt.");
+            }
             return getQuestionGroupsForSection(attempt.getSetId(), liveSection.getId());
         }
         PracticeVersionSnapshot version = snapshot.get();
@@ -1447,6 +1452,40 @@ public class PracticeService {
             ));
         }
         return groups;
+    }
+
+    @Transactional(readOnly = true)
+    public AttemptSectionDelivery getAttemptSectionDelivery(Long attemptId, Long userId) {
+        PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
+        Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
+        if (snapshot.isPresent()) {
+            PracticeVersionSnapshot version = snapshot.get();
+            if (!attempt.getSetId().equals(version.setVersion().getSetId())
+                    || !attempt.getTestId().equals(version.testVersion().getTestId())
+                    || !attempt.getSectionId().equals(version.sectionVersion().getSectionId())
+                    || !attempt.getSkill().equals(version.sectionVersion().getSkill())) {
+                throw new IllegalStateException("Attempt delivery version is inconsistent.");
+            }
+            return new AttemptSectionDelivery(
+                    version.sectionVersion().getSectionId(),
+                    version.sectionVersion().getTitle(),
+                    version.sectionVersion().getSkill(),
+                    version.sectionVersion().getDurationMinutes());
+        }
+        if ("SPEAKING".equals(attempt.getSkill())) {
+            throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
+        }
+        PracticeSection section = getSection(attempt.getSectionId());
+        return new AttemptSectionDelivery(
+                section.getId(), section.getTitle(), section.getSkill(), section.getDurationMinutes());
+    }
+
+    public record AttemptSectionDelivery(
+            Long sectionId,
+            String title,
+            String skill,
+            Integer durationMinutes
+    ) {
     }
 
     private PracticeQuestionRow toQuestionRow(PracticeQuestionVersion question) {
@@ -1967,18 +2006,6 @@ public class PracticeService {
     }
 
     @Transactional(readOnly = true)
-    public Map<Long, PracticeAttempt> getInProgressAttemptsBySection(Long testId, Long userId) {
-        List<PracticeAttempt> attempts = attemptRepository.findByTestIdAndUserIdOrderByCreatedAtDesc(testId, userId);
-        Map<Long, PracticeAttempt> map = new LinkedHashMap<>();
-        for (PracticeAttempt att : attempts) {
-            if (PracticeAttempt.STATUS_IN_PROGRESS.equals(att.getStatus())) {
-                map.putIfAbsent(att.getSectionId(), att);
-            }
-        }
-        return map;
-    }
-
-    @Transactional(readOnly = true)
     public List<PracticeQuestionGroupRow> getQuestionGroupsForSection(Long setId, Long sectionId) {
         PracticeSection section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Section không tồn tại"));
@@ -2046,6 +2073,12 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Lượt làm bài không tồn tại"));
         rejectDiscardedAttempt(attempt);
+        if (versionSnapshot(attempt).isPresent()) {
+            return redactPlayerGroups(groupRowsForAttempt(attempt, null));
+        }
+        if ("SPEAKING".equals(attempt.getSkill())) {
+            throw new IllegalStateException("Speaking attempt is missing an immutable delivery version.");
+        }
         PracticeSection section = sectionRepository.findById(attempt.getSectionId())
                 .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
         if (!attempt.getSetId().equals(section.getSetId())
@@ -2321,24 +2354,6 @@ public class PracticeService {
         attempt.setAnswersJson(writeJson(currentAnswers));
         attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
         attemptRepository.save(attempt);
-    }
-
-    @Transactional(readOnly = true)
-    public List<PracticeAttemptHistoryRow> getSetAttemptHistory(Long setId, Long userId) {
-        return attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(setId, userId).stream()
-                .filter(this::isCompletedProgressAttempt)
-                .map(attempt -> new PracticeAttemptHistoryRow(
-                        attempt.getId(),
-                        attempt.getScore(),
-                        attempt.getTotalPoints(),
-                        attempt.getStatus(),
-                        attempt.getSubmittedAt(),
-                        attempt.getCreatedAt(),
-                        attempt.getSkill(),
-                        attempt.getTestId(),
-                        attempt.getSectionId()
-                ))
-                .toList();
     }
 
     /**

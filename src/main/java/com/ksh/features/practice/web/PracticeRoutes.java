@@ -18,7 +18,6 @@ public final class PracticeRoutes {
     public static final String CATALOG_BATCH = "/catalog";
     public static final String SET_DETAIL = "/sets/{setId}";
     public static final String TEST_DETAIL = "/sets/{setId}/tests/{testId}";
-    public static final String TEST_MODE = "/sets/{setId}/tests/{testId}/mode";
     public static final String CREATE_ATTEMPT = "/sets/{setId}/tests/{testId}/attempts";
     public static final String ATTEMPT = "/attempts/{attemptId}";
     public static final String ATTEMPT_SUBMIT = "/attempts/{attemptId}/submit";

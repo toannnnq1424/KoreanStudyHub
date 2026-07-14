@@ -183,6 +183,95 @@ public final class PracticeDtos {
                                   Integer estimatedMinutes) {
     }
 
+    public record PracticeSetTestCard(
+            Long id,
+            String title,
+            String description,
+            Integer displayOrder,
+            Integer estimatedMinutes,
+            List<PracticeCatalogSkill> skills,
+            int completedSkillCount,
+            int totalSkillCount,
+            String state,
+            String stateLabel,
+            Long resumeAttemptId
+    ) {
+        public boolean hasSkill(String code) {
+            return code != null && skills != null && skills.stream()
+                    .anyMatch(skill -> code.equalsIgnoreCase(skill.code()));
+        }
+
+        public int progressPercent() {
+            if (totalSkillCount <= 0) return 0;
+            return Math.min(100, Math.max(0,
+                    (int) Math.round(completedSkillCount * 100.0 / totalSkillCount)));
+        }
+
+        public String actionLabel() {
+            return switch (state) {
+                case "IN_PROGRESS" -> "Tiếp tục";
+                case "COMPLETED" -> "Xem bài";
+                case "PARTIAL" -> "Tiếp tục luyện";
+                default -> "Bắt đầu";
+            };
+        }
+    }
+
+    public record PracticeAttemptCard(
+            Long id,
+            int attemptNumber,
+            String scoreLabel,
+            String status,
+            String statusLabel,
+            LocalDateTime activityAt,
+            boolean initiallyVisible
+    ) {
+    }
+
+    public record PracticeSkillAttemptCard(
+            Long sectionId,
+            String title,
+            String skill,
+            String skillLabel,
+            Integer durationMinutes,
+            BigDecimal totalPoints,
+            Long inProgressAttemptId,
+            List<PracticeAttemptCard> completedAttempts,
+            String state,
+            String stateLabel,
+            String latestScoreLabel,
+            String bestScoreLabel
+    ) {
+        public boolean hasInProgressAttempt() {
+            return inProgressAttemptId != null;
+        }
+
+        public boolean hasCompletedAttempts() {
+            return completedAttempts != null && !completedAttempts.isEmpty();
+        }
+
+        public int completedAttemptCount() {
+            return completedAttempts == null ? 0 : completedAttempts.size();
+        }
+
+        public int hiddenAttemptCount() {
+            if (completedAttempts == null) return 0;
+            return (int) completedAttempts.stream()
+                    .filter(attempt -> !attempt.initiallyVisible())
+                    .count();
+        }
+
+        public Long latestCompletedAttemptId() {
+            if (!hasCompletedAttempts()) return null;
+            return completedAttempts.get(0).id();
+        }
+
+        public String actionLabel() {
+            if (hasInProgressAttempt()) return "Tiếp tục";
+            return hasCompletedAttempts() ? "Làm lại" : "Bắt đầu";
+        }
+    }
+
     public record PracticeAnswerExplanationRow(Integer questionNo,
                                                String questionType,
                                                String prompt,
@@ -665,17 +754,6 @@ public final class PracticeDtos {
                                       long writingCount,
                                       long speakingCount,
                                       BigDecimal averageScore) {
-    }
-
-    public record PracticeAttemptHistoryRow(Long id,
-                                            BigDecimal score,
-                                            BigDecimal totalPoints,
-                                            String status,
-                                            LocalDateTime submittedAt,
-                                            LocalDateTime createdAt,
-                                            String skill,
-                                            Long testId,
-                                            Long sectionId) {
     }
 
     public record PracticeResultSummary(Long id, String title, String skill,

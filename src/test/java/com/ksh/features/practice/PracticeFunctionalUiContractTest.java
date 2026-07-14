@@ -32,14 +32,58 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/css/practice-index.css");
     private static final Path PRACTICE_PROGRESS_JS =
             Path.of("src/main/resources/static/js/practice-progress.js");
+    private static final Path PRACTICE_TEST_DETAIL_JS =
+            Path.of("src/main/resources/static/js/practice/practice-test-detail.js");
+    private static final Path PRACTICE_DETAIL_CSS =
+            Path.of("src/main/resources/static/css/practice-detail.css");
+    private static final Path PRACTICE_ROUTES =
+            Path.of("src/main/java/com/ksh/features/practice/web/PracticeRoutes.java");
 
     @Test
-    void setDetailUsesPracticeTestIdsForTestDetailLinks() throws IOException {
+    void detailPagesUsePerTestAndPerSkillContracts() throws IOException {
         String template = Files.readString(PRACTICE_TEMPLATES.resolve("set-detail.html"));
+        String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
 
-        assertThat(template).contains("th:each=\"test, iter : ${view.tests()}\"");
+        assertThat(template).contains("th:each=\"test, iter : ${testCards}\"");
         assertThat(template).contains("testId=${test.id()}");
         assertThat(template).doesNotContain("testId=${view.set().id()}");
+        assertThat(testDetail).contains("th:each=\"card : ${skillCards}\"");
+        assertThat(testDetail).contains("card.completedAttempts()", "data-attempt-toggle");
+        assertThat(testDetail).doesNotContain("submissions", "inProgressAttempts", "Overall");
+    }
+
+    @Test
+    void speakingPreflightChecksOutputMicrophonePermissionAndPrivateUploadReadiness() throws IOException {
+        String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
+        String detailJs = Files.readString(PRACTICE_TEST_DETAIL_JS);
+        String detailCss = Files.readString(PRACTICE_DETAIL_CSS);
+
+        assertThat(testDetail).contains(
+                "data-speaking-preflight=${card.skill() == 'SPEAKING'}",
+                "id=\"speaking-preflight\"",
+                "data-upload-enabled=${speakingMediaUploadEnabled}",
+                "data-test-speaker",
+                "data-speaker-confirm",
+                "data-test-microphone",
+                "Âm thử và tín hiệu micro chỉ dùng để kiểm tra thiết bị, không được lưu thành bài làm.");
+        assertThat(detailJs).contains(
+                "window.MediaRecorder",
+                "navigator.mediaDevices.getUserMedia",
+                "window.AudioContext || window.webkitAudioContext",
+                "gain.connect(context.destination)",
+                "track.readyState !== \"live\"",
+                "activeStream.getTracks().forEach",
+                "action.form.requestSubmit()");
+        assertThat(detailJs).doesNotContain("fetch(\"http", "fetch('http");
+        assertThat(detailCss).contains(".pd-preflight", ".pd-device-checks", ".pd-mic-meter");
+    }
+
+    @Test
+    void supersededModeScreenIsRemovedFromCanonicalLearnerRoute() throws IOException {
+        String routes = Files.readString(PRACTICE_ROUTES);
+
+        assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("mode.html"))).isFalse();
+        assertThat(routes).doesNotContain("TEST_MODE");
     }
 
     @Test
@@ -81,16 +125,6 @@ class PracticeFunctionalUiContractTest {
         assertThat(template).doesNotContain("set.skill() == 'READING' ? 40");
         assertThat(template).doesNotContain("set.skill() == 'LISTENING' ? 20");
         assertThat(template).doesNotContain("AI quota");
-    }
-
-    @Test
-    void modeCreateAttemptFormsSubmitSectionId() throws IOException {
-        String template = Files.readString(PRACTICE_TEMPLATES.resolve("mode.html"));
-
-        assertThat(template).contains("name=\"sectionId\"");
-        assertThat(template).contains("th:each=\"sec : ${sections}\"");
-        assertThat(template).contains("value=\"practice\"");
-        assertThat(template).contains("value=\"exam\"");
     }
 
     @Test

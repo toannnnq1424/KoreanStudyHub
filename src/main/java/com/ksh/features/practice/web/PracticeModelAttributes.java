@@ -6,11 +6,13 @@ package com.ksh.features.practice.web;
 public final class PracticeModelAttributes {
     public static final String CATALOG = "catalog";
     public static final String VIEW = "view";
-    public static final String SUBMISSIONS = "submissions";
+    public static final String TEST_CARDS = "testCards";
+    public static final String SET_SKILLS = "setSkills";
     public static final String TEST_ID = "testId";
-    public static final String TEST_TITLE = "testTitle";
-    public static final String SECTIONS = "sections";
-    public static final String IN_PROGRESS_ATTEMPTS = "inProgressAttempts";
+    public static final String SELECTED_TEST = "selectedTest";
+    public static final String PREVIOUS_TEST = "previousTest";
+    public static final String NEXT_TEST = "nextTest";
+    public static final String SKILL_CARDS = "skillCards";
     public static final String MODE = "mode";
     public static final String ATTEMPT_ID = "attemptId";
     public static final String RESULT = "result";

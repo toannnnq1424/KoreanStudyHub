@@ -8,7 +8,6 @@ public final class PracticeViews {
     public static final String CATALOG_CARDS = "practice/fragments/catalog-cards :: cards";
     public static final String SET_DETAIL = "practice/set-detail";
     public static final String TEST_DETAIL = "practice/test-detail";
-    public static final String MODE = "practice/mode";
     public static final String PLAYER = "practice/player";
     public static final String RESULT = "practice/result";
     public static final String RESULT_DETAIL = "practice/result-detail";

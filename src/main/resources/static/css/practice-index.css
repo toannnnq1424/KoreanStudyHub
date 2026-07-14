@@ -1458,115 +1458,6 @@ body.pi-body {
   margin-bottom: 24px;
 }
 
-/* ══════════════════════ MODE SELECTION VIEW ══════════════════════ */
-.pi-mode-header {
-  background: var(--pi-white);
-  border-bottom: 1px solid var(--pi-line);
-  padding: 18px 32px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.pi-mode-wrapper {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 56px 32px;
-}
-
-.pi-mode-title-section {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.pi-mode-title-section h1 {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--pi-ink);
-  margin-bottom: 6px;
-}
-
-.pi-mode-title-section p {
-  font-size: 15px;
-  color: var(--pi-muted);
-}
-
-.pi-mode-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.pi-mode-card {
-  background: var(--pi-white);
-  border-radius: var(--pi-radius-lg);
-  border: 1.5px solid var(--pi-line);
-  box-shadow: var(--pi-shadow-sm);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.25s ease;
-}
-
-.pi-mode-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--pi-shadow-md);
-  border-color: var(--pi-blue-mid);
-}
-
-.pi-mode-icon-circle {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 20px;
-}
-
-.pi-mode-icon-circle.blue { background-color: var(--pi-blue-light); }
-.pi-mode-icon-circle.violet { background-color: #f5f3ff; }
-
-.pi-mode-card h2 {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--pi-ink);
-  margin-bottom: 18px;
-}
-
-.pi-mode-features {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 32px;
-}
-
-.pi-mode-features li {
-  display: flex;
-  gap: 10px;
-  font-size: 13.5px;
-  color: var(--pi-sub);
-  line-height: 1.45;
-}
-
-.pi-dot {
-  font-size: 8px;
-  color: var(--pi-blue);
-  padding-top: 4px;
-}
-
-.pi-mode-card:nth-child(2) .pi-dot {
-  color: #7c3aed;
-}
-
-.mt-auto {
-  margin-top: auto;
-}
-
-.pt-4 {
-  padding-top: 16px;
-}
-
 @media (max-width: 1024px) {
   .pi-test-grid {
     grid-template-columns: 1fr;
@@ -1575,9 +1466,6 @@ body.pi-body {
   .pi-test-right {
     position: static;
     width: 100%;
-  }
-  .pi-mode-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -2192,4 +2080,3 @@ body.pi-body {
     padding-left: 0;
   }
 }
-

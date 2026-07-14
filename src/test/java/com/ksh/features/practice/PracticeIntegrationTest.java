@@ -29,11 +29,13 @@ import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepo
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
+import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptHistoryRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestCard;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSkillAttemptCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
@@ -115,6 +117,9 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeService practiceService;
+
+    @Autowired
+    private PracticeDetailPageService detailPageService;
 
     @Autowired
     private PracticePublishedVersionService publishedVersionService;
@@ -391,7 +396,8 @@ class PracticeIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/set-detail"))
                 .andExpect(model().attributeExists("view"))
-                .andExpect(model().attributeExists("submissions"));
+                .andExpect(model().attributeExists("testCards", "setSkills"))
+                .andExpect(model().attributeDoesNotExist("submissions"));
     }
 
     @Test
@@ -412,11 +418,10 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testSetDetailUsesAttemptHistoryAndIgnoresLegacySubmissions() throws Exception {
+    void testSetDetailUsesPerTestProgressAndIgnoresOtherUsersAndSets() throws Exception {
         PracticeAttempt currentUserAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         currentUserAttempt.markSubmitted(BigDecimal.valueOf(8.5), BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}");
-        currentUserAttempt = attemptRepository.saveAndFlush(currentUserAttempt);
-        Long currentUserAttemptId = currentUserAttempt.getId();
+        attemptRepository.saveAndFlush(currentUserAttempt);
 
         PracticeAttempt otherUserAttempt = new PracticeAttempt(lecturer.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         otherUserAttempt.markSubmitted(BigDecimal.valueOf(9.5), BigDecimal.TEN, "{}");
@@ -433,25 +438,24 @@ class PracticeIntegrationTest {
 
         PracticeAttempt newestCurrentUserAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
         newestCurrentUserAttempt.markGraded(BigDecimal.valueOf(9.0), BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}", "{}");
-        newestCurrentUserAttempt = attemptRepository.saveAndFlush(newestCurrentUserAttempt);
-        Long newestCurrentUserAttemptId = newestCurrentUserAttempt.getId();
+        attemptRepository.saveAndFlush(newestCurrentUserAttempt);
 
         mockMvc.perform(get("/practice/sets/" + practiceSet.getId()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/set-detail"))
                 .andExpect(result -> {
                     @SuppressWarnings("unchecked")
-                    List<PracticeAttemptHistoryRow> rows = (List<PracticeAttemptHistoryRow>)
-                            result.getModelAndView().getModel().get("submissions");
-                    assertThat(rows).hasSize(2);
-                    assertThat(rows).extracting(PracticeAttemptHistoryRow::id)
-                            .containsExactly(newestCurrentUserAttemptId, currentUserAttemptId);
-                    assertThat(rows).extracting(PracticeAttemptHistoryRow::status)
-                            .containsExactly("GRADED", "SUBMITTED");
-                    assertThat(rows.get(0).score()).isEqualByComparingTo(BigDecimal.valueOf(9.0));
-                    assertThat(rows.get(1).score()).isEqualByComparingTo(BigDecimal.valueOf(8.5));
+                    List<PracticeSetTestCard> cards = (List<PracticeSetTestCard>)
+                            result.getModelAndView().getModel().get("testCards");
+                    assertThat(cards).singleElement().satisfies(card -> {
+                        assertThat(card.id()).isEqualTo(defaultTest.getId());
+                        assertThat(card.completedSkillCount()).isEqualTo(1);
+                        assertThat(card.totalSkillCount()).isEqualTo(1);
+                        assertThat(card.state()).isEqualTo("IN_PROGRESS");
+                        assertThat(card.resumeAttemptId()).isEqualTo(activeAttempt.getId());
+                    });
                 })
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("9.0")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1/1 kỹ năng")));
     }
 
     @Test
@@ -465,25 +469,57 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testTestDetailView() throws Exception {
+        PracticeAttempt oldest = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(),
+                "READING", defaultSection.getId());
+        oldest.markSubmitted(BigDecimal.valueOf(6), BigDecimal.TEN, "{}");
+        attemptRepository.saveAndFlush(oldest);
+
+        PracticeAttempt middle = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(),
+                "READING", defaultSection.getId());
+        middle.markSubmitted(BigDecimal.valueOf(7), BigDecimal.TEN, "{}");
+        attemptRepository.saveAndFlush(middle);
+
+        PracticeAttempt newest = new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(),
+                "READING", defaultSection.getId());
+        newest.markGraded(BigDecimal.valueOf(9), BigDecimal.TEN, "{}", "{}");
+        attemptRepository.saveAndFlush(newest);
+
+        PracticeAttempt inProgress = attemptRepository.saveAndFlush(new PracticeAttempt(
+                student.getId(), practiceSet.getId(), defaultTest.getId(),
+                "READING", defaultSection.getId()));
+
         mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/test-detail"))
                 .andExpect(model().attributeExists("view"))
-                .andExpect(model().attribute("testTitle", defaultTest.getTitle()))
-                .andExpect(model().attributeExists("sections"))
-                .andExpect(model().attributeExists("inProgressAttempts"));
-    }
-
-    @Test
-    @WithUserDetails("student@ksh.edu.vn")
-    void testModeView() throws Exception {
-        mockMvc.perform(get("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/mode"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("practice/mode"))
-                .andExpect(model().attributeExists("view"))
-                .andExpect(model().attributeExists("sections"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"sectionId\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"" + defaultSection.getId() + "\"")));
+                .andExpect(model().attribute("selectedTest", new com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow(
+                        defaultTest.getId(), practiceSet.getId(), defaultTest.getTitle(), defaultTest.getDescription(),
+                        defaultTest.getDisplayOrder(), defaultTest.getEstimatedMinutes())))
+                .andExpect(model().attributeExists("skillCards", "speakingMediaUploadEnabled"))
+                .andExpect(model().attributeDoesNotExist("sections", "submissions", "inProgressAttempts"))
+                .andExpect(result -> {
+                    @SuppressWarnings("unchecked")
+                    List<PracticeSkillAttemptCard> cards = (List<PracticeSkillAttemptCard>)
+                            result.getModelAndView().getModel().get("skillCards");
+                    assertThat(cards).singleElement().satisfies(card -> {
+                        assertThat(card.sectionId()).isEqualTo(defaultSection.getId());
+                        assertThat(card.inProgressAttemptId()).isEqualTo(inProgress.getId());
+                        assertThat(card.completedAttempts()).hasSize(3);
+                        assertThat(card.completedAttempts())
+                                .extracting(attempt -> attempt.initiallyVisible())
+                                .containsExactly(true, true, false);
+                        assertThat(card.completedAttempts().get(0).id()).isEqualTo(newest.getId());
+                        assertThat(card.completedAttempts().get(2).id()).isEqualTo(oldest.getId());
+                        assertThat(card.latestScoreLabel()).isEqualTo("9/10");
+                        assertThat(card.hiddenAttemptCount()).isEqualTo(1);
+                    });
+                })
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-attempt-toggle")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/practice/attempts/" + newest.getId() + "/result")));
     }
 
     @Test
@@ -1673,7 +1709,8 @@ class PracticeIntegrationTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
                 .andExpect(status().isNotFound());
-        assertThat(practiceService.getSetAttemptHistory(practiceSet.getId(), student.getId()))
+        assertThat(detailPageService.buildSkillCards(
+                defaultTest.getId(), List.of(defaultSection), student.getId()).get(0).completedAttempts())
                 .noneMatch(row -> row.id().equals(discarded.getId()));
         assertThat(practiceService.getProgressPageData(student.getId(), "Student", "")
                 .overview().totalAttempts())

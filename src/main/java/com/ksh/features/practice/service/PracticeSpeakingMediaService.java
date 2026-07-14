@@ -1,15 +1,10 @@
 package com.ksh.features.practice.service;
 
 import com.ksh.entities.PracticeAttempt;
-import com.ksh.entities.PracticeQuestion;
-import com.ksh.entities.PracticeQuestionGroup;
-import com.ksh.entities.PracticeSection;
+import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.PracticeSpeakingMedia;
 import com.ksh.entities.PracticeSpeakingMediaStatus;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
-import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
-import com.ksh.features.practice.repository.PracticeQuestionRepository;
-import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,29 +13,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PracticeSpeakingMediaService {
 
     private final PracticeAttemptRepository attemptRepository;
-    private final PracticeQuestionRepository questionRepository;
-    private final PracticeSectionRepository sectionRepository;
-    private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeSpeakingMediaRepository mediaRepository;
     private final PracticeSpeakingMediaCleanupTaskService cleanupTaskService;
+    private final PracticePublishedVersionService publishedVersionService;
 
     public PracticeSpeakingMediaService(PracticeAttemptRepository attemptRepository,
-                                        PracticeQuestionRepository questionRepository,
-                                        PracticeSectionRepository sectionRepository,
-                                        PracticeQuestionGroupRepository groupRepository,
                                         PracticeSpeakingMediaRepository mediaRepository,
-                                        PracticeSpeakingMediaCleanupTaskService cleanupTaskService) {
+                                        PracticeSpeakingMediaCleanupTaskService cleanupTaskService,
+                                        PracticePublishedVersionService publishedVersionService) {
         this.attemptRepository = attemptRepository;
-        this.questionRepository = questionRepository;
-        this.sectionRepository = sectionRepository;
-        this.groupRepository = groupRepository;
         this.mediaRepository = mediaRepository;
         this.cleanupTaskService = cleanupTaskService;
+        this.publishedVersionService = publishedVersionService;
     }
 
     @Transactional
@@ -105,7 +96,9 @@ public class PracticeSpeakingMediaService {
         if (!"SPEAKING".equals(attempt.getSkill())) {
             return List.of();
         }
+        Set<Long> allowedQuestionIds = immutableSpeakingQuestionIds(attempt);
         return mediaRepository.findByAttemptIdAndStatus(attemptId, PracticeSpeakingMediaStatus.READY).stream()
+                .filter(media -> allowedQuestionIds.contains(media.getQuestionId()))
                 .map(this::view)
                 .toList();
     }
@@ -152,27 +145,31 @@ public class PracticeSpeakingMediaService {
         if (!"SPEAKING".equals(attempt.getSkill())) {
             throw new IllegalStateException("Only SPEAKING attempts can access learner speaking media.");
         }
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(this::uploadTargetNotFound);
-        if (!attempt.getSetId().equals(section.getSetId()) || !attempt.getTestId().equals(section.getTestId())) {
+        if (!immutableSpeakingQuestionIds(attempt).contains(questionId)) {
             throw uploadTargetNotFound();
         }
-        PracticeQuestion question = questionRepository.findById(questionId)
-                .orElseThrow(this::uploadTargetNotFound);
-        if (!attempt.getSetId().equals(question.getSetId())) {
-            throw uploadTargetNotFound();
+    }
+
+    private Set<Long> immutableSpeakingQuestionIds(PracticeAttempt attempt) {
+        PracticeVersionSnapshot snapshot = publishedVersionService.snapshot(
+                        attempt.getPublishedVersionId(),
+                        attempt.getSetVersionId(),
+                        attempt.getTestVersionId(),
+                        attempt.getSectionVersionId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Speaking attempt is missing an immutable delivery version."));
+
+        if (!attempt.getSetId().equals(snapshot.setVersion().getSetId())
+                || !attempt.getTestId().equals(snapshot.testVersion().getTestId())
+                || !attempt.getSectionId().equals(snapshot.sectionVersion().getSectionId())
+                || !"SPEAKING".equals(snapshot.sectionVersion().getSkill())) {
+            throw new IllegalStateException("Speaking attempt delivery version is inconsistent.");
         }
-        if (!PracticeQuestion.TYPE_SPEAKING.equals(question.getQuestionType())) {
-            throw new IllegalStateException("Only SPEAKING questions can have learner audio.");
-        }
-        if (question.getGroupId() == null) {
-            throw uploadTargetNotFound();
-        }
-        PracticeQuestionGroup group = groupRepository.findById(question.getGroupId())
-                .orElseThrow(this::uploadTargetNotFound);
-        if (!attempt.getSectionId().equals(group.getSectionId())) {
-            throw uploadTargetNotFound();
-        }
+
+        return snapshot.questions().stream()
+                .filter(question -> "SPEAKING".equals(question.getQuestionType()))
+                .map(PracticeQuestionVersion::getQuestionId)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private List<PracticeSpeakingMedia> readyRows(Long attemptId, Long questionId) {

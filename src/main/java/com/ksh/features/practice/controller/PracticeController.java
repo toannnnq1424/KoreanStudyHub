@@ -8,9 +8,12 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestCard;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeCatalogService;
+import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticeLearnerAccessService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
@@ -39,6 +42,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import jakarta.persistence.EntityNotFoundException;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +59,7 @@ public class PracticeController {
 
     private final PracticeService practiceService;
     private final PracticeCatalogService catalogService;
+    private final PracticeDetailPageService detailPageService;
     private final PracticeLearnerAccessService learnerAccessService;
     private final PracticeAttemptDiscardService attemptDiscardService;
     private final PracticeSpeakingMediaService speakingMediaService;
@@ -65,6 +71,7 @@ public class PracticeController {
 
     public PracticeController(PracticeService practiceService,
                               PracticeCatalogService catalogService,
+                              PracticeDetailPageService detailPageService,
                               PracticeLearnerAccessService learnerAccessService,
                               PracticeAttemptDiscardService attemptDiscardService,
                               PracticeSpeakingMediaService speakingMediaService,
@@ -77,6 +84,7 @@ public class PracticeController {
                               boolean speakingMediaPlaybackEnabled) {
         this.practiceService = practiceService;
         this.catalogService = catalogService;
+        this.detailPageService = detailPageService;
         this.learnerAccessService = learnerAccessService;
         this.attemptDiscardService = attemptDiscardService;
         this.speakingMediaService = speakingMediaService;
@@ -157,8 +165,12 @@ public class PracticeController {
                             Model model) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         PracticeSetView view = practiceService.getPractice(setId);
+        List<PracticeSetTestCard> testCards = detailPageService.buildTestCards(
+                setId, view.tests(), user.getId());
         model.addAttribute(PracticeModelAttributes.VIEW, view);
-        model.addAttribute(PracticeModelAttributes.SUBMISSIONS, practiceService.getSetAttemptHistory(setId, user.getId()));
+        model.addAttribute(PracticeModelAttributes.TEST_CARDS, testCards);
+        model.addAttribute(PracticeModelAttributes.SET_SKILLS,
+                detailPageService.collectSetSkills(testCards));
         return PracticeViews.SET_DETAIL;
     }
 
@@ -169,19 +181,32 @@ public class PracticeController {
                              Model model) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         PracticeSetView view = practiceService.getPractice(setId);
+        List<PracticeTestRow> tests = view.tests();
+        int selectedIndex = -1;
+        for (int index = 0; index < tests.size(); index++) {
+            if (testId.equals(tests.get(index).id())) {
+                selectedIndex = index;
+                break;
+            }
+        }
+        if (selectedIndex < 0) {
+            throw new EntityNotFoundException("Bài kiểm tra không tồn tại trong bộ đề này.");
+        }
+
+        PracticeTestRow selectedTest = tests.get(selectedIndex);
         List<PracticeSection> testSections = practiceService.getSectionsForTest(setId, testId);
-        Map<Long, PracticeAttempt> inProgressAttempts = practiceService.getInProgressAttemptsBySection(testId, user.getId());
-        String testTitle = view.tests().stream()
-                .filter(test -> testId.equals(test.id()))
-                .map(test -> test.title())
-                .findFirst()
-                .orElse("Bài kiểm tra");
 
         model.addAttribute(PracticeModelAttributes.VIEW, view);
         model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
-        model.addAttribute(PracticeModelAttributes.TEST_TITLE, testTitle);
-        model.addAttribute(PracticeModelAttributes.SECTIONS, testSections);
-        model.addAttribute(PracticeModelAttributes.IN_PROGRESS_ATTEMPTS, inProgressAttempts);
+        model.addAttribute(PracticeModelAttributes.SELECTED_TEST, selectedTest);
+        model.addAttribute(PracticeModelAttributes.PREVIOUS_TEST,
+                selectedIndex > 0 ? tests.get(selectedIndex - 1) : null);
+        model.addAttribute(PracticeModelAttributes.NEXT_TEST,
+                selectedIndex + 1 < tests.size() ? tests.get(selectedIndex + 1) : null);
+        model.addAttribute(PracticeModelAttributes.SKILL_CARDS,
+                detailPageService.buildSkillCards(testId, testSections, user.getId()));
+        model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED,
+                speakingMediaUploadEnabled);
 
         return PracticeViews.TEST_DETAIL;
     }
@@ -195,19 +220,6 @@ public class PracticeController {
         attemptDiscardService.discardForOwner(attemptId, user.getId());
         redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
         return PracticeRoutes.redirectToTestDetail(setId, testId);
-    }
-
-    @GetMapping(PracticeRoutes.TEST_MODE)
-    public String testMode(@PathVariable Long setId,
-                           @PathVariable Long testId,
-                           @AuthenticationPrincipal KshUserDetails user,
-                           Model model) {
-        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
-        PracticeSetView view = practiceService.getPractice(setId);
-        model.addAttribute(PracticeModelAttributes.VIEW, view);
-        model.addAttribute(PracticeModelAttributes.TEST_ID, testId);
-        model.addAttribute(PracticeModelAttributes.SECTIONS, practiceService.getSectionsForTest(setId, testId));
-        return PracticeViews.MODE;
     }
 
     @PostMapping(PracticeRoutes.CREATE_ATTEMPT)
@@ -238,12 +250,8 @@ public class PracticeController {
             return PracticeRoutes.redirectToResult(attemptId);
         }
         
-        PracticeSection section = practiceService.getSection(attempt.getSectionId());
-        if (!attempt.getSetId().equals(section.getSetId()) ||
-            !attempt.getTestId().equals(section.getTestId()) ||
-            !attempt.getSkill().equals(section.getSkill())) {
-            throw new IllegalArgumentException("Section metadata mismatch with attempt");
-        }
+        PracticeService.AttemptSectionDelivery delivery =
+                practiceService.getAttemptSectionDelivery(attemptId, user.getId());
 
         PracticeSetView view = practiceService.getPractice(attempt.getSetId());
         List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow> filteredGroups =
@@ -256,9 +264,10 @@ public class PracticeController {
         model.addAttribute(PracticeModelAttributes.MODE, mode);
         model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
         
-        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, section.getTitle());
-        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_SKILL, section.getSkill());
-        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_DURATION, section.getDurationMinutes() != null ? section.getDurationMinutes() * 60 : 2400);
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, delivery.title());
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_SKILL, delivery.skill());
+        model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_DURATION,
+                delivery.durationMinutes() != null ? delivery.durationMinutes() * 60 : 2400);
         model.addAttribute(PracticeModelAttributes.SECTION_INDEX, 0);
         model.addAttribute(PracticeModelAttributes.TOTAL_SECTIONS, 1);
         addSpeakingMediaModel(model, user.getId(), attempt, true);
@@ -287,8 +296,7 @@ public class PracticeController {
                                 @AuthenticationPrincipal KshUserDetails user,
                                 Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        PracticeSection section = practiceService.getSection(attempt.getSectionId());
-        String skill = section.getSkill();
+        String skill = attempt.getSkill();
 
         if ("READING".equals(skill) || "LISTENING".equals(skill)) {
             com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
@@ -322,8 +330,7 @@ public class PracticeController {
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        PracticeSection section = practiceService.getSection(attempt.getSectionId());
-        String skill = section.getSkill();
+        String skill = attempt.getSkill();
 
         if ("READING".equals(skill) || "LISTENING".equals(skill)) {
             com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =

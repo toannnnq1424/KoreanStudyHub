@@ -1,130 +1,234 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Chi tiết bài thi | KSH', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head(${selectedTest.title()} + ' | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-detail.css}">
 </head>
 <body class="pi-body">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
 
 <div class="pi-container">
-
-  <!-- ═══ LEFT SIDEBAR (PREP-STYLE) ═══ -->
   <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('library')}"></aside>
 
-  <!-- ═══ MAIN CONTENT WRAPPER ═══ -->
   <main class="pi-main-wrapper">
-    <div class="pi-detail-container">
-      
-      <!-- Back & Breadcrumb Header -->
-      <div class="pi-detail-header">
-        <a class="pi-back-btn" th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Quay lại
-        </a>
-        <div class="pi-breadcrumb">
-          <a th:href="@{/practice}">Luyện tập</a>
-          <span>&gt;</span>
-          <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" th:text="${view.set().title()}">Tên bộ đề</a>
-          <span>&gt;</span>
-          <span th:text="${testTitle}">Bài kiểm tra</span>
+    <div class="pd-page pd-test-page">
+      <div class="pd-test-nav">
+        <nav class="pd-breadcrumb" aria-label="Điều hướng">
+          <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" aria-label="Quay lại bộ đề">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            <span th:text="${view.set().title()}">Bộ đề</span>
+          </a>
+          <span>/</span>
+          <span th:text="${selectedTest.title()}">Bài test</span>
+        </nav>
+
+        <div class="pd-test-switcher" aria-label="Chuyển bài test">
+          <a th:if="${previousTest != null}" th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${previousTest.id()})}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            Bài trước
+          </a>
+          <span th:unless="${previousTest != null}">Bài trước</span>
+          <a th:if="${nextTest != null}" th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${view.set().id()},testId=${nextTest.id()})}">
+            Bài sau
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+          <span th:unless="${nextTest != null}">Bài sau</span>
         </div>
       </div>
 
-      <!-- Two-column grid -->
-      <div class="pi-test-grid">
-        
-        <!-- Left Section: Skill Cards -->
-        <section class="pi-test-left">
-          
-          <div class="pi-test-card-white" th:each="sec : ${sections}" style="margin-bottom: 20px;">
-            <h2 class="pi-test-section-title" th:text="${sec.title}">Kỹ năng làm bài</h2>
-            
-            <div class="pi-skill-row">
-              <div class="pi-skill-badge"
-                   th:classappend="${sec.skill == 'WRITING'} ? ' writing' :
-                     (${sec.skill == 'SPEAKING'} ? ' speaking' :
-                     (${sec.skill == 'LISTENING'} ? ' listening' :
-                     (${sec.skill == 'MIXED'} ? ' mixed' : ' reading')))">
-                <!-- Listening icon -->
-                <svg th:if="${sec.skill == 'LISTENING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-                <!-- Reading icon -->
-                <svg th:if="${sec.skill == 'READING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                <!-- Writing icon -->
-                <svg th:if="${sec.skill == 'WRITING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                <!-- Speaking icon -->
-                <svg th:if="${sec.skill == 'SPEAKING'}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <header class="pd-test-header">
+        <p class="pd-eyebrow" th:text="|Bài test ${selectedTest.displayOrder()}|">Bài test 1</p>
+        <h1 th:text="${selectedTest.title()}">Tên bài test</h1>
+        <p th:text="${selectedTest.description() != null && !#strings.isEmpty(selectedTest.description()) ? selectedTest.description() : 'Chọn một kỹ năng để bắt đầu. Mỗi kỹ năng có lượt làm và kết quả độc lập.'}">
+          Mô tả bài test.
+        </p>
+      </header>
+
+      <div class="pd-skill-layout">
+        <section class="pd-skill-column" aria-labelledby="skill-list-title">
+          <div class="pd-section-heading pd-compact-heading">
+            <div>
+              <p class="pd-eyebrow">Luyện tập độc lập</p>
+              <h2 id="skill-list-title">Danh sách kỹ năng</h2>
+            </div>
+          </div>
+
+          <div class="pd-empty" th:if="${#lists.isEmpty(skillCards)}">
+            <strong>Chưa có kỹ năng khả dụng</strong>
+            <span>Nội dung sẽ xuất hiện sau khi bài test được hoàn thiện.</span>
+          </div>
+
+          <article class="pd-skill-card" th:each="card : ${skillCards}" th:attr="data-skill=${card.skill()}">
+            <header class="pd-skill-card-header">
+              <span class="pd-skill-icon" th:classappend="|' is-${#strings.toLowerCase(card.skill())}'|">
+                <svg th:if="${card.skill() == 'LISTENING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19a2 2 0 0 0 2-2v-3h-3a2 2 0 0 0-2 2v3zM6 19a2 2 0 0 1-2-2v-3h3a2 2 0 0 1 2 2v3z"/></svg>
+                <svg th:if="${card.skill() == 'READING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg>
+                <svg th:if="${card.skill() == 'WRITING'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                <svg th:if="${card.skill() == 'SPEAKING'}" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
+              </span>
+
+              <div class="pd-skill-name">
+                <h3 th:text="${card.skillLabel()}">Đọc</h3>
+                <span th:text="${card.title()}">Phần thi</span>
               </div>
-              <div class="pi-skill-info">
-                <h3 th:text="${sec.skill == 'READING' ? 'Đọc (Reading)' : (sec.skill == 'LISTENING' ? 'Nghe (Listening)' : (sec.skill == 'WRITING' ? 'Viết (Writing)' : 'Nói (Speaking)'))}">Kỹ năng</h3>
-                <span class="pi-skill-subtitle" th:text="'Thời gian: ' + ${sec.durationMinutes} + ' phút'">Thời gian</span>
+
+              <div class="pd-skill-meta">
+                <span class="pd-state" th:classappend="|' is-${#strings.toLowerCase(card.state())}'|" th:text="${card.stateLabel()}">Chưa bắt đầu</span>
+                <span th:if="${card.durationMinutes() != null}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  <span th:text="|${card.durationMinutes()} phút|">40 phút</span>
+                </span>
               </div>
+            </header>
+
+            <div class="pd-skill-actions">
+              <a th:if="${card.hasInProgressAttempt()}"
+                 class="pd-primary-action"
+                 th:href="@{/practice/attempts/{attemptId}(attemptId=${card.inProgressAttemptId()},mode='practice')}"
+                 th:attr="data-speaking-preflight=${card.skill() == 'SPEAKING'},data-action-label=${card.actionLabel()}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                <span th:text="${card.actionLabel()}">Tiếp tục</span>
+              </a>
+
+              <form th:unless="${card.hasInProgressAttempt()}"
+                    method="post"
+                    th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}"
+                    th:attr="data-speaking-preflight=${card.skill() == 'SPEAKING'},data-action-label=${card.actionLabel()}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" name="sectionId" th:value="${card.sectionId()}">
+                <input type="hidden" name="mode" value="practice">
+                <button class="pd-primary-action" type="submit">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                  <span th:text="${card.actionLabel()}">Bắt đầu</span>
+                </button>
+              </form>
+
+              <form th:if="${card.hasInProgressAttempt()}"
+                    class="pd-discard-form"
+                    method="post"
+                    th:action="@{/practice/attempts/{attemptId}/discard(attemptId=${card.inProgressAttemptId()})}"
+                    data-confirm-discard>
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <input type="hidden" name="setId" th:value="${view.set().id()}">
+                <input type="hidden" name="testId" th:value="${testId}">
+                <button type="submit">Hủy lượt đang làm</button>
+              </form>
             </div>
 
-            <!-- Attempt controls per section -->
-            <div style="margin-top: 15px;">
-              <!-- If there is an IN_PROGRESS attempt for this section -->
-              <div th:if="${inProgressAttempts != null and inProgressAttempts.get(sec.id) != null}">
-                <a class="pi-btn-primary pi-btn-full text-center" 
-                   th:href="@{/practice/attempts/{id}(id=${inProgressAttempts.get(sec.id).id})}" 
-                   style="margin-bottom: 12px; display: block; text-decoration: none;">
-                  Tiếp tục làm bài
+            <div class="pd-attempts" th:if="${card.hasCompletedAttempts()}">
+              <div class="pd-attempt-heading">
+                <strong>Lịch sử làm bài</strong>
+                <span th:text="|${card.completedAttemptCount()} lượt|">2 lượt</span>
+              </div>
+
+              <div class="pd-attempt-row"
+                   th:each="attempt : ${card.completedAttempts()}"
+                   th:classappend="${!attempt.initiallyVisible()} ? ' is-older'">
+                <span class="pd-attempt-score" th:text="${attempt.scoreLabel()}">80%</span>
+                <div>
+                  <strong th:text="|Lượt ${attempt.attemptNumber()}|">Lượt 2</strong>
+                  <span th:text="${attempt.activityAt() != null ? #temporals.format(attempt.activityAt(), 'HH:mm dd/MM/yyyy') : attempt.statusLabel()}">10:00 14/07/2026</span>
+                </div>
+                <span class="pd-attempt-status" th:text="${attempt.statusLabel()}">Đã nộp</span>
+                <a th:href="@{/practice/attempts/{attemptId}/result(attemptId=${attempt.id()})}">
+                  Xem chi tiết
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
                 </a>
-                <form method="post" th:action="@{/practice/attempts/{id}/discard(id=${inProgressAttempts.get(sec.id).id})}" 
-                      onsubmit="return confirm('Bạn có chắc chắn muốn hủy bỏ lượt làm bài dang dở này? Toàn bộ câu trả lời chưa nộp của lượt này sẽ bị xóa.');">
-                  <input type="hidden" name="setId" th:value="${view.set().id()}" />
-                  <input type="hidden" name="testId" th:value="${testId}" />
-                  <button class="pi-btn-outline pi-btn-full text-center" 
-                          style="color: var(--pp-error); border-color: var(--pp-error); background: none; width: 100%; cursor: pointer;" 
-                          type="submit">
-                    Hủy lượt làm cũ
-                  </button>
-                </form>
               </div>
-              
-              <!-- If no IN_PROGRESS attempt exists -->
-              <div th:if="${inProgressAttempts == null or inProgressAttempts.get(sec.id) == null}">
-                <form method="post" th:action="@{/practice/sets/{setId}/tests/{testId}/attempts(setId=${view.set().id()},testId=${testId})}">
-                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                  <input type="hidden" name="sectionId" th:value="${sec.id}">
-                  <input type="hidden" name="mode" value="practice">
-                  <button class="pi-btn-primary pi-btn-full" type="submit">Bắt đầu làm bài</button>
-                </form>
-              </div>
+
+              <button class="pd-attempt-toggle" type="button" th:if="${card.hiddenAttemptCount() > 0}" data-attempt-toggle aria-expanded="false">
+                <span th:text="|Xem thêm ${card.hiddenAttemptCount()} lượt|">Xem thêm</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
             </div>
 
-          </div>
-
+            <div class="pd-no-attempt" th:unless="${card.hasCompletedAttempts()}">
+              Chưa có kết quả đã nộp cho kỹ năng này.
+            </div>
+          </article>
         </section>
-        
-        <!-- Right Section: Score Summary Card -->
-        <aside class="pi-test-right">
-          
-          <div class="pi-test-card-white pi-start-info-card">
-            <h2 class="pi-test-section-title">Thông tin bài thi</h2>
-            
-            <div class="pi-info-stats">
-              <div class="pi-info-stat-row">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>Các phần thi được làm riêng biệt và lưu kết quả độc lập theo từng kỹ năng.</span>
-              </div>
-              <div class="pi-info-stat-row">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span th:text="'Tổng số câu hỏi: ' + ${view.totalQuestions()} + ' câu'">Số câu</span>
-              </div>
-            </div>
 
-            <p class="pi-info-desc">Hệ thống sẽ ghi nhận và chấm điểm tự động. Vui lòng chọn nút "Bắt đầu làm bài" hoặc "Tiếp tục làm bài" tại kỹ năng mong muốn ở bên trái để làm bài.</p>
+        <aside class="pd-score-panel" aria-labelledby="latest-score-title">
+          <div class="pd-score-panel-head">
+            <p class="pd-eyebrow">Kết quả gần nhất</p>
+            <h2 id="latest-score-title" th:text="${selectedTest.title()}">Bài test 1</h2>
           </div>
-
+          <div class="pd-score-list">
+            <div th:each="card : ${skillCards}">
+              <span th:text="${card.skillLabel()}">Đọc</span>
+              <strong th:text="${card.latestScoreLabel()}">Chưa có</strong>
+            </div>
+          </div>
+          <p>Mỗi kỹ năng được làm, nộp và lưu kết quả riêng. Điểm tại đây là lượt hoàn thành gần nhất của từng kỹ năng.</p>
+          <img th:src="@{/images/baekho/baekho_master_64.png}" alt="Bạch Hổ KSH">
         </aside>
-
       </div>
-
     </div>
   </main>
-
 </div>
 
+<dialog id="speaking-preflight"
+        class="pd-preflight"
+        aria-labelledby="speaking-preflight-title"
+        th:attr="data-upload-enabled=${speakingMediaUploadEnabled}">
+  <form method="dialog" class="pd-preflight-shell">
+    <header>
+      <div>
+        <p class="pd-eyebrow">Kiểm tra trước phần Nói</p>
+        <h2 id="speaking-preflight-title">Thiết bị thu âm đã sẵn sàng?</h2>
+      </div>
+      <button class="pd-icon-button" value="cancel" aria-label="Đóng kiểm tra">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+
+    <p class="pd-preflight-intro">Hoàn tất các bước kiểm tra để tránh mất câu trả lời khi bắt đầu phần Nói.</p>
+
+    <div class="pd-device-checks">
+      <section data-check="browser">
+        <span class="pd-check-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H4zM8 21h8M12 17v4"/></svg></span>
+        <div><strong>Trình duyệt ghi âm</strong><span data-check-message>Đang kiểm tra khả năng thu âm...</span></div>
+        <i data-check-state>Chờ</i>
+      </section>
+
+      <section data-check="speaker">
+        <span class="pd-check-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></span>
+        <div>
+          <strong>Loa hoặc tai nghe</strong>
+          <span data-check-message>Phát âm thử rồi xác nhận bạn nghe rõ.</span>
+          <label><input type="checkbox" data-speaker-confirm disabled> Tôi nghe thấy âm thanh</label>
+        </div>
+        <button type="button" data-test-speaker>Phát thử</button>
+      </section>
+
+      <section data-check="microphone">
+        <span class="pd-check-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></span>
+        <div>
+          <strong>Micro và quyền ghi âm</strong>
+          <span data-check-message>Cho phép KSH sử dụng micro trên trình duyệt.</span>
+          <span class="pd-mic-meter" aria-hidden="true"><i data-mic-level></i></span>
+        </div>
+        <button type="button" data-test-microphone>Kiểm tra</button>
+      </section>
+
+      <section data-check="server">
+        <span class="pd-check-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01"/></svg></span>
+        <div><strong>Lưu bản ghi</strong><span data-check-message>Đang kiểm tra dịch vụ lưu bản ghi...</span></div>
+        <i data-check-state>Chờ</i>
+      </section>
+    </div>
+
+    <p class="pd-preflight-note">Âm thử và tín hiệu micro chỉ dùng để kiểm tra thiết bị, không được lưu thành bài làm.</p>
+    <p class="pd-preflight-error" data-preflight-error role="alert" hidden></p>
+
+    <footer>
+      <button class="pd-secondary-action" value="cancel">Để sau</button>
+      <button class="pd-primary-action" type="button" data-preflight-continue disabled>Vào phần Nói</button>
+    </footer>
+  </form>
+</dialog>
+
+<script defer th:src="@{/js/practice/practice-test-detail.js}"></script>
 </body>
 </html>
