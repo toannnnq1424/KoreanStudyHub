@@ -54,6 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
@@ -1419,8 +1420,9 @@ class PracticeIntegrationTest {
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void resumeWinsAgainstRepublishAndPinsExistingAttemptBeforeNewVersion() throws Exception {
-        PracticeAttempt existing = attemptRepository.saveAndFlush(new PracticeAttempt(
-                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId()));
+        Long existingAttemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt existing = attemptRepository.findById(existingAttemptId).orElseThrow();
         com.ksh.entities.PracticeDraft draft = createRepublishDraft(practiceSet.getId(), "Versioned resume republish");
         int versionCountBefore = publishedVersionRepository
                 .findBySetIdOrderByVersionNumberDesc(practiceSet.getId()).size();
@@ -2923,7 +2925,16 @@ class PracticeIntegrationTest {
             essay = questionRepository.saveAndFlush(essay);
         }
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), readingSet.getId(), test.getId(), skill, section.getId());
+        PracticeAttempt attempt;
+        if ("SPEAKING".equals(skill)) {
+            publishVersion(readingSet.getId());
+            Long attemptId = practiceService.startAttempt(
+                    readingSet.getId(), test.getId(), section.getId(), student.getId());
+            attempt = attemptRepository.findById(attemptId).orElseThrow();
+        } else {
+            attempt = new PracticeAttempt(
+                    student.getId(), readingSet.getId(), test.getId(), skill, section.getId());
+        }
         String answersJson = includeEssay
                 ? "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}"
                 : "{\"" + mcq.getId() + "\":\"1\"}";
@@ -2951,6 +2962,7 @@ class PracticeIntegrationTest {
 
     private void deleteNonWritingEssayAttemptFixture(NonWritingEssayAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        deletePublishedVersionFixture(fixture.setId());
         if (fixture.essayQuestionId() != null) {
             questionRepository.findById(fixture.essayQuestionId()).ifPresent(questionRepository::delete);
         }
@@ -3095,7 +3107,10 @@ class PracticeIntegrationTest {
         question.setGroupId(group.getId());
         question = questionRepository.saveAndFlush(question);
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), speakingSet.getId(), test.getId(), "SPEAKING", section.getId());
+        publishVersion(speakingSet.getId());
+        Long attemptId = practiceService.startAttempt(
+                speakingSet.getId(), test.getId(), section.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         attempt.markGraded(
                 BigDecimal.valueOf(80.00),
                 BigDecimal.TEN,
@@ -3154,11 +3169,31 @@ class PracticeIntegrationTest {
 
     private void deleteSpeakingAttemptFixture(SpeakingAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
         sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
         testRepository.findById(fixture.testId()).ifPresent(testRepository::delete);
         setRepository.findById(fixture.setId()).ifPresent(setRepository::delete);
+    }
+
+    private void deletePublishedVersionFixture(Long setId) {
+        List<Long> versionIds = publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(setId).stream()
+                .map(com.ksh.entities.PracticePublishedVersion::getId)
+                .toList();
+        if (versionIds.isEmpty()) {
+            return;
+        }
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        for (Long versionId : versionIds) {
+            jdbc.update("DELETE FROM practice_material_references WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_question_versions WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_question_group_versions WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_section_versions WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_test_versions WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_set_versions WHERE published_version_id = ?", versionId);
+            jdbc.update("DELETE FROM practice_published_versions WHERE id = ?", versionId);
+        }
     }
 
     private record SpeakingAttemptFixture(

@@ -185,6 +185,12 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>-javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar</argLine>
+					<systemPropertyVariables>
+						<spring.datasource.hikari.maximum-pool-size>4</spring.datasource.hikari.maximum-pool-size>
+						<spring.datasource.hikari.minimum-idle>0</spring.datasource.hikari.minimum-idle>
+						<app.practice.speaking-media.upload-api-enabled>false</app.practice.speaking-media.upload-api-enabled>
+						<app.practice.speaking-media.playback-api-enabled>false</app.practice.speaking-media.playback-api-enabled>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 		</plugins>

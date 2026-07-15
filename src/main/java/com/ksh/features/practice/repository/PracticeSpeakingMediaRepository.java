@@ -49,6 +49,17 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
     @Query("select m from PracticeSpeakingMedia m where m.attemptId = :attemptId order by m.id asc")
     List<PracticeSpeakingMedia> findByAttemptIdForUpdateOrderByIdAsc(@Param("attemptId") Long attemptId);
 
+    @Query(value = """
+            SELECT m.id
+            FROM practice_speaking_media m
+            JOIN practice_questions q ON q.id = m.question_id
+            WHERE q.set_id = :setId
+            ORDER BY m.id
+            LIMIT 1
+            FOR SHARE
+            """, nativeQuery = true)
+    Optional<Long> findFirstIdByQuestionSetIdForShare(@Param("setId") Long setId);
+
     @Query("""
             select m.storageProvider as storageProvider,
                    m.storageKey as storageKey,

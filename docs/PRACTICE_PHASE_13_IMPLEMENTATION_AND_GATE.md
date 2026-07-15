@@ -37,7 +37,7 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | Phase 13 entry audit | `COMPLETE` | Existing routes, repositories, DTOs, templates, CSS and attempt semantics inspected on 2026-07-14 |
 | 13A library/state foundation | `COMPLETE_FOCUSED_GATE_GREEN` | Bounded catalog, learner access, navigation/performance correction, focused tests and route/dead-code audit are complete; no browser QA is claimed |
 | 13B detail/preflight/version lock | `COMPLETE_FOCUSED_GATE_GREEN` | Set/test detail, immutable attempt routing, canonical Speaking delivery, full-screen microphone preflight and immutable Listening speaker preflight passed the consolidated 13C2 focused validation. Browser/device QA remains in 13H |
-| 13C skill-native players | `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and fill-blank/editor parity are implemented, statically reviewed and focused-tested. Phase 13 is not closed; full-suite and browser journeys remain in 13H |
+| 13C skill-native players | `13C2_FULL_SUITE_GREEN_PHASE_13_OPEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and visual fill-blank authoring are implemented. The post-commit correction passed the complete 1321-test suite; Phase 13 is not closed and final browser/device plus post-13D-13G closure validation remains in 13H |
 | 13D result overview | `NOT_STARTED` | Keep score, scale, completion, timing and feedback availability separate |
 | 13E result evidence | `NOT_STARTED` | Separate official key, teacher explanation and AI artifact |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates only; no decorative percentages |
@@ -52,9 +52,10 @@ validation unit was the whole phase. All approved issues were implemented and
 the complete diff was reviewed before the consolidated validation began. The
 final correction cycle ran `git diff --check`, changed-JavaScript syntax checks,
 one compile and the smallest focused test set covering the phase. Browser QA and
-the full regression suite remain consolidated into 13H unless the user
-explicitly changes that boundary. No checkpoint may claim browser or automated
-evidence that was not actually run.
+the final post-13D-13G regression suite remain consolidated into 13H. The user
+later explicitly requested one early full-suite correction cycle; that separate
+evidence is recorded in Section 6.7. No checkpoint may claim browser or
+automated evidence that was not actually run.
 
 ## 3. Phase 13 entry audit findings
 
@@ -482,9 +483,12 @@ contains these implementation units:
   delivery JSON copied into immutable section versions. Lecturer authoring and
   validation require an internal check-audio asset before new Listening content
   can be published; the learner must finish playback and confirm audibility.
-- Fill-blank authoring uses stable `{{blank:id}}` tokens, numbered inline slots,
-  strict missing/unknown/duplicate-token validation and the same inline format
-  in lecturer preview and learner delivery. Lecturer preview now has
+- Fill-blank authoring keeps stable `{{blank:id}}` values only as an internal
+  serialization contract. The lecturer sees a visual content composer with
+  numbered inline answer slots and never has to read or paste canonical token
+  strings. Paste is plain-text sanitized, placement is explicit, and strict
+  missing/unknown/duplicate-slot validation remains aligned with lecturer
+  preview and learner delivery. Lecturer preview now has
   skill-native Writing and Speaking states and adaptive Reading/Listening
   layouts closer to their learner players.
 - Canonical-only draft reloads preserve option IDs, selected single-choice or
@@ -531,9 +535,79 @@ env JAVA_HOME=/opt/homebrew/opt/openjdk@17 PATH=/opt/homebrew/opt/openjdk@17/bin
 
 - The two selected integration journeys passed against the configured local
   MySQL schema at Flyway V27. This is focused route/session evidence, not a clean
-  migration gate. No full suite, browser QA or real AI provider call was run.
-- `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` is now justified. Overall Phase 13
-  remains open through 13D-13H.
+  migration gate. No browser QA or real AI provider call was run in this
+  checkpoint.
+- `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` was justified for commit `eaf55f8`.
+  The correction and full-suite evidence below supersedes the statement that a
+  full suite has not been run. Overall Phase 13 remains open through 13D-13H.
+
+### 6.7 Post-commit fill-blank correction, full suite and audit disposition
+
+The user explicitly requested a full suite while reviewing the fill-blank
+lecturer editor. This is an approved exception to the normal rule that the full
+regression suite is consolidated in 13H. It does not remove the need for the
+final 13H validation after 13D-13G change the branch again.
+
+Implemented correction units:
+
+- The fill-blank lecturer field is now a visual `contenteditable` composer.
+  Canonical blank IDs remain hidden in `q.prompt`; numbered slots, placement
+  state and learner-like preview are the only lecturer-facing representation.
+  Raw canonical values pasted from old content are displayed as ordinary
+  underscores rather than leaking implementation syntax into the UI.
+- Excel v2 import converts matching legacy blank markers into the canonical
+  internal prompt representation. Listening/Speaking media-readiness findings
+  remain warnings during workbook preview so the lecturer can attach governed
+  media in the editor; all other blocking draft errors remain blocking.
+- The first full-suite run exposed a real published-graph mutation hole: a
+  versioned attempt could coexist with Speaking media that still referenced the
+  live question graph, allowing republish to reach a database foreign-key
+  failure. The production mutation guard now checks live Speaking media under
+  the same set lock and fails with the bounded republish/restore message.
+- Integration fixtures that create immutable published versions now remove the
+  version graph in foreign-key order. This is test cleanup only and does not
+  weaken production history retention.
+
+Consolidated validation evidence:
+
+- First full-suite cycle: `1320` tests with one failure and two errors, all in
+  `PracticeIntegrationTest`. The complete error set was analyzed before one
+  grouped fix pass; no line-by-line test loop was used.
+- Final JDK 17 command:
+
+```text
+env JAVA_HOME=/opt/homebrew/opt/openjdk@17 PATH=/opt/homebrew/opt/openjdk@17/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash mvnw test
+```
+
+- Final result at 2026-07-15 15:17 Asia/Ho_Chi_Minh: `1321/1321`, zero
+  failures, zero errors, zero skips, `BUILD SUCCESS`, total time `27:55`.
+  `PracticeIntegrationTest` passed `81/81`. The extra test locks the Speaking
+  media mutation guard. Runtime used the configured local MySQL/Flyway V27
+  schema; this was not a clean migration rehearsal, browser run or provider
+  call.
+
+Audit findings were rechecked against the current source and locked contracts:
+
+| Finding | Disposition | Required boundary |
+| --- | --- | --- |
+| Speaking pronunciation/fluency is evaluated without evaluator access to learner audio | **CONFIRMED, LIVE ROLLOUT BLOCKER** | Current flow is audio -> transcription -> evaluator. The evaluator receives transcript, media metadata and optional question image, but no audio bytes/URL. Pronunciation, intonation, hesitation and pacing are therefore not audio-grounded. Keep live Speaking AI `NO-GO`; before provider rollout/Phase 15 either add authorized provider-specific audio input and calibrate it with real recordings, or mark/exclude audio-only criteria instead of presenting them as measured scores. |
+| `textFallbackAnswer` is swallowed | **OUTDATED / NOT REPRODUCED** | `SpeakingEvaluationApplicationService.evaluateTextFallback` builds a fallback transcription and passes both it and the fallback answer into the orchestrator. The remaining rule is that a text fallback cannot produce audio-grounded pronunciation/fluency claims. |
+| Speaking transcription query filters legacy ungrouped questions | **CONFIRMED COMPATIBILITY DEBT** | The current implicit join still requires `q.groupId`. New canonical content is grouped, but the reduced-scope contract preserves bounded legacy ungrouped compatibility. Correct before enabling live Speaking AI or, at latest, before Phase 15 UAT. |
+| Writing catch blocks contain unreachable mock fallback | **CONFIRMED DEAD CODE; PROPOSED MOCK BEHAVIOR REJECTED** | The always-true branch makes the later mock call unreachable. Current tests intentionally require `EVALUATION_UNAVAILABLE` and no mock score when a provider/key fails; silently grading with fake scores would violate the fail-closed AI contract. Remove the dead branch in the 13H dead-code pass while preserving provider-unavailable semantics. |
+| Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | Add bounded, configurable timeouts and timeout tests before AI release/Phase 15 UAT. Do not treat mock scoring as the timeout fallback. |
+| Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | Batch collaborators and users with `IN` queries before Phase 15 performance UAT; retain current authorization filtering. |
+| Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external deletion/work remains possible. Add atomic claim/lease or skip-locked behavior before multi-node/R2 rollout and Phase 15 operational UAT. |
+| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | Add an atomic session status transition/idempotency key for generation. Design crop offloading with transaction/context/error semantics; a bare `@Async` annotation is not an adequate fix. Complete before provider/load UAT. |
+| Lecturer receives 403 on learner Speaking playback | **CONFIRMED FUTURE REVIEW DEBT** | Current endpoint is student-only and owner-scoped. Lecturer access must use an explicit reviewer authorization path, not `hasRole('LECTURER')` alone. Complete before manual-grading/reviewer UAT. |
+| Collaborator publish is an authorization bypass | **REJECTED AGAINST LOCKED PRODUCT CONTRACT** | The reduced-scope policy explicitly permits an active lecturer collaborator to edit/publish/restore/material while owner lock is off. Changing this requires a product-policy decision, not a security hotfix. |
+| MCQ breaks above four options | **OUTDATED STATIC FINDING** | Current player iterates dynamic `optionRows()` and has no fixed four-option cap. Responsive browser evidence is still required in 13H. |
+| Duplicate skill labels in result templates | **CONFIRMED LOW-SEVERITY UI DEBT** | Remove the duplicate dynamic label during 13D result work or the 13H UI pass, then cover both result templates. |
+| Speaking local preflight is disabled | **OUTDATED / FIXED IN 13C2** | Local sample recording works independently from the disabled production upload gate. Production upload/playback remains gated and is not claimed live-ready. |
+
+Runtime-only evidence still required includes actual provider latency and audio
+capability, FFmpeg/ffprobe availability, multipart limits, PDF memory under
+concurrency, browser/device recording/playback, responsive/a11y and clean
+migration rehearsal. These are not implied by the green Maven suite.
 
 ## 7. Continuation Prompt For The Next Agent
 
@@ -549,15 +623,18 @@ Start by reading these files in order:
 
 Continue with this sequence:
 
-1. Preserve the recorded `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` evidence. Do
-   not rerun the suite merely to repeat the same checkpoint.
-2. The user approved stage, commit and push on 2026-07-15. Keep
-   `openspec-temp/` outside this commit.
-3. After this checkpoint is pushed, do not start 13D or reopen broad
-   governance/permission scope without a separate user instruction.
-4. Keep full-suite, browser/device, responsive, accessibility and complete
-   learner-journey validation in 13H. Do not describe Phase 13 itself as closed
-   before that gate.
+1. Preserve both the `247/247` focused evidence for commit `eaf55f8` and the
+   post-commit `1321/1321` correction-suite evidence. Do not rerun either merely
+   to repeat the same checkpoint.
+2. The fill-blank/full-suite correction is currently an uncommitted diff based
+   on `eaf55f8`. Do not stage `.tmp-ksh-audio-generator.html` or
+   `openspec-temp/` with it.
+3. Do not start 13D or reopen broad governance/permission scope without a
+   separate user instruction. The audit table above is a disposition ledger,
+   not approval to mix every debt into this correction.
+4. Keep browser/device, responsive, accessibility, real provider and complete
+   learner-journey validation in 13H. Run the final post-13D-13G regression
+   suite there. Do not describe Phase 13 itself as closed before that gate.
 
 ## 8. Phase closure rule
 

@@ -81,6 +81,8 @@ class PracticeAssessmentExcelServiceTest {
                 .isEqualTo(30);
         assertThat(speaking.path("questionContent").path("speakingDelivery").path("responseSeconds").asInt())
                 .isEqualTo(60);
+        JsonNode fillBlank = findQuestion(root, "FILL_BLANK");
+        assertThat(fillBlank.path("prompt").asText()).contains("{{blank:B1}}");
     }
 
     @Test

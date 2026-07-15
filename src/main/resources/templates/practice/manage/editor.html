@@ -352,10 +352,28 @@
           </div>
         </div>
 
-        <div style="margin-bottom:20px;">
+        <div id="standard-question-prompt-field" style="margin-bottom:20px;">
           <label class="form-label">Đề bài / Câu hỏi (Prompt)</label>
           <textarea id="q-prompt" class="form-textarea question-prompt-editor" rows="3"
                     placeholder="Ví dụ: Đoạn văn sau nói về chủ đề gì?" oninput="handleQuestionPromptInput()"></textarea>
+        </div>
+
+        <div id="fill-question-prompt-field" class="fill-prompt-field" style="display:none;">
+          <div class="fill-prompt-heading">
+            <div>
+              <label id="fill-prompt-composer-label" class="form-label">Nội dung câu hỏi điền từ</label>
+              <p>Soạn câu, đoạn văn hoặc bảng rồi đặt ô nhập ngay tại vị trí học viên cần trả lời.</p>
+            </div>
+            <button type="button" class="btn-action btn-sec"
+                    onmousedown="rememberFillComposerSelection()" onclick="addFillBlank(true)">+ Chèn ô trống</button>
+          </div>
+          <div id="fill-prompt-composer" class="fill-prompt-composer" contenteditable="true"
+               role="textbox" aria-multiline="true" aria-labelledby="fill-prompt-composer-label"
+               data-placeholder="Nhập nội dung, đặt con trỏ rồi chọn Chèn ô trống..."
+               oninput="handleFillComposerInput()" onbeforeinput="handleFillComposerBeforeInput(event)"
+               onpaste="handleFillComposerPaste(event)" onkeyup="rememberFillComposerSelection()"
+               onmouseup="rememberFillComposerSelection()" onfocus="rememberFillComposerSelection()"></div>
+          <p class="fill-prompt-helper">Ô trống sẽ hiển thị đúng vị trí và hình thức gần giống màn làm bài.</p>
         </div>
 
         <div style="margin-bottom:20px;">
@@ -397,10 +415,9 @@
         <div id="gapfill-area" style="margin-bottom:24px; display:none;">
           <div class="fill-authoring-heading">
             <div>
-              <label class="form-label">Ô trống và đáp án được chấp nhận</label>
-              <p>Mỗi ô có một token cố định. Đặt token vào đúng vị trí trong đề bài để tạo bảng, câu hoặc đoạn điền từ như màn thi.</p>
+              <label class="form-label">Đáp án cho từng ô</label>
+              <p>Đặt tên dễ nhận biết và nhập các đáp án tương đương, ngăn cách bằng dấu |.</p>
             </div>
-            <button type="button" onclick="addFillBlank(true)" class="btn-action btn-sec">+ Chèn ô trống</button>
           </div>
           <div id="fill-blanks-list"></div>
           <div class="fill-authoring-preview" aria-live="polite">
@@ -711,6 +728,7 @@
   let validationFilter = 'ALL';
   let latestValidation = null;
   let expandedNodes = {}; // Tracks expanded/collapsed state
+  let fillPromptSelection = null;
 
   document.addEventListener('DOMContentLoaded', () => {
     // Global mousedown listener to close dropdowns when clicking OUTSIDE them.
@@ -2272,11 +2290,14 @@
     grp.questions.forEach((q, qIdx) => {
       const card = document.createElement('div');
       card.className = 'q-summary-card';
+      const summaryPrompt = ['FILL_BLANK', 'GAP_FILL'].includes(q.questionType)
+        ? fillBlankPromptDisplay(q.prompt)
+        : String(q.prompt || '');
       card.innerHTML = `
         <div>
           <strong style="color:var(--pp-text);">Câu ${q.questionNo}</strong>
           <span style="margin-left:8px; font-size:0.78rem; padding:2px 8px; border-radius:6px; background:#f1f5f9; font-weight:600;">${getQuestionTypeLabel(q.questionType)}</span>
-          <p style="margin:4px 0 0 0; font-size:0.8rem; color:var(--pp-text-muted); width: 450px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${q.prompt || 'Chưa có tiêu đề câu hỏi'}</p>
+          <p style="margin:4px 0 0 0; font-size:0.8rem; color:var(--pp-text-muted); width: 450px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(summaryPrompt || 'Chưa có tiêu đề câu hỏi')}</p>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="font-size:0.8rem; font-weight:600; color:var(--pp-accent); margin-right:8px;">${q.points || 2.0}đ</span>
@@ -2306,6 +2327,9 @@
       : document.getElementById('q-type').value;
     const previousType = q.questionType === 'GAP_FILL' ? 'FILL_BLANK' : q.questionType;
     if (previousType !== type) {
+      if (previousType === 'FILL_BLANK' && type !== 'FILL_BLANK') {
+        q.prompt = fillBlankPromptDisplay(q.prompt);
+      }
       q.answer = { value: '' };
       q.answerKey = '';
       if (type === 'FILL_BLANK') q.fillBlanks = [];
@@ -2313,6 +2337,7 @@
     q.questionType = type;
     applyWritingTaskState(section, q, { materializeBlank: type === 'ESSAY' && section && section.skill === 'WRITING' });
     window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
+    renderQuestionPromptEditor(q);
 
     // Hide all area components
     document.getElementById('options-area').style.display = 'none';
@@ -2544,27 +2569,48 @@
     triggerAutosave();
   }
 
+  function renderQuestionPromptEditor(q) {
+    const standardField = document.getElementById('standard-question-prompt-field');
+    const fillField = document.getElementById('fill-question-prompt-field');
+    const prompt = document.getElementById('q-prompt');
+    const isFillBlank = q && ['FILL_BLANK', 'GAP_FILL'].includes(q.questionType);
+    if (prompt) prompt.value = String(q && q.prompt || '');
+    if (standardField) standardField.style.display = isFillBlank ? 'none' : 'block';
+    if (fillField) fillField.style.display = isFillBlank ? 'block' : 'none';
+    if (isFillBlank) {
+      renderFillPromptComposer(q);
+    } else {
+      fillPromptSelection = null;
+      const composer = document.getElementById('fill-prompt-composer');
+      if (composer) composer.replaceChildren();
+    }
+  }
+
   function renderFillBlanks(q) {
     const container = document.getElementById('fill-blanks-list');
     if (!container) return;
     if (!Array.isArray(q.fillBlanks)) q.fillBlanks = [];
     container.innerHTML = '';
     if (q.fillBlanks.length === 0) {
-      container.innerHTML = '<p class="fill-authoring-empty">Chưa có ô trống. Chọn “Chèn ô trống” để đặt ô nhập ngay tại vị trí con trỏ trong đề bài.</p>';
+      container.innerHTML = '<p class="fill-authoring-empty">Chưa có ô trống. Đặt con trỏ trong nội dung câu hỏi rồi chọn “Chèn ô trống”.</p>';
     }
     q.fillBlanks.forEach((blank, index) => {
       const row = document.createElement('div');
       row.className = 'fill-authoring-row';
-      const token = fillBlankToken(blank);
       row.innerHTML = `
-        <button type="button" class="fill-token-button" onclick="insertFillBlankToken(${index})"
-                title="Chèn token vào vị trí con trỏ">${escapeHtml(token)}</button>
-        <label><span>Nhãn hiển thị</span><input class="form-input fill-prompt" data-index="${index}" value="${escapeHtml(blank.prompt || '')}" placeholder="Ví dụ: Câu 1"></label>
+        <button type="button" class="fill-placement-button" data-fill-placement-index="${index}"
+                onmousedown="rememberFillComposerSelection()" onclick="placeFillBlank(${index})"
+                title="Đặt hoặc tìm ô ${index + 1} trong nội dung câu hỏi">
+          <span class="fill-placement-number">${index + 1}</span>
+          <span class="fill-placement-copy"></span>
+        </button>
+        <label><span>Nhãn hiển thị</span><input class="form-input fill-prompt" data-index="${index}" value="${escapeHtml(blank.prompt || '')}" placeholder="Ví dụ: Thành phố"></label>
         <label><span>Đáp án chấp nhận, ngăn cách bằng |</span><input class="form-input fill-values" data-index="${index}" value="${escapeHtml((blank.acceptedValues || []).join(' | '))}" placeholder="đáp án | biến thể"></label>
-        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})" title="Xóa ô trống" aria-label="Xóa ô trống">✕</button>`;
+        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})" title="Xóa ô trống" aria-label="Xóa ô trống ${index + 1}">✕</button>`;
       container.appendChild(row);
     });
     container.querySelectorAll('input').forEach(input => input.addEventListener('input', saveFillBlanks));
+    updateFillPlacementButtons(q);
     renderFillTemplatePreview(q);
   }
 
@@ -2572,57 +2618,257 @@
     return `{{blank:${blank && blank.id || ''}}}`;
   }
 
-  function handleQuestionPromptInput() {
-    saveCurrentNode();
-    if (!currentNode || currentNode.type !== 'question') return;
-    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    if (q && q.questionType === 'FILL_BLANK') renderFillTemplatePreview(q);
+  function fillBlankPromptDisplay(prompt) {
+    return String(prompt || '').replace(/\{\{blank:[^{}]+\}\}/g, '_____');
   }
 
-  function insertTextAtPromptCursor(text) {
-    const prompt = document.getElementById('q-prompt');
-    if (!prompt) return;
-    const start = Number.isInteger(prompt.selectionStart) ? prompt.selectionStart : prompt.value.length;
-    const end = Number.isInteger(prompt.selectionEnd) ? prompt.selectionEnd : start;
-    const before = prompt.value.slice(0, start);
-    const after = prompt.value.slice(end);
-    prompt.value = `${before}${text}${after}`;
-    const caret = before.length + text.length;
-    prompt.focus();
-    prompt.setSelectionRange(caret, caret);
-  }
-
-  function insertFillBlankToken(index) {
-    if (!currentNode || currentNode.type !== 'question') return;
-    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    const blank = q && Array.isArray(q.fillBlanks) ? q.fillBlanks[index] : null;
-    if (!blank) return;
+  function fillBlankPlacementCount(q, blank) {
     const token = fillBlankToken(blank);
-    const prompt = document.getElementById('q-prompt');
-    if (prompt && !prompt.value.includes(token)) insertTextAtPromptCursor(token);
-    q.prompt = prompt ? prompt.value : q.prompt;
+    return token ? String(q && q.prompt || '').split(token).length - 1 : 0;
+  }
+
+  function updateFillPlacementButtons(q) {
+    document.querySelectorAll('[data-fill-placement-index]').forEach(button => {
+      const index = Number(button.dataset.fillPlacementIndex);
+      const blank = q && Array.isArray(q.fillBlanks) ? q.fillBlanks[index] : null;
+      const count = blank ? fillBlankPlacementCount(q, blank) : 0;
+      const copy = button.querySelector('.fill-placement-copy');
+      button.classList.toggle('is-placed', count === 1);
+      button.classList.toggle('is-warning', count > 1);
+      if (copy) copy.textContent = count === 0 ? 'Chèn vào đề' : (count === 1 ? 'Xem vị trí' : 'Đang bị lặp');
+    });
+  }
+
+  function createFillComposerSlot(blank, index) {
+    const slot = document.createElement('span');
+    slot.className = 'fill-composer-slot';
+    slot.dataset.fillBlankId = blank.id;
+    slot.contentEditable = 'false';
+    slot.setAttribute('role', 'img');
+    slot.setAttribute('aria-label', blank.prompt || `Ô trống ${index + 1}`);
+    slot.title = blank.prompt || `Ô trống ${index + 1}`;
+    const number = document.createElement('span');
+    number.className = 'fill-composer-slot-number';
+    number.textContent = String(index + 1);
+    const line = document.createElement('span');
+    line.className = 'fill-composer-slot-line';
+    line.setAttribute('aria-hidden', 'true');
+    slot.append(number, line);
+    return slot;
+  }
+
+  function renderFillPromptComposer(q) {
+    const composer = document.getElementById('fill-prompt-composer');
+    if (!composer) return;
+    fillPromptSelection = null;
+    composer.replaceChildren();
+    const prompt = String(q && q.prompt || '');
+    const blanks = q && Array.isArray(q.fillBlanks) ? q.fillBlanks : [];
+    const byToken = new Map(blanks.map((blank, index) => [fillBlankToken(blank), { blank, index }]));
+    const tokenPattern = /\{\{blank:[^{}]+\}\}/g;
+    let cursor = 0;
+    let match;
+    while ((match = tokenPattern.exec(prompt)) !== null) {
+      const leadingText = prompt.slice(cursor, match.index);
+      if (leadingText) composer.append(document.createTextNode(leadingText));
+      const entry = byToken.get(match[0]);
+      if (entry) {
+        composer.append(createFillComposerSlot(entry.blank, entry.index));
+      } else {
+        const invalid = document.createElement('span');
+        invalid.className = 'fill-composer-invalid';
+        invalid.contentEditable = 'false';
+        invalid.dataset.fillUnknownToken = match[0];
+        invalid.textContent = 'Ô trống không hợp lệ';
+        composer.append(invalid);
+      }
+      cursor = match.index + match[0].length;
+    }
+    const trailingText = prompt.slice(cursor);
+    if (trailingText) composer.append(document.createTextNode(trailingText));
+    const hiddenPrompt = document.getElementById('q-prompt');
+    if (hiddenPrompt) hiddenPrompt.value = prompt;
+    updateFillPlacementButtons(q);
+  }
+
+  function serializeFillComposerChildren(parent) {
+    let value = '';
+    const children = Array.from(parent && parent.childNodes || []);
+    children.forEach((node, index) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        value += String(node.nodeValue || '').replace(/\u200B/g, '').replace(/\u00A0/g, ' ');
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      if (node.dataset && node.dataset.fillBlankId) {
+        value += `{{blank:${node.dataset.fillBlankId}}}`;
+        return;
+      }
+      if (node.dataset && node.dataset.fillUnknownToken) {
+        value += node.dataset.fillUnknownToken;
+        return;
+      }
+      if (node.tagName === 'BR') {
+        value += '\n';
+        return;
+      }
+      const isBlock = node.tagName === 'DIV' || node.tagName === 'P';
+      if (isBlock && value && !value.endsWith('\n')) value += '\n';
+      value += serializeFillComposerChildren(node);
+      if (isBlock && index < children.length - 1 && !value.endsWith('\n')) value += '\n';
+    });
+    return value;
+  }
+
+  function serializeFillPromptComposer() {
+    return serializeFillComposerChildren(document.getElementById('fill-prompt-composer'));
+  }
+
+  function fillComposerRange(composer) {
+    const belongsToComposer = range => range
+      && composer.contains(range.startContainer)
+      && composer.contains(range.endContainer);
+    if (belongsToComposer(fillPromptSelection)) return fillPromptSelection.cloneRange();
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && belongsToComposer(selection.getRangeAt(0))) {
+      return selection.getRangeAt(0).cloneRange();
+    }
+    const range = document.createRange();
+    range.selectNodeContents(composer);
+    range.collapse(false);
+    return range;
+  }
+
+  function rememberFillComposerSelection() {
+    const composer = document.getElementById('fill-prompt-composer');
+    const selection = window.getSelection();
+    if (!composer || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (composer.contains(range.startContainer) && composer.contains(range.endContainer)) {
+      fillPromptSelection = range.cloneRange();
+    }
+  }
+
+  function insertPlainTextInFillComposer(text) {
+    const composer = document.getElementById('fill-prompt-composer');
+    if (!composer) return;
+    const range = fillComposerRange(composer);
+    const safeText = String(text || '').replace(/\{\{blank:[^{}]+\}\}/g, '_____');
+    range.deleteContents();
+    const textNode = document.createTextNode(safeText);
+    range.insertNode(textNode);
+    range.setStart(textNode, textNode.nodeValue.length);
+    range.collapse(true);
+    composer.focus();
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fillPromptSelection = range.cloneRange();
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function handleFillComposerBeforeInput(event) {
+    if (!event || !['insertParagraph', 'insertLineBreak'].includes(event.inputType)) return;
+    event.preventDefault();
+    insertPlainTextInFillComposer('\n');
+  }
+
+  function handleFillComposerPaste(event) {
+    if (!event) return;
+    event.preventDefault();
+    insertPlainTextInFillComposer(event.clipboardData ? event.clipboardData.getData('text/plain') : '');
+  }
+
+  function handleFillComposerInput() {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    if (!q || q.questionType !== 'FILL_BLANK') return;
+    q.prompt = serializeFillPromptComposer();
+    const hiddenPrompt = document.getElementById('q-prompt');
+    if (hiddenPrompt) hiddenPrompt.value = q.prompt;
     window.PracticeAuthoringContract.syncQuestionContract(q);
+    updateFillPlacementButtons(q);
     renderFillTemplatePreview(q);
+    rememberFillComposerSelection();
     triggerAutosave();
   }
 
-  function addFillBlank(insertToken) {
+  function handleQuestionPromptInput() {
+    saveCurrentNode();
+  }
+
+  function focusFillComposerSlot(slot) {
+    const composer = document.getElementById('fill-prompt-composer');
+    if (!composer || !slot) return;
+    composer.focus();
+    slot.classList.add('is-focused');
+    window.setTimeout(() => slot.classList.remove('is-focused'), 700);
+    const range = document.createRange();
+    range.setStartAfter(slot);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fillPromptSelection = range.cloneRange();
+  }
+
+  function placeFillBlank(index) {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    const blank = q && Array.isArray(q.fillBlanks) ? q.fillBlanks[index] : null;
+    const composer = document.getElementById('fill-prompt-composer');
+    if (!blank || !composer) return;
+    let existing = Array.from(composer.querySelectorAll('.fill-composer-slot'))
+      .find(slot => slot.dataset.fillBlankId === blank.id);
+    if (fillBlankPlacementCount(q, blank) > 0) {
+      if (!existing) {
+        renderFillPromptComposer(q);
+        existing = Array.from(composer.querySelectorAll('.fill-composer-slot'))
+          .find(slot => slot.dataset.fillBlankId === blank.id);
+      }
+      focusFillComposerSlot(existing);
+      return;
+    }
+    const range = fillComposerRange(composer);
+    range.deleteContents();
+    const slot = createFillComposerSlot(blank, index);
+    range.insertNode(slot);
+    const caretAnchor = document.createTextNode('\u200B');
+    slot.after(caretAnchor);
+    range.setStart(caretAnchor, caretAnchor.nodeValue.length);
+    range.collapse(true);
+    composer.focus();
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fillPromptSelection = range.cloneRange();
+    handleFillComposerInput();
+  }
+
+  function addFillBlank(insertInPrompt) {
     if (!currentNode || currentNode.type !== 'question') return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
     if (!Array.isArray(q.fillBlanks)) q.fillBlanks = [];
+    const unplacedIndex = insertInPrompt
+      ? q.fillBlanks.findIndex(blank => fillBlankPlacementCount(q, blank) === 0)
+      : -1;
+    if (unplacedIndex >= 0) {
+      placeFillBlank(unplacedIndex);
+      return;
+    }
     q.fillBlanks.push({
       id: makeClientId('blank'),
       prompt: `Ô trống ${q.fillBlanks.length + 1}`,
       acceptedValues: []
     });
-    if (insertToken) {
-      const prompt = document.getElementById('q-prompt');
-      insertTextAtPromptCursor(fillBlankToken(q.fillBlanks[q.fillBlanks.length - 1]));
-      q.prompt = prompt ? prompt.value : q.prompt;
-    }
+    const index = q.fillBlanks.length - 1;
     renderFillBlanks(q);
-    window.PracticeAuthoringContract.syncQuestionContract(q);
-    triggerAutosave();
+    if (insertInPrompt) {
+      placeFillBlank(index);
+    } else {
+      window.PracticeAuthoringContract.syncQuestionContract(q);
+      triggerAutosave();
+    }
   }
 
   function removeFillBlank(index) {
@@ -2636,9 +2882,21 @@
       const prompt = document.getElementById('q-prompt');
       if (prompt) prompt.value = q.prompt;
     }
+    renderFillPromptComposer(q);
     renderFillBlanks(q);
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
+  }
+
+  function updateFillComposerSlotLabels(q) {
+    const blanksById = new Map((q && q.fillBlanks || []).map((blank, index) => [blank.id, { blank, index }]));
+    document.querySelectorAll('#fill-prompt-composer .fill-composer-slot').forEach(slot => {
+      const entry = blanksById.get(slot.dataset.fillBlankId);
+      if (!entry) return;
+      const label = entry.blank.prompt || `Ô trống ${entry.index + 1}`;
+      slot.title = label;
+      slot.setAttribute('aria-label', label);
+    });
   }
 
   function saveFillBlanks() {
@@ -2651,6 +2909,7 @@
       q.fillBlanks[Number(input.dataset.index)].acceptedValues = input.value.split('|').map(value => value.trim()).filter(Boolean);
     });
     window.PracticeAuthoringContract.syncQuestionContract(q);
+    updateFillComposerSlotLabels(q);
     renderFillTemplatePreview(q);
     triggerAutosave();
   }
@@ -2659,9 +2918,9 @@
     const preview = document.getElementById('fill-template-preview');
     if (!preview) return;
     preview.replaceChildren();
-    const prompt = String(q && q.prompt || '').trim();
+    const prompt = String(q && q.prompt || '');
     const blanks = q && Array.isArray(q.fillBlanks) ? q.fillBlanks : [];
-    if (!prompt && blanks.length === 0) {
+    if (!prompt.trim() && blanks.length === 0) {
       preview.textContent = 'Nội dung xem trước sẽ xuất hiện ở đây.';
       preview.classList.add('is-empty');
       return;
@@ -2684,15 +2943,16 @@
         field.append(number, line);
         preview.append(field);
       } else {
-        const invalid = document.createElement('code');
+        const invalid = document.createElement('span');
         invalid.className = 'fill-preview-invalid';
-        invalid.textContent = match[0];
+        invalid.textContent = 'Ô trống không hợp lệ';
         preview.append(invalid);
       }
       cursor = match.index + match[0].length;
     }
     preview.append(document.createTextNode(prompt.slice(cursor)));
-    blanks.filter(blank => !prompt.includes(fillBlankToken(blank))).forEach((blank, index) => {
+    blanks.forEach((blank, index) => {
+      if (prompt.includes(fillBlankToken(blank))) return;
       const unresolved = document.createElement('span');
       unresolved.className = 'fill-preview-unplaced';
       unresolved.textContent = `${blank.prompt || `Ô trống ${index + 1}`} chưa được đặt trong đề bài`;
@@ -2786,14 +3046,17 @@
         && WRITING_TASK_TYPES.includes(q.essayTaskType)
         ? Number(q.essayTaskType.substring(1))
         : (parseInt(document.getElementById('q-no').value) || (qIdx + 1));
-      q.prompt = document.getElementById('q-prompt').value;
+      const typeSel = document.getElementById('q-type').value;
+      q.prompt = typeSel === 'FILL_BLANK'
+        ? serializeFillPromptComposer()
+        : document.getElementById('q-prompt').value;
+      document.getElementById('q-prompt').value = q.prompt;
       q.points = parseFloat(document.getElementById('q-points').value) || 1.0;
       q.explanationVi = document.getElementById('q-explanation').value;
       if (q.importSource === 'PDF_AI') {
         q.reviewRequired = !document.getElementById('q-ai-reviewed').checked;
       }
       
-      const typeSel = document.getElementById('q-type').value;
       q.questionType = typeSel;
       if (typeSel === 'FILL_BLANK') {
         applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
@@ -3632,13 +3895,13 @@
               }
             }
             if (hasUnknownToken) {
-              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_UNKNOWN', content: `Câu ${q.questionNo} chứa token ô trống không còn tồn tại.`, sIdx, gIdx, qIdx });
+              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_UNKNOWN', content: `Câu ${q.questionNo} chứa một ô trống không còn tồn tại.`, sIdx, gIdx, qIdx });
             }
             if (blankIds.some(id => !tokenCounts.get(id))) {
               messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_REQUIRED', content: `Câu ${q.questionNo} còn ô trống chưa được đặt trong đề bài.`, sIdx, gIdx, qIdx });
             }
             if (blankIds.some(id => tokenCounts.get(id) > 1)) {
-              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_DUPLICATED', content: `Câu ${q.questionNo} có token ô trống bị lặp.`, sIdx, gIdx, qIdx });
+              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_DUPLICATED', content: `Câu ${q.questionNo} có một ô trống bị đặt lặp.`, sIdx, gIdx, qIdx });
             }
           }
         });
@@ -3961,6 +4224,8 @@
               `<span class="preview-fill-slot" title="${escapeHtml(blank.prompt || `Ô trống ${blankIndex + 1}`)}"><b>${blankIndex + 1}</b><span></span></span>`);
           }
         });
+        fillTemplate = fillTemplate.replace(/\{\{blank:[^{}]+\}\}/g,
+          '<span class="fill-preview-invalid">Ô trống không hợp lệ</span>');
         optionsHtml += `<div class="preview-fill-template">${fillTemplate}</div>`;
         if (placedCount < blanks.length) {
           optionsHtml += blanks

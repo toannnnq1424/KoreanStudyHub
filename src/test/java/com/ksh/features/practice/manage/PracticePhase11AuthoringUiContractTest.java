@@ -95,10 +95,17 @@ class PracticePhase11AuthoringUiContractTest {
                 < typeChange.indexOf("renderFillBlanks(q)"));
         assertTrue(typeChange.contains("if (previousType !== type)"));
         assertTrue(typeChange.contains("if (type === 'FILL_BLANK') q.fillBlanks = []"));
-        assertTrue(editor.contains("prompt.value = `${before}${text}${after}`"));
+        assertTrue(editor.contains("id=\"fill-prompt-composer\""));
+        assertTrue(editor.contains("contenteditable=\"true\""));
+        assertTrue(editor.contains("function renderFillPromptComposer(q)"));
+        assertTrue(editor.contains("function serializeFillPromptComposer()"));
+        assertTrue(editor.contains("function placeFillBlank(index)"));
+        assertTrue(editor.contains("const unplacedIndex = insertInPrompt"));
+        assertTrue(editor.contains("invalid.textContent = 'Ô trống không hợp lệ'"));
         assertTrue(editor.contains("split(token).join('')"));
-        assertFalse(editor.contains("const prefix = before"));
-        assertFalse(editor.contains("const suffix = after"));
+        assertFalse(editor.contains("class=\"fill-token-button\""));
+        assertFalse(editor.contains("title=\"Chèn token"));
+        assertFalse(editor.contains("${escapeHtml(token)}"));
 
         assertTrue(player.contains("data-blank-number=${blankStat.count}"));
         assertTrue(playerJs.contains("exam-inline-blank-number"));
@@ -120,6 +127,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editorCss.contains(".preview-writing-answer-card"));
         assertTrue(editorCss.contains(".preview-speaking-state"));
         assertTrue(editorCss.contains(".preview-fill-slot > span"));
+        assertTrue(editorCss.contains(".fill-prompt-composer"));
+        assertTrue(editorCss.contains(".fill-composer-slot-line"));
     }
 
     @Test

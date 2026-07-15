@@ -504,7 +504,7 @@ public class PracticeDraftValidator {
             messages.add(new ValidationMsg(
                     "BLOCKING",
                     "FILL_BLANK_TOKEN_UNKNOWN",
-                    "Đề bài điền từ chứa token ô trống không còn tồn tại.",
+                    "Đề bài điền từ chứa một ô trống không còn tồn tại.",
                     sIdx, gIdx, qIdx));
         }
         if (blankIds.stream().anyMatch(id -> tokenCounts.getOrDefault(id, 0) == 0)) {
@@ -518,7 +518,7 @@ public class PracticeDraftValidator {
             messages.add(new ValidationMsg(
                     "BLOCKING",
                     "FILL_BLANK_TOKEN_DUPLICATED",
-                    "Mỗi token ô trống chỉ được xuất hiện một lần trong đề bài.",
+                    "Mỗi ô trống chỉ được xuất hiện một lần trong đề bài.",
                     sIdx, gIdx, qIdx));
         }
     }

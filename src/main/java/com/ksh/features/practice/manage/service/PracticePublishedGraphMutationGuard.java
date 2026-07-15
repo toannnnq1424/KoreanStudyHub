@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
+import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -13,11 +14,14 @@ public class PracticePublishedGraphMutationGuard {
 
     private final PracticeSetRepository setRepository;
     private final PracticeAttemptRepository attemptRepository;
+    private final PracticeSpeakingMediaRepository speakingMediaRepository;
 
     public PracticePublishedGraphMutationGuard(PracticeSetRepository setRepository,
-                                               PracticeAttemptRepository attemptRepository) {
+                                               PracticeAttemptRepository attemptRepository,
+                                               PracticeSpeakingMediaRepository speakingMediaRepository) {
         this.setRepository = setRepository;
         this.attemptRepository = attemptRepository;
+        this.speakingMediaRepository = speakingMediaRepository;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -33,7 +37,11 @@ public class PracticePublishedGraphMutationGuard {
     private PracticeSet lockAndAssertNoLearnerHistory(Long setId, boolean restore) {
         PracticeSet set = setRepository.findByIdForUpdate(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Học liệu gốc không tồn tại."));
-        if (attemptRepository.findFirstUnversionedIdBySetIdForShare(setId).isPresent()) {
+        boolean mutableAttemptHistoryExists =
+                attemptRepository.findFirstUnversionedIdBySetIdForShare(setId).isPresent();
+        boolean liveSpeakingMediaExists =
+                speakingMediaRepository.findFirstIdByQuestionSetIdForShare(setId).isPresent();
+        if (mutableAttemptHistoryExists || liveSpeakingMediaExists) {
             throw restore
                     ? PublishedPracticeGraphMutationBlockedException.forRestore()
                     : PublishedPracticeGraphMutationBlockedException.forRepublish();

@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class PracticeAssessmentExcelV2Codec {
@@ -40,6 +41,9 @@ final class PracticeAssessmentExcelV2Codec {
     private static final Set<String> CORE_SHEETS = Set.of("01_THONG_TIN_SET", "02_TAI_NGUYEN");
     private static final Map<String, CanonicalQuestionType> QUESTION_SHEETS = questionSheets();
     private static final List<String> SKILL_ORDER = List.of("LISTENING", "READING", "WRITING", "SPEAKING");
+    private static final Set<String> DEFERRED_MEDIA_READINESS_CODES = Set.of(
+            "LISTENING_CHECK_AUDIO_REQUIRED",
+            "SPEAKING_PROMPT_AUDIO_REQUIRED");
     private static final Pattern LESSON_CODE = Pattern.compile("^[LRWS]\\d+$");
     private static final String[] HEADERS = {
             "test_no", "lesson_code", "group_code", "question_no_in_section", "question_no_in_group",
@@ -383,14 +387,29 @@ final class PracticeAssessmentExcelV2Codec {
             normalizedJson = normalized.json();
             PracticeDraftValidator.ValidationResult validation = draftValidator == null
                     ? null : draftValidator.validate(normalizedJson);
-            if (validation != null && validation.hasBlocking()) {
-                String detail = validation.messages().stream()
+            if (validation != null) {
+                List<PracticeDraftValidator.ValidationMsg> deferredReadiness = validation.messages().stream()
                         .filter(message -> "BLOCKING".equals(message.type()))
-                        .map(PracticeDraftValidator.ValidationMsg::content)
-                        .distinct().limit(3).reduce((left, right) -> left + " " + right).orElse("");
-                issues.add(issue("BLOCKING", "DRAFT_CONTRACT_INVALID", "Draft", 0, null,
-                        "Dữ liệu hợp lệ chưa thể tạo draft. " + detail, null));
-                normalizedJson = null;
+                        .filter(message -> DEFERRED_MEDIA_READINESS_CODES.contains(message.code()))
+                        .toList();
+                deferredReadiness.stream()
+                        .filter(message -> issues.stream().noneMatch(issue -> message.code().equals(issue.code())))
+                        .forEach(message -> issues.add(issue(
+                                "WARNING", message.code(), "Draft", 0, null,
+                                message.content(), null)));
+
+                List<PracticeDraftValidator.ValidationMsg> blocking = validation.messages().stream()
+                        .filter(message -> "BLOCKING".equals(message.type()))
+                        .filter(message -> !DEFERRED_MEDIA_READINESS_CODES.contains(message.code()))
+                        .toList();
+                if (!blocking.isEmpty()) {
+                    String detail = blocking.stream()
+                            .map(PracticeDraftValidator.ValidationMsg::content)
+                            .distinct().limit(3).reduce((left, right) -> left + " " + right).orElse("");
+                    issues.add(issue("BLOCKING", "DRAFT_CONTRACT_INVALID", "Draft", 0, null,
+                            "Dữ liệu hợp lệ chưa thể tạo draft. " + detail, null));
+                    normalizedJson = null;
+                }
             }
         } catch (RuntimeException exception) {
             issues.add(issue("BLOCKING", "DRAFT_CONTRACT_INVALID", "Draft", 0, null,
@@ -813,7 +832,7 @@ final class PracticeAssessmentExcelV2Codec {
                 + "-q" + String.format(Locale.ROOT, "%03d", row.questionNo()));
         question.put("questionNo", row.questionNo());
         question.put("questionType", row.type().name());
-        question.put("prompt", row.prompt());
+        question.put("prompt", canonicalPrompt(row));
         question.put("points", row.points());
         question.put("explanationVi", row.explanation());
         question.put("importSource", "EXCEL");
@@ -891,6 +910,26 @@ final class PracticeAssessmentExcelV2Codec {
             question.put("essayTaskType", row.writingTask());
         }
         return question;
+    }
+
+    private static String canonicalPrompt(V2QuestionRow row) {
+        if (row.type() != CanonicalQuestionType.FILL_BLANK || row.blanks().isEmpty()) {
+            return row.prompt();
+        }
+        String prompt = row.prompt();
+        for (V2Blank blank : row.blanks()) {
+            String token = "{{blank:" + blank.id() + "}}";
+            if (prompt.contains(token)) {
+                continue;
+            }
+            Pattern marker = Pattern.compile(
+                    "(?<![A-Za-z0-9_])" + Pattern.quote(blank.id()) + "(?![A-Za-z0-9_])");
+            Matcher matcher = marker.matcher(prompt);
+            if (matcher.find()) {
+                prompt = matcher.replaceFirst(Matcher.quoteReplacement(token));
+            }
+        }
+        return prompt;
     }
 
     private PracticeAssessmentExcelService.ExcelPreview previewResult(
