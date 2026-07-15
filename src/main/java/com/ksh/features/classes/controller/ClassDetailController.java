@@ -134,13 +134,13 @@ public class ClassDetailController {
      *
      * <p>Note: {@code /lessons} is intentionally NOT mapped here — it is owned
      * by {@code SectionsController} ({@code /lecturer/classes/{classId}/lessons})
-     * starting with ULP-4.0a. Adding both mappings would raise
+     * starting with ksh-4.0a. Adding both mappings would raise
      * {@code IllegalStateException: Ambiguous mapping} at startup.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
-            "/classes/{id}/groups", "/classes/{id}/assignments",
-            "/classes/{id}/scores",
-            "/classes/{id}/materials"})
+                "/classes/{id}/groups", "/classes/{id}/assignments",
+                "/classes/{id}/scores",
+                "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,
                                     @AuthenticationPrincipal KshUserDetails user,
                                     jakarta.servlet.http.HttpServletRequest request,

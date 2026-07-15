@@ -13,7 +13,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
-    <!-- Flash payload drained into UlpToast by student-lesson-nav.js. -->
+    <!-- Flash payload drained into KshToast by student-lesson-nav.js. -->
     <div id="flash-data"
          th:if="${flashSuccess != null or flashError != null}"
          th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
@@ -39,7 +39,7 @@
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
         </svg>
-        <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_CLASS}">Lớp này chưa có chương</p>
+        <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_CLASS}">Lớp này chưa có chương</p>
     </div>
 
     <!-- 3-column layout when at least one section exists -->
@@ -51,7 +51,7 @@
              because they are children of a th:replace element they are consumed as
              fragment sources, not rendered inline. -->
         <div th:replace="~{fragments/student-class-sidebar :: classSidebar('lessons', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{::lessonsProgress}, ~{::lessonsExtras})}">
-            <!-- SLOT: progress bar inside the class card (ULP-4.5). -->
+            <!-- SLOT: progress bar inside the class card (ksh-4.5). -->
             <th:block th:fragment="lessonsProgress">
                 <div class="student-lessons-progress" th:if="${view.publishedTotal() > 0}">
                     <div class="student-lessons-progress-track">
@@ -68,7 +68,7 @@
 
             <!-- SLOT: lessons-only extras (shared decks + chapter switcher). -->
             <th:block th:fragment="lessonsExtras">
-                <!-- Flashcard decks shared to this class (ULP-5.x). -->
+                <!-- Flashcard decks shared to this class (ksh-5.x). -->
                 <div th:unless="${#lists.isEmpty(classSharedDecks)}" class="student-lessons-shared-decks">
                     <p class="student-lessons-sidebar-title">Thẻ ghi nhớ được chia sẻ</p>
                     <ul class="student-lessons-nav">
@@ -104,7 +104,7 @@
 
         <!-- MAIN CENTER: lesson detail when ?lesson=X is set, else hero placeholder -->
         <section class="student-lessons-main">
-            <!-- Inlined lesson detail (ULP-4.2) — renders when controller resolves ?lesson=X. -->
+            <!-- Inlined lesson detail (ksh-4.2) — renders when controller resolves ?lesson=X. -->
             <th:block th:if="${lessonDetail != null}">
                 <p class="student-lessons-eyebrow">Bài giảng</p>
                 <h2 class="student-lessons-main-title" th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
@@ -184,7 +184,7 @@
                     </ul>
                 </section>
 
-                <!-- Discussion panel (ULP-4.6). Shell only — lesson-comments.js loads
+                <!-- Discussion panel (ksh-4.6). Shell only — lesson-comments.js loads
                      the list via AJAX and renders every row with textContent (XSS-safe). -->
                 <section class="lesson-comments" th:attr="data-lesson-id=${lessonDetail.lessonId()}">
                     <h3 class="lesson-comments-title">Thảo luận</h3>
@@ -275,7 +275,7 @@
                             <line x1="16" y1="2" x2="16" y2="6"/>
                             <line x1="3" y1="10" x2="21" y2="10"/>
                         </svg>
-                        <p th:text="${T(com.ulp.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
+                        <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
                     </div>
 
                     <!-- Lesson cards -->
@@ -323,7 +323,7 @@
                 </span>
               </span>
                             </a>
-                            <!-- Completion toggle (ULP-4.5) — a POST form sibling of the link
+                            <!-- Completion toggle (ksh-4.5) — a POST form sibling of the link
                                  (a form/button cannot be nested inside the anchor). Always
                                  shown: empty circle = not done → click to complete; filled ✓
                                  = done → click to un-complete. Backend toggles either way. -->

@@ -13,13 +13,26 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.ksh.common.IConstant.*;
+import static com.ksh.common.IConstant.ATTR_COMPOSE;
+import static com.ksh.common.IConstant.ATTR_COMPOSE_QUERY;
+import static com.ksh.common.IConstant.ATTR_CONVERSATION;
+import static com.ksh.common.IConstant.ATTR_CONVERSATIONS;
+import static com.ksh.common.IConstant.ATTR_MSG_UNREAD;
+import static com.ksh.common.IConstant.ATTR_PAGER_PARAMS;
+import static com.ksh.common.IConstant.ATTR_RECIPIENTS;
+import static com.ksh.common.IConstant.BASE_MY_MESSAGES;
+import static com.ksh.common.IConstant.VIEW_MESSAGING_INDEX;
 
 /**
  * Server-rendered controller for direct messaging under {@code /my/messages}

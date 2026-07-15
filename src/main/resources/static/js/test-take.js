@@ -1,7 +1,7 @@
 /* Exam taking (Epic #11): server-computed countdown per time_mode, ~30s
  * heartbeat feeding live monitoring, submit-all-at-once as one JSON payload,
  * and auto-submit when the countdown hits zero. Answers are held in the DOM
- * (no per-answer save). All user notifications go through UlpToast.
+ * (no per-answer save). All user notifications go through KshToast.
  */
 (function () {
     'use strict';
