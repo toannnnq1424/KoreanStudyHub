@@ -1,6 +1,7 @@
 package com.ksh.features.classes.controller;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.service.ClassesService;

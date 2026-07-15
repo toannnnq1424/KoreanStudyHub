@@ -118,7 +118,7 @@ public class StudentLessonsService {
         Set<Long> completedIds = publishedIds.isEmpty()
                 ? Set.of()
                 : new HashSet<>(progressRepository
-                .findCompletedLessonIds(userId, publishedIds));
+                        .findCompletedLessonIds(userId, publishedIds));
 
         List<SectionWithLessons> sectionRows = new ArrayList<>(orderedSections.size());
         int completedTotal = 0;

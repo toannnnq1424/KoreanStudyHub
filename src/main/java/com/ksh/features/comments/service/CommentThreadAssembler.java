@@ -89,7 +89,7 @@ public class CommentThreadAssembler {
             // Defensive cap: never recurse past level 3 even on legacy data.
             List<CommentRow> replies = depth < MAX_RENDER_DEPTH
                     ? buildLevel(childrenByParent.get(c.getId()), childrenByParent,
-                    authors, lecturerId, callerId, moderator, depth + 1)
+                            authors, lecturerId, callerId, moderator, depth + 1)
                     : new ArrayList<>();
             if (c.isDeleted()) {
                 // Keep a deleted node only when it still anchors live replies.

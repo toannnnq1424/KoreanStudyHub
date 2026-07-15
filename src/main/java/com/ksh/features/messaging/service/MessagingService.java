@@ -1,10 +1,20 @@
 package com.ksh.features.messaging.service;
 
-import com.ksh.entities.*;
+import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Conversation;
+import com.ksh.entities.Enrollment;
+import com.ksh.entities.Message;
+import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.messaging.dto.MessagingDtos.*;
+import com.ksh.features.messaging.dto.MessagingDtos.ClassMessagesView;
+import com.ksh.features.messaging.dto.MessagingDtos.ConversationRow;
+import com.ksh.features.messaging.dto.MessagingDtos.ConversationView;
+import com.ksh.features.messaging.dto.MessagingDtos.MessageRow;
+import com.ksh.features.messaging.dto.MessagingDtos.PushPayload;
+import com.ksh.features.messaging.dto.MessagingDtos.RecipientRow;
+import com.ksh.features.messaging.dto.MessagingDtos.SendResult;
 import com.ksh.features.messaging.repository.ConversationRepository;
 import com.ksh.features.messaging.repository.MessageRepository;
 import com.ksh.features.messaging.support.MessagingAccess;
@@ -18,6 +28,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;

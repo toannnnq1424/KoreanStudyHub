@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
  *
  * <p>{@link SQLRestriction} filters soft-deleted rows out of every default
  * query. No {@code @Data} — explicit getters + business helpers only, matching
- * {@link com.ulp.features.flashcards.entity.FlashcardDeck}.
+ * {@link com.ksh.features.flashcards.entity.FlashcardDeck}.
  */
 @Entity
 @Table(name = "tests")

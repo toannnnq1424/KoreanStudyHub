@@ -30,11 +30,11 @@ public interface TestActivityRepository extends JpaRepository<TestActivity, Long
      * @return one page of {@link TestActivityRow}, newest first
      */
     @Query("SELECT new com.ksh.features.tests.dto.TestActivityRow(" +
-            "  a.id, a.type, a.description, u.email, a.createdAt) " +
-            "FROM TestActivity a " +
-            "LEFT JOIN User u ON u.id = a.createdBy " +
-            "WHERE a.testId = :testId " +
-            "ORDER BY a.createdAt DESC, a.id DESC")
+           "  a.id, a.type, a.description, u.email, a.createdAt) " +
+           "FROM TestActivity a " +
+           "LEFT JOIN User u ON u.id = a.createdBy " +
+           "WHERE a.testId = :testId " +
+           "ORDER BY a.createdAt DESC, a.id DESC")
     Page<TestActivityRow> findActivitiesForTest(@Param("testId") Long testId,
                                                 Pageable pageable);
 }

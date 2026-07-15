@@ -1,6 +1,12 @@
 package com.ksh.entities;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -8,7 +14,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code conversations} table (Epic #13, KSH-8.3).
+ * JPA entity mapping the {@code conversations} table (Epic #13, ksh-8.3).
  *
  * <p>Each row represents a single 1-on-1 thread between two users, stored as a
  * normalized pair: {@code userLoId} always holds the smaller user id and

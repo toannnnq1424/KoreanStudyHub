@@ -2,7 +2,7 @@
  * correct (MCQ enforces a single correct client-side), toggle the duration
  * field by time_mode, and save the whole exam as one JSON payload on submit
  * (single submit orchestrator; deferred save). Field errors render inline;
- * top-level errors go through UlpToast.
+ * top-level errors go through KshToast.
  *
  * Exposes window.LfForm.mount() so the AJAX tab orchestrator
  * (test-detail-tabs.js) can (re)initialise the builder after swapping the

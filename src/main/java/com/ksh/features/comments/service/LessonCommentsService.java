@@ -91,9 +91,9 @@ public class LessonCommentsService {
                 Sort.by(Sort.Direction.DESC, "createdAt", "id"));
         Page<Comment> rootPage = moderator
                 ? commentRepository.findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatusIn(
-                lessonId, MODERATOR_STATUSES, pageable)
+                        lessonId, MODERATOR_STATUSES, pageable)
                 : commentRepository.findByLessonIdAndParentIdIsNullAndDeletedFalseAndModerationStatus(
-                lessonId, Comment.MODERATION_APPROVED, pageable);
+                        lessonId, Comment.MODERATION_APPROVED, pageable);
 
         List<Comment> roots = rootPage.getContent();               // newest-first
         List<Comment> level2 = repliesOf(idsOf(roots), moderator);  // depth-2 replies

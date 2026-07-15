@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.LinkedHashMap;
 
-import static com.ksh.common.IConstant.*;
+import static com.ksh.common.IConstant.ATTR_PAGER_PARAMS;
+import static com.ksh.common.IConstant.ATTR_VIEW;
+import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_MESSAGES;
 
 /**
  * Student-facing SSR controller for the class-scoped messaging page under

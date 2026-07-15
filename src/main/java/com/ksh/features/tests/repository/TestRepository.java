@@ -33,8 +33,8 @@ public interface TestRepository extends JpaRepository<Test, Long> {
      */
     @Query("SELECT t FROM Test t WHERE t.createdBy = :userId OR t.classId IN :classIds")
     Page<Test> findOwnedByLecturer(@Param("userId") Long userId,
-                                   @Param("classIds") Collection<Long> classIds,
-                                   Pageable pageable);
+                                    @Param("classIds") Collection<Long> classIds,
+                                    Pageable pageable);
 
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);

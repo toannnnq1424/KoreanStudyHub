@@ -7,7 +7,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * STOMP-over-WebSocket configuration for real-time messaging (Epic #13, KSH-8.3).
+ * STOMP-over-WebSocket configuration for real-time messaging (Epic #13, ksh-8.3).
  *
  * <p>The handshake at {@code /ws} rides the existing form-login HTTP session, so
  * the Spring Security principal is already present — no separate WS token is

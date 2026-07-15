@@ -207,7 +207,7 @@ public class StudentLessonDetailService {
     }
 
     private static String fileViewerUrl(String type, Long lessonId,
-                                        Long attachmentId, String filename) {
+                                         Long attachmentId, String filename) {
         return String.format(FILE_VIEWER_URL_FMT, type, lessonId, attachmentId,
                 URLEncoder.encode(filename != null ? filename : "tai-lieu", StandardCharsets.UTF_8));
     }
