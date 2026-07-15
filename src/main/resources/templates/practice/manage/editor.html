@@ -227,6 +227,21 @@
           </div>
         </div>
 
+        <section id="listening-check-audio-area" style="display:none; margin-bottom:24px;">
+          <div class="form-section-title">Audio thử loa trước phần Nghe</div>
+          <p style="margin:-8px 0 12px; color:var(--pp-text-muted); font-size:0.8rem; line-height:1.5;">
+            Audio ngắn này chỉ dùng ở bước kiểm tra thiết bị. Audio làm bài vẫn cấu hình riêng trong từng nhóm câu.
+          </p>
+          <div class="audio-upload-box" onclick="document.getElementById('listening-check-audio-input').click()">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
+            <p style="margin:0; font-size:0.85rem; font-weight:600;">Chọn audio thử loa</p>
+            <span style="font-size:0.75rem; color:var(--pp-text-muted);">Bắt buộc với đề Listening xuất bản mới</span>
+            <input type="file" id="listening-check-audio-input" style="display:none;" accept="audio/*" onchange="handleListeningCheckAudioSelect(this)">
+          </div>
+          <div id="listening-check-audio-status" style="display:none; font-size:0.8rem; font-weight:600; margin-top:8px;"></div>
+          <div id="listening-check-audio-preview" class="audio-player-container" style="display:none;"></div>
+        </section>
+
         <button onclick="addGroupToCurrentSection()" class="btn-action btn-sec">+ Thêm nhóm câu hỏi vào phần này</button>
       </div>
 
@@ -339,7 +354,8 @@
 
         <div style="margin-bottom:20px;">
           <label class="form-label">Đề bài / Câu hỏi (Prompt)</label>
-          <input type="text" id="q-prompt" class="form-input" placeholder="Ví dụ: Đoạn văn sau nói về chủ đề gì?" oninput="saveCurrentNode()">
+          <textarea id="q-prompt" class="form-textarea question-prompt-editor" rows="3"
+                    placeholder="Ví dụ: Đoạn văn sau nói về chủ đề gì?" oninput="handleQuestionPromptInput()"></textarea>
         </div>
 
         <div style="margin-bottom:20px;">
@@ -379,9 +395,18 @@
 
         <!-- 4. Gap Fill configuration -->
         <div id="gapfill-area" style="margin-bottom:24px; display:none;">
-          <label class="form-label">Ô trống và đáp án được chấp nhận</label>
+          <div class="fill-authoring-heading">
+            <div>
+              <label class="form-label">Ô trống và đáp án được chấp nhận</label>
+              <p>Mỗi ô có một token cố định. Đặt token vào đúng vị trí trong đề bài để tạo bảng, câu hoặc đoạn điền từ như màn thi.</p>
+            </div>
+            <button type="button" onclick="addFillBlank(true)" class="btn-action btn-sec">+ Chèn ô trống</button>
+          </div>
           <div id="fill-blanks-list"></div>
-          <button type="button" onclick="addFillBlank()" class="btn-action btn-sec" style="margin-top:8px; width:100%; justify-content:center;">+ Thêm ô trống</button>
+          <div class="fill-authoring-preview" aria-live="polite">
+            <span>Xem trước trong player</span>
+            <div id="fill-template-preview"></div>
+          </div>
         </div>
 
         <!-- 5. Essay configuration -->
@@ -542,7 +567,7 @@
     .preview-q-card {
       background: #ffffff;
       border: 1px solid #E2E8F0;
-      border-radius: 12px;
+      border-radius: 8px;
       padding: 20px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       margin-bottom: 16px;
@@ -604,20 +629,19 @@
       <button onclick="closePreviewModal()" style="background:none; border:none; color:#64748B; font-size:1.5rem; cursor:pointer; line-height:1; padding:4px;">✕</button>
     </div>
     
-    <!-- Split-Pane Body -->
-    <div style="flex:1; display:flex; overflow:hidden; background:#F8FAFC;">
+    <div class="preview-group-nav">
+      <span>Nhóm câu hỏi</span>
+      <div id="preview-group-selector">
+        <!-- Group buttons injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Skill-aware player body -->
+    <div class="preview-player-body" id="preview-player-body">
       <!-- Left Panel: Instruction & Passage & Audio & Image -->
-      <div style="width:50%; border-right:1px solid #E2E8F0; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:20px; background:#ffffff;">
-        <!-- Active Group Header / Selector -->
-        <div>
-          <div style="font-size:0.75rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Chọn nhóm câu hỏi để xem thử:</div>
-          <div id="preview-group-selector" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; border-bottom:1px solid #F1F5F9; flex-wrap:nowrap; max-width:100%;">
-            <!-- Group buttons injected dynamically -->
-          </div>
-        </div>
-        
+      <div class="preview-source-pane" id="preview-source-pane">
         <!-- Shared Group Contents -->
-        <div id="preview-group-instruction" style="font-size:0.95rem; font-weight:700; color:#1E293B; line-height:1.5;"></div>
+        <div id="preview-group-instruction" class="preview-group-instruction"></div>
         
         <!-- Audio player if listening -->
         <div id="preview-group-audio-container" style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:16px; display:none;">
@@ -635,10 +659,14 @@
 
         <!-- Passage / Text Box -->
         <div id="preview-group-passage" style="display:none; border:1.5px solid #E2E8F0; border-radius:12px; padding:20px; font-size:0.92rem; color:#334155; line-height:1.7; background:#F8FAFC; white-space:pre-wrap; font-family:inherit;"></div>
+
+        <!-- Writing question prompts live with the source, matching player-writing. -->
+        <div id="preview-writing-prompts" class="preview-writing-prompts"></div>
       </div>
       
       <!-- Right Panel: Questions stack -->
-      <div style="width:50%; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:24px;" id="preview-questions-pane">
+      <div class="preview-questions-pane" id="preview-questions-pane">
+        <div id="preview-focus-instruction" class="preview-focus-instruction"></div>
         <div id="preview-questions-stack" style="display:flex; flex-direction:column; gap:20px;">
           <!-- Questions stack injected dynamically -->
         </div>
@@ -1091,6 +1119,7 @@
       sec.testClientId = test.clientId;
       sec.lessonCode = lessonCodeForSkill(sec.skill, test.testNo);
       sec.durationMinutes = parseInt(sec.durationMinutes, 10) || (sec.skill === 'WRITING' ? 50 : 40);
+      window.PracticeAuthoringContract.syncSectionContract(sec);
       sec.groups = Array.isArray(sec.groups) ? Array.from(sec.groups) : [];
       let localQuestionNo = sec.skill === 'WRITING' ? 51 : 1;
 
@@ -1126,7 +1155,12 @@
           q.explanationVi = q.explanationVi || '';
           q.points = parseFloat(q.points) || 2.0;
           q.answerKey = q.answerKey || '';
-          q.options = Array.isArray(q.options) ? Array.from(q.options) : defaultOptionsForQuestionType(q.questionType, sec.skill);
+          const canonicalOptions = q.questionContent && Array.isArray(q.questionContent.options)
+            ? q.questionContent.options
+            : null;
+          q.options = Array.isArray(q.options)
+            ? Array.from(q.options)
+            : (canonicalOptions ? Array.from(canonicalOptions) : defaultOptionsForQuestionType(q.questionType, sec.skill));
           if (!q.answer && q.answerKey) {
             q.answer = { type: 'SINGLE', value: q.answerKey };
           }
@@ -1688,6 +1722,9 @@
       refreshSkillOptions(sec.skill || 'READING');
       document.getElementById('sec-skill').value = sec.skill || 'READING';
       document.getElementById('sec-duration').value = sec.durationMinutes || 40;
+      document.getElementById('listening-check-audio-area').style.display =
+        sec.skill === 'LISTENING' ? 'block' : 'none';
+      updateListeningCheckAudioPreview(sec.listeningCheckAudioUrl || '');
     } else if (type === 'group') {
       const grp = DRAFT_DATA.sections[sIdx].groups[gIdx];
       if (!grp) return;
@@ -1865,7 +1902,9 @@
             updateImagePreview(droppedUrl, 'group');
           } else {
             const qIdx = currentNode.qIdx;
-            DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx].imageUrl = droppedUrl;
+            const question = DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx];
+            question.imageUrl = droppedUrl;
+            window.PracticeAuthoringContract.syncQuestionContract(question);
             updateImagePreview(droppedUrl, 'question');
           }
           const statusText = document.getElementById(targetType + '-image-upload-status');
@@ -1898,7 +1937,24 @@
     }
   }
 
+  function isCurrentEditorTarget(type, target) {
+    if (!target || !currentNode || currentNode.type !== type) return false;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    if (type === 'section') return section === target;
+    const group = section && section.groups[currentNode.gIdx];
+    if (type === 'group') return group === target;
+    return type === 'question'
+      && group && group.questions[currentNode.qIdx] === target;
+  }
+
   function uploadImageFile(file, type) {
+    if (!currentNode || !['group', 'question'].includes(type)) return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    const target = type === 'group'
+      ? group
+      : group && group.questions[currentNode.qIdx];
+    if (!target) return;
     const statusText = document.getElementById(type + '-image-upload-status');
     statusText.innerText = "Đang tải ảnh lên...";
     statusText.style.display = 'block';
@@ -1919,24 +1975,29 @@
       return res.json();
     })
     .then(data => {
-      statusText.innerText = "Tải lên ảnh thành công: " + data.filename;
-      statusText.style.color = 'var(--pp-success)';
-
-      const sIdx = currentNode.sIdx;
-      const gIdx = currentNode.gIdx;
       if (type === 'group') {
-        setGroupImageUrl(DRAFT_DATA.sections[sIdx].groups[gIdx], data.url);
-        updateImagePreview(data.url, 'group');
+        setGroupImageUrl(target, data.url);
       } else if (type === 'question') {
-        const qIdx = currentNode.qIdx;
-        DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx].imageUrl = data.url;
-        updateImagePreview(data.url, 'question');
+        target.imageUrl = data.url;
+        window.PracticeAuthoringContract.syncQuestionContract(target);
+      }
+      if (isCurrentEditorTarget(type, target)) {
+        statusText.innerText = "Tải lên ảnh thành công: " + data.filename;
+        statusText.style.color = 'var(--pp-success)';
+        updateImagePreview(data.url, type);
+      } else {
+        statusText.style.display = 'none';
       }
       triggerAutosave();
     })
     .catch(err => {
-      statusText.innerText = "Lỗi: " + err.message;
-      statusText.style.color = 'var(--pp-error)';
+      if (isCurrentEditorTarget(type, target)) {
+        statusText.innerText = "Lỗi: " + err.message;
+        statusText.style.color = 'var(--pp-error)';
+      } else {
+        statusText.style.display = 'none';
+      }
+      showEditorToast(err.message, 'error');
     });
   }
 
@@ -1966,7 +2027,9 @@
       updateImagePreview('', 'group');
     } else if (type === 'question') {
       const qIdx = currentNode.qIdx;
-      DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx].imageUrl = '';
+      const question = DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx];
+      question.imageUrl = '';
+      window.PracticeAuthoringContract.syncQuestionContract(question);
       updateImagePreview('', 'question');
     }
     document.getElementById(type + '-image-upload-status').style.display = 'none';
@@ -1979,7 +2042,7 @@
     group.stimulus.imageReference = url || null;
   }
 
-  function uploadDraftAudio(file, statusElementId, onUploaded) {
+  function uploadDraftAudio(file, statusElementId, onUploaded, isCurrentTarget = () => true) {
     const statusText = document.getElementById(statusElementId);
     statusText.innerText = "Đang tải tệp âm thanh...";
     statusText.style.display = 'block';
@@ -2000,28 +2063,97 @@
       return res.json();
     })
     .then(data => {
-      statusText.innerText = "Tải lên tệp thành công: " + data.filename;
-      statusText.style.color = 'var(--pp-success)';
       onUploaded(data);
+      if (isCurrentTarget()) {
+        statusText.innerText = "Tải lên tệp thành công: " + data.filename;
+        statusText.style.color = 'var(--pp-success)';
+      } else {
+        statusText.style.display = 'none';
+      }
       triggerAutosave();
     })
     .catch(err => {
-      statusText.innerText = "Lỗi: " + err.message;
-      statusText.style.color = 'var(--pp-error)';
+      if (isCurrentTarget()) {
+        statusText.innerText = "Lỗi: " + err.message;
+        statusText.style.color = 'var(--pp-error)';
+      } else {
+        statusText.style.display = 'none';
+      }
+      showEditorToast(err.message, 'error');
     });
   }
 
   function uploadAudioFile(file) {
+    if (!currentNode || currentNode.type !== 'group') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    if (!group) return;
     uploadDraftAudio(file, 'audio-upload-status', (data) => {
-      const sIdx = currentNode.sIdx;
-      const gIdx = currentNode.gIdx;
-      const group = DRAFT_DATA.sections[sIdx].groups[gIdx];
       group.audioUrl = data.url;
       if (!group.stimulus || typeof group.stimulus !== 'object') group.stimulus = {};
       group.stimulus.mediaReference = data.url;
-      document.getElementById('grp-audio').value = data.url;
-      updateAudioPreview(data.url);
+      if (isCurrentEditorTarget('group', group)) {
+        document.getElementById('grp-audio').value = data.url;
+        updateAudioPreview(data.url);
+      }
+    }, () => isCurrentEditorTarget('group', group));
+  }
+
+  function handleListeningCheckAudioSelect(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    uploadListeningCheckAudio(file);
+    input.value = '';
+  }
+
+  function uploadListeningCheckAudio(file) {
+    if (!currentNode || currentNode.type !== 'section') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    if (!section || section.skill !== 'LISTENING') {
+      showEditorToast('Audio thử loa chỉ áp dụng cho phần Listening.', 'warning');
+      return;
+    }
+    uploadDraftAudio(file, 'listening-check-audio-status', (data) => {
+      section.listeningCheckAudioUrl = data.url;
+      window.PracticeAuthoringContract.syncSectionContract(section);
+      if (isCurrentEditorTarget('section', section)) {
+        updateListeningCheckAudioPreview(data.url);
+      }
+    }, () => isCurrentEditorTarget('section', section));
+  }
+
+  function updateListeningCheckAudioPreview(url) {
+    const container = document.getElementById('listening-check-audio-preview');
+    if (!container) return;
+    container.replaceChildren();
+    if (!url) {
+      container.style.display = 'none';
+      return;
+    }
+    const label = document.createElement('strong');
+    label.textContent = 'Nghe thử audio kiểm tra loa';
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'metadata';
+    audio.src = url;
+    audio.style.width = '100%';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn-action';
+    remove.textContent = 'Bỏ audio';
+    remove.addEventListener('click', () => {
+      const section = currentNode && currentNode.type === 'section'
+        ? DRAFT_DATA.sections[currentNode.sIdx]
+        : null;
+      if (!section) return;
+      section.listeningCheckAudioUrl = '';
+      window.PracticeAuthoringContract.syncSectionContract(section);
+      updateListeningCheckAudioPreview('');
+      triggerAutosave();
     });
+    container.append(label, audio, remove);
+    container.style.display = 'grid';
+    container.style.gap = '10px';
   }
 
   function uploadSpeakingPromptAudio(file) {
@@ -2035,8 +2167,10 @@
     uploadDraftAudio(file, 'speaking-prompt-audio-upload-status', (data) => {
       question.speakingPromptAudioUrl = data.url;
       window.PracticeAuthoringContract.syncQuestionContract(question);
-      updateSpeakingPromptAudioPreview(data.url);
-    });
+      if (isCurrentEditorTarget('question', question)) {
+        updateSpeakingPromptAudioPreview(data.url);
+      }
+    }, () => isCurrentEditorTarget('question', question));
   }
 
   function updateAudioPreview(url) {
@@ -2170,8 +2304,15 @@
     const type = document.getElementById('q-type').value === 'GAP_FILL'
       ? 'FILL_BLANK'
       : document.getElementById('q-type').value;
+    const previousType = q.questionType === 'GAP_FILL' ? 'FILL_BLANK' : q.questionType;
+    if (previousType !== type) {
+      q.answer = { value: '' };
+      q.answerKey = '';
+      if (type === 'FILL_BLANK') q.fillBlanks = [];
+    }
     q.questionType = type;
     applyWritingTaskState(section, q, { materializeBlank: type === 'ESSAY' && section && section.skill === 'WRITING' });
+    window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
 
     // Hide all area components
     document.getElementById('options-area').style.display = 'none';
@@ -2214,7 +2355,7 @@
       document.getElementById('speaking-prompt-audio-upload-status').style.display = 'none';
     }
 
-    window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
+    window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
   }
 
@@ -2360,6 +2501,11 @@
 
   function uploadOptionImage(file, idx) {
     if (!currentNode || currentNode.type !== 'question') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    const question = group && group.questions[currentNode.qIdx];
+    const optionId = question && question.options[idx] && question.options[idx].id;
+    if (!question || !optionId) return;
     const formData = new FormData();
     formData.append('file', file);
     fetch(`/practice/manage/drafts/${DRAFT_ID}/upload-image`, {
@@ -2370,11 +2516,11 @@
       if (!response.ok) throw new Error('Không thể tải ảnh phương án.');
       return response.json();
     }).then(data => {
-      const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-      if (!q.options[idx]) return;
-      q.options[idx].imageReference = data.url;
-      window.PracticeAuthoringContract.syncQuestionContract(q);
-      renderOptionRows(q);
+      const option = question.options.find(candidate => candidate.id === optionId);
+      if (!option) return;
+      option.imageReference = data.url;
+      window.PracticeAuthoringContract.syncQuestionContract(question);
+      if (isCurrentEditorTarget('question', question)) renderOptionRows(question);
       triggerAutosave();
     }).catch(error => showEditorToast(error.message, 'error'));
   }
@@ -2403,23 +2549,77 @@
     if (!container) return;
     if (!Array.isArray(q.fillBlanks)) q.fillBlanks = [];
     container.innerHTML = '';
+    if (q.fillBlanks.length === 0) {
+      container.innerHTML = '<p class="fill-authoring-empty">Chưa có ô trống. Chọn “Chèn ô trống” để đặt ô nhập ngay tại vị trí con trỏ trong đề bài.</p>';
+    }
     q.fillBlanks.forEach((blank, index) => {
       const row = document.createElement('div');
-      row.style.cssText = 'display:grid;grid-template-columns:0.8fr 1.2fr 36px;gap:8px;align-items:center;margin-bottom:8px;';
+      row.className = 'fill-authoring-row';
+      const token = fillBlankToken(blank);
       row.innerHTML = `
-        <input class="form-input fill-prompt" data-index="${index}" value="${escapeHtml(blank.prompt || '')}" placeholder="Nhãn ô trống">
-        <input class="form-input fill-values" data-index="${index}" value="${escapeHtml((blank.acceptedValues || []).join(' | '))}" placeholder="Đáp án | biến thể">
-        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})" title="Xóa ô trống">✕</button>`;
+        <button type="button" class="fill-token-button" onclick="insertFillBlankToken(${index})"
+                title="Chèn token vào vị trí con trỏ">${escapeHtml(token)}</button>
+        <label><span>Nhãn hiển thị</span><input class="form-input fill-prompt" data-index="${index}" value="${escapeHtml(blank.prompt || '')}" placeholder="Ví dụ: Câu 1"></label>
+        <label><span>Đáp án chấp nhận, ngăn cách bằng |</span><input class="form-input fill-values" data-index="${index}" value="${escapeHtml((blank.acceptedValues || []).join(' | '))}" placeholder="đáp án | biến thể"></label>
+        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})" title="Xóa ô trống" aria-label="Xóa ô trống">✕</button>`;
       container.appendChild(row);
     });
     container.querySelectorAll('input').forEach(input => input.addEventListener('input', saveFillBlanks));
+    renderFillTemplatePreview(q);
   }
 
-  function addFillBlank() {
+  function fillBlankToken(blank) {
+    return `{{blank:${blank && blank.id || ''}}}`;
+  }
+
+  function handleQuestionPromptInput() {
+    saveCurrentNode();
+    if (!currentNode || currentNode.type !== 'question') return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    if (q && q.questionType === 'FILL_BLANK') renderFillTemplatePreview(q);
+  }
+
+  function insertTextAtPromptCursor(text) {
+    const prompt = document.getElementById('q-prompt');
+    if (!prompt) return;
+    const start = Number.isInteger(prompt.selectionStart) ? prompt.selectionStart : prompt.value.length;
+    const end = Number.isInteger(prompt.selectionEnd) ? prompt.selectionEnd : start;
+    const before = prompt.value.slice(0, start);
+    const after = prompt.value.slice(end);
+    prompt.value = `${before}${text}${after}`;
+    const caret = before.length + text.length;
+    prompt.focus();
+    prompt.setSelectionRange(caret, caret);
+  }
+
+  function insertFillBlankToken(index) {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    const blank = q && Array.isArray(q.fillBlanks) ? q.fillBlanks[index] : null;
+    if (!blank) return;
+    const token = fillBlankToken(blank);
+    const prompt = document.getElementById('q-prompt');
+    if (prompt && !prompt.value.includes(token)) insertTextAtPromptCursor(token);
+    q.prompt = prompt ? prompt.value : q.prompt;
+    window.PracticeAuthoringContract.syncQuestionContract(q);
+    renderFillTemplatePreview(q);
+    triggerAutosave();
+  }
+
+  function addFillBlank(insertToken) {
     if (!currentNode || currentNode.type !== 'question') return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
     if (!Array.isArray(q.fillBlanks)) q.fillBlanks = [];
-    q.fillBlanks.push({ id: makeClientId('blank'), prompt: '', acceptedValues: [] });
+    q.fillBlanks.push({
+      id: makeClientId('blank'),
+      prompt: `Ô trống ${q.fillBlanks.length + 1}`,
+      acceptedValues: []
+    });
+    if (insertToken) {
+      const prompt = document.getElementById('q-prompt');
+      insertTextAtPromptCursor(fillBlankToken(q.fillBlanks[q.fillBlanks.length - 1]));
+      q.prompt = prompt ? prompt.value : q.prompt;
+    }
     renderFillBlanks(q);
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
@@ -2428,7 +2628,14 @@
   function removeFillBlank(index) {
     if (!currentNode || currentNode.type !== 'question') return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    const removed = q.fillBlanks[index];
     q.fillBlanks.splice(index, 1);
+    if (removed) {
+      const token = fillBlankToken(removed);
+      q.prompt = String(q.prompt || '').split(token).join('');
+      const prompt = document.getElementById('q-prompt');
+      if (prompt) prompt.value = q.prompt;
+    }
     renderFillBlanks(q);
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
@@ -2444,7 +2651,53 @@
       q.fillBlanks[Number(input.dataset.index)].acceptedValues = input.value.split('|').map(value => value.trim()).filter(Boolean);
     });
     window.PracticeAuthoringContract.syncQuestionContract(q);
+    renderFillTemplatePreview(q);
     triggerAutosave();
+  }
+
+  function renderFillTemplatePreview(q) {
+    const preview = document.getElementById('fill-template-preview');
+    if (!preview) return;
+    preview.replaceChildren();
+    const prompt = String(q && q.prompt || '').trim();
+    const blanks = q && Array.isArray(q.fillBlanks) ? q.fillBlanks : [];
+    if (!prompt && blanks.length === 0) {
+      preview.textContent = 'Nội dung xem trước sẽ xuất hiện ở đây.';
+      preview.classList.add('is-empty');
+      return;
+    }
+    preview.classList.remove('is-empty');
+    const byToken = new Map(blanks.map((blank, index) => [fillBlankToken(blank), { blank, index }]));
+    const tokenPattern = /\{\{blank:[^{}]+\}\}/g;
+    let cursor = 0;
+    let match;
+    while ((match = tokenPattern.exec(prompt)) !== null) {
+      preview.append(document.createTextNode(prompt.slice(cursor, match.index)));
+      const entry = byToken.get(match[0]);
+      if (entry) {
+        const field = document.createElement('span');
+        field.className = 'fill-preview-slot';
+        field.title = entry.blank.prompt || `Ô trống ${entry.index + 1}`;
+        const number = document.createElement('b');
+        number.textContent = String(entry.index + 1);
+        const line = document.createElement('span');
+        field.append(number, line);
+        preview.append(field);
+      } else {
+        const invalid = document.createElement('code');
+        invalid.className = 'fill-preview-invalid';
+        invalid.textContent = match[0];
+        preview.append(invalid);
+      }
+      cursor = match.index + match[0].length;
+    }
+    preview.append(document.createTextNode(prompt.slice(cursor)));
+    blanks.filter(blank => !prompt.includes(fillBlankToken(blank))).forEach((blank, index) => {
+      const unresolved = document.createElement('span');
+      unresolved.className = 'fill-preview-unplaced';
+      unresolved.textContent = `${blank.prompt || `Ô trống ${index + 1}`} chưa được đặt trong đề bài`;
+      preview.append(unresolved);
+    });
   }
 
   // Save current node form data into state
@@ -2496,6 +2749,9 @@
           window.PracticeAuthoringContract.normalizeQuestion(question, makeClientId);
         }));
       }
+      window.PracticeAuthoringContract.syncSectionContract(sec);
+      document.getElementById('listening-check-audio-area').style.display =
+        sec.skill === 'LISTENING' ? 'block' : 'none';
     } else if (type === 'group') {
       const grp = DRAFT_DATA.sections[sIdx].groups[gIdx];
       if (!grp) return;
@@ -2744,8 +3000,10 @@
       testClientId: targetTest.clientId,
       lessonCode: lessonCodeForSkill(skill, targetTest.testNo),
       durationMinutes: policy.durationMinutes,
+      listeningCheckAudioUrl: skill === 'LISTENING' ? '' : undefined,
       groups: []
     };
+    window.PracticeAuthoringContract.syncSectionContract(newSec);
 
     // Optimistic UI update — no waiting for API
     DRAFT_DATA.sections.push(newSec);
@@ -3361,6 +3619,27 @@
             if (!blanks.length || blanks.some(blank => !Array.isArray(blank.acceptedValues) || !blank.acceptedValues.length)) {
               messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_ANSWER_REQUIRED', content: `Câu ${q.questionNo} còn ô trống chưa có đáp án.`, sIdx, gIdx, qIdx });
             }
+            const prompt = String(q.prompt || '');
+            const blankIds = blanks.map(blank => String(blank.blankId || '')).filter(Boolean);
+            const knownIds = new Set(blankIds);
+            const tokenCounts = new Map();
+            let hasUnknownToken = false;
+            for (const match of prompt.matchAll(/\{\{blank:([^{}]+)}}/g)) {
+              if (!knownIds.has(match[1])) {
+                hasUnknownToken = true;
+              } else {
+                tokenCounts.set(match[1], (tokenCounts.get(match[1]) || 0) + 1);
+              }
+            }
+            if (hasUnknownToken) {
+              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_UNKNOWN', content: `Câu ${q.questionNo} chứa token ô trống không còn tồn tại.`, sIdx, gIdx, qIdx });
+            }
+            if (blankIds.some(id => !tokenCounts.get(id))) {
+              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_REQUIRED', content: `Câu ${q.questionNo} còn ô trống chưa được đặt trong đề bài.`, sIdx, gIdx, qIdx });
+            }
+            if (blankIds.some(id => tokenCounts.get(id) > 1)) {
+              messages.push({ type: 'BLOCKING', code: 'FILL_BLANK_TOKEN_DUPLICATED', content: `Câu ${q.questionNo} có token ô trống bị lặp.`, sIdx, gIdx, qIdx });
+            }
           }
         });
       });
@@ -3448,6 +3727,7 @@
       document.getElementById('preview-group-passage').style.display = 'none';
       document.getElementById('preview-group-audio-container').style.display = 'none';
       document.getElementById('preview-group-image-container').style.display = 'none';
+      document.getElementById('preview-writing-prompts').replaceChildren();
       document.getElementById('preview-questions-stack').innerHTML = '';
       return;
     }
@@ -3487,11 +3767,31 @@
     const item = previewGroups[activePreviewGroupIndex];
     const grp = item.grp;
 
+    const passage = String(grp.passageText || '').trim();
+    const hasSource = Boolean(passage || grp.imageUrl);
+    const hasListeningLead = Boolean(grp.audioUrl || grp.imageUrl || grp.instruction);
+    const previewBody = document.getElementById('preview-player-body');
+    previewBody.classList.remove('layout-focus', 'layout-stacked', 'layout-split', 'layout-writing', 'layout-speaking');
+    if (item.skill === 'WRITING') {
+      previewBody.classList.add('layout-writing');
+    } else if (item.skill === 'SPEAKING') {
+      previewBody.classList.add('layout-speaking');
+    } else if (item.skill === 'LISTENING') {
+      previewBody.classList.add(hasListeningLead ? 'layout-stacked' : 'layout-focus');
+    } else if (!hasSource) {
+      previewBody.classList.add('layout-focus');
+    } else {
+      previewBody.classList.add(grp.imageUrl || passage.length >= 320 ? 'layout-split' : 'layout-stacked');
+    }
+
     // 1. Instruction
-    document.getElementById('preview-group-instruction').innerHTML = `
+    const instruction = String(grp.instruction || '').trim();
+    const instructionHtml = instruction ? `
       <div style="font-size:0.75rem; font-weight:700; color:#94A3B8; text-transform:uppercase; margin-bottom:4px;">HƯỚNG DẪN BÀI THI:</div>
-      <div style="font-weight:600; color:#1E293B;">${escapeHtml(grp.instruction || 'Hãy đọc và trả lời câu hỏi.')}</div>
-    `;
+      <div style="font-weight:600; color:#1E293B;">${escapeHtml(instruction)}</div>
+    ` : '';
+    document.getElementById('preview-group-instruction').innerHTML = instructionHtml;
+    document.getElementById('preview-focus-instruction').innerHTML = instructionHtml;
 
     // 2. Audio Player
     const audioContainer = document.getElementById('preview-group-audio-container');
@@ -3517,11 +3817,39 @@
 
     // 4. Passage Text
     const passageContainer = document.getElementById('preview-group-passage');
-    if (item.skill === 'READING' && grp.passageText && grp.passageText.trim().length > 0) {
+    if ((item.skill === 'READING' || item.skill === 'WRITING') && passage) {
       passageContainer.style.display = 'block';
-      passageContainer.innerText = grp.passageText;
+      passageContainer.innerText = passage;
     } else {
       passageContainer.style.display = 'none';
+    }
+
+    const writingPrompts = document.getElementById('preview-writing-prompts');
+    writingPrompts.replaceChildren();
+    if (item.skill === 'WRITING') {
+      (grp.questions || []).forEach(q => {
+        const block = document.createElement('section');
+        block.className = 'preview-writing-prompt';
+        if (q.prompt) {
+          const prompt = document.createElement('p');
+          prompt.textContent = q.prompt;
+          block.appendChild(prompt);
+        }
+        if (q.imageUrl) {
+          const image = document.createElement('img');
+          image.src = q.imageUrl;
+          image.alt = `Ảnh câu hỏi Writing ${q.questionNo}`;
+          block.appendChild(image);
+        }
+        if (q.audioUrl) {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.preload = 'metadata';
+          audio.src = q.audioUrl;
+          block.appendChild(audio);
+        }
+        writingPrompts.appendChild(block);
+      });
     }
 
     // 5. Questions stack rendering
@@ -3536,15 +3864,66 @@
     grp.questions.forEach((q, qIdx) => {
       const qCard = document.createElement('div');
       qCard.className = 'preview-q-card';
+
+      if (item.skill === 'WRITING') {
+        qCard.classList.add('preview-writing-answer-card');
+        qCard.innerHTML = `
+          <div class="preview-writing-answer-heading">
+            <div><span>Câu ${escapeHtml(q.questionNo)}</span><h4>Câu trả lời</h4></div>
+            <strong>${escapeHtml(q.points)} điểm</strong>
+          </div>
+          <textarea disabled placeholder="Nơi học viên nhập bài viết tiếng Hàn"></textarea>
+          <small>0 ký tự</small>
+        `;
+        questionsStack.appendChild(qCard);
+        return;
+      }
+
+      if (item.skill === 'SPEAKING') {
+        const delivery = q.questionContent && q.questionContent.speakingDelivery || {};
+        const promptAudioUrl = q.speakingPromptAudioUrl || delivery.promptAudioReference || '';
+        const promptImageUrl = q.imageUrl || grp.imageUrl || '';
+        const promptImage = promptImageUrl
+          ? `<img src="${escapeHtml(promptImageUrl)}" alt="Ảnh câu hỏi Speaking ${escapeHtml(q.questionNo)}">`
+          : '';
+        const promptAudio = promptAudioUrl
+          ? `<audio controls preload="metadata" src="${escapeHtml(promptAudioUrl)}"></audio>`
+          : '<p class="preview-speaking-missing">Chưa có audio đề bài bắt buộc.</p>';
+        qCard.classList.add('preview-speaking-state');
+        qCard.innerHTML = `
+          <div class="preview-speaking-progress">Câu ${escapeHtml(q.questionNo)}</div>
+          <div class="preview-speaking-audio" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
+            <span>Audio đề bài</span>
+          </div>
+          <div class="preview-speaking-prompt">
+            <p>${escapeHtml(q.prompt || 'Chưa có nội dung câu hỏi')}</p>
+            ${promptImage}
+          </div>
+          <div class="preview-speaking-panel">
+            <div><span>Chuẩn bị</span><strong>${escapeHtml(q.prepTimeSeconds ?? delivery.preparationSeconds ?? 30)}s</strong></div>
+            <div><span>Thời gian nói</span><strong>${escapeHtml(q.respTimeSeconds || delivery.responseSeconds || 60)}s</strong></div>
+            <div><span>Số lần phát</span><strong>${escapeHtml(q.speakingPromptPlayLimit || delivery.promptPlayLimit || 1)}</strong></div>
+            ${promptAudio}
+          </div>
+        `;
+        questionsStack.appendChild(qCard);
+        return;
+      }
       
       let qImageHtml = '';
-      if (q.imageUrl) {
+      const previewQuestionImage = q.imageUrl || (item.skill === 'SPEAKING' ? grp.imageUrl : '');
+      if (previewQuestionImage) {
         qImageHtml = `
           <div style="text-align:center; margin-bottom:12px;">
-            <img src="${escapeHtml(q.imageUrl)}" alt="Ảnh câu hỏi ${escapeHtml(q.questionNo)}" style="max-height:180px; max-width:100%; border-radius:6px; border:1px solid #E2E8F0;" />
+            <img src="${escapeHtml(previewQuestionImage)}" alt="Ảnh câu hỏi ${escapeHtml(q.questionNo)}" style="max-height:260px; max-width:100%; border-radius:6px; border:1px solid #E2E8F0; object-fit:contain;" />
           </div>
         `;
       }
+
+      const qAudioHtml = q.audioUrl && q.questionType !== 'SPEAKING'
+        ? `<div class="preview-question-audio"><audio controls preload="metadata" src="${escapeHtml(q.audioUrl)}"></audio></div>`
+        : '';
 
       let optionsHtml = '';
       if (q.questionType === 'SINGLE_CHOICE') {
@@ -3572,7 +3951,23 @@
         });
       } else if (q.questionType === 'GAP_FILL' || q.questionType === 'FILL_BLANK') {
         const blanks = q.questionContent && q.questionContent.blanks || [];
-        optionsHtml += blanks.map(blank => `<label style="display:block;margin-bottom:8px;font-size:0.82rem;font-weight:600;">${escapeHtml(blank.prompt || 'Điền vào chỗ trống')}<input class="form-input" disabled style="margin-top:4px;"></label>`).join('');
+        let fillTemplate = escapeHtml(q.prompt || '');
+        let placedCount = 0;
+        blanks.forEach((blank, blankIndex) => {
+          const token = escapeHtml(`{{blank:${blank.id}}}`);
+          if (fillTemplate.includes(token)) {
+            placedCount += 1;
+            fillTemplate = fillTemplate.split(token).join(
+              `<span class="preview-fill-slot" title="${escapeHtml(blank.prompt || `Ô trống ${blankIndex + 1}`)}"><b>${blankIndex + 1}</b><span></span></span>`);
+          }
+        });
+        optionsHtml += `<div class="preview-fill-template">${fillTemplate}</div>`;
+        if (placedCount < blanks.length) {
+          optionsHtml += blanks
+            .filter(blank => !String(q.prompt || '').includes(`{{blank:${blank.id}}}`))
+            .map(blank => `<label style="display:block;margin-bottom:8px;font-size:0.82rem;font-weight:600;">${escapeHtml(blank.prompt || 'Điền vào chỗ trống')}<input class="form-input" disabled style="margin-top:4px;"></label>`)
+            .join('');
+        }
       } else if (q.questionType === 'ESSAY') {
         optionsHtml += `
           <div style="display:flex; flex-direction:column; gap:10px;">
@@ -3598,13 +3993,17 @@
         `;
       }
 
+      const promptHtml = q.questionType === 'GAP_FILL' || q.questionType === 'FILL_BLANK'
+        ? ''
+        : `<p style="margin:0 0 12px 0; font-size:0.9rem; font-weight:600; color:#1E293B; white-space:pre-wrap;">${escapeHtml(q.prompt || 'Chưa có tiêu đề câu hỏi')}</p>`;
       qCard.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:8px;">
           <h4 style="margin:0; font-size:0.95rem; font-weight:700; color:#315EFB;">Câu ${q.questionNo}</h4>
           <span style="font-size:0.75rem; font-weight:700; background:#EFF6FF; color:#315EFB; padding:2px 8px; border-radius:4px;">${q.points} điểm</span>
         </div>
-        <p style="margin:0 0 12px 0; font-size:0.9rem; font-weight:600; color:#1E293B;">${escapeHtml(q.prompt || 'Chưa có tiêu đề câu hỏi')}</p>
+        ${promptHtml}
         ${qImageHtml}
+        ${qAudioHtml}
         <div>
           ${optionsHtml}
         </div>

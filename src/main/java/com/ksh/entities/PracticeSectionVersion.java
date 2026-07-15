@@ -38,6 +38,9 @@ public class PracticeSectionVersion {
     @Column(columnDefinition = "TEXT")
     private String instructions;
 
+    @Column(name = "delivery_json", columnDefinition = "JSON")
+    private String deliveryJson;
+
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
@@ -58,6 +61,7 @@ public class PracticeSectionVersion {
         this.skill = section.getSkill();
         this.sectionType = section.getSectionType();
         this.instructions = section.getInstructions();
+        this.deliveryJson = section.getDeliveryJson();
         this.durationMinutes = section.getDurationMinutes();
         this.totalPoints = section.getTotalPoints();
         this.displayOrder = section.getDisplayOrder();
@@ -71,6 +75,7 @@ public class PracticeSectionVersion {
     public String getSkill() { return skill; }
     public String getSectionType() { return sectionType; }
     public String getInstructions() { return instructions; }
+    public String getDeliveryJson() { return deliveryJson; }
     public Integer getDurationMinutes() { return durationMinutes; }
     public BigDecimal getTotalPoints() { return totalPoints; }
     public Integer getDisplayOrder() { return displayOrder; }

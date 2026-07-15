@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -55,6 +56,7 @@ public class SpeakingEvaluationOrchestrator {
                 input.questionText(),
                 input.targetLevel(),
                 input.expectedAnswerGuidance(),
+                input.imageEvidence(),
                 input.audioMediaId(),
                 input.mediaVersion(),
                 input.mimeType(),
@@ -149,9 +151,29 @@ public class SpeakingEvaluationOrchestrator {
             String mimeType,
             Long byteSize,
             Long durationMs,
+            AiImageEvidence imageEvidence,
             SpeakingTranscriptionResult transcriptionResult,
             String textFallbackAnswer
     ) {
+        public Input(
+                Long attemptId,
+                Long questionId,
+                String questionText,
+                String targetLevel,
+                String expectedAnswerGuidance,
+                Long audioMediaId,
+                Long mediaVersion,
+                String mimeType,
+                Long byteSize,
+                Long durationMs,
+                SpeakingTranscriptionResult transcriptionResult,
+                String textFallbackAnswer
+        ) {
+            this(attemptId, questionId, questionText, targetLevel, expectedAnswerGuidance,
+                    audioMediaId, mediaVersion, mimeType, byteSize, durationMs,
+                    null, transcriptionResult, textFallbackAnswer);
+        }
+
         @Override
         public String toString() {
             return "SpeakingEvaluationOrchestrator.Input{"
@@ -165,6 +187,7 @@ public class SpeakingEvaluationOrchestrator {
                     + ", mimeType='" + mimeType + '\''
                     + ", byteSize=" + byteSize
                     + ", durationMs=" + durationMs
+                    + ", questionImagePresent=" + (imageEvidence != null)
                     + ", transcriptionStatus=" + (transcriptionResult == null ? null : transcriptionResult.status())
                     + ", textFallbackPresent=" + (textFallbackAnswer != null && !textFallbackAnswer.isBlank())
                     + '}';

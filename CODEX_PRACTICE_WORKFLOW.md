@@ -2171,7 +2171,8 @@ Canonical map after reduce-scope:
 
 Status:
 13A_COMPLETE_FOCUSED_GATE_GREEN
-13B_IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN
+13B_COMPLETE_FOCUSED_GATE_GREEN
+13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN
 
 Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. The reduced learner route contract is
@@ -2269,14 +2270,20 @@ Required Phase 13 slices:
   reads the same canonical object. The JDK 17 authoring/preview gate is green
   `41/41`; this evidence does not claim that microphone preflight or the learner
   Speaking state machine is complete;
-- 13C: Reading, Listening and Writing may reuse the general player shell with
-  skill-native interaction, timer, navigation, autosave and exit warning.
-  Speaking must be routed to a dedicated `player-speaking` template and state
-  machine: immutable prompt audio playback, preparation countdown, mandatory
+- 13C: Reading and Listening share a skill-native exam shell, while Writing is
+  routed to dedicated `player-writing` and Speaking to dedicated
+  `player-speaking`. Reading layout is data-driven: focus mode without a source,
+  stacked mode for a short source and split/resizable mode for a long passage or
+  source image. Listening requires an immutable lecturer-authored speaker-check
+  preflight. Reading/Listening/Writing provide timers, navigation, exit warning,
+  anti-copy/paste/context-menu controls, green highlights and yellow notes.
+  Speaking runs immutable prompt playback, preparation countdown, mandatory
   microphone recording, private upload confirmation and automatic next-question
-  transition. Speaking does not use a textarea as its primary answer and does
-  not retain a resumable draft after an interrupted exit. No player may expose
-  answer keys before submit;
+  transition; it has no textarea primary answer and no resumable interrupted
+  draft. Structured lecturer media must survive draft, preview, publish,
+  immutable delivery and authorized multimodal AI use across R/L/W/S. Fill blank
+  uses stable inline tokens and strict editor/publisher parity. No player may
+  expose answer keys before submit;
 - 13D: result overview with exam-native score scales and recent-attempt
   semantics. Preserve `score`, `scale`, `level`, `completion`, `timing` and
   `feedbackAvailability` as distinct fields;
@@ -2303,6 +2310,19 @@ Markdown checkpoint, then commit and push before starting the next slice. The
 user performs interim visual review. Codex browser QA and the full regression
 suite are consolidated into 13H before Phase 13 closure, not repeated after
 every slice.
+
+Active 13C2 validation override (user direction, 2026-07-15): individual issues
+are implementation units, but all approved 13C2 work is one validation unit.
+Do not run tests, compile/build or lint after each issue. Finish all code, review
+the complete diff and reach `READY_FOR_PHASE_VALIDATION`; then run exactly one
+consolidated sequence consisting of `git diff --check`, changed-JavaScript syntax
+checks, one JDK 17 compile and the smallest focused test set covering the phase.
+Integration tests are included only for changed integration boundaries. A
+failed validation is handled as analyze-all -> one grouped fix pass -> one rerun.
+This protocol was followed. The final correction cycle passed on 2026-07-15:
+six changed-script syntax checks, JDK 17 compile and the 247-test focused phase
+command were green with zero failures, errors or skips. Full-suite and browser
+QA remain routed to 13H.
 
 Result states must not collapse distinct conditions. At minimum render
 `not_answered`, `not_qualified`, `capture_failed` and `graded` separately, and
@@ -2630,30 +2650,27 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-14 | Phase 13B/13C Canonical Speaking Delivery Foundation | IN_PROGRESS_CORRECTION_ROUTE_GATE_GREEN | IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN | working tree | 3d5b944 | JDK 17 focused codec, normalization, validator, preview and immutable snapshot gate: 28/28; Excel template/preview/import gate: 4/4; zero failures/errors. No full suite, browser QA or provider call. | Added typed `question_content_json.speakingDelivery` with prompt audio reference, replay limit, preparation seconds and response seconds. Legacy top-level fields normalize into this object; new Speaking publication fails closed without prompt audio or valid limits; immutable question versions preserve the JSON exactly. Excel v2 now captures per-question prompt audio plus replay/preparation/response values into the same contract. No new timing or policy table was created. | Keep 13B open for full-screen microphone preflight. Continue 13C authoring/teacher-preview parity, dedicated player state machine, mandatory private recording upload, auto-next and discard-on-interrupt before staging. |
 | 2026-07-14 | Phase 13C Route Performance and Catalog Integrity Checkpoint | IN_PROGRESS_CANONICAL_DELIVERY_GATE_GREEN | IN_PROGRESS_ROUTE_PERFORMANCE_FIXED | working tree | 3d5b944 | JDK 17 compile is green after implementation. Focused tests and final route/static audit are still pending before staging. No full suite, browser QA or provider call. | Addressed direct 13C entry-path regressions: non-Speaking attempt player now uses one `AttemptPlayerView` and one immutable snapshot instead of full live-set reload plus duplicate snapshot loads; progress analytics are bounded to the latest 100 non-discarded attempts; catalog rows are de-duplicated before rendering; first publish stores `draft.publishedSetId` to prevent same-draft duplicate sets; `practice_sections(set_id, skill)` index supports skill-filtered catalog lookup. Also fixed audited `th:classappend` quote bugs in set/test detail templates and the invalid duplicate gradient in `practice-index.css`. | Run focused performance/catalog/publisher/player tests and static dead-route scans next. Keep Speaking media reviewer playback as future review/result debt, because it does not block 13C learner state-machine delivery. Continue dedicated `player-speaking` orchestration before commit/push. |
 | 2026-07-15 | Phase 13C Temporary Continuation Checkpoint | IN_PROGRESS_ROUTE_PERFORMANCE_FIXED | TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE | working tree | 3d5b944 | Documentation/status checkpoint requested by user before final 13C gate. `git diff --check` passed; changed JavaScript syntax checks passed for `player-speaking.js`, `speaking-preflight.js`, `practice-test-detail.js`, `manage-authoring-contract.js` and `manage-draft-preview.js`; JDK 17 `mvn -DskipTests compile` passed at 2026-07-15 00:43 Asia/Ho_Chi_Minh. Static scans found no remaining broad attempt-player loads or bad `th:classappend` quoting after the route-performance/template/CSS patch. Focused tests must still be rerun before closure. No full suite, browser QA or provider call. | Current working tree contains full-screen Speaking preflight, canonical `question_content_json.speakingDelivery`, teacher authoring/preview parity, dedicated `player-speaking` assets, mandatory prompt-audio/recording direction, route-performance fixes, catalog de-duplication and first-publish duplicate-set prevention. This is a temporary GitHub safety checkpoint, not a green phase gate. | Next agent must read `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 7 first, rerun focused JDK 17 tests/static audits, fix only 13B/13C regressions, then update docs with exact evidence before marking 13C green. Do not reopen program/certificate governance or broad permission work unless it directly blocks learner Speaking delivery. |
+| 2026-07-15 | Phase 13C2 Skill Player, Media and Editor Corrections | TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE | COMPLETE_FOCUSED_PHASE_GATE_GREEN | this commit | 3d5b944 | Final correction-cycle evidence: `git diff --check` passed; `node --check` passed for `manage-authoring-contract.js`, `manage-draft-preview.js`, `player-speaking.js`, `speaking-preflight.js`, `listening-preflight.js` and `player-exam.js`; JDK 17 `env JAVA_HOME=/opt/homebrew/opt/openjdk@17 PATH=/opt/homebrew/opt/openjdk@17/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash mvnw -DskipTests compile` passed; the exact focused selector recorded in `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 6.6 passed 247/247 with zero failures/errors/skips, including two route/session integration journeys on local MySQL/Flyway V27. No full suite, browser QA or provider call. | Implements controlled invalid-Speaking recovery, local microphone sample recording, immutable Listening speaker preflight, structured media propagation, governed canonical editor round-trips, upload target race protection, governed image-aware AI across R/L/W/S, dedicated Writing, adaptive Reading, exam note/highlight controls, fill-blank token parity and skill-native lecturer preview. | User approved stage/commit/push. After this commit is pushed, wait for a separate GO before 13D. Keep full-suite and browser/device/responsive/a11y closure in 13H; do not call overall Phase 13 closed. |
 
 ## Current Required Next Action
 
 Current next action:
 
-Current required next action: this branch contains a temporary 13C safety
-checkpoint, not a closed phase. Start by reading
-`docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 7, then rerun the
-focused performance/catalog/publisher/player tests plus static dead-route and
-changed-JS audits. Verify the dedicated `player-speaking` state machine:
-mandatory private audio upload, automatic next-question transition,
-discard-on-interrupt behavior and final submit. Do not combine Listening /
-Reading / Writing / Speaking into one attempt and do not continue 12H generic
-certificate/skill/task governance. Browser/product QA is consolidated into
-mandatory 13H closure unless the user explicitly requests otherwise.
+Current required next action: 13C2 completed Step 8/8 and is
+`COMPLETE_FOCUSED_PHASE_GATE_GREEN`: static checks and JDK 17 compile passed,
+and the focused phase suite passed 247/247 with zero failures/errors/skips.
+The user approved stage/commit/push on 2026-07-15. After this checkpoint is
+pushed, wait for a separate GO before 13D. Browser/product/full-suite QA remains
+consolidated into mandatory 13H closure unless the user explicitly requests
+otherwise.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
 CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
 `PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13A is
-`COMPLETE_FOCUSED_GATE_GREEN` and 13B is
-`TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE`. Live Speaking AI rollout remains
-NO-GO.
+`COMPLETE_FOCUSED_GATE_GREEN`; 13B is `COMPLETE_FOCUSED_GATE_GREEN`; and 13C2
+is `COMPLETE_FOCUSED_PHASE_GATE_GREEN`. Live Speaking AI rollout remains NO-GO.
 React modernization remains
 future-only after Phase 16. Do not perform broad UI/React modernization.
 

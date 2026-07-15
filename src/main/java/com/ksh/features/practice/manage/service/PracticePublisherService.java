@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class PracticePublisherService {
@@ -267,6 +268,7 @@ public class PracticePublisherService {
                         sectionDisplayOrder
                 );
                 section.setTestId(targetTest.getId());
+                section.setDeliveryJson(sectionDeliveryJson(sNode));
                 PracticeSection savedSection = sectionRepository.save(section);
 
                 boolean writingSection = "WRITING".equalsIgnoreCase(
@@ -288,10 +290,6 @@ public class PracticePublisherService {
                         }
 
                         String instruction = gNode.path("instruction").asText("");
-                        String gImgUrl = gNode.path("imageUrl").asText("");
-                        if (gImgUrl != null && !gImgUrl.isBlank()) {
-                            instruction = "![image](" + gImgUrl + ")\n" + instruction;
-                        }
 
                         // Compute questionFrom/questionTo based on the actual section-local counter
                         int groupQuestionCount = 0;
@@ -354,10 +352,6 @@ public class PracticePublisherService {
                                 String dbType = canonicalType.name();
 
                                 String qPrompt = qNode.path("prompt").asText("");
-                                String qImgUrl = qNode.path("imageUrl").asText("");
-                                if (qImgUrl != null && !qImgUrl.isBlank()) {
-                                    qPrompt = "![image](" + qImgUrl + ")\n" + qPrompt;
-                                }
 
                                 WritingTaskType writingTaskType = resolveWritingTaskTypeForPublish(
                                         sNode.path("skill").asText("READING"),
@@ -534,6 +528,7 @@ public class PracticePublisherService {
                 secMap.put("lessonCode", lessonCode(sec.getSkill(), testNo, sec.getSectionType()));
                 secMap.put("durationMinutes", sec.getDurationMinutes());
                 secMap.put("totalPoints", sec.getTotalPoints());
+                putJsonField(secMap, "sectionDelivery", sec.getDeliveryJson());
 
                 List<java.util.Map<String, Object>> groupsList = new java.util.ArrayList<>();
                 List<PracticeQuestionGroup> groups = groupRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -693,10 +688,33 @@ public class PracticePublisherService {
                                                    CanonicalQuestionType type,
                                                    String legacyOptionsJson) {
         JsonNode typedContent = question.get("questionContent");
+        QuestionContent content;
         if (typedContent != null && typedContent.isObject()) {
-            return assessmentContractCodec.readQuestionContent(typedContent.toString(), type);
+            content = assessmentContractCodec.readQuestionContent(typedContent.toString(), type);
+        } else {
+            content = assessmentContractCodec.adaptLegacyContent(legacyOptionsJson, type.name());
         }
-        return assessmentContractCodec.adaptLegacyContent(legacyOptionsJson, type.name());
+        return withQuestionMediaFallbacks(content, question);
+    }
+
+    private QuestionContent withQuestionMediaFallbacks(QuestionContent content, JsonNode question) {
+        String imageReference = firstNonBlank(
+                content.imageReference(),
+                question.path("imageUrl").asText(""));
+        String audioReference = firstNonBlank(
+                content.audioReference(),
+                question.path("audioUrl").asText(""));
+        if (Objects.equals(imageReference, content.imageReference())
+                && Objects.equals(audioReference, content.audioReference())) {
+            return content;
+        }
+        return new QuestionContent(
+                content.schemaVersion(),
+                content.options(),
+                content.blanks(),
+                blankToNull(imageReference),
+                blankToNull(audioReference),
+                content.speakingDelivery());
     }
 
     private AnswerSpec resolveAnswerSpec(JsonNode question,
@@ -768,6 +786,9 @@ public class PracticePublisherService {
         group.setStimulusType(type);
         group.setPassageText(blankToNull(passage));
         group.setTranscriptText(blankToNull(transcript));
+        group.setAudioUrl(blankToNull(firstNonBlank(
+                stimulus.path("mediaReference").asText(""),
+                groupNode.path("audioUrl").asText(""))));
         group.setImageUrl(blankToNull(firstNonBlank(
                 stimulus.path("imageReference").asText(""),
                 groupNode.path("imageUrl").asText(""))));
@@ -787,6 +808,16 @@ public class PracticePublisherService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private String sectionDeliveryJson(JsonNode section) {
+        JsonNode delivery = section.path("sectionDelivery");
+        if (!delivery.isObject()) return null;
+        try {
+            return objectMapper.writeValueAsString(delivery);
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Cấu hình phát nội dung của section không hợp lệ.", exception);
+        }
     }
 
     private WritingTaskType resolveWritingTaskTypeForPublish(String skill, String questionType, JsonNode question) {

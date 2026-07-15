@@ -21,8 +21,11 @@ public final class PracticeRoutes {
     public static final String CREATE_ATTEMPT = "/sets/{setId}/tests/{testId}/attempts";
     public static final String SPEAKING_PREFLIGHT =
             "/sets/{setId}/tests/{testId}/sections/{sectionId}/speaking-check";
+    public static final String LISTENING_PREFLIGHT =
+            "/sets/{setId}/tests/{testId}/sections/{sectionId}/listening-check";
     public static final String ATTEMPT = "/attempts/{attemptId}";
     public static final String ATTEMPT_SPEAKING_PREFLIGHT = "/attempts/{attemptId}/speaking-check";
+    public static final String ATTEMPT_LISTENING_PREFLIGHT = "/attempts/{attemptId}/listening-check";
     public static final String ATTEMPT_SUBMIT = "/attempts/{attemptId}/submit";
     public static final String ATTEMPT_DISCARD = "/attempts/{attemptId}/discard";
     public static final String ATTEMPT_INTERRUPT = "/attempts/{attemptId}/interrupt";
@@ -72,6 +75,14 @@ public final class PracticeRoutes {
         return attemptPath(attemptId) + "/speaking-check";
     }
 
+    public static String listeningPreflightPath(Long setId, Long testId, Long sectionId) {
+        return testDetailPath(setId, testId) + "/sections/" + sectionId + "/listening-check";
+    }
+
+    public static String attemptListeningPreflightPath(Long attemptId) {
+        return attemptPath(attemptId) + "/listening-check";
+    }
+
     public static String resultPath(Long attemptId) {
         return attemptPath(attemptId) + "/result";
     }
@@ -105,6 +116,14 @@ public final class PracticeRoutes {
 
     public static String redirectToAttemptSpeakingPreflight(Long attemptId) {
         return redirect(attemptSpeakingPreflightPath(attemptId));
+    }
+
+    public static String redirectToListeningPreflight(Long setId, Long testId, Long sectionId) {
+        return redirect(listeningPreflightPath(setId, testId, sectionId));
+    }
+
+    public static String redirectToAttemptListeningPreflight(Long attemptId) {
+        return redirect(attemptListeningPreflightPath(attemptId));
     }
 
     public static String redirectToResult(Long attemptId) {

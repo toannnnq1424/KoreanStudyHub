@@ -3,6 +3,7 @@
 
   const CONTENT_SCHEMA = 'question-content-v1';
   const ANSWER_SCHEMA = 'answer-spec-v1';
+  const SECTION_DELIVERY_SCHEMA = 'practice-section-delivery-v1';
 
   function template(catalog, code) {
     const templates = catalog && Array.isArray(catalog.templates) ? catalog.templates : [];
@@ -43,9 +44,16 @@
     const q = question && typeof question === 'object' ? question : {};
     if (q.questionType === 'GAP_FILL') q.questionType = 'FILL_BLANK';
     if (q.questionType === 'MCQ') q.questionType = 'SINGLE_CHOICE';
-    q.options = Array.isArray(q.options) ? q.options.map(option => normalizeOption(option, makeId)) : [];
-
-    const delivery = q.questionContent && q.questionContent.speakingDelivery;
+    const canonicalContent = q.questionContent && typeof q.questionContent === 'object'
+      ? q.questionContent
+      : {};
+    const sourceOptions = Array.isArray(q.options) && q.options.length > 0
+      ? q.options
+      : (Array.isArray(canonicalContent.options) ? canonicalContent.options : []);
+    q.options = sourceOptions.map(option => normalizeOption(option, makeId));
+    q.imageUrl = q.imageUrl || canonicalContent.imageReference || '';
+    q.audioUrl = q.audioUrl || canonicalContent.audioReference || '';
+    const delivery = canonicalContent.speakingDelivery;
     if (delivery && typeof delivery === 'object') {
       q.speakingPromptAudioUrl = delivery.promptAudioReference || q.speakingPromptAudioUrl || q.audioUrl || '';
       q.speakingPromptPlayLimit = positiveInteger(delivery.promptPlayLimit, 1);
@@ -54,15 +62,54 @@
     }
 
     if (q.questionType === 'FILL_BLANK' && (!Array.isArray(q.fillBlanks) || q.fillBlanks.length === 0)) {
-      const legacy = String((q.answer && q.answer.value) || q.answerKey || '').trim();
-      q.fillBlanks = [{
-        id: makeId('blank'),
-        prompt: '',
-        acceptedValues: legacy ? [legacy] : []
-      }];
+      const canonicalBlanks = Array.isArray(canonicalContent.blanks) ? canonicalContent.blanks : [];
+      const canonicalAnswers = q.answerSpec && Array.isArray(q.answerSpec.blanks)
+        ? q.answerSpec.blanks
+        : [];
+      if (canonicalBlanks.length > 0) {
+        q.fillBlanks = canonicalBlanks.map(blank => {
+          const answer = canonicalAnswers.find(candidate => candidate.blankId === blank.id);
+          return {
+            id: blank.id || makeId('blank'),
+            prompt: blank.prompt || '',
+            acceptedValues: answer && Array.isArray(answer.acceptedValues)
+              ? Array.from(answer.acceptedValues)
+              : []
+          };
+        });
+      } else {
+        const legacy = String((q.answer && q.answer.value) || q.answerKey || '').trim();
+        q.fillBlanks = [{
+          id: makeId('blank'),
+          prompt: '',
+          acceptedValues: legacy ? [legacy] : []
+        }];
+      }
     }
     syncQuestionContract(q);
     return q;
+  }
+
+  function syncSectionContract(section) {
+    const sec = section && typeof section === 'object' ? section : {};
+    const previous = sec.sectionDelivery && typeof sec.sectionDelivery === 'object'
+      ? sec.sectionDelivery
+      : {};
+    const previousListening = previous.listeningDelivery && typeof previous.listeningDelivery === 'object'
+      ? previous.listeningDelivery
+      : {};
+    const delivery = { schemaVersion: SECTION_DELIVERY_SCHEMA };
+    if (sec.skill === 'LISTENING') {
+      const checkAudioReference = sec.listeningCheckAudioUrl !== undefined
+        ? (sec.listeningCheckAudioUrl || null)
+        : (previousListening.checkAudioReference || null);
+      delivery.listeningDelivery = { checkAudioReference };
+      sec.listeningCheckAudioUrl = checkAudioReference || '';
+    } else {
+      delete sec.listeningCheckAudioUrl;
+    }
+    sec.sectionDelivery = delivery;
+    return sec;
   }
 
   function syncQuestionContract(q) {
@@ -96,9 +143,21 @@
         .split(',')
         .map(value => Number.parseInt(value.trim(), 10) - 1)
         .filter(index => Number.isInteger(index) && index >= 0 && index < content.options.length);
-      answer.correctOptionIds = selectedIndexes.map(index => content.options[index].id);
+      answer.correctOptionIds = selectedIndexes.length > 0
+        ? selectedIndexes.map(index => content.options[index].id)
+        : (Array.isArray(previousSpec.correctOptionIds)
+          ? previousSpec.correctOptionIds.filter(id => content.options.some(option => option.id === id))
+          : []);
+      const correctIndex = content.options.findIndex(option => answer.correctOptionIds.includes(option.id));
+      const legacyValue = correctIndex >= 0 ? String(correctIndex + 1) : '';
+      q.answer = { type: 'SINGLE', value: legacyValue };
+      q.answerKey = legacyValue;
     } else if (type === 'TRUE_FALSE_NOT_GIVEN') {
-      answer.correctValue = String((q.answer && q.answer.value) || q.answerKey || '').trim() || null;
+      answer.correctValue = String(
+        (q.answer && q.answer.value) || q.answerKey || previousSpec.correctValue || ''
+      ).trim() || null;
+      q.answer = { type: 'TFNG', value: answer.correctValue || '' };
+      q.answerKey = answer.correctValue || '';
     } else if (type === 'FILL_BLANK') {
       const blanks = Array.isArray(q.fillBlanks) ? q.fillBlanks : [];
       content.blanks = blanks.map(blank => ({ id: blank.id, prompt: blank.prompt || '' }));
@@ -111,8 +170,12 @@
       q.answerKey = firstValue;
     }
 
-    content.imageReference = q.imageUrl || content.imageReference || null;
-    content.audioReference = q.audioUrl || content.audioReference || null;
+    content.imageReference = q.imageUrl !== undefined
+      ? (q.imageUrl || null)
+      : (previousContent.imageReference || null);
+    content.audioReference = q.audioUrl !== undefined
+      ? (q.audioUrl || null)
+      : (previousContent.audioReference || null);
     if (type === 'SPEAKING') {
       const promptAudioReference = q.speakingPromptAudioUrl
         || previousDelivery.promptAudioReference
@@ -170,6 +233,7 @@
     allowedSkills,
     skillPolicy,
     questionPolicy,
+    syncSectionContract,
     normalizeQuestion,
     syncQuestionContract,
     applyTemplateMetadata

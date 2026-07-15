@@ -3,6 +3,7 @@ package com.ksh.features.practice.ai.readinglistening;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentSkill;
 import com.ksh.features.practice.assessment.AssessmentStimulus;
@@ -30,11 +31,33 @@ class ReadingListeningTypedClientContractTest {
         ReadingListeningExplanationClient client = client();
         ExplanationContext context = singleChoiceContext();
 
-        String payload = ReflectionTestUtils.invokeMethod(client, "typedUserPayload", context);
+        String payload = ReflectionTestUtils.invokeMethod(client, "typedUserPayload", context, null);
 
         assertThat(payload)
                 .contains("answerSpec", "evidenceText")
                 .doesNotContain("learnerAnswer", "selectedOptionIds", "private-audio-reference");
+    }
+
+    @Test
+    void visualEvidenceIsAcceptedWithImageAndMarkerIsRemovedForDisplay() throws Exception {
+        ReadingListeningExplanationClient client = client();
+        AiImageEvidence image = new AiImageEvidence(
+                7L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
+        String providerJson = """
+                {"meaningVi":"m","evidenceQuote":"[IMAGE] Biểu đồ tăng từ 10 lên 20",\
+                "correctReasonVi":"r","relatedTranslationVi":"t","eliminatedOptions":[]}
+                """;
+
+        String cleaned = client.cleanAndValidateJson(providerJson, singleChoiceContext(), image);
+
+        assertThat(objectMapper.readTree(cleaned).path("evidenceQuote").asText())
+                .isEqualTo("Biểu đồ tăng từ 10 lên 20");
+        assertThat(client.cleanAndValidateJson(providerJson, singleChoiceContext(), null)).isNull();
+    }
+
+    @Test
+    void promptVersionChangesForMultimodalEvidenceContract() {
+        assertThat(client().promptVersion()).isEqualTo("v5");
     }
 
     @Test

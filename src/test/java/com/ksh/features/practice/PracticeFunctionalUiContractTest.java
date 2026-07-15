@@ -15,7 +15,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PracticeFunctionalUiContractTest {
     private static final Path PRACTICE_TEMPLATES = Path.of("src/main/resources/templates/practice");
-    private static final Path PRACTICE_JS = Path.of("src/main/resources/static/js/practice.js");
     private static final Path PRACTICE_CATALOG_JS =
             Path.of("src/main/resources/static/js/practice/practice-catalog.js");
     private static final Path PRACTICE_CATALOG_CSS =
@@ -36,6 +35,14 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/js/practice/practice-test-detail.js");
     private static final Path PRACTICE_DETAIL_CSS =
             Path.of("src/main/resources/static/css/practice-detail.css");
+    private static final Path SPEAKING_PREFLIGHT_JS =
+            Path.of("src/main/resources/static/js/practice/speaking-preflight.js");
+    private static final Path SPEAKING_PREFLIGHT_CSS =
+            Path.of("src/main/resources/static/css/practice/speaking-preflight.css");
+    private static final Path LISTENING_PREFLIGHT_JS =
+            Path.of("src/main/resources/static/js/practice/listening-preflight.js");
+    private static final Path EXAM_PLAYER_JS =
+            Path.of("src/main/resources/static/js/practice/player-exam.js");
     private static final Path PRACTICE_ROUTES =
             Path.of("src/main/java/com/ksh/features/practice/web/PracticeRoutes.java");
 
@@ -55,27 +62,72 @@ class PracticeFunctionalUiContractTest {
     @Test
     void speakingPreflightChecksOutputMicrophonePermissionAndPrivateUploadReadiness() throws IOException {
         String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
-        String detailJs = Files.readString(PRACTICE_TEST_DETAIL_JS);
-        String detailCss = Files.readString(PRACTICE_DETAIL_CSS);
+        String preflight = Files.readString(PRACTICE_TEMPLATES.resolve("speaking-preflight.html"));
+        String preflightJs = Files.readString(SPEAKING_PREFLIGHT_JS);
+        String preflightCss = Files.readString(SPEAKING_PREFLIGHT_CSS);
 
         assertThat(testDetail).contains(
-                "data-speaking-preflight=${card.skill() == 'SPEAKING'}",
-                "id=\"speaking-preflight\"",
+                "card.skill() == 'SPEAKING'",
+                "/speaking-check",
+                "Kiểm tra thiết bị để bắt đầu",
+                "Kiểm tra micro để tiếp tục");
+        assertThat(preflight).contains(
                 "data-upload-enabled=${speakingMediaUploadEnabled}",
                 "data-test-speaker",
-                "data-speaker-confirm",
-                "data-test-microphone",
-                "Âm thử và tín hiệu micro chỉ dùng để kiểm tra thiết bị, không được lưu thành bài làm.");
-        assertThat(detailJs).contains(
+                "data-record-sample",
+                "data-record-label",
+                "data-heard-confirm",
+                "data-start-speaking",
+                "data-service-notice",
+                "Mẫu ghi âm chỉ dùng để kiểm tra trên thiết bị này và không được tải lên KSH.");
+        int uploadDisabledBranchStart = preflightJs.indexOf("} else if (!uploadEnabled) {");
+        int uploadDisabledBranchEnd = preflightJs.indexOf("} else {", uploadDisabledBranchStart);
+        assertThat(uploadDisabledBranchStart).isGreaterThanOrEqualTo(0);
+        assertThat(uploadDisabledBranchEnd).isGreaterThan(uploadDisabledBranchStart);
+        assertThat(preflightJs.substring(uploadDisabledBranchStart, uploadDisabledBranchEnd))
+                .contains("Bạn vẫn có thể phát âm thử và ghi âm mẫu trên thiết bị này.")
+                .doesNotContain("recordButton.disabled = true");
+        assertThat(preflightJs).contains(
                 "window.MediaRecorder",
                 "navigator.mediaDevices.getUserMedia",
                 "window.AudioContext || window.webkitAudioContext",
                 "gain.connect(context.destination)",
-                "track.readyState !== \"live\"",
-                "activeStream.getTracks().forEach",
-                "action.form.requestSubmit()");
-        assertThat(detailJs).doesNotContain("fetch(\"http", "fetch('http");
-        assertThat(detailCss).contains(".pd-preflight", ".pd-device-checks", ".pd-mic-meter");
+                "stream.getTracks().forEach",
+                "blob.size > 0",
+                "Dịch vụ lưu bản ghi Speaking đang tắt");
+        assertThat(preflightJs).doesNotContain("fetch(\"http", "fetch('http");
+        assertThat(preflightCss).contains(".spc-page", ".spc-panel", ".spc-meter", ".spc-mascot");
+    }
+
+    @Test
+    void listeningPreflightRequiresFullPlaybackAndExplicitSpeakerConfirmation() throws IOException {
+        String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
+        String preflight = Files.readString(PRACTICE_TEMPLATES.resolve("listening-preflight.html"));
+        String preflightJs = Files.readString(LISTENING_PREFLIGHT_JS);
+        String editor = Files.readString(PRACTICE_TEMPLATES.resolve("manage/editor.html"));
+
+        assertThat(preflight).contains(
+                "listeningCheckAudioReference",
+                "data-confirm disabled",
+                "data-continue disabled",
+                "aria-disabled=\"true\"",
+                "Bắt đầu phần Nghe");
+        assertThat(testDetail).contains(
+                "card.skill() == 'LISTENING'",
+                "/listening-check",
+                "Kiểm tra loa để bắt đầu",
+                "Kiểm tra loa để tiếp tục");
+        assertThat(preflightJs).contains(
+                "audio.addEventListener('ended'",
+                "completed = true",
+                "!completed || !Number.isFinite(audio.duration)",
+                "submit.disabled = !(completed && confirm.checked)",
+                "['ArrowLeft', 'ArrowRight', 'Home', 'End']");
+        assertThat(editor).contains(
+                "listening-check-audio-area",
+                "handleListeningCheckAudioSelect",
+                "syncSectionContract(section)",
+                "Audio thử loa trước phần Nghe");
     }
 
     @Test
@@ -144,13 +196,45 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
-    void playerQuestionBlockSelectorMatchesPracticeJavascript() throws IOException {
+    void dedicatedExamPlayersShareNavigationSafetyAndAdaptiveReadingContracts() throws IOException {
         String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
-        String js = Files.readString(PRACTICE_JS);
+        String writingPlayer = Files.readString(PRACTICE_TEMPLATES.resolve("player-writing.html"));
+        String js = Files.readString(EXAM_PLAYER_JS);
 
-        assertThat(player).contains("ksh-question-block");
-        assertThat(js).contains("querySelectorAll('.ksh-question-block')");
-        assertThat(js).doesNotContain("querySelectorAll('.ksh-question-card')");
+        assertThat(player).contains(
+                "data-question-stage",
+                "data-has-source",
+                "data-long-source",
+                "data-exit-link",
+                "data-selection-highlight",
+                "data-selection-note");
+        assertThat(writingPlayer).contains(
+                "player-writing.css",
+                "data-question-stage",
+                "data-writing-answer",
+                "data-exit-link");
+        assertThat(js).contains(
+                "[data-question-stage]",
+                "layout-focus",
+                "layout-stacked",
+                "layout-split",
+                "configured <= 0",
+                "[data-exit-link]",
+                "'contextmenu', 'copy', 'cut', 'paste'",
+                "startRegion === endRegion");
+    }
+
+    @Test
+    void playerRendersPublishedMediaReferencesFromAuthoring() throws IOException {
+        String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
+
+        assertThat(player).contains(
+                "g.imageUrl()",
+                "g.passageText()",
+                "q.imageReference()",
+                "q.audioReference()",
+                "q.optionRows()",
+                "option.imageReference()");
     }
 
     @Test

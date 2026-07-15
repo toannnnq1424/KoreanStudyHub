@@ -9,7 +9,7 @@
                data-interrupt-url=${speakingInterruptAction},
                data-return-url=${returnUrl},
                data-upload-enabled=${speakingMediaUploadEnabled}">
-  <script id="spp-delivery" type="application/json" th:text="${speakingDeliveryJson}"></script>
+  <script id="spp-delivery" type="application/json" th:utext="${speakingDeliveryJson}"></script>
 
   <header class="spp-header">
     <button class="spp-icon-button" type="button" data-exit aria-label="Thoát phần Speaking">
@@ -30,6 +30,9 @@
 
     <article class="spp-prompt" data-prompt-card hidden>
       <p data-prompt-text></p>
+      <figure class="spp-prompt-media" data-prompt-media hidden>
+        <img data-prompt-image alt="Ảnh minh họa câu hỏi Speaking">
+      </figure>
     </article>
 
     <div class="spp-state-panel">

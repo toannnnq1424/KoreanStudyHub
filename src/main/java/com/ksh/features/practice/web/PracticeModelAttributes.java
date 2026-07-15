@@ -26,6 +26,8 @@ public final class PracticeModelAttributes {
     public static final String SPEAKING_MEDIA_UPLOAD_ENABLED = "speakingMediaUploadEnabled";
     public static final String SPEAKING_DELIVERY_JSON = "speakingDeliveryJson";
     public static final String SPEAKING_PREFLIGHT_ACTION = "speakingPreflightAction";
+    public static final String LISTENING_PREFLIGHT_ACTION = "listeningPreflightAction";
+    public static final String LISTENING_CHECK_AUDIO_REFERENCE = "listeningCheckAudioReference";
     public static final String SPEAKING_INTERRUPT_ACTION = "speakingInterruptAction";
     public static final String RETURN_URL = "returnUrl";
     public static final String SET_ID = "setId";

@@ -35,10 +35,12 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.PracticeSectionDelivery;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerExplanationRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAnswerReviewRow;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionOptionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
@@ -88,6 +90,8 @@ import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 
@@ -100,6 +104,10 @@ public class PracticeService {
     private static final String SPEAKING_MIXED_CONTRACT_FIELD = "_contract";
     private static final String SPEAKING_MIXED_SPEAKING_FIELD = "speaking_feedback_by_question";
     private static final String SPEAKING_MIXED_ESSAY_FIELD = "essay_feedback_by_question";
+    private static final Pattern MARKDOWN_IMAGE_PATTERN =
+            Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
+    private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
+            Pattern.compile("^/practice/materials/[1-9][0-9]*/content$");
 
     private final PracticeSetRepository setRepository;
     private final PracticeQuestionRepository questionRepository;
@@ -1360,15 +1368,26 @@ public class PracticeService {
     }
 
     private PracticeQuestionRow toQuestionRow(PracticeQuestion question) {
+        QuestionContent content = questionContentForDisplay(
+                question.getQuestionContentJson(), question.getOptionsJson(), question.getQuestionType());
+        String imageReference = firstNonBlank(
+                safeInternalMaterialReference(content == null ? null : content.imageReference()),
+                firstMarkdownImageReference(question.getPrompt()));
+        String audioReference = safeInternalMaterialReference(
+                content == null ? null : content.audioReference());
         return new PracticeQuestionRow(
                 question.getId(),
                 question.getQuestionNo(),
                 question.getQuestionType(),
-                question.getPrompt(),
+                stripMarkdownImages(question.getPrompt()),
                 readOptions(question.getOptionsJson()),
                 question.getAnswerKey(),
                 question.getExplanation(),
-                groupLabel(question.getQuestionNo())
+                groupLabel(question.getQuestionNo()),
+                blankToNull(imageReference),
+                blankToNull(audioReference),
+                optionRows(content, readOptions(question.getOptionsJson())),
+                blankRows(content)
         );
     }
 
@@ -1387,13 +1406,13 @@ public class PracticeService {
                 g.getGroupLabel(),
                 g.getQuestionFrom(),
                 g.getQuestionTo(),
-                g.getInstruction(),
+                stripMarkdownImages(g.getInstruction()),
                 g.getStimulusType(),
                 g.getPassageText(),
                 g.getTranscriptText(),
-                g.getImageUrl(),
+                groupImageReference(g.getImageUrl(), g.getInstruction()),
                 g.getStimulusProvenanceJson(),
-                g.getAudioUrl(),
+                blankToNull(safeInternalMaterialReference(g.getAudioUrl())),
                 exampleBox,
                 questions
         );
@@ -1448,13 +1467,13 @@ public class PracticeService {
                     group.getGroupLabel(),
                     group.getQuestionFrom(),
                     group.getQuestionTo(),
-                    group.getInstruction(),
+                    stripMarkdownImages(group.getInstruction()),
                     group.getStimulusType(),
                     group.getPassageText(),
                     group.getTranscriptText(),
-                    group.getImageUrl(),
+                    groupImageReference(group.getImageUrl(), group.getInstruction()),
                     group.getStimulusProvenanceJson(),
-                    group.getAudioUrl(),
+                    blankToNull(safeInternalMaterialReference(group.getAudioUrl())),
                     exampleBox,
                     questionRows
             ));
@@ -1569,6 +1588,88 @@ public class PracticeService {
     }
 
     @Transactional(readOnly = true)
+    public ListeningPreflightDelivery getListeningPreflightDelivery(
+            Long setId, Long testId, Long sectionId) {
+        PracticeSection section = sectionRepository.findById(sectionId)
+                .orElseThrow(() -> new EntityNotFoundException("Phần Listening không tồn tại."));
+        if (!Objects.equals(setId, section.getSetId())
+                || !Objects.equals(testId, section.getTestId())
+                || !"LISTENING".equals(section.getSkill())) {
+            throw new IllegalArgumentException("Phần thi không thuộc Listening đã chọn.");
+        }
+        String reference = listeningCheckAudioReference(
+                section.getDeliveryJson(),
+                groupRepository.findBySectionIdOrderByDisplayOrderAsc(sectionId).stream()
+                        .map(PracticeQuestionGroup::getAudioUrl)
+                        .filter(value -> value != null && !value.isBlank())
+                        .findFirst()
+                        .orElse(null));
+        return new ListeningPreflightDelivery(setId, testId, sectionId, section.getTitle(), reference);
+    }
+
+    @Transactional(readOnly = true)
+    public ListeningPreflightDelivery getAttemptListeningPreflightDelivery(Long attemptId, Long userId) {
+        PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new IllegalStateException("Lượt Listening đã kết thúc.");
+        }
+        if (!"LISTENING".equals(attempt.getSkill())) {
+            throw new IllegalArgumentException("Lượt làm bài không thuộc kỹ năng Listening.");
+        }
+        PracticeVersionSnapshot snapshot = versionSnapshot(attempt)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Listening attempt is missing an immutable delivery version."));
+        validateAttemptSnapshot(attempt, snapshot);
+        String reference = listeningCheckAudioReference(
+                snapshot.sectionVersion().getDeliveryJson(),
+                snapshot.groups().stream()
+                        .map(PracticeQuestionGroupVersion::getAudioUrl)
+                        .filter(value -> value != null && !value.isBlank())
+                        .findFirst()
+                        .orElse(null));
+        return new ListeningPreflightDelivery(
+                attempt.getSetId(),
+                attempt.getTestId(),
+                attempt.getSectionId(),
+                snapshot.sectionVersion().getTitle(),
+                reference);
+    }
+
+    private String listeningCheckAudioReference(String deliveryJson, String legacyFallback) {
+        String canonicalReference = null;
+        if (deliveryJson != null && !deliveryJson.isBlank()) {
+            try {
+                PracticeSectionDelivery delivery = objectMapper.readValue(
+                        deliveryJson, PracticeSectionDelivery.class);
+                if (PracticeSectionDelivery.SCHEMA_VERSION.equals(delivery.schemaVersion())
+                        && delivery.listeningDelivery() != null) {
+                    canonicalReference = delivery.listeningDelivery().checkAudioReference();
+                }
+            } catch (Exception exception) {
+                log.warn("[PracticeService] Invalid Listening section delivery reason={}",
+                        exception.getMessage());
+            }
+        }
+        String canonicalSafeReference = safeInternalMaterialReference(canonicalReference);
+        String legacySafeReference = safeInternalMaterialReference(legacyFallback);
+        String reference = firstNonBlank(canonicalSafeReference, legacySafeReference);
+        if (isBlank(reference)) {
+            throw new IllegalStateException(
+                    "Phần Listening chưa có audio thử loa bất biến hợp lệ.");
+        }
+        return reference;
+    }
+
+    public record ListeningPreflightDelivery(
+            Long setId,
+            Long testId,
+            Long sectionId,
+            String sectionTitle,
+            String checkAudioReference
+    ) {
+    }
+
+    @Transactional(readOnly = true)
     public SpeakingPlayerDelivery getSpeakingPlayerDelivery(Long attemptId, Long userId) {
         PracticeAttempt attempt = getPracticeAttempt(attemptId, userId);
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
@@ -1588,10 +1689,9 @@ public class PracticeService {
             throw new IllegalStateException("Speaking attempt delivery version is inconsistent.");
         }
 
-        Map<Long, String> groupLabels = version.groups().stream().collect(Collectors.toMap(
+        Map<Long, PracticeQuestionGroupVersion> groupsById = version.groups().stream().collect(Collectors.toMap(
                 PracticeQuestionGroupVersion::getId,
-                group -> group.getGroupLabel() == null || group.getGroupLabel().isBlank()
-                        ? "Phần nói" : group.getGroupLabel(),
+                group -> group,
                 (left, right) -> left,
                 LinkedHashMap::new));
 
@@ -1605,7 +1705,7 @@ public class PracticeService {
                         .thenComparing(
                                 PracticeQuestionVersion::getId,
                                 Comparator.nullsLast(Long::compareTo)))
-                .map(question -> toSpeakingPlayerQuestion(question, groupLabels))
+                .map(question -> toSpeakingPlayerQuestion(question, groupsById))
                 .toList();
         if (questions.isEmpty()) {
             throw new IllegalStateException("Phần Speaking chưa có câu hỏi hợp lệ.");
@@ -1623,28 +1723,94 @@ public class PracticeService {
     }
 
     private SpeakingPlayerQuestion toSpeakingPlayerQuestion(
-            PracticeQuestionVersion question, Map<Long, String> groupLabels) {
+            PracticeQuestionVersion question,
+            Map<Long, PracticeQuestionGroupVersion> groupsById) {
         if (!PracticeQuestion.TYPE_SPEAKING.equals(question.getQuestionType())) {
             throw new IllegalStateException(
                     "Speaking delivery contains a non-SPEAKING question: " + question.getQuestionId());
         }
-        QuestionContent content = assessmentContractCodec.readQuestionContent(
-                question.getQuestionContentJson(), CanonicalQuestionType.SPEAKING);
+        PracticeQuestionGroupVersion group = groupsById.get(question.getGroupVersionId());
+        QuestionContent content = legacyCompatibleSpeakingContent(question);
         QuestionContent.SpeakingDelivery delivery = content.speakingDelivery();
-        if (delivery == null) {
+        String promptAudioReference = firstNonBlank(
+                safeInternalMaterialReference(delivery == null ? null : delivery.promptAudioReference()),
+                firstNonBlank(
+                        safeInternalMaterialReference(content.audioReference()),
+                        safeInternalMaterialReference(group == null ? null : group.getAudioUrl())));
+        if (isBlank(promptAudioReference)) {
             throw new IllegalStateException(
-                    "Speaking question is missing canonical delivery settings: " + question.getQuestionId());
+                    "Speaking question is missing immutable prompt audio: " + question.getQuestionId());
         }
+        String imageReference = firstNonBlank(
+                safeInternalMaterialReference(content.imageReference()),
+                firstNonBlank(
+                        firstMarkdownImageReference(question.getPrompt()),
+                        group == null ? null : groupImageReference(
+                                group.getImageUrl(), group.getInstruction())));
         return new SpeakingPlayerQuestion(
                 question.getQuestionId(),
                 question.getQuestionNo(),
-                groupLabels.getOrDefault(question.getGroupVersionId(), "Phần nói"),
-                question.getPrompt(),
+                group == null || group.getGroupLabel() == null || group.getGroupLabel().isBlank()
+                        ? "Phần nói" : group.getGroupLabel(),
+                stripMarkdownImages(question.getPrompt()),
                 question.getPoints(),
-                delivery.promptAudioReference(),
-                delivery.promptPlayLimit(),
-                delivery.preparationSeconds(),
-                delivery.responseSeconds());
+                blankToNull(imageReference),
+                promptAudioReference,
+                delivery == null || delivery.promptPlayLimit() == null ? 1 : delivery.promptPlayLimit(),
+                delivery == null || delivery.preparationSeconds() == null ? 30 : delivery.preparationSeconds(),
+                delivery == null || delivery.responseSeconds() == null ? 60 : delivery.responseSeconds());
+    }
+
+    private QuestionContent legacyCompatibleSpeakingContent(PracticeQuestionVersion question) {
+        String json = question.getQuestionContentJson();
+        if (json != null && !json.isBlank()) {
+            try {
+                return assessmentContractCodec.readQuestionContent(json, CanonicalQuestionType.SPEAKING);
+            } catch (IllegalArgumentException exception) {
+                log.warn("[PracticeService] Invalid canonical Speaking content questionId={} versionId={} reason={}",
+                        question.getQuestionId(), question.getId(), exception.getMessage());
+            }
+        }
+        return assessmentContractCodec.adaptLegacyContent(
+                question.getOptionsJson(), PracticeQuestion.TYPE_SPEAKING);
+    }
+
+    private static String firstMarkdownImageReference(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        Matcher matcher = MARKDOWN_IMAGE_PATTERN.matcher(value);
+        return matcher.find() ? safeLegacyMarkdownImageReference(matcher.group(1).trim()) : "";
+    }
+
+    private static String safeLegacyMarkdownImageReference(String reference) {
+        if (reference == null || reference.isBlank()
+                || reference.contains("\n")
+                || reference.contains("\r")) {
+            return "";
+        }
+        return safeInternalMaterialReference(reference);
+    }
+
+    private static String safeInternalMaterialReference(String reference) {
+        if (reference == null || reference.isBlank()) {
+            return "";
+        }
+        String normalized = reference.trim();
+        return MATERIAL_CONTENT_REFERENCE_PATTERN.matcher(normalized).matches() ? normalized : "";
+    }
+
+    private static String stripMarkdownImages(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        return MARKDOWN_IMAGE_PATTERN.matcher(value).replaceAll("").trim();
+    }
+
+    private static String groupImageReference(String imageReference, String instruction) {
+        return blankToNull(firstNonBlank(
+                safeInternalMaterialReference(imageReference),
+                firstMarkdownImageReference(instruction)));
     }
 
     public record SpeakingPlayerDelivery(
@@ -1668,6 +1834,7 @@ public class PracticeService {
             String groupLabel,
             String prompt,
             BigDecimal points,
+            String imageReference,
             String promptAudioReference,
             Integer promptPlayLimit,
             Integer preparationSeconds,
@@ -1676,15 +1843,26 @@ public class PracticeService {
     }
 
     private PracticeQuestionRow toQuestionRow(PracticeQuestionVersion question) {
+        QuestionContent content = questionContentForDisplay(
+                question.getQuestionContentJson(), question.getOptionsJson(), question.getQuestionType());
+        String imageReference = firstNonBlank(
+                safeInternalMaterialReference(content == null ? null : content.imageReference()),
+                firstMarkdownImageReference(question.getPrompt()));
+        String audioReference = safeInternalMaterialReference(
+                content == null ? null : content.audioReference());
         return new PracticeQuestionRow(
                 question.getQuestionId(),
                 question.getQuestionNo(),
                 question.getQuestionType(),
-                question.getPrompt(),
+                stripMarkdownImages(question.getPrompt()),
                 readOptions(question.getOptionsJson()),
                 question.getAnswerKey(),
                 question.getExplanation(),
-                groupLabel(question.getQuestionNo())
+                groupLabel(question.getQuestionNo()),
+                blankToNull(imageReference),
+                blankToNull(audioReference),
+                optionRows(content, readOptions(question.getOptionsJson())),
+                blankRows(content)
         );
     }
 
@@ -1726,6 +1904,61 @@ public class PracticeService {
         } catch (Exception ex) {
             return List.of();
         }
+    }
+
+    private QuestionContent questionContentForDisplay(String questionContentJson,
+                                                      String optionsJson,
+                                                      String questionType) {
+        try {
+            CanonicalQuestionType type = questionTypeResolver.resolve(questionType);
+            return isBlank(questionContentJson)
+                    ? assessmentContractCodec.adaptLegacyContent(optionsJson, questionType)
+                    : assessmentContractCodec.readQuestionContent(questionContentJson, type);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private String questionImageReference(QuestionSnapshot question) {
+        if (question == null) {
+            return null;
+        }
+        QuestionContent content = questionContentForDisplay(
+                question.questionContentJson(), question.optionsJson(), question.questionType());
+        String canonicalReference = content == null ? null : content.imageReference();
+        return blankToNull(firstNonBlank(
+                safeInternalMaterialReference(canonicalReference),
+                firstMarkdownImageReference(question.prompt())));
+    }
+
+    private static List<PracticeQuestionOptionRow> optionRows(QuestionContent content, List<String> legacyOptions) {
+        if (content == null || content.options().isEmpty()) {
+            if (legacyOptions == null || legacyOptions.isEmpty()) {
+                return List.of();
+            }
+            return java.util.stream.IntStream.range(0, legacyOptions.size())
+                    .mapToObj(index -> new PracticeQuestionOptionRow(
+                            "opt_" + (index + 1), legacyOptions.get(index), null))
+                    .toList();
+        }
+        return content.options().stream()
+                .map(option -> new PracticeQuestionOptionRow(
+                        option.id(),
+                        option.text(),
+                        blankToNull(safeInternalMaterialReference(option.imageReference()))))
+                .toList();
+    }
+
+    private static List<com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionBlankRow> blankRows(
+            QuestionContent content
+    ) {
+        if (content == null || content.blanks().isEmpty()) {
+            return List.of();
+        }
+        return content.blanks().stream()
+                .map(blank -> new com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionBlankRow(
+                        blank.id(), blank.prompt()))
+                .toList();
     }
 
     private String writeJson(Object value) {
@@ -2069,7 +2302,12 @@ public class PracticeService {
                     optionLabelMode
             );
             String generated = readingListeningExplanationService.getOrCreateExplanation(
-                    context, attempt.getTestId());
+                    context,
+                    attempt.getTestId(),
+                    attempt.getUserId(),
+                    firstNonBlank(
+                            safeInternalMaterialReference(content.imageReference()),
+                            safeInternalMaterialReference(group.imageUrl())));
             return isBlank(generated) ? question.teacherExplanation() : generated;
         } catch (IllegalArgumentException exception) {
             log.warn("[PracticeService] Explanation contract unavailable questionId={} type={} exception={}",
@@ -2123,6 +2361,10 @@ public class PracticeService {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static String blankToNull(String value) {
+        return isBlank(value) ? null : value;
     }
 
     private static String normalizeKey(String value) {
@@ -2297,7 +2539,11 @@ public class PracticeService {
                                         question.options(),
                                         null,
                                         null,
-                                        question.groupLabel()))
+                                        question.groupLabel(),
+                                        question.imageReference(),
+                                        question.audioReference(),
+                                        question.optionRows(),
+                                        question.blankRows()))
                                 .toList()))
                 .toList();
     }
@@ -3315,8 +3561,9 @@ public class PracticeService {
                 legacyFlatScore = legacyFlatScore.add(objectiveScore.get().earnedPoints());
                 earnedPoints = earnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
-                String perQuestionFeedback = evaluationClient.evaluate(
-                        snapshot.userId(), q.prompt(), answer, isReEvaluate, q.writingTaskType());
+                String perQuestionFeedback = evaluateWriting(
+                        snapshot.userId(), q.prompt(), answer, isReEvaluate,
+                        q.writingTaskType(), questionImageReference(q));
                 essayFeedbackByQuestion.put(String.valueOf(q.questionId()), readFeedbackObject(perQuestionFeedback));
                 aiFeedback = perQuestionFeedback;
                 legacyFlatScore = extractAiScore(perQuestionFeedback);
@@ -3369,6 +3616,7 @@ public class PracticeService {
                                         q.prompt(),
                                         null,
                                         q.answerKey(),
+                                        questionImageReference(q),
                                         "",
                                         storedByQuestion.get(q.questionId())));
                 SpeakingEvaluationResult result = evaluation.result();
@@ -3453,8 +3701,8 @@ public class PracticeService {
             if (objectiveScore.isPresent()) {
                 attemptEarnedPoints = attemptEarnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
-                String singleFeedback = evaluationClient.evaluate(snapshot.userId(), q.prompt(), answer,
-                        isReEvaluate, q.writingTaskType());
+                String singleFeedback = evaluateWriting(snapshot.userId(), q.prompt(), answer,
+                        isReEvaluate, q.writingTaskType(), questionImageReference(q));
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
 
                 WritingEvaluationResult evaluation = readGeneratedWritingScore(node, q.questionId());
@@ -3495,12 +3743,13 @@ public class PracticeService {
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = buildValidatedFeedbackMapBeforeTargetEvaluation(snapshot);
 
         String targetAnswer = snapshot.answers().getOrDefault(String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
-        String targetFeedback = evaluationClient.evaluate(
+        String targetFeedback = evaluateWriting(
                 snapshot.userId(),
                 snapshot.targetQuestion().prompt(),
                 targetAnswer,
                 true,
-                snapshot.targetQuestion().writingTaskType());
+                snapshot.targetQuestion().writingTaskType(),
+                questionImageReference(snapshot.targetQuestion()));
         com.fasterxml.jackson.databind.node.ObjectNode targetNode =
                 readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
         WritingEvaluationResult targetScore = readStoredWritingScore(targetNode, snapshot.targetQuestion().questionId());
@@ -3517,6 +3766,19 @@ public class PracticeService {
             throw new IllegalStateException("Failed to serialize writing feedback map", e);
         }
         return new WritingGradingResult(aggregate.score(), aggregate.totalPoints(), snapshot.expectedAnswersJson(), feedbackJson);
+    }
+
+    private String evaluateWriting(Long userId,
+                                   String prompt,
+                                   String answer,
+                                   boolean reEvaluate,
+                                   WritingTaskType taskType,
+                                   String imageReference) {
+        if (imageReference == null || imageReference.isBlank()) {
+            return evaluationClient.evaluate(userId, prompt, answer, reEvaluate, taskType);
+        }
+        return evaluationClient.evaluate(
+                userId, prompt, answer, reEvaluate, taskType, imageReference);
     }
 
     private com.fasterxml.jackson.databind.node.ObjectNode buildValidatedFeedbackMapBeforeTargetEvaluation(

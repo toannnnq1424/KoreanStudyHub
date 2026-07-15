@@ -5,7 +5,7 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v4.1";
+    public static final String PROMPT_VERSION = "v5.0";
     public static final String RUBRIC_VERSION = "v4.1";
     public static final String EVALUATION_SCHEMA_VERSION = "v4.1";
     public static final String EVALUATION_CONTRACT_VERSION = "v6.0";
@@ -67,6 +67,8 @@ public final class WritingPromptRules {
                 - Có phát triển ý bằng lý do, giải thích, ví dụ hoặc dữ kiện phù hợp không.
                 - Có đi lạc đề, lặp đề, viết lan man, hoặc thiếu trọng tâm không.
                 - Có giữ đúng dạng bài của taskType không.
+                - Nếu request có ảnh câu hỏi nội bộ, phải đọc ảnh đó như nguồn đề bài có thẩm quyền cùng với prompt.
+                - Chỉ dùng dữ kiện nhìn thấy rõ trong ảnh; không tự bịa nhãn, số liệu, xu hướng hoặc yêu cầu bị che khuất.
 
                 [ĐÁNH GIÁ VĂN PHONG / REGISTER]
                 -Bài có giữ văn phong viết phù hợp không.

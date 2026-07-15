@@ -6,13 +6,23 @@
 <body class="spc-body">
 <main class="spc-page"
       th:attr="data-upload-enabled=${speakingMediaUploadEnabled},data-return-url=${returnUrl}">
+  <div class="spc-decor" aria-hidden="true">
+    <span class="spc-star is-one"></span>
+    <span class="spc-star is-two"></span>
+    <span class="spc-star is-three"></span>
+    <span class="spc-dot is-one"></span>
+    <span class="spc-dot is-two"></span>
+    <span class="spc-cloud is-left"></span>
+    <span class="spc-cloud is-right"></span>
+  </div>
+
   <a class="spc-back" th:href="${returnUrl}" aria-label="Quay lại bài test">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
   </a>
 
   <header class="spc-heading">
     <p th:text="${sectionTitle}">Phần Nói</p>
-    <h1>Kiểm tra micro trước khi bắt đầu</h1>
+    <h1><span>Kiểm tra</span><span>Micro của bạn</span></h1>
     <span>Mẫu ghi âm chỉ dùng để kiểm tra trên thiết bị này và không được tải lên KSH.</span>
   </header>
 
@@ -22,10 +32,17 @@
       <span class="spc-device" data-device-name>Đang nhận diện thiết bị...</span>
     </div>
 
-    <h2 id="spc-check-title">Hãy đọc rõ câu sau</h2>
-    <blockquote>안녕하세요. 오늘 한국어 말하기를 연습하겠습니다.</blockquote>
+    <div class="spc-prompt">
+      <h2 id="spc-check-title">Hãy đọc rõ câu sau</h2>
+      <blockquote>안녕하세요. 오늘 한국어 말하기를 연습하겠습니다.</blockquote>
+    </div>
 
-    <div class="spc-meter" aria-label="Mức âm lượng micro">
+    <div class="spc-meter" data-meter-shell aria-label="Mức âm lượng micro">
+      <span class="spc-meter-label">Mức âm lượng micro</span>
+      <svg class="spc-meter-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+        <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v2M8 21h8"></path>
+      </svg>
       <i data-mic-level></i>
     </div>
 
@@ -36,16 +53,31 @@
       </button>
       <button class="spc-button is-primary" type="button" data-record-sample>
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
-        Ghi âm mẫu
+        <span data-record-label>Ghi âm mẫu</span>
       </button>
     </div>
 
     <div class="spc-playback" data-playback hidden>
-      <audio controls preload="metadata" data-sample-audio></audio>
+      <audio preload="metadata" data-sample-audio></audio>
+      <div class="spc-player">
+        <button class="spc-play" type="button" data-sample-play aria-label="Nghe lại bản ghi mẫu">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path data-play-icon d="M9 7v10l8-5z"></path>
+          </svg>
+        </button>
+        <div class="spc-wave" data-sample-wave aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <span class="spc-time" data-sample-time>00:00</span>
+      </div>
       <label><input type="checkbox" data-heard-confirm> Tôi nghe rõ cả âm thử và bản ghi của mình</label>
     </div>
 
     <p class="spc-message" data-check-message role="status">Cho phép trình duyệt sử dụng micro để bắt đầu kiểm tra.</p>
+    <p class="spc-service" data-service-notice hidden></p>
     <p class="spc-error" data-check-error role="alert" hidden></p>
 
     <form method="post" th:action="${speakingPreflightAction}">
@@ -57,7 +89,7 @@
     </form>
   </section>
 
-  <img class="spc-mascot" th:src="@{/images/baekho/baekho_master_64.png}" alt="Bạch Hổ KSH kiểm tra micro">
+  <div class="spc-mascot" role="img" aria-label="Bạch Hổ KSH kiểm tra micro"></div>
 </main>
 <script defer th:src="@{/js/practice/speaking-preflight.js}"></script>
 </body>

@@ -76,7 +76,7 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
         body.put("response_format", promptBuilder.responseFormat(request));
         body.put("messages", List.of(
                 message("system", promptBuilder.systemPrompt(request)),
-                message("user", promptBuilder.userPayload(request))));
+                message("user", multimodalContent(request))));
         return body;
     }
 
@@ -134,7 +134,20 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
                 status, PROVIDER, properties.model(), errorCategory, retryable, elapsedMillis(startNanos));
     }
 
-    private static Map<String, Object> message(String role, String content) {
+    private List<Map<String, Object>> multimodalContent(SpeakingEvaluationRequest request) {
+        java.util.ArrayList<Map<String, Object>> content = new java.util.ArrayList<>();
+        content.add(Map.of("type", "text", "text", promptBuilder.userPayload(request)));
+        if (request.imageEvidence() != null) {
+            content.add(Map.of(
+                    "type", "image_url",
+                    "image_url", Map.of(
+                            "url", request.imageEvidence().dataUrl(),
+                            "detail", "high")));
+        }
+        return content;
+    }
+
+    private static Map<String, Object> message(String role, Object content) {
         return Map.of("role", role, "content", content);
     }
 

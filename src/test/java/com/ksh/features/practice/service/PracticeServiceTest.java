@@ -97,6 +97,63 @@ class PracticeServiceTest {
     }
 
     @Test
+    void listeningPreflightPrefersCanonicalInternalCheckAudio() {
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getSetId()).thenReturn(1L);
+        when(section.getTestId()).thenReturn(2L);
+        when(section.getSkill()).thenReturn("LISTENING");
+        when(section.getTitle()).thenReturn("Phần Nghe");
+        when(section.getDeliveryJson()).thenReturn("""
+                {"schemaVersion":"practice-section-delivery-v1","listeningDelivery":{"checkAudioReference":"/practice/materials/7/content"}}
+                """);
+        when(sectionRepository.findById(3L)).thenReturn(Optional.of(section));
+        when(groupRepository.findBySectionIdOrderByDisplayOrderAsc(3L)).thenReturn(List.of());
+
+        PracticeService.ListeningPreflightDelivery delivery =
+                practiceService.getListeningPreflightDelivery(1L, 2L, 3L);
+
+        assertEquals("/practice/materials/7/content", delivery.checkAudioReference());
+    }
+
+    @Test
+    void listeningPreflightRejectsUnsafeCanonicalReferenceWithoutMaskingLegacyFallback() {
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getSetId()).thenReturn(1L);
+        when(section.getTestId()).thenReturn(2L);
+        when(section.getSkill()).thenReturn("LISTENING");
+        when(section.getTitle()).thenReturn("Phần Nghe cũ");
+        when(section.getDeliveryJson()).thenReturn("""
+                {"schemaVersion":"practice-section-delivery-v1","listeningDelivery":{"checkAudioReference":"https://outside.example/check.mp3"}}
+                """);
+        when(sectionRepository.findById(3L)).thenReturn(Optional.of(section));
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getAudioUrl()).thenReturn("/practice/materials/9/content");
+        when(groupRepository.findBySectionIdOrderByDisplayOrderAsc(3L)).thenReturn(List.of(group));
+
+        PracticeService.ListeningPreflightDelivery delivery =
+                practiceService.getListeningPreflightDelivery(1L, 2L, 3L);
+
+        assertEquals("/practice/materials/9/content", delivery.checkAudioReference());
+    }
+
+    @Test
+    void listeningPreflightRejectsSectionWithoutAnyInternalCheckAudio() {
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getSetId()).thenReturn(1L);
+        when(section.getTestId()).thenReturn(2L);
+        when(section.getSkill()).thenReturn("LISTENING");
+        when(section.getDeliveryJson()).thenReturn(null);
+        when(sectionRepository.findById(3L)).thenReturn(Optional.of(section));
+        when(groupRepository.findBySectionIdOrderByDisplayOrderAsc(3L)).thenReturn(List.of());
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.getListeningPreflightDelivery(1L, 2L, 3L));
+
+        assertTrue(exception.getMessage().contains("audio thử loa bất biến hợp lệ"));
+    }
+
+    @Test
     void testGetPracticeWithGroups() {
         PracticeSet set = new PracticeSet("Title", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         when(setRepository.findById(any())).thenReturn(Optional.of(set));
@@ -107,6 +164,7 @@ class PracticeServiceTest {
         when(group.getQuestionFrom()).thenReturn(1);
         when(group.getQuestionTo()).thenReturn(2);
         when(group.getInstruction()).thenReturn("Instruction");
+        when(group.getAudioUrl()).thenReturn("/practice/materials/8/content");
         when(groupRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(group));
 
         PracticeQuestion q1 = mock(PracticeQuestion.class);
@@ -122,7 +180,27 @@ class PracticeServiceTest {
         assertNotNull(view);
         assertEquals(1, view.groups().size());
         assertEquals("1-2", view.groups().get(0).groupLabel());
+        assertEquals("/practice/materials/8/content", view.groups().get(0).audioUrl());
         assertEquals(1, view.groups().get(0).questions().size());
+    }
+
+    @Test
+    void getPracticeDropsExternalGroupAudioFromLearnerDelivery() {
+        PracticeSet set = new PracticeSet(
+                "Title", "Desc", "LISTENING", "GLOBAL", null, null, null, "PUBLISHED", 1L);
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(100L);
+        when(group.getGroupLabel()).thenReturn("1");
+        when(group.getAudioUrl()).thenReturn("https://outside.example/question.mp3");
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of());
+
+        PracticeSetView view = practiceService.getPractice(1L);
+
+        assertEquals(1, view.groups().size());
+        assertNull(view.groups().get(0).audioUrl());
     }
 
     @Test
@@ -270,6 +348,239 @@ class PracticeServiceTest {
         assertEquals("SPEAKING", restarted.getSkill());
         assertEquals(100L, restarted.getPublishedVersionId());
         assertEquals(103L, restarted.getSectionVersionId());
+    }
+
+    @Test
+    void speakingPlayerDeliveryCarriesQuestionImageFromImmutableContent() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        setEntityId(attempt, 77L);
+        attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        when(attemptRepository.findByIdAndUserId(77L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        when(setVersion.getTitle()).thenReturn("Speaking Set");
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        when(testVersion.getTestId()).thenReturn(10L);
+        when(testVersion.getTitle()).thenReturn("Test 1");
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getSkill()).thenReturn("SPEAKING");
+        when(sectionVersion.getTitle()).thenReturn("Phần Nói");
+
+        PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
+        when(groupVersion.getId()).thenReturn(700L);
+        when(groupVersion.getGroupLabel()).thenReturn("S1.1");
+
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getGroupVersionId()).thenReturn(700L);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SPEAKING);
+        when(questionVersion.getPrompt()).thenReturn("![image](/practice/materials/legacy/content)\nYêu cầu bài làm");
+        when(questionVersion.getQuestionContentJson()).thenReturn("""
+                {"schemaVersion":"question-content-v1",
+                 "imageReference":"/practice/materials/1/content",
+                 "speakingDelivery":{
+                   "promptAudioReference":"/practice/materials/5/content",
+                   "promptPlayLimit":1,
+                   "preparationSeconds":30,
+                   "responseSeconds":60
+                 }}
+                """);
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.valueOf(100));
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
+                        List.of(groupVersion), List.of(questionVersion))));
+
+        PracticeService.SpeakingPlayerDelivery delivery =
+                practiceService.getSpeakingPlayerDelivery(77L, 2L);
+
+        PracticeService.SpeakingPlayerQuestion question = delivery.questions().get(0);
+        assertEquals("Yêu cầu bài làm", question.prompt());
+        assertEquals("/practice/materials/1/content", question.imageReference());
+        assertEquals("/practice/materials/5/content", question.promptAudioReference());
+    }
+
+    @Test
+    void speakingPlayerRejectsMissingImmutablePromptAudioWithoutNullPointerFailure() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        setEntityId(attempt, 77L);
+        attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        when(attemptRepository.findByIdAndUserId(77L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        when(testVersion.getTestId()).thenReturn(10L);
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getSkill()).thenReturn("SPEAKING");
+
+        PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
+        when(groupVersion.getId()).thenReturn(700L);
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getGroupVersionId()).thenReturn(700L);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SPEAKING);
+        when(questionVersion.getQuestionContentJson()).thenReturn("""
+                {"schemaVersion":"question-content-v1"}
+                """);
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(
+                        mock(PracticePublishedVersion.class), setVersion, testVersion, sectionVersion,
+                        List.of(groupVersion), List.of(questionVersion))));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.getSpeakingPlayerDelivery(77L, 2L));
+
+        assertTrue(exception.getMessage().contains("missing immutable prompt audio"));
+    }
+
+    @Test
+    void speakingPlayerIgnoresExternalLegacyMarkdownImageReference() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 20L);
+        setEntityId(attempt, 77L);
+        attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        when(attemptRepository.findByIdAndUserId(77L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        when(setVersion.getTitle()).thenReturn("Speaking Set");
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        when(testVersion.getTestId()).thenReturn(10L);
+        when(testVersion.getTitle()).thenReturn("Test 1");
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getSkill()).thenReturn("SPEAKING");
+        when(sectionVersion.getTitle()).thenReturn("Phần Nói");
+
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SPEAKING);
+        when(questionVersion.getPrompt()).thenReturn("![image](https://evil.example/tracker.png)\nYêu cầu bài làm");
+        when(questionVersion.getQuestionContentJson()).thenReturn("""
+                {"schemaVersion":"question-content-v1",
+                 "speakingDelivery":{
+                   "promptAudioReference":"/practice/materials/5/content",
+                   "promptPlayLimit":1,
+                   "preparationSeconds":30,
+                   "responseSeconds":60
+                 }}
+                """);
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.valueOf(100));
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(mock(PracticePublishedVersion.class), setVersion, testVersion, sectionVersion,
+                        List.of(), List.of(questionVersion))));
+
+        PracticeService.SpeakingPlayerQuestion question =
+                practiceService.getSpeakingPlayerDelivery(77L, 2L).questions().get(0);
+
+        assertEquals("Yêu cầu bài làm", question.prompt());
+        assertNull(question.imageReference());
+    }
+
+    @Test
+    void attemptPlayerViewCarriesImmutableQuestionAndOptionMedia() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        setEntityId(attempt, 77L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        when(attemptRepository.findByIdAndUserId(77L, 2L)).thenReturn(Optional.of(attempt));
+
+        PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getSetId()).thenReturn(1L);
+        when(setVersion.getTitle()).thenReturn("Reading Set");
+        when(setVersion.getDescription()).thenReturn("");
+        when(setVersion.getSkill()).thenReturn("READING");
+        when(setVersion.getMetadataJson()).thenReturn("{}");
+        when(setVersion.getCreationMethod()).thenReturn("MANUAL");
+        PracticeTestVersion testVersion = mock(PracticeTestVersion.class);
+        when(testVersion.getTestId()).thenReturn(10L);
+        PracticeSectionVersion sectionVersion = mock(PracticeSectionVersion.class);
+        when(sectionVersion.getSectionId()).thenReturn(20L);
+        when(sectionVersion.getSkill()).thenReturn("READING");
+        when(sectionVersion.getTitle()).thenReturn("Reading");
+        when(sectionVersion.getDurationMinutes()).thenReturn(40);
+
+        PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
+        when(groupVersion.getId()).thenReturn(700L);
+        when(groupVersion.getGroupId()).thenReturn(70L);
+        when(groupVersion.getGroupLabel()).thenReturn("R1.1");
+        when(groupVersion.getQuestionFrom()).thenReturn(1);
+        when(groupVersion.getQuestionTo()).thenReturn(1);
+        when(groupVersion.getInstruction()).thenReturn("Đọc và chọn đáp án.");
+        when(groupVersion.getStimulusType()).thenReturn("READING_PASSAGE");
+        when(groupVersion.getPassageText()).thenReturn("본문");
+        when(groupVersion.getImageUrl()).thenReturn("/practice/materials/7/content");
+        when(groupVersion.getAudioUrl()).thenReturn(null);
+
+        PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
+        when(questionVersion.getId()).thenReturn(800L);
+        when(questionVersion.getGroupVersionId()).thenReturn(700L);
+        when(questionVersion.getQuestionId()).thenReturn(11L);
+        when(questionVersion.getQuestionNo()).thenReturn(1);
+        when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SINGLE_CHOICE);
+        when(questionVersion.getPrompt()).thenReturn("![image](/practice/materials/legacy/content)\n무엇입니까?");
+        when(questionVersion.getQuestionContentJson()).thenReturn("""
+                {"schemaVersion":"question-content-v1",
+                 "imageReference":"/practice/materials/8/content",
+                 "audioReference":"/practice/materials/9/content",
+                 "options":[
+                   {"id":"opt_1","text":"A","imageReference":"/practice/materials/10/content"},
+                   {"id":"opt_2","text":"B"}
+                 ]}
+                """);
+        when(questionVersion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
+        when(questionVersion.getAnswerKey()).thenReturn("1");
+        when(questionVersion.getExplanation()).thenReturn("Teacher key");
+        when(questionVersion.getPoints()).thenReturn(BigDecimal.valueOf(2));
+        when(questionVersion.getDisplayOrder()).thenReturn(0);
+
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.of(
+                new PracticeVersionSnapshot(publishedVersion, setVersion, testVersion, sectionVersion,
+                        List.of(groupVersion), List.of(questionVersion))));
+
+        PracticeService.AttemptPlayerView playerView = practiceService.getAttemptPlayerView(77L, 2L);
+
+        PracticeQuestionGroupRow group = playerView.view().groups().get(0);
+        assertEquals("/practice/materials/7/content", group.imageUrl());
+        assertEquals("본문", group.passageText());
+        PracticeQuestionRow question = group.questions().get(0);
+        assertEquals("무엇입니까?", question.prompt());
+        assertEquals("/practice/materials/8/content", question.imageReference());
+        assertEquals("/practice/materials/9/content", question.audioReference());
+        assertEquals("/practice/materials/10/content", question.optionRows().get(0).imageReference());
+        assertNull(question.answerKey());
+        assertNull(question.explanation());
     }
 
     @Test

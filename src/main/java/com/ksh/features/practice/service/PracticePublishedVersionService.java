@@ -276,6 +276,9 @@ public class PracticePublishedVersionService {
                     sectionNode.put("sectionType", section.getSectionType());
                     sectionNode.put("lessonCode", section.getSectionType());
                     sectionNode.put("instructions", section.getInstructions());
+                    if (section.getDeliveryJson() != null && !section.getDeliveryJson().isBlank()) {
+                        sectionNode.put("sectionDelivery", objectMapper.readTree(section.getDeliveryJson()));
+                    }
                     sectionNode.put("durationMinutes", section.getDurationMinutes());
                     sectionNode.put("totalPoints", section.getTotalPoints());
                     sectionNode.put("testNo", testNo);

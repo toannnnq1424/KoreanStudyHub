@@ -12,10 +12,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -110,6 +115,68 @@ class PracticeMaterialControllerTest {
                 () -> controller.content(7L, "bytes=0-0", authentication));
 
         verify(accessService).load(7L, 99L);
+    }
+
+    @Test
+    void streamingBodyTreatsBrowserAbortAsCompletedResponse() {
+        StreamingResponseBody body = PracticeByteRange.body(
+                () -> new ByteArrayInputStream(new byte[]{1, 2, 3, 4}),
+                new PracticeByteRange.Selection(0L, 3L, false, false));
+
+        assertDoesNotThrow(() -> body.writeTo(new OutputStream() {
+            @Override
+            public void write(int value) throws IOException {
+                throw new IOException("Broken pipe");
+            }
+
+            @Override
+            public void write(byte[] buffer, int offset, int length) throws IOException {
+                throw new IOException("Broken pipe");
+            }
+        }));
+    }
+
+    @Test
+    void streamingBodyTreatsSpringWrappedBrowserAbortAsCompletedResponse() {
+        StreamingResponseBody body = PracticeByteRange.body(
+                () -> new ByteArrayInputStream(new byte[]{1, 2, 3, 4}),
+                new PracticeByteRange.Selection(0L, 3L, false, false));
+
+        assertDoesNotThrow(() -> body.writeTo(new OutputStream() {
+            @Override
+            public void write(int value) throws IOException {
+                throw new AsyncRequestNotUsableException(
+                        "ServletOutputStream failed to write: java.io.IOException: Broken pipe");
+            }
+
+            @Override
+            public void write(byte[] buffer, int offset, int length) throws IOException {
+                throw new AsyncRequestNotUsableException(
+                        "ServletOutputStream failed to write: java.io.IOException: Broken pipe");
+            }
+        }));
+    }
+
+    @Test
+    void streamingBodyStillSurfacesNonAbortWriteFailure() {
+        StreamingResponseBody body = PracticeByteRange.body(
+                () -> new ByteArrayInputStream(new byte[]{1, 2, 3, 4}),
+                new PracticeByteRange.Selection(0L, 3L, false, false));
+
+        IOException exception = assertThrows(IOException.class,
+                () -> body.writeTo(new OutputStream() {
+                    @Override
+                    public void write(int value) throws IOException {
+                        throw new IOException("disk unavailable");
+                    }
+
+                    @Override
+                    public void write(byte[] buffer, int offset, int length) throws IOException {
+                        throw new IOException("disk unavailable");
+                    }
+                }));
+
+        assertThat(exception).hasMessage("disk unavailable");
     }
 
     private static PracticeMaterialAccessService.MaterialContent content(

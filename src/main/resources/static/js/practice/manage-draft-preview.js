@@ -34,6 +34,7 @@
         groups.push({
           secTitle: section.title || '',
           skill: section.skill || 'READING',
+          listeningCheckAudioUrl: section.listeningCheckAudioReference || '',
           sIdx: sectionIndex,
           gIdx: groupIndex,
           points: questions.reduce((sum, question) => sum + question.points, 0),

@@ -11,6 +11,7 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.PracticeContentRules;
+import com.ksh.features.practice.assessment.PracticeSectionDelivery;
 import com.ksh.entities.WritingTaskType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -99,6 +100,7 @@ public class PracticeDraftContractService {
             if (!section.hasNonNull("durationMinutes") || section.path("durationMinutes").asInt() <= 0) {
                 section.put("durationMinutes", skillPolicy.durationMinutes());
             }
+            normalizeSectionDelivery(section, skill);
             ArrayNode groups = array(section, "groups");
             int questionNo = 1;
             for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
@@ -162,6 +164,28 @@ public class PracticeDraftContractService {
             throw new IllegalArgumentException(
                     "Mỗi câu Writing phải chọn Q51, Q52, Q53 hoặc Q54.", exception);
         }
+    }
+
+    private void normalizeSectionDelivery(ObjectNode section, String skill) {
+        ObjectNode delivery = section.path("sectionDelivery") instanceof ObjectNode object
+                ? object
+                : objectMapper.createObjectNode();
+        delivery.put("schemaVersion", PracticeSectionDelivery.SCHEMA_VERSION);
+        if ("LISTENING".equals(skill)) {
+            ObjectNode listening = delivery.path("listeningDelivery") instanceof ObjectNode object
+                    ? object
+                    : objectMapper.createObjectNode();
+            String checkAudio = firstNonBlank(
+                    listening.path("checkAudioReference").asText(""),
+                    text(section, "listeningCheckAudioUrl", ""));
+            putOrNull(listening, "checkAudioReference", checkAudio);
+            delivery.set("listeningDelivery", listening);
+            putOrNull(section, "listeningCheckAudioUrl", checkAudio);
+        } else {
+            delivery.remove("listeningDelivery");
+            section.remove("listeningCheckAudioUrl");
+        }
+        section.set("sectionDelivery", delivery);
     }
 
     private ArrayNode normalizeTests(ObjectNode root, ArrayNode sections) {

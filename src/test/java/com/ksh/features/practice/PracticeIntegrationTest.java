@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -1859,6 +1860,92 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
+    void speakingAttemptPreflightDiscardsLegacySnapshotMissingDeliveryJson() throws Exception {
+        SpeakingAttemptFixture fixture = createLegacySpeakingInProgressAttempt("Legacy speaking missing delivery");
+
+        IllegalStateException invalidDelivery = assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.getSpeakingPlayerDelivery(fixture.attemptId(), student.getId()));
+        assertThat(invalidDelivery)
+                .hasMessageContaining("Speaking question is missing immutable prompt audio");
+
+        mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/speaking-check"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/sets/" + fixture.setId()
+                        + "/tests/" + fixture.testId()))
+                .andExpect(flash().attribute("error", org.hamcrest.Matchers.containsString(
+                        "Nội dung Speaking này chưa có audio hoặc thời lượng hợp lệ")));
+
+        PracticeAttempt discarded = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+        assertThat(discarded.getStatus()).isEqualTo(PracticeAttempt.STATUS_DISCARDED);
+        assertThat(discarded.getDiscardedAt()).isNotNull();
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void listeningPreflightUnlocksImmutableAttemptOnlyForCompletedSession() throws Exception {
+        PracticeSet listeningSet = setRepository.saveAndFlush(new PracticeSet(
+                "Listening preflight integration", "Desc", "LISTENING", "GLOBAL",
+                null, null, "{}", "PUBLISHED", lecturer.getId()));
+        PracticeTest listeningTest = testRepository.saveAndFlush(new PracticeTest(
+                listeningSet.getId(), "Test 1", "Desc", 1, 40));
+        PracticeSection listeningSection = new PracticeSection(
+                listeningSet.getId(), "Phần Nghe", "LISTENING", "SINGLE_CHOICE",
+                "Nghe và chọn đáp án", 40, BigDecimal.TEN, 1);
+        listeningSection.setTestId(listeningTest.getId());
+        listeningSection.setDeliveryJson("""
+                {"schemaVersion":"practice-section-delivery-v1",
+                 "listeningDelivery":{"checkAudioReference":"/practice/materials/12/content"}}
+                """);
+        listeningSection = sectionRepository.saveAndFlush(listeningSection);
+
+        PracticeQuestionGroup group = new PracticeQuestionGroup(
+                listeningSet.getId(), "L1.1", 1, 1, "Nghe đoạn hội thoại.",
+                "/practice/materials/13/content", null, 1);
+        group.setSectionId(listeningSection.getId());
+        group = groupRepository.saveAndFlush(group);
+        PracticeQuestion listeningQuestion = new PracticeQuestion(
+                listeningSet.getId(), 1, PracticeQuestion.TYPE_SINGLE_CHOICE,
+                "Đáp án nào đúng?", "[\"A\",\"B\"]", "1", "Giải thích",
+                BigDecimal.TEN, 0);
+        listeningQuestion.setGroupId(group.getId());
+        questionRepository.saveAndFlush(listeningQuestion);
+        publishVersion(listeningSet.getId());
+
+        String livePreflightPath = "/practice/sets/" + listeningSet.getId()
+                + "/tests/" + listeningTest.getId()
+                + "/sections/" + listeningSection.getId() + "/listening-check";
+        MockHttpSession completedSession = new MockHttpSession();
+        mockMvc.perform(get(livePreflightPath).session(completedSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/listening-preflight"))
+                .andExpect(model().attribute(
+                        "listeningCheckAudioReference", "/practice/materials/12/content"));
+
+        String completedRedirect = mockMvc.perform(
+                        post(livePreflightPath).session(completedSession).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn()
+                .getResponse()
+                .getRedirectedUrl();
+
+        PracticeAttempt attempt = attemptRepository.findAll().stream()
+                .filter(candidate -> listeningSet.getId().equals(candidate.getSetId()))
+                .findFirst()
+                .orElseThrow();
+        String attemptPath = "/practice/attempts/" + attempt.getId();
+        assertThat(completedRedirect).isEqualTo(attemptPath + "?mode=practice");
+        mockMvc.perform(get(attemptPath).session(completedSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/player"));
+
+        mockMvc.perform(get(attemptPath).session(new MockHttpSession()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(attemptPath + "/listening-check"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
     void testReadingResultDetailLegacyFallback() throws Exception {
         // Create attempt for Reading section
         PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
@@ -3023,6 +3110,45 @@ class PracticeIntegrationTest {
                 group.getId(),
                 question.getId(),
                 attempt.getId()
+        );
+    }
+
+    private SpeakingAttemptFixture createLegacySpeakingInProgressAttempt(String title) {
+        PracticeSet speakingSet = setRepository.saveAndFlush(new PracticeSet(
+                title, "Desc", "SPEAKING", "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
+        ));
+        PracticeTest test = testRepository.saveAndFlush(new PracticeTest(speakingSet.getId(), "Test 1", "Desc", 1, 40));
+        PracticeSection section = new PracticeSection(
+                speakingSet.getId(), "Speaking Section", "SPEAKING", "ORAL", "Desc", 50, BigDecimal.TEN, 1);
+        section.setTestId(test.getId());
+        section = sectionRepository.saveAndFlush(section);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(speakingSet.getId(), "Group 1", 1, 1, "Desc", null, null, 1);
+        group.setSectionId(section.getId());
+        group = groupRepository.saveAndFlush(group);
+        PracticeQuestion question = new PracticeQuestion(
+                speakingSet.getId(),
+                1,
+                PracticeQuestion.TYPE_SPEAKING,
+                "Prompt " + title,
+                "[]",
+                "",
+                "Explain",
+                BigDecimal.TEN,
+                0);
+        question.setGroupId(group.getId());
+        question = questionRepository.saveAndFlush(question);
+        publishVersion(speakingSet.getId());
+
+        Long attemptId = practiceService.startAttempt(
+                speakingSet.getId(), test.getId(), section.getId(), student.getId());
+
+        return new SpeakingAttemptFixture(
+                speakingSet.getId(),
+                test.getId(),
+                section.getId(),
+                group.getId(),
+                question.getId(),
+                attemptId
         );
     }
 

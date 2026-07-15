@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.QuestionExplanationCache;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningMockExplanationService;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
@@ -45,6 +47,7 @@ public class ReadingListeningExplanationService {
     private final OpenAiProperties openAiProperties;
     private final ObjectMapper objectMapper;
     private final PracticeAiMetrics metrics;
+    private final AiQuestionImageResolver imageResolver;
     private final AssessmentScoringEngine scoringEngine = new AssessmentScoringEngine();
 
     /** Per-cache-key lock objects. Prevents duplicate provider calls in one JVM only. */
@@ -56,7 +59,17 @@ public class ReadingListeningExplanationService {
                                               OpenAiProperties openAiProperties,
                                               ObjectMapper objectMapper) {
         this(cacheRepository, explanationClient, mockExplanationService, openAiProperties, objectMapper,
-                PracticeAiMetrics.noop());
+                null, PracticeAiMetrics.noop());
+    }
+
+    public ReadingListeningExplanationService(QuestionExplanationCacheRepository cacheRepository,
+                                              ReadingListeningExplanationClient explanationClient,
+                                              ReadingListeningMockExplanationService mockExplanationService,
+                                              OpenAiProperties openAiProperties,
+                                              ObjectMapper objectMapper,
+                                              PracticeAiMetrics metrics) {
+        this(cacheRepository, explanationClient, mockExplanationService, openAiProperties, objectMapper,
+                null, metrics);
     }
 
     @Autowired
@@ -65,12 +78,14 @@ public class ReadingListeningExplanationService {
                                               ReadingListeningMockExplanationService mockExplanationService,
                                               OpenAiProperties openAiProperties,
                                               ObjectMapper objectMapper,
+                                              AiQuestionImageResolver imageResolver,
                                               PracticeAiMetrics metrics) {
         this.cacheRepository = cacheRepository;
         this.explanationClient = explanationClient;
         this.mockExplanationService = mockExplanationService;
         this.openAiProperties = openAiProperties;
         this.objectMapper = objectMapper;
+        this.imageResolver = imageResolver;
         this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
     }
 
@@ -128,6 +143,18 @@ public class ReadingListeningExplanationService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String getOrCreateExplanation(ExplanationContext context, Long testId) {
+        return getOrCreateExplanation(context, testId, null);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public String getOrCreateExplanation(ExplanationContext context, Long testId, Long actorId) {
+        return getOrCreateExplanation(
+                context, testId, actorId, context.questionContent().imageReference());
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public String getOrCreateExplanation(ExplanationContext context, Long testId, Long actorId,
+                                         String imageReference) {
         if (context.skill() != com.ksh.features.practice.assessment.AssessmentSkill.READING
                 && context.skill() != com.ksh.features.practice.assessment.AssessmentSkill.LISTENING) {
             throw new IllegalArgumentException("Explanation context skill must be READING or LISTENING");
@@ -135,13 +162,16 @@ public class ReadingListeningExplanationService {
         if (!context.questionType().isObjective()) {
             throw new IllegalArgumentException("Explanation context question type must be objective");
         }
-        if (!context.stimulus().hasUsableEvidence()) {
+        AiImageEvidence imageEvidence = imageResolver == null
+                ? null
+                : imageResolver.resolve(imageReference, actorId).orElse(null);
+        if (!context.stimulus().hasUsableEvidence() && imageEvidence == null) {
             return prepareForDisplay(
                     mockExplanationService.explain(context, "insufficient-approved-evidence"),
                     context);
         }
 
-        VersionedCacheKeyParts versionedKey = buildCacheKeyParts(context);
+        VersionedCacheKeyParts versionedKey = buildCacheKeyParts(context, imageEvidence);
         CacheKeyParts keyParts = versionedKey.base();
         Optional<String> cached = readValidCache(
                 keyParts, context.questionId(), context.skill().name());
@@ -159,7 +189,9 @@ public class ReadingListeningExplanationService {
                     return prepareForDisplay(cached.get(), context);
                 }
                 long providerStart = PracticeAiMetrics.startNanos();
-                String aiJson = explanationClient.explain(context);
+                String aiJson = imageEvidence == null
+                        ? explanationClient.explain(context)
+                        : explanationClient.explain(context, imageEvidence);
                 if (isValidExplanationJson(aiJson)) {
                     recordRlProvider(PracticeAiMetrics.ProviderOutcome.SUCCESS, providerStart);
                     writeVersionedCache(versionedKey, context, testId, aiJson);
@@ -169,7 +201,9 @@ public class ReadingListeningExplanationService {
                 String reason = openAiProperties.apiKey() == null || openAiProperties.apiKey().isBlank()
                         ? "api-key-not-configured"
                         : "provider-unavailable";
-                return prepareForDisplay(mockExplanationService.explain(context, reason), context);
+                return prepareForDisplay(imageEvidence == null
+                        ? mockExplanationService.explain(context, reason)
+                        : mockExplanationService.explain(context, reason, true), context);
             } finally {
                 cacheLocks.remove(keyParts.cacheKey(), lock);
             }
@@ -488,10 +522,16 @@ public class ReadingListeningExplanationService {
     }
 
     VersionedCacheKeyParts buildCacheKeyParts(ExplanationContext context) {
+        return buildCacheKeyParts(context, null);
+    }
+
+    VersionedCacheKeyParts buildCacheKeyParts(ExplanationContext context, AiImageEvidence imageEvidence) {
         String stimulusJson = writeIdentityJson(context.stimulus());
         String answerSpecJson = writeIdentityJson(context.answerSpec());
         String contentJson = writeIdentityJson(context.questionContent());
-        String stimulusHash = sha256(framed(stimulusJson));
+        String stimulusHash = sha256(framed(
+                stimulusJson,
+                imageEvidence == null ? "" : imageEvidence.sha256()));
         String answerSpecHash = sha256(framed(answerSpecJson));
         String questionHash = sha256(framed(
                 normalize(context.schemaVersion()),

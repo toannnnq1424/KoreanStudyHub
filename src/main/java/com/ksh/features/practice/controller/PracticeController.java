@@ -58,6 +58,7 @@ public class PracticeController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);
     private static final String SPEAKING_PREFLIGHT_SESSION_PREFIX = "practice.speaking.preflight.";
+    private static final String LISTENING_PREFLIGHT_SESSION_PREFIX = "practice.listening.preflight.";
 
     private final PracticeService practiceService;
     private final PracticeCatalogService catalogService;
@@ -222,6 +223,7 @@ public class PracticeController {
                                  RedirectAttributes redirectAttributes) {
         attemptDiscardService.discardForOwner(attemptId, user.getId());
         clearSpeakingPreflight(session, attemptId);
+        clearListeningPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("success", "Đã hủy lượt làm bài dang dở thành công.");
         return PracticeRoutes.redirectToTestDetail(setId, testId);
     }
@@ -237,8 +239,53 @@ public class PracticeController {
         if ("SPEAKING".equals(section.getSkill())) {
             return PracticeRoutes.redirectToSpeakingPreflight(setId, testId, sectionId);
         }
+        if ("LISTENING".equals(section.getSkill())) {
+            return PracticeRoutes.redirectToListeningPreflight(setId, testId, sectionId);
+        }
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
         return PracticeRoutes.redirectToAttempt(attemptId, mode);
+    }
+
+    @GetMapping(PracticeRoutes.LISTENING_PREFLIGHT)
+    public String listeningPreflight(@PathVariable Long setId,
+                                     @PathVariable Long testId,
+                                     @PathVariable Long sectionId,
+                                     @AuthenticationPrincipal KshUserDetails user,
+                                     RedirectAttributes redirectAttributes,
+                                     Model model) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
+        requireListeningSection(setId, testId, sectionId);
+        try {
+            addListeningPreflightModel(
+                    model,
+                    practiceService.getListeningPreflightDelivery(setId, testId, sectionId),
+                    PracticeRoutes.listeningPreflightPath(setId, testId, sectionId));
+            return PracticeViews.LISTENING_PREFLIGHT;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Phần Listening chưa có audio thử loa hợp lệ. Giảng viên cần cập nhật và xuất bản lại.");
+            return PracticeRoutes.redirectToTestDetail(setId, testId);
+        }
+    }
+
+    @PostMapping(PracticeRoutes.LISTENING_PREFLIGHT)
+    public String completeListeningPreflight(@PathVariable Long setId,
+                                             @PathVariable Long testId,
+                                             @PathVariable Long sectionId,
+                                             @AuthenticationPrincipal KshUserDetails user,
+                                             HttpSession session,
+                                             RedirectAttributes redirectAttributes) {
+        learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
+        requireListeningSection(setId, testId, sectionId);
+        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        try {
+            practiceService.getAttemptListeningPreflightDelivery(attemptId, user.getId());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return handleInvalidListeningDelivery(
+                    attemptId, user.getId(), setId, testId, session, redirectAttributes, exception);
+        }
+        markListeningPreflightComplete(session, attemptId);
+        return PracticeRoutes.redirectToAttempt(attemptId, "practice");
     }
 
     @GetMapping(PracticeRoutes.SPEAKING_PREFLIGHT)
@@ -264,11 +311,24 @@ public class PracticeController {
                                             @PathVariable Long testId,
                                             @PathVariable Long sectionId,
                                             @AuthenticationPrincipal KshUserDetails user,
-                                            HttpSession session) {
+                                            HttpSession session,
+                                            RedirectAttributes redirectAttributes) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         requireSpeakingSection(setId, testId, sectionId);
         requireSpeakingUploadEnabled();
         Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        try {
+            practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            return handleInvalidSpeakingDelivery(
+                    attemptId,
+                    user.getId(),
+                    setId,
+                    testId,
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
         markSpeakingPreflightComplete(session, attemptId);
         return PracticeRoutes.redirectToAttempt(attemptId, "practice");
     }
@@ -276,10 +336,23 @@ public class PracticeController {
     @GetMapping(PracticeRoutes.ATTEMPT_SPEAKING_PREFLIGHT)
     public String attemptSpeakingPreflight(@PathVariable Long attemptId,
                                            @AuthenticationPrincipal KshUserDetails user,
+                                           HttpSession session,
+                                           RedirectAttributes redirectAttributes,
                                            Model model) {
         PracticeAttempt attempt = requireInProgressSpeakingAttempt(attemptId, user.getId());
-        PracticeService.SpeakingPlayerDelivery delivery =
-                practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+        PracticeService.SpeakingPlayerDelivery delivery;
+        try {
+            delivery = practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            return handleInvalidSpeakingDelivery(
+                    attemptId,
+                    user.getId(),
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
         addSpeakingPreflightModel(
                 model,
                 attempt.getSetId(),
@@ -293,10 +366,70 @@ public class PracticeController {
     @PostMapping(PracticeRoutes.ATTEMPT_SPEAKING_PREFLIGHT)
     public String completeAttemptSpeakingPreflight(@PathVariable Long attemptId,
                                                    @AuthenticationPrincipal KshUserDetails user,
-                                                   HttpSession session) {
-        requireInProgressSpeakingAttempt(attemptId, user.getId());
+                                                   HttpSession session,
+                                                   RedirectAttributes redirectAttributes) {
+        PracticeAttempt attempt = requireInProgressSpeakingAttempt(attemptId, user.getId());
         requireSpeakingUploadEnabled();
+        try {
+            practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            return handleInvalidSpeakingDelivery(
+                    attemptId,
+                    user.getId(),
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
         markSpeakingPreflightComplete(session, attemptId);
+        return PracticeRoutes.redirectToAttempt(attemptId, "practice");
+    }
+
+    @GetMapping(PracticeRoutes.ATTEMPT_LISTENING_PREFLIGHT)
+    public String attemptListeningPreflight(@PathVariable Long attemptId,
+                                            @AuthenticationPrincipal KshUserDetails user,
+                                            HttpSession session,
+                                            RedirectAttributes redirectAttributes,
+                                            Model model) {
+        PracticeAttempt attempt = requireInProgressListeningAttempt(attemptId, user.getId());
+        try {
+            addListeningPreflightModel(
+                    model,
+                    practiceService.getAttemptListeningPreflightDelivery(attemptId, user.getId()),
+                    PracticeRoutes.attemptListeningPreflightPath(attemptId));
+            return PracticeViews.LISTENING_PREFLIGHT;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return handleInvalidListeningDelivery(
+                    attemptId,
+                    user.getId(),
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
+    }
+
+    @PostMapping(PracticeRoutes.ATTEMPT_LISTENING_PREFLIGHT)
+    public String completeAttemptListeningPreflight(@PathVariable Long attemptId,
+                                                    @AuthenticationPrincipal KshUserDetails user,
+                                                    HttpSession session,
+                                                    RedirectAttributes redirectAttributes) {
+        PracticeAttempt attempt = requireInProgressListeningAttempt(attemptId, user.getId());
+        try {
+            practiceService.getAttemptListeningPreflightDelivery(attemptId, user.getId());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return handleInvalidListeningDelivery(
+                    attemptId,
+                    user.getId(),
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
+        markListeningPreflightComplete(session, attemptId);
         return PracticeRoutes.redirectToAttempt(attemptId, "practice");
     }
 
@@ -311,6 +444,7 @@ public class PracticeController {
                           @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
                           @AuthenticationPrincipal KshUserDetails user,
                           HttpSession session,
+                          RedirectAttributes redirectAttributes,
                           Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
@@ -323,12 +457,23 @@ public class PracticeController {
                 return PracticeRoutes.redirectToAttemptSpeakingPreflight(attemptId);
             }
             requireSpeakingUploadEnabled();
-            PracticeService.SpeakingPlayerDelivery speakingDelivery =
-                    practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+            PracticeService.SpeakingPlayerDelivery speakingDelivery;
+            try {
+                speakingDelivery = practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
+            } catch (IllegalStateException | IllegalArgumentException exception) {
+                return handleInvalidSpeakingDelivery(
+                        attemptId,
+                        user.getId(),
+                        attempt.getSetId(),
+                        attempt.getTestId(),
+                        session,
+                        redirectAttributes,
+                        exception);
+            }
             try {
                 model.addAttribute(
                         PracticeModelAttributes.SPEAKING_DELIVERY_JSON,
-                        objectMapper.writeValueAsString(speakingDelivery));
+                        safeInlineJson(speakingDelivery));
             } catch (Exception exception) {
                 throw new IllegalStateException("Không thể chuẩn bị dữ liệu Speaking.", exception);
             }
@@ -341,6 +486,11 @@ public class PracticeController {
             model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED,
                     speakingMediaUploadEnabled);
             return PracticeViews.PLAYER_SPEAKING;
+        }
+
+        if ("LISTENING".equals(attempt.getSkill())
+                && !listeningPreflightComplete(session, attemptId)) {
+            return PracticeRoutes.redirectToAttemptListeningPreflight(attemptId);
         }
 
         PracticeService.AttemptPlayerView playerView =
@@ -357,7 +507,11 @@ public class PracticeController {
                 delivery.durationMinutes() != null ? delivery.durationMinutes() * 60 : 2400);
         model.addAttribute(PracticeModelAttributes.SECTION_INDEX, 0);
         model.addAttribute(PracticeModelAttributes.TOTAL_SECTIONS, 1);
-        return PracticeViews.PLAYER;
+        model.addAttribute(PracticeModelAttributes.RETURN_URL,
+                PracticeRoutes.testDetailPath(attempt.getSetId(), attempt.getTestId()));
+        return "WRITING".equals(delivery.skill())
+                ? PracticeViews.PLAYER_WRITING
+                : PracticeViews.PLAYER;
     }
 
     @PostMapping(PracticeRoutes.ATTEMPT_SUBMIT)
@@ -374,6 +528,7 @@ public class PracticeController {
         }
         practiceService.submitAttempt(attemptId, user.getId(), form);
         clearSpeakingPreflight(session, attemptId);
+        clearListeningPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
         return PracticeRoutes.redirectToResult(attemptId);
     }
@@ -520,6 +675,16 @@ public class PracticeController {
         return section;
     }
 
+    private PracticeSection requireListeningSection(Long setId, Long testId, Long sectionId) {
+        PracticeSection section = requireSection(setId, testId, sectionId);
+        if (!"LISTENING".equals(section.getSkill())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Kiểm tra loa chỉ áp dụng cho phần Listening.");
+        }
+        return section;
+    }
+
     private PracticeAttempt requireInProgressSpeakingAttempt(Long attemptId, Long userId) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, userId);
         if (!"SPEAKING".equals(attempt.getSkill())) {
@@ -533,6 +698,87 @@ public class PracticeController {
                     "Lượt Speaking đã kết thúc.");
         }
         return attempt;
+    }
+
+    private PracticeAttempt requireInProgressListeningAttempt(Long attemptId, Long userId) {
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, userId);
+        if (!"LISTENING".equals(attempt.getSkill())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Lượt làm bài không thuộc kỹ năng Listening.");
+        }
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Lượt Listening đã kết thúc.");
+        }
+        return attempt;
+    }
+
+    private String safeInlineJson(Object value) throws IOException {
+        return objectMapper.writeValueAsString(value)
+                .replace("&", "\\u0026")
+                .replace("<", "\\u003c")
+                .replace(">", "\\u003e")
+                .replace("\u2028", "\\u2028")
+                .replace("\u2029", "\\u2029");
+    }
+
+    private String handleInvalidSpeakingDelivery(Long attemptId,
+                                                 Long userId,
+                                                 Long setId,
+                                                 Long testId,
+                                                 HttpSession session,
+                                                 RedirectAttributes redirectAttributes,
+                                                 RuntimeException exception) {
+        log.warn("[PracticeController] Speaking delivery is not playable attemptId={} reason={}",
+                attemptId, exception.getMessage());
+        try {
+            attemptDiscardService.discardForOwner(attemptId, userId);
+        } catch (RuntimeException discardException) {
+            log.warn("[PracticeController] Could not discard invalid Speaking attempt id={} reason={}",
+                    attemptId, discardException.getMessage());
+        }
+        clearSpeakingPreflight(session, attemptId);
+        redirectAttributes.addFlashAttribute("error",
+                "Nội dung Speaking này chưa có audio hoặc thời lượng hợp lệ. Giảng viên cần cập nhật và xuất bản lại trước khi học viên làm bài.");
+        return PracticeRoutes.redirectToTestDetail(setId, testId);
+    }
+
+    private String handleInvalidListeningDelivery(Long attemptId,
+                                                  Long userId,
+                                                  Long setId,
+                                                  Long testId,
+                                                  HttpSession session,
+                                                  RedirectAttributes redirectAttributes,
+                                                  RuntimeException exception) {
+        log.warn("[PracticeController] Listening delivery is not playable attemptId={} reason={}",
+                attemptId, exception.getMessage());
+        try {
+            attemptDiscardService.discardForOwner(attemptId, userId);
+        } catch (RuntimeException discardException) {
+            log.warn("[PracticeController] Could not discard invalid Listening attempt id={} reason={}",
+                    attemptId, discardException.getMessage());
+        }
+        clearListeningPreflight(session, attemptId);
+        redirectAttributes.addFlashAttribute("error",
+                "Phần Listening chưa có audio thử loa hợp lệ. Giảng viên cần cập nhật và xuất bản lại.");
+        return PracticeRoutes.redirectToTestDetail(setId, testId);
+    }
+
+    private void addListeningPreflightModel(
+            Model model,
+            PracticeService.ListeningPreflightDelivery delivery,
+            String action) {
+        model.addAttribute(PracticeModelAttributes.SET_ID, delivery.setId());
+        model.addAttribute(PracticeModelAttributes.TEST_ID, delivery.testId());
+        model.addAttribute(PracticeModelAttributes.SECTION_ID, delivery.sectionId());
+        model.addAttribute(PracticeModelAttributes.SECTION_TITLE, delivery.sectionTitle());
+        model.addAttribute(PracticeModelAttributes.LISTENING_CHECK_AUDIO_REFERENCE,
+                delivery.checkAudioReference());
+        model.addAttribute(PracticeModelAttributes.LISTENING_PREFLIGHT_ACTION, action);
+        model.addAttribute(PracticeModelAttributes.RETURN_URL,
+                PracticeRoutes.testDetailPath(delivery.setId(), delivery.testId()));
     }
 
     private void addSpeakingPreflightModel(
@@ -572,6 +818,19 @@ public class PracticeController {
 
     private void clearSpeakingPreflight(HttpSession session, Long attemptId) {
         session.removeAttribute(SPEAKING_PREFLIGHT_SESSION_PREFIX + attemptId);
+    }
+
+    private void markListeningPreflightComplete(HttpSession session, Long attemptId) {
+        session.setAttribute(LISTENING_PREFLIGHT_SESSION_PREFIX + attemptId, Boolean.TRUE);
+    }
+
+    private boolean listeningPreflightComplete(HttpSession session, Long attemptId) {
+        return Boolean.TRUE.equals(
+                session.getAttribute(LISTENING_PREFLIGHT_SESSION_PREFIX + attemptId));
+    }
+
+    private void clearListeningPreflight(HttpSession session, Long attemptId) {
+        session.removeAttribute(LISTENING_PREFLIGHT_SESSION_PREFIX + attemptId);
     }
 
     private void addSpeakingMediaModel(

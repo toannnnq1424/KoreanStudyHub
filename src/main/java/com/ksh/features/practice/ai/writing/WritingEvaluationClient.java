@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,7 @@ public class WritingEvaluationClient {
     private final WritingEvaluationCacheService cacheService;
     private final WritingMockEvaluatorService mockEvaluatorService;
     private final PracticeAiMetrics metrics;
+    private final AiQuestionImageResolver imageResolver;
 
     public WritingEvaluationClient(OpenAiProperties properties,
             ObjectMapper objectMapper,
@@ -42,7 +45,7 @@ public class WritingEvaluationClient {
             WritingEvaluationCacheService cacheService,
             WritingMockEvaluatorService mockEvaluatorService) {
         this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
-                null, PracticeAiMetrics.noop());
+                null, null, PracticeAiMetrics.noop());
     }
 
     @Autowired
@@ -53,9 +56,10 @@ public class WritingEvaluationClient {
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
             WritingMockEvaluatorService mockEvaluatorService,
+            AiQuestionImageResolver imageResolver,
             PracticeAiMetrics metrics) {
         this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
-                null, metrics);
+                null, imageResolver, metrics);
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -66,7 +70,7 @@ public class WritingEvaluationClient {
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
         this(properties, objectMapper, normalizer, ruleEngine, new WritingTaskResolver(),
-                cacheService, mockEvaluatorService, restClient, PracticeAiMetrics.noop());
+                cacheService, mockEvaluatorService, restClient, null, PracticeAiMetrics.noop());
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -78,7 +82,7 @@ public class WritingEvaluationClient {
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
         this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                mockEvaluatorService, restClient, PracticeAiMetrics.noop());
+                mockEvaluatorService, restClient, null, PracticeAiMetrics.noop());
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -90,6 +94,20 @@ public class WritingEvaluationClient {
             WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient,
             PracticeAiMetrics metrics) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
+                mockEvaluatorService, restClient, null, metrics);
+    }
+
+    private WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService mockEvaluatorService,
+            RestClient restClient,
+            AiQuestionImageResolver imageResolver,
+            PracticeAiMetrics metrics) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
@@ -97,6 +115,7 @@ public class WritingEvaluationClient {
         this.taskResolver = taskResolver;
         this.cacheService = cacheService;
         this.mockEvaluatorService = mockEvaluatorService;
+        this.imageResolver = imageResolver;
         this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
         if (restClient != null) {
             this.restClient = restClient;
@@ -122,6 +141,15 @@ public class WritingEvaluationClient {
 
     public String evaluate(Long userId, String prompt, String learnerAnswer, boolean isReEvaluation,
                            WritingTaskType explicitTaskType) {
+        return evaluate(userId, prompt, learnerAnswer, isReEvaluation, explicitTaskType, null);
+    }
+
+    public String evaluate(Long userId, String prompt, String learnerAnswer, boolean isReEvaluation,
+                           WritingTaskType explicitTaskType, String imageReference) {
+        AiImageEvidence imageEvidence = imageResolver == null
+                ? null
+                : imageResolver.resolve(imageReference, userId).orElse(null);
+        String cachePrompt = cachePrompt(prompt, imageEvidence);
         String resolvedTaskType = taskResolver.resolve(explicitTaskType, prompt);
         WritingRuleEngine.RuleAnalysis ruleAnalysis = ruleEngine.analyze(prompt, learnerAnswer, resolvedTaskType);
         log.info("KSH writing evaluation started: model={}, taskType={}, charCount={}, violations={}, reEvaluation={}",
@@ -137,7 +165,7 @@ public class WritingEvaluationClient {
         // 2. Cache lookup (skip for re-evaluation)
         if (!isReEvaluation) {
             try {
-                var cached = cacheService.get(userId, prompt, learnerAnswer,
+                var cached = cacheService.get(userId, cachePrompt, learnerAnswer,
                         ruleAnalysis.taskType(), properties.evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         cacheSchemaVersion());
@@ -156,7 +184,7 @@ public class WritingEvaluationClient {
                                 PracticeAiMetrics.elapsedSince(parseStart));
                         log.warn("KSH writing evaluation cache entry ignored because payload is malformed: taskType={}",
                                 ruleAnalysis.taskType());
-                        deleteCacheEntry(userId, prompt, learnerAnswer, ruleAnalysis);
+                        deleteCacheEntry(userId, cachePrompt, learnerAnswer, ruleAnalysis);
                     }
                 }
             } catch (Exception ex) {
@@ -179,9 +207,11 @@ public class WritingEvaluationClient {
         try {
             String systemPrompt = WritingPromptRules.buildUnifiedPrompt(
                     ruleAnalysis.taskType(), isReEvaluation);
-            String userPayload = userPayload(prompt, learnerAnswer, ruleAnalysis, isReEvaluation);
+            String userPayload = userPayload(
+                    prompt, learnerAnswer, ruleAnalysis, isReEvaluation, imageEvidence);
 
-            response = callPass("unified", systemPrompt, userPayload, unifiedResponseFormat());
+            response = callPass(
+                    "unified", systemPrompt, userPayload, imageEvidence, unifiedResponseFormat());
             log.info("KSH writing evaluation unified call complete: taskType={}",
                     ruleAnalysis.taskType());
         } catch (ProviderContractException ex) {
@@ -247,7 +277,7 @@ public class WritingEvaluationClient {
         // 6. Cache result (both submit and re-evaluate overwrite cache)
         if (normalizer.isCacheableAiResult(normalized)) {
             try {
-                cacheService.put(userId, prompt, learnerAnswer,
+                cacheService.put(userId, cachePrompt, learnerAnswer,
                         ruleAnalysis.taskType(), properties.evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         cacheSchemaVersion(),
@@ -322,6 +352,7 @@ public class WritingEvaluationClient {
     private JsonNode callPass(String passName,
             String systemPrompt,
             String userPayload,
+            AiImageEvidence imageEvidence,
             Map<String, Object> responseFormat) throws Exception {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("model", properties.evaluatorModel());
@@ -331,7 +362,7 @@ public class WritingEvaluationClient {
         request.put("response_format", responseFormat);
         request.put("messages", List.of(
                 message("system", systemPrompt),
-                message("user", userPayload)));
+                message("user", multimodalContent(userPayload, imageEvidence))));
 
         log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
         String raw = callWithRetry(request);
@@ -395,7 +426,8 @@ public class WritingEvaluationClient {
     private String userPayload(String prompt,
             String learnerAnswer,
             WritingRuleEngine.RuleAnalysis ruleAnalysis,
-            boolean isReEvaluation) {
+            boolean isReEvaluation,
+            AiImageEvidence imageEvidence) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "WRITING");
         payload.put("platform", "KSH Korean Study Hub");
@@ -407,6 +439,14 @@ public class WritingEvaluationClient {
         payload.put("char_count_warning", ruleAnalysis.charCountWarning());
         payload.put("rule_violations", ruleAnalysis.ruleViolations());
         payload.put("audio_evidence_available", false);
+        payload.put("question_image", imageEvidence == null
+                ? Map.of("available", false)
+                : Map.of(
+                        "available", true,
+                        "asset_id", imageEvidence.assetId(),
+                        "mime_type", imageEvidence.mimeType(),
+                        "sha256", imageEvidence.sha256(),
+                        "size_bytes", imageEvidence.sizeBytes()));
         payload.put("is_re_evaluation", isReEvaluation);
         payload.put("audit_mode", isReEvaluation);
         payload.put("allowed_rubric", Map.of(
@@ -523,8 +563,30 @@ public class WritingEvaluationClient {
         return raw;
     }
 
-    private static Map<String, String> message(String role, String content) {
-        Map<String, String> message = new LinkedHashMap<>();
+    private static List<Map<String, Object>> multimodalContent(
+            String payload,
+            AiImageEvidence imageEvidence
+    ) {
+        List<Map<String, Object>> content = new ArrayList<>();
+        content.add(Map.of("type", "text", "text", payload));
+        if (imageEvidence != null) {
+            content.add(Map.of(
+                    "type", "image_url",
+                    "image_url", Map.of("url", imageEvidence.dataUrl(), "detail", "high")));
+        }
+        return content;
+    }
+
+    private static String cachePrompt(String prompt, AiImageEvidence imageEvidence) {
+        if (imageEvidence == null) {
+            return prompt;
+        }
+        return (prompt == null ? "" : prompt)
+                + "\n[KSH_QUESTION_IMAGE_SHA256:" + imageEvidence.sha256() + "]";
+    }
+
+    private static Map<String, Object> message(String role, Object content) {
+        Map<String, Object> message = new LinkedHashMap<>();
         message.put("role", role);
         message.put("content", content);
         return message;

@@ -7,6 +7,7 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -24,9 +25,10 @@ import java.text.Normalizer;
 public class ReadingListeningExplanationClient {
 
     private static final Logger log = LoggerFactory.getLogger(ReadingListeningExplanationClient.class);
-    public static final String EXPLANATION_PROMPT_VERSION = "v3";
+    public static final String EXPLANATION_PROMPT_VERSION = "v5";
     public static final String EXPLANATION_SCHEMA_VERSION = "v1";
     public static final String EXPLANATION_LANGUAGE = "vi";
+    private static final String IMAGE_EVIDENCE_PREFIX = "[IMAGE] ";
 
     private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
@@ -89,11 +91,15 @@ public class ReadingListeningExplanationClient {
     }
 
     public String explain(ExplanationContext context) {
+        return explain(context, null);
+    }
+
+    public String explain(ExplanationContext context, AiImageEvidence imageEvidence) {
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             log.info("[ReadingListeningAI] No API key configured; signalling typed fallback.");
             return null;
         }
-        if (!context.stimulus().hasUsableEvidence()) {
+        if (!context.stimulus().hasUsableEvidence() && imageEvidence == null) {
             log.info("[ReadingListeningAI] Evidence unavailable questionId={} skill={}",
                     context.questionId(), context.skill());
             return null;
@@ -105,7 +111,7 @@ public class ReadingListeningExplanationClient {
         request.put("response_format", responseFormat());
         request.put("messages", List.of(
                 message("system", typedSystemPrompt(context.questionType())),
-                message("user", typedUserPayload(context))
+                message("user", multimodalContent(typedUserPayload(context, imageEvidence), imageEvidence))
         ));
 
         log.info("[ReadingListeningAI] typed start model={} skill={} questionId={} type={}",
@@ -117,7 +123,7 @@ public class ReadingListeningExplanationClient {
         try {
             JsonNode root = objectMapper.readTree(raw);
             String content = extractOutputText(root, raw);
-            String cleaned = cleanAndValidateJson(content, context);
+            String cleaned = cleanAndValidateJson(content, context, imageEvidence);
             log.info("[ReadingListeningAI] typed completed questionId={}", context.questionId());
             return cleaned;
         } catch (Exception exception) {
@@ -206,6 +212,11 @@ public class ReadingListeningExplanationClient {
     }
 
     public String cleanAndValidateJson(String aiJson, ExplanationContext context) {
+        return cleanAndValidateJson(aiJson, context, null);
+    }
+
+    public String cleanAndValidateJson(String aiJson, ExplanationContext context,
+                                       AiImageEvidence imageEvidence) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
             Map<String, QuestionContent.Option> optionsById = new LinkedHashMap<>();
@@ -234,15 +245,23 @@ public class ReadingListeningExplanationClient {
             String correctReasonVi = root.path("correctReasonVi").asText("").trim();
             String relatedTranslationVi = root.path("relatedTranslationVi").asText("").trim();
             String evidenceText = context.stimulus().evidenceText();
-            if (meaningVi.isBlank() || correctReasonVi.isBlank()
-                    || evidenceQuote.isBlank()
-                    || !normalizeEvidence(evidenceText).contains(normalizeEvidence(evidenceQuote))) {
+            boolean textualEvidence = context.stimulus().hasUsableEvidence();
+            boolean visualEvidence = imageEvidence != null
+                    && evidenceQuote.startsWith(IMAGE_EVIDENCE_PREFIX)
+                    && evidenceQuote.length() > IMAGE_EVIDENCE_PREFIX.length();
+            boolean quotedTextEvidence = textualEvidence
+                    && !evidenceQuote.startsWith(IMAGE_EVIDENCE_PREFIX)
+                    && normalizeEvidence(evidenceText).contains(normalizeEvidence(evidenceQuote));
+            boolean validEvidence = visualEvidence || quotedTextEvidence;
+            if (meaningVi.isBlank() || correctReasonVi.isBlank() || !validEvidence) {
                 return null;
             }
 
             Map<String, Object> cleaned = new LinkedHashMap<>();
             cleaned.put("meaningVi", meaningVi);
-            cleaned.put("evidenceQuote", evidenceQuote);
+            cleaned.put("evidenceQuote", visualEvidence
+                    ? evidenceQuote.substring(IMAGE_EVIDENCE_PREFIX.length()).trim()
+                    : evidenceQuote);
             cleaned.put("correctReasonVi", correctReasonVi);
             cleaned.put("relatedTranslationVi", relatedTranslationVi);
             cleaned.put("eliminatedOptions", eliminated);
@@ -297,7 +316,7 @@ public class ReadingListeningExplanationClient {
         }
     }
 
-    private String typedUserPayload(ExplanationContext context) {
+    private String typedUserPayload(ExplanationContext context, AiImageEvidence imageEvidence) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("contextSchemaVersion", context.schemaVersion());
         payload.put("questionId", String.valueOf(context.questionId()));
@@ -310,6 +329,14 @@ public class ReadingListeningExplanationClient {
         payload.put("answerSpec", context.answerSpec());
         payload.put("evidenceText", context.stimulus().evidenceText());
         payload.put("evidenceProvenance", context.stimulus().provenance());
+        payload.put("questionImage", imageEvidence == null
+                ? Map.of("available", false)
+                : Map.of(
+                        "available", true,
+                        "assetId", imageEvidence.assetId(),
+                        "mimeType", imageEvidence.mimeType(),
+                        "sha256", imageEvidence.sha256(),
+                        "sizeBytes", imageEvidence.sizeBytes()));
         payload.put("teacherExplanation", context.teacherExplanation());
         payload.put("explanationLanguage", context.explanationLanguage());
         payload.put("optionLabelMode", context.optionLabelMode());
@@ -378,7 +405,11 @@ public class ReadingListeningExplanationClient {
         };
         return """
                 Bạn là giáo viên giải thích đáp án Reading/Listening cho học viên Việt Nam học tiếng Hàn.
-                Chỉ dùng evidenceText đã cung cấp. Không suy diễn nội dung audio hoặc bằng chứng không tồn tại.
+                Chỉ dùng evidenceText và ảnh câu hỏi nội bộ đã được cung cấp trong cùng request.
+                Không suy diễn nội dung audio hoặc bằng chứng không tồn tại.
+                Nếu evidenceQuote trích từ evidenceText, nó phải là chuỗi con chính xác của evidenceText.
+                Nếu dùng bằng chứng nhìn thấy trong ảnh, evidenceQuote phải bắt đầu chính xác bằng "[IMAGE] "
+                rồi mô tả ngắn phần hình ảnh làm căn cứ. Khi có cả text và ảnh, được chọn nguồn phù hợp hơn.
                 Không thay đổi answerSpec, không chấm lại learnerAnswer và không đưa learnerAnswer vào giải thích dùng chung.
                 Với eliminatedOptions, optionKey phải là stable option ID trong questionContent.
                 Trả JSON đúng schema rl_answer_explanation bằng tiếng Việt.
@@ -424,8 +455,22 @@ public class ReadingListeningExplanationClient {
         return raw;
     }
 
-    private static Map<String, String> message(String role, String content) {
-        Map<String, String> msg = new LinkedHashMap<>();
+    private static List<Map<String, Object>> multimodalContent(
+            String payload,
+            AiImageEvidence imageEvidence
+    ) {
+        List<Map<String, Object>> content = new ArrayList<>();
+        content.add(Map.of("type", "text", "text", payload));
+        if (imageEvidence != null) {
+            content.add(Map.of(
+                    "type", "image_url",
+                    "image_url", Map.of("url", imageEvidence.dataUrl(), "detail", "high")));
+        }
+        return content;
+    }
+
+    private static Map<String, Object> message(String role, Object content) {
+        Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("role", role);
         msg.put("content", content);
         return msg;

@@ -40,6 +40,14 @@ public class SpeakingEvaluationPromptBuilder {
                 "question_text", safeText(request.questionText()),
                 "target_level", safeText(request.targetLevel()),
                 "expected_answer_guidance", safeText(request.expectedAnswerGuidance())));
+        payload.put("question_image", request.imageEvidence() == null
+                ? Map.of("available", false)
+                : map(
+                        "available", true,
+                        "asset_id", request.imageEvidence().assetId(),
+                        "mime_type", request.imageEvidence().mimeType(),
+                        "sha256", request.imageEvidence().sha256(),
+                        "size_bytes", request.imageEvidence().sizeBytes()));
         payload.put("audio_metadata", map(
                 "audio_media_id", request.audioMediaId(),
                 "media_version", request.mediaVersion(),

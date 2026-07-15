@@ -71,6 +71,55 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(preview.contains("speakingDelivery.promptAudioReference"));
         assertTrue(preview.contains("speakingDelivery.preparationSeconds"));
         assertTrue(preview.contains("speakingDelivery.responseSeconds"));
+        assertTrue(preview.contains("section.listeningCheckAudioReference"));
+        assertTrue(editor.contains("function isCurrentEditorTarget(type, target)"));
+        assertTrue(editor.contains("const target = type === 'group'"));
+        assertTrue(editor.contains("group && group.questions[currentNode.qIdx]"));
+        assertTrue(editor.contains("const optionId = question && question.options[idx] && question.options[idx].id"));
+        assertTrue(editor.contains("isCurrentTarget = () => true"));
+        assertTrue(editor.contains("if (isCurrentEditorTarget('question', question)) renderOptionRows(question)"));
+    }
+
+    @Test
+    void fillBlankEditorAndWritingPreviewMirrorDedicatedLearnerPlayers() throws Exception {
+        String editor = read("src/main/resources/templates/practice/manage/editor.html");
+        String player = read("src/main/resources/templates/practice/player.html");
+        String playerJs = read("src/main/resources/static/js/practice/player-exam.js");
+        String playerCss = read("src/main/resources/static/css/practice/player.css");
+        String editorCss = read("src/main/resources/static/css/practice/manage-editor.css");
+        String authoringContract = read("src/main/resources/static/js/practice/manage-authoring-contract.js");
+
+        String typeChange = editor.substring(editor.indexOf("function handleQuestionTypeChange()"),
+                editor.indexOf("function getCircledNumber"));
+        assertTrue(typeChange.indexOf("normalizeQuestion(q, makeClientId)")
+                < typeChange.indexOf("renderFillBlanks(q)"));
+        assertTrue(typeChange.contains("if (previousType !== type)"));
+        assertTrue(typeChange.contains("if (type === 'FILL_BLANK') q.fillBlanks = []"));
+        assertTrue(editor.contains("prompt.value = `${before}${text}${after}`"));
+        assertTrue(editor.contains("split(token).join('')"));
+        assertFalse(editor.contains("const prefix = before"));
+        assertFalse(editor.contains("const suffix = after"));
+
+        assertTrue(player.contains("data-blank-number=${blankStat.count}"));
+        assertTrue(playerJs.contains("exam-inline-blank-number"));
+        assertTrue(playerCss.contains(".exam-inline-blank-number"));
+        assertTrue(editor.contains("id=\"preview-writing-prompts\""));
+        assertTrue(editor.contains("preview-writing-answer-card"));
+        assertTrue(editor.contains("preview-speaking-state"));
+        assertTrue(editor.contains("preview-speaking-panel"));
+        assertTrue(editor.contains("preview-fill-slot"));
+        assertTrue(authoringContract.contains("const canonicalBlanks = Array.isArray(canonicalContent.blanks)"));
+        assertTrue(authoringContract.contains("candidate.blankId === blank.id"));
+        assertTrue(authoringContract.contains("Array.from(answer.acceptedValues)"));
+        assertTrue(authoringContract.contains("Array.isArray(canonicalContent.options) ? canonicalContent.options : []"));
+        assertTrue(authoringContract.contains("Array.isArray(previousSpec.correctOptionIds)"));
+        assertTrue(authoringContract.contains("previousSpec.correctValue || ''"));
+        assertTrue(authoringContract.contains("q.answer = { type: 'SINGLE', value: legacyValue }"));
+        assertTrue(authoringContract.contains("q.answer = { type: 'TFNG', value: answer.correctValue || '' }"));
+        assertTrue(editor.contains("q.questionContent && Array.isArray(q.questionContent.options)"));
+        assertTrue(editorCss.contains(".preview-writing-answer-card"));
+        assertTrue(editorCss.contains(".preview-speaking-state"));
+        assertTrue(editorCss.contains(".preview-fill-slot > span"));
     }
 
     @Test

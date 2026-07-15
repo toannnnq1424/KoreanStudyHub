@@ -27,6 +27,8 @@
   var playCount = root.querySelector("[data-play-count]");
   var promptCard = root.querySelector("[data-prompt-card]");
   var promptText = root.querySelector("[data-prompt-text]");
+  var promptMedia = root.querySelector("[data-prompt-media]");
+  var promptImage = root.querySelector("[data-prompt-image]");
   var stateLabel = root.querySelector("[data-state-label]");
   var timer = root.querySelector("[data-timer]");
   var wave = Array.from(root.querySelectorAll("[data-wave] i"));
@@ -50,6 +52,7 @@
   var allowNavigation = false;
   var interruptSent = false;
   var pendingAction = null;
+  var promptAudioCleanup = null;
 
   function setConnection(text, state) {
     connection.textContent = text;
@@ -98,6 +101,8 @@
   }
 
   function resetAudio() {
+    if (typeof promptAudioCleanup === "function") promptAudioCleanup();
+    promptAudioCleanup = null;
     promptAudio.pause();
     promptAudio.removeAttribute("src");
     promptAudio.load();
@@ -162,16 +167,37 @@
   }
 
   function playPrompt(question, token) {
+    resetAudio();
     return new Promise(function (resolve, reject) {
       var total = Math.max(1, Number(question.promptPlayLimit) || 1);
       var completed = 0;
+      var settled = false;
+      var cleanup = function () {
+        promptAudio.removeEventListener("ended", onEnded);
+        promptAudio.removeEventListener("error", onAudioError);
+        if (promptAudioCleanup === cleanup) promptAudioCleanup = null;
+      };
+      var succeed = function () {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve();
+      };
+      var fail = function (caught) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(caught);
+      };
       var onEnded = function () {
-        if (token !== runToken) return;
+        if (token !== runToken) {
+          cleanup();
+          return;
+        }
         completed += 1;
         if (completed >= total) {
           promptAudioState.classList.remove("is-playing");
-          promptAudio.removeEventListener("ended", onEnded);
-          resolve();
+          succeed();
           return;
         }
         playCount.textContent = "Lần phát " + (completed + 1) + " / " + total;
@@ -179,18 +205,18 @@
         promptAudio.play().catch(function () {
           showAction("Tiếp tục phát đề", function () {
             hideAction();
-            promptAudio.play().catch(reject);
+            promptAudio.play().catch(fail);
           });
         });
       };
+      var onAudioError = function () {
+        fail(new Error("Không thể tải audio đề Speaking."));
+      };
 
-      resetAudio();
       promptAudio.src = question.promptAudioReference;
       promptAudio.addEventListener("ended", onEnded);
-      promptAudio.addEventListener("error", function onAudioError() {
-        promptAudio.removeEventListener("error", onAudioError);
-        reject(new Error("Không thể tải audio đề Speaking."));
-      }, { once: true });
+      promptAudio.addEventListener("error", onAudioError);
+      promptAudioCleanup = cleanup;
       promptAudioState.classList.add("is-playing");
       playCount.textContent = "Lần phát 1 / " + total;
       setState("Đang phát đề bài", NaN);
@@ -201,7 +227,7 @@
         showAction("Phát đề bài", function () {
           hideAction();
           promptAudioState.classList.add("is-playing");
-          promptAudio.play().catch(reject);
+          promptAudio.play().catch(fail);
         });
       });
     });
@@ -289,6 +315,13 @@
     setError("");
     promptCard.hidden = true;
     promptText.textContent = currentQuestion.prompt || "";
+    if (currentQuestion.imageReference && promptMedia && promptImage) {
+      promptImage.src = currentQuestion.imageReference;
+      promptMedia.hidden = false;
+    } else if (promptMedia && promptImage) {
+      promptImage.removeAttribute("src");
+      promptMedia.hidden = true;
+    }
     groupLabel.textContent = currentQuestion.groupLabel || "Phần nói";
     progress.textContent = "Câu " + (index + 1) + " / " + questions.length;
     setConnection("Đang thực hiện", "ready");

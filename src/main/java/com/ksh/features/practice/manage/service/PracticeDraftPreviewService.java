@@ -66,13 +66,22 @@ public class PracticeDraftPreviewService {
                             group.path("instruction").asText(""),
                             stimulus.path("type").asText("NONE"),
                             "READING".equals(skill) ? nullableText(stimulus.path("passageText")) : null,
-                            safeMediaReference(stimulus.path("mediaReference").asText(null)),
-                            safeMediaReference(stimulus.path("imageReference").asText(null)),
+                            safeMediaReference(firstNonBlank(
+                                    stimulus.path("mediaReference").asText(null),
+                                    group.path("audioUrl").asText(null))),
+                            safeMediaReference(firstNonBlank(
+                                    stimulus.path("imageReference").asText(null),
+                                    group.path("imageUrl").asText(null))),
                             List.copyOf(questions)
                     ));
                 }
                 sections.add(new PreviewSection(
-                        section.path("title").asText(""), skill, List.copyOf(groups)));
+                        section.path("title").asText(""),
+                        skill,
+                        safeMediaReference(section.path("sectionDelivery")
+                                .path("listeningDelivery")
+                                .path("checkAudioReference").asText(null)),
+                        List.copyOf(groups)));
             }
             return new DraftDeliveryPreview(
                     SCHEMA_VERSION,
@@ -87,16 +96,19 @@ public class PracticeDraftPreviewService {
     }
 
     private QuestionContent deliveryContent(JsonNode question, CanonicalQuestionType type) {
+        QuestionContent content;
         try {
             JsonNode typedContent = question.path("questionContent");
             if (typedContent.isObject()) {
-                return safeDeliveryContent(contractCodec.readQuestionContent(typedContent.toString(), type));
+                content = contractCodec.readQuestionContent(typedContent.toString(), type);
+            } else {
+                content = contractCodec.adaptLegacyContent(
+                        question.path("options").toString(), type.name());
             }
-            return safeDeliveryContent(contractCodec.adaptLegacyContent(
-                    question.path("options").toString(), type.name()));
         } catch (IllegalArgumentException exception) {
-            return QuestionContent.empty();
+            content = QuestionContent.empty();
         }
+        return safeDeliveryContent(withQuestionMediaFallbacks(content, question));
     }
 
     private static BigDecimal positivePoints(JsonNode node) {
@@ -106,6 +118,20 @@ public class PracticeDraftPreviewService {
 
     private static int nonNegativeInt(JsonNode node) {
         return Math.max(0, node.asInt(0));
+    }
+
+    private static QuestionContent withQuestionMediaFallbacks(QuestionContent content, JsonNode question) {
+        String imageReference = firstNonBlank(
+                content.imageReference(), question.path("imageUrl").asText(null));
+        String audioReference = firstNonBlank(
+                content.audioReference(), question.path("audioUrl").asText(null));
+        return new QuestionContent(
+                content.schemaVersion(),
+                content.options(),
+                content.blanks(),
+                imageReference,
+                audioReference,
+                content.speakingDelivery());
     }
 
     private static QuestionContent safeDeliveryContent(QuestionContent content) {
@@ -135,6 +161,10 @@ public class PracticeDraftPreviewService {
         return value.isBlank() ? null : value;
     }
 
+    private static String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? second : first;
+    }
+
     private static String safeMediaReference(String raw) {
         if (raw == null || raw.isBlank()) return null;
         String value = raw.trim();
@@ -153,7 +183,10 @@ public class PracticeDraftPreviewService {
     public record DraftDeliveryPreview(String schemaVersion, String title, List<PreviewSection> sections) {
     }
 
-    public record PreviewSection(String title, String skill, List<PreviewGroup> groups) {
+    public record PreviewSection(String title,
+                                 String skill,
+                                 String listeningCheckAudioReference,
+                                 List<PreviewGroup> groups) {
     }
 
     public record PreviewGroup(String label,

@@ -259,6 +259,53 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
+    void speakingPromptAudioMustUseGovernedMaterialReference() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                speakingDraft("SPEAKING").replace(
+                        "/practice/materials/7/content", "https://example.test/question.mp3"));
+
+        assertTrue(result.hasBlocking());
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "SPEAKING_PROMPT_AUDIO_REQUIRED".equals(message.code())));
+    }
+
+    @Test
+    void fillBlankTokenPlacedExactlyOnceIsValid() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                fillBlankDraft("도시는 {{blank:blank_1}}입니다."));
+
+        assertFalse(result.messages().stream().anyMatch(message ->
+                message.code() != null && message.code().startsWith("FILL_BLANK_TOKEN_")));
+    }
+
+    @Test
+    void fillBlankWithoutPlacedTokenIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                fillBlankDraft("도시는 어디입니까?"));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "FILL_BLANK_TOKEN_REQUIRED".equals(message.code())));
+    }
+
+    @Test
+    void duplicatedFillBlankTokenIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                fillBlankDraft("{{blank:blank_1}} / {{blank:blank_1}}"));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "FILL_BLANK_TOKEN_DUPLICATED".equals(message.code())));
+    }
+
+    @Test
+    void unknownFillBlankTokenIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                fillBlankDraft("{{blank:blank_1}} {{blank:missing}}"));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "FILL_BLANK_TOKEN_UNKNOWN".equals(message.code())));
+    }
+
+    @Test
     void questionNumberResetsInsideEverySkillSection() {
         PracticeDraftValidator.ValidationResult result = validator.validate(twoSkillDraft(1));
 
@@ -380,6 +427,30 @@ public class PracticeDraftValidatorTest {
                       }
                     }
                 """.formatted(questionType));
+    }
+
+    private String fillBlankDraft(String prompt) {
+        return draft("READING", """
+                    {
+                      "questionNo": 1,
+                      "questionType": "FILL_BLANK",
+                      "prompt": "%s",
+                      "explanationVi": "Giải thích",
+                      "points": 10,
+                      "questionContent": {
+                        "schemaVersion": "question-content-v1",
+                        "options": [],
+                        "blanks": [{"id":"blank_1","prompt":"Thành phố"}]
+                      },
+                      "answerSpec": {
+                        "schemaVersion": "answer-spec-v1",
+                        "questionType": "FILL_BLANK",
+                        "correctOptionIds": [],
+                        "blanks": [{"blankId":"blank_1","acceptedValues":["서울"]}],
+                        "scoringPolicyCode": "NORMALIZED_EXACT"
+                      }
+                    }
+                """.formatted(prompt));
     }
 
     private String writingDraft(String questionJson) {

@@ -3,6 +3,9 @@ package com.ksh.features.practice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
+import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningMockExplanationService;
 import com.ksh.features.practice.assessment.AnswerSpec;
@@ -107,6 +110,10 @@ class ReadingListeningTypedExplanationTest {
         assertThat(service.buildCacheKeyParts(context(
                 100L, base.stimulus(), base.answerSpec(), base.learnerAnswer(), "en")).base().cacheKey())
                 .isNotEqualTo(baseKey);
+
+        AiImageEvidence image = new AiImageEvidence(
+                9L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
+        assertThat(service.buildCacheKeyParts(base, image).base().cacheKey()).isNotEqualTo(baseKey);
     }
 
     @Test
@@ -130,6 +137,36 @@ class ReadingListeningTypedExplanationTest {
         verify(repository, never()).upsertVersioned(
                 anyString(), any(), any(), any(), anyString(), anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void imageOnlyQuestionRoutesGovernedEvidenceToMultimodalProvider() {
+        AiQuestionImageResolver imageResolver = mock(AiQuestionImageResolver.class);
+        ReadingListeningExplanationService multimodalService = new ReadingListeningExplanationService(
+                repository, client, fallback, properties, new ObjectMapper(),
+                imageResolver, PracticeAiMetrics.noop());
+        ExplanationContext context = context(
+                102L,
+                AssessmentStimulus.readingPassage("", "TEACHER"),
+                answerSpec("opt_1"),
+                learner("opt_2"),
+                "vi");
+        AiImageEvidence image = new AiImageEvidence(
+                9L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
+        when(imageResolver.resolve("/practice/materials/9/content", 42L))
+                .thenReturn(Optional.of(image));
+        when(properties.apiKey()).thenReturn("key");
+        when(client.explain(context, image)).thenReturn("""
+                {"meaningVi":"Giải nghĩa","evidenceQuote":"Biểu đồ trong ảnh",\
+                "correctReasonVi":"Đúng theo ảnh","relatedTranslationVi":"",\
+                "eliminatedOptions":[]}
+                """);
+
+        String result = multimodalService.getOrCreateExplanation(
+                context, 7L, 42L, "/practice/materials/9/content");
+
+        assertThat(result).contains("Giải nghĩa", "Đúng theo ảnh");
+        verify(client).explain(context, image);
     }
 
     @Test

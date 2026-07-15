@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public final class SpeakingPromptRules {
-    public static final String PROMPT_VERSION = "speaking-eval-v1";
+    public static final String PROMPT_VERSION = "speaking-eval-v2";
     public static final String RUBRIC_VERSION = "speaking-rubric-v1";
     public static final String SCHEMA_VERSION = "speaking-schema-v1";
 
@@ -44,6 +44,8 @@ public final class SpeakingPromptRules {
                 Do not make medical, speech-therapy, native-like, or exact phoneme-level claims.
                 Pronunciation and delivery comments are advisory unless a later specialized pronunciation provider supplies alignment evidence.
                 Do not use few-shot calibration samples or invented sample datasets for scoring.
+                When a governed question image is attached, read it as authoritative task context together with question_text.
+                Do not claim visual details that are not visible in the attached image.
                 Do not output markdown outside JSON.
                 """;
     }

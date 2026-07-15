@@ -287,6 +287,12 @@ class PracticePublisherServiceTest {
                     "title": "Listening",
                     "skill": "LISTENING",
                     "durationMinutes": 40,
+                    "sectionDelivery": {
+                      "schemaVersion": "practice-section-delivery-v1",
+                      "listeningDelivery": {
+                        "checkAudioReference": "/practice/materials/11/content"
+                      }
+                    },
                     "groups": [{
                       "label": "Dialogue",
                       "instruction": "Nghe và chọn đáp án.",
@@ -294,8 +300,8 @@ class PracticePublisherServiceTest {
                         "schemaVersion": "practice-stimulus-v1",
                         "type": "LISTENING_AUDIO",
                         "transcriptText": "대화 원문",
-                        "mediaReference": "/uploads/practice-audio/a.mp3",
-                        "imageReference": "/uploads/practice-images/a.png",
+                        "mediaReference": "/practice/materials/12/content",
+                        "imageReference": "/practice/materials/13/content",
                         "provenance": {"source": "MANUAL", "approved": true, "sourceRegionIds": []}
                       },
                       "questions": [{
@@ -316,7 +322,11 @@ class PracticePublisherServiceTest {
         assertEquals("LISTENING_AUDIO", group.getStimulusType());
         assertNull(group.getPassageText());
         assertEquals("대화 원문", group.getTranscriptText());
-        assertEquals("/uploads/practice-images/a.png", group.getImageUrl());
+        assertEquals("/practice/materials/12/content", group.getAudioUrl());
+        assertEquals("/practice/materials/13/content", group.getImageUrl());
+        JsonNode delivery = objectMapper.readTree(savedSections.get(0).getDeliveryJson());
+        assertEquals("/practice/materials/11/content",
+                delivery.path("listeningDelivery").path("checkAudioReference").asText());
         assertTrue(objectMapper.readTree(group.getStimulusProvenanceJson()).path("approved").asBoolean());
     }
 

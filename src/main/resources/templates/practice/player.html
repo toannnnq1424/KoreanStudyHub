@@ -4,283 +4,205 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice/player.css}">
 </head>
-<body class="ksh-room-shell">
-<form class="ksh-room"
+<body class="exam-shell">
+<form class="exam-player"
       th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}"
       method="post"
       autocomplete="off"
-      th:attr="data-mode=${mode}">
+      th:attr="data-mode=${mode},data-attempt-id=${attemptId},data-skill=${activeSectionSkill}">
   <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 
-  <!-- Redesigned Sticky Header -->
-  <header class="exam-header">
-    <div class="header-left">
-      <a class="back-link" th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}">
-        <span class="back-arrow">←</span>
-        <span class="back-text">Thoát bài</span>
-      </a>
+  <header class="exam-topbar">
+    <a class="exam-icon-button" th:href="${returnUrl}" data-exit-link aria-label="Thoát bài" title="Thoát bài">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <div class="exam-identity">
+      <strong th:text="${view.set().title()}">Bộ đề luyện tập</strong>
+      <span th:text="${activeSectionTitle}">Phần Đọc</span>
     </div>
-    <div class="header-center">
-      <div class="test-title-container">
-        <h1 class="test-title" th:text="${view.set().title()} + ' - ' + ${activeSectionTitle}">Bài luyện tập - Phần Đọc</h1>
-        <a class="group-dropdown-toggle" id="ksh-group-dropdown-toggle">
-          Nhóm câu <span id="ksh-active-group-label">...</span> ∨
-        </a>
-      </div>
-    </div>
-    <div class="header-right">
-      <span class="progress-info" th:if="${totalSections > 1}" style="margin-right:12px;">
-        Phần <strong th:text="${sectionIndex + 1}">1</strong> / <strong th:text="${totalSections}">2</strong>
-      </span>
-      <span class="progress-info">
-        Tiến độ | <strong id="ksh-progress-done">0</strong> / <strong th:text="${view.totalQuestions()}">50</strong> câu
-      </span>
-      <span class="timer-container">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        <span class="ksh-room-timer" th:attr="data-room-timer=${activeSectionDuration}">39:52</span>
-      </span>
-      <button class="submit-btn" type="submit" th:text="${totalSections > 1 and sectionIndex < totalSections - 1} ? 'Tiếp tục' : 'Nộp bài'">Nộp bài</button>
+    <div class="exam-top-actions">
+      <span class="exam-progress"><strong data-progress-done>0</strong>/<span th:text="${view.totalQuestions()}">10</span></span>
+      <span class="exam-timer" th:attr="data-room-timer=${activeSectionDuration}">40:00</span>
+      <button type="button" class="exam-icon-button" data-note-toggle aria-label="Mở ghi chú" title="Ghi chú">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span class="exam-note-count" data-note-count hidden>0</span>
+      </button>
+      <button class="exam-submit-button" type="submit">Nộp bài</button>
     </div>
   </header>
 
-  <!-- Dashboard 3-Column Container -->
-  <div class="exam-container" id="ksh-exam-container">
-    
-    <!-- Cột trái (Left Sidebar - Passage & Notes) -->
-    <aside class="ksh-prompt-pane">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--ksh-line); padding-bottom: 12px; margin-bottom: 16px;">
-        <h2 style="font-size: 16px; font-weight: 850; color: var(--ksh-ink); margin: 0;">Bài đọc</h2>
-        <button type="button" class="ksh-collapse-btn" id="ksh-collapse-left" style="background:#f3f4f6; border:0; border-radius:8px; padding:6px 12px; font-weight:800; cursor:pointer; font-size:12px; color:#4b5563;">◀ Thu nhỏ</button>
-      </div>
+  <section class="exam-section-band">
+    <div>
+      <span th:text="${activeSectionSkill == 'LISTENING' ? 'LISTENING' : 'READING'}">READING</span>
+      <h1 th:text="${activeSectionTitle}">Phần thi</h1>
+    </div>
+    <p data-active-group-title>Nhóm câu hỏi</p>
+  </section>
 
-      <!-- Group Source Cards (One for each group) -->
-      <div class="ksh-source-card-container">
-        <article class="ksh-source-card" 
-                 th:each="g : ${view.groups()}" 
-                 th:attr="data-group=${g.groupLabel()}">
-          <div style="background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin-bottom: 15px;">
-            <strong style="color: #1e40af; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px;">Đề bài</strong>
-            <p class="ksh-source-prompt-text" th:text="${g.instruction()}" style="margin: 0; font-size: 14px; line-height: 1.6; color: #1e3a8a; font-weight: 600;">Prompt</p>
-          </div>
-        </article>
-      </div>
-
-      <!-- Thẻ Ghi chú của học viên -->
-      <div class="ksh-notes-panel" style="margin-top: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <strong style="font-size: 15px; color: var(--ksh-ink);">Ghi chú</strong>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ksh-muted);"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-        </div>
-        <div class="ksh-notes-list" style="color: var(--ksh-muted); font-size: 13px; font-style: italic;">
-          Ghi chú của bạn sẽ hiển thị ở đây...
-        </div>
-      </div>
+  <main class="exam-workspace"
+        th:classappend="${activeSectionSkill == 'LISTENING'} ? ' is-listening' : ' is-reading'">
+    <aside class="exam-source-pane" th:if="${activeSectionSkill == 'READING'}">
+      <article class="exam-source-stage"
+               th:each="g, gStat : ${view.groups()}"
+               th:attr="data-group-stage=${gStat.index},
+                        data-has-source=${(g.passageText() != null and !#strings.isEmpty(g.passageText())) or (g.imageUrl() != null and !#strings.isEmpty(g.imageUrl()))},
+                        data-long-source=${(g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())) or (g.passageText() != null and #strings.length(g.passageText()) >= 320)}">
+        <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+           th:text="${g.instruction()}">Đề bài</p>
+        <figure class="exam-source-figure" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
+          <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
+        </figure>
+        <div class="exam-passage exam-selectable" th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
+             th:text="${g.passageText()}">Nội dung bài đọc</div>
+      </article>
     </aside>
 
-    <!-- Cột ở giữa (Center Content - Main Area) -->
-    <section class="ksh-answer-pane">
-      <!-- Re-expand button when collapsed -->
-      <button type="button" class="ksh-expand-btn" id="ksh-expand-left" style="display:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-        <span>Mở rộng tài liệu</span>
-      </button>
+    <div class="exam-resize-handle" th:if="${activeSectionSkill == 'READING'}" data-split-handle tabindex="0"
+         role="separator" aria-label="Điều chỉnh độ rộng hai vùng" aria-orientation="vertical"
+         aria-valuemin="32" aria-valuenow="50" aria-valuemax="68">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4M15 8l4 4-4 4"/></svg>
+    </div>
 
-      <!-- Group Content Containers -->
-      <div class="ksh-groups-container">
-        <div class="ksh-group-content ksh-group-card" th:each="g : ${view.groups()}" th:attr="data-group=${g.groupLabel()}">
-          
-          <!-- Audio player for Listening skill if present for this group -->
-          <div class="ksh-audio-check" th:if="${view.listening() and (g.audioUrl() != null or view.set().audioPath() != null)}" style="margin-bottom: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #6b7280;"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-              <span style="font-weight: 750; color: #4b5563;">Audio Phát âm thanh</span>
-            </div>
-            <div class="ksh-audio-bar">
-              <audio th:src="${g.audioUrl() != null} ? ${g.audioUrl()} : @{${view.set().audioPath()}}" controls style="width: 100%; border-radius: 12px;"></audio>
-            </div>
-          </div>
-
-          <!-- Instruction Text -->
-          <div class="ksh-instruction-box" style="margin-bottom: 20px; font-size: 15px; font-weight: 800; color: #374151;">
-            <span th:text="${g.instruction()}">Instruction</span>
-          </div>
-
-          <!-- Example Box (<보기>) -->
-          <div class="ksh-example-box" th:if="${g.exampleBox() != null}">
-            <div style="text-align: center; font-weight: 850; margin-bottom: 12px; color: #1e40af;">
-              &lt;<span th:text="${g.exampleBox().label()}">보기</span>&gt;
-            </div>
-            <div style="white-space: pre-line; margin-bottom: 12px; font-weight: 600; color: #374151;" th:text="${g.exampleBox().content()}">
-              Dialogue content
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;" th:if="${g.exampleBox().choices() != null}">
-              <div th:each="choice, cStat : ${g.exampleBox().choices()}" style="font-size: 14px; font-weight: 600; color: #4b5563;">
-                <span th:text="${cStat.count == 1 ? '①' : (cStat.count == 2 ? '②' : (cStat.count == 3 ? '③' : '④'))}" 
-                      th:style="${g.exampleBox().answer() == cStat.count} ? 'background:#1e40af; color:#fff; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; margin-right:4px;' : 'margin-right:4px;'">①</span>
-                <span th:text="${choice}">Choice text</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Questions list inside group -->
-          <div class="ksh-question-stack">
-            <div class="ksh-question-block" th:each="q : ${g.questions()}" th:attr="data-question-id=${q.id()}">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
-                <h3 style="margin: 0; color: var(--ksh-blue); font-weight: 850; font-size: 18px;" th:text="(${q.questionNo()} ?: '') + '.'">17.</h3>
-                <label class="ksh-flag-review-label" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: #6b7280; background: #f3f4f6; padding: 4px 10px; border-radius: 6px;">
-                  <input type="checkbox" class="ksh-flag-review" th:attr="data-question-no=${q.questionNo()}" style="accent-color: #ef4444;">
-                  <span>Review</span>
-                </label>
-              </div>
-              
-              <p class="ksh-question-prompt" th:if="${q.prompt() != null and !q.prompt().isEmpty()}" th:text="${q.prompt()}">Prompt</p>
-
-              <!-- MCQ options -->
-              <div class="ksh-options" th:if="${q.questionType() == 'MCQ' or q.questionType() == 'SINGLE_CHOICE'}">
-                <label class="option" th:each="option, optionStat : ${q.options()}">
-                  <input type="radio" th:name="'answer_' + ${q.id()}" th:value="${optionStat.count}">
-                  <span class="option-letter" th:text="${optionStat.count == 1 ? 'A' : (optionStat.count == 2 ? 'B' : (optionStat.count == 3 ? 'C' : (optionStat.count == 4 ? 'D' : '')))}">A</span>
-                  <span th:text="${optionStat.count == 1 ? '① ' : (optionStat.count == 2 ? '② ' : (optionStat.count == 3 ? '③ ' : (optionStat.count == 4 ? '④ ' : '')))} + ${option}">1. Đáp án</span>
-                </label>
-              </div>
-
-              <!-- True False Not Given options -->
-              <div class="ksh-options" th:if="${q.questionType() == 'TRUE_FALSE_NOT_GIVEN'}">
-                <label class="option">
-                  <input type="radio" th:name="'answer_' + ${q.id()}" value="TRUE">
-                  <span class="option-letter">A</span>
-                  <span>True</span>
-                </label>
-                <label class="option">
-                  <input type="radio" th:name="'answer_' + ${q.id()}" value="FALSE">
-                  <span class="option-letter">B</span>
-                  <span>False</span>
-                </label>
-                <label class="option">
-                  <input type="radio" th:name="'answer_' + ${q.id()}" value="NOT GIVEN">
-                  <span class="option-letter">C</span>
-                  <span>Not Given</span>
-                </label>
-              </div>
-
-              <!-- Input answers -->
-              <div class="ksh-input-answer" th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'SPEAKING' and q.questionType() != 'ESSAY'}">
-                <input type="text" th:name="'answer_' + ${q.id()}" placeholder="Nhập câu trả lời..." style="width: 100%; height: 48px; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 15px; box-sizing: border-box;">
-              </div>
-              
-              <!-- Writing essay input -->
-              <div class="ksh-writing-box" th:if="${q.questionType() == 'ESSAY'}">
-                <label class="ksh-writing-task" style="display: block;">
-                  <span style="font-weight: 750; display: block; margin-bottom: 12px; color: #374151;">Câu trả lời của bạn</span>
-                  <textarea th:name="'answer_' + ${q.id()}"
-                            rows="20"
-                            minlength="20"
-                            placeholder="Nhập bài viết tiếng Hàn của bạn tại đây..."
-                            style="width: 100%; padding: 16px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 15px; box-sizing: border-box; resize: vertical; line-height: 1.6;"
-                            required></textarea>
-                  <em style="display: block; margin-top: 8px; font-size: 13px; color: var(--ksh-muted);">KSH sẽ chấm theo rubric Writing nội bộ, có chế độ dự phòng nếu AI chưa sẵn sàng.</em>
-                </label>
-              </div>
-            </div>
-          </div>
-
+    <section class="exam-question-pane">
+      <article class="exam-group-stage"
+               th:each="g, gStat : ${view.groups()}"
+               th:attr="data-group-stage=${gStat.index},data-group-label=${g.groupLabel()}"
+               data-question-stage>
+        <div class="exam-reading-focus-lead" th:if="${activeSectionSkill == 'READING'}">
+          <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:text="${g.instruction()}">Hướng dẫn</p>
         </div>
-      </div>
+        <div class="exam-listening-lead" th:if="${activeSectionSkill == 'LISTENING'}">
+          <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:text="${g.instruction()}">Hướng dẫn</p>
+          <figure class="exam-source-figure compact" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
+            <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
+          </figure>
+          <div class="exam-audio" data-exam-audio
+               th:if="${g.audioUrl() != null and !#strings.isEmpty(g.audioUrl())}">
+            <button type="button" class="exam-audio-button" data-audio-toggle aria-label="Phát âm thanh">▶</button>
+            <div class="exam-audio-track">
+              <strong>Audio</strong>
+              <input type="range" min="0" max="1000" value="0" data-audio-range aria-label="Vị trí phát âm thanh">
+            </div>
+            <time data-audio-time>00:00 / 00:00</time>
+            <audio th:src="${g.audioUrl()}" preload="metadata" data-audio-source></audio>
+          </div>
+        </div>
 
-      <!-- Navigation buttons at bottom of active group -->
-      <div class="ksh-group-nav-buttons" style="display:flex; justify-content:space-between; margin-top:30px; width: 100%; max-width: 900px; box-sizing: border-box; padding: 0 10px;">
-        <button type="button" class="ksh-secondary-button ksh-prev-group-btn" style="background:#f3f4f6; color:#374151; border:0; padding:12px 24px; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">← Nhóm trước (Prev Group)</button>
-        <button type="button" class="ksh-primary-button ksh-next-group-btn" style="background:var(--ksh-blue); color:#fff; border:0; padding:12px 24px; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">Nhóm sau (Next Group) →</button>
-      </div>
+        <div class="exam-example exam-selectable" th:if="${g.exampleBox() != null}">
+          <strong>&lt;<span th:text="${g.exampleBox().label()}">보기</span>&gt;</strong>
+          <p th:text="${g.exampleBox().content()}">Ví dụ</p>
+          <ol th:if="${g.exampleBox().choices() != null}">
+            <li th:each="choice : ${g.exampleBox().choices()}" th:text="${choice}">Lựa chọn</li>
+          </ol>
+        </div>
+
+        <div class="exam-question-list">
+          <section class="exam-question"
+                   th:each="q : ${g.questions()}"
+                   th:attr="data-question-id=${q.id()}">
+            <div class="exam-question-heading">
+              <span class="exam-question-number" th:text="${q.questionNo()}">1</span>
+              <label class="exam-bookmark" title="Đánh dấu xem lại">
+                <input type="checkbox" data-review-flag>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+              </label>
+            </div>
+
+            <p class="exam-question-prompt exam-selectable"
+               th:if="${q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.prompt() != null and !#strings.isEmpty(q.prompt())}"
+               th:text="${q.prompt()}">Câu hỏi</p>
+
+            <figure class="exam-question-figure" th:if="${q.imageReference() != null and !#strings.isEmpty(q.imageReference())}">
+              <img th:src="${q.imageReference()}" alt="Ảnh câu hỏi">
+            </figure>
+
+            <div class="exam-audio compact" data-exam-audio
+                 th:if="${q.audioReference() != null and !#strings.isEmpty(q.audioReference())}">
+              <button type="button" class="exam-audio-button" data-audio-toggle aria-label="Phát âm thanh câu hỏi">▶</button>
+              <div class="exam-audio-track">
+                <strong>Audio câu hỏi</strong>
+                <input type="range" min="0" max="1000" value="0" data-audio-range aria-label="Vị trí phát âm thanh">
+              </div>
+              <time data-audio-time>00:00 / 00:00</time>
+              <audio th:src="${q.audioReference()}" preload="metadata" data-audio-source></audio>
+            </div>
+
+            <div class="exam-options" th:if="${q.questionType() == 'MCQ' or q.questionType() == 'SINGLE_CHOICE'}">
+              <label class="exam-option" th:each="option, optionStat : ${q.optionRows()}">
+                <input type="radio" th:name="'answer_' + ${q.id()}" th:value="${option.id()}">
+                <span class="exam-option-key" th:text="${optionStat.count}">1</span>
+                <span class="exam-option-content exam-selectable">
+                  <span th:text="${option.text()}">Phương án</span>
+                  <img th:if="${option.imageReference() != null and !#strings.isEmpty(option.imageReference())}"
+                       th:src="${option.imageReference()}" alt="Ảnh phương án">
+                </span>
+              </label>
+            </div>
+
+            <div class="exam-options compact-options" th:if="${q.questionType() == 'TRUE_FALSE_NOT_GIVEN'}">
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="TRUE"><span class="exam-option-key">A</span><span>True</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="FALSE"><span class="exam-option-key">B</span><span>False</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="NOT_GIVEN"><span class="exam-option-key">C</span><span>Not Given</span></label>
+            </div>
+
+            <div class="exam-fill-response" data-fill-question
+                 th:if="${q.questionType() == 'FILL_BLANK' or q.questionType() == 'GAP_FILL'}">
+              <div class="exam-fill-template exam-selectable" th:text="${q.prompt()}">Điền vào chỗ trống</div>
+              <div class="exam-fill-bank">
+                <label class="exam-fill-row" th:each="blank, blankStat : ${q.blankRows()}"
+                       th:attr="data-blank-row=${blank.id()},data-blank-number=${blankStat.count}">
+                  <span><b th:text="${blankStat.count}">1</b><span th:text="${blank.prompt()}">Ô trống</span></span>
+                  <input type="text" class="exam-blank-input"
+                         th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt()}"
+                         autocomplete="off" spellcheck="false">
+                </label>
+              </div>
+              <input type="hidden" th:name="'answer_' + ${q.id()}" data-fill-answer>
+            </div>
+
+            <div class="exam-short-answer"
+                 th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.questionType() != 'ESSAY' and q.questionType() != 'SPEAKING'}">
+              <input type="text" th:name="'answer_' + ${q.id()}" placeholder="Nhập câu trả lời" autocomplete="off">
+            </div>
+          </section>
+        </div>
+      </article>
     </section>
+  </main>
 
-    <!-- Cột phải (Right Sidebar - Group Navigator inline) -->
-    <aside class="ksh-navigator-pane">
-      <div style="border-bottom: 1px solid var(--ksh-line); padding-bottom: 12px; margin-bottom: 16px;">
-        <h2 style="font-size: 16px; font-weight: 850; color: var(--ksh-ink); margin: 0;">Danh sách nhóm câu</h2>
-      </div>
-
-      <!-- Status Legend -->
-      <div class="ksh-drawer-legend" style="display: flex; gap: 12px; margin-bottom: 20px; font-size: 12px; font-weight: 750; color: #6b7280; flex-wrap: wrap;">
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#d1d5db; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Chưa làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:var(--ksh-blue); width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đang làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#22c55e; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đã làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#ef4444; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đánh dấu</span>
-      </div>
-
-      <div class="ksh-drawer-groups-list" style="display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex-grow: 1;">
-        <button type="button"
-                th:each="g : ${view.groups()}"
-                th:attr="data-group=${g.groupLabel()}"
-                class="ksh-drawer-group-btn status-gray">
-          <span class="ksh-group-title" th:text="${view.speaking() ? 'Part ' + g.groupLabel() : g.groupLabel()}">12-16</span>
-          <span class="ksh-group-status-dot"></span>
-        </button>
-      </div>
-    </aside>
-
-  </div>
-
-  <!-- Overlay backdrop of Drawer (Mobile fallback) -->
-  <div id="ksh-drawer-overlay" class="ksh-drawer-overlay"></div>
-
-  <!-- Question Navigator Drawer (Mobile fallback) -->
-  <div id="ksh-navigator-drawer" class="ksh-navigator-drawer">
-    <div class="ksh-drawer-header">
-      <h3>Danh sách nhóm câu</h3>
-      <button type="button" id="ksh-drawer-close">&times;</button>
+  <footer class="exam-bottom-bar">
+    <nav class="exam-group-tabs" aria-label="Nhóm câu hỏi">
+      <button type="button" th:each="g, gStat : ${view.groups()}"
+              th:attr="data-group-tab=${gStat.index}"
+              th:text="${g.groupLabel() != null and !#strings.isEmpty(g.groupLabel()) ? g.groupLabel() : 'Phần ' + (gStat.index + 1)}">1-5</button>
+    </nav>
+    <div class="exam-bottom-actions">
+      <button type="button" class="exam-nav-button" data-group-prev aria-label="Nhóm trước">←</button>
+      <button type="button" class="exam-nav-button" data-group-next aria-label="Nhóm tiếp theo">→</button>
+      <button type="submit" class="exam-bottom-submit">Nộp bài</button>
     </div>
-    <div class="ksh-drawer-body">
-      <!-- Status Legend -->
-      <div class="ksh-drawer-legend" style="display: flex; gap: 12px; margin-bottom: 20px; font-size: 13px; font-weight: 750; color: #6b7280; flex-wrap: wrap;">
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#d1d5db; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Chưa làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:var(--ksh-blue); width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đang làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#22c55e; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đã làm</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px;"><span class="ksh-group-status-dot" style="background:#ef4444; width:8px; height:8px; display:inline-block; border-radius:50%;"></span> Đánh dấu</span>
-      </div>
+  </footer>
 
-      <div class="ksh-drawer-groups-list" style="display: flex; flex-direction: column; gap: 10px;">
-        <button type="button"
-                th:each="g : ${view.groups()}"
-                th:attr="data-group=${g.groupLabel()}"
-                class="ksh-drawer-group-btn status-gray">
-          <span class="ksh-group-title" th:text="${view.speaking() ? 'Part ' + g.groupLabel() : g.groupLabel()}">12-16</span>
-          <span class="ksh-group-status-dot"></span>
-        </button>
-      </div>
-    </div>
-    <div class="ksh-drawer-footer" style="padding: 20px; border-top: 1px solid var(--ksh-line); display: flex; justify-content: center;">
-      <button type="button" id="ksh-drawer-bottom-close" style="background: #f3f4f6; border: 0; padding: 10px 24px; border-radius: 8px; font-weight: 800; color: #374151; cursor: pointer; font-size: 14px;">✕ Đóng</button>
+  <aside class="exam-notes-drawer" data-notes-drawer aria-hidden="true">
+    <header><h2>Ghi chú</h2><button type="button" data-note-close aria-label="Đóng ghi chú">×</button></header>
+    <div class="exam-notes-list" data-notes-list></div>
+    <p class="exam-notes-empty" data-notes-empty>Chưa có ghi chú.</p>
+  </aside>
+  <div class="exam-drawer-backdrop" data-note-backdrop></div>
+
+  <div class="exam-selection-tools" data-selection-tools hidden>
+    <button type="button" data-selection-highlight><span class="green-swatch"></span>Highlight</button>
+    <button type="button" data-selection-note><span class="yellow-swatch"></span>Note</button>
+    <div class="exam-note-composer" data-note-composer hidden>
+      <input type="text" data-note-input maxlength="300" placeholder="Nhập ghi chú">
+      <button type="button" data-note-save aria-label="Lưu ghi chú">✓</button>
     </div>
   </div>
-
-  <!-- Floating Question Navigator Toggle Button (Mobile fallback) -->
-  <button type="button" id="ksh-navigator-toggle" class="ksh-navigator-toggle-btn">
-    <span>☰ Questions</span>
-  </button>
 </form>
 
 <script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/practice.js}"></script>
-<script>
-  (function() {
-    let isSubmitting = false;
-    const form = document.querySelector('form.ksh-room');
-    if (form) {
-      form.addEventListener('submit', () => {
-        isSubmitting = true;
-      });
-    }
-    window.addEventListener('beforeunload', (e) => {
-      if (!isSubmitting) {
-        e.preventDefault();
-        e.returnValue = 'Bạn có chắc chắn muốn rời khỏi bài thi? Kết quả bài làm hiện tại có thể không được lưu.';
-        return e.returnValue;
-      }
-    });
-  })();
-</script>
+<script th:src="@{/js/practice/player-exam.js}"></script>
 </body>
 </html>

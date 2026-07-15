@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -77,12 +78,17 @@ class SpeakingEvaluationPromptBuilderTest {
     }
 
     static SpeakingEvaluationRequest request(boolean textFallback) {
+        return request(textFallback, null);
+    }
+
+    static SpeakingEvaluationRequest request(boolean textFallback, AiImageEvidence imageEvidence) {
         return new SpeakingEvaluationRequest(
                 10L,
                 11L,
                 "자기소개를 하세요.",
                 "TOPIK II",
                 "Say who you are and what you study.",
+                imageEvidence,
                 textFallback ? null : 12L,
                 textFallback ? null : 13L,
                 textFallback ? null : "audio/webm",

@@ -82,6 +82,10 @@ public class ReadingListeningMockExplanationService {
     }
 
     public String explain(ExplanationContext context, String reason) {
+        return explain(context, reason, false);
+    }
+
+    public String explain(ExplanationContext context, String reason, boolean imageAvailable) {
         try {
             boolean evidenceAvailable = context.stimulus().hasUsableEvidence();
             String evidence = evidenceAvailable ? context.stimulus().evidenceText().trim() : "";
@@ -92,18 +96,23 @@ public class ReadingListeningMockExplanationService {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("meaningVi", evidenceAvailable
                     ? "Giải thích dựa trên nội dung nguồn đã được cung cấp."
+                    : imageAvailable
+                            ? "Ảnh câu hỏi đã được cung cấp nhưng dịch vụ AI hiện chưa khả dụng."
                     : "Chưa có transcript hoặc văn bản nguồn đã được duyệt để giải thích câu này.");
-            result.put("evidenceQuote", evidence);
+            result.put("evidenceQuote", evidenceAvailable ? evidence
+                    : (imageAvailable ? "Bằng chứng nằm trong ảnh câu hỏi đã được giáo viên tải lên." : ""));
             result.put("correctReasonVi", context.teacherExplanation() != null
                     && !context.teacherExplanation().isBlank()
                     ? context.teacherExplanation()
                     : (evidenceAvailable
                             ? "Đáp án được xác định theo answer spec của giáo viên; AI tạm thời chưa khả dụng."
+                            : imageAvailable
+                                    ? "AI chưa khả dụng nên hệ thống chưa thể phân tích nội dung ảnh câu hỏi."
                             : "Không thể giải thích nội dung nghe khi chưa có transcript hoặc bằng chứng đã được duyệt."));
             result.put("relatedTranslationVi", evidenceAvailable
                     ? "Bản dịch chi tiết sẽ được tạo khi dịch vụ AI khả dụng."
                     : "");
-            result.put("evidenceStatus", evidenceAvailable ? "AVAILABLE" : "UNAVAILABLE");
+            result.put("evidenceStatus", evidenceAvailable || imageAvailable ? "AVAILABLE" : "UNAVAILABLE");
             result.put("fallbackReason", reason == null ? "" : reason);
 
             java.util.Set<String> correctIds = new java.util.LinkedHashSet<>(

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 /**
  * Global exception handler for all Spring MVC controllers.
@@ -100,6 +101,16 @@ public class GlobalExceptionHandler {
         log.info("409 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ex.getMessage() != null ? ex.getMessage() : "");
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientDisconnected(AsyncRequestNotUsableException ex,
+                                         HttpServletRequest request) {
+        // Audio/video elements routinely cancel an obsolete range request when
+        // seeking or replacing a source. The response is already unusable, so
+        // attempting to render an error page only creates a second write error.
+        log.debug("Client disconnected while streaming [{}]: {}",
+                request.getRequestURI(), ex.getMessage());
     }
 
     /**

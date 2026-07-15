@@ -36,6 +36,9 @@ public class PracticeSection {
     @Column(columnDefinition = "TEXT")
     private String instructions;
 
+    @Column(name = "delivery_json", columnDefinition = "JSON")
+    private String deliveryJson;
+
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
@@ -103,6 +106,14 @@ public class PracticeSection {
 
     public void setInstructions(String instructions) {
         this.instructions = instructions;
+    }
+
+    public String getDeliveryJson() {
+        return deliveryJson;
+    }
+
+    public void setDeliveryJson(String deliveryJson) {
+        this.deliveryJson = deliveryJson;
     }
 
     public Integer getDurationMinutes() {

@@ -122,6 +122,10 @@ public class PracticeQuestionGroup {
         return audioUrl;
     }
 
+    public void setAudioUrl(String audioUrl) {
+        this.audioUrl = audioUrl;
+    }
+
     public String getExampleJson() {
         return exampleJson;
     }

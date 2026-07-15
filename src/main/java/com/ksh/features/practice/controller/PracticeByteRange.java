@@ -66,6 +66,18 @@ final class PracticeByteRange {
             try (InputStream input = source.open()) {
                 skipFully(input, range.start());
                 copyBounded(input, outputStream, range.length());
+            } catch (IOException exception) {
+                if (isClientAbort(exception)) {
+                    return;
+                }
+                throw exception;
+            } catch (RuntimeException exception) {
+                // Spring wraps a client-disconnected ServletOutputStream in
+                // AsyncRequestNotUsableException, which is not an IOException.
+                if (isClientAbort(exception)) {
+                    return;
+                }
+                throw exception;
             }
         };
     }
@@ -125,6 +137,26 @@ final class PracticeByteRange {
 
     private static Selection unsatisfiable(long total) {
         return new Selection(0L, total - 1L, false, true);
+    }
+
+    static boolean isClientAbort(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current.getClass().getName().contains("ClientAbortException")) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(java.util.Locale.ROOT);
+                if (normalized.contains("broken pipe")
+                        || normalized.contains("connection reset")
+                        || normalized.contains("client abort")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @FunctionalInterface

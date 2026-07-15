@@ -28,6 +28,8 @@ import java.util.regex.Pattern;
 @Service
 public class PracticeDraftValidator {
 
+    private static final Pattern FILL_BLANK_TOKEN = Pattern.compile("\\{\\{blank:([^{}]+)}}");
+
     private final ObjectMapper objectMapper;
     private final AssessmentAuthoringCatalogService catalogService;
     private final AssessmentContractCodec contractCodec;
@@ -82,6 +84,7 @@ public class PracticeDraftValidator {
                     }
                     validateTemplateSkill(messages, template, skill, sIdx);
                     validateSectionHierarchy(messages, sec, skill, testIndex, sectionKeys, sIdx);
+                    validateListeningDelivery(messages, sec, skill, sIdx);
                     AssessmentAuthoringCatalogService.SkillAuthoringPolicy skillPolicy = resolveSkillPolicy(
                             template, skill);
 
@@ -159,6 +162,7 @@ public class PracticeDraftValidator {
 
                                     validateCanonicalAnswer(messages, template, skill, canonicalType, q,
                                             sIdx, gIdx, qIdx);
+                                    validateFillBlankTemplate(messages, canonicalType, q, sIdx, gIdx, qIdx);
 
                                     validateSpeakingQuestionType(messages, skill, type, sIdx, gIdx, qIdx);
                                     validateSpeakingDelivery(messages, skill, canonicalType, q,
@@ -463,6 +467,62 @@ public class PracticeDraftValidator {
         }
     }
 
+    private void validateFillBlankTemplate(List<ValidationMsg> messages,
+                                           CanonicalQuestionType type,
+                                           JsonNode question,
+                                           int sIdx,
+                                           int gIdx,
+                                           int qIdx) {
+        if (type != CanonicalQuestionType.FILL_BLANK) return;
+
+        Set<String> blankIds = new java.util.LinkedHashSet<>();
+        JsonNode canonicalBlanks = question.path("questionContent").path("blanks");
+        JsonNode authoringBlanks = canonicalBlanks.isArray() && !canonicalBlanks.isEmpty()
+                ? canonicalBlanks
+                : question.path("fillBlanks");
+        if (authoringBlanks.isArray()) {
+            authoringBlanks.forEach(blank -> {
+                String id = blank.path("id").asText("").trim();
+                if (!id.isBlank()) blankIds.add(id);
+            });
+        }
+        if (blankIds.isEmpty()) return;
+
+        Map<String, Integer> tokenCounts = new LinkedHashMap<>();
+        var matcher = FILL_BLANK_TOKEN.matcher(question.path("prompt").asText(""));
+        boolean hasUnknownToken = false;
+        while (matcher.find()) {
+            String blankId = matcher.group(1);
+            if (!blankIds.contains(blankId)) {
+                hasUnknownToken = true;
+            } else {
+                tokenCounts.merge(blankId, 1, Integer::sum);
+            }
+        }
+
+        if (hasUnknownToken) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "FILL_BLANK_TOKEN_UNKNOWN",
+                    "Đề bài điền từ chứa token ô trống không còn tồn tại.",
+                    sIdx, gIdx, qIdx));
+        }
+        if (blankIds.stream().anyMatch(id -> tokenCounts.getOrDefault(id, 0) == 0)) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "FILL_BLANK_TOKEN_REQUIRED",
+                    "Mỗi ô trống phải được đặt đúng vị trí trong đề bài.",
+                    sIdx, gIdx, qIdx));
+        }
+        if (blankIds.stream().anyMatch(id -> tokenCounts.getOrDefault(id, 0) > 1)) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "FILL_BLANK_TOKEN_DUPLICATED",
+                    "Mỗi token ô trống chỉ được xuất hiện một lần trong đề bài.",
+                    sIdx, gIdx, qIdx));
+        }
+    }
+
     private void validateAuthoringScoringPolicy(
             List<ValidationMsg> messages,
             AssessmentAuthoringCatalogService.ExamTemplatePolicy template,
@@ -521,6 +581,27 @@ public class PracticeDraftValidator {
         }
     }
 
+    private void validateListeningDelivery(List<ValidationMsg> messages,
+                                           JsonNode section,
+                                           String skill,
+                                           int sectionIndex) {
+        if (!"LISTENING".equalsIgnoreCase(skill)) return;
+        JsonNode delivery = section.path("sectionDelivery");
+        String schemaVersion = delivery.path("schemaVersion").asText("");
+        String reference = delivery.path("listeningDelivery")
+                .path("checkAudioReference").asText("").trim();
+        if (!"practice-section-delivery-v1".equals(schemaVersion)
+                || !reference.matches("^/practice/materials/[1-9][0-9]*/content$")) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "LISTENING_CHECK_AUDIO_REQUIRED",
+                    "Phần Listening phải có audio thử loa để học viên kiểm tra thiết bị trước khi bắt đầu.",
+                    sectionIndex,
+                    null,
+                    null));
+        }
+    }
+
     private void validateSpeakingDelivery(List<ValidationMsg> messages,
                                           String skill,
                                           CanonicalQuestionType type,
@@ -536,9 +617,10 @@ public class PracticeDraftValidator {
                     sIdx, gIdx, qIdx));
             return;
         }
-        if (delivery.path("promptAudioReference").asText("").isBlank()) {
+        String promptAudioReference = delivery.path("promptAudioReference").asText("").trim();
+        if (!promptAudioReference.matches("^/practice/materials/[1-9][0-9]*/content$")) {
             messages.add(new ValidationMsg("BLOCKING", "SPEAKING_PROMPT_AUDIO_REQUIRED",
-                    "Câu Speaking phải có audio đề bài để tự phát khi bắt đầu câu.",
+                    "Câu Speaking phải có audio đề bài đã tải lên KSH để tự phát khi bắt đầu câu.",
                     sIdx, gIdx, qIdx));
         }
         validateIntegerRange(messages, delivery, "promptPlayLimit", 1, 10,

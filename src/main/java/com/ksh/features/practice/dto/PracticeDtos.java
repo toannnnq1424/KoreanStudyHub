@@ -137,12 +137,62 @@ public final class PracticeDtos {
     ) {
     }
 
+    public record PracticeQuestionOptionRow(String id, String text, String imageReference) {
+    }
+
+    public record PracticeQuestionBlankRow(String id, String prompt) {
+    }
+
     public record PracticeQuestionRow(Long id, Integer questionNo,
                                       String questionType, String prompt,
                                       List<String> options,
                                       String answerKey,
                                       String explanation,
-                                      String groupLabel) {
+                                      String groupLabel,
+                                      String imageReference,
+                                      String audioReference,
+                                      List<PracticeQuestionOptionRow> optionRows,
+                                      List<PracticeQuestionBlankRow> blankRows) {
+        public PracticeQuestionRow(Long id, Integer questionNo,
+                                   String questionType, String prompt,
+                                   List<String> options,
+                                   String answerKey,
+                                   String explanation,
+                                   String groupLabel,
+                                   String imageReference,
+                                   String audioReference,
+                                   List<PracticeQuestionOptionRow> optionRows) {
+            this(id, questionNo, questionType, prompt, options, answerKey, explanation,
+                    groupLabel, imageReference, audioReference, optionRows, null);
+        }
+
+        public PracticeQuestionRow(Long id, Integer questionNo,
+                                   String questionType, String prompt,
+                                   List<String> options,
+                                   String answerKey,
+                                   String explanation,
+                                   String groupLabel) {
+            this(id, questionNo, questionType, prompt, options, answerKey, explanation,
+                    groupLabel, null, null, null, null);
+        }
+
+        public PracticeQuestionRow {
+            options = options == null ? List.of() : List.copyOf(options);
+            optionRows = optionRows == null || optionRows.isEmpty()
+                    ? fallbackOptionRows(options)
+                    : List.copyOf(optionRows);
+            blankRows = blankRows == null ? List.of() : List.copyOf(blankRows);
+        }
+
+        private static List<PracticeQuestionOptionRow> fallbackOptionRows(List<String> options) {
+            if (options == null || options.isEmpty()) {
+                return List.of();
+            }
+            return java.util.stream.IntStream.range(0, options.size())
+                    .mapToObj(index -> new PracticeQuestionOptionRow(
+                            "opt_" + (index + 1), options.get(index), null))
+                    .toList();
+        }
     }
 
     public record PracticeQuestionGroupRow(

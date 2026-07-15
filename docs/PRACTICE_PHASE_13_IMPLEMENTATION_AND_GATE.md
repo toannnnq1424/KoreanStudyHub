@@ -36,8 +36,8 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 |---|---|---|
 | Phase 13 entry audit | `COMPLETE` | Existing routes, repositories, DTOs, templates, CSS and attempt semantics inspected on 2026-07-14 |
 | 13A library/state foundation | `COMPLETE_FOCUSED_GATE_GREEN` | Bounded catalog, learner access, navigation/performance correction, focused tests and route/dead-code audit are complete; no browser QA is claimed |
-| 13B detail/preflight/version lock | `WORKING_TREE_PREFLIGHT_IMPLEMENTED_FINAL_RERUN_PENDING` | Set/test detail was pushed; immutable attempt routing and canonical Speaking delivery were green on JDK 17 before the latest 13C edits. The working tree now includes the full-screen microphone preflight, but final rerun evidence is still required before marking 13B closed |
-| 13C skill-native players | `TEMP_CHECKPOINT_COMMIT_PENDING_FINAL_GATE` | Canonical Speaking delivery, authoring/preview parity, route-performance fixes and a dedicated `player-speaking` implementation are in the working tree. This is not closed: rerun focused tests/static audits after the checkpoint commit before claiming 13C green |
+| 13B detail/preflight/version lock | `COMPLETE_FOCUSED_GATE_GREEN` | Set/test detail, immutable attempt routing, canonical Speaking delivery, full-screen microphone preflight and immutable Listening speaker preflight passed the consolidated 13C2 focused validation. Browser/device QA remains in 13H |
+| 13C skill-native players | `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and fill-blank/editor parity are implemented, statically reviewed and focused-tested. Phase 13 is not closed; full-suite and browser journeys remain in 13H |
 | 13D result overview | `NOT_STARTED` | Keep score, scale, completion, timing and feedback availability separate |
 | 13E result evidence | `NOT_STARTED` | Separate official key, teacher explanation and AI artifact |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates only; no decorative percentages |
@@ -47,11 +47,14 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 After each completed slice, this ledger and the detailed evidence section must
 be updated before starting the next slice.
 
-The slice protocol is fixed by the user: audit changed and obsolete routes, run
-only tests related to the slice, update Markdown, then commit and push. Browser
-QA and the full regression suite are consolidated into 13H before Phase 13 can
-close. The user performs interim visual review; an individual slice must not
-claim browser evidence that was not run.
+For 13C2, implementation units were individual issues/patches while the
+validation unit was the whole phase. All approved issues were implemented and
+the complete diff was reviewed before the consolidated validation began. The
+final correction cycle ran `git diff --check`, changed-JavaScript syntax checks,
+one compile and the smallest focused test set covering the phase. Browser QA and
+the full regression suite remain consolidated into 13H unless the user
+explicitly changes that boundary. No checkpoint may claim browser or automated
+evidence that was not actually run.
 
 ## 3. Phase 13 entry audit findings
 
@@ -349,6 +352,32 @@ Current working-tree state:
   count, preparation time and response time used by the immutable learner
   player.
 
+Visual/interaction expectation clarified from the supplied PREP Speaking
+screenshots on 2026-07-15:
+
+- PREP is only a capability and interaction reference. KSH must keep original
+  Vietnamese/Korean copy, KSH/Baekho visual identity, routes, CSS and assets.
+- The Speaking device check should feel like a focused full-screen step, not a
+  small inline widget: back control, clear microphone prompt, test playback,
+  live microphone level, playback confirmation, retry and start-disabled until
+  the checks pass.
+- The learner Speaking room should progress through visible full-screen states:
+  guidance/prompt playback, preparation countdown, recording countdown,
+  uploading/processing, per-question completion and automatic next-question or
+  final submit.
+- The learner should see the active part/question number, the prompt or guidance
+  card when the delivery contract includes it, a large audio/prompt affordance,
+  a compact bottom status panel for countdown and recording waveform, and a
+  clear completion state before advancing.
+- Audio quality language in KSH may be simpler than PREP during 13C, but the
+  preflight must preserve the intent: learners can hear the sample, hear their
+  own sample recording and retry before entering the real attempt.
+- Lecturer authoring and preview are part of this expectation: a Speaking
+  question must expose prompt audio upload/selection, prompt play limit,
+  preparation seconds and response seconds, and preview must render the same
+  canonical delivery contract the learner player consumes. A text-only Speaking
+  authoring path is not acceptable for new published content.
+
 This checkpoint is intentionally not final 13C closure. The implementation was
 interrupted before the final post-cleanup focused rerun and static route audit,
 so the next agent must verify before marking this slice green.
@@ -419,6 +448,93 @@ Deferred from this checkpoint:
   journey; old aliases are compatibility redirects only. Any stale docs or tests
   must describe this as historical compatibility rather than a live mode page.
 
+### 6.6 13C2 skill-player, media and editor correction checkpoint
+
+The user opened 13C2 as one implementation phase containing several related
+learner/player and lecturer/editor corrections. The current working tree
+contains these implementation units:
+
+- Speaking preflight remains usable for local microphone recording even when
+  the production upload gate is disabled. The dedicated player resolves title,
+  prompt, image, audio and timing from the immutable attempt snapshot; invalid
+  legacy attempts are discarded with a learner-facing message instead of
+  rendering an empty player or leaking a null-pointer failure. The Baekho
+  companion is positioned beside the desktop preflight panel and remains
+  responsive on smaller screens.
+- Lecturer image/audio uploads now keep canonical structured references through
+  draft normalization, safe preview, publish, immutable versions and learner
+  delivery. Legacy top-level media and governed `![image](...)` references have
+  bounded compatibility paths. Upload callbacks capture the original
+  section/group/question/option so navigating the editor while an upload is in
+  flight cannot attach the result to another item.
+- Governed question images can be sent to the configured multimodal AI model for
+  Reading/Listening explanation and Writing/Speaking evaluation. Only authorized
+  `/practice/materials/{id}/content` JPEG, PNG or WebP assets are resolved; reads
+  are bounded, cache identities include image evidence where applicable and raw
+  image data is not logged.
+- Writing is routed to a dedicated split player. Reading automatically uses a
+  focused full-width layout without source material, a stacked layout for short
+  source material and a split resizable layout for long passages/images.
+  Listening keeps a focused question layout. Reading/Listening/Writing disable
+  context-menu/copy/cut/paste/drop, support green highlights and yellow notes,
+  and expose the note drawer.
+- Listening has a separate speaker preflight backed by canonical section-level
+  delivery JSON copied into immutable section versions. Lecturer authoring and
+  validation require an internal check-audio asset before new Listening content
+  can be published; the learner must finish playback and confirm audibility.
+- Fill-blank authoring uses stable `{{blank:id}}` tokens, numbered inline slots,
+  strict missing/unknown/duplicate-token validation and the same inline format
+  in lecturer preview and learner delivery. Lecturer preview now has
+  skill-native Writing and Speaking states and adaptive Reading/Listening
+  layouts closer to their learner players.
+- Canonical-only draft reloads preserve option IDs, selected single-choice or
+  true/false/not-given answers, fill-blank IDs and accepted values instead of
+  recreating legacy editor state. New Speaking publication also rejects prompt
+  audio outside the governed KSH material route, matching learner delivery.
+- Speaking missing-audio delivery now fails with a controlled immutable-content
+  error rather than a null-pointer failure. Prompt-audio listeners are removed
+  between retries so repeated playback failures cannot accumulate callbacks.
+- Browser-cancelled material range requests are treated as normal stream aborts
+  while unrelated I/O failures still propagate.
+
+Validation status at this checkpoint:
+
+- Earlier 13C checkpoint evidence remains historical and was not reused as
+  validation for the expanded 13C2 diff.
+- `STEP 7/8` implementation and complete diff/static review were completed
+  before validation. `STEP 8/8` completed on 2026-07-15 at 08:37
+  Asia/Ho_Chi_Minh.
+- Final correction-cycle static checks passed: `git diff --check` and all six
+  changed-script checks below returned exit code 0:
+
+```text
+node --check src/main/resources/static/js/practice/manage-authoring-contract.js
+node --check src/main/resources/static/js/practice/manage-draft-preview.js
+node --check src/main/resources/static/js/practice/player-speaking.js
+node --check src/main/resources/static/js/practice/speaking-preflight.js
+node --check src/main/resources/static/js/practice/listening-preflight.js
+node --check src/main/resources/static/js/practice/player-exam.js
+```
+
+- JDK 17 compile command passed with `BUILD SUCCESS`:
+
+```text
+env JAVA_HOME=/opt/homebrew/opt/openjdk@17 PATH=/opt/homebrew/opt/openjdk@17/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash mvnw -DskipTests compile
+```
+
+- The focused phase command passed `247/247`, with zero failures, zero errors
+  and zero skips:
+
+```text
+env JAVA_HOME=/opt/homebrew/opt/openjdk@17 PATH=/opt/homebrew/opt/openjdk@17/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash mvnw '-Dtest=AiQuestionImageResolverTest,ReadingListeningTypedClientContractTest,ReadingListeningTypedExplanationTest,WritingEvaluationClientTest,OpenAiCompatibleSpeakingEvaluationClientTest,SpeakingEvaluationApplicationServiceTest,SpeakingEvaluationOrchestratorTest,SpeakingEvaluationPromptBuilderTest,SpeakingPromptRulesTest,PracticeMaterialControllerTest,PracticeFunctionalUiContractTest,PracticeSpeakingMediaUiResourceTest,PracticePhase11AuthoringUiContractTest,PracticeDraftContractServiceTest,PracticeDraftPreviewServiceTest,PracticePublisherServiceTest,PracticeDraftValidatorTest,PracticeServiceTest,PracticeIntegrationTest#speakingAttemptPreflightDiscardsLegacySnapshotMissingDeliveryJson+listeningPreflightUnlocksImmutableAttemptOnlyForCompletedSession' test
+```
+
+- The two selected integration journeys passed against the configured local
+  MySQL schema at Flyway V27. This is focused route/session evidence, not a clean
+  migration gate. No full suite, browser QA or real AI provider call was run.
+- `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` is now justified. Overall Phase 13
+  remains open through 13D-13H.
+
 ## 7. Continuation Prompt For The Next Agent
 
 Start by reading these files in order:
@@ -429,26 +545,19 @@ Start by reading these files in order:
    2 and 6.
 3. The current `git status --short`; do not stage `openspec-temp/`.
 4. The attached audit notes only as supporting evidence. Do not expand scope to
-   broad permissions unless it blocks the learner 13C flow.
+   broad permissions, result pages or program/certificate governance.
 
 Continue with this sequence:
 
-1. Re-run static audits for `/practice` route performance, stale `/mode`
-   references, bad Thymeleaf classappend syntax, duplicate/invalid CSS variables
-   and changed JavaScript syntax.
-2. Re-run focused JDK 17 tests for `PracticeServiceTest`,
-   `PracticeCatalogServiceTest`, `PracticePublisherServiceTest`,
-   Speaking media/preflight/player contracts, canonical Speaking delivery codec,
-   draft validator, publisher and preview/import tests.
-3. Fix only failures related to 13B/13C: Speaking preflight, dedicated
-   `player-speaking`, mandatory prompt audio, mandatory recording upload,
-   auto-next, discard-on-interrupt, `/practice` catalog duplicate cards and route
-   performance. Do not restart program/certificate governance.
-4. Update this document and `CODEX_PRACTICE_WORKFLOW.md` after the rerun with
-   exact commands and counts.
-5. Commit/push a green 13C checkpoint only after the focused gate is actually
-   green. Browser/product QA remains consolidated in 13H unless the user
-   explicitly changes that.
+1. Preserve the recorded `13C2_COMPLETE_FOCUSED_PHASE_GATE_GREEN` evidence. Do
+   not rerun the suite merely to repeat the same checkpoint.
+2. The user approved stage, commit and push on 2026-07-15. Keep
+   `openspec-temp/` outside this commit.
+3. After this checkpoint is pushed, do not start 13D or reopen broad
+   governance/permission scope without a separate user instruction.
+4. Keep full-suite, browser/device, responsive, accessibility and complete
+   learner-journey validation in 13H. Do not describe Phase 13 itself as closed
+   before that gate.
 
 ## 8. Phase closure rule
 

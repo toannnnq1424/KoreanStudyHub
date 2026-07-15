@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.media.AiImageEvidence;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
@@ -37,6 +38,19 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
         Map<String, Object> responseFormat = (Map<String, Object>) body.get("response_format");
         assertEquals("json_schema", responseFormat.get("type"));
         assertThat(responseFormat.toString()).contains("S_CONTENT_TASK_FULFILLMENT");
+    }
+
+    @Test
+    void sendsGovernedQuestionImageAsMultimodalContent() {
+        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(transport);
+        AiImageEvidence image = new AiImageEvidence(
+                8L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
+
+        client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false, image));
+
+        assertThat(transport.body().get("messages").toString())
+                .contains("image_url", "data:image/png;base64,cG5n", "question_image", "image-sha");
     }
 
     @Test

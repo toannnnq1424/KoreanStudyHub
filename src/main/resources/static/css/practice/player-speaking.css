@@ -114,7 +114,23 @@ body.spp-body {
   box-shadow: 0 16px 35px rgba(35, 86, 197, .16);
 }
 
-.spp-prompt p { margin: 0; font-size: clamp(18px, 2.4vw, 28px); font-weight: 750; line-height: 1.5; text-align: center; }
+.spp-prompt p { margin: 0; font-size: 24px; font-weight: 750; line-height: 1.5; text-align: center; }
+
+.spp-prompt-media {
+  margin: 18px 0 0;
+  text-align: center;
+}
+
+.spp-prompt-media img {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  margin: 0 auto;
+  object-fit: contain;
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .36);
+  border-radius: 8px;
+}
 
 .spp-state-panel {
   display: grid;
@@ -174,10 +190,10 @@ body.spp-body {
 
 .spp-mascot {
   position: absolute;
-  right: 28px;
-  bottom: 24px;
-  width: 76px;
-  height: 76px;
+  right: max(24px, calc(50% - 420px));
+  bottom: 82px;
+  width: 84px;
+  height: 84px;
   object-fit: contain;
 }
 
@@ -208,8 +224,9 @@ body.spp-body {
   .spp-stage { gap: 20px; padding: 34px 14px 122px; }
   .spp-prompt-audio { width: 116px; height: 116px; }
   .spp-prompt { padding: 18px; }
+  .spp-prompt p { font-size: 19px; }
   .spp-state-panel { padding: 14px; }
-  .spp-mascot { right: 16px; bottom: 16px; width: 64px; height: 64px; }
+  .spp-mascot { right: 16px; bottom: 18px; width: 64px; height: 64px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

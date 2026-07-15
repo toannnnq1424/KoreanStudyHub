@@ -16,40 +16,47 @@ class PracticeSpeakingMediaUiResourceTest {
 
     @Test
     void playerKeepsTextFallbackAndGatesSpeakingRecorder() throws IOException {
-        String player = read("templates/practice/player.html");
+        String player = read("templates/practice/player-speaking.html");
 
         assertThat(player).contains(
-                "q.questionType() == 'SPEAKING'",
                 "speakingMediaUploadEnabled",
-                "data-upload-url",
+                "speakingDeliveryJson",
+                "data-interrupt-url",
+                "data-prompt-audio",
+                "data-prompt-media",
+                "data-prompt-image",
+                "data-state-label",
+                "data-wave",
                 "_csrf.token",
-                "answer_");
+                "spp-submit-form");
         assertThat(player).doesNotContain(
+                "textarea",
+                "answer_",
                 "storageKey",
                 "contentHash",
                 "originalFilename",
                 "userId");
-        assertThat(player.indexOf("</form>"))
-                .isLessThan(player.indexOf("<dialog id=\"ksh-speaking-consent\""));
     }
 
     @Test
     void javascriptCoversRecordingConsentUploadDeleteAndSubmitStates() throws IOException {
-        String javascript = read("static/js/practice.js");
+        String javascript = read("static/js/practice/player-speaking.js");
 
         assertThat(javascript).contains(
-                "window.MediaRecorder",
-                "navigator.mediaDevices?.getUserMedia",
-                "NotAllowedError",
-                "NotFoundError",
-                "window.sessionStorage",
-                "X-CSRF-TOKEN",
-                "xhr.upload.addEventListener('progress'",
-                "method: 'DELETE'",
-                "form.dataset.speakingMediaPlaybackEnabled === 'true'",
-                "ksh-recorder-rerecord",
-                "panel.dataset.busy === 'recording'",
-                "panel.dataset.busy === 'uploading'");
+                "MediaRecorder.isTypeSupported",
+                "navigator.mediaDevices.getUserMedia",
+                "currentQuestion.imageReference",
+                "Thời gian chuẩn bị còn lại",
+                "Thời gian trả lời còn lại",
+                "Đang lưu câu trả lời",
+                "payload.status !== \"READY\"",
+                "executeQuestion(currentIndex + 1)",
+                "submitForm.requestSubmit()",
+                "promptAudioCleanup",
+                "removeEventListener(\"ended\", onEnded)",
+                "removeEventListener(\"error\", onAudioError)",
+                "interruptRequest",
+                "keepalive: true");
         assertThat(javascript).doesNotContain("pronunciationScore", "officialTopikScore");
     }
 
@@ -93,10 +100,10 @@ class PracticeSpeakingMediaUiResourceTest {
 
     @Test
     void privateLearnerMediaBoundaryDoesNotUsePublicUploadsRoute() throws IOException {
-        String player = read("templates/practice/player.html");
+        String player = read("templates/practice/player-speaking.html");
         String result = read("templates/practice/result.html");
         String detail = read("templates/practice/result-detail.html");
-        String javascript = read("static/js/practice.js");
+        String javascript = read("static/js/practice/player-speaking.js");
 
         assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
                 .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content")
