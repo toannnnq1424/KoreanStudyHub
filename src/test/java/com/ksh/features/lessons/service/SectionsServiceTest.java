@@ -11,6 +11,7 @@ import com.ksh.features.lessons.dto.SectionDtos.SectionRow;
 import com.ksh.features.lessons.repository.SectionActivityRepository;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

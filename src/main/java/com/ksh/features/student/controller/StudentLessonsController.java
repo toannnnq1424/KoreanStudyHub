@@ -1,12 +1,20 @@
 package com.ksh.features.student.controller;
 
+import com.ksh.features.flashcards.service.DeckService;
 import com.ksh.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ksh.features.student.dto.StudentLessonsDtos.LessonDetailView;
 import com.ksh.features.student.dto.StudentLessonsDtos.SectionWithLessons;
+import com.ksh.features.progress.service.LearningProgressService;
 import com.ksh.features.student.service.StudentLessonDetailService;
 import com.ksh.features.student.service.StudentLessonsService;
+import com.ksh.security.Role;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -20,28 +28,25 @@ import static com.ksh.common.IConstant.ATTR_ACTIVE_SECTION_ID;
 import static com.ksh.common.IConstant.ATTR_LESSON_DETAIL;
 import static com.ksh.common.IConstant.ATTR_VIEW;
 import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
-import static com.ksh.common.IConstant.VIEW_STUDENT_LESSON_DETAIL;
 
 /**
- * Student-facing controller for
- * {@code GET /my/classes/{classId}/lessons} (ksh-4.1) and
- * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ksh-4.2).
+ * Student-facing controller for the class lessons list page.
  *
- * <p>Authentication is gated by {@code SecurityConfig} ({@code /my/**}
- * → {@code isAuthenticated()}); the services perform the
- * enrollment-ACTIVE check and raise {@link EntityNotFoundException}
- * (handled centrally as HTTP 404) when the caller is not enrolled.
+ * <p>The standalone detail URL
+ * ({@code /my/classes/{classId}/lessons/{lessonId}}) now returns a 301
+ * redirect to the canonical query-param form
+ * ({@code /my/classes/{classId}/lessons?section=X&lesson=Y}).
  *
  * <p>Two query parameters control the list endpoint:
  * <ul>
  *   <li>{@code ?section=X} — selects which section's lessons render in
  *       the rail. An invalid id falls back silently to the first section
- *       (anti-fuzzing, D7).</li>
- *   <li>{@code ?lesson=Y} — inlines that lesson's rich-text content into
- *       the main panel. Must belong to the active section and pass the
- *       same authz gates as the dedicated detail route. Invalid /
- *       cross-section ids fall back to the hero placeholder rather than
- *       throwing — again anti-fuzzing.</li>
+ *       (anti-fuzzing).</li>
+ *   <li>{@code ?lesson=Y} — inlines that lesson's content into the main
+ *       panel and switches the viewer per {@code contentType}
+ *       (RICHTEXT / PDF / VIDEO). Must belong to the active section and
+ *       pass the same authz gates. Invalid / cross-section ids fall
+ *       back to the hero placeholder — again anti-fuzzing.</li>
  * </ul>
  */
 @Controller
@@ -49,13 +54,21 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_LESSON_DETAIL;
 @PreAuthorize("isAuthenticated()")
 public class StudentLessonsController {
 
+    private static final Logger log = LoggerFactory.getLogger(StudentLessonsController.class);
+
     private final StudentLessonsService studentLessonsService;
     private final StudentLessonDetailService studentLessonDetailService;
+    private final LearningProgressService learningProgressService;
+    private final DeckService deckService;
 
     public StudentLessonsController(StudentLessonsService studentLessonsService,
-                                    StudentLessonDetailService studentLessonDetailService) {
+                                    StudentLessonDetailService studentLessonDetailService,
+                                    LearningProgressService learningProgressService,
+                                    DeckService deckService) {
         this.studentLessonsService = studentLessonsService;
         this.studentLessonDetailService = studentLessonDetailService;
+        this.learningProgressService = learningProgressService;
+        this.deckService = deckService;
     }
 
     /** Renders the class's sections + PUBLISHED lessons for the student. */
@@ -66,11 +79,14 @@ public class StudentLessonsController {
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(classId, user.getId());
+                .listClassLessons(classId, user.getId(), user.getRole());
 
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
+        // Surface flashcard decks shared to this class in the sidebar.
+        model.addAttribute("classSharedDecks",
+                deckService.listSharedForClass(classId, user.getId()));
 
         // Inline lesson detail when ?lesson=X is provided AND it belongs to the
         // active section. Invalid lesson id falls back to the hero placeholder
@@ -79,14 +95,41 @@ public class StudentLessonsController {
                 && lessonBelongsToSection(view, activeSectionId, lessonParam)) {
             try {
                 LessonDetailView detail = studentLessonDetailService
-                        .getLessonDetail(classId, lessonParam, user.getId());
+                        .getLessonDetail(classId, lessonParam, user.getId(), user.getRole());
                 model.addAttribute(ATTR_LESSON_DETAIL, detail);
+                // Auto-record IN_PROGRESS only after the detail gates pass;
+                // isolated so a progress write failure never breaks rendering.
+                recordOpenedQuietly(classId, lessonParam, user.getId(), user.getRole());
             } catch (EntityNotFoundException ignored) {
                 // Silently fall back to hero placeholder — caller's enrollment
                 // was already validated by listClassLessons() above.
             }
         }
         return VIEW_STUDENT_CLASS_LESSONS;
+    }
+
+    /**
+     * Records the open as IN_PROGRESS, swallowing and logging any failure so
+     * a progress write problem can never break lesson rendering (design D7a).
+     *
+     * <p>Only ACTIVE-enrolled students accrue progress. A moderator
+     * (ADMIN/HEAD or the owning lecturer, admitted via the widened D7 gate
+     * but not enrolled) opens the lesson to moderate its thread, not to
+     * learn — so skipping progress for them is expected, not an error, and
+     * must not emit a WARN. Guarding by role here also spares the wasted
+     * enrollment gate query {@code recordOpened} would otherwise run.
+     */
+    private void recordOpenedQuietly(Long classId, Long lessonId, Long userId, Role role) {
+        // Progress belongs to students only; moderators generate none (D7).
+        if (role != Role.STUDENT) {
+            return;
+        }
+        try {
+            learningProgressService.recordOpened(classId, lessonId, userId);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record open progress for lesson {} (user {})",
+                    lessonId, userId, ex);
+        }
     }
 
     /** True when {@code lessonId} appears in the active section's lesson list. */
@@ -123,26 +166,44 @@ public class StudentLessonsController {
     }
 
     /**
-     * Renders the read-only detail page for one PUBLISHED lesson at
-     * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ksh-4.2).
+     * Permanently redirects the legacy standalone detail URL
+     * ({@code /my/classes/{classId}/lessons/{lessonId}}) to the canonical
+     * inline form ({@code /my/classes/{classId}/lessons?section=X&lesson=Y}).
+     * The single-template refactor folds detail rendering into the
+     * 3-column list view so PDFs and videos share the surrounding
+     * sidebar + lesson rail.
      *
-     * <p>Kept as a permalink route — deep-linking from notifications,
-     * search results, or sharing surfaces the dedicated detail view. The
-     * inline {@code ?lesson=} variant on the list endpoint is the
-     * primary in-app navigation path.
+     * <p>Delegates to {@link StudentLessonDetailService#getLessonDetail}
+     * for ALL authz gates (enrollment ACTIVE, class live, cross-class,
+     * lesson PUBLISHED). Any gate failure raises {@code EntityNotFoundException}
+     * mapped to HTTP 404 — the redirect never leaks lesson existence to
+     * non-enrolled callers or for DRAFT lessons.
      *
-     * <p>The service enforces enrollment + class + cross-class + status
-     * gates and raises {@link EntityNotFoundException} (mapped to HTTP
-     * 404 by {@code GlobalExceptionHandler}) when any gate fails.
+     * @return HTTP 301 with the rewritten {@code Location} header
      */
     @GetMapping("/{lessonId}")
-    public String viewLesson(@PathVariable Long classId,
-                             @PathVariable Long lessonId,
-                             @AuthenticationPrincipal KshUserDetails user,
-                             Model model) {
-        LessonDetailView lessonDetail = studentLessonDetailService
-                .getLessonDetail(classId, lessonId, user.getId());
-        model.addAttribute(ATTR_LESSON_DETAIL, lessonDetail);
-        return VIEW_STUDENT_LESSON_DETAIL;
+    public ResponseEntity<Void> redirectStandaloneLesson(@PathVariable Long classId,
+                                                         @PathVariable Long lessonId,
+                                                         @AuthenticationPrincipal KshUserDetails user) {
+        // Reuse the detail service so every gate (enrollment / class /
+        // cross-class / PUBLISHED) runs unchanged. sectionId comes from
+        // the resolved view so the query-param URL pre-selects the right
+        // sidebar entry.
+        LessonDetailView detail = studentLessonDetailService
+                .getLessonDetail(classId, lessonId, user.getId(), user.getRole());
+
+        String location = studentLessonUrl(classId, detail.sectionId(), detail.lessonId());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.LOCATION, location);
+        return new ResponseEntity<>(headers, HttpStatus.MOVED_PERMANENTLY);
+    }
+
+    /**
+     * Builds the canonical student lesson detail query-param URL.
+     * Kept as a helper (not in IConstant) because it carries path variables.
+     */
+    private static String studentLessonUrl(Long classId, Long sectionId, Long lessonId) {
+        return "/my/classes/" + classId + "/lessons"
+                + "?section=" + sectionId + "&lesson=" + lessonId;
     }
 }

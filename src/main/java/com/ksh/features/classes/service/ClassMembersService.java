@@ -6,6 +6,7 @@ import com.ksh.features.classes.dto.MemberDtos.MemberRow;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.utils.AvatarStyles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,29 +14,13 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 /**
- * Read-only service for managing the member (student) list within a single class.
- * Sprint 2 exposes READ only; full member CRUD (add/remove/import) is deferred to Sprint 2.1.
+ * Read service for the member list and pending join requests within a class.
  *
- * <p>Authorization is delegated to {@link ClassesService#getViewable} to verify
- * the caller has access to the class before returning its members.
- *
- * <p>Sprint 2.4 refactor: the active CODE / LINK / canRegenerate fields previously
- * exposed on {@link ClassMembersView} were removed when the invite panel moved out
- * of the Members tab. Invite data is now injected into every detail tab by the
- * controller via {@code InviteCodeService} directly, so this service no longer
- * depends on {@code InviteCodeService} or {@code app.base-url}.
+ * <p>Authorization is delegated to {@link ClassesService#getViewable}.
+ * Approve/reject mutations live on {@link JoinClassService}.
  */
 @Service
 public class ClassMembersService {
-
-    private static final int AVATAR_HUE_COUNT = 5;
-    private static final String[][] AVATAR_GRADIENTS = {
-            {"#5E92F3", "#1E88E5"},
-            {"#EC407A", "#D81B60"},
-            {"#26A69A", "#00897B"},
-            {"#FFA726", "#FB8C00"},
-            {"#7E57C2", "#5E35B1"}
-    };
 
     private final ClassesService classesService;
     private final EnrollmentRepository enrollmentRepository;
@@ -47,62 +32,51 @@ public class ClassMembersService {
     }
 
     /**
-     * Returns the list of ACTIVE members for the given class, after verifying access rights.
-     *
-     * @param classId the ID of the class whose members are being retrieved
-     * @param userId  the authenticated caller's database id
-     * @param role    the authenticated caller's role
-     * @return a {@link ClassMembersView} containing class info, member rows, and total count
-     * @throws jakarta.persistence.EntityNotFoundException              if the class does not exist
-     * @throws org.springframework.security.access.AccessDeniedException if the caller lacks access
+     * Returns ACTIVE members and PENDING join requests for the given class.
      */
     @Transactional(readOnly = true)
     public ClassMembersView listForClass(Long classId, Long userId, Role role) {
         ClassEntity clazz = classesService.getViewable(classId, userId, role);
-        List<Enrollment> enrollments = enrollmentRepository
+        List<Enrollment> active = enrollmentRepository
                 .findAllByClassIdAndStatusOrderByJoinedAtDesc(classId, Enrollment.STATUS_ACTIVE);
+        List<Enrollment> pending = enrollmentRepository
+                .findAllByClassIdAndStatusOrderByJoinedAtDesc(classId, Enrollment.STATUS_PENDING);
 
-        List<MemberRow> rows = IntStream.range(0, enrollments.size())
-                .mapToObj(i -> toRow(enrollments.get(i), i))
+        List<MemberRow> members = IntStream.range(0, active.size())
+                .mapToObj(i -> toRow(active.get(i), i))
+                .toList();
+        List<MemberRow> pendingRows = IntStream.range(0, pending.size())
+                .mapToObj(i -> toRow(pending.get(i), i + active.size()))
                 .toList();
 
-        return new ClassMembersView(clazz, rows, rows.size());
+        return new ClassMembersView(clazz, members, members.size(), pendingRows, pendingRows.size());
     }
 
     private static MemberRow toRow(Enrollment e, int index) {
         User u = e.getUser();
-        String[] colors = AVATAR_GRADIENTS[Math.floorMod(index, AVATAR_HUE_COUNT)];
-        String gradient = "linear-gradient(135deg," + colors[0] + "," + colors[1] + ")";
         return new MemberRow(
                 u.getId(),
                 u.getFullName(),
-                avatarLabel(u.getFullName()),
-                gradient,
+                AvatarStyles.label(u.getFullName()),
+                AvatarStyles.gradient(index),
                 u.getEmail(),
                 u.getPhone(),
                 e.getJoinedVia()
         );
     }
 
-    private static String avatarLabel(String fullName) {
-        if (fullName == null || fullName.isBlank()) return "?";
-        String[] parts = fullName.trim().split("\\s+");
-        if (parts.length == 1) {
-            return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
-        }
-        String first = parts[0].substring(0, 1);
-        String last = parts[parts.length - 1].substring(0, 1);
-        return (first + last).toUpperCase();
-    }
-
     /**
-     * View model aggregating class info and member rows for the Members tab.
+     * View model for the Members tab.
      *
-     * @param clazz   the target class entity
-     * @param members active member rows
-     * @param total   active-member count
+     * @param clazz          the target class
+     * @param members        ACTIVE member rows
+     * @param total          ACTIVE count
+     * @param pendingMembers PENDING request rows
+     * @param pendingTotal   PENDING count
      */
     public record ClassMembersView(ClassEntity clazz,
                                    List<MemberRow> members,
-                                   int total) {}
+                                   int total,
+                                   List<MemberRow> pendingMembers,
+                                   int pendingTotal) {}
 }

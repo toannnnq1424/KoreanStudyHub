@@ -1,0 +1,13 @@
+package com.ksh.features.tests.repository;
+
+import com.ksh.features.tests.entity.TestResponse;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+/** Repository for {@link TestResponse} — a student's answers within an attempt. */
+public interface TestResponseRepository extends JpaRepository<TestResponse, Long> {
+
+    /** Responses recorded for an attempt (result / review). */
+    List<TestResponse> findByAttemptId(Long attemptId);
+}

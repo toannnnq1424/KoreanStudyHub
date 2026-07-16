@@ -2,6 +2,7 @@ package com.ksh.features.lessons.service;
 
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.Lesson;
+import com.ksh.entities.LessonActivity;
 import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.Section;
 import com.ksh.features.classes.repository.EnrollmentRepository;
@@ -31,16 +32,16 @@ import static com.ksh.common.IConstant.MSG_FORBIDDEN_FOR_CLASS;
 import static com.ksh.common.IConstant.MSG_LESSON_NOT_FOUND;
 
 /**
- * Business service for lesson attachments (ksh-4.0c).
+ * Business service for lesson attachments.
  *
  * <p>Three-layer auth on upload/delete/list: class-level edit via
  * {@link ClassesService#getEditable}, section↔class binding via
  * {@link LessonsReorderService#verifySectionBelongsToClass}, and
  * lesson↔section binding via {@link LessonRepository#findByIdAndSectionId}.
- * Download widens this: enrolled students may download but only when the
- * parent lesson is {@code PUBLISHED} (design D3). Cascade on lesson
- * soft-delete is application-level — {@link LessonsService#delete} calls
- * {@link #deleteAllByLesson(Long)} BEFORE markDeleted (design D2).
+ * Download widens this: enrolled students may download only when the
+ * parent lesson is {@code PUBLISHED}. Cascade on lesson soft-delete is
+ * application-level — {@link LessonsService#delete} calls
+ * {@link #deleteAllByLesson(Long)} BEFORE markDeleted.
  */
 @Service
 public class LessonAttachmentsService {
@@ -52,6 +53,7 @@ public class LessonAttachmentsService {
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
+    private final LessonActivityWriter activityWriter;
 
     public LessonAttachmentsService(LessonAttachmentRepository attachmentRepository,
                                     LessonRepository lessonRepository,
@@ -59,7 +61,8 @@ public class LessonAttachmentsService {
                                     LessonAttachmentStorageService storage,
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
-                                    EnrollmentRepository enrollmentRepository) {
+                                    EnrollmentRepository enrollmentRepository,
+                                    LessonActivityWriter activityWriter) {
         this.attachmentRepository = attachmentRepository;
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
@@ -67,6 +70,7 @@ public class LessonAttachmentsService {
         this.classesService = classesService;
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
+        this.activityWriter = activityWriter;
     }
 
     /** Lists attachments of a lesson — used to preload the edit page. */
@@ -96,7 +100,54 @@ public class LessonAttachmentsService {
         StoredAttachment stored = storage.store(file, lessonId);
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
-        return toRow(attachmentRepository.save(row));
+        LessonAttachment saved = attachmentRepository.save(row);
+        activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_ADDED,
+                "Thêm tệp đính kèm: " + saved.getOriginalFilename(), userId);
+        return toRow(saved);
+    }
+
+    /**
+     * Uploads a PDF and binds it as the lesson's main PDF content body.
+     * When the lesson already has a main PDF the previous attachment row
+     * + on-disk file are deleted first so disk usage stays bounded and
+     * a single main PDF invariant holds.
+     *
+     * @throws IllegalArgumentException when the file is not a PDF or the
+     *                                  upload validation fails
+     */
+    @Transactional
+    public LessonAttachmentRow uploadMainPdf(Long classId, Long sectionId, Long lessonId,
+                                             MultipartFile file, Long userId, Role role)
+            throws IOException {
+        classesService.getEditable(classId, userId, role);
+        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
+
+        if (file == null || !"application/pdf".equalsIgnoreCase(file.getContentType())) {
+            throw new IllegalArgumentException("Chỉ chấp nhận tệp PDF cho bài giảng dạng PDF");
+        }
+
+        Long previousMainId = lesson.getPdfAttachmentId();
+
+        // Save new PDF first so the CHECK constraint (content_type=PDF
+        // requires pdf_attachment_id NOT NULL) is never violated.
+        StoredAttachment stored = storage.store(file, lessonId);
+        LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
+                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
+        LessonAttachment saved = attachmentRepository.saveAndFlush(row);
+        lesson.setPdfAttachmentId(saved.getId());
+        lessonRepository.saveAndFlush(lesson);
+
+        // Clean up old main PDF now that the new one is in place.
+        if (previousMainId != null && !previousMainId.equals(saved.getId())) {
+            attachmentRepository.findById(previousMainId).ifPresent(prev -> {
+                storage.delete(prev.getStoredPath());
+                attachmentRepository.delete(prev);
+            });
+        }
+        activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
+                "Tải lên PDF chính: " + saved.getOriginalFilename(), userId);
+        return toRow(saved);
     }
 
     /** Hard-deletes a single attachment (DB row + on-disk file). */
@@ -105,13 +156,23 @@ public class LessonAttachmentsService {
                        Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        loadLesson(sectionId, lessonId);
+        Lesson lesson = loadLesson(sectionId, lessonId);
         LessonAttachment att = attachmentRepository.findByIdAndLessonId(attachmentId, lessonId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ATTACHMENT_NOT_FOUND));
-        // File-first: storage.delete swallows IO errors so the DB row removal
-        // is the authoritative success signal for the caller.
+        // If this is the main PDF, switch the lesson to RICHTEXT first
+        // so clearing pdf_attachment_id doesn't violate the CHECK constraint.
+        if (attachmentId.equals(lesson.getPdfAttachmentId())) {
+            lesson.updateContent("");
+            lesson.switchContentTypeTo(Lesson.CONTENT_TYPE_RICHTEXT);
+            lessonRepository.saveAndFlush(lesson);
+        } else {
+            lessonRepository.clearPdfAttachmentId(attachmentId);
+        }
+        String removedName = att.getOriginalFilename();
         storage.delete(att.getStoredPath());
         attachmentRepository.delete(att);
+        activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_REMOVED,
+                "Xoá tệp đính kèm: " + removedName, userId);
     }
 
     /**
@@ -121,7 +182,11 @@ public class LessonAttachmentsService {
     @Transactional
     public void deleteAllByLesson(Long lessonId) {
         List<LessonAttachment> rows = attachmentRepository.findByLessonIdOrderByUploadedAtAsc(lessonId);
-        for (LessonAttachment att : rows) storage.delete(att.getStoredPath());
+        for (LessonAttachment att : rows) {
+            // Clear FK before delete — lessons.pdf_attachment_id is RESTRICT with no ON DELETE clause.
+            lessonRepository.clearPdfAttachmentId(att.getId());
+            storage.delete(att.getStoredPath());
+        }
         if (!rows.isEmpty()) attachmentRepository.deleteByLessonId(lessonId);
     }
 

@@ -2,6 +2,8 @@ package com.ksh.features.admin.settings.service;
 
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.features.admin.settings.dto.OauthSettingsDtos.OauthSettingsForm;
+import com.ksh.features.admin.settings.service.EmailSettingsService;
+import com.ksh.features.admin.settings.service.OauthSettingsService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.config.CacheConfig;
 import com.ksh.features.admin.settings.SystemSettingGroups;

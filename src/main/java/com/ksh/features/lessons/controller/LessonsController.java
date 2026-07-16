@@ -11,6 +11,8 @@ import com.ksh.features.lessons.dto.LessonDtos.LessonForm;
 import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.service.LessonAttachmentsService;
 import com.ksh.features.lessons.service.LessonsService;
+import com.ksh.features.lessons.support.VimeoEmbedUrl;
+import com.ksh.features.lessons.support.YouTubeEmbedUrl;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -92,8 +94,10 @@ public class LessonsController {
         ClassEntity clazz = classesService.getEditable(classId, user.getId(), user.getRole());
         Section section = formSupport.loadSection(classId, sectionId);
         if (!model.containsAttribute(ATTR_FORM)) {
+            // Default to RICHTEXT so legacy submit behavior is preserved.
             model.addAttribute(ATTR_FORM,
-                    new LessonForm("", LESSON_STATUS_DRAFT, ""));
+                    new LessonForm("", LESSON_STATUS_DRAFT, "",
+                            CONTENT_TYPE_RICHTEXT, null, null));
         }
         model.addAttribute(ATTR_CLAZZ, clazz);
         model.addAttribute(ATTR_SECTION, section);
@@ -147,7 +151,9 @@ public class LessonsController {
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, new LessonForm(
                     lesson.getTitle(), lesson.getStatus(),
-                    lesson.getContentRichtext() == null ? "" : lesson.getContentRichtext()));
+                    lesson.getContentRichtext() == null ? "" : lesson.getContentRichtext(),
+                    lesson.getContentType() == null ? CONTENT_TYPE_RICHTEXT : lesson.getContentType(),
+                    lesson.getVideoUrl(), lesson.getVideoProvider()));
         }
         String activeDetailTab = TAB_HISTORY.equals(tab) ? TAB_HISTORY : TAB_INFO;
         // Eager-load the activity page so the tab toggle is purely client-side.
@@ -178,6 +184,22 @@ public class LessonsController {
                              @AuthenticationPrincipal KshUserDetails user,
                              Model model,
                              RedirectAttributes ra) {
+        // External video URL is now saved by this form (the "Lưu URL" AJAX
+        // button is gone), so validate it here the same way the old endpoint
+        // did. UPLOAD keeps its stored MP4 path, so only YouTube/Vimeo check.
+        String videoProvider = form.videoProvider();
+        if (CONTENT_TYPE_VIDEO.equals(form.effectiveContentType())
+                && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
+                    || VIDEO_PROVIDER_VIMEO.equals(videoProvider))) {
+            String videoUrl = form.videoUrl();
+            boolean validUrl = videoUrl != null
+                    && (VIDEO_PROVIDER_YOUTUBE.equals(videoProvider)
+                        ? YouTubeEmbedUrl.matches(videoUrl)
+                        : VimeoEmbedUrl.matches(videoUrl));
+            if (!validUrl) {
+                result.rejectValue("videoUrl", "video.url.invalid", MSG_VIDEO_URL_INVALID);
+            }
+        }
         if (result.hasErrors()) {
             // Reload section + lesson so the form template can render header context.
             Section section = formSupport.loadSection(classId, sectionId);
@@ -190,9 +212,11 @@ public class LessonsController {
                     lessonEditUrl(classId, sectionId, lessonId));
         }
         try {
+            LessonForm trimmed = new LessonForm(form.title().trim(), form.status(),
+                    form.contentHtml(), form.effectiveContentType(),
+                    form.videoUrl(), form.videoProvider());
             lessonsService.update(classId, sectionId, lessonId,
-                    form.title().trim(), form.status(), form.contentHtml(),
-                    user.getId(), user.getRole());
+                    trimmed, user.getId(), user.getRole());
         } catch (RuntimeException ex) {
             return MutationFailureHandler.handle(ex,
                     lessonsTabUrl(classId, sectionId), ra,

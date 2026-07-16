@@ -5,6 +5,8 @@ import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.User;
+import com.ksh.features.messaging.service.MessagingService;
+import com.ksh.features.notifications.service.NotificationService;
 import com.ksh.features.practice.manage.controller.PracticePdfImportApiController;
 import com.ksh.features.practice.manage.service.*;
 import com.ksh.security.KshUserDetails;
@@ -81,6 +83,12 @@ class PracticePdfImportApiControllerTest {
 
     @MockBean
     private PracticePublisherService publisherService;
+
+    @MockBean
+    private MessagingService messagingService;
+
+    @MockBean
+    private NotificationService notificationService;
 
     private KshUserDetails lecturerUser;
 

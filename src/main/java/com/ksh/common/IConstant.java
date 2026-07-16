@@ -53,6 +53,8 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_MEMBERS    = "classes/detail-members";
     String VIEW_CLASS_DETAIL_SETTINGS   = "classes/detail-settings";
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
+    String VIEW_CLASS_DETAIL_PROGRESS   = "classes/detail-progress";
+    String VIEW_CLASS_DETAIL_TESTS      = "classes/detail-tests";
     String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
     String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
@@ -77,6 +79,13 @@ public interface IConstant {
     String ATTR_PLACEHOLDER_TAB   = "placeholderTab";
     String ATTR_PLACEHOLDER_LABEL = "placeholderLabel";
 
+    // Lecturer progress dashboard (lecturer-student-progress).
+    String ATTR_PROGRESS_SUMMARY = "progressSummary";
+    String ATTR_PROGRESS_PAGE    = "progressPage";
+    String ATTR_PROGRESS_STATUS  = "progressStatus";
+    String ATTR_PROGRESS_QUERY   = "progressQuery";
+    String ATTR_PROGRESS_SIZE    = "progressSize";
+
     // Additional cross-cutting model attribute keys (used by ≥2 controllers).
     String ATTR_USER          = "user";
     String ATTR_REQUEST       = "request";
@@ -85,20 +94,16 @@ public interface IConstant {
     String ATTR_FLASH_INFO    = "flashInfo";
     String ATTR_FLASH_WARNING = "flashWarning";
 
-    // Lesson-related model attribute keys (ksh-4.0b).
     String ATTR_LESSON          = "lesson";
     String ATTR_LESSONS         = "lessons";
     String ATTR_LESSON_ID       = "lessonId";
     String ATTR_SELECTED_LESSON = "selectedLesson";
 
-    // Lesson attachments (ksh-4.0c).
     String ATTR_ATTACHMENTS     = "attachments";
 
-    // Student class-lessons view (ksh-4.1).
     String ATTR_VIEW              = "view";
     String ATTR_ACTIVE_SECTION_ID = "activeSectionId";
 
-    // Student lesson detail view (ksh-4.2).
     String ATTR_LESSON_DETAIL     = "lessonDetail";
 
     // Lessons feature — shared cross-controller attrs
@@ -122,6 +127,8 @@ public interface IConstant {
     String TAB_SCORES      = "scores";
     String TAB_LESSONS     = "lessons";
     String TAB_MATERIALS   = "materials";
+    String TAB_PROGRESS    = "progress";
+    String TAB_TESTS       = "tests";
     String TAB_SETTINGS    = "settings";
 
     // Additional tab keys (used across admin / detail screens).
@@ -130,6 +137,8 @@ public interface IConstant {
     String TAB_INFO      = "info";
     String TAB_HISTORY   = "history";
     String TAB_ACTIVITY  = "activity";
+    String TAB_MONITOR     = "monitor";
+    String TAB_SUBMISSIONS = "submissions";
 
     // Settings sub-tabs
     String SUBTAB_INFO   = "info";
@@ -148,15 +157,43 @@ public interface IConstant {
     String MSG_JOINED_CLASS        = "Đã tham gia lớp ";
     String MSG_ALREADY_IN_CLASS    = "Bạn đã ở trong lớp ";
     String MSG_INVALID_INVITE_LINK = "Liên kết không hợp lệ";
+    String MSG_JOIN_REQUEST_SENT   = "Đã gửi yêu cầu tham gia lớp ";
+    String MSG_JOIN_REQUEST_PENDING_SUFFIX = " — chờ giảng viên duyệt";
+    String MSG_JOIN_ALREADY_PENDING = "Yêu cầu tham gia lớp ";
+    String MSG_JOIN_ALREADY_PENDING_SUFFIX = " đang chờ duyệt";
+    String MSG_JOIN_APPROVED       = "Đã duyệt yêu cầu tham gia của học sinh";
+    String MSG_JOIN_REJECTED       = "Đã từ chối yêu cầu tham gia";
+    String MSG_JOIN_APPROVE_FAILED = "Không thể duyệt yêu cầu: ";
+    String MSG_JOIN_REJECT_FAILED  = "Không thể từ chối yêu cầu: ";
+    String MSG_JOIN_CLASS_FULL     = "Lớp đã đầy, không thể duyệt thêm thành viên";
+
+    // Members tab — pending join requests
+    String ATTR_PENDING_MEMBERS = "pendingMembers";
+    String ATTR_PENDING_TOTAL   = "pendingTotal";
+    String ATTR_PENDING_ROWS    = "pendingRows";
 
     // Cross-controller admin-settings session guard
     // (used by EmailSettingsController + OauthSettingsController).
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
 
-    // ───────── Lesson status discriminators (ksh-4.0b) ───────────────
+    // ───────── Lesson status discriminators ─────────────────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";
     String LESSON_STATUS_PUBLISHED = "PUBLISHED";
+
+    // ───────── Lesson content-type discriminators ──────────────────
+    String CONTENT_TYPE_RICHTEXT = "RICHTEXT";
+    String CONTENT_TYPE_PDF      = "PDF";
+    String CONTENT_TYPE_VIDEO    = "VIDEO";
+
+    // YOUTUBE / VIMEO point at an external embed; UPLOAD points at a
+    // server-relative MP4 path.
+    String VIDEO_PROVIDER_YOUTUBE = "YOUTUBE";
+    String VIDEO_PROVIDER_VIMEO   = "VIMEO";
+    String VIDEO_PROVIDER_UPLOAD  = "UPLOAD";
+
+    // Hard cap for uploaded MP4 size: 200 MB.
+    long MAX_VIDEO_SIZE_BYTES = 200L * 1024L * 1024L;
 
     // ───────── Lesson flash messages (Vietnamese UI text) ────────────
     String MSG_LESSON_CREATED      = "Đã tạo bài giảng";
@@ -172,7 +209,7 @@ public interface IConstant {
     String MSG_FORBIDDEN_FOR_CLASS = "Bạn không có quyền thao tác với lớp này.";
     String MSG_GENERIC_RETRY       = "Có lỗi xảy ra, vui lòng thử lại.";
 
-    // ───────── Lesson attachments (ksh-4.0c) Vietnamese UI text ──────
+    // ───────── Attachment messages (Vietnamese UI text) ──────────────
     String MSG_ATTACHMENT_UPLOADED       = "Đã tải lên tệp đính kèm";
     String MSG_ATTACHMENT_DELETED        = "Đã xoá tệp đính kèm";
     String MSG_ATTACHMENT_INVALID        = "Tệp đính kèm không hợp lệ";
@@ -183,13 +220,213 @@ public interface IConstant {
     String MSG_ATTACHMENT_NOT_FOUND      = "Không tìm thấy tệp đính kèm";
     String MSG_ATTACHMENT_EMPTY          = "Tệp đính kèm rỗng";
 
-    // ───────── Student class-lessons (ksh-4.1) Vietnamese UI text ────
+    // ───────── Content-type messages (Vietnamese UI text) ────────────
+    String MSG_LESSON_CONTENT_TYPE_REQUIRED = "Loại nội dung không hợp lệ";
+    String MSG_LESSON_PDF_NOT_UPLOADED      = "PDF chưa được tải lên";
+    String MSG_LESSON_VIDEO_NOT_CONFIGURED  = "Chưa cấu hình video";
+    String MSG_VIDEO_URL_INVALID            = "URL video không hợp lệ";
+    String MSG_VIDEO_FILE_TOO_LARGE         = "Video vượt quá giới hạn 200MB";
+    String MSG_VIDEO_FILE_NOT_MP4           = "Chỉ chấp nhận tệp MP4";
+
+    // ───────── Student-facing messages (Vietnamese UI text) ──────────
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
-    // ───────── Pagination ────────────────────────────────────────────
+    // ───────── Learning-progress flash messages (ksh-4.5) ────────────
+    String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
+    String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
+
+    // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
+    String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
+
+    // ───────── Lesson-comment messages (ksh-4.6, Vietnamese UI text) ──
+    String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
+    String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
+    String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
+    String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
+    // Moderator hide/unhide (ksh-11.7).
+    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
+
+    // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
+    // Route prefixes / canonical URLs.
+    String BASE_FLASHCARDS      = "/my/flashcards";
+    String API_FLASHCARDS       = "/api/flashcards";
+
+    // View names.
+    String VIEW_FLASHCARD_LIST   = "flashcards/list";
+    String VIEW_FLASHCARD_FORM   = "flashcards/deck-form";
+    String VIEW_FLASHCARD_DETAIL = "flashcards/deck-detail";
+    String VIEW_FLASHCARD_FLIP   = "flashcards/flashcard-flip";
+    String VIEW_FLASHCARD_REVIEW = "flashcards/flashcard-review";
+
+    // Model attribute keys.
+    String ATTR_DECK          = "deck";
+    String ATTR_DECKS_OWN_PAGE = "ownDecksPage";
+    String ATTR_DECKS_SHARED  = "sharedDecks";
+    String ATTR_CARDS         = "cards";
+    String ATTR_CARDS_JSON    = "cardsJson";
+    String ATTR_DUE_COUNT     = "dueCount";
+    String ATTR_SHARE_CLASSES = "shareClasses";
+
+    // Flash / error messages (Vietnamese UI text).
+    String MSG_DECK_CREATED    = "Đã tạo bộ thẻ";
+    String MSG_DECK_UPDATED    = "Đã lưu bộ thẻ";
+    String MSG_DECK_DELETED    = "Đã xoá bộ thẻ";
+    String MSG_DECK_SHARED     = "Đã chia sẻ bộ thẻ cho lớp";
+    String MSG_DECK_UNSHARED   = "Đã chuyển bộ thẻ về riêng tư";
+    String MSG_DECK_TITLE_BLANK = "Tiêu đề không được để trống";
+    String MSG_CARD_SIDE_BLANK = "Mỗi thẻ phải có cả mặt trước và mặt sau";
+    String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";
+    String MSG_DECK_NOT_FOUND  = "Không tìm thấy bộ thẻ";
+    String MSG_SHARE_CLASS_INVALID = "Bạn không thuộc lớp này";
+
+    // SM-2 rating → quality map (Không nhớ / Khó / Tốt / Dễ).
+    int QUALITY_FORGOT = 1;
+    int QUALITY_HARD   = 3;
+    int QUALITY_GOOD   = 4;
+    int QUALITY_EASY   = 5;
+
+    // ───────── MCQ online exams (Epic #11) ───────────────────────────
+    // Route prefixes / canonical URLs.
+    String BASE_MY_TESTS       = "/my/tests";
+    String API_TESTS           = "/api/tests";
+    String BASE_LECTURER_TESTS = BASE_LECTURER + "/tests";
+
+    // View names.
+    String VIEW_TEST_LIST          = "tests/list";
+    String VIEW_TEST_TAKE          = "tests/take";
+    String VIEW_TEST_RESULT        = "tests/result";
+    String VIEW_TEST_REVIEW        = "tests/review";
+    String VIEW_TEST_PRACTICE_NEW  = "tests/practice-new";
+    String VIEW_TEST_READINESS     = "tests/readiness";
+    String VIEW_TEST_LECTURER_LIST = "tests/lecturer-list";
+    String VIEW_TEST_LECTURER_FORM = "tests/lecturer-form";
+    String VIEW_STUDENT_CLASS_TESTS = "student/class-tests";
+
+    // Model attribute keys.
+    String ATTR_EXAMS_PAGE   = "examsPage";
+    String ATTR_TAKE         = "take";
+    String ATTR_RESULT       = "result";
+    String ATTR_REVIEW       = "review";
+    String ATTR_READINESS    = "readiness";
+    String ATTR_PRACTICE     = "practice";
+    String ATTR_EXAM_FORM    = "examForm";
+    String ATTR_TEST         = "test";
+    String ATTR_LED_CLASSES  = "ledClasses";
+    String ATTR_MONITOR      = "monitor";
+    String ATTR_SUBMISSIONS  = "submissions";
+    String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
+
+    // Readiness band labels (Vietnamese UI text).
+    String BAND_NOT_READY = "Chưa sẵn sàng";
+    String BAND_OK        = "Khá";
+    String BAND_READY     = "Sẵn sàng";
+
+    // Flash / validation messages (Vietnamese UI text).
+    String MSG_EXAM_SAVED            = "Đã lưu bài test";
+    String MSG_EXAM_DELETED          = "Đã xoá bài test";
+    String MSG_EXAM_SUBMITTED        = "Đã nộp bài";
+    String MSG_PRACTICE_CREATED      = "Đã tạo bài luyện tập";
+    String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
+    String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
+    String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
+    String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
+    String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
+    String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
+    String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
+    String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
+
+    // Exam list / submissions page sizes (default + upper bound for ?size).
+    int DEFAULT_EXAM_PAGE_SIZE        = 12;
+    int DEFAULT_SUBMISSIONS_PAGE_SIZE = 20;
+
+    // ───────── Assignments (Sprint 6, #70) ──────────────────────────
+    // Route prefixes / canonical URLs.
+    String PATH_ASSIGNMENTS              = "/assignments";
+    String URL_LECTURER_ASSIGNMENTS      = BASE_LECTURER + PATH_CLASSES + "/{classId}" + PATH_ASSIGNMENTS;
+
+    // View names.
+    String VIEW_ASSIGNMENT_LIST          = "assignments/lecturer-list";
+    String VIEW_ASSIGNMENT_FORM          = "assignments/lecturer-form";
+    String VIEW_ASSIGNMENT_SUBMISSIONS   = "assignments/lecturer-submissions";
+    String VIEW_ASSIGNMENT_GRADE         = "assignments/lecturer-grade";
+    String VIEW_STUDENT_ASSIGNMENT_LIST  = "assignments/student-list";
+    String VIEW_STUDENT_ASSIGNMENT_DETAIL = "assignments/student-detail";
+    String VIEW_STUDENT_ASSIGNMENT_FEEDBACK = "assignments/student-feedback";
+
+    // Model attribute keys.
+    String ATTR_ASSIGNMENT          = "assignment";
+    String ATTR_ASSIGNMENTS         = "assignments";
+    String ATTR_ASSIGNMENT_FORM     = "assignmentForm";
+    String ATTR_SUBMISSION          = "submission";
+    String ATTR_SUBMISSION_FORM     = "submitForm";
+    String ATTR_GRADE_FORM          = "gradeForm";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_ASSIGNMENT_CREATED    = "Đã tạo bài tập";
+    String MSG_ASSIGNMENT_UPDATED    = "Đã cập nhật bài tập";
+    String MSG_ASSIGNMENT_PUBLISHED  = "Đã xuất bản bài tập";
+    String MSG_ASSIGNMENT_CLOSED     = "Đã đóng bài tập";
+    String MSG_ASSIGNMENT_NOT_FOUND  = "Không tìm thấy bài tập";
+    String MSG_SUBMIT_SUCCESS        = "Đã nộp bài thành công";
+    String MSG_SUBMIT_LATE           = "Bài tập đã quá hạn, không thể nộp trễ";
+    String MSG_SUBMIT_AFTER_GRADED   = "Không thể chỉnh sửa sau khi đã được chấm điểm";
+    String MSG_GRADE_SUCCESS         = "Đã chấm điểm thành công";
+    String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
+    String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";
+    String MSG_NOT_ENROLLED          = "Bạn không thuộc lớp này";
+
+    // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
+    // Route prefix / canonical URL.
+    String BASE_MY_NOTIFICATIONS = "/my/notifications";
+
+    // View names.
+    String VIEW_NOTIFICATIONS_INDEX = "notifications/index";
+
+    // Model attribute keys.
+    String ATTR_NOTIFICATIONS   = "notifications";
+    String ATTR_NOTIF_UNREAD    = "notifUnreadCount";
+
+    // Flash messages (Vietnamese UI text).
+    String MSG_NOTIF_READ = "Đã đánh dấu đã đọc";
+
+    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
+    // Route prefix / canonical URL.
+    String BASE_MY_MESSAGES = "/my/messages";
+
+    // View names.
+    String VIEW_MESSAGING_INDEX        = "messaging/index";
+    String VIEW_MESSAGING_CONVERSATION = "messaging/conversation";
+    String VIEW_STUDENT_CLASS_MESSAGES = "student/class-messages";
+
+    // Model attribute keys.
+    String ATTR_CONVERSATIONS = "conversations";
+    String ATTR_CONVERSATION  = "conversation";
+    String ATTR_MSG_UNREAD    = "msgUnreadCount";
+    String ATTR_RECIPIENTS     = "recipients";
+    String ATTR_COMPOSE        = "compose";
+    String ATTR_COMPOSE_QUERY  = "composeQuery";
+
+    // Pagination.
     int DEFAULT_PAGE_SIZE = 20;
 
     // Lessons feature — shared paging (history tab page size).
     int DEFAULT_HISTORY_PAGE_SIZE = 20;
+
+    // Lecturer progress dashboard — table page size (default + upper bound).
+    int DEFAULT_PROGRESS_PAGE_SIZE = 10;
+    int MAX_PROGRESS_PAGE_SIZE = 100;
+
+    // Lesson comments — root comments per "load more" page (default + upper bound).
+    // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
+    int DEFAULT_COMMENT_PAGE_SIZE = 10;
+    int MAX_COMMENT_PAGE_SIZE = 50;
+
+    // Flashcards — own decks per SSR numbered-pager page.
+    int DEFAULT_DECK_PAGE_SIZE = 12;
+
+    // Shared pager fragment — Map of query params to preserve across pages
+    // (status/q/size/…). Consumed by templates/fragments/pager.html.
+    // Numbered-button window size lives in com.ksh.common.PageWindow.
+    String ATTR_PAGER_PARAMS = "params";
 }

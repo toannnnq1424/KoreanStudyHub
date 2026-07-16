@@ -5,6 +5,7 @@ import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
+import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
 import com.ksh.features.classes.service.codes.ClassCodeGenerator;
@@ -53,6 +54,7 @@ class ClassesServiceTest {
     private static final Long ADMIN_ID = 1L;
 
     private ClassRepository classRepository;
+    private ClassInviteCodeRepository inviteCodeRepository;
     private ClassActivityWriter activityWriter;
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
@@ -61,11 +63,14 @@ class ClassesServiceTest {
     @BeforeEach
     void setUp() {
         classRepository = mock(ClassRepository.class);
+        inviteCodeRepository = mock(ClassInviteCodeRepository.class);
         activityWriter = mock(ClassActivityWriter.class);
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
-        service = new ClassesService(classRepository, activityWriter, codeGenerator,
-                inviteCodeService);
+        service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
+                codeGenerator, inviteCodeService);
+        when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
+                .thenReturn(Optional.empty());
     }
 
     // ───────────────── List by role ─────────────────

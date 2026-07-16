@@ -6,10 +6,15 @@ import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.service.ClassMembersService;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.classes.service.invites.InviteCodeService;
+import com.ksh.features.classes.service.invites.InviteCodeValidationException;
+import com.ksh.features.tests.service.LecturerExamService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -53,15 +58,21 @@ public class ClassDetailController {
     private final ClassMembersService classMembersService;
     private final InviteCodeService inviteCodeService;
     private final ClassDetailModelSupport detailSupport;
+    private final LecturerExamService examService;
+    private final JoinClassService joinClassService;
 
     public ClassDetailController(ClassesService classesService,
                                  ClassMembersService classMembersService,
                                  InviteCodeService inviteCodeService,
-                                 ClassDetailModelSupport detailSupport) {
+                                 ClassDetailModelSupport detailSupport,
+                                 LecturerExamService examService,
+                                 JoinClassService joinClassService) {
         this.classesService = classesService;
         this.classMembersService = classMembersService;
         this.inviteCodeService = inviteCodeService;
         this.detailSupport = detailSupport;
+        this.examService = examService;
+        this.joinClassService = joinClassService;
     }
 
     /** Renders the class board (announcement) tab. */
@@ -74,7 +85,7 @@ public class ClassDetailController {
         return VIEW_CLASS_DETAIL_BOARD;
     }
 
-    /** Renders the class members tab with the full member list. */
+    /** Renders the class members tab with ACTIVE members and PENDING requests. */
     @GetMapping("/classes/{id}/members")
     public String detailMembers(@PathVariable Long id,
                                 @AuthenticationPrincipal KshUserDetails user,
@@ -85,7 +96,62 @@ public class ClassDetailController {
                 user.getId(), user.getRole());
         model.addAttribute(ATTR_MEMBERS, view.members());
         model.addAttribute(ATTR_MEMBER_TOTAL, view.total());
+        model.addAttribute(ATTR_PENDING_MEMBERS, view.pendingMembers());
+        model.addAttribute(ATTR_PENDING_TOTAL, view.pendingTotal());
         return VIEW_CLASS_DETAIL_MEMBERS;
+    }
+
+    /** Owner approves a PENDING join request. */
+    @PostMapping("/classes/{id}/members/{userId}/approve")
+    public String approveMember(@PathVariable Long id,
+                                @PathVariable Long userId,
+                                @AuthenticationPrincipal KshUserDetails user,
+                                RedirectAttributes ra) {
+        try {
+            joinClassService.approve(id, userId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOIN_APPROVED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_APPROVE_FAILED + ex.getMessage());
+        } catch (InviteCodeValidationException ex) {
+            // Capacity full reuses CLASS_FULL message from the validator.
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_CLASS_FULL);
+        }
+        return "redirect:" + classUrl(id) + "/" + TAB_MEMBERS;
+    }
+
+    /** Owner rejects a PENDING join request. */
+    @PostMapping("/classes/{id}/members/{userId}/reject")
+    public String rejectMember(@PathVariable Long id,
+                               @PathVariable Long userId,
+                               @AuthenticationPrincipal KshUserDetails user,
+                               RedirectAttributes ra) {
+        try {
+            joinClassService.reject(id, userId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOIN_REJECTED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_REJECT_FAILED + ex.getMessage());
+        }
+        return "redirect:" + classUrl(id) + "/" + TAB_MEMBERS;
+    }
+
+    /** Renders the class exams tab — the exams belonging to this class. */
+    @GetMapping("/classes/{id}/tests")
+    public String detailTests(@PathVariable Long id,
+                              @RequestParam(name = "page", defaultValue = "0") int page,
+                              @AuthenticationPrincipal KshUserDetails user,
+                              Model model) {
+        ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
+        detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
+        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        return VIEW_CLASS_DETAIL_TESTS;
     }
 
     /**
@@ -116,13 +182,12 @@ public class ClassDetailController {
      * Handles: {@code /schedule}, {@code /roles}, {@code /groups}, {@code /assignments},
      * {@code /scores}, {@code /materials}.
      *
-     * <p>Note: {@code /lessons} is intentionally NOT mapped here — it is owned
-     * by {@code SectionsController} ({@code /lecturer/classes/{classId}/lessons})
-     * starting with ksh-4.0a. Adding both mappings would raise
-     * {@code IllegalStateException: Ambiguous mapping} at startup.
+     * <p>Note: {@code /lessons} is intentionally not mapped here because it is
+     * owned by the lessons feature controllers.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
-                "/classes/{id}/groups", "/classes/{id}/assignments",
+                "/classes/{id}/groups",
+                "/classes/{id}/assignments",
                 "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,
