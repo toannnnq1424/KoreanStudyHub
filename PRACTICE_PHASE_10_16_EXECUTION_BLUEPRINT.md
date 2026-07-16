@@ -1436,7 +1436,7 @@ Research chỉ bổ sung, không thay baseline cũ. Baseline preservation audit 
 | Full-test and skill-specific flow | 13B-13C, gồm aggregate attempt/timer, resume/submit xuyên section và history theo attempt session |
 | Catalog scale | 13A và 13G, gồm server pagination/filter/search, bounded load, index/query review |
 | Progress analytics | 13F, giữ skill/Writing-task dimensions và legacy semantics; không có TOPIK-level dimension mới |
-| Retry and operational UX | 13F, giữ explanation retry, idempotency/rate limit và refresh-no-provider-call |
+| Retry and operational UX | 13D sở hữu artifact/task/retry command nền tảng và refresh-no-provider-call; 13F chỉ mở rộng operational UX trên cùng contract |
 | Visual, encoding and accessibility | 13G, giữ UTF-8/mojibake, icon system, responsive/browser/a11y và overlap checks |
 | Functional gate | 13H, giữ canonical-type E2E, full/skill paths, catalog performance, accessibility và answer-leak checks |
 
@@ -1465,8 +1465,9 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
   review; không load hàng nghìn set/test card cùng lúc.
 - Progress analytics: skill/Writing-task dimensions; Writing pending
   không thành 0; legacy compatibility rows có nhãn và handling rõ.
-- Retry and operational UX: explanation
-  unavailable/retry; idempotency/rate limit; refresh result không gọi provider.
+- Retry and operational UX: 13D tạo explanation artifact độc lập với learner,
+  durable task/retry command, idempotency/rate limit và read-only result GET;
+  13F chỉ bổ sung operational UX trên cùng contract, không tạo pipeline thứ hai.
 - Visual/encoding/accessibility: sửa mojibake/UTF-8 xuyên template, seed/import,
   resource bundle và rendered page; bỏ emoji-style product icon, ưu tiên Lucide
   hoặc consistent SVG; responsive/browser matrix; no overlap; focus, labels,
@@ -1512,18 +1513,67 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 - answer spec/correct answer không xuất hiện trong HTML/JSON trước submit;
 - không gọi provider chỉ vì refresh player/result.
 
-### 13D - Result overview contract
+### 13D - Result overview and immutable explanation lifecycle
 
+- một canonical result envelope/top-level assembler/shared page frame cho cả
+  bốn kỹ năng, nhưng main content tách đúng ba presenter đã wiring: objective
+  dùng chung cho Đọc/Nghe, Viết và Nói; không tạo controller/service/scoring
+  pipeline thứ hai;
+- Speaking overview tổng hợp toàn bộ attempt theo sáu tiêu chí tiếng Hàn và
+  immutable task weights/denominator, không phân tích theo từng câu. Recording
+  segment chỉ là media navigation; per-question evidence thuộc 13E;
+- Speaking fluency/pronunciation dựa transcript phải ghi rõ bằng chứng hạn chế;
+  không hiển thị phoneme/intonation/audio metric khi evaluator chưa nhận audio;
+- Writing có task selector từ immutable question metadata. Q51-Q54 đều giữ
+  canonical type `ESSAY`; Q51/Q52 dùng task-native rubric theo hai câu trả lời,
+  còn Q53/Q54/general giữ ba tiêu chí điểm TOPIK nhưng trình bày bốn góc
+  nhìn: nội dung, cấu trúc, từ vựng/diễn đạt, ngữ pháp/độ chính xác. Hai góc nhìn
+  ngôn ngữ không được nhân đôi official language score;
+- Reading/Listening giữ objective overview nhưng nâng hierarchy, spacing và
+  answer-state distribution; điểm 0 không được render lời chúc mừng;
+- segmented criterion scale dùng semantic red/amber/green-blue/neutral cùng
+  label chữ, responsive và chỉ từ persisted evidence; không random variation,
+  không sao chép PREP branding/IELTS band;
+- xóa overview R/L tách riêng, hard-coded/fabricated result JavaScript và mọi
+  fragment/helper song song không còn caller; final audit phải có một shell và
+  đúng ba presenter được gọi;
 - exam-native score scale, level/band, completion và recent-attempt semantics;
 - giữ `score`, `scale`, `level`, `completion`, `timing` và
   `feedbackAvailability` là field riêng, không suy ra lẫn nhau;
 - correct/partial/incorrect/not-answered/pending/unscorable summary có denominator;
 - `not_answered`, `not_qualified`, `capture_failed`, `graded` render khác nhau;
-- Writing unavailable hoặc pending score không biến thành 0.
+- Writing unavailable hoặc pending score không biến thành 0;
+- Reading/Listening explanation là immutable artifact của published question
+  version, không chứa learner answer/correctness; learner result chỉ thêm
+  deterministic answer/correctness/points overlay;
+- publish transaction chỉ tạo và commit immutable graph; after-commit listener
+  tạo durable preparation rows trong transaction riêng, reconciler idempotent
+  đóng crash gap, và bounded worker chỉ xử lý task đã commit;
+- fingerprint độc lập question ID/version ID, bao gồm canonical prompt/content,
+  answer spec, passage/transcript, image/audio digest, teacher explanation,
+  model/prompt/schema/language; câu không đổi được reuse qua lần republish;
+- binding `question version -> artifact` bảo đảm attempt cũ luôn đọc artifact
+  cũ, không fallback sang latest/live version;
+- result overview/detail/player/refresh GET chỉ lookup artifact/status, tuyệt đối
+  không gọi provider hoặc ghi cache/task;
+- durable multi-node-safe task, bounded retry và một authorized idempotent
+  rate-limited retry command thuộc 13D; provider failure không rollback publish;
+- migrate/retire `question_explanation_cache` và toàn bộ
+  `getOrCreateExplanation`/ID-key/JVM-lock path cũ trong cùng phase, không giữ hai
+  cache/generator chạy song song;
+- implementation/validation chi tiết và chính sách chỉ chạy một validation cuối
+  phase được khóa tại `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md`
+  Section 6.9; user đã GO và implementation đang chờ một validation cuối phase.
+- Step 6 của 13D chỉ lập inventory compatibility/legacy/test-data tại
+  `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`;
+  không xóa hoặc chặn các path đó trong 13D. Phase 15 mới review tác động và dọn
+  theo một batch trước khi tạo seed chuẩn.
 
 ### 13E - Evidence-based result detail
 
 - learner answer, official answer, teacher explanation và AI artifact phân biệt rõ;
+- chỉ đọc artifact/binding/status canonical do 13D cung cấp; không tạo cache,
+  fingerprint, worker hoặc generation/retry service thứ hai;
 - single-choice option detail và bằng chứng passage/transcript;
 - Reading passage evidence anchor phải bền theo content version, không dùng raw
   DOM offset; Listening transcript/audio evidence có timestamp/speaker khi có;
@@ -1542,7 +1592,8 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 - filter/empty/error/retry state đầy đủ;
 - Speaking retry vẫn là UX/operational decision riêng, không được tự gọi provider
   khi refresh player/result;
-- explanation unavailable/retry state có idempotency và rate limit;
+- explanation unavailable/retry UX gọi lại đúng status/retry command của 13D;
+  không có generation path thứ hai;
 - refresh player/result không tự gọi lại provider.
 
 ### 13G - Responsive, accessibility and performance
@@ -1664,7 +1715,24 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 Phase 15 là nơi trả debt vận hành và quyết định GO/NO-GO, không phải nơi vá dồn
 mọi feature còn thiếu.
 
-### 15A - Automated release gate
+### 15A - Compatibility cleanup and automated release gate
+
+- dùng
+  `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`
+  làm checklist bắt buộc; mỗi item phải được quyết định `REMOVE`, `MIGRATE`,
+  `RETAIN_WITH_EXPIRY` hoặc `KEEP` với evidence;
+- trước khi xóa phải xác minh environment, migration version, backup và nghĩa vụ
+  giữ attempt lịch sử; giả định data hiện tại là test data không thay thế bước
+  xác minh này;
+- chờ Phase 13E thay thế result detail trước khi xóa DTO/service/template detail
+  cũ; không xóa immutable version isolation hoặc artifact lifecycle 13D;
+- dọn code, routes, DTO/templates, static assets, tests, seed/migration decision
+  và current docs trong một batch có review, tránh giữ hai half-path;
+- chạy static no-legacy scan, fresh schema rehearsal và representative upgrade
+  nếu migration history vẫn phải được hỗ trợ;
+- chỉ tạo premium canonical seed sau khi cleanup/database gate xanh.
+
+Automated release evidence:
 
 - full test suite;
 - migration tests từ representative pre-V24 và post-V24 database;
@@ -1673,7 +1741,7 @@ mọi feature còn thiếu.
 - serialization compatibility tests;
 - static answer-leak scan cho player/result contracts.
 
-### 15B - Manual browser/device UAT
+### 15B - Premium seed and manual browser/device UAT
 
 - dữ liệu development hiện tại chỉ là fixture thử nghiệm, không phải Manual UAT
   hoặc product evidence;
@@ -1695,8 +1763,13 @@ mọi feature còn thiếu.
 - recorder permission denied/revoked/retry;
 - audio seek/range/reload;
 - full-test resume/timer;
-- all question types và result explanations;
+- all supported canonical question types và result explanations;
 - Korean/Vietnamese IME, Unicode và spacing.
+
+Premium seed bắt buộc dùng canonical Writing Q51-Q54 ESSAY `10/10/30/50`,
+Speaking chỉ `SPEAKING`, objective types được hỗ trợ, valid media và complete
+immutable version locks. Không dùng lại ad-hoc attempt/UI fixture cũ làm product
+evidence.
 
 Phase 15 Manual UAT là release gate riêng, không bị di chuyển sang Phase 12.
 Stabilization cuối Phase 12 chỉ bảo đảm code/route/UI hiện hữu đủ sạch để bắt đầu
@@ -1707,7 +1780,7 @@ Phase 13.
 - catalog hàng nghìn tests;
 - large attempt history;
 - concurrent submit/autosave;
-- explanation cache miss burst;
+- explanation fingerprint/task miss burst;
 - provider timeout/rate limit;
 - cleanup job bounded behavior;
 - DB index/query plan review.

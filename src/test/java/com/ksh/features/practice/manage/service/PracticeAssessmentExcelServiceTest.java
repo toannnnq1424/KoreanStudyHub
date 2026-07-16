@@ -49,6 +49,9 @@ class PracticeAssessmentExcelServiceTest {
                     .isEqualTo("teacher_explanation_vi");
             assertThat(workbook.getSheet("03_SINGLE_CHOICE").getRow(0).getCell(17).getStringCellValue())
                     .isEqualTo("option_A_text");
+            assertThat(List.of(2, 3, 4, 5).stream()
+                    .map(row -> workbook.getSheet("06_ESSAY").getRow(row).getCell(15).getNumericCellValue())
+                    .toList()).containsExactly(10.0, 10.0, 30.0, 50.0);
         }
     }
 
@@ -67,7 +70,6 @@ class PracticeAssessmentExcelServiceTest {
                 .filter(row -> "ESSAY".equals(row.questionType()))
                 .map(PracticeAssessmentExcelService.ImportRowPreview::questionNoInSection))
                 .containsExactly("51", "52", "53", "54");
-
         JsonNode root = new ObjectMapper().readTree(preview.draftJson());
         assertThat(root.path("schemaVersion").asText()).isEqualTo("practice-draft-v3");
         assertThat(root.path("document").has("examTemplateCode")).isFalse();
@@ -83,6 +85,27 @@ class PracticeAssessmentExcelServiceTest {
                 .isEqualTo(60);
         JsonNode fillBlank = findQuestion(root, "FILL_BLANK");
         assertThat(fillBlank.path("prompt").asText()).contains("{{blank:B1}}");
+        assertThat(writingPoints(root)).containsExactly("10", "10", "30", "50");
+    }
+
+    @Test
+    void previewRejectsWritingRowWhosePointsDoNotMatchItsTask() throws Exception {
+        ExcelFixture fixture = fixture();
+        byte[] invalidWorkbook;
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(fixture.service.buildTemplate()));
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            workbook.getSheet("06_ESSAY").getRow(5).getCell(15).setCellValue(10);
+            workbook.write(output);
+            invalidWorkbook = output.toByteArray();
+        }
+
+        PracticeAssessmentExcelService.ExcelPreview preview = fixture.service.preview(
+                workbookFile(invalidWorkbook));
+
+        assertThat(preview.issues()).anyMatch(issue ->
+                "WRITING_TASK_POINTS_MISMATCH".equals(issue.code()));
+        assertThat(preview.rows()).anyMatch(row ->
+                "54".equals(row.questionNoInSection()) && !row.importable());
     }
 
     @Test
@@ -151,6 +174,20 @@ class PracticeAssessmentExcelServiceTest {
             }
         }
         throw new AssertionError("Không tìm thấy câu " + questionType);
+    }
+
+    private static List<String> writingPoints(JsonNode root) {
+        java.util.ArrayList<String> points = new java.util.ArrayList<>();
+        for (JsonNode section : root.path("sections")) {
+            if (!"WRITING".equals(section.path("skill").asText())) continue;
+            for (JsonNode group : section.path("groups")) {
+                for (JsonNode question : group.path("questions")) {
+                    points.add(question.path("points").decimalValue()
+                            .stripTrailingZeros().toPlainString());
+                }
+            }
+        }
+        return points;
     }
 
     private static ExcelFixture fixture() {

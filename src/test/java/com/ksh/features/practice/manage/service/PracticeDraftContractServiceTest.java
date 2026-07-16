@@ -38,6 +38,70 @@ class PracticeDraftContractServiceTest {
         assertEquals(45, question.path("respTimeSeconds").asInt());
     }
 
+    @Test
+    void writingTaskForcesItsQuestionNumberAndFixedPoints() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        QuestionTypeResolver resolver = new QuestionTypeResolver();
+        AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
+        PracticeDraftContractService service = new PracticeDraftContractService(
+                objectMapper,
+                new AssessmentAuthoringCatalogService(new PracticeContentRules()),
+                resolver,
+                codec);
+
+        JsonNode root = objectMapper.readTree(service.normalize("""
+                {
+                  "tests":[{"clientId":"test-1","testNo":1,"title":"Test 1"}],
+                  "sections":[{
+                    "skill":"WRITING","testNo":1,"testClientId":"test-1","lessonCode":"W1",
+                    "groups":[{"groupCode":"W1.1","questions":[{
+                      "questionNo":1,"questionType":"ESSAY","prompt":"쓰기",
+                      "points":999,"essayTaskType":"Q54"
+                    }]}]
+                  }]
+                }
+                """, "MANUAL").json());
+        JsonNode question = root.path("sections").get(0)
+                .path("groups").get(0).path("questions").get(0);
+
+        assertEquals("ESSAY", question.path("questionType").asText());
+        assertEquals(54, question.path("questionNo").asInt());
+        assertEquals(0, question.path("points").decimalValue()
+                .compareTo(java.math.BigDecimal.valueOf(50)));
+    }
+
+    @Test
+    void writingSectionTotalPointsIsRebuiltFromCanonicalTaskWeights() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        QuestionTypeResolver resolver = new QuestionTypeResolver();
+        AssessmentContractCodec codec = new AssessmentContractCodec(objectMapper, resolver);
+        PracticeDraftContractService service = new PracticeDraftContractService(
+                objectMapper,
+                new AssessmentAuthoringCatalogService(new PracticeContentRules()),
+                resolver,
+                codec);
+
+        JsonNode root = objectMapper.readTree(service.normalize("""
+                {
+                  "tests":[{"clientId":"test-1","testNo":1,"title":"Test 1"}],
+                  "sections":[{
+                    "skill":"WRITING","testNo":1,"testClientId":"test-1",
+                    "lessonCode":"W1","totalPoints":999,
+                    "groups":[{"groupCode":"W1.1","questions":[
+                      {"questionType":"ESSAY","prompt":"Q51","points":1,"essayTaskType":"Q51"},
+                      {"questionType":"ESSAY","prompt":"Q52","points":1,"essayTaskType":"Q52"},
+                      {"questionType":"ESSAY","prompt":"Q53","points":1,"essayTaskType":"Q53"},
+                      {"questionType":"ESSAY","prompt":"Q54","points":1,"essayTaskType":"Q54"}
+                    ]}]
+                  }]
+                }
+                """, "MANUAL").json());
+
+        JsonNode section = root.path("sections").get(0);
+        assertEquals(0, section.path("totalPoints").decimalValue()
+                .compareTo(java.math.BigDecimal.valueOf(100)));
+    }
+
     private static String legacySpeakingDraft() {
         return """
                 {

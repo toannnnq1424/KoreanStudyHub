@@ -147,6 +147,14 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("id=\"region-destination-summary\""));
         assertTrue(workspace.contains("Cách AI đọc tài liệu"));
         assertTrue(workspace.contains("function openLearnerPreview()"));
+        assertTrue(workspace.contains("id=\"tool-draw\""));
+        assertTrue(workspace.contains("title=\"Khoanh vùng để crop ảnh (D)\""));
+        assertFalse(workspace.contains("advanced-only\" id=\"tool-draw\""));
+        assertTrue(workspace.contains("{ s: 'select', d: 'draw', h: 'pan' }"));
+        assertTrue(workspace.contains("input, textarea, select, [contenteditable=\"true\"]"));
+        assertTrue(workspace.contains("function findCurrentRegionCropAsset(assets, annotation)"));
+        assertTrue(workspace.contains("sameCoordinate(asset.cropX, annotation.xRatio)"));
+        assertFalse(workspace.contains("assets.find(a => a.sourceRegionId ==="));
         assertFalse(workspace.contains("Hybrid - Khuyên dùng"));
         assertFalse(workspace.contains("📁"));
         assertFalse(workspace.contains("📂"));

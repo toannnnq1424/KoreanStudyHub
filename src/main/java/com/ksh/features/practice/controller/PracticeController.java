@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfDraftView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
@@ -17,6 +16,7 @@ import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticeLearnerAccessService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
+import com.ksh.features.practice.result.PracticeResultAssembler;
 import com.ksh.features.practice.web.PracticeFormFields;
 import com.ksh.features.practice.web.PracticeModelAttributes;
 import com.ksh.features.practice.web.PracticeRoutes;
@@ -66,6 +66,7 @@ public class PracticeController {
     private final PracticeLearnerAccessService learnerAccessService;
     private final PracticeAttemptDiscardService attemptDiscardService;
     private final PracticeSpeakingMediaService speakingMediaService;
+    private final PracticeResultAssembler resultAssembler;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
@@ -78,6 +79,7 @@ public class PracticeController {
                               PracticeLearnerAccessService learnerAccessService,
                               PracticeAttemptDiscardService attemptDiscardService,
                               PracticeSpeakingMediaService speakingMediaService,
+                              PracticeResultAssembler resultAssembler,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
                               com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository,
@@ -91,6 +93,7 @@ public class PracticeController {
         this.learnerAccessService = learnerAccessService;
         this.attemptDiscardService = attemptDiscardService;
         this.speakingMediaService = speakingMediaService;
+        this.resultAssembler = resultAssembler;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.sectionRepository = sectionRepository;
@@ -549,32 +552,13 @@ public class PracticeController {
                                 @AuthenticationPrincipal KshUserDetails user,
                                 Model model) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        String skill = attempt.getSkill();
-
-        if ("READING".equals(skill) || "LISTENING".equals(skill)) {
-            com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
-                    practiceService.getReadingListeningResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, rlResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+        model.addAttribute(PracticeModelAttributes.RESULT,
+                resultAssembler.assemble(attemptId, user.getId()));
+        model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+        if ("SPEAKING".equals(attempt.getSkill())) {
             addSpeakingMediaModel(model, user.getId(), attempt, false);
-            return PracticeViews.READING_LISTENING_RESULT;
-        } else {
-            PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, standardResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
-            addSpeakingMediaModel(model, user.getId(), attempt, false);
-            try {
-                String questionsJson = "SPEAKING".equals(skill)
-                        ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks().isEmpty()
-                                ? standardResult.answerReviews()
-                                : standardResult.speakingQuestionFeedbacks())
-                        : objectMapper.writeValueAsString(standardResult.questionFeedbacks());
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, questionsJson);
-            } catch (Exception e) {
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, "[]");
-            }
-            return PracticeViews.RESULT;
         }
+        return PracticeViews.RESULT;
     }
 
     @GetMapping(PracticeRoutes.RESULT_DETAIL)

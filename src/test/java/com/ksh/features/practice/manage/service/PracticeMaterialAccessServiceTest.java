@@ -189,6 +189,31 @@ class PracticeMaterialAccessServiceTest {
     }
 
     @Test
+    void explanationWorkerCanReadOnlyAssetBoundToItsImmutablePublishedVersion() throws Exception {
+        LecturerAsset asset = asset(1L, 11L);
+        asset.setStatus("ARCHIVED");
+        when(referenceService.hasPublishedVersionReference(1L, 55L)).thenReturn(true);
+        when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
+        when(storageService.load("private/key.mp3"))
+                .thenReturn(new ByteArrayResource(new byte[]{1}));
+
+        service.loadForPublishedVersion(1L, 55L);
+
+        verify(storageService).load("private/key.mp3");
+    }
+
+    @Test
+    void explanationWorkerCannotReadAssetFromAnotherPublishedVersion() throws Exception {
+        when(referenceService.hasPublishedVersionReference(1L, 66L)).thenReturn(false);
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.loadForPublishedVersion(1L, 66L));
+
+        verify(assetRepository, never()).findById(1L);
+        verify(storageService, never()).load(anyString());
+    }
+
+    @Test
     void unrelatedActorCannotReadPrivateDraftAsset() throws Exception {
         LecturerAsset asset = asset(1L, 11L);
         PracticeMaterialReference reference =

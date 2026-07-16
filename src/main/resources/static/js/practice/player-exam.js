@@ -12,6 +12,30 @@
   let activeGroup = 0;
   let allowNavigation = false;
 
+  const sessionStore = {
+    get(key) {
+      try {
+        return window.sessionStorage.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    },
+    set(key, value) {
+      try {
+        window.sessionStorage.setItem(key, value);
+      } catch (error) {
+        // The player remains usable when browser storage is unavailable.
+      }
+    },
+    remove(key) {
+      try {
+        window.sessionStorage.removeItem(key);
+      } catch (error) {
+        // Nothing to clean up when browser storage is unavailable.
+      }
+    }
+  };
+
   const stageSelector = (index) => `[data-group-stage="${index}"]`;
 
   const updateAdaptiveLayout = (index) => {
@@ -354,14 +378,14 @@
   const notesKey = `ksh-exam-notes:${attemptId}`;
   let notes = [];
   try {
-    const stored = JSON.parse(window.sessionStorage.getItem(notesKey) || '[]');
+    const stored = JSON.parse(sessionStore.get(notesKey) || '[]');
     notes = Array.isArray(stored) ? stored : [];
   } catch (error) {
     notes = [];
   }
 
   const persistNotes = () => {
-    window.sessionStorage.setItem(notesKey, JSON.stringify(notes));
+    sessionStore.set(notesKey, JSON.stringify(notes));
   };
 
   const notesDrawer = player.querySelector('[data-notes-drawer]');
@@ -476,19 +500,22 @@
 
   const timer = player.querySelector('[data-room-timer]');
   if (timer) {
-    const timerKey = `ksh-exam-timer:${attemptId}`;
+    const timerKey = `ksh-exam-timer:v2:${attemptId}`;
     const configured = Math.max(0, Number(timer.dataset.roomTimer) || 0);
     if (configured <= 0) {
       timer.textContent = '--:--';
       timer.classList.add('is-unconfigured');
-      window.sessionStorage.removeItem(timerKey);
+      sessionStore.remove(timerKey);
     } else {
-      const stored = Number(window.sessionStorage.getItem(timerKey));
-      let remaining = Number.isFinite(stored) && stored >= 0 && stored <= configured ? stored : configured;
+      const storedValue = sessionStore.get(timerKey);
+      const stored = storedValue === null ? Number.NaN : Number(storedValue);
+      let remaining = Number.isFinite(stored) && stored >= 0 && stored <= configured
+        ? Math.floor(stored)
+        : configured;
       const paintTimer = () => {
         timer.textContent = formatTime(remaining);
         timer.classList.toggle('is-danger', remaining <= 300);
-        window.sessionStorage.setItem(timerKey, String(remaining));
+        sessionStore.set(timerKey, String(remaining));
       };
       paintTimer();
       const interval = window.setInterval(() => {
@@ -500,7 +527,7 @@
           player.requestSubmit();
         }
       }, 1000);
-      player.addEventListener('submit', () => window.sessionStorage.removeItem(timerKey));
+      player.addEventListener('submit', () => sessionStore.remove(timerKey));
     }
   }
 

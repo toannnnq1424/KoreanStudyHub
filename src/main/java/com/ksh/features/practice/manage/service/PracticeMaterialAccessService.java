@@ -72,6 +72,25 @@ public class PracticeMaterialAccessService {
         throw new AccessDeniedException("Bạn không có quyền truy cập tài nguyên này.");
     }
 
+    @Transactional(readOnly = true)
+    public MaterialContent loadForPublishedVersion(
+            Long assetId, Long publishedVersionId) throws IOException {
+        if (publishedVersionId == null
+                || !referenceService.hasPublishedVersionReference(assetId, publishedVersionId)) {
+            throw new AccessDeniedException(
+                    "Tài nguyên không thuộc phiên bản đề đã xuất bản này.");
+        }
+        LecturerAsset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tài nguyên."));
+        if (!asset.isContentVerified()) {
+            throw new AccessDeniedException("Tài nguyên chưa vượt qua kiểm tra nội dung.");
+        }
+        if (!Set.of("ACTIVE", "ARCHIVED").contains(asset.getStatus())) {
+            throw new EntityNotFoundException("Tài nguyên không còn khả dụng.");
+        }
+        return content(asset);
+    }
+
     private boolean canReadThroughDraftReference(Long assetId, Long actorId) {
         for (PracticeMaterialReference reference : referenceService.references(assetId)) {
             if (reference.getDraftId() != null

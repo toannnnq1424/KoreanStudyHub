@@ -39,4 +39,14 @@ class PracticeEditorWritingTaskAuthoringTest {
         assertTrue(template.contains("question.essayTaskType === null && !shouldMaterializeBlank"));
         assertFalse(template.contains("q.essayTaskType = q.essayTaskType || ''"));
     }
+
+    @Test
+    void editorAppliesServerCatalogPointsForEveryWritingTask() throws Exception {
+        String template = Files.readString(Path.of("src/main/resources/templates/practice/manage/editor.html"));
+
+        assertTrue(template.contains("function writingTaskPolicy"));
+        assertTrue(template.contains("function applyWritingTaskContract"));
+        assertTrue(template.contains("question.points = Number(policy.points)"));
+        assertTrue(template.contains("code: 'WRITING_TASK_POINTS_MISMATCH'"));
+    }
 }

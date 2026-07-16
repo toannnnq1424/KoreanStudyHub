@@ -112,8 +112,8 @@ public class PracticePdfAiPayloadBuilder {
             rPayload.setDisplayOrder(ann.getDisplayOrder());
             rPayload.setRegionType(ann.getRegionType());
             boolean regionTypeLocked = ann.getRegionType() != null && !"AUTO_DETECT".equalsIgnoreCase(ann.getRegionType());
-            boolean sendText = ann.getIncludeTextInAi() != false;
-            boolean sendImage = ann.getIncludeImageInAi() != false;
+            boolean sendText = !Boolean.FALSE.equals(ann.getIncludeTextInAi());
+            boolean sendImage = !Boolean.FALSE.equals(ann.getIncludeImageInAi());
             rPayload.setClassificationSource(regionTypeLocked ? "LECTURER" : "AUTO");
             RegionLocks locks = new RegionLocks();
             locks.setRegionType(regionTypeLocked);
@@ -160,9 +160,8 @@ public class PracticePdfAiPayloadBuilder {
             if (Boolean.TRUE.equals(rPayload.getSendImage()) && ("HYBRID".equalsIgnoreCase(strategy) || "REGION_ONLY".equalsIgnoreCase(strategy))) {
                 try {
                     List<LecturerAsset> existingAssets = assetRepository.findBySourceImportSessionId(sessionId);
-                    Optional<LecturerAsset> match = existingAssets.stream()
-                            .filter(a -> ann.getId().equals(a.getSourceRegionId()))
-                            .findFirst();
+                    Optional<LecturerAsset> match = PracticePdfRegionAssetSelector
+                            .findCurrent(existingAssets, ann);
 
                     LecturerAsset asset;
                     if (match.isPresent()) {

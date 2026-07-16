@@ -3,6 +3,35 @@
 > **Tài liệu kỹ thuật** | KSH Korean Study Hub | Phiên bản: 2.0
 > Phạm vi: `com.ksh.features.practice.*` · `com.ksh.common.storage.*` · `src/main/resources/templates/practice/*`
 
+> **Cảnh báo lịch sử (2026-07-16):** nội dung bên dưới mô tả kiến trúc cũ
+> trước Phase 12R/13. Các tên `PracticeSubmission`, `question_explanation_cache`,
+> route `mode`, template `rl-result.html`, mock Speaking và question type mở rộng
+> không còn là contract runtime hiện hành. Khi có xung đột, lấy code hiện tại,
+> `CODEX_PRACTICE_WORKFLOW.md` và
+> `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` làm nguồn chuẩn. Không
+> triển khai compatibility wrapper chỉ để khớp tài liệu lịch sử này.
+
+## Contract runtime hiện hành — Phase 13D
+
+- `GET /practice/attempts/{attemptId}/result` chỉ dùng một shell
+  `practice/result` và đúng một presenter theo skill: Objective cho Đọc/Nghe,
+  Writing cho Viết, Speaking cho Nói. Dữ liệu luôn được assemble từ immutable
+  published-version đã khóa trong attempt; không đọc graph mới nhất.
+- Overview Nói là đánh giá tổng thể toàn bài, không dựng panel phân tích từng câu.
+  Snapshot Speaking lịch sử có câu `ESSAY` vẫn được đọc tương thích và hợp nhất
+  vào tổng quan, nhưng publish mới chỉ tạo question type `SPEAKING` cho phần Nói.
+- Overview Viết giữ rubric chấm tiếng Hàn; Q53/Q54 có bốn lens trình bày nhưng
+  không nhân đôi điểm rubric. Publish mới khóa Q51/Q52/Q53/Q54 là `ESSAY` với
+  trọng số lần lượt `10/10/30/50`; result reader vẫn đọc được type lịch sử từ
+  snapshot cũ.
+- Explanation Đọc/Nghe là artifact bất biến theo content fingerprint, tách khỏi
+  binding tới question version và task xử lý `PENDING/READY/FAILED`. Sau commit
+  publish, hệ thống chuẩn bị/reuse artifact; result GET chỉ đọc binding và tuyệt
+  đối không gọi AI khi cache miss.
+- Fingerprint bao gồm nội dung có ý nghĩa, đáp án, stimulus/media hash và phiên
+  bản prompt/model/schema/ngôn ngữ. ID database, provenance, MIME/size và thứ tự
+  metadata không có ý nghĩa không được làm phát sinh lượt gọi AI mới.
+
 ---
 
 ## 1. Tổng quan Feature

@@ -50,6 +50,7 @@ public class PracticePdfRegionService {
         annotation.setSessionId(sessionId);
         annotation.setCreatedAt(LocalDateTime.now());
         annotation.setUpdatedAt(LocalDateTime.now());
+        normalizeAiFlags(annotation);
 
         PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
 
@@ -84,6 +85,7 @@ public class PracticePdfRegionService {
         annotation.setSaveToAssetLibrary(update.getSaveToAssetLibrary());
         annotation.setLecturerNote(update.getLecturerNote());
         annotation.setUpdatedAt(LocalDateTime.now());
+        normalizeAiFlags(annotation);
 
         PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
 
@@ -130,14 +132,15 @@ public class PracticePdfRegionService {
     }
 
     private void triggerAutoCropIfNecessary(PracticePdfImportSession session, PracticePdfRegionAnnotation ann, Long userId) {
-        boolean includeImage = ann.getIncludeImageInAi() != false;
+        boolean includeImage = !Boolean.FALSE.equals(ann.getIncludeImageInAi());
         if (includeImage && !"IGNORE".equalsIgnoreCase(ann.getRegionType())) {
             try {
-                // Check if crop already exists
                 List<LecturerAsset> existing = assetService.getSessionAssets(session.getId(), userId);
-                boolean hasAsset = existing.stream().anyMatch(a -> ann.getId().equals(a.getSourceRegionId()));
+                retireObsoleteTemporaryCrops(existing, ann, userId);
+                LecturerAsset current = PracticePdfRegionAssetSelector.findCurrent(existing, ann)
+                        .orElse(null);
 
-                if (!hasAsset) {
+                if (current == null) {
                     LecturerAsset asset = cropService.cropRegion(
                             session.getStoredPdfPath(),
                             ann.getPageNumber(),
@@ -157,15 +160,37 @@ public class PracticePdfRegionService {
                         assetService.promoteToActiveLibrary(asset.getId(), userId);
                     }
                 } else if (Boolean.TRUE.equals(ann.getSaveToAssetLibrary())) {
-                    // If it has crop but saveToAssetLibrary just turned true
-                    existing.stream()
-                            .filter(a -> ann.getId().equals(a.getSourceRegionId()) && "TEMPORARY".equalsIgnoreCase(a.getStatus()))
-                            .findFirst()
-                            .ifPresent(a -> assetService.promoteToActiveLibrary(a.getId(), userId));
+                    assetService.promoteToActiveLibrary(current.getId(), userId);
                 }
             } catch (Exception e) {
                 log.error("[PdfRegionService] Failed to auto crop regionId={}", ann.getId(), e);
             }
         }
+    }
+
+    private void retireObsoleteTemporaryCrops(
+            List<LecturerAsset> existing,
+            PracticePdfRegionAnnotation annotation,
+            Long userId) {
+        existing.stream()
+                .filter(asset -> PracticePdfRegionAssetSelector.belongsToRegion(
+                        asset, annotation.getId()))
+                .filter(PracticePdfRegionAssetSelector::isTemporary)
+                .filter(asset -> !PracticePdfRegionAssetSelector.matchesCrop(asset, annotation))
+                .forEach(asset -> {
+                    try {
+                        assetService.deleteAsset(asset.getId(), userId);
+                    } catch (RuntimeException exception) {
+                        log.warn("[PdfRegionService] Failed to retire stale crop assetId={}",
+                                asset.getId(), exception);
+                    }
+                });
+    }
+
+    private static void normalizeAiFlags(PracticePdfRegionAnnotation annotation) {
+        annotation.setIncludeInAi(!Boolean.FALSE.equals(annotation.getIncludeInAi()));
+        annotation.setIncludeTextInAi(!Boolean.FALSE.equals(annotation.getIncludeTextInAi()));
+        annotation.setIncludeImageInAi(!Boolean.FALSE.equals(annotation.getIncludeImageInAi()));
+        annotation.setSaveToAssetLibrary(Boolean.TRUE.equals(annotation.getSaveToAssetLibrary()));
     }
 }

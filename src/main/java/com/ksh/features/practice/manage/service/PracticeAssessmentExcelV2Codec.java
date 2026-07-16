@@ -127,7 +127,8 @@ final class PracticeAssessmentExcelV2Codec {
         write(sheet, 6, null, "Tài nguyên", "Ảnh/audio có thể gắn ở SECTION, GROUP hoặc QUESTION trong sheet 02_TAI_NGUYEN.");
         write(sheet, 7, null, "Dòng lỗi", "Màn xem trước luôn hiển thị lỗi; khi xác nhận, hệ thống tự bỏ dòng lỗi và nhập dòng hợp lệ.");
         write(sheet, 8, null, "Tệp cục bộ", "Đường dẫn trên máy giáo viên cần được tải lên lại; hệ thống không đọc trực tiếp ổ đĩa cá nhân.");
-        write(sheet, 9, null, "Writing", "Phần Writing phải có đúng Q51, Q52, Q53 và Q54; Speaking không giới hạn số câu.");
+        write(sheet, 9, null, "Writing",
+                "Phần Writing phải có đúng Q51, Q52, Q53 và Q54; tất cả dùng ESSAY với điểm cố định 10, 10, 30, 50.");
         sheet.setColumnWidth(0, 24 * 256);
         sheet.setColumnWidth(1, 105 * 256);
         sheet.createFreezePane(0, 2);
@@ -245,7 +246,13 @@ final class PracticeAssessmentExcelV2Codec {
         values[12] = type.name();
         values[13] = sampleAnswer(type);
         values[14] = "Giải thích mẫu bằng tiếng Việt cho câu " + questionNo + ".";
-        values[15] = skillPolicy.defaultPoints();
+        AssessmentAuthoringCatalogService.WritingTaskAuthoringPolicy writingTaskPolicy =
+                type == CanonicalQuestionType.ESSAY
+                        ? skillPolicy.writingTask("Q" + questionNo)
+                        : null;
+        values[15] = writingTaskPolicy == null
+                ? skillPolicy.defaultPoints()
+                : writingTaskPolicy.points();
         values[16] = sampleScoring(type);
         if (type == CanonicalQuestionType.SINGLE_CHOICE) {
             int min = questionPolicy == null ? 2 : questionPolicy.minOptions();
@@ -623,6 +630,30 @@ final class PracticeAssessmentExcelV2Codec {
                 && !Set.of("Q51", "Q52", "Q53", "Q54").contains(writingTask)) {
             rowBlocking(issues, "WRITING_TASK_INVALID", sheet, excelRow, "writing_task",
                     "Writing phải chọn một task Q51, Q52, Q53 hoặc Q54.", rowKey);
+        } else if (sheetType == CanonicalQuestionType.ESSAY && skillPolicy != null) {
+            AssessmentAuthoringCatalogService.WritingTaskAuthoringPolicy taskPolicy =
+                    skillPolicy.writingTask(writingTask);
+            if (taskPolicy == null) {
+                rowBlocking(issues, "WRITING_TASK_INVALID", sheet, excelRow, "writing_task",
+                        "Task Writing không thuộc contract của mẫu đề.", rowKey);
+            } else {
+                int expectedQuestionNo = Integer.parseInt(writingTask.substring(1));
+                if (questionNo != expectedQuestionNo) {
+                    rowBlocking(issues, "WRITING_TASK_QUESTION_NUMBER_MISMATCH", sheet, excelRow,
+                            "question_no_in_section",
+                            writingTask + " phải dùng số câu " + expectedQuestionNo + ".", rowKey);
+                }
+                if (!sheetType.name().equals(taskPolicy.questionType())) {
+                    rowBlocking(issues, "WRITING_TASK_TYPE_MISMATCH", sheet, excelRow,
+                            "question_type",
+                            writingTask + " phải dùng dạng " + taskPolicy.questionType() + ".", rowKey);
+                }
+                if (points == null || points.compareTo(taskPolicy.points()) != 0) {
+                    rowBlocking(issues, "WRITING_TASK_POINTS_MISMATCH", sheet, excelRow, "points",
+                            writingTask + " có điểm tối đa cố định là "
+                                    + taskPolicy.points().stripTrailingZeros().toPlainString() + ".", rowKey);
+                }
+            }
         }
 
         return new V2QuestionRow(

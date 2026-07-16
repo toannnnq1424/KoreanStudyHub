@@ -16,6 +16,7 @@ import com.ksh.entities.WritingTaskType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -102,6 +103,7 @@ public class PracticeDraftContractService {
             }
             normalizeSectionDelivery(section, skill);
             ArrayNode groups = array(section, "groups");
+            BigDecimal writingTotalPoints = BigDecimal.ZERO;
             int questionNo = 1;
             for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
                 ObjectNode group = requireObject(groups.get(groupIndex), "group");
@@ -127,14 +129,23 @@ public class PracticeDraftContractService {
                     }
                     question.put("questionType", canonicalType.name());
                     question.remove("canonicalQuestionType");
-                    if ("WRITING".equals(skill)
-                            && canonicalType == CanonicalQuestionType.ESSAY) {
-                        question.put("questionNo", writingQuestionNumber(question));
+                    if ("WRITING".equals(skill)) {
+                        WritingTaskType taskType = writingTaskType(question);
+                        PracticeContentRules.WritingTaskPolicy taskPolicy =
+                                contentRules.writingTaskPolicy(taskType);
+                        if (canonicalType != taskPolicy.questionType()) {
+                            throw new IllegalArgumentException(
+                                    taskType + " phải dùng dạng " + taskPolicy.questionType() + ".");
+                        }
+                        question.put("questionNo", contentRules.writingQuestionNumber(taskType));
+                        question.put("points", taskPolicy.points());
+                        writingTotalPoints = writingTotalPoints.add(taskPolicy.points());
                     } else {
                         question.put("questionNo", questionNo++);
-                    }
-                    if (!question.hasNonNull("points") || question.path("points").decimalValue().signum() <= 0) {
-                        question.put("points", skillPolicy.defaultPoints());
+                        if (!question.hasNonNull("points")
+                                || question.path("points").decimalValue().signum() <= 0) {
+                            question.put("points", skillPolicy.defaultPoints());
+                        }
                     }
                     normalizeQuestionContract(question, canonicalType);
                     normalizeSourceRegionIds(question);
@@ -144,6 +155,9 @@ public class PracticeDraftContractService {
                     group.put("questionFrom", questions.get(0).path("questionNo").asInt());
                     group.put("questionTo", questions.get(questions.size() - 1).path("questionNo").asInt());
                 }
+            }
+            if ("WRITING".equals(skill)) {
+                section.put("totalPoints", writingTotalPoints);
             }
             normalizeSourceRegionIds(section);
         }
@@ -156,10 +170,12 @@ public class PracticeDraftContractService {
         return new NormalizedDraft(root.toString());
     }
 
-    private int writingQuestionNumber(ObjectNode question) {
+    private WritingTaskType writingTaskType(ObjectNode question) {
         String rawTask = text(question, "essayTaskType", "");
         try {
-            return contentRules.writingQuestionNumber(WritingTaskType.valueOf(rawTask));
+            WritingTaskType taskType = WritingTaskType.valueOf(rawTask);
+            contentRules.writingTaskPolicy(taskType);
+            return taskType;
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException(
                     "Mỗi câu Writing phải chọn Q51, Q52, Q53 hoặc Q54.", exception);

@@ -8,14 +8,12 @@ import com.ksh.entities.ClassEntity;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
-import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
-import com.ksh.features.practice.repository.QuestionExplanationCacheRepository;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.PracticeSection;
@@ -115,9 +113,6 @@ class PracticeIntegrationTest {
     private PracticeSectionRepository sectionRepository;
 
     @Autowired
-    private QuestionExplanationCacheRepository questionExplanationCacheRepository;
-
-    @Autowired
     private PracticeService practiceService;
 
     @Autowired
@@ -184,9 +179,6 @@ class PracticeIntegrationTest {
         when(readingListeningExplanationClient.promptVersion()).thenReturn("prompt-v1");
         when(readingListeningExplanationClient.schemaVersion()).thenReturn("schema-v1");
         when(readingListeningExplanationClient.explanationLanguage()).thenReturn("vi");
-        when(readingListeningExplanationClient.explain(any(PracticeQuestion.class), nullable(String.class), anyString(), nullable(String.class)))
-                .thenReturn(null);
-
         // Seed a published practice set
         practiceSet = new PracticeSet(
                 "TOPIK II - Đọc hiểu 35",
@@ -623,10 +615,10 @@ class PracticeIntegrationTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
 
-        // Perform GET result view -> should redirect to rl-result template for READING/LISTENING
+        // All skills share one canonical result shell.
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result"))
+                .andExpect(view().name("practice/result"))
                 .andExpect(model().attributeExists("result"));
 
         // Perform GET detailed result view -> should redirect to rl-result-detail template
@@ -644,56 +636,22 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testReadingResultOverviewCreatesCacheAndDetailDoesNotRecallProvider() throws Exception {
-        String providerJson = """
-                {
-                  "meaningVi": "meaning",
-                  "evidenceQuote": "văn bản nguồn",
-                  "correctReasonVi": "reason",
-                  "relatedTranslationVi": "translation",
-                  "eliminatedOptions": [
-                    {"optionKey": "2", "reasonVi": "wrong"}
-                  ]
-                }
-                """;
-        PracticeQuestionGroup evidenceGroup = new PracticeQuestionGroup(
-                practiceSet.getId(), "Đoạn văn", 1, 1,
-                "Đây là văn bản nguồn đã được giáo viên duyệt.", null, null, 1);
-        evidenceGroup.setSectionId(defaultSection.getId());
-        evidenceGroup = groupRepository.saveAndFlush(evidenceGroup);
-        question.setGroupId(evidenceGroup.getId());
-        question = questionRepository.saveAndFlush(question);
-
-        when(readingListeningExplanationClient.explain(any(ExplanationContext.class)))
-                .thenReturn(providerJson);
-
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
-        attempt.setStatus("SUBMITTED");
+    void testReadingResultGetsAreReadOnlyAndNeverInvokeProvider() throws Exception {
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
+        attempt.markSubmitted(BigDecimal.ZERO, BigDecimal.valueOf(2.5), "{}");
         attempt = attemptRepository.saveAndFlush(attempt);
 
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result"));
-
-        long cacheRows = countExplanationCacheRowsForQuestion(question.getId());
-        assertThat(cacheRows).isEqualTo(1);
+                .andExpect(view().name("practice/result"));
 
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/rl-result-detail"));
 
-        verify(readingListeningExplanationClient, times(1))
-                .explain(any(ExplanationContext.class));
-    }
-
-    private long countExplanationCacheRowsForQuestion(Long questionId) {
-        TransactionTemplate template = new TransactionTemplate(transactionManager);
-        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        return template.execute(status ->
-                questionExplanationCacheRepository.findAll().stream()
-                        .filter(row -> questionId.equals(row.getQuestionId()))
-                        .count()
-        );
+        verify(readingListeningExplanationClient, never()).generate(any(), anyList());
     }
 
     private void publishVersion(Long setId) {
@@ -766,11 +724,8 @@ class PracticeIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/result"))
                 .andExpect(model().attributeExists("result"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("activePartObj.question.writingFeedback || {}")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("const rawAiFeedbackJson = \"{}\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Kết quả theo nhiệm vụ viết")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Ô 1 - Nội dung và ngữ cảnh")));
 
         // Perform GET detailed result view -> should redirect to result-detail template for WRITING
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
@@ -1825,14 +1780,18 @@ class PracticeIntegrationTest {
         question.setGroupId(group1.getId());
         questionRepository.saveAndFlush(question);
 
-        // 1. Reading attempt -> rl-result & rl-result-detail
-        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
-        readingAttempt.setStatus("SUBMITTED");
+        publishVersion(practiceSet.getId());
+
+        // 1. Reading attempt -> canonical overview & objective detail
+        Long readingAttemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt readingAttempt = attemptRepository.findById(readingAttemptId).orElseThrow();
+        readingAttempt.markSubmitted(BigDecimal.ZERO, BigDecimal.valueOf(2.5), "{}");
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 
         mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result"));
+                .andExpect(view().name("practice/result"));
 
         mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
@@ -1847,8 +1806,11 @@ class PracticeIntegrationTest {
         group2.setSectionId(writingSection.getId());
         groupRepository.saveAndFlush(group2);
 
-        PracticeAttempt writingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "WRITING", writingSection.getId());
-        writingAttempt.setStatus("GRADED");
+        publishVersion(practiceSet.getId());
+        Long writingAttemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), writingSection.getId(), student.getId());
+        PracticeAttempt writingAttempt = attemptRepository.findById(writingAttemptId).orElseThrow();
+        writingAttempt.markGraded(BigDecimal.valueOf(70), BigDecimal.TEN, "{}", "{}");
         writingAttempt = attemptRepository.saveAndFlush(writingAttempt);
 
         mockMvc.perform(get("/practice/attempts/" + writingAttempt.getId() + "/result"))

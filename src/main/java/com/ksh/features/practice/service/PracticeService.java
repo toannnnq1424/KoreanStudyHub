@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroupVersion;
 import com.ksh.entities.PracticeQuestionVersion;
+import com.ksh.entities.PracticeSectionVersion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeQuestionGroup;
@@ -24,15 +25,13 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackViewMapper;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.AssessmentScoreResult;
 import com.ksh.features.practice.assessment.AssessmentScoreStatus;
 import com.ksh.features.practice.assessment.AssessmentScoringEngine;
-import com.ksh.features.practice.assessment.AssessmentSkill;
-import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
-import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.PracticeSectionDelivery;
@@ -52,13 +51,12 @@ import com.ksh.features.practice.dto.PracticeDtos.PerformanceByTypeRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReviewGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ReviewQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.EliminatedOptionExplanation;
-import com.ksh.features.practice.dto.PracticeDtos.SectionResultRow;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingFeedbackView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingFindingView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingQuestionFeedbackRow;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingRubricScoreView;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
+import com.ksh.features.practice.repository.PracticeQuestionVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -111,6 +109,7 @@ public class PracticeService {
 
     private final PracticeSetRepository setRepository;
     private final PracticeQuestionRepository questionRepository;
+    private final PracticeQuestionVersionRepository questionVersionRepository;
     private final PracticeQuestionGroupRepository groupRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeAttemptRepository attemptRepository;
@@ -122,7 +121,7 @@ public class PracticeService {
     private final SpeakingFeedbackViewMapper speakingFeedbackViewMapper;
     private SpeakingEvaluationApplicationService speakingEvaluationApplicationService;
     private PracticeSpeakingMediaService speakingMediaService;
-    private final ReadingListeningExplanationService readingListeningExplanationService;
+    private final QuestionExplanationReadService explanationReadService;
     private final AudioStorageService audioStorageService;
     private PracticePublishedVersionService publishedVersionService;
     private final ObjectMapper objectMapper;
@@ -136,6 +135,7 @@ public class PracticeService {
     @Autowired
     public PracticeService(PracticeSetRepository setRepository,
                            PracticeQuestionRepository questionRepository,
+                           PracticeQuestionVersionRepository questionVersionRepository,
                            PracticeQuestionGroupRepository groupRepository,
                            PracticeSectionRepository sectionRepository,
                            PracticeAttemptRepository attemptRepository,
@@ -145,13 +145,14 @@ public class PracticeService {
                            WritingFeedbackViewMapper writingFeedbackViewMapper,
                            SpeakingFeedbackCompatibilityReader speakingFeedbackReader,
                            SpeakingFeedbackViewMapper speakingFeedbackViewMapper,
-                           ReadingListeningExplanationService readingListeningExplanationService,
+                           QuestionExplanationReadService explanationReadService,
                            AudioStorageService audioStorageService,
                            PracticePublishedVersionService publishedVersionService,
                            ObjectMapper objectMapper,
                            PlatformTransactionManager transactionManager) {
         this.setRepository = setRepository;
         this.questionRepository = questionRepository;
+        this.questionVersionRepository = questionVersionRepository;
         this.groupRepository = groupRepository;
         this.sectionRepository = sectionRepository;
         this.attemptRepository = attemptRepository;
@@ -161,7 +162,7 @@ public class PracticeService {
         this.writingFeedbackViewMapper = writingFeedbackViewMapper;
         this.speakingFeedbackReader = speakingFeedbackReader;
         this.speakingFeedbackViewMapper = speakingFeedbackViewMapper;
-        this.readingListeningExplanationService = readingListeningExplanationService;
+        this.explanationReadService = explanationReadService;
         this.audioStorageService = audioStorageService;
         this.publishedVersionService = publishedVersionService;
         this.objectMapper = objectMapper;
@@ -193,16 +194,18 @@ public class PracticeService {
 
     PracticeService(PracticeSetRepository setRepository,
                     PracticeQuestionRepository questionRepository,
+                    PracticeQuestionVersionRepository questionVersionRepository,
                     PracticeQuestionGroupRepository groupRepository,
                     PracticeSectionRepository sectionRepository,
                     PracticeAttemptRepository attemptRepository,
                     PracticeTestRepository testRepository,
                     WritingEvaluationClient evaluationClient,
-                    ReadingListeningExplanationService readingListeningExplanationService,
+                    QuestionExplanationReadService explanationReadService,
                     AudioStorageService audioStorageService,
                     ObjectMapper objectMapper) {
         this.setRepository = setRepository;
         this.questionRepository = questionRepository;
+        this.questionVersionRepository = questionVersionRepository;
         this.groupRepository = groupRepository;
         this.sectionRepository = sectionRepository;
         this.attemptRepository = attemptRepository;
@@ -212,7 +215,7 @@ public class PracticeService {
         this.writingFeedbackViewMapper = new WritingFeedbackViewMapper();
         this.speakingFeedbackReader = new SpeakingFeedbackCompatibilityReader(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
         this.speakingFeedbackViewMapper = new SpeakingFeedbackViewMapper();
-        this.readingListeningExplanationService = readingListeningExplanationService;
+        this.explanationReadService = explanationReadService;
         this.audioStorageService = audioStorageService;
         this.publishedVersionService = null;
         this.objectMapper = objectMapper;
@@ -357,29 +360,37 @@ public class PracticeService {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         rejectDiscardedAttempt(attempt);
-        requireSubmittedForExplanation(attempt);
-        PracticeSet set = setRepository.findById(attempt.getSetId())
-                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-
-        Optional<PracticeVersionSnapshot> lockedSnapshot = versionSnapshot(attempt);
-        List<PracticeQuestionGroupRow> groupRows = groupRowsForAttempt(attempt, section);
+        requireResultAvailable(attempt);
+        Optional<PracticeVersionSnapshot> lockedSnapshot = resultVersionSnapshot(attempt);
+        PracticeSet set = lockedSnapshot.isEmpty()
+                ? setRepository.findById(attempt.getSetId())
+                        .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"))
+                : null;
+        PracticeSection section = lockedSnapshot.isEmpty()
+                ? sectionRepository.findById(attempt.getSectionId())
+                        .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"))
+                : null;
+        String skill = lockedSnapshot
+                .map(PracticeVersionSnapshot::sectionVersion)
+                .map(PracticeSectionVersion::getSkill)
+                .orElseGet(() -> section.getSkill());
+        List<PracticeQuestionGroupRow> groupRows = groupRowsForAttempt(
+                attempt, section, lockedSnapshot);
         List<PracticeQuestionRow> questions = groupRows.stream()
                 .flatMap(g -> g.questions().stream())
                 .toList();
 
-        List<PracticeAnswerExplanationRow> answerExplanations = usesAnswerExplanations(set)
+        List<PracticeAnswerExplanationRow> answerExplanations = set != null && usesAnswerExplanations(set)
                 ? answerExplanationRows(attempt.getAiFeedbackJson(), questions, attempt.getAnswersJson())
                 : List.of();
         List<PracticeAnswerReviewRow> answerReviews = answerReviewRows(questions, attempt.getAnswersJson());
 
-        List<PracticeQuestionFeedbackRow> questionFeedbacks = "WRITING".equals(section.getSkill())
+        List<PracticeQuestionFeedbackRow> questionFeedbacks = "WRITING".equals(skill)
                 ? lockedSnapshot.isPresent()
                     ? buildQuestionFeedbackRowsFromRows(questions, attempt.getAnswersJson(), attempt.getAiFeedbackJson())
                     : buildQuestionFeedbackRows(liveSectionQuestions(attempt, section), attempt.getAnswersJson(), attempt.getAiFeedbackJson())
                 : List.of();
-        List<SpeakingQuestionFeedbackRow> speakingQuestionFeedbacks = "SPEAKING".equals(section.getSkill())
+        List<SpeakingQuestionFeedbackRow> speakingQuestionFeedbacks = "SPEAKING".equals(skill)
                 ? lockedSnapshot.isPresent()
                     ? buildSpeakingQuestionFeedbackRowsFromRows(questions, attempt.getAnswersJson(), attempt.getAiFeedbackJson())
                     : buildSpeakingQuestionFeedbackRows(liveSectionQuestions(attempt, section), attempt.getAnswersJson(), attempt.getAiFeedbackJson())
@@ -388,10 +399,12 @@ public class PracticeService {
         return new PracticeResultView(
                 attempt.getId(),
                 attempt.getTestId(),
-                lockedSnapshot.map(PracticeVersionSnapshot::setVersion).map(PracticeService::toSetRow).orElseGet(() -> toSetRow(set)),
+                lockedSnapshot.map(PracticeVersionSnapshot::setVersion)
+                        .map(PracticeService::toSetRow)
+                        .orElseGet(() -> toSetRow(set)),
                 attempt.getScore(),
                 attempt.getTotalPoints(),
-                "SPEAKING".equals(section.getSkill())
+                "SPEAKING".equals(skill)
                         ? percentageLabel(attempt.getScore())
                         : scoreLabel(attempt.getScore(), attempt.getTotalPoints()),
                 attempt.getAnswersJson(),
@@ -497,7 +510,16 @@ public class PracticeService {
         JsonNode aiSpeakingFeedback = speakingAiEnvelope ? rootNode.path(SPEAKING_MIXED_SPEAKING_FIELD) : null;
         JsonNode mixedSpeakingFeedback = mixedEnvelope ? rootNode.path(SPEAKING_MIXED_SPEAKING_FIELD) : null;
         JsonNode mixedEssayFeedback = mixedEnvelope ? rootNode.path(SPEAKING_MIXED_ESSAY_FIELD) : null;
-        boolean legacyGlobal = rootNode != null && rootNode.isObject() && !speakingAiEnvelope && !mixedEnvelope;
+        boolean unknownContract = rootNode != null
+                && rootNode.isObject()
+                && rootNode.has(SPEAKING_MIXED_CONTRACT_FIELD)
+                && !speakingAiEnvelope
+                && !mixedEnvelope;
+        boolean legacyGlobal = rootNode != null
+                && rootNode.isObject()
+                && !speakingAiEnvelope
+                && !mixedEnvelope
+                && !unknownContract;
 
         List<SpeakingQuestionFeedbackRow> rows = new ArrayList<>();
         for (PracticeQuestionRow q : questions.stream()
@@ -1169,22 +1191,17 @@ public class PracticeService {
                     summary.title()));
         }
 
-        List<Long> setIds = last30Scored.stream().map(PracticeAttempt::getSetId).distinct().toList();
-        List<PracticeQuestion> questions = setIds.isEmpty() ? List.of() : questionRepository.findBySetIdIn(setIds);
-        Map<Long, List<PracticeQuestion>> questionsBySetId = questions.stream()
-                .collect(java.util.stream.Collectors.groupingBy(PracticeQuestion::getSetId));
         Map<String, List<Double>> scoresByType = new LinkedHashMap<>();
         Map<String, java.time.LocalDateTime> lastPracticedByType = new LinkedHashMap<>();
         Map<String, String> skillByType = new LinkedHashMap<>();
 
         for (PracticeAttempt attempt : last30Scored) {
             Map<String, String> answers = readAnswers(attempt.getAnswersJson());
-            List<PracticeQuestion> setQuestions = questionsBySetId.getOrDefault(attempt.getSetId(), List.of());
-            for (PracticeQuestion q : setQuestions) {
-                String type = q.getQuestionType();
+            for (QuestionSnapshot q : progressQuestions(attempt, data)) {
+                String type = q.questionType();
                 if ("WRITING".equals(attempt.getSkill())) {
-                    if (q.getQuestionNo() != null) {
-                        int qNo = q.getQuestionNo();
+                    if (q.questionNo() != null) {
+                        int qNo = q.questionNo();
                         if (qNo == 51) type = "Q51";
                         else if (qNo == 52) type = "Q52";
                         else if (qNo == 53) type = "Q53";
@@ -1194,14 +1211,25 @@ public class PracticeService {
                         type = "GENERAL";
                     }
                 }
-                String ans = answers.getOrDefault(String.valueOf(q.getId()), "").trim();
+                String ans = answers.getOrDefault(String.valueOf(q.questionId()), "").trim();
                 double qScore;
                 if ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill())) {
-                    qScore = attempt.getScore().doubleValue();
+                    qScore = getNormalizedAttemptScore(attempt);
                 } else {
-                    AssessmentScoreResult scoreResult = scoreObjective(toQuestionSnapshot(q), ans)
-                            .orElseThrow(() -> new IllegalStateException(
-                                    "Objective progress question is not scoreable: " + q.getId()));
+                    Optional<AssessmentScoreResult> objectiveScore;
+                    try {
+                        objectiveScore = scoreObjective(q, ans);
+                    } catch (IllegalArgumentException | IllegalStateException exception) {
+                        log.warn("Skipped malformed progress question attempt={}, question={}: {}",
+                                attempt.getId(), q.questionId(), exception.getMessage());
+                        continue;
+                    }
+                    if (objectiveScore.isEmpty()) {
+                        log.warn("Skipped unscoreable immutable progress question attempt={}, question={}",
+                                attempt.getId(), q.questionId());
+                        continue;
+                    }
+                    AssessmentScoreResult scoreResult = objectiveScore.get();
                     qScore = scoreResult.possiblePoints().signum() == 0
                             ? 0.0
                             : scoreResult.earnedPoints().multiply(BigDecimal.valueOf(100))
@@ -1298,12 +1326,63 @@ public class PracticeService {
         List<PracticeAttempt> recentAttempts =
                 attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
                         userId, PracticeAttempt.STATUS_DISCARDED);
+        List<Long> publishedVersionIds = recentAttempts.stream()
+                .map(PracticeAttempt::getPublishedVersionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<PracticeQuestionVersion>> versionQuestions = publishedVersionIds.isEmpty()
+                ? Map.of()
+                : questionVersionRepository
+                        .findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+                                publishedVersionIds)
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                PracticeQuestionVersion::getPublishedVersionId,
+                                LinkedHashMap::new,
+                                Collectors.toList()));
+        List<Long> legacySetIds = recentAttempts.stream()
+                .filter(attempt -> attempt.getPublishedVersionId() == null)
+                .map(PracticeAttempt::getSetId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<PracticeQuestion>> legacyQuestions = legacySetIds.isEmpty()
+                ? Map.of()
+                : questionRepository.findBySetIdIn(legacySetIds).stream()
+                        .collect(Collectors.groupingBy(
+                                PracticeQuestion::getSetId,
+                                LinkedHashMap::new,
+                                Collectors.toList()));
         return new ProgressAttemptData(
                 recentAttempts,
                 recentAttempts,
                 loadSetsById(recentAttempts),
                 loadTestsById(recentAttempts),
-                loadSectionsById(recentAttempts));
+                loadSectionsById(recentAttempts),
+                versionQuestions,
+                legacyQuestions);
+    }
+
+    private List<QuestionSnapshot> progressQuestions(PracticeAttempt attempt, ProgressAttemptData data) {
+        if (attempt.getPublishedVersionId() != null) {
+            if (attempt.getSectionVersionId() == null) {
+                log.warn("Skipped progress question analytics for incomplete version lock attempt={}", attempt.getId());
+                return List.of();
+            }
+            return data.versionQuestionsByPublishedVersionId()
+                    .getOrDefault(attempt.getPublishedVersionId(), List.of())
+                    .stream()
+                    .filter(question -> attempt.getSectionVersionId().equals(question.getSectionVersionId()))
+                    .map(this::toQuestionSnapshot)
+                    .toList();
+        }
+        return data.legacyQuestionsBySetId()
+                .getOrDefault(attempt.getSetId(), List.of())
+                .stream()
+                .sorted(QUESTION_ORDER)
+                .map(this::toQuestionSnapshot)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -1320,7 +1399,9 @@ public class PracticeService {
             List<PracticeAttempt> recentAttempts,
             Map<Long, PracticeSet> setsById,
             Map<Long, PracticeTest> testsById,
-            Map<Long, PracticeSection> sectionsById) {
+            Map<Long, PracticeSection> sectionsById,
+            Map<Long, List<PracticeQuestionVersion>> versionQuestionsByPublishedVersionId,
+            Map<Long, List<PracticeQuestion>> legacyQuestionsBySetId) {
     }
 
     private PracticeSet loadPublished(Long setId) {
@@ -1427,6 +1508,22 @@ public class PracticeService {
                 attempt.getSetVersionId(),
                 attempt.getTestVersionId(),
                 attempt.getSectionVersionId());
+    }
+
+    private Optional<PracticeVersionSnapshot> resultVersionSnapshot(PracticeAttempt attempt) {
+        Optional<PracticeVersionSnapshot> snapshot = versionSnapshot(attempt);
+        if (snapshot.isEmpty() && hasAnyVersionLock(attempt)) {
+            throw new IllegalStateException(
+                    "Bài làm có khóa phiên bản không đầy đủ hoặc không còn snapshot hợp lệ.");
+        }
+        return snapshot;
+    }
+
+    private static boolean hasAnyVersionLock(PracticeAttempt attempt) {
+        return attempt.getPublishedVersionId() != null
+                || attempt.getSetVersionId() != null
+                || attempt.getTestVersionId() != null
+                || attempt.getSectionVersionId() != null;
     }
 
     private List<PracticeQuestionGroupRow> groupRowsForAttempt(PracticeAttempt attempt, PracticeSection liveSection) {
@@ -2254,69 +2351,7 @@ public class PracticeService {
                         "Question ID " + questionId + " is not objectively scoreable"));
     }
 
-    private String explanationForAttempt(PracticeAttempt attempt,
-                                         PracticeSet set,
-                                         Optional<PracticeVersionSnapshot> lockedSnapshot,
-                                         QuestionSnapshot question,
-                                         PracticeQuestionGroupRow group,
-                                         String rawLearnerAnswer,
-                                         String optionLabelMode) {
-        if (question == null) {
-            throw new IllegalStateException("Missing question snapshot for explanation");
-        }
-        try {
-            CanonicalQuestionType type = questionTypeResolver.resolve(
-                    question.questionType());
-            QuestionContent content = isBlank(question.questionContentJson())
-                    ? assessmentContractCodec.adaptLegacyContent(question.optionsJson(), question.questionType())
-                    : assessmentContractCodec.readQuestionContent(question.questionContentJson(), type);
-            AnswerSpec answerSpec = isBlank(question.answerSpecJson())
-                    ? assessmentContractCodec.adaptLegacyAnswerSpec(
-                            question.questionType(), question.answerKey(), content)
-                    : assessmentContractCodec.readAnswerSpec(question.answerSpecJson(), content);
-            LearnerAnswer learnerAnswer = readLearnerAnswer(type, rawLearnerAnswer, content);
-            AssessmentSkill skill = AssessmentSkill.valueOf(attempt.getSkill());
-            AssessmentStimulus stimulus = skill == AssessmentSkill.READING
-                    ? AssessmentStimulus.readingPassage(
-                            firstNonBlank(group.passageText(), group.instruction()),
-                            stimulusProvenance(group, "PUBLISHED_GROUP_SNAPSHOT"))
-                    : AssessmentStimulus.listeningAudio(
-                            group.audioUrl(),
-                            group.transcriptText(),
-                            stimulusProvenance(group, "PUBLISHED_GROUP_SNAPSHOT"),
-                            stimulusApproved(group));
-            ExplanationContext context = new ExplanationContext(
-                    ExplanationContext.SCHEMA_VERSION,
-                    question.questionId(),
-                    question.questionVersionId(),
-                    question.questionNo(),
-                    skill,
-                    type,
-                    question.prompt(),
-                    content,
-                    answerSpec,
-                    learnerAnswer,
-                    stimulus,
-                    question.teacherExplanation(),
-                    "vi",
-                    optionLabelMode
-            );
-            String generated = readingListeningExplanationService.getOrCreateExplanation(
-                    context,
-                    attempt.getTestId(),
-                    attempt.getUserId(),
-                    firstNonBlank(
-                            safeInternalMaterialReference(content.imageReference()),
-                            safeInternalMaterialReference(group.imageUrl())));
-            return isBlank(generated) ? question.teacherExplanation() : generated;
-        } catch (IllegalArgumentException exception) {
-            log.warn("[PracticeService] Explanation contract unavailable questionId={} type={} exception={}",
-                    question.questionId(), question.questionType(), exceptionCategory(exception));
-            return question.teacherExplanation();
-        }
-    }
-
-    private static void requireSubmittedForExplanation(PracticeAttempt attempt) {
+    private static void requireResultAvailable(PracticeAttempt attempt) {
         if (!PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
                 && !PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
             throw new IllegalStateException("Kết quả chỉ khả dụng sau khi bài làm đã được nộp.");
@@ -2334,29 +2369,6 @@ public class PracticeService {
 
     private static String firstNonBlank(String first, String second) {
         return isBlank(first) ? second : first;
-    }
-
-    private String stimulusProvenance(PracticeQuestionGroupRow group, String fallback) {
-        if (isBlank(group.stimulusProvenanceJson())) {
-            return fallback;
-        }
-        try {
-            String source = objectMapper.readTree(group.stimulusProvenanceJson()).path("source").asText("");
-            return source.isBlank() ? fallback : source;
-        } catch (Exception ignored) {
-            return fallback;
-        }
-    }
-
-    private boolean stimulusApproved(PracticeQuestionGroupRow group) {
-        if (isBlank(group.stimulusProvenanceJson())) {
-            return !isBlank(group.transcriptText());
-        }
-        try {
-            return objectMapper.readTree(group.stimulusProvenanceJson()).path("approved").asBoolean(false);
-        } catch (Exception ignored) {
-            return false;
-        }
     }
 
     private static boolean isBlank(String value) {
@@ -2813,167 +2825,28 @@ public class PracticeService {
         attemptRepository.save(attempt);
     }
 
-    /**
-     * Unified result builder — replaces the old rl-result / result split.
-     * PracticeSection.skill is the source of truth for which template fragment to render.
-     */
-    @Transactional(readOnly = true)
-    public PracticeAttemptResultView getAttemptResult(Long attemptId, Long userId) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        rejectDiscardedAttempt(attempt);
-        requireSubmittedForExplanation(attempt);
-        PracticeSet set = setRepository.findById(attempt.getSetId())
-                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-
-        Optional<PracticeVersionSnapshot> lockedSnapshot = versionSnapshot(attempt);
-        List<PracticeQuestionGroupRow> groupRows = groupRowsForAttempt(attempt, section);
-        List<PracticeQuestionRow> dbQuestions = groupRows.stream()
-                .flatMap(g -> g.questions().stream())
-                .toList();
-        Map<Long, QuestionSnapshot> scoringQuestions = loadQuestionSnapshots(attempt, section.getId()).stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        QuestionSnapshot::questionId,
-                        question -> question,
-                        (first, ignored) -> first,
-                        LinkedHashMap::new));
-
-        Map<String, String> submittedAnswers = readAnswers(attempt.getAnswersJson());
-        String optionLabelMode = getOptionLabelMode(set);
-
-        BigDecimal sectionScore = attempt.getScore() != null ? attempt.getScore() : BigDecimal.ZERO;
-        BigDecimal sectionTotal = attempt.getTotalPoints() != null ? attempt.getTotalPoints() : BigDecimal.ZERO;
-
-        String skill = section.getSkill();
-        boolean isObjective = "READING".equals(skill) || "LISTENING".equals(skill);
-
-        int correctCount = 0;
-        int incorrectCount = 0;
-        String sectionAiFeedback = null;
-
-        // Performance breakdown by question type
-        Map<String, List<PracticeQuestionRow>> byType = new LinkedHashMap<>();
-        for (PracticeQuestionRow q : dbQuestions) {
-            byType.computeIfAbsent(q.questionType(), k -> new ArrayList<>()).add(q);
-        }
-
-        List<PerformanceByTypeRow> perfByType = new ArrayList<>();
-        for (Map.Entry<String, List<PracticeQuestionRow>> entry : byType.entrySet()) {
-            String type = entry.getKey();
-            List<PracticeQuestionRow> qs = entry.getValue();
-            int total = qs.size();
-            int correct = 0;
-            BigDecimal earnedByType = BigDecimal.ZERO;
-            BigDecimal possibleByType = BigDecimal.ZERO;
-            for (PracticeQuestionRow q : qs) {
-                String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
-                if (isObjective || isAutoScoredByKey(type)) {
-                    AssessmentScoreResult scoreResult = scoreResultForRow(scoringQuestions, q.id(), ans);
-                    earnedByType = earnedByType.add(scoreResult.earnedPoints());
-                    possibleByType = possibleByType.add(scoreResult.possiblePoints());
-                    if (scoreResult.fullyCorrect()) {
-                        correct++;
-                    }
-                }
-            }
-            if (isObjective) {
-                int incorrect = total - correct;
-                correctCount += correct;
-                incorrectCount += incorrect;
-                String accuracyPct = scoreRatioLabel(earnedByType, possibleByType);
-                perfByType.add(new PerformanceByTypeRow(type, getQuestionTypeLabel(type), total, correct, incorrect, accuracyPct));
-            }
-        }
-
-        if (!isObjective) {
-            sectionAiFeedback = attempt.getAiFeedbackJson();
-        }
-
-        // Build review groups
-        List<ReviewGroupRow> reviewGroups = new ArrayList<>();
-        if (isObjective) {
-            for (PracticeQuestionGroupRow g : groupRows) {
-                List<ReviewQuestionRow> qRows = new ArrayList<>();
-                for (PracticeQuestionRow q : g.questions()) {
-                    String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
-                    boolean isCorrect = scoreResultForRow(scoringQuestions, q.id(), ans).fullyCorrect();
-                    String explanationJson = null;
-                    try {
-                        explanationJson = explanationForAttempt(
-                                attempt,
-                                set,
-                                lockedSnapshot,
-                                scoringQuestions.get(q.id()),
-                                g,
-                                ans,
-                                optionLabelMode
-                        );
-                    } catch (Exception e) {
-                        log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
-                                q.id(), exceptionCategory(e));
-                    }
-                    qRows.add(new ReviewQuestionRow(q.id(), q.questionNo(), q.questionType(),
-                            q.prompt(), q.options(), q.answerKey() != null ? q.answerKey() : "",
-                            ans, isCorrect, explanationJson));
-                }
-                reviewGroups.add(new ReviewGroupRow(g.groupLabel(), g.instruction(),
-                        firstNonBlank(g.passageText(), firstNonBlank(g.transcriptText(), g.instruction())),
-                        audioStorageService.resolveUrlSafe(g.audioUrl()), qRows));
-            }
-        }
-
-        List<SectionResultRow> sectionRows = new ArrayList<>();
-        sectionRows.add(new SectionResultRow(
-                lockedSnapshot.map(v -> v.sectionVersion().getSectionId()).orElse(section.getId()),
-                lockedSnapshot.map(v -> v.sectionVersion().getTitle()).orElse(section.getTitle()),
-                skill,
-                correctCount,
-                incorrectCount,
-                dbQuestions.size(),
-                sectionScore,
-                sectionTotal,
-                perfByType,
-                reviewGroups,
-                sectionAiFeedback,
-                optionLabelMode
-        ));
-
-        String scoreLabel = sectionTotal.compareTo(BigDecimal.ZERO) == 0 ? "0%"
-                : sectionScore.divide(sectionTotal, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100))
-                    .setScale(1, RoundingMode.HALF_UP) + "%";
-
-        return new PracticeAttemptResultView(
-                attempt.getId(),
-                lockedSnapshot.map(PracticeVersionSnapshot::setVersion).map(PracticeService::toSetRow).orElseGet(() -> toSetRow(set)),
-                sectionScore,
-                sectionTotal,
-                scoreLabel,
-                attempt.getSubmittedAt(),
-                sectionRows
-        );
-    }
-
     @Transactional(readOnly = true)
     public ReadingListeningResultView getReadingListeningResult(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         rejectDiscardedAttempt(attempt);
-        requireSubmittedForExplanation(attempt);
-        PracticeSet set = setRepository.findById(attempt.getSetId())
-                .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"));
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-
-        Optional<PracticeVersionSnapshot> lockedSnapshot = versionSnapshot(attempt);
-        List<PracticeQuestionGroupRow> groupRows = groupRowsForAttempt(attempt, section);
+        requireResultAvailable(attempt);
+        Optional<PracticeVersionSnapshot> lockedSnapshot = resultVersionSnapshot(attempt);
+        PracticeSet set = lockedSnapshot.isEmpty()
+                ? setRepository.findById(attempt.getSetId())
+                        .orElseThrow(() -> new EntityNotFoundException("Bộ luyện tập không tồn tại"))
+                : null;
+        PracticeSection section = lockedSnapshot.isEmpty()
+                ? sectionRepository.findById(attempt.getSectionId())
+                        .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"))
+                : null;
+        List<PracticeQuestionGroupRow> groupRows = groupRowsForAttempt(
+                attempt, section, lockedSnapshot);
         List<PracticeQuestionRow> dbQuestions = groupRows.stream()
                 .flatMap(g -> g.questions().stream())
                 .toList();
-        Map<Long, QuestionSnapshot> scoringQuestions = loadQuestionSnapshots(attempt, section.getId()).stream()
+        Map<Long, QuestionSnapshot> scoringQuestions = loadQuestionSnapshots(
+                attempt, attempt.getSectionId()).stream()
                 .collect(java.util.stream.Collectors.toMap(
                         QuestionSnapshot::questionId,
                         question -> question,
@@ -3027,7 +2900,11 @@ public class PracticeService {
             ));
         }
 
-        String optionLabelMode = getOptionLabelMode(set);
+        String optionLabelMode = lockedSnapshot
+                .map(PracticeVersionSnapshot::setVersion)
+                .map(version -> PracticeDtos.getOptionLabelMode(
+                        version.getTitle(), version.getMetadataJson()))
+                .orElseGet(() -> getOptionLabelMode(set));
 
         // Build group rows
         List<ReviewGroupRow> groups = new ArrayList<>();
@@ -3036,21 +2913,12 @@ public class PracticeService {
             for (PracticeQuestionRow q : g.questions()) {
                 String ans = submittedAnswers.getOrDefault(String.valueOf(q.id()), "").trim();
                 boolean isCorrect = scoreResultForRow(scoringQuestions, q.id(), ans).fullyCorrect();
-                String explanationJson = null;
-                try {
-                    explanationJson = explanationForAttempt(
-                            attempt,
-                            set,
-                            lockedSnapshot,
-                            scoringQuestions.get(q.id()),
-                            g,
-                            ans,
-                            optionLabelMode
-                    );
-                } catch (Exception e) {
-                    log.warn("[PracticeService] Failed to get explanation for question id={} exception={}",
-                            q.id(), exceptionCategory(e));
-                }
+                QuestionSnapshot questionSnapshot = scoringQuestions.get(q.id());
+                String explanationJson = questionSnapshot == null
+                        ? null
+                        : explanationReadService.readDisplayJson(
+                                questionSnapshot.questionVersionId(), optionLabelMode)
+                                .orElse(null);
                 questions.add(new ReviewQuestionRow(
                         q.id(),
                         q.questionNo(),
@@ -3496,6 +3364,24 @@ public class PracticeService {
         return new QuestionSnapshot(
                 question.getId(),
                 null,
+                question.getQuestionNo(),
+                question.getDisplayOrder(),
+                question.getPrompt(),
+                question.getQuestionType(),
+                question.getQuestionContentJson(),
+                question.getOptionsJson(),
+                question.getAnswerKey(),
+                question.getAnswerSpecJson(),
+                question.getExplanation(),
+                question.getPoints(),
+                question.getWritingTaskType()
+        );
+    }
+
+    private QuestionSnapshot toQuestionSnapshot(PracticeQuestionVersion question) {
+        return new QuestionSnapshot(
+                question.getQuestionId(),
+                question.getId(),
                 question.getQuestionNo(),
                 question.getDisplayOrder(),
                 question.getPrompt(),

@@ -45,7 +45,7 @@ class Phase10AssessmentFlowIntegrationTest {
     @Autowired private PracticeService practiceService;
 
     @Test
-    void singleScopePublishSnapshotSubmitScoreAndExplainFlowIsVersionLocked() {
+    void singleScopePublishSnapshotSubmitScoreAndReadOnlyResultFlowIsVersionLocked() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         User student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         PracticeDraft draft = draftRepository.saveAndFlush(new PracticeDraft(
@@ -111,6 +111,6 @@ class Phase10AssessmentFlowIntegrationTest {
         assertThat(result.correctCount()).isEqualTo(1);
         assertThat(result.groups()).singleElement().satisfies(group ->
                 assertThat(group.questions()).singleElement().satisfies(row ->
-                        assertThat(row.explanationJson()).contains("correctReasonVi")));
+                        assertThat(row.explanationJson()).isNull()));
     }
 }

@@ -15,7 +15,6 @@ public final class PracticeViews {
     public static final String PLAYER_WRITING = "practice/player-writing";
     public static final String RESULT = "practice/result";
     public static final String RESULT_DETAIL = "practice/result-detail";
-    public static final String READING_LISTENING_RESULT = "practice/rl-result";
     public static final String READING_LISTENING_RESULT_DETAIL = "practice/rl-result-detail";
     public static final String PROGRESS = "practice/progress";
 

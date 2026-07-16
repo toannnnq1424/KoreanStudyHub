@@ -800,13 +800,13 @@
       <!-- Cột 2: PDF View Canvas Area -->
       <section class="ws-stage-pdf">
         <div class="ws-stage-toolbar">
-          <button class="stage-tool-btn active" id="tool-select" onclick="setWorkspaceTool('select')" title="Chọn Vùng (S)">
+          <button type="button" class="stage-tool-btn active" id="tool-select" onclick="setWorkspaceTool('select')" title="Chọn vùng (S)" aria-label="Chọn vùng">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l3.057 15 2.537-5.51L17 19h2L5 3z"/></svg>
           </button>
-          <button class="stage-tool-btn advanced-only" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Vẽ Vùng (D)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <button type="button" class="stage-tool-btn" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Khoanh vùng để crop ảnh (D)" aria-label="Khoanh vùng để crop ảnh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
           </button>
-          <button class="stage-tool-btn" id="tool-pan" onclick="setWorkspaceTool('pan')" title="Kéo di chuyển (H)">
+          <button type="button" class="stage-tool-btn" id="tool-pan" onclick="setWorkspaceTool('pan')" title="Kéo di chuyển (H)" aria-label="Kéo di chuyển">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M12 2v20M2 12h20"/></svg>
           </button>
           
@@ -1418,13 +1418,21 @@
   function setupStageListeners() {
     // Escape key listener to clear drawing/selection
     window.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const keyboardTarget = e.target instanceof Element ? e.target : null;
+      if (keyboardTarget?.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (e.key === 'Escape') {
         cancelCurrentOperation();
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (state.selectedRegionId) {
           deleteSelectedRegion();
+        }
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tool = { s: 'select', d: 'draw', h: 'pan' }[e.key.toLowerCase()];
+        if (tool) {
+          e.preventDefault();
+          setWorkspaceTool(tool);
         }
       }
     });
@@ -1624,6 +1632,28 @@
     }
   }
 
+  function findCurrentRegionCropAsset(assets, annotation) {
+    if (!Array.isArray(assets) || !annotation) return null;
+
+    const sameCoordinate = (left, right) => Number.isFinite(Number(left))
+      && Number.isFinite(Number(right))
+      && Math.abs(Number(left) - Number(right)) <= 1e-9;
+    const usableStatuses = new Set(['TEMPORARY', 'ACTIVE']);
+
+    return assets
+      .filter(asset => Number(asset.sourceRegionId) === Number(annotation.id))
+      .filter(asset => usableStatuses.has(String(asset.status || '').toUpperCase()))
+      .filter(asset => Number(asset.sourcePageNumber) === Number(annotation.pageNumber))
+      .filter(asset => sameCoordinate(asset.cropX, annotation.xRatio))
+      .filter(asset => sameCoordinate(asset.cropY, annotation.yRatio))
+      .filter(asset => sameCoordinate(asset.cropWidth, annotation.widthRatio))
+      .filter(asset => sameCoordinate(asset.cropHeight, annotation.heightRatio))
+      .sort((left, right) => {
+        const updatedDifference = Date.parse(right.updatedAt || 0) - Date.parse(left.updatedAt || 0);
+        return updatedDifference || Number(right.id || 0) - Number(left.id || 0);
+      })[0] || null;
+  }
+
   async function selectRegion(id) {
     state.selectedRegionId = id;
     drawAnnotationBoxes();
@@ -1654,7 +1684,7 @@
         const res = await fetch(`/practice/manage/assets?sessionId=${SESSION_ID}`);
         if (res.ok) {
           const assets = await res.json();
-          const asset = assets.find(a => a.sourceRegionId === id);
+          const asset = findCurrentRegionCropAsset(assets, ann);
           if (asset && cropSec) {
             cropSec.style.display = 'block';
             document.getElementById('inspector-crop-img').src = `/practice/materials/${asset.id}/content`;
@@ -2720,7 +2750,8 @@
       const assetsRes = await fetch(`/practice/manage/assets?sessionId=${SESSION_ID}`);
       if (!assetsRes.ok) throw new Error("Không tải được danh sách crop tạm.");
       const assets = await assetsRes.json();
-      const asset = assets.find(a => a.sourceRegionId === state.selectedRegionId);
+      const ann = state.regions.find(r => r.id === state.selectedRegionId);
+      const asset = findCurrentRegionCropAsset(assets, ann);
       if (!asset) throw new Error("Vùng này chưa có crop tạm. Hãy bật gửi ảnh và lưu lại vùng trước.");
 
       const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${asset.id}`, {
@@ -2731,7 +2762,6 @@
       });
       if (!res.ok) throw new Error("Không lưu được ảnh vào kho.");
 
-      const ann = state.regions.find(r => r.id === state.selectedRegionId);
       if (ann) {
         ann.saveToAssetLibrary = true;
         document.getElementById('reg-save-library').checked = true;

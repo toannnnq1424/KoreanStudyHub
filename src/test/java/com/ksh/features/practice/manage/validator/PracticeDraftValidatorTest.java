@@ -232,6 +232,18 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
+    void writingTaskWithWrongFixedPointsIsBlocking() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                completeWritingDraft().replace(
+                        "\"points\":30,\"essayTaskType\":\"Q53\"",
+                        "\"points\":10,\"essayTaskType\":\"Q53\""));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "WRITING_TASK_POINTS_MISMATCH".equals(message.code())
+                        && message.content().contains("30")));
+    }
+
+    @Test
     public void speakingQuestionTypeIsValidForSpeakingSection() {
         PracticeDraftValidator.ValidationResult result = validator.validate(speakingDraft("SPEAKING"));
 

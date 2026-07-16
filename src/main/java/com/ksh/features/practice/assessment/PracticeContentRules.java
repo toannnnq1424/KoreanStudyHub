@@ -3,6 +3,7 @@ package com.ksh.features.practice.assessment;
 import com.ksh.entities.WritingTaskType;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.Set;
 @Component
 public class PracticeContentRules {
 
-    public static final String RULES_VERSION = "ksh-practice-r1";
+    public static final String RULES_VERSION = "ksh-practice-r2";
     public static final int MIN_SINGLE_CHOICE_OPTIONS = 2;
     public static final int MAX_SINGLE_CHOICE_OPTIONS = 8;
 
@@ -19,6 +20,8 @@ public class PracticeContentRules {
     private static final List<WritingTaskType> REQUIRED_WRITING_TASKS =
             List.of(WritingTaskType.Q51, WritingTaskType.Q52,
                     WritingTaskType.Q53, WritingTaskType.Q54);
+    private static final Map<WritingTaskType, WritingTaskPolicy> WRITING_TASK_POLICIES =
+            buildWritingTaskPolicies();
 
     public List<CanonicalQuestionType> allowedTypes(AssessmentSkill skill) {
         require(skill, "practice skill");
@@ -67,6 +70,19 @@ public class PracticeContentRules {
         return Integer.parseInt(taskType.name().substring(1));
     }
 
+    public WritingTaskPolicy writingTaskPolicy(WritingTaskType taskType) {
+        require(taskType, "writing task type");
+        WritingTaskPolicy policy = WRITING_TASK_POLICIES.get(taskType);
+        if (policy == null) {
+            throw new IllegalArgumentException("Writing chỉ hỗ trợ Q51, Q52, Q53 và Q54.");
+        }
+        return policy;
+    }
+
+    public Map<WritingTaskType, WritingTaskPolicy> writingTaskPolicies() {
+        return WRITING_TASK_POLICIES;
+    }
+
     private static Map<AssessmentSkill, List<CanonicalQuestionType>> allowedTypes() {
         Map<AssessmentSkill, List<CanonicalQuestionType>> rules = new EnumMap<>(AssessmentSkill.class);
         rules.put(AssessmentSkill.READING, List.of(
@@ -80,6 +96,36 @@ public class PracticeContentRules {
         rules.put(AssessmentSkill.WRITING, List.of(CanonicalQuestionType.ESSAY));
         rules.put(AssessmentSkill.SPEAKING, List.of(CanonicalQuestionType.SPEAKING));
         return Map.copyOf(rules);
+    }
+
+    private static Map<WritingTaskType, WritingTaskPolicy> buildWritingTaskPolicies() {
+        Map<WritingTaskType, WritingTaskPolicy> policies = new EnumMap<>(WritingTaskType.class);
+        policies.put(WritingTaskType.Q51, new WritingTaskPolicy(
+                CanonicalQuestionType.ESSAY,
+                BigDecimal.TEN));
+        policies.put(WritingTaskType.Q52, new WritingTaskPolicy(
+                CanonicalQuestionType.ESSAY,
+                BigDecimal.TEN));
+        policies.put(WritingTaskType.Q53, new WritingTaskPolicy(
+                CanonicalQuestionType.ESSAY,
+                BigDecimal.valueOf(30)));
+        policies.put(WritingTaskType.Q54, new WritingTaskPolicy(
+                CanonicalQuestionType.ESSAY,
+                BigDecimal.valueOf(50)));
+        return Map.copyOf(policies);
+    }
+
+    public record WritingTaskPolicy(
+            CanonicalQuestionType questionType,
+            BigDecimal points
+    ) {
+        public WritingTaskPolicy {
+            require(questionType, "writing question type");
+            require(points, "writing points");
+            if (questionType != CanonicalQuestionType.ESSAY || points.signum() <= 0) {
+                throw new IllegalArgumentException("Invalid Writing task scoring policy");
+            }
+        }
     }
 
     private static <T> T require(T value, String label) {

@@ -36,23 +36,36 @@ class SpeakingResultRenderingContractTest {
     void speakingOverviewUsesSixSpeakingCriteriaAndProtectedAudioRouteOnly() throws Exception {
         String overview = Files.readString(Path.of("src/main/resources/templates/practice/result.html"));
         String fragment = Files.readString(Path.of("src/main/resources/templates/practice/result/speaking.html"));
+        String presenter = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/result/SpeakingResultPresenter.java"));
+        String rubric = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/ai/speaking/SpeakingRubricCriterion.java"));
 
-        assertThat(overview)
+        assertThat(rubric)
                 .contains("S_CONTENT_TASK_FULFILLMENT")
                 .contains("S_VOCABULARY_EXPRESSIONS")
                 .contains("S_GRAMMAR_SENTENCE_CONTROL")
                 .contains("S_COHERENCE_ORGANIZATION")
                 .contains("S_FLUENCY")
-                .contains("S_PRONUNCIATION_DELIVERY")
+                .contains("S_PRONUNCIATION_DELIVERY");
+        assertThat(presenter)
+                .contains("SpeakingRubricCriterion.values()")
+                .contains("criterion.id()");
+        assertThat(overview).contains("practice/result/speaking");
+        assertThat(fragment)
+                .contains("Sáu tiêu chí tiếng Hàn")
+                .contains("result.payload().criteria()")
                 .contains("media.playbackPath()");
-        assertThat(overview)
+        assertThat(overview + fragment)
                 .doesNotContain("storageKey")
                 .doesNotContain("contentHash")
                 .doesNotContain("apiKey");
         assertThat(fragment)
                 .doesNotContain("bản xứ")
                 .doesNotContain("native-like")
-                .contains("nhận xét tham khảo");
+                .contains("Phạm vi đánh giá giới hạn")
+                .contains("criterion.advisoryOnly()")
+                .contains(">Tham khảo<");
     }
 
     @Test

@@ -16,6 +16,7 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.ai.readinglistening.PublishedVersionExplanationEvent;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
@@ -29,6 +30,7 @@ import com.ksh.features.practice.repository.PracticeEditLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +63,7 @@ public class PracticePublisherService {
     private final PracticeDraftContractService draftContractService;
     private final PracticeAuthorizationService authorizationService;
     private final PracticeMaterialReferenceService materialReferenceService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
@@ -77,7 +80,8 @@ public class PracticePublisherService {
                                      PracticeDraftValidator draftValidator,
                                      ObjectMapper objectMapper,
                                      PracticeAuthorizationService authorizationService,
-                                     PracticeMaterialReferenceService materialReferenceService) {
+                                     PracticeMaterialReferenceService materialReferenceService,
+                                     ApplicationEventPublisher applicationEventPublisher) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -93,6 +97,7 @@ public class PracticePublisherService {
         this.objectMapper = objectMapper;
         this.authorizationService = authorizationService;
         this.materialReferenceService = materialReferenceService;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
     }
@@ -109,7 +114,7 @@ public class PracticePublisherService {
                              ObjectMapper objectMapper) {
         this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
                 editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper,
-                null, null);
+                null, null, null);
     }
 
     @Transactional
@@ -353,25 +358,32 @@ public class PracticePublisherService {
 
                                 String qPrompt = qNode.path("prompt").asText("");
 
+                                String rawSkill = sNode.path("skill").asText("READING");
                                 WritingTaskType writingTaskType = resolveWritingTaskTypeForPublish(
-                                        sNode.path("skill").asText("READING"),
-                                        dbType,
-                                        qNode
-                                );
+                                        rawSkill, qNode);
                                 QuestionContent questionContent = resolveQuestionContent(
                                         qNode, canonicalType, optJsonString);
                                 AnswerSpec answerSpec = resolveAnswerSpec(
                                         qNode, rawType, ansVal, questionContent);
-                                AssessmentSkill questionSkill = resolveSkill(
-                                        sNode.path("skill").asText("READING"));
+                                AssessmentSkill questionSkill = resolveSkill(rawSkill);
                                 contentRules.requireAllowed(questionSkill, canonicalType);
+                                PracticeContentRules.WritingTaskPolicy writingTaskPolicy =
+                                        writingTaskType == null
+                                                ? null
+                                                : contentRules.writingTaskPolicy(writingTaskType);
+                                if (writingTaskPolicy != null
+                                        && canonicalType != writingTaskPolicy.questionType()) {
+                                    throw new IllegalArgumentException(
+                                            writingTaskType + " phải dùng dạng "
+                                                    + writingTaskPolicy.questionType() + ".");
+                                }
 
                                 int persistedQuestionNo = writingSection
-                                        ? contentRules.writingQuestionNumber(
-                                                resolveWritingTaskTypeForPublish(
-                                                        sNode.path("skill").asText("WRITING"),
-                                                        dbType, qNode))
+                                        ? contentRules.writingQuestionNumber(writingTaskType)
                                         : sectionLocalQNo;
+                                BigDecimal persistedPoints = writingTaskPolicy == null
+                                        ? BigDecimal.valueOf(qNode.path("points").asDouble(1.0))
+                                        : writingTaskPolicy.points();
                                 PracticeQuestion question = new PracticeQuestion(
                                         savedSet.getId(),
                                         persistedQuestionNo,
@@ -380,7 +392,7 @@ public class PracticePublisherService {
                                         optJsonString,
                                         ansVal,
                                         qNode.path("explanationVi").asText(""),
-                                        BigDecimal.valueOf(qNode.path("points").asDouble(1.0)),
+                                        persistedPoints,
                                         qIdx
                                 );
                                 question.setWritingTaskType(writingTaskType);
@@ -428,6 +440,11 @@ public class PracticePublisherService {
         if (materialReferenceService != null && publishedVersion != null) {
             materialReferenceService.promoteDraftReferences(
                     draftId, savedSet.getId(), publishedVersion.getId());
+        }
+
+        if (applicationEventPublisher != null && publishedVersion != null) {
+            applicationEventPublisher.publishEvent(
+                    new PublishedVersionExplanationEvent(publishedVersion.getId()));
         }
 
         log.info("[Publisher] Complete publish draftId={} to setId={}", draftId, savedSet.getId());
@@ -748,6 +765,17 @@ public class PracticePublisherService {
     }
 
     private BigDecimal sectionTotalPoints(JsonNode section) {
+        if ("WRITING".equalsIgnoreCase(section.path("skill").asText(""))) {
+            BigDecimal writingTotal = BigDecimal.ZERO;
+            for (JsonNode group : section.path("groups")) {
+                for (JsonNode question : group.path("questions")) {
+                    WritingTaskType taskType = resolveWritingTaskTypeForPublish("WRITING", question);
+                    writingTotal = writingTotal.add(
+                            contentRules.writingTaskPolicy(taskType).points());
+                }
+            }
+            return writingTotal.signum() > 0 ? writingTotal : BigDecimal.ONE;
+        }
         JsonNode explicit = section.get("totalPoints");
         if (explicit != null && explicit.isNumber() && explicit.decimalValue().signum() > 0) {
             return explicit.decimalValue();
@@ -820,23 +848,26 @@ public class PracticePublisherService {
         }
     }
 
-    private WritingTaskType resolveWritingTaskTypeForPublish(String skill, String questionType, JsonNode question) {
-        if (!"WRITING".equalsIgnoreCase(skill) || !PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+    private WritingTaskType resolveWritingTaskTypeForPublish(String skill, JsonNode question) {
+        if (!"WRITING".equalsIgnoreCase(skill)) {
             return null;
         }
         JsonNode taskNode = question.get("essayTaskType");
         if (taskNode == null || taskNode.isNull()) {
-            return null;
+            throw new IllegalArgumentException(
+                    "Mỗi câu Writing phải chọn Q51, Q52, Q53 hoặc Q54.");
         }
         if (!taskNode.isTextual()) {
             throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
         }
         String value = taskNode.asText();
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Vui lòng chọn loại bài Writing cho câu tự luận.");
+            throw new IllegalArgumentException("Vui lòng chọn loại bài Writing.");
         }
         try {
-            return WritingTaskType.valueOf(value);
+            WritingTaskType taskType = WritingTaskType.valueOf(value);
+            contentRules.writingTaskPolicy(taskType);
+            return taskType;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Loại bài Writing không hợp lệ.");
         }

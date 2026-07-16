@@ -4,19 +4,28 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.entities.PracticeQuestion;
 import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.assessment.AnswerSpec;
+import com.ksh.features.practice.assessment.AssessmentSkill;
+import com.ksh.features.practice.assessment.AssessmentStimulus;
+import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.LearnerAnswer;
+import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -24,6 +33,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ReadingListeningExplanationClientTest {
+
+    @Test
+    void providerTimeoutMustBeShorterThanTaskLease() {
+        OpenAiProperties properties = mock(OpenAiProperties.class);
+        when(properties.baseUrl()).thenReturn("http://localhost");
+        when(properties.apiKey()).thenReturn("");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new ReadingListeningExplanationClient(
+                        properties, new ObjectMapper(), Duration.ofMinutes(5)));
+    }
 
     @Test
     void providerErrorLogOmitsResponseAndRequestBodyButKeepsSafeMetadata() {
@@ -34,21 +54,11 @@ class ReadingListeningExplanationClientTest {
         ReadingListeningExplanationClient client = new ReadingListeningExplanationClient(properties, new ObjectMapper());
         ReflectionTestUtils.setField(client, "restClient", httpErrorRestClient(
                 "PRIVATE_PROVIDER_RESPONSE PRIVATE_PROMPT_TEXT PRIVATE_CACHE_JSON"));
-        PracticeQuestion question = new PracticeQuestion(
-                10L,
-                1,
-                "MCQ",
-                "PRIVATE_PROMPT_TEXT",
-                "[\"A\",\"B\"]",
-                "1",
-                "stored explanation",
-                BigDecimal.ONE,
-                0
-        );
+        ExplanationContext context = context();
 
         String logs = captureLogs(ReadingListeningExplanationClient.class, () -> {
-            String result = client.explain(question, "PRIVATE_CACHE_JSON passage", "READING", "NUMERIC");
-            assertNull(result);
+            assertThrows(ExplanationProviderException.class,
+                    () -> client.generate(context, List.of()));
         });
 
         assertFalse(logs.contains("PRIVATE_PROVIDER_RESPONSE"));
@@ -58,6 +68,47 @@ class ReadingListeningExplanationClientTest {
         assertTrue(logs.contains("status=400"));
         assertTrue(logs.contains("model=safe-model"));
         assertTrue(logs.contains("skill=READING"));
+    }
+
+    private static ExplanationContext context() {
+        CanonicalQuestionType type = CanonicalQuestionType.SINGLE_CHOICE;
+        QuestionContent content = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(
+                        new QuestionContent.Option("opt_1", "A"),
+                        new QuestionContent.Option("opt_2", "B")),
+                List.of());
+        AnswerSpec answerSpec = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION,
+                type,
+                List.of("opt_1"),
+                null,
+                List.of(),
+                ScoringPolicyCode.ALL_OR_NOTHING);
+        return new ExplanationContext(
+                ExplanationContext.SCHEMA_VERSION,
+                1L,
+                10L,
+                1,
+                AssessmentSkill.READING,
+                type,
+                "PRIVATE_PROMPT_TEXT",
+                "PRIVATE_GROUP_INSTRUCTION",
+                content,
+                answerSpec,
+                new LearnerAnswer(
+                        LearnerAnswer.SCHEMA_VERSION,
+                        type,
+                        List.of("opt_2"),
+                        null,
+                        Map.of(),
+                        null),
+                AssessmentStimulus.readingPassage(
+                        "PRIVATE_CACHE_JSON passage",
+                        "TEACHER"),
+                "stored explanation",
+                "vi",
+                "NUMERIC");
     }
 
     private RestClient httpErrorRestClient(String responseBody) {

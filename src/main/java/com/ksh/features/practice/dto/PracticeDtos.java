@@ -964,63 +964,347 @@ public final class PracticeDtos {
     }
 
     // =========================================================================
-    //  Unified Result Architecture — PracticeSection.skill is source of truth
+    //  Canonical immutable-attempt result contract
     // =========================================================================
 
-    /**
-     * Result for a single section (one skill).
-     * For READING/LISTENING sections: correctCount, incorrectCount, groups populated.
-     * For WRITING/SPEAKING sections: aiFeedbackJson populated, groups may be empty.
-     */
-    public record SectionResultRow(
-            Long sectionId,
-            String sectionTitle,
-            String skill,
-            int correctCount,
-            int incorrectCount,
-            int totalCount,
-            java.math.BigDecimal sectionScore,
-            java.math.BigDecimal sectionTotalPoints,
-            List<PerformanceByTypeRow> performanceByType,
-            List<ReviewGroupRow> groups,
-            String aiFeedbackJson,
-            String optionLabelMode
+    public record PracticeAttemptResultView(
+            ResultAttemptIdentity identity,
+            ResultState state,
+            ResultScoreSummary score,
+            ResultAnswerDistribution answers,
+            ResultFeedbackAvailability feedback,
+            LocalDateTime startedAt,
+            LocalDateTime submittedAt,
+            Long elapsedSeconds,
+            ResultSkillPayload payload
     ) {
-        public boolean hasAiFeedback() {
-            return aiFeedbackJson != null && !aiFeedbackJson.isBlank();
+        public PracticeAttemptResultView {
+            if (identity == null || state == null || score == null || answers == null
+                    || feedback == null || payload == null) {
+                throw new IllegalArgumentException("Practice result envelope is incomplete");
+            }
         }
 
-        public boolean isObjectiveSkill() {
-            return "READING".equals(skill) || "LISTENING".equals(skill);
+        public boolean celebratory() {
+            return score.percentage() != null
+                    && score.percentage().compareTo(BigDecimal.valueOf(70)) >= 0;
+        }
+
+        public String elapsedDisplay() {
+            if (elapsedSeconds == null) {
+                return null;
+            }
+            long minutes = elapsedSeconds / 60;
+            long seconds = elapsedSeconds % 60;
+            return minutes + " phút " + seconds + " giây";
         }
     }
 
-    /**
-     * Top-level unified result view — replaces PracticeResultView + ReadingListeningResultView.
-     * The controller puts this in the model, and result-shell.html delegates rendering
-     * to skill-specific Thymeleaf fragments.
-     */
-    public record PracticeAttemptResultView(
-            Long submissionId,
-            PracticeSetRow set,
-            java.math.BigDecimal totalScore,
-            java.math.BigDecimal totalPoints,
-            String scoreLabel,
-            java.time.LocalDateTime submittedAt,
-            List<SectionResultRow> sections
+    public record ResultAttemptIdentity(
+            Long attemptId,
+            Long publishedVersionId,
+            Long setVersionId,
+            Long testVersionId,
+            Long sectionVersionId,
+            Long setId,
+            String setTitle,
+            Long testId,
+            String testTitle,
+            Long sectionId,
+            String sectionTitle,
+            String skill,
+            String skillLabel
     ) {
-        public boolean hasMultipleSections() {
-            return sections != null && sections.size() > 1;
+    }
+
+    public record ResultState(String code, String label) {
+    }
+
+    public record ResultScoreSummary(
+            BigDecimal value,
+            BigDecimal earnedPoints,
+            BigDecimal possiblePoints,
+            BigDecimal percentage,
+            String unit,
+            String scaleLabel,
+            String levelLabel
+    ) {
+        public boolean available() {
+            return value != null || percentage != null || earnedPoints != null;
         }
 
-        public int totalCorrect() {
-            if (sections == null) return 0;
-            return sections.stream().mapToInt(SectionResultRow::correctCount).sum();
+        public String primaryDisplay() {
+            BigDecimal display = "PERCENTAGE".equals(unit) ? percentage : value;
+            return display == null ? null : compactResultNumber(display);
         }
 
-        public int totalIncorrect() {
-            if (sections == null) return 0;
-            return sections.stream().mapToInt(SectionResultRow::incorrectCount).sum();
+        public String pointsDisplay() {
+            if (earnedPoints == null || possiblePoints == null) {
+                return null;
+            }
+            return compactResultNumber(earnedPoints) + "/" + compactResultNumber(possiblePoints);
         }
+
+        public ResultScoreSummary unavailableView() {
+            return new ResultScoreSummary(
+                    null,
+                    null,
+                    null,
+                    null,
+                    unit,
+                    scaleLabel,
+                    null);
+        }
+    }
+
+    public record ResultAnswerDistribution(
+            int correct,
+            int partial,
+            int incorrect,
+            int notAnswered,
+            int pending,
+            int unscorable,
+            int total,
+            int scoredDenominator
+    ) {
+        public String scoredLabel() {
+            return scoredDenominator + "/" + total + " câu đã chấm";
+        }
+    }
+
+    public record ResultFeedbackAvailability(
+            String state,
+            String label,
+            int readyCount,
+            int totalCount
+    ) {
+        public boolean ready() {
+            return "READY".equals(state);
+        }
+
+        public String progressLabel(String noun) {
+            return readyCount + "/" + totalCount + " " + noun;
+        }
+    }
+
+    public sealed interface ResultSkillPayload
+            permits ObjectiveResultPayload, WritingResultPayload, SpeakingResultPayload {
+        String kind();
+    }
+
+    public record ObjectiveResultPayload(
+            String kind,
+            List<ObjectiveResultTypeBreakdown> breakdown
+    ) implements ResultSkillPayload {
+        public ObjectiveResultPayload {
+            kind = "OBJECTIVE";
+            breakdown = immutableResultList(breakdown);
+        }
+
+        public ObjectiveResultPayload(List<ObjectiveResultTypeBreakdown> breakdown) {
+            this("OBJECTIVE", breakdown);
+        }
+    }
+
+    public record ObjectiveResultTypeBreakdown(
+            String questionType,
+            String label,
+            ResultAnswerDistribution answers,
+            BigDecimal earnedPoints,
+            BigDecimal possiblePoints,
+            BigDecimal accuracyPercentage
+    ) {
+        public String accuracyDisplay() {
+            return accuracyPercentage == null
+                    ? null
+                    : compactResultNumber(accuracyPercentage) + "%";
+        }
+    }
+
+    public record WritingResultPayload(
+            String kind,
+            List<WritingTaskResult> tasks
+    ) implements ResultSkillPayload {
+        public WritingResultPayload {
+            kind = "WRITING";
+            tasks = immutableResultList(tasks);
+        }
+
+        public WritingResultPayload(List<WritingTaskResult> tasks) {
+            this("WRITING", tasks);
+        }
+    }
+
+    public record WritingTaskResult(
+            Long questionId,
+            Long questionVersionId,
+            Integer questionNo,
+            String taskType,
+            String taskLabel,
+            String prompt,
+            String learnerAnswer,
+            ResultScoreSummary score,
+            ResultFeedbackAvailability feedback,
+            String summary,
+            List<ResultRubricCriterion> officialCriteria,
+            List<WritingAnalysisLens> analysisLenses
+    ) {
+        public WritingTaskResult {
+            officialCriteria = immutableResultList(officialCriteria);
+            analysisLenses = immutableResultList(analysisLenses);
+        }
+    }
+
+    public record WritingAnalysisLens(
+            String code,
+            String label,
+            String sourceCriterionId,
+            BigDecimal score,
+            BigDecimal maxScore,
+            BigDecimal percentage,
+            ResultEvaluationBand band,
+            String summary,
+            List<String> evidence,
+            boolean countedSeparately
+    ) {
+        public WritingAnalysisLens {
+            evidence = immutableResultList(evidence);
+            band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
+        }
+    }
+
+    public record SpeakingResultPayload(
+            String kind,
+            ResultScoreSummary holisticScore,
+            int coveredSegments,
+            int totalSegments,
+            String evidenceMode,
+            String evidenceNote,
+            List<String> overallSummaries,
+            List<String> strengths,
+            List<String> needsImprovement,
+            List<SpeakingActionPlanView> actionPlan,
+            List<SpeakingCriterionResult> criteria
+    ) implements ResultSkillPayload {
+        public SpeakingResultPayload {
+            kind = "SPEAKING";
+            overallSummaries = immutableResultList(overallSummaries);
+            strengths = immutableResultList(strengths);
+            needsImprovement = immutableResultList(needsImprovement);
+            actionPlan = immutableResultList(actionPlan);
+            criteria = immutableResultList(criteria);
+        }
+
+        public SpeakingResultPayload(
+                ResultScoreSummary holisticScore,
+                int coveredSegments,
+                int totalSegments,
+                String evidenceMode,
+                String evidenceNote,
+                List<String> overallSummaries,
+                List<String> strengths,
+                List<String> needsImprovement,
+                List<SpeakingActionPlanView> actionPlan,
+                List<SpeakingCriterionResult> criteria) {
+            this("SPEAKING", holisticScore, coveredSegments, totalSegments, evidenceMode,
+                    evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria);
+        }
+    }
+
+    public record SpeakingCriterionResult(
+            String criterionId,
+            String label,
+            BigDecimal weight,
+            BigDecimal score,
+            BigDecimal percentage,
+            int coveredSegments,
+            int totalSegments,
+            ResultEvaluationBand band,
+            String summary,
+            boolean advisoryOnly
+    ) {
+        public SpeakingCriterionResult {
+            band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
+        }
+
+        public String coverageLabel() {
+            return coveredSegments + "/" + totalSegments + " phần trả lời có bằng chứng";
+        }
+
+        public String scoreDisplay() {
+            if (score == null || weight == null) {
+                return null;
+            }
+            return compactResultNumber(score) + "/" + compactResultNumber(weight);
+        }
+    }
+
+    public record ResultRubricCriterion(
+            String criterionId,
+            String label,
+            BigDecimal score,
+            BigDecimal maxScore,
+            BigDecimal percentage,
+            ResultEvaluationBand band,
+            String feedback
+    ) {
+        public ResultRubricCriterion {
+            band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
+        }
+
+        public String scoreDisplay() {
+            if (score == null || maxScore == null) {
+                return null;
+            }
+            return compactResultNumber(score) + "/" + compactResultNumber(maxScore);
+        }
+    }
+
+    public enum ResultEvaluationBand {
+        LIMITED("limited", "Cần cải thiện"),
+        DEVELOPING("developing", "Đang phát triển"),
+        GOOD("good", "Tốt"),
+        VERY_GOOD("very-good", "Rất tốt"),
+        UNAVAILABLE("unavailable", "Chưa có dữ liệu");
+
+        private final String cssClass;
+        private final String label;
+
+        ResultEvaluationBand(String cssClass, String label) {
+            this.cssClass = cssClass;
+            this.label = label;
+        }
+
+        public String cssClass() {
+            return cssClass;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public static ResultEvaluationBand fromPercentage(BigDecimal percentage) {
+            if (percentage == null) {
+                return UNAVAILABLE;
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(40)) < 0) {
+                return LIMITED;
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(60)) < 0) {
+                return DEVELOPING;
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(80)) < 0) {
+                return GOOD;
+            }
+            return VERY_GOOD;
+        }
+    }
+
+    private static <T> List<T> immutableResultList(List<T> values) {
+        return values == null ? List.of() : List.copyOf(values);
+    }
+
+    private static String compactResultNumber(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 }

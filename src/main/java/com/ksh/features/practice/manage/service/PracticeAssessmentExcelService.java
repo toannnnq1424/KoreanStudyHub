@@ -913,14 +913,43 @@ public class PracticeAssessmentExcelService {
                     issues, sheet.getSheetName(), rowIndex + 1, "questionNo", rowKey);
             BigDecimal points = positiveDecimal(rows.value(row, "points"), BigDecimal.ONE,
                     issues, sheet.getSheetName(), rowIndex + 1, "points", rowKey);
+            AssessmentAuthoringCatalogService.SkillAuthoringPolicy skillPolicy =
+                    template.requireSkill(skill);
+            String writingTask = rows.value(row, "essayTaskType").trim().toUpperCase(Locale.ROOT);
+            if ("WRITING".equals(skill)) {
+                AssessmentAuthoringCatalogService.WritingTaskAuthoringPolicy taskPolicy =
+                        skillPolicy.writingTask(writingTask);
+                if (taskPolicy == null) {
+                    issues.add(blocking("WRITING_TASK_INVALID", sheet.getSheetName(), rowIndex + 1,
+                            "essayTaskType", "Writing phải chọn Q51, Q52, Q53 hoặc Q54.", rowKey));
+                } else {
+                    int expectedQuestionNo = Integer.parseInt(writingTask.substring(1));
+                    if (questionNo != expectedQuestionNo) {
+                        issues.add(blocking("WRITING_TASK_QUESTION_NUMBER_MISMATCH",
+                                sheet.getSheetName(), rowIndex + 1, "questionNo",
+                                writingTask + " phải dùng số câu " + expectedQuestionNo + ".", rowKey));
+                    }
+                    if (!type.name().equals(taskPolicy.questionType())) {
+                        issues.add(blocking("WRITING_TASK_TYPE_MISMATCH",
+                                sheet.getSheetName(), rowIndex + 1, "questionType",
+                                writingTask + " phải dùng dạng " + taskPolicy.questionType() + ".", rowKey));
+                    }
+                    if (points.compareTo(taskPolicy.points()) != 0) {
+                        issues.add(blocking("WRITING_TASK_POINTS_MISMATCH",
+                                sheet.getSheetName(), rowIndex + 1, "points",
+                                writingTask + " có điểm tối đa cố định là "
+                                        + taskPolicy.points().stripTrailingZeros().toPlainString() + ".", rowKey));
+                    }
+                }
+            }
             AssessmentAuthoringCatalogService.QuestionAuthoringPolicy authoringPolicy =
-                    template.requireSkill(skill).questionPolicy(type.name());
+                    skillPolicy.questionPolicy(type.name());
             ScoringPolicyCode scoringPolicy = authoringPolicy == null
                     ? scoringPolicy(type)
                     : ScoringPolicyCode.valueOf(authoringPolicy.defaultScoringPolicyCode());
             QuestionBuilder question = new QuestionBuilder(
                     id, questionNo, type, rows.value(row, "prompt"), points, scoringPolicy,
-                    rows.value(row, "explanationVi"), rows.value(row, "essayTaskType"),
+                    rows.value(row, "explanationVi"), writingTask,
                     nullableInt(rows.value(row, "prepTimeSeconds")),
                     nullableInt(rows.value(row, "responseTimeSeconds")), rowIndex + 1);
             result.put(id, question);
@@ -1039,7 +1068,8 @@ public class PracticeAssessmentExcelService {
         row(sheet, 4, "SINGLE_CHOICE", "Mỗi phương án là một dòng OptionsAnswers; chỉ một dòng có isCorrect=TRUE.");
         row(sheet, 5, "TRUE_FALSE_NOT_GIVEN", "Điền correctValue bằng TRUE, FALSE hoặc NOT_GIVEN.");
         row(sheet, 6, "FILL_BLANK", "Mỗi ô trống dùng blankId; các đáp án chấp nhận ngăn cách bằng dấu | trong acceptedValues.");
-        row(sheet, 7, "ESSAY", "Writing chỉ gồm Q51, Q52, Q53 và Q54; mỗi task xuất hiện đúng một lần.");
+        row(sheet, 7, "ESSAY",
+                "Writing chỉ gồm Q51, Q52, Q53 và Q54; mỗi task xuất hiện đúng một lần với điểm 10, 10, 30, 50.");
         row(sheet, 8, "SPEAKING", "Không nhập đáp án khách quan; hệ thống chấm theo luật Speaking nội bộ KSH.");
         int rowIndex = 10;
         row(sheet, rowIndex++, "Kỹ năng", "Dạng câu được phép");

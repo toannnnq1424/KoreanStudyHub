@@ -8,6 +8,7 @@ public record ExplanationContext(
         AssessmentSkill skill,
         CanonicalQuestionType questionType,
         String prompt,
+        String instruction,
         QuestionContent questionContent,
         AnswerSpec answerSpec,
         LearnerAnswer learnerAnswer,
@@ -16,7 +17,7 @@ public record ExplanationContext(
         String explanationLanguage,
         String optionLabelMode
 ) {
-    public static final String SCHEMA_VERSION = "explanation-context-v1";
+    public static final String SCHEMA_VERSION = "explanation-context-v2";
 
     public ExplanationContext {
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
@@ -27,6 +28,7 @@ public record ExplanationContext(
                 || questionContent == null || answerSpec == null || stimulus == null) {
             throw new IllegalArgumentException("Explanation context is incomplete");
         }
+        instruction = instruction == null ? "" : instruction;
         if (answerSpec.questionType() != questionType) {
             throw new IllegalArgumentException("Explanation answer spec type does not match question type");
         }

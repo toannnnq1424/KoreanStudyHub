@@ -190,6 +190,7 @@
 						<spring.datasource.hikari.minimum-idle>0</spring.datasource.hikari.minimum-idle>
 						<app.practice.speaking-media.upload-api-enabled>false</app.practice.speaking-media.upload-api-enabled>
 						<app.practice.speaking-media.playback-api-enabled>false</app.practice.speaking-media.playback-api-enabled>
+						<app.practice.explanation-generation.worker-enabled>false</app.practice.explanation-generation.worker-enabled>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

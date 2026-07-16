@@ -31,33 +31,48 @@ class ReadingListeningTypedClientContractTest {
         ReadingListeningExplanationClient client = client();
         ExplanationContext context = singleChoiceContext();
 
-        String payload = ReflectionTestUtils.invokeMethod(client, "typedUserPayload", context, null);
+        String payload = ReflectionTestUtils.invokeMethod(client, "userPayload", context, List.of());
 
         assertThat(payload)
                 .contains("answerSpec", "evidenceText")
-                .doesNotContain("learnerAnswer", "selectedOptionIds", "private-audio-reference");
+                .doesNotContain(
+                        "learnerAnswer",
+                        "selectedOptionIds",
+                        "private-audio-reference",
+                        "evidenceProvenance");
     }
 
     @Test
     void visualEvidenceIsAcceptedWithImageAndMarkerIsRemovedForDisplay() throws Exception {
         ReadingListeningExplanationClient client = client();
-        AiImageEvidence image = new AiImageEvidence(
-                7L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
+        ExplanationImageEvidence image = new ExplanationImageEvidence(
+                "QUESTION",
+                new AiImageEvidence(
+                        7L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3));
+        String payload = ReflectionTestUtils.invokeMethod(
+                client, "userPayload", singleChoiceContext(), List.of(image));
         String providerJson = """
                 {"meaningVi":"m","evidenceQuote":"[IMAGE] Biểu đồ tăng từ 10 lên 20",\
                 "correctReasonVi":"r","relatedTranslationVi":"t","eliminatedOptions":[]}
                 """;
 
-        String cleaned = client.cleanAndValidateJson(providerJson, singleChoiceContext(), image);
+        String cleaned = client.cleanAndValidateJson(providerJson, singleChoiceContext(), true);
 
         assertThat(objectMapper.readTree(cleaned).path("evidenceQuote").asText())
                 .isEqualTo("Biểu đồ tăng từ 10 lên 20");
-        assertThat(client.cleanAndValidateJson(providerJson, singleChoiceContext(), null)).isNull();
+        assertThat(payload)
+                .contains("QUESTION", "image-sha")
+                .doesNotContain(
+                        "data:image/png",
+                        "assetId",
+                        "mimeType",
+                        "sizeBytes");
+        assertThat(client.cleanAndValidateJson(providerJson, singleChoiceContext(), false)).isNull();
     }
 
     @Test
     void promptVersionChangesForMultimodalEvidenceContract() {
-        assertThat(client().promptVersion()).isEqualTo("v5");
+        assertThat(client().promptVersion()).isEqualTo("v7");
     }
 
     @Test
@@ -70,7 +85,7 @@ class ReadingListeningTypedClientContractTest {
                   {"optionKey":"opt_2","reasonVi":"wrong"},
                   {"optionKey":"unknown","reasonVi":"unknown"}
                 ]}
-                """, singleChoiceContext());
+                """, singleChoiceContext(), false);
 
         JsonNode root = objectMapper.readTree(cleaned);
         assertThat(root.path("eliminatedOptions").size()).isEqualTo(1);
@@ -89,7 +104,7 @@ class ReadingListeningTypedClientContractTest {
                 """;
 
         JsonNode fill = objectMapper.readTree(client.cleanAndValidateJson(
-                providerJson, fillBlankContext()));
+                providerJson, fillBlankContext(), false));
 
         assertThat(fill.path("eliminatedOptions").size()).isZero();
     }
@@ -101,11 +116,11 @@ class ReadingListeningTypedClientContractTest {
         assertThat(client.cleanAndValidateJson("""
                 {"meaningVi":"m","evidenceQuote":"없는 인용","correctReasonVi":"r",\
                 "relatedTranslationVi":"t","eliminatedOptions":[]}
-                """, singleChoiceContext())).isNull();
+                """, singleChoiceContext(), false)).isNull();
         assertThat(client.cleanAndValidateJson("""
                 {"meaningVi":"","evidenceQuote":"본문","correctReasonVi":"r",\
                 "relatedTranslationVi":"t","eliminatedOptions":[]}
-                """, singleChoiceContext())).isNull();
+                """, singleChoiceContext(), false)).isNull();
     }
 
     private ReadingListeningExplanationClient client() {
@@ -149,6 +164,7 @@ class ReadingListeningTypedClientContractTest {
         return new ExplanationContext(
                 ExplanationContext.SCHEMA_VERSION,
                 1L, 10L, 1, AssessmentSkill.READING, type, "질문",
+                "그룹 지시문",
                 content, spec,
                 new LearnerAnswer(LearnerAnswer.SCHEMA_VERSION, type,
                         type == CanonicalQuestionType.SINGLE_CHOICE ? List.of("opt_2") : List.of(),

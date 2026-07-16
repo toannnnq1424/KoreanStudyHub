@@ -112,6 +112,12 @@ public class PracticeMaterialReferenceService {
                 assetId, PracticeMaterialReference.SCOPE_PUBLISHED_VERSION);
     }
 
+    @Transactional(readOnly = true)
+    public boolean hasPublishedVersionReference(Long assetId, Long publishedVersionId) {
+        return referenceRepository.existsByAssetIdAndPublishedVersionId(
+                assetId, publishedVersionId);
+    }
+
     private static String normalizePlacement(String placement) {
         if (placement == null || placement.isBlank()) return "MATERIAL";
         String value = placement.trim().toUpperCase(java.util.Locale.ROOT)

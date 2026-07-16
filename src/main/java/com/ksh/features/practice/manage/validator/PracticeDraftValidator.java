@@ -15,6 +15,7 @@ import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -110,11 +111,15 @@ public class PracticeDraftValidator {
                                     JsonNode q = questions.get(qIdx);
                                     int qNo = q.path("questionNo").asInt(qIdx + 1);
                                     if (qNo != localQuestionNo) {
+                                        String sequence = "WRITING".equals(skill)
+                                                ? "51 đến 54"
+                                                : "1";
                                         messages.add(new ValidationMsg(
                                                 "BLOCKING",
                                                 "QUESTION_NUMBER_NOT_LOCAL_SEQUENTIAL",
                                                 "Số câu trong " + sec.path("lessonCode").asText(sTitle)
-                                                        + " phải liên tục từ 1; vị trí này phải là câu "
+                                                        + " phải liên tục từ " + sequence
+                                                        + "; vị trí này phải là câu "
                                                         + localQuestionNo + " thay vì " + qNo + ".",
                                                 sIdx, gIdx, qIdx));
                                     }
@@ -167,7 +172,8 @@ public class PracticeDraftValidator {
                                     validateSpeakingQuestionType(messages, skill, type, sIdx, gIdx, qIdx);
                                     validateSpeakingDelivery(messages, skill, canonicalType, q,
                                             sIdx, gIdx, qIdx);
-                                    validateWritingTaskMetadata(messages, skill, type, q, sIdx, gIdx, qIdx);
+                                    validateWritingTaskMetadata(
+                                            messages, skill, canonicalType, q, sIdx, gIdx, qIdx);
 
                                     String explanation = q.path("explanationVi").asText("");
                                     if (explanation.isBlank()) {
@@ -653,12 +659,12 @@ public class PracticeDraftValidator {
 
     private void validateWritingTaskMetadata(List<ValidationMsg> messages,
                                              String skill,
-                                             String questionType,
+                                             CanonicalQuestionType questionType,
                                              JsonNode question,
                                              int sIdx,
                                              int gIdx,
                                              int qIdx) {
-        if (!"WRITING".equalsIgnoreCase(skill) || !PracticeQuestion.TYPE_ESSAY.equals(questionType)) {
+        if (!"WRITING".equalsIgnoreCase(skill)) {
             return;
         }
         JsonNode taskNode = question.get("essayTaskType");
@@ -682,6 +688,33 @@ public class PracticeDraftValidator {
             if (!contentRules.requiredWritingTasks().contains(taskType)) {
                 messages.add(new ValidationMsg("BLOCKING", "WRITING_TASK_UNSUPPORTED",
                         "Writing chỉ hỗ trợ Q51, Q52, Q53 và Q54.", sIdx, gIdx, qIdx));
+                return;
+            }
+            PracticeContentRules.WritingTaskPolicy taskPolicy =
+                    contentRules.writingTaskPolicy(taskType);
+            if (questionType != taskPolicy.questionType()) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "WRITING_TASK_TYPE_MISMATCH",
+                        taskType + " phải dùng dạng " + taskPolicy.questionType() + ".",
+                        sIdx, gIdx, qIdx));
+            }
+            int expectedQuestionNo = contentRules.writingQuestionNumber(taskType);
+            if (question.path("questionNo").asInt(0) != expectedQuestionNo) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "WRITING_TASK_QUESTION_NUMBER_MISMATCH",
+                        taskType + " phải được lưu với số câu " + expectedQuestionNo + ".",
+                        sIdx, gIdx, qIdx));
+            }
+            BigDecimal configuredPoints = question.path("points").decimalValue();
+            if (configuredPoints.compareTo(taskPolicy.points()) != 0) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "WRITING_TASK_POINTS_MISMATCH",
+                        taskType + " có điểm tối đa cố định là "
+                                + taskPolicy.points().stripTrailingZeros().toPlainString() + ".",
+                        sIdx, gIdx, qIdx));
             }
         } catch (IllegalArgumentException e) {
             messages.add(new ValidationMsg(

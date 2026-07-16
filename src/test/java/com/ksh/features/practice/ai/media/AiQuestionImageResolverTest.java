@@ -37,11 +37,27 @@ class AiQuestionImageResolverTest {
     }
 
     @Test
+    void resolvesWorkerImageOnlyThroughItsImmutablePublishedVersion() throws IOException {
+        byte[] bytes = "png".getBytes(StandardCharsets.UTF_8);
+        when(materialAccessService.loadForPublishedVersion(7L, 55L)).thenReturn(
+                new PracticeMaterialAccessService.MaterialContent(
+                        new ByteArrayResource(bytes), "image/png", "question.png", 3L));
+
+        AiImageEvidence evidence = resolver.resolvePublishedVersion(
+                "/practice/materials/7/content", 55L).orElseThrow();
+
+        assertThat(evidence.assetId()).isEqualTo(7L);
+        assertThat(evidence.sha256()).hasSize(64);
+    }
+
+    @Test
     void rejectsExternalOrMalformedReferencesBeforeStorageAccess() {
         assertThat(resolver.resolve("https://example.com/question.png", 42L)).isEmpty();
         assertThat(resolver.resolve("/practice/materials/0/content", 42L)).isEmpty();
         assertThat(resolver.resolve("/practice/materials/7/content?download=1", 42L)).isEmpty();
         assertThat(resolver.resolve("/practice/materials/7/content", null)).isEmpty();
+        assertThat(resolver.resolvePublishedVersion(
+                "/practice/materials/7/content", null)).isEmpty();
 
         verifyNoInteractions(materialAccessService);
     }

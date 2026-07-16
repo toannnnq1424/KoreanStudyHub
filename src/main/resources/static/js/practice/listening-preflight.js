@@ -11,7 +11,7 @@
   const confirm = root.querySelector('[data-confirm]');
   const submit = root.querySelector('[data-continue]');
   const status = root.querySelector('[data-status]');
-  let completed = false;
+  let playbackVerified = false;
 
   function format(seconds) {
     const value = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
@@ -26,8 +26,8 @@
     track.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     time.textContent = format(audio.currentTime) + ' / ' + format(duration);
     play.classList.toggle('is-playing', !audio.paused && !audio.ended);
-    track.classList.toggle('is-seekable', completed);
-    track.setAttribute('aria-disabled', String(!completed));
+    track.classList.toggle('is-seekable', playbackVerified);
+    track.setAttribute('aria-disabled', String(!playbackVerified));
   }
 
   play.addEventListener('click', function () {
@@ -41,8 +41,8 @@
   });
 
   track.addEventListener('click', function (event) {
-    if (!completed || !Number.isFinite(audio.duration) || audio.duration <= 0) {
-      status.textContent = 'Hãy nghe hết audio mẫu trước khi tua.';
+    if (!playbackVerified || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+      status.textContent = 'Hãy phát audio mẫu trước khi tua.';
       return;
     }
     const bounds = track.getBoundingClientRect();
@@ -52,8 +52,8 @@
   track.addEventListener('keydown', function (event) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    if (!completed || !Number.isFinite(audio.duration) || audio.duration <= 0) {
-      status.textContent = 'Hãy nghe hết audio mẫu trước khi tua.';
+    if (!playbackVerified || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+      status.textContent = 'Hãy phát audio mẫu trước khi tua.';
       return;
     }
     if (event.key === 'Home') audio.currentTime = 0;
@@ -68,20 +68,23 @@
   audio.addEventListener('loadedmetadata', render);
   audio.addEventListener('timeupdate', render);
   audio.addEventListener('play', render);
-  audio.addEventListener('pause', render);
-  audio.addEventListener('ended', function () {
-    completed = true;
-    confirm.disabled = false;
-    status.textContent = 'Audio đã phát xong. Hãy xác nhận bạn nghe rõ.';
+  audio.addEventListener('playing', function () {
+    if (!playbackVerified) {
+      playbackVerified = true;
+      confirm.disabled = false;
+      status.textContent = 'Audio đang phát. Nếu nghe rõ, hãy xác nhận để bắt đầu.';
+    }
     render();
   });
+  audio.addEventListener('pause', render);
+  audio.addEventListener('ended', render);
   audio.addEventListener('error', function () {
     play.disabled = true;
     status.textContent = 'Không thể tải audio thử loa. Hãy quay lại và báo cho giảng viên.';
   });
 
   confirm.addEventListener('change', function () {
-    submit.disabled = !(completed && confirm.checked);
+    submit.disabled = !(playbackVerified && confirm.checked);
     status.textContent = submit.disabled
       ? 'Hãy xác nhận bạn nghe rõ audio mẫu.'
       : 'Thiết bị đã sẵn sàng.';

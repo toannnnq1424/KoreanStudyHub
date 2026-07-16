@@ -45,6 +45,12 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/js/practice/player-exam.js");
     private static final Path PRACTICE_ROUTES =
             Path.of("src/main/java/com/ksh/features/practice/web/PracticeRoutes.java");
+    private static final Path PRACTICE_RESULT_CSS =
+            Path.of("src/main/resources/static/css/practice-result.css");
+    private static final Path PRACTICE_RESULT_JS =
+            Path.of("src/main/resources/static/js/practice-result.js");
+    private static final Path WRITING_RESULT_PRESENTER =
+            Path.of("src/main/java/com/ksh/features/practice/result/WritingResultPresenter.java");
 
     @Test
     void detailPagesUsePerTestAndPerSkillContracts() throws IOException {
@@ -100,7 +106,7 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
-    void listeningPreflightRequiresFullPlaybackAndExplicitSpeakerConfirmation() throws IOException {
+    void listeningPreflightRequiresSuccessfulPlaybackAndExplicitSpeakerConfirmation() throws IOException {
         String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
         String preflight = Files.readString(PRACTICE_TEMPLATES.resolve("listening-preflight.html"));
         String preflightJs = Files.readString(LISTENING_PREFLIGHT_JS);
@@ -118,11 +124,12 @@ class PracticeFunctionalUiContractTest {
                 "Kiểm tra loa để bắt đầu",
                 "Kiểm tra loa để tiếp tục");
         assertThat(preflightJs).contains(
-                "audio.addEventListener('ended'",
-                "completed = true",
-                "!completed || !Number.isFinite(audio.duration)",
-                "submit.disabled = !(completed && confirm.checked)",
+                "audio.addEventListener('playing'",
+                "playbackVerified = true",
+                "!playbackVerified || !Number.isFinite(audio.duration)",
+                "submit.disabled = !(playbackVerified && confirm.checked)",
                 "['ArrowLeft', 'ArrowRight', 'Home', 'End']");
+        assertThat(preflightJs).doesNotContain("completed = true", "nghe hết audio mẫu");
         assertThat(editor).contains(
                 "listening-check-audio-area",
                 "handleListeningCheckAudioSelect",
@@ -180,18 +187,49 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
-    void resultBackLinkUsesAttemptTestId() throws IOException {
+    void canonicalResultUsesOneShellAndExactlyThreeSkillPresenters() throws IOException {
         String template = Files.readString(PRACTICE_TEMPLATES.resolve("result.html"));
+        String objective = Files.readString(PRACTICE_TEMPLATES.resolve("result/objective.html"));
+        String writing = Files.readString(PRACTICE_TEMPLATES.resolve("result/writing.html"));
+        String speaking = Files.readString(PRACTICE_TEMPLATES.resolve("result/speaking.html"));
+        String writingPresenter = Files.readString(WRITING_RESULT_PRESENTER);
+        String css = Files.readString(PRACTICE_RESULT_CSS);
+        String js = Files.readString(PRACTICE_RESULT_JS);
 
-        assertThat(template).contains("result.testId()");
-        assertThat(template).doesNotContain("testId=${result.set().id()}");
+        assertThat(template).contains(
+                "result.identity().testId()",
+                "practice/result/objective :: panel",
+                "practice/result/writing :: panel",
+                "practice/result/speaking :: panel");
+        assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("rl-result.html"))).isFalse();
+        assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/reading.html"))).isFalse();
+        assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/listening.html"))).isFalse();
+        assertThat(objective).contains("Đúng một phần", "Không thể chấm", "giải thích");
+        assertThat(writingPresenter).contains(
+                "Nhiệm vụ và Nội dung",
+                "Cấu trúc và mạch lạc",
+                "Từ vựng và Diễn đạt",
+                "Ngữ pháp và Độ chính xác");
+        assertThat(writing).contains("không cộng thêm vào tổng điểm")
+                .doesNotContain("Task Response", "Lexical Resource", "IELTS", "Band descriptors");
+        assertThat(speaking).contains(
+                "Đánh giá toàn bài",
+                "Kế hoạch luyện tập tiếp theo",
+                "Sáu tiêu chí tiếng Hàn",
+                "TRANSCRIPT_ONLY")
+                .doesNotContain("Câu 1", "data-result-tabs=\"speaking");
+        assertThat(css).contains(
+                "--pr-blue:", "--pr-green:", "--pr-amber:", "--pr-red:", "--pr-gray:",
+                ".pr-speaking-action-plan", "@media (max-width: 720px)")
+                .doesNotContain("linear-gradient", "radial-gradient");
+        assertThat(js).contains("[data-result-tabs]", "aria-selected", "hidden");
     }
 
     @Test
-    void readingListeningResultBackLinkUsesAttemptTestId() throws IOException {
-        String template = Files.readString(PRACTICE_TEMPLATES.resolve("rl-result.html"));
+    void canonicalResultBackLinkUsesImmutableAttemptIdentity() throws IOException {
+        String template = Files.readString(PRACTICE_TEMPLATES.resolve("result.html"));
 
-        assertThat(template).contains("result.testId()");
+        assertThat(template).contains("result.identity().testId()");
         assertThat(template).contains("/practice/sets/{setId}/tests/{testId}");
     }
 
@@ -219,6 +257,8 @@ class PracticeFunctionalUiContractTest {
                 "layout-stacked",
                 "layout-split",
                 "configured <= 0",
+                "ksh-exam-timer:v2:${attemptId}",
+                "storedValue === null ? Number.NaN",
                 "[data-exit-link]",
                 "'contextmenu', 'copy', 'cut', 'paste'",
                 "startRegion === endRegion");

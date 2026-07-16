@@ -1016,6 +1016,8 @@
       return option;
     }));
     select.value = canonicalSelected;
+    select.disabled = allowed.length === 1 && allowed.includes(canonicalSelected);
+    select.title = select.disabled ? 'Dạng câu hỏi được hệ thống quản lý.' : '';
   }
 
   function refreshQuestionPolicyControls(section, question, type) {
@@ -1024,6 +1026,8 @@
     const questionPolicy = window.PracticeAuthoringContract.questionPolicy(
       AUTHORING_CATALOG, DRAFT_DATA, section.skill, type);
     const pointsInput = document.getElementById('q-points');
+    applyWritingTaskContract(section, question);
+    pointsInput.value = question.points || 2.0;
     pointsInput.disabled = !!(skillPolicy && skillPolicy.pointsEditable === false);
     pointsInput.title = pointsInput.disabled ? 'Điểm được hệ thống quản lý.' : '';
     question.scoringPolicyCode = questionPolicy && questionPolicy.defaultScoringPolicyCode
@@ -1038,6 +1042,24 @@
 
   function hasValidWritingTask(question) {
     return WRITING_TASK_TYPES.includes(question && question.essayTaskType);
+  }
+
+  function writingTaskPolicy(section, taskType) {
+    if (!section || section.skill !== 'WRITING' || !WRITING_TASK_TYPES.includes(taskType)) return null;
+    const skillPolicy = window.PracticeAuthoringContract.skillPolicy(
+      AUTHORING_CATALOG, DRAFT_DATA, section.skill);
+    return skillPolicy && skillPolicy.writingTasks
+      ? skillPolicy.writingTasks[taskType] || null
+      : null;
+  }
+
+  function applyWritingTaskContract(section, question) {
+    if (!isWritingEssay(section, question) || !hasValidWritingTask(question)) return;
+    const policy = writingTaskPolicy(section, question.essayTaskType);
+    if (!policy) return;
+    question.questionType = policy.questionType || 'ESSAY';
+    question.questionNo = Number(question.essayTaskType.substring(1));
+    question.points = Number(policy.points);
   }
 
   function applyWritingTaskState(section, question, options = {}) {
@@ -1182,7 +1204,9 @@
           if (!q.answer && q.answerKey) {
             q.answer = { type: 'SINGLE', value: q.answerKey };
           }
-          return window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
+          const normalized = window.PracticeAuthoringContract.normalizeQuestion(q, makeClientId);
+          applyWritingTaskContract(sec, normalized);
+          return normalized;
         });
 
         updateGroupQuestionRange(grp);
@@ -3088,6 +3112,8 @@
       } else {
         applyWritingTaskState(DRAFT_DATA.sections[sIdx], q);
       }
+      applyWritingTaskContract(DRAFT_DATA.sections[sIdx], q);
+      document.getElementById('q-points').value = q.points;
       window.PracticeAuthoringContract.syncQuestionContract(q);
       updateGroupQuestionRange(grp); // Update group range!
     }
@@ -3393,6 +3419,7 @@
     };
     if (sec.skill === 'WRITING') newQ.essayTaskType = nextWritingTask;
     applyWritingTaskState(sec, newQ, { materializeBlank: true });
+    applyWritingTaskContract(sec, newQ);
     window.PracticeAuthoringContract.normalizeQuestion(newQ, makeClientId);
 
     if (!grp.questions) grp.questions = [];
@@ -3860,6 +3887,17 @@
                 content: typeof q.essayTaskType === 'string' && q.essayTaskType.trim() === ''
                   ? 'Vui lòng chọn loại bài Writing.'
                   : 'Loại bài Writing không hợp lệ.',
+                sIdx,
+                gIdx,
+                qIdx
+              });
+            }
+            const taskPolicy = writingTaskPolicy(sec, q.essayTaskType);
+            if (taskPolicy && Number(q.points) !== Number(taskPolicy.points)) {
+              messages.push({
+                type: 'BLOCKING',
+                code: 'WRITING_TASK_POINTS_MISMATCH',
+                content: `${q.essayTaskType} có điểm tối đa cố định là ${Number(taskPolicy.points)}.`,
                 sIdx,
                 gIdx,
                 qIdx

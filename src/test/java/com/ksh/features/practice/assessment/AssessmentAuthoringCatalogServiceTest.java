@@ -32,5 +32,12 @@ class AssessmentAuthoringCatalogServiceTest {
         assertThat(template.skills()).containsOnlyKeys("READING", "LISTENING", "WRITING", "SPEAKING");
         assertThat(template.requireSkill("READING").questionPolicies()).containsOnlyKeys(
                 "SINGLE_CHOICE", "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
+        AssessmentAuthoringCatalogService.SkillAuthoringPolicy writing =
+                template.requireSkill("WRITING");
+        assertThat(writing.pointsEditable()).isFalse();
+        assertThat(writing.writingTasks()).containsOnlyKeys("Q51", "Q52", "Q53", "Q54");
+        assertThat(writing.writingTask("Q51").questionType()).isEqualTo("ESSAY");
+        assertThat(writing.writingTask("Q51").points()).isEqualByComparingTo("10");
+        assertThat(writing.writingTask("Q54").points()).isEqualByComparingTo("50");
     }
 }

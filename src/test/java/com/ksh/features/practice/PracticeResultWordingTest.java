@@ -35,22 +35,23 @@ class PracticeResultWordingTest {
     }
 
     @Test
-    void resultOverviewUsesFinalAttemptScoreLabel() throws IOException {
+    void resultOverviewUsesCanonicalScoreSummary() throws IOException {
         String html = readResource("templates/practice/result.html");
 
         assertFalse(html.contains("'Overall Score'"));
         assertFalse(html.contains(">Overall Score<"));
-        assertTrue(html.contains("Điểm tổng kết bài làm"));
-        assertTrue(html.contains("matched.maxScore || 10"));
+        assertTrue(html.contains("result.score().primaryDisplay()"));
+        assertTrue(html.contains("result.score().pointsDisplay()"));
         assertFalse(html.contains("matchedScore * 10"));
     }
 
     @Test
-    void writingFragmentAndLegacyJsUseRubricMaxScore() throws IOException {
+    void writingFragmentUsesPresenterScoreAndRetainedLegacyJsUsesRubricMaxScore() throws IOException {
         String fragment = readResource("templates/practice/result/writing.html");
         String js = readResource("static/js/practice.js");
 
-        assertTrue(fragment.contains("matched.maxScore || 10"));
+        assertTrue(fragment.contains("task.score().pointsDisplay()"));
+        assertTrue(fragment.contains("criterion.scoreDisplay()"));
         assertFalse(fragment.contains("matchedScore * 10"));
         assertTrue(js.contains("item.maxScore || 10"));
     }

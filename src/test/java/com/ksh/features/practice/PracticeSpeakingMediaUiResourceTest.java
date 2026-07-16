@@ -64,10 +64,12 @@ class PracticeSpeakingMediaUiResourceTest {
     void resultPagesUseOwnerProtectedPlaybackPathWithoutUnsupportedClaims() throws IOException {
         String result = read("templates/practice/result.html");
         String detail = read("templates/practice/result-detail.html");
+        String speakingFragment = read("templates/practice/result/speaking.html");
 
-        assertThat(result).contains("speakingMediaPlaybackEnabled", "media.playbackPath()");
+        assertThat(result).contains("speakingMediaPlaybackEnabled", "practice/result/speaking");
+        assertThat(speakingFragment).contains("speakingMediaPlaybackEnabled", "media.playbackPath()");
         assertThat(detail).contains("speakingMediaPlaybackEnabled", "media.playbackPath()");
-        assertThat(result + detail).doesNotContain(
+        assertThat(result + detail + speakingFragment).doesNotContain(
                 "storageKey",
                 "contentHash",
                 "originalFilename",
@@ -103,12 +105,13 @@ class PracticeSpeakingMediaUiResourceTest {
         String player = read("templates/practice/player-speaking.html");
         String result = read("templates/practice/result.html");
         String detail = read("templates/practice/result-detail.html");
+        String speakingFragment = read("templates/practice/result/speaking.html");
         String javascript = read("static/js/practice/player-speaking.js");
 
         assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
                 .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content")
                 .doesNotStartWith("/uploads/");
-        assertThat(player + result + detail + javascript)
+        assertThat(player + result + detail + speakingFragment + javascript)
                 .contains("speaking-media")
                 .doesNotContain("/uploads/practice-speaking")
                 .doesNotContain("private-storage")

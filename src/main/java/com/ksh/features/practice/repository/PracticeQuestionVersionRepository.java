@@ -7,4 +7,8 @@ import java.util.List;
 
 public interface PracticeQuestionVersionRepository extends JpaRepository<PracticeQuestionVersion, Long> {
     List<PracticeQuestionVersion> findBySectionVersionIdOrderByDisplayOrderAscQuestionNoAscIdAsc(Long sectionVersionId);
+    List<PracticeQuestionVersion> findByPublishedVersionIdOrderBySectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+            Long publishedVersionId);
+    List<PracticeQuestionVersion> findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+            List<Long> publishedVersionIds);
 }

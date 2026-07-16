@@ -25,7 +25,8 @@ final class PracticePdfAiPromptRules {
 
                 DẠNG CÂU HỎI:
                 8. READING/LISTENING chỉ được dùng SINGLE_CHOICE, TRUE_FALSE_NOT_GIVEN hoặc FILL_BLANK.
-                9. WRITING chỉ dùng ESSAY và phải ánh xạ vào writingTask Q51, Q52, Q53 hoặc Q54.
+                9. WRITING chỉ dùng ESSAY và phải ánh xạ đúng một lần vào writingTask Q51, Q52, Q53 hoặc Q54.
+                   Số câu và điểm tối đa cố định tương ứng là Q51=10, Q52=10, Q53=30, Q54=50.
                 10. SPEAKING chỉ dùng SPEAKING.
                 11. Không tạo MULTIPLE_CHOICE, MATCHING hoặc bất kỳ dạng câu hỏi nào khác.
                 12. SINGLE_CHOICE có đúng một đáp án; options tách riêng và prompt không lặp options.

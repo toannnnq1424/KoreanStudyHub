@@ -34,9 +34,24 @@ public class AiQuestionImageResolver {
         if (assetId == null || actorId == null) {
             return Optional.empty();
         }
+        return resolveContent(assetId, () -> materialAccessService.load(assetId, actorId));
+    }
+
+    public Optional<AiImageEvidence> resolvePublishedVersion(
+            String imageReference, Long publishedVersionId) {
+        Long assetId = internalAssetId(imageReference);
+        if (assetId == null || publishedVersionId == null) {
+            return Optional.empty();
+        }
+        return resolveContent(assetId,
+                () -> materialAccessService.loadForPublishedVersion(assetId, publishedVersionId));
+    }
+
+    private Optional<AiImageEvidence> resolveContent(
+            Long assetId, MaterialContentLoader contentLoader) {
         try {
             PracticeMaterialAccessService.MaterialContent content =
-                    materialAccessService.load(assetId, actorId);
+                    contentLoader.load();
             String mimeType = normalizeMimeType(content.mimeType());
             if (!SUPPORTED_MIME_TYPES.contains(mimeType)) {
                 log.info("[PracticeAIImage] Ignored unsupported asset assetId={} mimeType={}",
@@ -67,11 +82,16 @@ public class AiQuestionImageResolver {
         }
     }
 
+    @FunctionalInterface
+    private interface MaterialContentLoader {
+        PracticeMaterialAccessService.MaterialContent load() throws Exception;
+    }
+
     public static boolean isInternalMaterialReference(String reference) {
         return internalAssetId(reference) != null;
     }
 
-    private static Long internalAssetId(String reference) {
+    public static Long internalAssetId(String reference) {
         if (reference == null) {
             return null;
         }

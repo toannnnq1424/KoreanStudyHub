@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderExplanation(container) {
     const rawJson = container.dataset.explanation;
     if (!rawJson) {
-      container.innerHTML = '<div class="rl-err">Không có dữ liệu giải thích.</div>';
+      container.innerHTML = '<div class="rl-exp-pending">Giải thích đáp án đang được chuẩn bị.</div>';
       container.classList.add('rendered');
       return;
     }

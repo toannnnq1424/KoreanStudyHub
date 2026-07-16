@@ -46,4 +46,18 @@ class PracticeContentRulesTest {
                 WritingTaskType.Q53,
                 WritingTaskType.Q54);
     }
+
+    @Test
+    void writingTasksAreEssaysWithFixedKoreanScoringWeights() {
+        assertThat(rules.writingTaskPolicy(WritingTaskType.Q51).questionType())
+                .isEqualTo(CanonicalQuestionType.ESSAY);
+        assertThat(rules.writingTaskPolicy(WritingTaskType.Q51).points())
+                .isEqualByComparingTo("10");
+        assertThat(rules.writingTaskPolicy(WritingTaskType.Q52).points())
+                .isEqualByComparingTo("10");
+        assertThat(rules.writingTaskPolicy(WritingTaskType.Q53).points())
+                .isEqualByComparingTo("30");
+        assertThat(rules.writingTaskPolicy(WritingTaskType.Q54).points())
+                .isEqualByComparingTo("50");
+    }
 }

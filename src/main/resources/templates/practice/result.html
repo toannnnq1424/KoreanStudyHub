@@ -2,381 +2,81 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Kết quả luyện tập | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result.css}">
 </head>
-<body class="pi-body bg-gradient-blue">
-
-<div class="pi-result-container">
-  
-  <!-- Header -->
-  <header class="pi-result-header">
-    <div class="header-left">
-      <a class="pi-back-btn white" th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.set().id()},testId=${result.testId() != null ? result.testId() : result.set().id()})}">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        Quay lại
-      </a>
-    </div>
-    <div class="header-title">Kết quả luyện tập</div>
-    <div class="header-right">
-      <a class="pi-complete-btn" th:href="@{/practice}">Complete</a>
-    </div>
+<body class="practice-result-page">
+<div class="pr-shell">
+  <header class="pr-topbar">
+    <a class="pr-back-link"
+       th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
+      <span aria-hidden="true">&larr;</span>
+      Quay lại bài luyện
+    </a>
+    <strong>Kết quả luyện tập</strong>
+    <span class="pr-state" th:text="${result.state().label()}">Đã chấm</span>
   </header>
 
-  <!-- Main Content -->
-  <main class="pi-result-main">
-    
-    <!-- Certificate Card -->
-    <div class="pi-cert-card">
-      <div class="pi-cert-watermark">KSH</div>
+  <main class="pr-main">
+    <section class="pr-summary" aria-labelledby="result-title">
+      <div class="pr-summary-copy">
+        <p class="pr-eyebrow"
+           th:text="${result.celebratory() ? 'Kết quả nổi bật' : 'Kết quả bài luyện'}">Kết quả bài luyện</p>
+        <h1 id="result-title" th:text="${result.identity().setTitle()}">Bộ đề luyện tập</h1>
+        <p class="pr-context">
+          <span th:text="${result.identity().testTitle()}">Test 1</span>
+          <span aria-hidden="true">/</span>
+          <span th:text="${result.identity().sectionTitle()}">Phần Đọc</span>
+        </p>
 
-      <div class="pi-cert-body">
-        <!-- Left details -->
-        <div class="pi-cert-details">
-          <span class="pi-cert-congrats">Congratulations!</span>
-          <h1 class="pi-cert-name" th:text="${#authentication.principal.fullName} ?: ${#authentication.principal.username}">Nguyễn Quang Toàn</h1>
-          
-          <p class="pi-cert-completion">
-            Đã hoàn thành bài thi thử <span th:text="${result.set().skillLabel()}">Writing</span>
-            <strong th:text="'“' + ${result.set().title()} + '”'">"Bài luyện Viết Q53"</strong>
-          </p>
-
-          <!-- Scores row -->
-          <div class="pi-cert-score-row" style="display: flex; gap: 32px; align-items: baseline; margin-bottom: 24px;">
-            <div class="pi-cert-score-block">
-              <strong th:text="${result.score()}">5.5</strong>
-              <span th:text="${result.set().skill() == 'SPEAKING' ? 'Điểm luyện tập tham khảo' : 'Điểm tổng kết bài làm'}">Điểm tổng kết bài làm</span>
-            </div>
-            
-            <div class="pi-cert-score-block" style="border-left: 1px solid #e2e8f0; padding-left: 32px;">
-              <strong th:text="${result.scoreLabel()}">80%</strong>
-              <span>Tỷ lệ đạt</span>
-            </div>
-          </div>
-
-          <!-- Metadata info -->
-          <div style="font-size: 13.5px; color: #64748b; font-weight: 600; display: flex; gap: 16px;">
-            <span th:text="'Kỹ năng: ' + ${result.set().skillLabel()}">Writing</span>
-            <span>•</span>
-            <span th:text="'Kỹ năng: ' + ${result.set().skillLabel()}">Đọc</span>
-          </div>
+        <div class="pr-score-line" th:if="${result.score().available()}">
+          <strong th:text="${result.score().primaryDisplay()}">80</strong>
+          <span th:if="${result.score().unit() == 'PERCENTAGE'}">%</span>
+          <small th:text="${result.score().scaleLabel()}">Thang 100</small>
+        </div>
+        <div class="pr-score-unavailable" th:unless="${result.score().available()}">
+          Chưa có điểm số khả dụng
         </div>
 
-        <!-- Right Badge Asset -->
-        <div class="pi-cert-assets">
-          <div class="pi-cert-badge" th:classappend="${result.set().skill() == 'WRITING' ? 'writing' : (result.set().skill() == 'SPEAKING' ? 'speaking' : 'mixed')}">
-            <div class="pi-cert-badge-inner">
-              <!-- Writing Icon (Pencil/Document) -->
-              <svg th:if="${result.set().skill() == 'WRITING'}" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              <!-- Speaking Icon (Microphone) -->
-              <svg th:if="${result.set().skill() == 'SPEAKING'}" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              
-              <span th:text="${result.set().skillLabel()}">PHẦN VIẾT</span>
-              <small>EVALUATED</small>
-            </div>
+        <dl class="pr-summary-meta">
+          <div>
+            <dt>Kỹ năng</dt>
+            <dd th:text="${result.identity().skillLabel()}">Đọc</dd>
           </div>
-          <div class="pi-cert-mascot" aria-hidden="true">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>
+          <div th:if="${result.score().pointsDisplay() != null}">
+            <dt>Điểm thành phần</dt>
+            <dd th:text="${result.score().pointsDisplay()}">8/10</dd>
           </div>
-        </div>
+          <div th:if="${result.elapsedSeconds() != null}">
+            <dt>Thời gian làm bài</dt>
+            <dd th:text="${result.elapsedDisplay()}">12 phút</dd>
+          </div>
+          <div>
+            <dt>Phản hồi</dt>
+            <dd th:text="${result.feedback().label()}">Đã sẵn sàng</dd>
+          </div>
+        </dl>
       </div>
 
-      <div class="pi-cert-footer">
-        <span>by ksh.edu.vn</span>
+      <div class="pr-skill-mark" th:classappend="${' is-' + #strings.toLowerCase(result.identity().skill())}">
+        <span th:text="${result.identity().skillLabel()}">Đọc</span>
+        <small th:text="${result.state().label()}">Đã nộp</small>
       </div>
-    </div>
-
-    <section class="pi-overview-analysis"
-             th:if="${result.set().skill() == 'SPEAKING'}">
-      <h2 class="pi-overview-title">Bản ghi câu trả lời Nói</h2>
-      <div th:if="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
-        <div th:each="media : ${speakingMedia}" style="margin-top: 12px;">
-          <strong th:text="'Câu ' + ${media.questionId()}">Câu trả lời</strong>
-          <audio controls preload="metadata" style="display:block; width:100%; margin-top:8px;"
-                 th:src="${media.playbackPath()}"></audio>
-        </div>
-      </div>
-      <p th:unless="${speakingMediaPlaybackEnabled and !#lists.isEmpty(speakingMedia)}">
-        Không có bản ghi đang khả dụng.
-      </p>
     </section>
 
-    <!-- ═══ OVERVIEW ANALYSIS SECTION (PREP STYLE) ═══ -->
-    <div class="pi-overview-analysis" id="pi-overview-analysis-card">
-      <h2 class="pi-overview-title">Phân tích kết quả tổng quan</h2>
-
-      <!-- Cấp 1: nhóm tiêu chí theo kỹ năng -->
-      <div class="pi-part-tabs" id="pi-part-tabs-container">
-        <!-- Will be dynamically populated via JS based on skill / title -->
-      </div>
-
-      <!-- Cấp 2 Tabs: Rubrics -->
-      <div class="pi-rubric-subtabs" id="pi-rubric-subtabs-container">
-        <!-- Will be dynamically populated -->
-      </div>
-
-      <!-- Rubric Panel Layout -->
-      <div class="pi-rubric-panel-layout">
-        <!-- Left: Rubric details & description -->
-        <div class="pi-rubric-left">
-          <div class="pi-rubric-score-badge">
-            <strong id="rubric-score-val">8.5</strong>
-            <span id="rubric-score-scale">/ 10</span>
-          </div>
-          <p class="pi-rubric-desc" id="rubric-feedback-text"
-             th:text="${result.set().skill() == 'SPEAKING' ? 'Phản hồi mô phỏng dựa trên câu trả lời văn bản.' : 'Nhận xét chi tiết cho tiêu chí đánh giá này đang được cập nhật từ AI...'}">
-            Nhận xét chi tiết cho tiêu chí đánh giá này đang được cập nhật từ AI...
-          </p>
-        </div>
-
-        <!-- Right: Slider metrics (PREP-like) -->
-        <div class="pi-rubric-right">
-          <h4 id="rubric-metrics-title">Đánh giá tiêu chí thành phần</h4>
-          
-          <div class="pi-metric-sliders" id="pi-metric-sliders-container">
-            <!-- Will be dynamically populated with sliders -->
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bottom Actions -->
-    <div class="pi-result-actions">
-      <a class="pi-btn-primary white-bg" th:href="@{/practice/attempts/{id}/result/detail(id=${attemptId})}">
-        Xem kết quả chi tiết từng câu
-      </a>
-    </div>
-
+    <th:block th:switch="${result.payload().kind()}">
+      <th:block th:case="'OBJECTIVE'">
+        <th:block th:replace="~{practice/result/objective :: panel(result=${result})}"></th:block>
+      </th:block>
+      <th:block th:case="'WRITING'">
+        <th:block th:replace="~{practice/result/writing :: panel(result=${result})}"></th:block>
+      </th:block>
+      <th:block th:case="'SPEAKING'">
+        <th:block th:replace="~{practice/result/speaking :: panel(result=${result}, speakingMedia=${speakingMedia}, speakingMediaPlaybackEnabled=${speakingMediaPlaybackEnabled})}"></th:block>
+      </th:block>
+    </th:block>
   </main>
-
 </div>
 
-<script th:inline="javascript">
-  /*<![CDATA[*/
-  const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
-  const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
-  const setTitle = /*[[${result.set().title()}]]*/ '';
-  const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
-  const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' or (result.set().skill() == 'SPEAKING' and !#lists.isEmpty(result.speakingQuestionFeedbacks())) ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
-  /*]]>*/
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    let aiDataGlobal = {};
-    try {
-      aiDataGlobal = JSON.parse(rawAiFeedbackJson || '{}');
-    } catch (e) {
-      console.warn("Could not parse global AI JSON feedback", e);
-    }
-
-    let parts = [];
-    let rubrics = [];
-
-    if (setSkill === 'WRITING') {
-      const essayQuestions = questions.filter(q => q.questionType === 'ESSAY');
-      if (essayQuestions.length === 0) {
-        const card = document.getElementById('pi-overview-analysis-card');
-        if (card) card.style.display = 'none';
-        return;
-      }
-
-      parts = essayQuestions.map((q, idx) => ({
-        id: String(q.questionId),
-        label: `Câu ${q.questionNo}`,
-        active: idx === 0,
-        question: q
-      }));
-
-      rubrics = [
-        { id: 'content', label: 'Hoàn thành nhiệm vụ & Nội dung', metrics: ['Mức độ hoàn thành yêu cầu', 'Độ rõ ràng', 'Phát triển ý'] },
-        { id: 'structure', label: 'Cấu trúc & Bố cục', metrics: ['Tính mạch lạc', 'Sử dụng từ liên kết', 'Phân chia đoạn văn'] },
-        { id: 'language', label: 'Sử dụng ngôn ngữ & Chính tả', metrics: ['Độ chính xác ngữ pháp', 'Từ vựng phù hợp', 'Quy tắc khoảng cách (띄어쓰기)'] }
-      ];
-    } else {
-      // SPEAKING
-      parts = [
-        { id: 'Q1', label: 'Câu 1', active: false },
-        { id: 'Q2', label: 'Câu 2', active: false },
-        { id: 'Q3', label: 'Câu 3', active: false },
-        { id: 'Q4', label: 'Câu 4', active: false },
-        { id: 'GENERAL', label: 'Tổng quan', active: true }
-      ];
-      if (setTitle.includes('Câu 1') || setTitle.includes('Part 1')) {
-        parts.find(p => p.id === 'Q1').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (setTitle.includes('Câu 2')) {
-        parts.find(p => p.id === 'Q2').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (setTitle.includes('Câu 3')) {
-        parts.find(p => p.id === 'Q3').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      } else if (setTitle.includes('Câu 4')) {
-        parts.find(p => p.id === 'Q4').active = true;
-        parts.find(p => p.id === 'GENERAL').active = false;
-      }
-
-      rubrics = [
-        { id: 'content', label: 'Nội dung', criterionId: 'S_CONTENT_TASK_FULFILLMENT', metrics: ['Bám yêu cầu đề', 'Phát triển ý', 'Ví dụ cụ thể'] },
-        { id: 'vocabulary', label: 'Từ vựng', criterionId: 'S_VOCABULARY_EXPRESSIONS', metrics: ['Từ đúng chủ đề', 'Diễn đạt tự nhiên', 'Kiểm soát lặp từ'] },
-        { id: 'grammar', label: 'Ngữ pháp', criterionId: 'S_GRAMMAR_SENTENCE_CONTROL', metrics: ['Tiểu từ/vĩ tố', 'Cấu trúc câu', 'Register/đuôi câu'] },
-        { id: 'coherence', label: 'Mạch lạc', criterionId: 'S_COHERENCE_ORGANIZATION', metrics: ['Mở ý', 'Liên kết ý', 'Kết luận'] },
-        { id: 'fluency', label: 'Độ lưu loát', criterionId: 'S_FLUENCY', metrics: ['Liên tục', 'Ít ngập ngừng', 'Gánh nặng nghe'] },
-        { id: 'pronunciation', label: 'Phát âm (tham khảo)', criterionId: 'S_PRONUNCIATION_DELIVERY', metrics: ['Độ rõ', 'Dấu hiệu nghi ngờ', 'Cảnh báo confidence'] }
-      ];
-    }
-
-    if (setSkill === 'SPEAKING' && questions.length > 0) {
-      parts = questions.map((q, idx) => ({
-        id: String(q.questionId),
-        label: `Câu ${q.questionNo || (idx + 1)}`,
-        active: idx === 0,
-        question: q
-      }));
-      rubrics = [
-        { id: 'content', label: 'Nội dung', criterionId: 'S_CONTENT_TASK_FULFILLMENT', metrics: ['Bám yêu cầu đề', 'Phát triển ý', 'Ví dụ cụ thể'] },
-        { id: 'vocabulary', label: 'Từ vựng', criterionId: 'S_VOCABULARY_EXPRESSIONS', metrics: ['Từ đúng chủ đề', 'Diễn đạt tự nhiên', 'Kiểm soát lặp từ'] },
-        { id: 'grammar', label: 'Ngữ pháp', criterionId: 'S_GRAMMAR_SENTENCE_CONTROL', metrics: ['Tiểu từ/vĩ tố', 'Cấu trúc câu', 'Register/đuôi câu'] },
-        { id: 'coherence', label: 'Mạch lạc', criterionId: 'S_COHERENCE_ORGANIZATION', metrics: ['Mở ý', 'Liên kết ý', 'Kết luận'] },
-        { id: 'fluency', label: 'Độ lưu loát', criterionId: 'S_FLUENCY', metrics: ['Liên tục', 'Ít ngập ngừng', 'Gánh nặng nghe'] },
-        { id: 'pronunciation', label: 'Phát âm (tham khảo)', criterionId: 'S_PRONUNCIATION_DELIVERY', metrics: ['Độ rõ', 'Dấu hiệu nghi ngờ', 'Cảnh báo confidence'] }
-      ];
-    }
-
-    // Render Parts (Cấp 1)
-    const partsContainer = document.getElementById('pi-part-tabs-container');
-    partsContainer.innerHTML = parts.map(p => `
-      <button class="pi-part-tab-btn ${p.active ? 'active' : ''}" 
-              data-id="${p.id}">
-        ${p.label}
-      </button>
-    `).join('');
-
-    // Render Rubrics (Cấp 2)
-    const rubricsContainer = document.getElementById('pi-rubric-subtabs-container');
-    rubricsContainer.innerHTML = rubrics.map((r, idx) => `
-      <button class="pi-rubric-subtab-btn ${idx === 0 ? 'active' : ''}" data-id="${r.id}">
-        ${r.label}
-      </button>
-    `).join('');
-
-    let currentPart = parts.find(p => p.active)?.id || 'GENERAL';
-    let currentRubric = rubrics[0].id;
-
-    // Set interactive actions
-    const partButtons = document.querySelectorAll('.pi-part-tab-btn');
-    partButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        partButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentPart = btn.dataset.id;
-        updateFeedback();
-      });
-    });
-
-    const rubricButtons = document.querySelectorAll('.pi-rubric-subtab-btn');
-    rubricButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        rubricButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentRubric = btn.dataset.id;
-        updateFeedback();
-      });
-    });
-
-    function updateFeedback() {
-      const activeRubricObj = rubrics.find(r => r.id === currentRubric);
-      
-      let aiData = aiDataGlobal;
-      let activeQuestionUsesSpeakingFeedback = false;
-      if (setSkill === 'WRITING') {
-        const activePartObj = parts.find(p => p.id === currentPart);
-        if (activePartObj && activePartObj.question) {
-          aiData = activePartObj.question.writingFeedback || {};
-        }
-      } else if (setSkill === 'SPEAKING' && questions.some(q => Object.prototype.hasOwnProperty.call(q, 'speakingFeedback'))) {
-        const activePartObj = parts.find(p => p.id === currentPart);
-        if (activePartObj && activePartObj.question) {
-          aiData = activePartObj.question.speakingFeedback || activePartObj.question.legacyEssayFeedback || {};
-          activeQuestionUsesSpeakingFeedback = !!activePartObj.question.speakingFeedback;
-        }
-      }
-
-      let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : (Array.isArray(aiData.rubricScores) ? aiData.rubricScores : []);
-      let matchedScore = null;
-      let matchedMaxScore = null;
-      let feedbackText = "";
-
-      if (rubricList.length > 0) {
-        const activeCriterionId = activeRubricObj && activeRubricObj.criterionId;
-        let matched = activeCriterionId
-          ? rubricList.find(r => (r.criterionId || r.criterion_id) === activeCriterionId)
-          : null;
-        if (!matched) {
-          const rubricIndex = Math.max(0, rubrics.findIndex(r => r.id === currentRubric));
-          matched = rubricList[Math.min(rubricIndex, rubricList.length - 1)];
-        }
-        if (matched) {
-          matchedScore = activeQuestionUsesSpeakingFeedback ? (matched.score !== undefined ? matched.score : matched.percentage) : matched.score;
-          matchedMaxScore = activeQuestionUsesSpeakingFeedback ? (matched.maxScore || matched.max_score || 100) : (matched.maxScore || 10);
-          feedbackText = matched.feedback;
-        }
-      }
-
-      const hasStoredFeedback = matchedScore !== null || !!feedbackText;
-
-      if (!feedbackText && false) {
-        if (currentRubric === 'content') {
-          feedbackText = "Nội dung bài viết cơ bản hoàn thành tốt và đầy đủ các yêu cầu đề ra. Các luận điểm chính được thể hiện rõ nét.";
-        } else if (currentRubric === 'structure') {
-          feedbackText = "Bố cục logic chặt chẽ, các liên từ chuyển mạch tương đối tự nhiên giúp bài viết mượt mà và dễ hiểu.";
-        } else {
-          feedbackText = "Khả năng vận dụng từ vựng đa dạng. Lưu ý chỉnh sửa một số lỗi chính tả nhỏ và khoảng cách viết (띄어쓰기) để đạt band điểm cao hơn.";
-        }
-      }
-
-      if (!feedbackText) {
-        feedbackText = "Không có nhận xét được lưu cho câu này.";
-      }
-
-      const speakingScore = activeQuestionUsesSpeakingFeedback
-        ? parseFloat(aiData.scoreAvailable === false || aiData.score_available === false ? NaN : (aiData.percentage !== undefined ? aiData.percentage : (aiData.overallScore !== undefined ? aiData.overallScore : overallScore)))
-        : null;
-      const writingRubricPercent = matchedScore === null || !matchedMaxScore
-        ? null
-        : Math.round((matchedScore / matchedMaxScore) * 100);
-      document.getElementById('rubric-score-val').textContent = speakingScore !== null && !Number.isNaN(speakingScore) ? speakingScore.toFixed(0) : (writingRubricPercent === null ? "--" : writingRubricPercent.toFixed(0));
-      document.getElementById('rubric-score-scale').textContent = speakingScore !== null && !Number.isNaN(speakingScore)
-        ? "/ 100"
-        : (matchedScore === null ? "" : "/ 100");
-      document.getElementById('rubric-feedback-text').textContent = feedbackText;
-
-      const slidersContainer = document.getElementById('pi-metric-sliders-container');
-      if (!activeRubricObj || matchedScore === null) {
-        slidersContainer.innerHTML = "";
-        return;
-      }
-      slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
-        const rawPercent = activeQuestionUsesSpeakingFeedback ? matchedScore : writingRubricPercent;
-        const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
-        const finalValue = Math.min(100, Math.max(20, rawPercent + variation));
-        
-        return `
-          <div class="pi-slider-group">
-            <div class="pi-slider-label">
-              <span>${metric}</span>
-              <span>${finalValue.toFixed(0)}%</span>
-            </div>
-            <div class="pi-slider-track">
-              <div class="pi-slider-fill" style="width: ${finalValue}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    updateFeedback();
-  });
-</script>
-
+<script th:src="@{/js/practice-result.js}"></script>
 </body>
 </html>

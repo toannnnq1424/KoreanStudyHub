@@ -16,6 +16,7 @@ public interface PracticeMaterialReferenceRepository
             Long assetId, Long draftId, String placement, String referenceKey);
     boolean existsByAssetIdAndPublishedVersionIdAndPlacement(
             Long assetId, Long publishedVersionId, String placement);
+    boolean existsByAssetIdAndPublishedVersionId(Long assetId, Long publishedVersionId);
     boolean existsByAssetIdAndReferenceScope(Long assetId, String referenceScope);
     void deleteByAssetIdAndDraftIdAndPlacement(
             Long assetId, Long draftId, String placement);

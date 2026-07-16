@@ -22,6 +22,7 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationServic
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService;
 import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
@@ -42,12 +43,13 @@ class PracticeServiceTest {
 
     private PracticeSetRepository setRepository;
     private PracticeQuestionRepository questionRepository;
+    private com.ksh.features.practice.repository.PracticeQuestionVersionRepository questionVersionRepository;
     private PracticeQuestionGroupRepository groupRepository;
     private com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
     private com.ksh.features.practice.repository.PracticeAttemptRepository attemptRepository;
     private com.ksh.features.practice.repository.PracticeTestRepository testRepository;
     private WritingEvaluationClient evaluationClient;
-    private com.ksh.features.practice.service.ReadingListeningExplanationService readingListeningExplanationService;
+    private QuestionExplanationReadService explanationReadService;
     private com.ksh.common.storage.AudioStorageService audioStorageService;
     private ObjectMapper objectMapper;
 
@@ -57,12 +59,13 @@ class PracticeServiceTest {
     void setUp() {
         setRepository = mock(PracticeSetRepository.class);
         questionRepository = mock(PracticeQuestionRepository.class);
+        questionVersionRepository = mock(com.ksh.features.practice.repository.PracticeQuestionVersionRepository.class);
         groupRepository = mock(PracticeQuestionGroupRepository.class);
         sectionRepository = mock(com.ksh.features.practice.repository.PracticeSectionRepository.class);
         attemptRepository = mock(com.ksh.features.practice.repository.PracticeAttemptRepository.class);
         testRepository = mock(com.ksh.features.practice.repository.PracticeTestRepository.class);
         evaluationClient = mock(WritingEvaluationClient.class);
-        readingListeningExplanationService = mock(com.ksh.features.practice.service.ReadingListeningExplanationService.class);
+        explanationReadService = mock(QuestionExplanationReadService.class);
         audioStorageService = mock(com.ksh.common.storage.AudioStorageService.class);
         objectMapper = new ObjectMapper();
         when(setRepository.findByIdForUpdate(any())).thenAnswer(invocation ->
@@ -71,12 +74,13 @@ class PracticeServiceTest {
         practiceService = new PracticeService(
                 setRepository,
                 questionRepository,
+                questionVersionRepository,
                 groupRepository,
                 sectionRepository,
                 attemptRepository,
                 testRepository,
                 evaluationClient,
-                readingListeningExplanationService,
+                explanationReadService,
                 audioStorageService,
                 objectMapper
         );
@@ -584,6 +588,28 @@ class PracticeServiceTest {
     }
 
     @Test
+    void resultWithVersionLockNeverFallsBackToLiveGraphWhenSnapshotIsMissing() {
+        PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
+        practiceService.setPublishedVersionServiceForTests(versionService);
+
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        setEntityId(attempt, 50L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
+        when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
+        when(versionService.snapshot(100L, 101L, 102L, 103L)).thenReturn(Optional.empty());
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.getReadingListeningResult(50L, 2L));
+
+        assertTrue(exception.getMessage().contains("snapshot hợp lệ"));
+        verify(setRepository, never()).findById(anyLong());
+        verify(sectionRepository, never()).findById(anyLong());
+        verify(questionRepository, never()).findBySetIdOrderByDisplayOrderAsc(anyLong());
+    }
+
+    @Test
     void readingResultUsesLockedQuestionVersionAnswerAndExplanationSnapshot() {
         PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
         practiceService.setPublishedVersionServiceForTests(versionService);
@@ -594,7 +620,7 @@ class PracticeServiceTest {
         attempt.markSubmitted(BigDecimal.ONE, BigDecimal.ONE, "{\"11\":\"A\"}");
         when(attemptRepository.findByIdAndUserId(50L, 2L)).thenReturn(Optional.of(attempt));
 
-        PracticeSet liveSet = new PracticeSet("Live title", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
+        PracticeSet liveSet = new PracticeSet("TOPIK live title", "", "READING",  "GLOBAL", null, null, "{}", "PUBLISHED", 1L);
         setEntityId(liveSet, 1L);
         when(setRepository.findById(1L)).thenReturn(Optional.of(liveSet));
 
@@ -652,8 +678,10 @@ class PracticeServiceTest {
         assertEquals(1, result.correctCount());
         assertEquals(0, result.incorrectCount());
         assertEquals("Snapshot prompt", result.groups().get(0).questions().get(0).prompt());
-        assertEquals("Snapshot explanation", result.groups().get(0).questions().get(0).explanationJson());
-        verify(readingListeningExplanationService, never()).getOrCreateExplanation(any(), any(), any(), any(), any());
+        assertNull(result.groups().get(0).questions().get(0).explanationJson());
+        verify(explanationReadService).readDisplayJson(800L, "ALPHA");
+        verify(setRepository, never()).findById(1L);
+        verify(sectionRepository, never()).findById(20L);
     }
 
     @Test
@@ -1023,8 +1051,8 @@ class PracticeServiceTest {
         assertEquals(1, result.groups().get(0).questions().size());
         assertNotEquals("Ungrouped", result.groups().get(0).groupLabel());
         assertEquals("Snapshot prompt", result.groups().get(0).questions().get(0).prompt());
-        assertEquals("Snapshot explanation", result.groups().get(0).questions().get(0).explanationJson());
-        verify(readingListeningExplanationService, never()).getOrCreateExplanation(any(), any(), any(), any(), any());
+        assertNull(result.groups().get(0).questions().get(0).explanationJson());
+        verify(explanationReadService).readDisplayJson(eq(800L), anyString());
         verify(questionRepository, never()).findById(any());
     }
 
@@ -1288,6 +1316,70 @@ class PracticeServiceTest {
         verify(setRepository, times(1)).findAllById(any());
         verify(testRepository, times(1)).findAllById(any());
         verify(sectionRepository, times(1)).findAllById(any());
+    }
+
+    @Test
+    void progressAnalyticsUsesAttemptQuestionVersionInsteadOfLiveQuestion() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.lockPublishedVersion(700L, 701L, 702L, 703L);
+        attempt.markGraded(BigDecimal.ONE, BigDecimal.ONE, "{\"100\":\"1\"}", "{}");
+        setEntityId(attempt, 99L);
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+
+        PracticeQuestionVersion versionQuestion = mock(PracticeQuestionVersion.class);
+        when(versionQuestion.getId()).thenReturn(800L);
+        when(versionQuestion.getPublishedVersionId()).thenReturn(700L);
+        when(versionQuestion.getSectionVersionId()).thenReturn(703L);
+        when(versionQuestion.getQuestionId()).thenReturn(100L);
+        when(versionQuestion.getQuestionNo()).thenReturn(1);
+        when(versionQuestion.getDisplayOrder()).thenReturn(1);
+        when(versionQuestion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SINGLE_CHOICE);
+        when(versionQuestion.getOptionsJson()).thenReturn("[\"A\",\"B\"]");
+        when(versionQuestion.getAnswerKey()).thenReturn("1");
+        when(versionQuestion.getPoints()).thenReturn(BigDecimal.ONE);
+        when(questionVersionRepository
+                .findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+                        anyList()))
+                .thenReturn(List.of(versionQuestion));
+
+        PracticeAnalytics analytics =
+                practiceService.getProgressPageData(2L, "Toan", "").analytics();
+
+        assertEquals(1, analytics.questionTypePerf().size());
+        assertEquals(PracticeQuestion.TYPE_SINGLE_CHOICE,
+                analytics.questionTypePerf().get(0).questionType());
+        verify(questionRepository, never()).findBySetIdIn(anyList());
+    }
+
+    @Test
+    void progressAnalyticsSkipsMalformedVersionQuestionWithoutFailingPage() {
+        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.lockPublishedVersion(700L, 701L, 702L, 703L);
+        attempt.markGraded(BigDecimal.ZERO, BigDecimal.ONE, "{}", "{}");
+        setEntityId(attempt, 99L);
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED)).thenReturn(List.of(attempt));
+
+        PracticeQuestionVersion malformedQuestion = mock(PracticeQuestionVersion.class);
+        when(malformedQuestion.getId()).thenReturn(801L);
+        when(malformedQuestion.getPublishedVersionId()).thenReturn(700L);
+        when(malformedQuestion.getSectionVersionId()).thenReturn(703L);
+        when(malformedQuestion.getQuestionId()).thenReturn(101L);
+        when(malformedQuestion.getQuestionNo()).thenReturn(1);
+        when(malformedQuestion.getDisplayOrder()).thenReturn(1);
+        when(malformedQuestion.getQuestionType()).thenReturn("UNKNOWN_OBJECTIVE_TYPE");
+        when(malformedQuestion.getPoints()).thenReturn(BigDecimal.ONE);
+        when(questionVersionRepository
+                .findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+                        anyList()))
+                .thenReturn(List.of(malformedQuestion));
+
+        PracticeProgressPageData page =
+                practiceService.getProgressPageData(2L, "Toan", "");
+
+        assertNotNull(page);
+        assertTrue(page.analytics().questionTypePerf().isEmpty());
     }
 
     @Test
@@ -1860,48 +1952,6 @@ class PracticeServiceTest {
     }
 
     @Test
-    void testGetAttemptResultLegacyFallback() {
-        PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
-        com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
-        setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
-        section.setTestId(10L);
-        setEntityId(section, 20L);
-
-        PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
-        attempt.setStatus("SUBMITTED");
-        attempt.setAnswersJson("{\"101\":\"3\"}");
-        setEntityId(attempt, 99L);
-
-        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
-        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
-        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
-        when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
-
-        // Question group with sectionId = null (legacy)
-        PracticeQuestionGroup group = new PracticeQuestionGroup(1L, "Group 1", 1, 1, "Instruction", null, null, 1);
-        group.setSectionId(null);
-        setEntityId(group, 5L);
-
-        PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
-                "[]", "3", "Giải thích đáp án đúng",
-                BigDecimal.valueOf(5), 1
-        );
-        q1.setGroupId(5L);
-        setEntityId(q1, 101L);
-
-        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
-        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
-        when(questionRepository.findById(101L)).thenReturn(Optional.of(q1));
-
-        PracticeAttemptResultView result = practiceService.getAttemptResult(99L, 2L);
-        assertNotNull(result);
-        assertEquals(1, result.sections().size());
-        assertEquals(1, result.sections().get(0).groups().size());
-        assertEquals("Group 1", result.sections().get(0).groups().get(0).groupLabel());
-    }
-    @Test
     void testQuestionComparatorOrdering() {
         PracticeQuestion q1 = new PracticeQuestion(
                 1L, 52, "ESSAY", "Prompt 1",
@@ -2286,7 +2336,7 @@ class PracticeServiceTest {
         verify(speakingMediaService).requireReadyMediaForOwner(2L, 99L, List.of(101L, 102L));
         verify(speakingService, times(4)).evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class));
         verify(evaluationClient, never()).evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any());
-        verifyNoInteractions(readingListeningExplanationService, audioStorageService);
+        verifyNoInteractions(explanationReadService, audioStorageService);
     }
 
     @Test
@@ -2481,7 +2531,7 @@ class PracticeServiceTest {
         assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
         assertEquals(0, attempt.getScore().compareTo(new BigDecimal("74.60")));
         verify(evaluationClient, times(2)).evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), anyBoolean(), any());
-        verifyNoInteractions(readingListeningExplanationService, audioStorageService);
+        verifyNoInteractions(explanationReadService, audioStorageService);
     }
 
     private void assertMixedEnvelope(PracticeAttempt attempt) throws Exception {

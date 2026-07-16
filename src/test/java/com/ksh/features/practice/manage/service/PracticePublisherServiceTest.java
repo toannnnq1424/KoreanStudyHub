@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -151,6 +152,11 @@ class PracticePublisherServiceTest {
                 savedQuestions.stream().map(PracticeQuestion::getWritingTaskType).toList());
         assertEquals(List.of(51, 52, 53, 54),
                 savedQuestions.stream().map(PracticeQuestion::getQuestionNo).toList());
+        assertEquals(List.of(BigDecimal.TEN, BigDecimal.TEN,
+                        BigDecimal.valueOf(30), BigDecimal.valueOf(50)),
+                savedQuestions.stream().map(PracticeQuestion::getPoints).toList());
+        assertEquals(0, savedSections.get(0).getTotalPoints()
+                .compareTo(BigDecimal.valueOf(100)));
         assertEquals(1, savedTests.size());
         assertEquals(savedTests.get(0).getId(), savedSections.get(0).getTestId());
     }
@@ -415,7 +421,7 @@ class PracticePublisherServiceTest {
                     "skill": "WRITING",
                     "sectionType": "DEFAULT",
                     "durationMinutes": 50,
-                    "totalPoints": 100,
+                    "totalPoints": 999,
                     "groups": [{
                       "label": "Writing Q51-Q54",
                       "instruction": "Viết theo yêu cầu.",
@@ -464,6 +470,13 @@ class PracticePublisherServiceTest {
     }
 
     private String questionJson(String skill, String questionType, String taskValue) {
+        int points = "WRITING".equals(skill)
+                ? switch (taskValue) {
+                    case "Q53" -> 30;
+                    case "Q54" -> 50;
+                    default -> 10;
+                }
+                : 10;
         return """
                 {
                   "skill": "%s",
@@ -472,10 +485,10 @@ class PracticePublisherServiceTest {
                   "options": ["A", "B"],
                   "answer": {"value": "1"},
                   "explanationVi": "",
-                  "points": 10,
+                  "points": %d,
                   "essayTaskType": "%s"
                 }
-                """.formatted(skill, questionType, taskValue);
+                """.formatted(skill, questionType, points, taskValue);
     }
 
     private String draftJsonWithQuestions(String... questionJsons) {

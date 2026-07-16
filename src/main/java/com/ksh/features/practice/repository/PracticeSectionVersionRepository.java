@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface PracticeSectionVersionRepository extends JpaRepository<PracticeSectionVersion, Long> {
     Optional<PracticeSectionVersion> findByPublishedVersionIdAndSectionId(Long publishedVersionId, Long sectionId);
     List<PracticeSectionVersion> findByTestVersionIdOrderByDisplayOrderAscIdAsc(Long testVersionId);
+    List<PracticeSectionVersion> findByPublishedVersionIdOrderByTestVersionIdAscDisplayOrderAscIdAsc(
+            Long publishedVersionId);
 }

@@ -1,168 +1,118 @@
-<div th:fragment="content(sec)">
-  <!-- ═══ OVERVIEW ANALYSIS SECTION (PREP STYLE) ═══ -->
-  <div class="pi-overview-analysis" th:id="'pi-overview-analysis-' + ${sec.sectionId()}" style="margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-    <h3 style="font-weight: 700; margin-bottom: 16px;">Phân tích kết quả viết từ AI</h3>
-
-    <!-- Cấp 2 Tabs: Rubrics -->
-    <div class="pi-rubric-subtabs" th:id="'pi-rubric-subtabs-' + ${sec.sectionId()}" style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto;">
-      <!-- Will be dynamically populated -->
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="panel(result)">
+  <section class="pr-section" aria-labelledby="writing-overview-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Phân tích bài viết</p>
+        <h2 id="writing-overview-title">Kết quả theo nhiệm vụ viết</h2>
+      </div>
+      <span class="pr-denominator"
+            th:text="${result.feedback().progressLabel('bài đã có đánh giá')}">1/1 bài đã có đánh giá</span>
     </div>
 
-    <!-- Rubric Panel Layout -->
-    <div class="pi-rubric-panel-layout" style="display: flex; gap: 20px; flex-wrap: wrap;">
-      <!-- Left: Rubric details & description -->
-      <div class="pi-rubric-left" style="flex: 1; min-width: 280px; background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <div class="pi-rubric-score-badge" style="display: inline-flex; align-items: baseline; gap: 4px; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 8px; font-weight: 700; margin-bottom: 12px;">
-          <strong th:id="'rubric-score-val-' + ${sec.sectionId()}">8.5</strong>
-          <span th:id="'rubric-score-scale-' + ${sec.sectionId()}" style="font-size: 0.8rem; opacity: 0.85;">/ 100</span>
-        </div>
-        <p class="pi-rubric-desc" th:id="'rubric-feedback-text-' + ${sec.sectionId()}" style="color: #475569; font-size: 0.95rem; line-height: 1.5;">
-          Nhận xét chi tiết cho tiêu chí đánh giá này đang được cập nhật từ AI...
-        </p>
-      </div>
-
-      <!-- Right: Slider metrics -->
-      <div class="pi-rubric-right" style="flex: 1; min-width: 280px; background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <h4 th:id="'rubric-metrics-title-' + ${sec.sectionId()}" style="font-weight: 700; margin-bottom: 12px; font-size: 0.95rem;">Đánh giá tiêu chí thành phần</h4>
-        
-        <div class="pi-metric-sliders" th:id="'pi-metric-sliders-' + ${sec.sectionId()}">
-          <!-- Will be dynamically populated with sliders -->
-        </div>
-      </div>
+    <div class="pr-segmented" role="tablist" aria-label="Chọn nhiệm vụ viết"
+         data-result-tabs="writing-tasks" th:unless="${result.payload().tasks().isEmpty()}">
+      <button type="button" role="tab"
+              th:each="task, status : ${result.payload().tasks()}"
+              th:id="${'writing-task-tab-' + status.index}"
+              th:attr="aria-controls=${'writing-task-panel-' + status.index},aria-selected=${status.first}"
+              th:classappend="${status.first ? ' is-active' : ''}"
+              th:data-result-target="${'writing-task-panel-' + status.index}"
+              th:text="${task.taskLabel()}">Câu 53</button>
     </div>
-  </div>
 
-  <!-- Pass data to JS via dataset attribute on parent -->
-  <script th:inline="javascript">
-    document.addEventListener('DOMContentLoaded', () => {
-      const sectionId = [[${sec.sectionId()}]];
-      const aiJson = [[${sec.aiFeedbackJson()}]];
-      const overallScore = [[${sec.sectionScore()}]];
-      
-      let aiData = {};
-      try {
-        if (aiJson) {
-          aiData = JSON.parse(aiJson);
-          if (!Array.isArray(aiData.rubric_scores)) {
-            const firstFeedback = Object.values(aiData).find(v => v && typeof v === 'object' && Array.isArray(v.rubric_scores));
-            aiData = firstFeedback || {};
-          }
-        }
-      } catch (e) {
-        console.warn("Could not parse AI JSON feedback for section " + sectionId, e);
-      }
+    <article class="pr-writing-task"
+             th:each="task, taskStatus : ${result.payload().tasks()}"
+             th:id="${'writing-task-panel-' + taskStatus.index}"
+             role="tabpanel"
+             th:attr="aria-labelledby=${'writing-task-tab-' + taskStatus.index}"
+             th:hidden="${!taskStatus.first}">
+      <header class="pr-task-header">
+        <div>
+          <span class="pr-task-type" th:text="${task.taskType()}">Q53</span>
+          <h3 th:text="${task.taskLabel()}">Câu 53</h3>
+          <p th:text="${task.prompt()}">Đề bài</p>
+        </div>
+        <div class="pr-task-score" th:if="${task.score().available()}">
+          <strong th:text="${task.score().pointsDisplay()}">20/30</strong>
+          <span th:if="${task.score().percentage() != null}"
+                th:text="${task.score().percentage().stripTrailingZeros().toPlainString()} + '%'">67%</span>
+        </div>
+        <span class="pr-feedback-state" th:unless="${task.score().available()}"
+              th:text="${task.feedback().label()}">Đang chờ đánh giá</span>
+      </header>
 
-      const rubrics = [
-        { id: 'content', label: 'Nội dung & Yêu cầu', metrics: ['Mức độ hoàn thành', 'Độ rõ ràng', 'Phát triển ý'] },
-        { id: 'structure', label: 'Bố cục & Liên kết', metrics: ['Mạch lạc', 'Từ nối', 'Phân đoạn'] },
-        { id: 'language', label: 'Từ vựng & Ngữ pháp', metrics: ['Độ chính xác ngữ pháp', 'Từ vựng phù hợp', '띄어쓰기'] }
-      ];
+      <p class="pr-task-summary" th:if="${task.summary() != null}" th:text="${task.summary()}">Nhận xét</p>
 
-      // Render Rubrics Tabs
-      const rubricsContainer = document.getElementById('pi-rubric-subtabs-' + sectionId);
-      if (rubricsContainer) {
-        rubricsContainer.innerHTML = rubrics.map((r, idx) => `
-          <button class="pi-rubric-subtab-btn ${idx === 0 ? 'active' : ''}" 
-                  data-id="${r.id}"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; background: white; font-weight: 600; cursor: pointer; font-size: 0.85rem;"
-                  onclick="window.switchWritingRubric('${sectionId}', '${r.id}', this)">
-            ${r.label}
-          </button>
-        `).join('');
-      }
+      <div class="pr-rubric-list" th:classappend="${task.analysisLenses().isEmpty() ? ' is-six-row' : ''}">
+        <div class="pr-rubric-row" th:each="criterion : ${task.officialCriteria()}">
+          <div>
+            <strong th:text="${criterion.label()}">Tiêu chí</strong>
+            <p th:if="${criterion.feedback() != null}" th:text="${criterion.feedback()}">Nhận xét</p>
+          </div>
+          <div class="pr-rubric-result">
+            <span class="pr-band-chip"
+                  th:classappend="${' is-' + criterion.band().cssClass()}"
+                  th:text="${criterion.band().label()}">Tốt</span>
+            <strong th:if="${criterion.scoreDisplay() != null}" th:text="${criterion.scoreDisplay()}">8/10</strong>
+            <span th:unless="${criterion.scoreDisplay() != null}">Chưa có điểm</span>
+          </div>
+        </div>
+      </div>
 
-      window.switchWritingRubric = function(secId, rubId, btnEl) {
-        // Toggle button states
-        const btns = rubricsContainer.querySelectorAll('button');
-        btns.forEach(b => {
-          b.classList.remove('active');
-          b.style.background = 'white';
-          b.style.color = '#475569';
-          b.style.borderColor = '#e2e8f0';
-        });
-        if (btnEl) {
-          btnEl.classList.add('active');
-          btnEl.style.background = '#7e22ce';
-          btnEl.style.color = 'white';
-          btnEl.style.borderColor = '#7e22ce';
-        }
+      <div class="pr-writing-lenses" th:unless="${task.analysisLenses().isEmpty()}">
+        <div class="pr-segmented is-compact" role="tablist" aria-label="Chọn góc phân tích"
+             th:data-result-tabs="${'writing-lenses-' + taskStatus.index}">
+          <button type="button" role="tab"
+                  th:each="lens, lensStatus : ${task.analysisLenses()}"
+                  th:id="${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}"
+                  th:attr="aria-controls=${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index},aria-selected=${lensStatus.first}"
+                  th:classappend="${lensStatus.first ? ' is-active' : ''}"
+                  th:data-result-target="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
+                  th:text="${lens.label()}">Nội dung</button>
+        </div>
 
-        const activeRubricObj = rubrics.find(r => r.id === rubId);
-        let rubricList = Array.isArray(aiData.rubric_scores) ? aiData.rubric_scores : [];
-        let matchedScore = null;
-        let matchedMaxScore = null;
-        let feedbackText = "";
+        <section class="pr-lens-panel"
+                 th:each="lens, lensStatus : ${task.analysisLenses()}"
+                 th:id="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
+                 role="tabpanel"
+                 th:attr="aria-labelledby=${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}"
+                 th:hidden="${!lensStatus.first}">
+          <div class="pr-lens-summary">
+            <span class="pr-band-chip" th:classappend="${' is-' + lens.band().cssClass()}"
+                  th:text="${lens.band().label()}">Tốt</span>
+            <p th:if="${lens.summary() != null}" th:text="${lens.summary()}">Nhận xét</p>
+          </div>
+          <div class="pr-scale" th:attr="aria-label=${lens.band().label()}">
+            <span class="is-limited" th:classappend="${lens.band().name() == 'LIMITED' ? ' is-selected' : ''}"></span>
+            <span class="is-developing" th:classappend="${lens.band().name() == 'DEVELOPING' ? ' is-selected' : ''}"></span>
+            <span class="is-good" th:classappend="${lens.band().name() == 'GOOD' ? ' is-selected' : ''}"></span>
+            <span class="is-very-good" th:classappend="${lens.band().name() == 'VERY_GOOD' ? ' is-selected' : ''}"></span>
+            <span class="is-unavailable" th:classappend="${lens.band().name() == 'UNAVAILABLE' ? ' is-selected' : ''}"></span>
+          </div>
+          <ul class="pr-evidence-list" th:unless="${lens.evidence().isEmpty()}">
+            <li th:each="evidence : ${lens.evidence()}" th:text="${evidence}">Bằng chứng</li>
+          </ul>
+          <p class="pr-score-note" th:unless="${lens.countedSeparately()}">
+            Góc phân tích này dùng chung điểm Ngôn ngữ và Biểu đạt, không cộng thêm vào tổng điểm.
+          </p>
+        </section>
+      </div>
+    </article>
 
-        if (rubricList.length > 0) {
-          let targetIdx = 0;
-          if (rubId === 'structure') targetIdx = 1;
-          else if (rubId === 'language') targetIdx = 2;
-          
-          const matched = rubricList[Math.min(targetIdx, rubricList.length - 1)];
-          if (matched) {
-            matchedScore = matched.score;
-            matchedMaxScore = matched.maxScore || 10;
-            feedbackText = matched.feedback;
-          }
-        }
+    <div class="pr-empty" th:if="${result.payload().tasks().isEmpty()}">
+      Không có nhiệm vụ viết trong immutable snapshot của bài làm.
+    </div>
 
-        const hasStoredFeedback = matchedScore !== null || !!feedbackText;
-
-        if (!feedbackText && false) {
-          if (rubId === 'content') {
-            feedbackText = "Nội dung bài viết cơ bản hoàn thành tốt và đầy đủ các yêu cầu đề ra. Các luận điểm chính được thể hiện rõ nét.";
-          } else if (rubId === 'structure') {
-            feedbackText = "Bố cục logic chặt chẽ, các liên từ chuyển mạch tương đối tự nhiên giúp bài viết mượt mà và dễ hiểu.";
-          } else {
-            feedbackText = "Khả năng vận dụng từ vựng đa dạng. Lưu ý chỉnh sửa một số lỗi chính tả nhỏ và khoảng cách viết (띄어쓰기) để đạt band điểm cao hơn.";
-          }
-        }
-
-        if (!feedbackText) {
-          feedbackText = "Không có nhận xét được lưu cho câu này.";
-        }
-
-        // Update UI elements
-        const scoreVal = document.getElementById('rubric-score-val-' + secId);
-        const scoreScale = document.getElementById('rubric-score-scale-' + secId);
-        const feedbackEl = document.getElementById('rubric-feedback-text-' + secId);
-        
-        const rubricPercent = matchedScore === null || !matchedMaxScore
-          ? null
-          : Math.round((matchedScore / matchedMaxScore) * 100);
-        if (scoreVal) scoreVal.textContent = rubricPercent === null ? "--" : rubricPercent.toFixed(0);
-        if (scoreScale) scoreScale.textContent = rubricPercent === null ? "" : "/ 100";
-        if (feedbackEl) feedbackEl.textContent = feedbackText;
-
-        // Render Sliders
-        const slidersContainer = document.getElementById('pi-metric-sliders-' + secId);
-        if (matchedScore === null) {
-          if (slidersContainer) slidersContainer.innerHTML = "";
-          return;
-        }
-        if (slidersContainer) {
-          const rawPercent = rubricPercent;
-          slidersContainer.innerHTML = activeRubricObj.metrics.map((metric, idx) => {
-            const variation = (idx === 0) ? 2 : (idx === 1 ? -4 : 6);
-            const finalValue = Math.min(100, Math.max(20, rawPercent + variation));
-            return `
-              <div class="pi-slider-group" style="margin-bottom: 12px;">
-                <div class="pi-slider-label" style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #475569; margin-bottom: 4px;">
-                  <span>${metric}</span>
-                  <span style="font-weight: 700;">${finalValue.toFixed(0)}%</span>
-                </div>
-                <div class="pi-slider-track" style="height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
-                  <div class="pi-slider-fill" style="width: ${finalValue}%; height: 100%; background: #7e22ce; border-radius: 99px;"></div>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      };
-
-      // Run initial update for the first rubric 'content'
-      const firstTabBtn = rubricsContainer.querySelector('button');
-      window.switchWritingRubric(sectionId, 'content', firstTabBtn);
-    });
-  </script>
-</div>
+    <div class="pr-actions">
+      <a class="pr-primary-action"
+         th:href="@{/practice/attempts/{id}/result/detail(id=${result.identity().attemptId()})}">
+        Xem bài viết và phản hồi chi tiết
+      </a>
+    </div>
+  </section>
+</th:block>
+</body>
+</html>
