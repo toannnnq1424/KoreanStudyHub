@@ -2,6 +2,7 @@ package com.ksh.exception;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 /**
  * Global exception handler for all Spring MVC controllers.
@@ -48,9 +50,9 @@ public class GlobalExceptionHandler {
      * @param model   the Spring MVC model to populate with the error message
      * @return the logical view name {@code "error"}
      */
-    @ExceptionHandler(EntityNotFoundException.class)
+    @ExceptionHandler({EntityNotFoundException.class, org.springframework.web.servlet.resource.NoResourceFoundException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public String handleNotFound(EntityNotFoundException ex, HttpServletRequest request, Model model) {
+    public String handleNotFound(Exception ex, HttpServletRequest request, Model model) {
         log.info("404 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
         model.addAttribute("message",
                 ex.getMessage() != null ? ex.getMessage() : "Không tìm thấy nội dung yêu cầu.");
@@ -91,6 +93,24 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(ex.getReason() != null ? ex.getReason() : "");
+    }
+
+    @ExceptionHandler(PracticeAttemptConflictException.class)
+    public ResponseEntity<String> handlePracticeAttemptConflict(PracticeAttemptConflictException ex,
+                                                               HttpServletRequest request) {
+        log.info("409 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ex.getMessage() != null ? ex.getMessage() : "");
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientDisconnected(AsyncRequestNotUsableException ex,
+                                         HttpServletRequest request) {
+        // Audio/video elements routinely cancel an obsolete range request when
+        // seeking or replacing a source. The response is already unusable, so
+        // attempting to render an error page only creates a second write error.
+        log.debug("Client disconnected while streaming [{}]: {}",
+                request.getRequestURI(), ex.getMessage());
     }
 
     /**

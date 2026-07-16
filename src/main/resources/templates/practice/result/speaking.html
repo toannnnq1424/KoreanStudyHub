@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="panel(result, speakingMedia, speakingMediaPlaybackEnabled)">
+  <section class="pr-section" aria-labelledby="speaking-overview-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Đánh giá toàn bài</p>
+        <h2 id="speaking-overview-title">Tổng quan phần Nói</h2>
+      </div>
+      <span class="pr-denominator"
+            th:text="${result.payload().coveredSegments() + '/' + result.payload().totalSegments() + ' phần có bằng chứng đánh giá'}">1/1 phần có bằng chứng</span>
+    </div>
+
+    <div class="pr-evidence-notice" th:classappend="${result.payload().evidenceMode() == 'TRANSCRIPT_ONLY' ? ' is-advisory' : ''}">
+      <strong th:text="${result.payload().evidenceMode() == 'TRANSCRIPT_ONLY' ? 'Phạm vi đánh giá giới hạn' : 'Bằng chứng đánh giá'}">Bằng chứng đánh giá</strong>
+      <p th:text="${result.payload().evidenceNote()}">Ghi chú bằng chứng</p>
+    </div>
+
+    <div class="pr-speaking-summary" th:unless="${result.payload().overallSummaries().isEmpty()}">
+      <h3>Nhận xét chung</h3>
+      <p th:each="summary : ${result.payload().overallSummaries()}" th:text="${summary}">Nhận xét</p>
+    </div>
+
+    <div class="pr-speaking-findings"
+         th:if="${!result.payload().strengths().isEmpty() or !result.payload().needsImprovement().isEmpty()}">
+      <section>
+        <h3>Điểm đang làm tốt</h3>
+        <ul>
+          <li th:each="item : ${result.payload().strengths()}" th:text="${item}">Điểm mạnh</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Ưu tiên cải thiện</h3>
+        <ul>
+          <li th:each="item : ${result.payload().needsImprovement()}" th:text="${item}">Điểm cần cải thiện</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="pr-speaking-action-plan" th:unless="${result.payload().actionPlan().isEmpty()}">
+      <h3>Kế hoạch luyện tập tiếp theo</h3>
+      <ol>
+        <li th:each="item : ${result.payload().actionPlan()}">
+          <strong th:text="${item.titleVi() != null ? item.titleVi() : 'Bước luyện tập'}">Bước luyện tập</strong>
+          <p th:if="${item.instructionVi() != null}" th:text="${item.instructionVi()}">Hướng dẫn</p>
+          <small th:if="${item.reasonVi() != null}" th:text="${item.reasonVi()}">Lý do</small>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="pr-section" aria-labelledby="speaking-criteria-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Sáu tiêu chí tiếng Hàn</p>
+        <h2 id="speaking-criteria-title">Hồ sơ năng lực tổng hợp</h2>
+      </div>
+    </div>
+
+    <div class="pr-speaking-criteria">
+      <article class="pr-speaking-criterion" th:each="criterion : ${result.payload().criteria()}">
+        <header>
+          <div>
+            <h3 th:text="${criterion.label()}">Tiêu chí</h3>
+            <span th:text="${criterion.coverageLabel()}">1/1 phần có bằng chứng</span>
+          </div>
+          <div class="pr-rubric-result">
+            <span class="pr-advisory-chip" th:if="${criterion.advisoryOnly()}">Tham khảo</span>
+            <span class="pr-band-chip" th:classappend="${' is-' + criterion.band().cssClass()}"
+                  th:text="${criterion.band().label()}">Tốt</span>
+            <strong th:if="${criterion.score() != null}"
+                    th:text="${criterion.scoreDisplay()}">15/20</strong>
+          </div>
+        </header>
+        <div class="pr-scale" th:attr="aria-label=${criterion.band().label()}">
+          <span class="is-limited" th:classappend="${criterion.band().name() == 'LIMITED' ? ' is-selected' : ''}"></span>
+          <span class="is-developing" th:classappend="${criterion.band().name() == 'DEVELOPING' ? ' is-selected' : ''}"></span>
+          <span class="is-good" th:classappend="${criterion.band().name() == 'GOOD' ? ' is-selected' : ''}"></span>
+          <span class="is-very-good" th:classappend="${criterion.band().name() == 'VERY_GOOD' ? ' is-selected' : ''}"></span>
+          <span class="is-unavailable" th:classappend="${criterion.band().name() == 'UNAVAILABLE' ? ' is-selected' : ''}"></span>
+        </div>
+        <p th:if="${criterion.summary() != null}" th:text="${criterion.summary()}">Nhận xét tiêu chí</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="pr-section" aria-labelledby="speaking-recordings-title"
+           th:if="${speakingMediaPlaybackEnabled and speakingMedia != null and !#lists.isEmpty(speakingMedia)}">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Bản ghi đã nộp</p>
+        <h2 id="speaking-recordings-title">Danh sách phần trả lời</h2>
+      </div>
+    </div>
+    <ol class="pr-recording-list">
+      <li th:each="media, status : ${speakingMedia}">
+        <strong th:text="${'Phần trả lời ' + (status.index + 1)}">Phần trả lời 1</strong>
+        <audio controls preload="metadata" th:src="${media.playbackPath()}"></audio>
+      </li>
+    </ol>
+  </section>
+
+  <div class="pr-actions">
+    <a class="pr-primary-action"
+       th:href="@{/practice/attempts/{id}/result/detail(id=${result.identity().attemptId()})}">
+      Xem transcript và bằng chứng chi tiết
+    </a>
+  </div>
+</th:block>
+</body>
+</html>

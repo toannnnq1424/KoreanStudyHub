@@ -182,13 +182,12 @@ public class ClassDetailController {
      * Handles: {@code /schedule}, {@code /roles}, {@code /groups}, {@code /assignments},
      * {@code /scores}, {@code /materials}.
      *
-     * <p>Note: {@code /lessons} and {@code /assignments} are intentionally NOT mapped here —
-     * they are owned by {@code SectionsController} and {@code LecturerAssignmentController}
-     * respectively. Adding both mappings would raise
-     * {@code IllegalStateException: Ambiguous mapping} at startup.
+     * <p>Note: {@code /lessons} is intentionally not mapped here because it is
+     * owned by the lessons feature controllers.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
                 "/classes/{id}/groups",
+                "/classes/{id}/assignments",
                 "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,

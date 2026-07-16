@@ -18,15 +18,22 @@ import java.util.Map;
 public class CustomOidcUserPrincipal implements OidcUser {
 
     private final OidcUser delegate;
+    private final Long id;
     private final String fullName;
     private final String username;
     private final Collection<GrantedAuthority> authorities;
 
     public CustomOidcUserPrincipal(OidcUser delegate, User user) {
         this.delegate = delegate;
+        this.id = user.getId();
         this.fullName = user.getFullName();
         this.username = user.getEmail();
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
+    }
+
+    /** Returns the local ksh user id resolved during OIDC authentication. */
+    public Long getId() {
+        return id;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */
@@ -45,7 +52,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         return username;
     }
 
-    // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // OidcUser delegation
 
     @Override public Map<String, Object> getClaims() { return delegate.getClaims(); }
     @Override public OidcUserInfo getUserInfo() { return delegate.getUserInfo(); }

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kết quả luyện tập | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result.css}">
+</head>
+<body class="practice-result-page">
+<div class="pr-shell">
+  <header class="pr-topbar">
+    <a class="pr-back-link"
+       th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
+      <span aria-hidden="true">&larr;</span>
+      Quay lại bài luyện
+    </a>
+    <strong>Kết quả luyện tập</strong>
+    <span class="pr-state" th:text="${result.state().label()}">Đã chấm</span>
+  </header>
+
+  <main class="pr-main">
+    <section class="pr-summary" aria-labelledby="result-title">
+      <div class="pr-summary-copy">
+        <p class="pr-eyebrow"
+           th:text="${result.celebratory() ? 'Kết quả nổi bật' : 'Kết quả bài luyện'}">Kết quả bài luyện</p>
+        <h1 id="result-title" th:text="${result.identity().setTitle()}">Bộ đề luyện tập</h1>
+        <p class="pr-context">
+          <span th:text="${result.identity().testTitle()}">Test 1</span>
+          <span aria-hidden="true">/</span>
+          <span th:text="${result.identity().sectionTitle()}">Phần Đọc</span>
+        </p>
+
+        <div class="pr-score-line" th:if="${result.score().available()}">
+          <strong th:text="${result.score().primaryDisplay()}">80</strong>
+          <span th:if="${result.score().unit() == 'PERCENTAGE'}">%</span>
+          <small th:text="${result.score().scaleLabel()}">Thang 100</small>
+        </div>
+        <div class="pr-score-unavailable" th:unless="${result.score().available()}">
+          Chưa có điểm số khả dụng
+        </div>
+
+        <dl class="pr-summary-meta">
+          <div>
+            <dt>Kỹ năng</dt>
+            <dd th:text="${result.identity().skillLabel()}">Đọc</dd>
+          </div>
+          <div th:if="${result.score().pointsDisplay() != null}">
+            <dt>Điểm thành phần</dt>
+            <dd th:text="${result.score().pointsDisplay()}">8/10</dd>
+          </div>
+          <div th:if="${result.elapsedSeconds() != null}">
+            <dt>Thời gian làm bài</dt>
+            <dd th:text="${result.elapsedDisplay()}">12 phút</dd>
+          </div>
+          <div>
+            <dt>Phản hồi</dt>
+            <dd th:text="${result.feedback().label()}">Đã sẵn sàng</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="pr-skill-mark" th:classappend="${' is-' + #strings.toLowerCase(result.identity().skill())}">
+        <span th:text="${result.identity().skillLabel()}">Đọc</span>
+        <small th:text="${result.state().label()}">Đã nộp</small>
+      </div>
+    </section>
+
+    <th:block th:switch="${result.payload().kind()}">
+      <th:block th:case="'OBJECTIVE'">
+        <th:block th:replace="~{practice/result/objective :: panel(result=${result})}"></th:block>
+      </th:block>
+      <th:block th:case="'WRITING'">
+        <th:block th:replace="~{practice/result/writing :: panel(result=${result})}"></th:block>
+      </th:block>
+      <th:block th:case="'SPEAKING'">
+        <th:block th:replace="~{practice/result/speaking :: panel(result=${result}, speakingMedia=${speakingMedia}, speakingMediaPlaybackEnabled=${speakingMediaPlaybackEnabled})}"></th:block>
+      </th:block>
+    </th:block>
+  </main>
+</div>
+
+<script th:src="@{/js/practice-result.js}"></script>
+</body>
+</html>

@@ -161,7 +161,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts ASCENDING by role
-     * priority: ADMIN (1) â†’ HEAD (2) â†’ LECTURER (3) â†’ STUDENT (4), then by
+     * priority: ADMIN (1) -> HEAD (2) -> LECTURER (3) -> STUDENT (4), then by
      * {@code created_at} DESC as tie-breaker. Pageable's own sort is ignored
      * for ordering purposes because Spring Data does not bind ORDER BY
      * direction or expressions as parameters.
@@ -212,7 +212,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts DESCENDING by role
-     * priority: STUDENT â†’ LECTURER â†’ HEAD â†’ ADMIN, then by {@code created_at}
+     * priority: STUDENT -> LECTURER -> HEAD -> ADMIN, then by {@code created_at}
      * DESC as tie-breaker. See {@link #searchUsersForAdminByRolePriorityAsc}.
      */
     @Query(value = "SELECT u.id AS id, " +

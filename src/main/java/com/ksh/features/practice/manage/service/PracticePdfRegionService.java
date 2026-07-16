@@ -1,0 +1,196 @@
+package com.ksh.features.practice.manage.service;
+
+import com.ksh.entities.LecturerAsset;
+import com.ksh.entities.PracticePdfImportSession;
+import com.ksh.entities.PracticePdfRegionAnnotation;
+import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
+import com.ksh.features.practice.repository.PracticePdfRegionAnnotationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+public class PracticePdfRegionService {
+
+    private static final Logger log = LoggerFactory.getLogger(PracticePdfRegionService.class);
+
+    private final PracticePdfRegionAnnotationRepository annotationRepository;
+    private final PracticePdfImportSessionRepository sessionRepository;
+    private final PracticePdfCropService cropService;
+    private final LecturerAssetService assetService;
+
+    public PracticePdfRegionService(PracticePdfRegionAnnotationRepository annotationRepository,
+                                     PracticePdfImportSessionRepository sessionRepository,
+                                     PracticePdfCropService cropService,
+                                     LecturerAssetService assetService) {
+        this.annotationRepository = annotationRepository;
+        this.sessionRepository = sessionRepository;
+        this.cropService = cropService;
+        this.assetService = assetService;
+    }
+
+    public List<PracticePdfRegionAnnotation> getAnnotations(Long sessionId, Long userId) {
+        requireOwnedSession(sessionId, userId);
+        return annotationRepository.findBySessionIdOrderByPageNumberAscDisplayOrderAsc(sessionId);
+    }
+
+    public PracticePdfRegionAnnotation getAnnotation(Long sessionId, Long annotationId, Long userId) {
+        requireOwnedSession(sessionId, userId);
+        return requireSessionAnnotation(sessionId, annotationId);
+    }
+
+    @Transactional
+    public PracticePdfRegionAnnotation createAnnotation(Long sessionId, PracticePdfRegionAnnotation annotation, Long userId) {
+        PracticePdfImportSession session = requireOwnedSession(sessionId, userId);
+
+        annotation.setSessionId(sessionId);
+        annotation.setCreatedAt(LocalDateTime.now());
+        annotation.setUpdatedAt(LocalDateTime.now());
+        normalizeAiFlags(annotation);
+
+        PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
+
+        // Auto crop if image enabled
+        triggerAutoCropIfNecessary(session, saved, userId);
+
+        return saved;
+    }
+
+    @Transactional
+    public PracticePdfRegionAnnotation updateAnnotation(Long sessionId, Long annotationId, PracticePdfRegionAnnotation update, Long userId) {
+        PracticePdfImportSession session = requireOwnedSession(sessionId, userId);
+        PracticePdfRegionAnnotation annotation = requireSessionAnnotation(sessionId, annotationId);
+
+        annotation.setRegionType(update.getRegionType());
+        annotation.setxRatio(update.getxRatio());
+        annotation.setyRatio(update.getyRatio());
+        annotation.setWidthRatio(update.getWidthRatio());
+        annotation.setHeightRatio(update.getHeightRatio());
+        annotation.setDisplayOrder(update.getDisplayOrder());
+        annotation.setSectionTempId(update.getSectionTempId());
+        annotation.setGroupTempId(update.getGroupTempId());
+        annotation.setExpectedQuestionType(update.getExpectedQuestionType());
+        annotation.setExpectedQuestionFrom(update.getExpectedQuestionFrom());
+        annotation.setExpectedQuestionTo(update.getExpectedQuestionTo());
+        annotation.setTargetQuestionNo(update.getTargetQuestionNo());
+        annotation.setOptionIndex(update.getOptionIndex());
+        annotation.setAssetPlacement(update.getAssetPlacement());
+        annotation.setIncludeInAi(update.getIncludeInAi());
+        annotation.setIncludeTextInAi(update.getIncludeTextInAi());
+        annotation.setIncludeImageInAi(update.getIncludeImageInAi());
+        annotation.setSaveToAssetLibrary(update.getSaveToAssetLibrary());
+        annotation.setLecturerNote(update.getLecturerNote());
+        annotation.setUpdatedAt(LocalDateTime.now());
+        normalizeAiFlags(annotation);
+
+        PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
+
+        // Auto crop if image enabled
+        triggerAutoCropIfNecessary(session, saved, userId);
+
+        return saved;
+    }
+
+    @Transactional
+    public void deleteAnnotation(Long sessionId, Long annotationId, Long userId) {
+        requireOwnedSession(sessionId, userId);
+        PracticePdfRegionAnnotation annotation = requireSessionAnnotation(sessionId, annotationId);
+
+        // Delete associated asset if it is TEMPORARY
+        List<LecturerAsset> sessionAssets = assetService.getSessionAssets(sessionId, userId);
+        sessionAssets.stream()
+                .filter(a -> annotationId.equals(a.getSourceRegionId()) && "TEMPORARY".equalsIgnoreCase(a.getStatus()))
+                .forEach(a -> {
+                    try {
+                        assetService.deleteAsset(a.getId(), userId);
+                    } catch (Exception e) {
+                        log.warn("[PdfRegionService] Failed to delete asset={}", a.getId(), e);
+                    }
+                });
+
+        annotationRepository.delete(annotation);
+    }
+
+    private PracticePdfImportSession requireOwnedSession(Long sessionId, Long userId) {
+        PracticePdfImportSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
+        if (!session.getUploaderId().equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền quản lý session này.");
+        }
+        return session;
+    }
+
+    private PracticePdfRegionAnnotation requireSessionAnnotation(Long sessionId, Long annotationId) {
+        return annotationRepository.findByIdAndSessionId(annotationId, sessionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Không tìm thấy annotation trong session."));
+    }
+
+    private void triggerAutoCropIfNecessary(PracticePdfImportSession session, PracticePdfRegionAnnotation ann, Long userId) {
+        boolean includeImage = !Boolean.FALSE.equals(ann.getIncludeImageInAi());
+        if (includeImage && !"IGNORE".equalsIgnoreCase(ann.getRegionType())) {
+            try {
+                List<LecturerAsset> existing = assetService.getSessionAssets(session.getId(), userId);
+                retireObsoleteTemporaryCrops(existing, ann, userId);
+                LecturerAsset current = PracticePdfRegionAssetSelector.findCurrent(existing, ann)
+                        .orElse(null);
+
+                if (current == null) {
+                    LecturerAsset asset = cropService.cropRegion(
+                            session.getStoredPdfPath(),
+                            ann.getPageNumber(),
+                            ann.getxRatio(),
+                            ann.getyRatio(),
+                            ann.getWidthRatio(),
+                            ann.getHeightRatio(),
+                            "WITH_PADDING",
+                            16,
+                            userId,
+                            session.getId(),
+                            ann.getId()
+                    );
+
+                    // If marked for library save, promote immediately
+                    if (Boolean.TRUE.equals(ann.getSaveToAssetLibrary())) {
+                        assetService.promoteToActiveLibrary(asset.getId(), userId);
+                    }
+                } else if (Boolean.TRUE.equals(ann.getSaveToAssetLibrary())) {
+                    assetService.promoteToActiveLibrary(current.getId(), userId);
+                }
+            } catch (Exception e) {
+                log.error("[PdfRegionService] Failed to auto crop regionId={}", ann.getId(), e);
+            }
+        }
+    }
+
+    private void retireObsoleteTemporaryCrops(
+            List<LecturerAsset> existing,
+            PracticePdfRegionAnnotation annotation,
+            Long userId) {
+        existing.stream()
+                .filter(asset -> PracticePdfRegionAssetSelector.belongsToRegion(
+                        asset, annotation.getId()))
+                .filter(PracticePdfRegionAssetSelector::isTemporary)
+                .filter(asset -> !PracticePdfRegionAssetSelector.matchesCrop(asset, annotation))
+                .forEach(asset -> {
+                    try {
+                        assetService.deleteAsset(asset.getId(), userId);
+                    } catch (RuntimeException exception) {
+                        log.warn("[PdfRegionService] Failed to retire stale crop assetId={}",
+                                asset.getId(), exception);
+                    }
+                });
+    }
+
+    private static void normalizeAiFlags(PracticePdfRegionAnnotation annotation) {
+        annotation.setIncludeInAi(!Boolean.FALSE.equals(annotation.getIncludeInAi()));
+        annotation.setIncludeTextInAi(!Boolean.FALSE.equals(annotation.getIncludeTextInAi()));
+        annotation.setIncludeImageInAi(!Boolean.FALSE.equals(annotation.getIncludeImageInAi()));
+        annotation.setSaveToAssetLibrary(Boolean.TRUE.equals(annotation.getSaveToAssetLibrary()));
+    }
+}

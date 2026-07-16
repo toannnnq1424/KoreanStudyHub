@@ -1,0 +1,172 @@
+.writing-section-band {
+  background: #f1f2f4;
+}
+
+.writing-workspace {
+  display: grid;
+  grid-template-columns: var(--exam-source-width) 18px minmax(0, 1fr);
+  height: calc(100dvh - 196px);
+  min-height: 420px;
+  background: #fff;
+}
+
+.writing-source-pane,
+.writing-answer-pane {
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.writing-source-pane {
+  padding: 24px 28px 52px;
+  border-right: 1px solid var(--exam-line);
+}
+
+.writing-answer-pane {
+  padding: 24px 28px 52px;
+}
+
+.writing-divider {
+  margin-left: -9px;
+}
+
+.writing-task-label {
+  margin-bottom: 20px;
+  padding: 13px 16px;
+  border-radius: 8px;
+  background: #eef1f5;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.writing-instruction,
+.writing-passage,
+.writing-prompt-block p {
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.writing-instruction {
+  color: var(--exam-muted);
+}
+
+.writing-prompt-block {
+  padding: 18px 0;
+  border-top: 1px solid var(--exam-line);
+}
+
+.writing-prompt-block p {
+  margin: 0 0 16px;
+  color: var(--exam-ink);
+  font-weight: 750;
+}
+
+.writing-source-figure,
+.writing-prompt-block figure {
+  margin: 18px 0;
+}
+
+.writing-source-figure img,
+.writing-prompt-block figure img {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.writing-answer-block {
+  min-height: calc(100dvh - 270px);
+  padding-top: 0;
+}
+
+.writing-answer-heading {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.writing-answer-heading span {
+  color: var(--exam-blue);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.writing-answer-heading h2 {
+  margin: 3px 0 0;
+  font-size: 16px;
+}
+
+.writing-editor,
+.writing-short-answer {
+  position: relative;
+  min-height: calc(100dvh - 330px);
+}
+
+.writing-editor textarea,
+.writing-short-answer textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(100dvh - 330px);
+  padding: 16px 16px 44px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: var(--exam-ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.75;
+  resize: none;
+}
+
+.writing-editor textarea:focus,
+.writing-short-answer textarea:focus {
+  border-color: var(--exam-blue);
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, .1);
+}
+
+.writing-editor > span,
+.writing-short-answer > span {
+  position: absolute;
+  right: 14px;
+  bottom: 13px;
+  color: var(--exam-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .writing-workspace {
+    display: block;
+    height: auto;
+    min-height: calc(100dvh - 196px);
+  }
+
+  .writing-source-pane,
+  .writing-answer-pane {
+    height: auto;
+    overflow: visible;
+  }
+
+  .writing-source-pane {
+    max-height: 42dvh;
+    padding: 18px 16px 24px;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--exam-line);
+  }
+
+  .writing-answer-pane {
+    padding: 18px 16px 48px;
+  }
+
+  .writing-answer-block,
+  .writing-editor,
+  .writing-short-answer,
+  .writing-editor textarea,
+  .writing-short-answer textarea {
+    min-height: 52dvh;
+  }
+}

@@ -244,4 +244,3 @@ public class StudentLessonDetailService {
         return filename.substring(dot + 1).toLowerCase(Locale.ROOT);
     }
 }
-

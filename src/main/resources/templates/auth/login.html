@@ -4,18 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Đăng nhập vào tài khoản của bạn | ksh — University Learning Platform</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- iziToast: shared toast notifications (consistent with admin/class pages) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast@1.4.0/dist/css/iziToast.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/izitoast@1.4.0/dist/js/iziToast.min.js"></script>
+  <link rel="stylesheet" th:href="@{/css/main.css}">
   <style>
     :root{
       --primary:#1E88E5; --primary-dark:#1565C0; --fg:#202227; --heading:#22313F;
       --muted:#6B7280; --border:#D8DCF0; --bg:#FFFFFF; --surface-hover:rgba(32,34,39,0.04);
       --danger:#D32F2F; --danger-soft:#FDECEA; --success:#2BB673; --success-soft:#E6F7EF;
-      --radius:6px; --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+      --radius:6px; --font:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
     }
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%}
@@ -155,8 +150,7 @@
             <!-- Flash data → toast (consumed by inline script at bottom of page).
                  Messages are resolved server-side in AuthController so the
                  template never touches param.* (Thymeleaf 3.1 restricts that
-                 in th:attr). Convention: all notifications use iziToast
-                 (see CLAUDE.md mục 9). -->
+                 in th:attr). -->
             <div id="flash-data" hidden
                  th:if="${flashError != null or flashSuccess != null}"
                  th:attr="data-flash-error=${flashError},data-flash-success=${flashSuccess}"></div>

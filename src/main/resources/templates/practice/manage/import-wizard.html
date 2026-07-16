@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Nhập đề thi từ PDF | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+
+  <!-- ═══ LEFT SIDEBAR ═══ -->
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('manage')}"></aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="pi-main-wrapper" style="background: #F6F8FC; min-height: calc(100vh - 60px); padding: 32px;">
+    <div class="pp-content-container" style="max-width: 1200px; margin: 0 auto;">
+      
+      <!-- CSRF tokens for AJAX -->
+      <meta name="_csrf" th:content="${_csrf.token}"/>
+      <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+      <!-- Header Section -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+        <div>
+          <span style="font-size:0.75rem; font-weight:700; color:#687389; text-transform:uppercase; letter-spacing:0.05em;">Lecturer Workspace</span>
+          <h1 style="font-size:1.8rem; font-weight:800; color:#172033; margin:4px 0 0 0;">Nhập đề thi từ PDF</h1>
+          <p style="font-size:0.88rem; color:#687389; margin:4px 0 0 0;">Chọn nơi cần nhập, kiểm tra các trang PDF rồi để AI tạo bản nháp cho giáo viên duyệt.</p>
+        </div>
+        <div>
+          <a class="pi-btn-secondary" th:href="@{/practice/manage/create}" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #E5EAF2; padding:10px 20px; border-radius:12px; font-weight:600; text-decoration:none; color:#172033; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Tạo đề thủ công
+          </a>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 7fr 5fr; gap: 32px;">
+        
+        <!-- Cột trái: Form Upload & Cấu hình -->
+        <div style="background: #ffffff; border: 1px solid #E5EAF2; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+          <h2 style="font-size:1.2rem; font-weight:700; color:#172033; margin:0 0 24px 0; border-bottom: 1px solid #E5EAF2; padding-bottom:12px;">Thông tin tài liệu</h2>
+
+          <form id="import-upload-form" onsubmit="handleImportSubmit(event)">
+            
+            <div style="margin-bottom:20px; padding:14px; border:1px solid #D8E0EE; border-radius:8px; background:#F8FAFD;">
+              <div style="font-size:0.8rem; font-weight:700; color:#475467; text-transform:uppercase; margin-bottom:10px;">Nơi nhận nội dung</div>
+              <div th:if="${pdfImportContext != null}">
+                <label for="target-section" style="display:block; font-size:0.82rem; font-weight:600; color:#344054; margin-bottom:7px;">Test và phần kỹ năng</label>
+                <select id="target-section" class="form-select" onchange="updateDestinationSummary()"
+                        style="width:100%; padding:12px; border-radius:8px; border:1px solid #D8E0EE; background:#fff; box-sizing:border-box;">
+                  <option th:each="section : ${pdfImportContext.sections}"
+                          th:value="|${section.testNo}|"
+                          th:attr="data-test-no=${section.testNo},data-skill=${section.skill},data-lesson-code=${section.lessonCode},data-title=${section.title}"
+                          th:selected="${section.testNo == pdfImportContext.selected.testNo && section.lessonCode == pdfImportContext.selected.lessonCode}"
+                          th:text="|Test ${section.testNo} · ${section.lessonCode} · ${section.title}|">Test 1 · R1 · Phần Đọc</option>
+                </select>
+              </div>
+              <div th:unless="${pdfImportContext != null}" style="display:grid; grid-template-columns:120px 1fr; gap:12px;">
+                <div>
+                  <label for="target-test-no" style="display:block; font-size:0.82rem; font-weight:600; color:#344054; margin-bottom:7px;">Test</label>
+                  <input id="target-test-no" type="number" value="1" min="1" class="form-select" oninput="updateDestinationSummary()"
+                         style="width:100%; padding:12px; border-radius:8px; border:1px solid #D8E0EE; background:#fff; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label for="target-skill" style="display:block; font-size:0.82rem; font-weight:600; color:#344054; margin-bottom:7px;">Phần kỹ năng</label>
+                  <select id="target-skill" class="form-select" onchange="updateDestinationSummary()"
+                          style="width:100%; padding:12px; border-radius:8px; border:1px solid #D8E0EE; background:#fff; box-sizing:border-box;"></select>
+                </div>
+              </div>
+              <div id="destination-summary" style="margin-top:10px; color:#3559DC; font-size:0.82rem; font-weight:600;">Nội dung sẽ được đưa vào phần đã chọn để giáo viên duyệt trước khi xuất bản.</div>
+            </div>
+
+            <!-- Title input -->
+            <div style="margin-bottom: 20px;">
+              <label for="title" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Tên bản nháp đề thi</label>
+              <input type="text" id="title" name="title" placeholder="Ví dụ: Bài luyện tập cuối tuần" style="width:100%; padding:12px; border-radius:8px; border:1px solid #E5EAF2; background:#F8FAFD; box-sizing:border-box; font-size:0.9rem;" required>
+            </div>
+
+            <!-- Page range constraints -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+              <div>
+                <label for="startPage" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Trang bắt đầu</label>
+                <input type="number" id="startPage" name="startPage" value="1" min="1" style="width:100%; padding:12px; border-radius:8px; border:1px solid #E5EAF2; background:#F8FAFD; box-sizing:border-box; font-size:0.9rem;" required>
+              </div>
+              <div>
+                <label for="endPage" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Trang kết thúc</label>
+                <input type="number" id="endPage" name="endPage" placeholder="Tự động" min="1" style="width:100%; padding:12px; border-radius:8px; border:1px solid #E5EAF2; background:#F8FAFD; box-sizing:border-box; font-size:0.9rem;">
+              </div>
+            </div>
+
+            <!-- Linked manual draft if present -->
+            <div th:if="${draftId != null}" style="margin-bottom: 20px; padding: 12px; background: rgba(79,110,247,0.06); border: 1px solid rgba(79,110,247,0.15); border-radius: 8px; display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F6EF7" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <div style="font-size:0.8rem; color:#172033;">
+                Đang liên kết với Bản biên soạn thủ công: <strong>ID <span th:text="${draftId}">123</span></strong>
+                <input type="hidden" name="linkedDraftId" id="linkedDraftId" th:value="${draftId}">
+              </div>
+            </div>
+            
+            <div th:unless="${draftId != null}">
+              <input type="hidden" name="linkedDraftId" id="linkedDraftId" value="">
+            </div>
+
+            <!-- Upload PDF file Area -->
+            <div style="margin-bottom: 32px;">
+              <label style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Tải tệp PDF đề thi lên</label>
+              <div id="dropzone" style="border: 2px dashed #4F6EF7; padding: 40px; border-radius: 12px; background: rgba(79,110,247,0.01); cursor: pointer; text-align:center; transition: all 0.2s;" onclick="document.getElementById('file-input').click()">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4F6EF7" stroke-width="2" style="margin-bottom:12px; opacity:0.8;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:0.9rem; font-weight:700; color:#172033; margin-bottom:4px;" id="dropzone-text">Chọn tệp PDF hoặc kéo thả tại đây</div>
+                <div style="font-size:0.75rem; color:#687389;">Dung lượng tối đa: 20MB. Chỉ hỗ trợ định dạng PDF.</div>
+                <input type="file" id="file-input" name="file" accept="application/pdf" style="display:none;" onchange="handleFileSelect(event)">
+              </div>
+            </div>
+
+            <button type="submit" id="submit-btn" style="width: 100%; background: #4F6EF7; color: #fff; padding: 14px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: background 0.2s; display:flex; align-items:center; justify-content:center; gap:8px;">
+              <span>Bắt đầu kiểm tra PDF</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </form>
+
+        </div>
+
+        <!-- Cột phải: Hướng dẫn quy trình & Bản nháp import gần đây -->
+        <div>
+          
+          <!-- Hướng dẫn quy trình -->
+          <div style="background: #ffffff; border: 1px solid #E5EAF2; border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            <h3 style="font-size:0.95rem; font-weight:700; color:#172033; margin:0 0 16px 0; display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22A06B" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Các bước thực hiện
+            </h3>
+            <ol style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: #687389; display: flex; flex-direction: column; gap: 8px;">
+              <li><strong>Chọn đích nhập:</strong> Xác định Test và phần Đọc, Nghe, Viết hoặc Nói sẽ nhận nội dung.</li>
+              <li><strong>Chọn trang:</strong> Chỉ giữ các trang có nội dung cần tạo câu hỏi.</li>
+              <li><strong>Kiểm tra tài liệu:</strong> Có thể để AI đọc trang hoặc khoanh nội dung cụ thể khi cần.</li>
+              <li><strong>Duyệt bản nháp:</strong> Kiểm tra số câu, đáp án, tài nguyên và cách hiển thị.</li>
+              <li><strong>Hoàn thiện:</strong> Quay lại màn biên soạn để sửa trước khi xuất bản.</li>
+            </ol>
+          </div>
+
+          <!-- Lịch sử import drafts gần đây -->
+          <div style="background: #ffffff; border: 1px solid #E5EAF2; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            <h3 style="font-size:0.95rem; font-weight:700; color:#172033; margin:0 0 16px 0; border-bottom: 1px solid #E5EAF2; padding-bottom:8px;">Bản nháp PDF gần đây</h3>
+            
+            <div th:if="${#lists.isEmpty(recentSessions)}" style="text-align:center; padding:32px 0; color:#687389; font-size:0.85rem;">
+              Chưa có phiên làm việc PDF nào gần đây.
+            </div>
+
+            <div th:unless="${#lists.isEmpty(recentSessions)}" style="display:flex; flex-direction:column; gap:12px;">
+              <div th:each="s : ${recentSessions}" style="border: 1px solid #E5EAF2; border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; background: #F8FAFD; transition: border-color 0.2s;">
+                <div style="max-width:70%;">
+                  <div style="font-weight:700; font-size:0.85rem; color:#172033; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" th:text="${s.title != null ? s.title : s.originalFilename}">Đề thi thử</div>
+                  <div style="font-size:0.75rem; color:#687389; margin-top:2px;">
+                    Cập nhật: <span th:text="${#temporals.format(s.updatedAt, 'HH:mm dd/MM')}">12:00</span>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                  <span style="font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;" 
+                        th:styleappend="${s.status == 'UPLOADED' ? 'background:rgba(79,110,247,0.1); color:#4F6EF7;' : (s.status == 'ANNOTATING' ? 'background:rgba(217,144,0,0.1); color:#D99000;' : (s.status == 'AI_COMPLETED' || s.status == 'REVIEWING' ? 'background:rgba(34,160,107,0.1); color:#22A06B;' : 'background:#e2e8f0; color:#475569;'))}">
+                    <th:block th:switch="${s.status}">
+                      <span th:case="'UPLOADED'">Đã tải PDF</span>
+                      <span th:case="'ANNOTATING'">Đang đánh dấu</span>
+                      <span th:case="'READY_FOR_AI'">Sẵn sàng</span>
+                      <span th:case="'PROCESSING'">Đang phân tích</span>
+                      <span th:case="'AI_COMPLETED'">Nháp AI hoàn tất</span>
+                      <span th:case="'REVIEWING'">Đang kiểm tra</span>
+                      <span th:case="'MERGED_TO_MANUAL_DRAFT'">Đã ghép manual</span>
+                      <span th:case="*" th:text="${s.status}">UPLOADED</span>
+                    </th:block>
+                  </span>
+                  
+                  <a th:href="@{/practice/manage/import-sessions/{id}/workspace(id=${s.id})}" style="font-size:0.8rem; font-weight:700; color:#4F6EF7; text-decoration:none;">Tiếp tục →</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Full Screen Loading Spinner Overlay -->
+<div class="spinner-overlay" id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif;">
+  <div style="width: 48px; height: 48px; border: 4px solid rgba(79,110,247,0.1); border-top-color: #4F6EF7; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
+  <h3 style="margin:0 0 6px 0; color:#172033; font-weight:700;">Đang khởi tạo PDF Import Workspace...</h3>
+  <p style="margin:0; font-size:0.82rem; color:#687389;">Hệ thống đang tải lên tệp tin và bóc tách cấu trúc trang PDF.</p>
+</div>
+
+<style>
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<script th:inline="javascript">
+  const LINKED_IMPORT_CONTEXT = /*[[${pdfImportContext}]]*/ null;
+  let selectedFile = null;
+
+  function skillLabel(skill) {
+    return { READING: 'Phần Đọc', LISTENING: 'Phần Nghe', WRITING: 'Phần Viết', SPEAKING: 'Phần Nói' }[skill] || skill;
+  }
+
+  function lessonCode(skill, testNo) {
+    const prefix = { READING: 'R', LISTENING: 'L', WRITING: 'W', SPEAKING: 'S' }[skill] || 'R';
+    return `${prefix}${testNo}`;
+  }
+
+  function selectedTarget() {
+    const linked = document.getElementById('target-section');
+    if (linked) {
+      const option = linked.selectedOptions[0];
+      return {
+        testNo: Number(option?.dataset.testNo || 1),
+        skill: option?.dataset.skill || 'READING',
+        lessonCode: option?.dataset.lessonCode || 'R1',
+        title: option?.dataset.title || 'Phần Đọc'
+      };
+    }
+    const testNo = Math.max(1, Number(document.getElementById('target-test-no')?.value || 1));
+    const skill = document.getElementById('target-skill')?.value || 'READING';
+    return { testNo, skill, lessonCode: lessonCode(skill, testNo), title: skillLabel(skill) };
+  }
+
+  function updateDestinationSummary() {
+    const target = selectedTarget();
+    document.getElementById('destination-summary').textContent =
+      `Sẽ nhập vào Test ${target.testNo} · ${target.lessonCode} · ${target.title}. Số câu trên PDF được giữ làm dấu vết; số hiển thị sẽ được sắp lại trong phần này.`;
+  }
+
+  function updateStandaloneSkills() {
+    const skillSelect = document.getElementById('target-skill');
+    if (!skillSelect) return;
+    const previous = skillSelect.value;
+    const options = ['READING', 'LISTENING', 'WRITING', 'SPEAKING'].map(skill => {
+      const option = document.createElement('option');
+      option.value = skill;
+      option.textContent = skillLabel(skill);
+      return option;
+    });
+    skillSelect.replaceChildren(...options);
+    if (options.some(option => option.value === previous)) skillSelect.value = previous;
+    updateDestinationSummary();
+  }
+
+  updateStandaloneSkills();
+  updateDestinationSummary();
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+      selectedFile = file;
+      document.getElementById('dropzone-text').innerText = file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)';
+      
+      // Auto fill title if empty
+      const titleInput = document.getElementById('title');
+      if (!titleInput.value) {
+        titleInput.value = file.name.replace(/\.pdf$/i, '');
+      }
+    }
+  }
+
+  // Handle drag over
+  const dropzone = document.getElementById('dropzone');
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.background = 'rgba(79,110,247,0.06)';
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.background = 'rgba(79,110,247,0.01)';
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.background = 'rgba(79,110,247,0.01)';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      selectedFile = file;
+      document.getElementById('file-input').files = e.dataTransfer.files;
+      document.getElementById('dropzone-text').innerText = file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)';
+      
+      const titleInput = document.getElementById('title');
+      if (!titleInput.value) {
+        titleInput.value = file.name.replace(/\.pdf$/i, '');
+      }
+    } else {
+      alert("Chỉ hỗ trợ kéo thả tệp tin PDF.");
+    }
+  });
+
+  async function handleImportSubmit(e) {
+    e.preventDefault();
+    
+    if (!selectedFile) {
+      alert("Vui lòng tải lên tệp PDF đề thi.");
+      return;
+    }
+
+    const form = document.getElementById('import-upload-form');
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("title", document.getElementById('title').value);
+    
+    const target = selectedTarget();
+    formData.append("targetTestNo", String(target.testNo));
+    formData.append("targetSkill", target.skill);
+    formData.append("targetLessonCode", target.lessonCode);
+
+    const linkedDraftId = document.getElementById('linkedDraftId').value;
+    if (linkedDraftId) {
+      formData.append("linkedDraftId", linkedDraftId);
+    }
+
+    // Show Loading
+    document.getElementById('loading-overlay').style.display = 'flex';
+
+    // Retrieve CSRF
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    try {
+      const response = await fetch('/practice/manage/import-sessions', {
+        method: 'POST',
+        headers: {
+          [header]: token
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || "Lỗi tạo session upload.");
+      }
+
+      const session = await response.json();
+      
+      // Update page range immediately if specified
+      const startPage = parseInt(document.getElementById('startPage').value) || 1;
+      const endPage = parseInt(document.getElementById('endPage').value) || session.totalPages;
+      
+      const rangeResponse = await fetch(`/practice/manage/import-sessions/${session.id}/page-range`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          [header]: token
+        },
+        body: JSON.stringify({ startPage: startPage, endPage: endPage, extractionMode: 'FULL_SELECTED_PAGES' })
+      });
+
+      // Redirect to Workspace
+      window.location.href = `/practice/manage/import-sessions/${session.id}/workspace`;
+    } catch (err) {
+      alert("Lỗi: " + err.message);
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>

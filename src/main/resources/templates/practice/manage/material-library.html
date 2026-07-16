@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kho tài nguyên | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-material-library.css}">
+</head>
+<body class="pi-body">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('materials')}"></aside>
+
+  <main class="pi-main-wrapper">
+    <div class="pm-shell">
+      <div th:if="${success}" class="pm-message" th:text="${success}"></div>
+      <div th:if="${error}" class="pm-message error" th:text="${error}"></div>
+
+      <header class="pm-header">
+        <div>
+          <p class="pm-eyebrow">Học liệu và media</p>
+          <h1>Kho tài nguyên</h1>
+          <p>Ảnh, audio và tệp dùng trong bản nháp hoặc phiên bản đã xuất bản.</p>
+        </div>
+        <div class="pm-summary">
+          <span><strong th:text="${#lists.size(catalog.mine)}">0</strong> của tôi</span>
+          <span><strong th:text="${#lists.size(catalog.shared)}">0</strong> được chia sẻ</span>
+          <span th:text="'Giới hạn ' + ${catalog.limit} + ' mục mỗi phạm vi'">Giới hạn 100 mục</span>
+        </div>
+      </header>
+
+      <section class="pm-section" aria-labelledby="mine-heading">
+        <div class="pm-section-heading">
+          <div>
+            <h2 id="mine-heading">Của tôi</h2>
+            <p>Tài nguyên do tài khoản hiện tại sở hữu.</p>
+          </div>
+          <span th:text="${#lists.size(catalog.mine)} + ' mục'">0 mục</span>
+        </div>
+        <div th:if="${#lists.isEmpty(catalog.mine)}" class="pm-empty">
+          Chưa có tài nguyên nào trong kho cá nhân.
+        </div>
+        <div th:unless="${#lists.isEmpty(catalog.mine)}" class="pm-table-wrap">
+          <table class="pm-table">
+            <thead><tr><th>Xem trước</th><th>Tài nguyên</th><th>Trạng thái</th><th>Đang sử dụng</th><th>Cập nhật</th><th></th></tr></thead>
+            <tbody>
+            <tr th:each="item : ${catalog.mine}">
+              <td class="pm-preview-cell">
+                <img th:if="${item.contentUrl != null && item.mediaKind == 'IMAGE'}" th:src="${item.contentUrl}" th:alt="${item.title}" loading="lazy">
+                <audio th:if="${item.contentUrl != null && item.mediaKind == 'AUDIO'}" controls preload="metadata" th:src="${item.contentUrl}"></audio>
+                <a th:if="${item.contentUrl != null && item.mediaKind == 'FILE'}" th:href="${item.contentUrl}" target="_blank" rel="noopener">Mở tệp</a>
+                <span th:if="${item.contentUrl == null}">Không khả dụng</span>
+              </td>
+              <td>
+                <strong th:text="${item.title}">Tài nguyên</strong>
+                <span th:text="${item.assetType + ' · ' + item.mimeType}">IMAGE · image/png</span>
+                <span th:text="${item.sizeBytes != null ? #numbers.formatDecimal(item.sizeBytes / 1024.0, 1, 1) + ' KB' : 'Không rõ dung lượng'}">0 KB</span>
+              </td>
+              <td>
+                <span class="pm-state" th:text="${item.status}">ACTIVE</span>
+                <span class="pm-state neutral" th:text="${item.visibility}">PRIVATE</span>
+                <span class="pm-state warning" th:unless="${item.contentVerified}">Chưa xác minh</span>
+              </td>
+              <td>
+                <strong th:text="${item.referenceCount} + ' liên kết'">0 liên kết</strong>
+                <span th:text="${#lists.isEmpty(item.placements) ? 'Chưa gắn vị trí' : #strings.listJoin(item.placements, ', ')}">GROUP_AUDIO</span>
+                <span th:text="${#lists.isEmpty(item.scopes) ? 'Chưa có scope' : #strings.listJoin(item.scopes, ', ')}">DRAFT</span>
+              </td>
+              <td th:text="${item.updatedAt != null ? #temporals.format(item.updatedAt, 'HH:mm dd/MM/yyyy') : 'Chưa ghi nhận'}">12:00 12/07/2026</td>
+              <td>
+                <form th:action="@{/practice/manage/materials/{id}/delete(id=${item.id})}" method="post" onsubmit="return confirm('Cập nhật vòng đời tài nguyên này? Tài nguyên đang được tham chiếu sẽ được giữ lại an toàn.');">
+                  <button type="submit" class="pm-danger">Xóa khỏi kho</button>
+                </form>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="pm-section" aria-labelledby="shared-heading">
+        <div class="pm-section-heading">
+          <div>
+            <h2 id="shared-heading">Được chia sẻ</h2>
+            <p>Tài nguyên thuộc học liệu mà bạn đang cộng tác.</p>
+          </div>
+          <span th:text="${#lists.size(catalog.shared)} + ' mục'">0 mục</span>
+        </div>
+        <div th:if="${#lists.isEmpty(catalog.shared)}" class="pm-empty">
+          Chưa có tài nguyên được chia sẻ.
+        </div>
+        <div th:unless="${#lists.isEmpty(catalog.shared)}" class="pm-table-wrap">
+          <table class="pm-table">
+            <thead><tr><th>Xem trước</th><th>Tài nguyên</th><th>Chủ sở hữu</th><th>Trạng thái</th><th>Đang sử dụng</th><th>Cập nhật</th></tr></thead>
+            <tbody>
+            <tr th:each="item : ${catalog.shared}">
+              <td class="pm-preview-cell">
+                <img th:if="${item.contentUrl != null && item.mediaKind == 'IMAGE'}" th:src="${item.contentUrl}" th:alt="${item.title}" loading="lazy">
+                <audio th:if="${item.contentUrl != null && item.mediaKind == 'AUDIO'}" controls preload="metadata" th:src="${item.contentUrl}"></audio>
+                <a th:if="${item.contentUrl != null && item.mediaKind == 'FILE'}" th:href="${item.contentUrl}" target="_blank" rel="noopener">Mở tệp</a>
+                <span th:if="${item.contentUrl == null}">Không khả dụng</span>
+              </td>
+              <td>
+                <strong th:text="${item.title}">Tài nguyên</strong>
+                <span th:text="${item.assetType + ' · ' + item.mimeType}">AUDIO · audio/mpeg</span>
+              </td>
+              <td th:text="${item.ownerName}">Giảng viên</td>
+              <td>
+                <span class="pm-state" th:text="${item.status}">ACTIVE</span>
+                <span class="pm-state neutral" th:text="${item.visibility}">PUBLISHED</span>
+              </td>
+              <td>
+                <strong th:text="${item.referenceCount} + ' liên kết'">1 liên kết</strong>
+                <span th:text="${#lists.isEmpty(item.placements) ? 'Chưa gắn vị trí' : #strings.listJoin(item.placements, ', ')}">GROUP_AUDIO</span>
+                <span th:text="${#lists.isEmpty(item.scopes) ? 'Chưa có scope' : #strings.listJoin(item.scopes, ', ')}">PUBLISHED_VERSION</span>
+              </td>
+              <td th:text="${item.updatedAt != null ? #temporals.format(item.updatedAt, 'HH:mm dd/MM/yyyy') : 'Chưa ghi nhận'}">12:00 12/07/2026</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

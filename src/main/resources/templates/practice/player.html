@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.set().title()}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice/player.css}">
+</head>
+<body class="exam-shell">
+<form class="exam-player"
+      th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}"
+      method="post"
+      autocomplete="off"
+      th:attr="data-mode=${mode},data-attempt-id=${attemptId},data-skill=${activeSectionSkill}">
+  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+  <header class="exam-topbar">
+    <a class="exam-icon-button" th:href="${returnUrl}" data-exit-link aria-label="Thoát bài" title="Thoát bài">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <div class="exam-identity">
+      <strong th:text="${view.set().title()}">Bộ đề luyện tập</strong>
+      <span th:text="${activeSectionTitle}">Phần Đọc</span>
+    </div>
+    <div class="exam-top-actions">
+      <span class="exam-progress"><strong data-progress-done>0</strong>/<span th:text="${view.totalQuestions()}">10</span></span>
+      <span class="exam-timer" th:attr="data-room-timer=${activeSectionDuration}">40:00</span>
+      <button type="button" class="exam-icon-button" data-note-toggle aria-label="Mở ghi chú" title="Ghi chú">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span class="exam-note-count" data-note-count hidden>0</span>
+      </button>
+      <button class="exam-submit-button" type="submit">Nộp bài</button>
+    </div>
+  </header>
+
+  <section class="exam-section-band">
+    <div>
+      <span th:text="${activeSectionSkill == 'LISTENING' ? 'LISTENING' : 'READING'}">READING</span>
+      <h1 th:text="${activeSectionTitle}">Phần thi</h1>
+    </div>
+    <p data-active-group-title>Nhóm câu hỏi</p>
+  </section>
+
+  <main class="exam-workspace"
+        th:classappend="${activeSectionSkill == 'LISTENING'} ? ' is-listening' : ' is-reading'">
+    <aside class="exam-source-pane" th:if="${activeSectionSkill == 'READING'}">
+      <article class="exam-source-stage"
+               th:each="g, gStat : ${view.groups()}"
+               th:attr="data-group-stage=${gStat.index},
+                        data-has-source=${(g.passageText() != null and !#strings.isEmpty(g.passageText())) or (g.imageUrl() != null and !#strings.isEmpty(g.imageUrl()))},
+                        data-long-source=${(g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())) or (g.passageText() != null and #strings.length(g.passageText()) >= 320)}">
+        <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+           th:text="${g.instruction()}">Đề bài</p>
+        <figure class="exam-source-figure" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
+          <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
+        </figure>
+        <div class="exam-passage exam-selectable" th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
+             th:text="${g.passageText()}">Nội dung bài đọc</div>
+      </article>
+    </aside>
+
+    <div class="exam-resize-handle" th:if="${activeSectionSkill == 'READING'}" data-split-handle tabindex="0"
+         role="separator" aria-label="Điều chỉnh độ rộng hai vùng" aria-orientation="vertical"
+         aria-valuemin="32" aria-valuenow="50" aria-valuemax="68">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4M15 8l4 4-4 4"/></svg>
+    </div>
+
+    <section class="exam-question-pane">
+      <article class="exam-group-stage"
+               th:each="g, gStat : ${view.groups()}"
+               th:attr="data-group-stage=${gStat.index},data-group-label=${g.groupLabel()}"
+               data-question-stage>
+        <div class="exam-reading-focus-lead" th:if="${activeSectionSkill == 'READING'}">
+          <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:text="${g.instruction()}">Hướng dẫn</p>
+        </div>
+        <div class="exam-listening-lead" th:if="${activeSectionSkill == 'LISTENING'}">
+          <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:text="${g.instruction()}">Hướng dẫn</p>
+          <figure class="exam-source-figure compact" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
+            <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
+          </figure>
+          <div class="exam-audio" data-exam-audio
+               th:if="${g.audioUrl() != null and !#strings.isEmpty(g.audioUrl())}">
+            <button type="button" class="exam-audio-button" data-audio-toggle aria-label="Phát âm thanh">▶</button>
+            <div class="exam-audio-track">
+              <strong>Audio</strong>
+              <input type="range" min="0" max="1000" value="0" data-audio-range aria-label="Vị trí phát âm thanh">
+            </div>
+            <time data-audio-time>00:00 / 00:00</time>
+            <audio th:src="${g.audioUrl()}" preload="metadata" data-audio-source></audio>
+          </div>
+        </div>
+
+        <div class="exam-example exam-selectable" th:if="${g.exampleBox() != null}">
+          <strong>&lt;<span th:text="${g.exampleBox().label()}">보기</span>&gt;</strong>
+          <p th:text="${g.exampleBox().content()}">Ví dụ</p>
+          <ol th:if="${g.exampleBox().choices() != null}">
+            <li th:each="choice : ${g.exampleBox().choices()}" th:text="${choice}">Lựa chọn</li>
+          </ol>
+        </div>
+
+        <div class="exam-question-list">
+          <section class="exam-question"
+                   th:each="q : ${g.questions()}"
+                   th:attr="data-question-id=${q.id()}">
+            <div class="exam-question-heading">
+              <span class="exam-question-number" th:text="${q.questionNo()}">1</span>
+              <label class="exam-bookmark" title="Đánh dấu xem lại">
+                <input type="checkbox" data-review-flag>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+              </label>
+            </div>
+
+            <p class="exam-question-prompt exam-selectable"
+               th:if="${q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.prompt() != null and !#strings.isEmpty(q.prompt())}"
+               th:text="${q.prompt()}">Câu hỏi</p>
+
+            <figure class="exam-question-figure" th:if="${q.imageReference() != null and !#strings.isEmpty(q.imageReference())}">
+              <img th:src="${q.imageReference()}" alt="Ảnh câu hỏi">
+            </figure>
+
+            <div class="exam-audio compact" data-exam-audio
+                 th:if="${q.audioReference() != null and !#strings.isEmpty(q.audioReference())}">
+              <button type="button" class="exam-audio-button" data-audio-toggle aria-label="Phát âm thanh câu hỏi">▶</button>
+              <div class="exam-audio-track">
+                <strong>Audio câu hỏi</strong>
+                <input type="range" min="0" max="1000" value="0" data-audio-range aria-label="Vị trí phát âm thanh">
+              </div>
+              <time data-audio-time>00:00 / 00:00</time>
+              <audio th:src="${q.audioReference()}" preload="metadata" data-audio-source></audio>
+            </div>
+
+            <div class="exam-options" th:if="${q.questionType() == 'MCQ' or q.questionType() == 'SINGLE_CHOICE'}">
+              <label class="exam-option" th:each="option, optionStat : ${q.optionRows()}">
+                <input type="radio" th:name="'answer_' + ${q.id()}" th:value="${option.id()}">
+                <span class="exam-option-key" th:text="${optionStat.count}">1</span>
+                <span class="exam-option-content exam-selectable">
+                  <span th:text="${option.text()}">Phương án</span>
+                  <img th:if="${option.imageReference() != null and !#strings.isEmpty(option.imageReference())}"
+                       th:src="${option.imageReference()}" alt="Ảnh phương án">
+                </span>
+              </label>
+            </div>
+
+            <div class="exam-options compact-options" th:if="${q.questionType() == 'TRUE_FALSE_NOT_GIVEN'}">
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="TRUE"><span class="exam-option-key">A</span><span>True</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="FALSE"><span class="exam-option-key">B</span><span>False</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="NOT_GIVEN"><span class="exam-option-key">C</span><span>Not Given</span></label>
+            </div>
+
+            <div class="exam-fill-response" data-fill-question
+                 th:if="${q.questionType() == 'FILL_BLANK' or q.questionType() == 'GAP_FILL'}">
+              <div class="exam-fill-template exam-selectable" th:text="${q.prompt()}">Điền vào chỗ trống</div>
+              <div class="exam-fill-bank">
+                <label class="exam-fill-row" th:each="blank, blankStat : ${q.blankRows()}"
+                       th:attr="data-blank-row=${blank.id()},data-blank-number=${blankStat.count}">
+                  <span><b th:text="${blankStat.count}">1</b><span th:text="${blank.prompt()}">Ô trống</span></span>
+                  <input type="text" class="exam-blank-input"
+                         th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt()}"
+                         autocomplete="off" spellcheck="false">
+                </label>
+              </div>
+              <input type="hidden" th:name="'answer_' + ${q.id()}" data-fill-answer>
+            </div>
+
+            <div class="exam-short-answer"
+                 th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.questionType() != 'ESSAY' and q.questionType() != 'SPEAKING'}">
+              <input type="text" th:name="'answer_' + ${q.id()}" placeholder="Nhập câu trả lời" autocomplete="off">
+            </div>
+          </section>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="exam-bottom-bar">
+    <nav class="exam-group-tabs" aria-label="Nhóm câu hỏi">
+      <button type="button" th:each="g, gStat : ${view.groups()}"
+              th:attr="data-group-tab=${gStat.index}"
+              th:text="${g.groupLabel() != null and !#strings.isEmpty(g.groupLabel()) ? g.groupLabel() : 'Phần ' + (gStat.index + 1)}">1-5</button>
+    </nav>
+    <div class="exam-bottom-actions">
+      <button type="button" class="exam-nav-button" data-group-prev aria-label="Nhóm trước">←</button>
+      <button type="button" class="exam-nav-button" data-group-next aria-label="Nhóm tiếp theo">→</button>
+      <button type="submit" class="exam-bottom-submit">Nộp bài</button>
+    </div>
+  </footer>
+
+  <aside class="exam-notes-drawer" data-notes-drawer aria-hidden="true">
+    <header><h2>Ghi chú</h2><button type="button" data-note-close aria-label="Đóng ghi chú">×</button></header>
+    <div class="exam-notes-list" data-notes-list></div>
+    <p class="exam-notes-empty" data-notes-empty>Chưa có ghi chú.</p>
+  </aside>
+  <div class="exam-drawer-backdrop" data-note-backdrop></div>
+
+  <div class="exam-selection-tools" data-selection-tools hidden>
+    <button type="button" data-selection-highlight><span class="green-swatch"></span>Highlight</button>
+    <button type="button" data-selection-note><span class="yellow-swatch"></span>Note</button>
+    <div class="exam-note-composer" data-note-composer hidden>
+      <input type="text" data-note-input maxlength="300" placeholder="Nhập ghi chú">
+      <button type="button" data-note-save aria-label="Lưu ghi chú">✓</button>
+    </div>
+  </div>
+</form>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/practice/player-exam.js}"></script>
+</body>
+</html>

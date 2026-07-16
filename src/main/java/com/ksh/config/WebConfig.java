@@ -9,13 +9,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Web MVC configuration for serving user-uploaded files (avatars, etc.) via {@code /uploads/**}.
+ * Web MVC mapping for locally stored uploads.
  *
  * <p>Files are stored on the local disk under the directory configured by
  * {@code app.upload.dir} (defaults to {@code uploads} relative to the working directory).
- * The resource handler maps the URL path {@code /uploads/**} to that directory so that
- * uploaded files can be accessed without authentication, consistent with the
- * {@code permitAll} rule for {@code /uploads/**} in {@code SecurityConfig}.
+ * The resource handler only maps URL paths to disk. {@code SecurityConfig}
+ * separately permits public avatar paths and denies private practice namespaces;
+ * private practice material is delivered by an authorized controller.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {

@@ -1,0 +1,2088 @@
+{
+  "character": "Baekho",
+  "version": "1.0.0",
+  "atlases": {
+    "128": {
+      "image": "baekho_atlas_128.png",
+      "width": 1024,
+      "height": 1664,
+      "frames": {
+        "idle_00": {
+          "x": 0,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 0
+        },
+        "idle_01": {
+          "x": 128,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 1
+        },
+        "idle_02": {
+          "x": 256,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 2
+        },
+        "idle_03": {
+          "x": 384,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 3
+        },
+        "idle_04": {
+          "x": 512,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 4
+        },
+        "idle_05": {
+          "x": 640,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 5
+        },
+        "loading_00": {
+          "x": 768,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 0
+        },
+        "loading_01": {
+          "x": 896,
+          "y": 0,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 1
+        },
+        "loading_02": {
+          "x": 0,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 2
+        },
+        "loading_03": {
+          "x": 128,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 3
+        },
+        "loading_04": {
+          "x": 256,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 4
+        },
+        "loading_05": {
+          "x": 384,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 5
+        },
+        "loading_06": {
+          "x": 512,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 6
+        },
+        "loading_07": {
+          "x": 640,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 7
+        },
+        "success_00": {
+          "x": 768,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 0
+        },
+        "success_01": {
+          "x": 896,
+          "y": 128,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 1
+        },
+        "success_02": {
+          "x": 0,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 2
+        },
+        "success_03": {
+          "x": 128,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "success",
+          "frame": 3
+        },
+        "success_04": {
+          "x": 256,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 150,
+          "state": "success",
+          "frame": 4
+        },
+        "success_05": {
+          "x": 384,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 100,
+          "state": "success",
+          "frame": 5
+        },
+        "success_06": {
+          "x": 512,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 100,
+          "state": "success",
+          "frame": 6
+        },
+        "success_07": {
+          "x": 640,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "success",
+          "frame": 7
+        },
+        "warning_00": {
+          "x": 768,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 0
+        },
+        "warning_01": {
+          "x": 896,
+          "y": 256,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 1
+        },
+        "warning_02": {
+          "x": 0,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 2
+        },
+        "warning_03": {
+          "x": 128,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 3
+        },
+        "warning_04": {
+          "x": 256,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 4
+        },
+        "warning_05": {
+          "x": 384,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 5
+        },
+        "error_00": {
+          "x": 512,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 0
+        },
+        "error_01": {
+          "x": 640,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 1
+        },
+        "error_02": {
+          "x": 768,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 2
+        },
+        "error_03": {
+          "x": 896,
+          "y": 384,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 3
+        },
+        "error_04": {
+          "x": 0,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 4
+        },
+        "error_05": {
+          "x": 128,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 5
+        },
+        "reading_00": {
+          "x": 256,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 0
+        },
+        "reading_01": {
+          "x": 384,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 1
+        },
+        "reading_02": {
+          "x": 512,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 2
+        },
+        "reading_03": {
+          "x": 640,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 3
+        },
+        "reading_04": {
+          "x": 768,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 4
+        },
+        "reading_05": {
+          "x": 896,
+          "y": 512,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 5
+        },
+        "listening_00": {
+          "x": 0,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 0
+        },
+        "listening_01": {
+          "x": 128,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 1
+        },
+        "listening_02": {
+          "x": 256,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 2
+        },
+        "listening_03": {
+          "x": 384,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 3
+        },
+        "listening_04": {
+          "x": 512,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 4
+        },
+        "listening_05": {
+          "x": 640,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 5
+        },
+        "writing_00": {
+          "x": 768,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 0
+        },
+        "writing_01": {
+          "x": 896,
+          "y": 640,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 1
+        },
+        "writing_02": {
+          "x": 0,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 2
+        },
+        "writing_03": {
+          "x": 128,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 3
+        },
+        "writing_04": {
+          "x": 256,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 4
+        },
+        "writing_05": {
+          "x": 384,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 5
+        },
+        "writing_06": {
+          "x": 512,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 6
+        },
+        "writing_07": {
+          "x": 640,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 7
+        },
+        "speaking_00": {
+          "x": 768,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 0
+        },
+        "speaking_01": {
+          "x": 896,
+          "y": 768,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 1
+        },
+        "speaking_02": {
+          "x": 0,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 2
+        },
+        "speaking_03": {
+          "x": 128,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 3
+        },
+        "speaking_04": {
+          "x": 256,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 4
+        },
+        "speaking_05": {
+          "x": 384,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 5
+        },
+        "importing_00": {
+          "x": 512,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 0
+        },
+        "importing_01": {
+          "x": 640,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 1
+        },
+        "importing_02": {
+          "x": 768,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 2
+        },
+        "importing_03": {
+          "x": 896,
+          "y": 896,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 3
+        },
+        "importing_04": {
+          "x": 0,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 4
+        },
+        "importing_05": {
+          "x": 128,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 5
+        },
+        "importing_06": {
+          "x": 256,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 6
+        },
+        "importing_07": {
+          "x": 384,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 7
+        },
+        "validating_00": {
+          "x": 512,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 0
+        },
+        "validating_01": {
+          "x": 640,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 1
+        },
+        "validating_02": {
+          "x": 768,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 2
+        },
+        "validating_03": {
+          "x": 896,
+          "y": 1024,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 3
+        },
+        "validating_04": {
+          "x": 0,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 4
+        },
+        "validating_05": {
+          "x": 128,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 5
+        },
+        "validating_06": {
+          "x": 256,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 6
+        },
+        "validating_07": {
+          "x": 384,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 7
+        },
+        "ai_explaining_00": {
+          "x": 512,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 0
+        },
+        "ai_explaining_01": {
+          "x": 640,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 1
+        },
+        "ai_explaining_02": {
+          "x": 768,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 2
+        },
+        "ai_explaining_03": {
+          "x": 896,
+          "y": 1152,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 3
+        },
+        "ai_explaining_04": {
+          "x": 0,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 4
+        },
+        "ai_explaining_05": {
+          "x": 128,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 5
+        },
+        "ai_explaining_06": {
+          "x": 256,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 6
+        },
+        "ai_explaining_07": {
+          "x": 384,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 7
+        },
+        "empty_state_00": {
+          "x": 512,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 0
+        },
+        "empty_state_01": {
+          "x": 640,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 1
+        },
+        "empty_state_02": {
+          "x": 768,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 2
+        },
+        "empty_state_03": {
+          "x": 896,
+          "y": 1280,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 3
+        },
+        "empty_state_04": {
+          "x": 0,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 4
+        },
+        "empty_state_05": {
+          "x": 128,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 5
+        },
+        "celebration_00": {
+          "x": 256,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 0
+        },
+        "celebration_01": {
+          "x": 384,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 1
+        },
+        "celebration_02": {
+          "x": 512,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 2
+        },
+        "celebration_03": {
+          "x": 640,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 3
+        },
+        "celebration_04": {
+          "x": 768,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 4
+        },
+        "celebration_05": {
+          "x": 896,
+          "y": 1408,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 5
+        },
+        "celebration_06": {
+          "x": 0,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 6
+        },
+        "celebration_07": {
+          "x": 128,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 7
+        },
+        "celebration_08": {
+          "x": 256,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 8
+        },
+        "celebration_09": {
+          "x": 384,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 9
+        },
+        "collapsed_00": {
+          "x": 512,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 0
+        },
+        "collapsed_01": {
+          "x": 640,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 1
+        },
+        "collapsed_02": {
+          "x": 768,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 2
+        },
+        "collapsed_03": {
+          "x": 896,
+          "y": 1536,
+          "w": 128,
+          "h": 128,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 3
+        }
+      }
+    },
+    "64": {
+      "image": "baekho_atlas_64.png",
+      "width": 512,
+      "height": 832,
+      "frames": {
+        "idle_00": {
+          "x": 0,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 0
+        },
+        "idle_01": {
+          "x": 64,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 1
+        },
+        "idle_02": {
+          "x": 128,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 2
+        },
+        "idle_03": {
+          "x": 192,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 3
+        },
+        "idle_04": {
+          "x": 256,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 4
+        },
+        "idle_05": {
+          "x": 320,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "idle",
+          "frame": 5
+        },
+        "loading_00": {
+          "x": 384,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 0
+        },
+        "loading_01": {
+          "x": 448,
+          "y": 0,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 1
+        },
+        "loading_02": {
+          "x": 0,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 2
+        },
+        "loading_03": {
+          "x": 64,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 3
+        },
+        "loading_04": {
+          "x": 128,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 4
+        },
+        "loading_05": {
+          "x": 192,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 5
+        },
+        "loading_06": {
+          "x": 256,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 6
+        },
+        "loading_07": {
+          "x": 320,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 110,
+          "state": "loading",
+          "frame": 7
+        },
+        "success_00": {
+          "x": 384,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 0
+        },
+        "success_01": {
+          "x": 448,
+          "y": 64,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 1
+        },
+        "success_02": {
+          "x": 0,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "success",
+          "frame": 2
+        },
+        "success_03": {
+          "x": 64,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "success",
+          "frame": 3
+        },
+        "success_04": {
+          "x": 128,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 150,
+          "state": "success",
+          "frame": 4
+        },
+        "success_05": {
+          "x": 192,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 100,
+          "state": "success",
+          "frame": 5
+        },
+        "success_06": {
+          "x": 256,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 100,
+          "state": "success",
+          "frame": 6
+        },
+        "success_07": {
+          "x": 320,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "success",
+          "frame": 7
+        },
+        "warning_00": {
+          "x": 384,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 0
+        },
+        "warning_01": {
+          "x": 448,
+          "y": 128,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 1
+        },
+        "warning_02": {
+          "x": 0,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 2
+        },
+        "warning_03": {
+          "x": 64,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 3
+        },
+        "warning_04": {
+          "x": 128,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 4
+        },
+        "warning_05": {
+          "x": 192,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 160,
+          "state": "warning",
+          "frame": 5
+        },
+        "error_00": {
+          "x": 256,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 0
+        },
+        "error_01": {
+          "x": 320,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 1
+        },
+        "error_02": {
+          "x": 384,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 2
+        },
+        "error_03": {
+          "x": 448,
+          "y": 192,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 3
+        },
+        "error_04": {
+          "x": 0,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 4
+        },
+        "error_05": {
+          "x": 64,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "error",
+          "frame": 5
+        },
+        "reading_00": {
+          "x": 128,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 0
+        },
+        "reading_01": {
+          "x": 192,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 1
+        },
+        "reading_02": {
+          "x": 256,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 2
+        },
+        "reading_03": {
+          "x": 320,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 3
+        },
+        "reading_04": {
+          "x": 384,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 4
+        },
+        "reading_05": {
+          "x": 448,
+          "y": 256,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 220,
+          "state": "reading",
+          "frame": 5
+        },
+        "listening_00": {
+          "x": 0,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 0
+        },
+        "listening_01": {
+          "x": 64,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 1
+        },
+        "listening_02": {
+          "x": 128,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 2
+        },
+        "listening_03": {
+          "x": 192,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 3
+        },
+        "listening_04": {
+          "x": 256,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 4
+        },
+        "listening_05": {
+          "x": 320,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 180,
+          "state": "listening",
+          "frame": 5
+        },
+        "writing_00": {
+          "x": 384,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 0
+        },
+        "writing_01": {
+          "x": 448,
+          "y": 320,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 1
+        },
+        "writing_02": {
+          "x": 0,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 2
+        },
+        "writing_03": {
+          "x": 64,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 3
+        },
+        "writing_04": {
+          "x": 128,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 4
+        },
+        "writing_05": {
+          "x": 192,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 5
+        },
+        "writing_06": {
+          "x": 256,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 6
+        },
+        "writing_07": {
+          "x": 320,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "writing",
+          "frame": 7
+        },
+        "speaking_00": {
+          "x": 384,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 0
+        },
+        "speaking_01": {
+          "x": 448,
+          "y": 384,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 1
+        },
+        "speaking_02": {
+          "x": 0,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 2
+        },
+        "speaking_03": {
+          "x": 64,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 3
+        },
+        "speaking_04": {
+          "x": 128,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 4
+        },
+        "speaking_05": {
+          "x": 192,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "speaking",
+          "frame": 5
+        },
+        "importing_00": {
+          "x": 256,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 0
+        },
+        "importing_01": {
+          "x": 320,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 1
+        },
+        "importing_02": {
+          "x": 384,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 2
+        },
+        "importing_03": {
+          "x": 448,
+          "y": 448,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 3
+        },
+        "importing_04": {
+          "x": 0,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 4
+        },
+        "importing_05": {
+          "x": 64,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 5
+        },
+        "importing_06": {
+          "x": 128,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 6
+        },
+        "importing_07": {
+          "x": 192,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 120,
+          "state": "importing",
+          "frame": 7
+        },
+        "validating_00": {
+          "x": 256,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 0
+        },
+        "validating_01": {
+          "x": 320,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 1
+        },
+        "validating_02": {
+          "x": 384,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 2
+        },
+        "validating_03": {
+          "x": 448,
+          "y": 512,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 3
+        },
+        "validating_04": {
+          "x": 0,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 4
+        },
+        "validating_05": {
+          "x": 64,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 5
+        },
+        "validating_06": {
+          "x": 128,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 6
+        },
+        "validating_07": {
+          "x": 192,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 130,
+          "state": "validating",
+          "frame": 7
+        },
+        "ai_explaining_00": {
+          "x": 256,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 0
+        },
+        "ai_explaining_01": {
+          "x": 320,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 1
+        },
+        "ai_explaining_02": {
+          "x": 384,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 2
+        },
+        "ai_explaining_03": {
+          "x": 448,
+          "y": 576,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 3
+        },
+        "ai_explaining_04": {
+          "x": 0,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 4
+        },
+        "ai_explaining_05": {
+          "x": 64,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 5
+        },
+        "ai_explaining_06": {
+          "x": 128,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 6
+        },
+        "ai_explaining_07": {
+          "x": 192,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 140,
+          "state": "AI explaining",
+          "frame": 7
+        },
+        "empty_state_00": {
+          "x": 256,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 0
+        },
+        "empty_state_01": {
+          "x": 320,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 1
+        },
+        "empty_state_02": {
+          "x": 384,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 2
+        },
+        "empty_state_03": {
+          "x": 448,
+          "y": 640,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 3
+        },
+        "empty_state_04": {
+          "x": 0,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 4
+        },
+        "empty_state_05": {
+          "x": 64,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 240,
+          "state": "empty state",
+          "frame": 5
+        },
+        "celebration_00": {
+          "x": 128,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 0
+        },
+        "celebration_01": {
+          "x": 192,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 1
+        },
+        "celebration_02": {
+          "x": 256,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 2
+        },
+        "celebration_03": {
+          "x": 320,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 3
+        },
+        "celebration_04": {
+          "x": 384,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 4
+        },
+        "celebration_05": {
+          "x": 448,
+          "y": 704,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 5
+        },
+        "celebration_06": {
+          "x": 0,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 6
+        },
+        "celebration_07": {
+          "x": 64,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 7
+        },
+        "celebration_08": {
+          "x": 128,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 8
+        },
+        "celebration_09": {
+          "x": 192,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 90,
+          "state": "celebration",
+          "frame": 9
+        },
+        "collapsed_00": {
+          "x": 256,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 0
+        },
+        "collapsed_01": {
+          "x": 320,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 1
+        },
+        "collapsed_02": {
+          "x": 384,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 2
+        },
+        "collapsed_03": {
+          "x": 448,
+          "y": 768,
+          "w": 64,
+          "h": 64,
+          "duration_ms": 260,
+          "state": "collapsed",
+          "frame": 3
+        }
+      }
+    }
+  },
+  "animations": {
+    "idle": {
+      "frame_count": 6,
+      "durations_ms": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220
+      ],
+      "loop": true
+    },
+    "loading": {
+      "frame_count": 8,
+      "durations_ms": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110
+      ],
+      "loop": true
+    },
+    "success": {
+      "frame_count": 8,
+      "durations_ms": [
+        90,
+        90,
+        90,
+        120,
+        150,
+        100,
+        100,
+        180
+      ],
+      "loop": false
+    },
+    "warning": {
+      "frame_count": 6,
+      "durations_ms": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160
+      ],
+      "loop": false
+    },
+    "error": {
+      "frame_count": 6,
+      "durations_ms": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ],
+      "loop": false
+    },
+    "reading": {
+      "frame_count": 6,
+      "durations_ms": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220
+      ],
+      "loop": true
+    },
+    "listening": {
+      "frame_count": 6,
+      "durations_ms": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180
+      ],
+      "loop": true
+    },
+    "writing": {
+      "frame_count": 8,
+      "durations_ms": [
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": true
+    },
+    "speaking": {
+      "frame_count": 6,
+      "durations_ms": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ],
+      "loop": true
+    },
+    "importing": {
+      "frame_count": 8,
+      "durations_ms": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "loop": true
+    },
+    "validating": {
+      "frame_count": 8,
+      "durations_ms": [
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": true
+    },
+    "ai_explaining": {
+      "frame_count": 8,
+      "durations_ms": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140
+      ],
+      "loop": true
+    },
+    "empty_state": {
+      "frame_count": 6,
+      "durations_ms": [
+        240,
+        240,
+        240,
+        240,
+        240,
+        240
+      ],
+      "loop": true
+    },
+    "celebration": {
+      "frame_count": 10,
+      "durations_ms": [
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90,
+        90
+      ],
+      "loop": false
+    },
+    "collapsed": {
+      "frame_count": 4,
+      "durations_ms": [
+        260,
+        260,
+        260,
+        260
+      ],
+      "loop": true
+    }
+  }
+}

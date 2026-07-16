@@ -141,9 +141,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
+                        .requestMatchers("/uploads/practice-audio/**", "/uploads/practice-images/**",
+                                "/uploads/lecturer-assets/**").denyAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
+                        .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         // WebSocket STOMP handshake rides the HTTP session; require auth.

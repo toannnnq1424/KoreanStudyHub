@@ -136,7 +136,7 @@ public class JoinClassService {
      */
     @Transactional
     public ClassEntity approve(Long classId, Long studentUserId, Long actorId, Role actorRole) {
-        ClassEntity clazz = requireOwner(classId, actorId, actorRole);
+        ClassEntity clazz = requireOwnerForApproval(classId, actorId, actorRole);
         Enrollment row = enrollmentRepository.findByUserIdAndClassId(studentUserId, classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy yêu cầu tham gia"));
         if (!Enrollment.STATUS_PENDING.equals(row.getStatus())) {
@@ -191,6 +191,19 @@ public class JoinClassService {
         // getEditable enforces LECTURER ownership and HEAD/ADMIN privilege.
         ClassEntity clazz = classesService.getEditable(classId, actorId, actorRole);
         // Spec: approve/reject is class owner only — deny HEAD/ADMIN non-owners.
+        if (!clazz.getLecturerId().equals(actorId)) {
+            throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được duyệt yêu cầu");
+        }
+        return clazz;
+    }
+
+    private ClassEntity requireOwnerForApproval(Long classId, Long actorId, Role actorRole) {
+        // Lock before any ordinary read establishes a repeatable-read snapshot.
+        ClassEntity clazz = classRepository.findByIdForUpdate(classId)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!classesService.isEditableBy(clazz, actorId, actorRole)) {
+            throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
         if (!clazz.getLecturerId().equals(actorId)) {
             throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được duyệt yêu cầu");
         }

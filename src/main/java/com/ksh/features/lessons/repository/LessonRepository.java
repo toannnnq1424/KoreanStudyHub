@@ -68,4 +68,3 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
            nativeQuery = true)
     void clearPdfAttachmentId(@Param("attachmentId") Long attachmentId);
 }
-

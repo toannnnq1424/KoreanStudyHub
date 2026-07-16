@@ -3,7 +3,8 @@
 # File application-local.properties da duoc .gitignore — KHONG commit.
 # File nay duoc nap qua spring.config.import trong application.properties.
 
-# ----- Datasource (feed cho placeholder ${DB_USERNAME}/${DB_PASSWORD}) -----
+# ----- Datasource (feed cho placeholder ${DB_URL}/${DB_USERNAME}/${DB_PASSWORD}) -----
+DB_URL=jdbc:mysql://127.0.0.1:3306/ksh_db?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
 DB_USERNAME=root
 DB_PASSWORD=your_password_here
 
@@ -36,3 +37,10 @@ DB_PASSWORD=your_password_here
 # ===== Base URL (dung trong link reset password) =====
 # Prod: dat URL that, vi du https://ksh.edu.vn
 #APP_BASE_URL=http://localhost:8080
+
+# ===== AI evaluator (OpenAI-compatible Gemini endpoint) =====
+# Lay API key tu https://makersuite.google.com/app/apikey
+OPENAI_API_KEY=your-gemini-api-key-here
+OPENAI_EVALUATOR_MODEL=models/gemini-2.5-flash
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai

@@ -1,9 +1,11 @@
 package com.ksh.features.classes.repository;
 
 import com.ksh.entities.ClassEntity;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,6 +27,15 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     List<ClassEntity> findAllByOrderByCreatedAtDesc();
 
     Optional<ClassEntity> findByCode(String code);
+
+    /**
+     * Locks the class row while an enrollment approval re-checks capacity.
+     * Serializing on the class (rather than an invite token) also covers
+     * concurrent requests created from different invite codes.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
+    Optional<ClassEntity> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Returns the (non-deleted) classes owned by the supplied lecturer.

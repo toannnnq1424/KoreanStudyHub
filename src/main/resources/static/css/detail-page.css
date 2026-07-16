@@ -419,7 +419,7 @@
    (deuteranopia / monochrome printing). */
 .status-pill.status-active::before   { content: "● "; }
 .status-pill.status-inactive::before { content: "○ "; }
-.status-pill.status-locked::before   { content: "🔒 "; }
+.status-pill.status-locked::before   { content: "■ "; }
 .status-pill.status-deleted::before  { content: "✗ "; }
 
 .status-pill.status-active   { background: var(--color-success-soft); color: var(--color-success); }

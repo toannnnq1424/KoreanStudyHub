@@ -1,0 +1,2847 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('PDF Import Workspace | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+</head>
+<body class="pi-body" style="overflow: hidden; margin: 0; padding: 0; height: 100vh;">
+
+<!-- CSRF tokens for AJAX -->
+<meta name="_csrf" th:content="${_csrf.token}"/>
+<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+<!-- PDF.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+</script>
+
+<style>
+  :root {
+    --ksh-bg: #F6F8FC;
+    --ksh-surface: #FFFFFF;
+    --ksh-surface-sec: #F8FAFD;
+    --ksh-border: #E5EAF2;
+    --ksh-text: #172033;
+    --ksh-text-muted: #687389;
+    --ksh-primary: #4F6EF7;
+    --ksh-primary-hover: #405CDD;
+    --ksh-success: #22A06B;
+    --ksh-warning: #D99000;
+    --ksh-danger: #DC4C64;
+    
+    /* Category colors */
+    --c-instruction: #D99000;
+    --c-passage: #22A06B;
+    --c-transcript: #008080;
+    --c-example: #8A2BE2;
+    --c-question: #DC4C64;
+    --c-options: #FF8C00;
+    --c-answer: #B22222;
+    --c-image: #4F6EF7;
+    --c-ignore: #808080;
+  }
+
+  .workspace-layout {
+    display: flex;
+    height: 100dvh;
+    background: var(--ksh-bg);
+    color: var(--ksh-text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  .silent-scroll {
+    overflow: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .silent-scroll::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  .workspace-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--ksh-border);
+    border-radius: 8px;
+    background: var(--ksh-surface-sec);
+  }
+
+  .workspace-mode-switch button {
+    min-height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ksh-text-muted);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .workspace-mode-switch button.active {
+    background: var(--ksh-surface);
+    color: var(--ksh-primary);
+    box-shadow: 0 1px 3px rgba(23, 32, 51, 0.12);
+  }
+
+  body.workspace-guided .advanced-only {
+    display: none !important;
+  }
+
+  /* Asset Library Drawer Style */
+  .asset-library-drawer {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 480px;
+    height: 100vh;
+    background: var(--ksh-surface);
+    border-left: 1px solid var(--ksh-border);
+    box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+    z-index: 1500;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+  }
+  .asset-library-drawer.open {
+    right: 0;
+  }
+  .asset-library-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ksh-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .global-sidebar-wrapper {
+    display: none !important; /* Hide systems sidebar */
+  }
+
+  /* Workspace Main container */
+  .workspace-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Workspace Header */
+  .ws-header {
+    height: 60px;
+    background: var(--ksh-surface);
+    border-bottom: 1px solid var(--ksh-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+  }
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--ksh-text-muted);
+  }
+  .breadcrumb a {
+    color: var(--ksh-text-muted);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: var(--ksh-primary);
+  }
+  .ws-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--ksh-text);
+    max-width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ws-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ws-status-badge {
+    background: rgba(79,110,247,0.1);
+    color: var(--ksh-primary);
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border: 0;
+    cursor: pointer;
+  }
+  .ws-status-badge.is-idle { background: #f1f5f9; color: #64748b; }
+  .ws-status-badge.is-ready { background: rgba(79,110,247,0.1); color: var(--ksh-primary); }
+  .ws-status-badge.is-processing { background: #fff7ed; color: #c2410c; }
+  .ws-status-badge.is-success { background: #ecfdf5; color: var(--ksh-success); }
+  .ws-status-badge.is-error { background: #fff1f2; color: var(--ksh-danger); }
+  .save-status {
+    font-size: 0.78rem;
+    color: var(--ksh-text-muted);
+    min-width: 100px;
+  }
+  .save-status.is-saving { color: var(--ksh-warning); }
+  .save-status.is-saved { color: var(--ksh-success); }
+  .save-status.is-error { color: var(--ksh-danger); }
+
+  .ai-status-wrap { position: relative; }
+  .ai-status-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    background: #fff;
+    border: 1px solid var(--ksh-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    padding: 14px;
+    z-index: 220;
+    display: none;
+  }
+  .ai-status-popover.open { display: block; }
+  .ai-pop-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; color: var(--ksh-text); }
+  .ai-pop-message { font-size: 0.8rem; line-height: 1.5; color: var(--ksh-text-muted); margin-bottom: 10px; }
+  .ai-pop-meta { display: grid; gap: 6px; font-size: 0.74rem; color: var(--ksh-text-muted); margin-bottom: 12px; }
+  .ai-pop-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ai-pop-actions button { padding: 7px 10px; font-size: 0.76rem; }
+
+  .ws-account { position: relative; }
+  .ws-account-btn {
+    min-width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--ksh-border);
+    background: #fff;
+    color: var(--ksh-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .ws-account-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    min-width: 210px;
+    background: #fff;
+    border: 1px solid var(--ksh-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    padding: 6px;
+    z-index: 230;
+    display: none;
+  }
+  .ws-account-menu.open { display: block; }
+  .ws-account-menu a, .ws-account-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--ksh-text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .ws-account-menu a:hover, .ws-account-menu button:hover { background: var(--ksh-surface-sec); }
+  .ws-account-menu .danger { color: var(--ksh-danger); }
+
+  /* Dropdown Menu 3 chấm */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: var(--ksh-surface);
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
+    z-index: 200;
+    border: 1px solid var(--ksh-border);
+    border-radius: 8px;
+    margin-top: 4px;
+  }
+  .dropdown-content a, .dropdown-content button {
+    color: var(--ksh-text);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.82rem;
+    text-align: left;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  .dropdown-content a:hover, .dropdown-content button:hover {
+    background-color: var(--ksh-surface-sec);
+  }
+  .dropdown:hover .dropdown-content {
+    display: block;
+  }
+
+  /* Workspace 3 Columns Wrapper */
+  .ws-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* 1. Page Sidebar */
+  .ws-sidebar-pages {
+    width: 240px;
+    background: var(--ksh-surface);
+    border-right: 1px solid var(--ksh-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .ws-sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--ksh-border);
+  }
+  .ws-sidebar-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ksh-text-muted);
+  }
+  .page-thumb-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--ksh-surface-sec);
+  }
+  .page-thumb-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--ksh-surface);
+    border: 1px solid var(--ksh-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .page-thumb-item:hover, .page-thumb-item.active {
+    border-color: var(--ksh-primary);
+    box-shadow: 0 2px 6px rgba(79,110,247,0.08);
+  }
+  .page-thumb-item.active {
+    background: rgba(79,110,247,0.02);
+  }
+  .thumb-icon-warning {
+    color: var(--ksh-warning);
+    margin-left: auto;
+  }
+
+  /* 2. PDF Stage (Nền Tối) */
+  .ws-stage-pdf {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #171C28; /* Nền tối stage */
+    overflow: hidden;
+    position: relative;
+  }
+  .ws-stage-toolbar {
+    height: 48px;
+    background: #1F2635;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 16px;
+    z-index: 10;
+  }
+  .stage-tool-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .stage-tool-btn:hover, .stage-tool-btn.active {
+    color: #ffffff;
+    background: rgba(255,255,255,0.08);
+  }
+  .stage-viewport {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px;
+  }
+  .canvas-container {
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    background: #ffffff;
+  }
+  .pdf-canvas {
+    display: block;
+  }
+  .overlay-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    user-select: none;
+    z-index: 10;
+  }
+  .overlay-layer.pan-mode {
+    cursor: grab;
+  }
+  .overlay-layer.pan-mode:active {
+    cursor: grabbing;
+  }
+
+  /* SVG Annotation Rect box with resize handles */
+  .region-box {
+    position: absolute;
+    border: 2px solid var(--c-ignore);
+    background: rgba(128,128,128,0.12);
+    border-radius: 4px;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+  .region-box.active {
+    border-style: dashed;
+    box-shadow: 0 0 12px rgba(255,255,255,0.5);
+  }
+  .region-box.INSTRUCTION { border-color: var(--c-instruction); background: rgba(217,144,0,0.08); }
+  .region-box.PASSAGE { border-color: var(--c-passage); background: rgba(34,160,107,0.08); }
+  .region-box.TRANSCRIPT { border-color: var(--c-transcript); background: rgba(0,128,128,0.08); }
+  .region-box.EXAMPLE_BOX { border-color: var(--c-example); background: rgba(138,43,226,0.08); }
+  .region-box.QUESTION_BLOCK { border-color: var(--c-question); background: rgba(220,76,100,0.08); }
+  .region-box.OPTIONS { border-color: var(--c-options); background: rgba(255,140,0,0.08); }
+  .region-box.ANSWER_KEY { border-color: var(--c-answer); background: rgba(178,34,34,0.08); }
+  .region-box.IMAGE_ASSET { border-color: var(--c-image); background: rgba(79,110,247,0.08); }
+  .region-box.IGNORE { border-color: var(--c-ignore); background: rgba(128,128,128,0.08); }
+
+  .region-label {
+    position: absolute;
+    top: -20px;
+    left: -2px;
+    background: var(--ksh-text);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .region-box.INSTRUCTION .region-label { background: var(--c-instruction); }
+  .region-box.PASSAGE .region-label { background: var(--c-passage); }
+  .region-box.TRANSCRIPT .region-label { background: var(--c-transcript); }
+  .region-box.EXAMPLE_BOX .region-label { background: var(--c-example); }
+  .region-box.QUESTION_BLOCK .region-label { background: var(--c-question); }
+  .region-box.OPTIONS .region-label { background: var(--c-options); }
+  .region-box.ANSWER_KEY .region-label { background: var(--c-answer); }
+  .region-box.IMAGE_ASSET .region-label { background: var(--c-image); }
+  .region-box.IGNORE .region-label { background: var(--c-ignore); }
+
+  /* Resize Handles */
+  .handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border: 1px solid var(--ksh-text);
+    border-radius: 50%;
+    z-index: 20;
+    display: none;
+  }
+  .region-box.active .handle {
+    display: block;
+  }
+  .handle.nw { top: -4px; left: -4px; cursor: nw-resize; }
+  .handle.ne { top: -4px; right: -4px; cursor: ne-resize; }
+  .handle.se { bottom: -4px; right: -4px; cursor: se-resize; }
+  .handle.sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+
+  /* 3. Inspector Panel */
+  .ws-inspector {
+    width: 320px;
+    background: var(--ksh-surface);
+    border-left: 1px solid var(--ksh-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .inspector-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--ksh-border);
+    background: var(--ksh-surface-sec);
+  }
+  .inspector-tab-btn {
+    flex: 1;
+    padding: 14px;
+    text-align: center;
+    background: none;
+    border: none;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--ksh-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .inspector-tab-btn.active {
+    color: var(--ksh-primary);
+    border-bottom-color: var(--ksh-primary);
+  }
+  .inspector-content {
+    padding: 20px;
+    flex: 1;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ksh-text-muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+  }
+  .form-input, .form-textarea, .form-select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--ksh-border);
+    border-radius: 8px;
+    background: var(--ksh-surface-sec);
+    color: var(--ksh-text);
+    font-size: 0.85rem;
+    box-sizing: border-box;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus {
+    border-color: var(--ksh-primary);
+    outline: none;
+    background: #ffffff;
+  }
+  .region-item-row {
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--ksh-surface-sec);
+    border: 1px solid var(--ksh-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .region-item-row:hover, .region-item-row.active {
+    border-color: var(--ksh-primary);
+    background: rgba(79,110,247,0.02);
+  }
+
+  /* Modal Dữ liệu gửi AI (Sáng) */
+  .preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(23, 28, 40, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-card {
+    width: 800px;
+    height: 80vh;
+    background: var(--ksh-surface);
+    border: 1px solid var(--ksh-border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  .preview-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--ksh-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .preview-tabs {
+    display: flex;
+    background: var(--ksh-surface-sec);
+    border-bottom: 1px solid var(--ksh-border);
+  }
+  .preview-tab-btn {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--ksh-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .preview-tab-btn.active {
+    color: var(--ksh-primary);
+    border-bottom-color: var(--ksh-primary);
+  }
+  .preview-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .preview-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .preview-stat-card {
+    background: var(--ksh-surface-sec);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--ksh-border);
+  }
+  .preview-stat-card strong {
+    display: block;
+    font-size: 1.3rem;
+    color: var(--ksh-primary);
+    margin-bottom: 4px;
+  }
+  .preview-stat-card span {
+    font-size: 0.72rem;
+    color: var(--ksh-text-muted);
+    font-weight: 700;
+  }
+
+  /* Full Screen Loading Spinner Overlay */
+  .spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(255,255,255,0.85);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(79,110,247,0.1);
+    border-top-color: var(--ksh-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<div class="workspace-layout">
+
+  <!-- 1. Global Lecturer Sidebar Wrapper -->
+  <div class="global-sidebar-wrapper">
+    <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('manage')}"></aside>
+  </div>
+
+  <!-- 2. Workspace Content Main -->
+  <div class="workspace-main">
+    
+    <!-- Workspace Header -->
+    <header class="ws-header">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div class="breadcrumb">
+          <a th:href="@{/practice/manage}">Quản lý đề</a>
+          <span>/</span>
+          <a th:href="@{/practice/manage/import}">Nhập PDF</a>
+          <span>/</span>
+          <span style="font-weight:600;" th:text="${sessionInfo.originalFilename}">de-luyen-tap.pdf</span>
+        </div>
+        <div class="ws-title" th:text="${sessionInfo.title}">Đề thi bóc tách</div>
+        <div style="font-size:0.72rem; color:var(--ksh-text-muted); font-weight:600;"
+             th:text="|Đích nhập: Test ${sessionInfo.targetTestNo} · ${sessionInfo.targetLessonCode} · ${sessionInfo.targetSkill}|">
+          Đích nhập: Test 1 · R1 · Phần Đọc
+        </div>
+      </div>
+
+      <div class="ws-status-bar">
+        <span class="save-status is-saved" id="save-status">Đã lưu bản nháp</span>
+        <div class="ai-status-wrap">
+          <button type="button" class="ws-status-badge is-ready" id="ws-status" onclick="toggleAiStatusPopover()">AI sẵn sàng</button>
+          <div class="ai-status-popover" id="ai-status-popover" role="dialog" aria-label="Trạng thái AI">
+            <div class="ai-pop-title" id="ai-pop-title">AI sẵn sàng</div>
+            <div class="ai-pop-message" id="ai-pop-message">KSH sẽ kiểm tra vùng khoanh trước khi gửi dữ liệu sang AI.</div>
+            <div class="ai-pop-meta">
+              <span id="ai-pop-provider">Provider: chưa gọi</span>
+              <span id="ai-pop-attempt">Số lần thử: 0</span>
+              <span id="ai-pop-time">Lần cuối: -</span>
+              <span id="ai-pop-request">Request ID: -</span>
+            </div>
+            <div class="ai-pop-actions">
+              <button type="button" class="pi-btn-primary" onclick="runAiAnalysis()">Thử lại AI</button>
+              <button type="button" class="pi-btn-secondary" onclick="convertDraftToManual()">Làm thủ công</button>
+            </div>
+          </div>
+        </div>
+        
+        <div style="width:1px; height:20px; background:var(--ksh-border);"></div>
+
+        <button class="pi-btn-secondary" style="padding: 8px 14px; font-size: 0.8rem; background:#fff;" onclick="openExtractedTextDrawer()">Kiểm tra văn bản</button>
+        <button class="pi-btn-secondary" style="padding: 8px 14px; font-size: 0.8rem; background:#fff;" onclick="openPayloadPreview()">Kiểm tra trước khi phân tích</button>
+        <button class="pi-btn-secondary" style="padding: 8px 14px; font-size: 0.8rem; background:#fff;" onclick="openAssetLibraryDrawer()">Kho ảnh của tôi</button>
+        <button class="pi-btn-primary" style="padding: 8px 14px; font-size: 0.8rem; background:var(--ksh-primary);" onclick="runAiAnalysis()">Phân tích bằng AI</button>
+        
+        <!-- Action Menu 3 chấm -->
+        <div class="dropdown">
+          <button class="stage-tool-btn" style="color:var(--ksh-text); padding: 8px 10px; border: 1px solid var(--ksh-border); border-radius: 8px; background:#fff; display:flex; align-items:center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div class="dropdown-content">
+            <button onclick="cancelChanges()">Hủy thay đổi chưa lưu</button>
+            <button onclick="renameWorkspaceSession()">Đổi tên bản nháp</button>
+            <button onclick="deleteWorkspaceSession()" style="color:var(--ksh-danger);">Xóa bản nháp</button>
+          </div>
+        </div>
+
+        <div style="width:1px; height:20px; background:var(--ksh-border);"></div>
+
+        <button th:if="${sessionInfo.linkedDraftId != null}" class="pi-btn-secondary" style="padding: 8px 14px; font-size: 0.8rem; background:#fff;" th:onclick="|window.location.href='/practice/manage/drafts/' + ${sessionInfo.linkedDraftId}|">Quay lại biên soạn</button>
+
+        <div class="ws-account">
+          <button type="button" class="ws-account-btn" id="ws-account-btn" aria-haspopup="menu" aria-expanded="false" onclick="toggleAccountMenu(event)">
+            <span sec:authentication="name">K</span>
+          </button>
+          <div class="ws-account-menu" id="ws-account-menu" role="menu">
+            <a th:href="@{/profile}" role="menuitem">Hồ sơ</a>
+            <a th:href="@{/change-password}" role="menuitem">Đổi mật khẩu</a>
+            <form th:action="@{/logout}" method="post">
+              <button type="submit" class="danger" role="menuitem">Đăng xuất</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Workspace Body -->
+    <div class="ws-body">
+      
+      <!-- Cột 1: Page Sidebar -->
+      <aside class="ws-sidebar-pages">
+        <div class="ws-sidebar-section">
+          <h4>Chế độ thao tác</h4>
+          <div class="workspace-mode-switch" role="group" aria-label="Chế độ thao tác PDF">
+            <button type="button" id="mode-guided" onclick="setWorkspaceMode('guided')">Hướng dẫn</button>
+            <button type="button" id="mode-advanced" onclick="setWorkspaceMode('advanced')">Nâng cao</button>
+          </div>
+          <p id="workspace-mode-help" style="font-size:0.72rem; line-height:1.4; color:var(--ksh-text-muted); margin:8px 0 0;">
+            Chọn phạm vi trang, AI sẽ tự nhận diện nội dung trong các trang đó.
+          </p>
+        </div>
+        <div class="ws-sidebar-section">
+          <h4>Phạm vi trang gửi AI</h4>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="number" id="start-page-input" class="form-input" style="padding:6px; text-align:center;" min="1" th:value="${sessionInfo.selectedStartPage}" onchange="saveWorkspaceState()">
+            <span style="color:var(--ksh-text-muted);">–</span>
+            <input type="number" id="end-page-input" class="form-input" style="padding:6px; text-align:center;" min="1" th:value="${sessionInfo.selectedEndPage}" onchange="saveWorkspaceState()">
+          </div>
+        </div>
+
+        <div class="ws-sidebar-section advanced-only">
+          <h4>Cách AI đọc tài liệu</h4>
+          <select id="extraction-strategy" class="form-select" onchange="saveWorkspaceState()">
+            <option value="HYBRID" th:selected="${sessionInfo.extractionStrategy == 'HYBRID'}">Đọc trang và ưu tiên vùng đã đánh dấu</option>
+            <option value="REGION_ONLY" th:selected="${sessionInfo.extractionStrategy == 'REGION_ONLY'}">Chỉ đọc vùng tôi đánh dấu</option>
+            <option value="FULL_SELECTED_PAGES" th:selected="${sessionInfo.extractionStrategy == 'FULL_SELECTED_PAGES'}">Tự động đọc các trang đã chọn</option>
+          </select>
+        </div>
+
+        <div class="page-thumb-list silent-scroll" id="pages-list-container">
+          <!-- Dynamically populated page list -->
+        </div>
+      </aside>
+
+      <!-- Cột 2: PDF View Canvas Area -->
+      <section class="ws-stage-pdf">
+        <div class="ws-stage-toolbar">
+          <button type="button" class="stage-tool-btn active" id="tool-select" onclick="setWorkspaceTool('select')" title="Chọn vùng (S)" aria-label="Chọn vùng">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l3.057 15 2.537-5.51L17 19h2L5 3z"/></svg>
+          </button>
+          <button type="button" class="stage-tool-btn" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Khoanh vùng để crop ảnh (D)" aria-label="Khoanh vùng để crop ảnh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+          </button>
+          <button type="button" class="stage-tool-btn" id="tool-pan" onclick="setWorkspaceTool('pan')" title="Kéo di chuyển (H)" aria-label="Kéo di chuyển">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M12 2v20M2 12h20"/></svg>
+          </button>
+          
+          <div style="width:1px; height:18px; background:rgba(255,255,255,0.15);"></div>
+          
+          <button class="stage-tool-btn" onclick="zoomWorkspace(-0.1)" title="Thu nhỏ">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span style="font-size:0.8rem; font-weight:600; min-width:40px; text-align:center; color:#fff;" id="zoom-label">100%</span>
+          <button class="stage-tool-btn" onclick="zoomWorkspace(0.1)" title="Phóng to">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="stage-tool-btn" onclick="fitWorkspaceWidth()" title="Vừa khít chiều ngang">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12h16M4 6h16M4 18h16"/></svg>
+          </button>
+          
+          <div style="width:1px; height:18px; background:rgba(255,255,255,0.15);"></div>
+          
+          <button class="stage-tool-btn" id="tool-toggle-regions" onclick="toggleRegionsVisibility()" title="Ẩn/Hiện vùng đánh dấu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+
+        <div class="stage-viewport silent-scroll" id="canvas-viewport" onscroll="syncOverlays()">
+          <div class="canvas-container" id="canvas-container">
+            <canvas id="pdf-render-canvas" class="pdf-canvas"></canvas>
+            <div class="overlay-layer" id="overlays-layer"
+                 onmousedown="handleStageMouseDown(event)"
+                 onmousemove="handleStageMouseMove(event)"
+                 onmouseup="handleStageMouseUp(event)">
+              <!-- Annotations rectangle boxes dynamically loaded here -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cột 3: Inspector Panel (Tabbed - Nền Sáng) -->
+      <aside class="ws-inspector silent-scroll">
+        <div class="inspector-tabs">
+          <button class="inspector-tab-btn active" id="tab-btn-inspector" onclick="switchInspectorTab('inspector')">Nội dung vùng</button>
+          <button class="inspector-tab-btn" id="tab-btn-draft" onclick="switchInspectorTab('draft')">Bản nháp AI</button>
+        </div>
+
+        <div class="inspector-content">
+          <!-- 3.1 Tab Inspector -->
+          <div id="panel-inspector-view">
+            <div id="inspector-empty-state" style="text-align:center; padding:40px 0; color:var(--ksh-text-muted);">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:12px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p style="font-size:0.82rem;">Hãy vẽ hoặc chọn một vùng trên PDF để bắt đầu cấu hình chi tiết.</p>
+            </div>
+
+            <div id="inspector-form-area" style="display:none;">
+              <!-- Crop Thumbnail Preview Section -->
+              <div id="inspector-crop-preview-sec" style="display:none; margin-bottom:16px; padding:12px; background:var(--ksh-surface-sec); border:1px solid var(--ksh-border); border-radius:8px;">
+                <label class="form-label">Ảnh cắt (Crop Preview)</label>
+                <div style="text-align:center; margin-bottom:8px;">
+                  <img id="inspector-crop-img" src="" style="max-width:100%; max-height:120px; object-fit:contain; border:1px solid var(--ksh-border); border-radius:4px; background:#fff; padding:2px;">
+                </div>
+                <div style="font-size:0.72rem; color:var(--ksh-text-muted); display:flex; justify-content:space-between; align-items:center;">
+                  <span id="inspector-crop-size">0 KB</span>
+                  <span id="inspector-crop-status" style="font-weight:700; color:var(--ksh-success);">Đã crop</span>
+                </div>
+                <button type="button" id="btn-toggle-crop-library"
+                        style="display:none; width:100%; margin-top:8px; padding:6px 10px; font-size:0.75rem; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid var(--ksh-primary); background:var(--ksh-primary); color:#fff; transition:all .15s ease;"
+                        onclick="toggleCropLibraryStatus()">
+                  Lưu vào Kho ảnh của tôi
+                </button>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Loại nội dung</label>
+                <select id="reg-type" class="form-select" onchange="handleRegionTypeChange()">
+                  <option value="AUTO_DETECT">Để AI tự nhận diện</option>
+                  <option value="INSTRUCTION">Hướng dẫn chung</option>
+                  <option value="PASSAGE">Bài đọc dùng chung</option>
+                  <option value="TRANSCRIPT">Lời thoại nghe dùng chung</option>
+                  <option value="QUESTION_BLOCK">Câu hỏi / nhóm câu</option>
+                  <option value="IMAGE_ASSET">Hình ảnh dùng trong đề</option>
+                  <option value="IGNORE">Không sử dụng vùng này</option>
+                  <optgroup label="Phân loại chi tiết">
+                    <option value="EXAMPLE_BOX">Ví dụ mẫu &lt;보기&gt;</option>
+                    <option value="GROUP_HEADER">Thông tin nhóm câu</option>
+                    <option value="QUESTION_PROMPT">Chỉ nội dung câu hỏi</option>
+                    <option value="OPTIONS">Chỉ các lựa chọn</option>
+                    <option value="ANSWER_KEY">Chỉ đáp án</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <!-- Mẫu ghi chú gợi ý cho AI -->
+              <div class="form-group" id="note-template-group" style="display:none; padding:10px; background:#F8FAFD; border:1px solid #E5EAF2; border-radius:8px;">
+                <label class="form-label" style="margin-bottom:4px;">Hệ thống sẽ hiểu vùng này như sau</label>
+                <div style="font-size:0.75rem; color:var(--ksh-text-muted); line-height:1.4;" id="note-template-text">...</div>
+                <button type="button" class="pi-btn-secondary" style="padding:4px 8px; font-size:0.7rem; margin-top:8px; background:#fff;" onclick="insertNoteTemplate()">Chèn mẫu ghi chú</button>
+              </div>
+
+              <!-- Specific area for QUESTION_BLOCK -->
+              <div id="specific-question-block" style="display:none; border-top:1px solid var(--ksh-border); padding-top:12px; margin-top:12px;">
+                <div class="form-group">
+                  <label class="form-label">Kiểu câu hỏi mong muốn</label>
+                  <select id="reg-q-type" class="form-select" onchange="updateSelectedRegionProperty()">
+                    <option value="AUTO_DETECT">Tự nhận diện</option>
+                    <option value="SINGLE_CHOICE">Trắc nghiệm - Chọn 1 đáp án</option>
+                    <option value="TRUE_FALSE_NOT_GIVEN">Đúng / Sai / Không có thông tin</option>
+                    <option value="FILL_BLANK">Điền từ vào ô trống</option>
+                    <option value="ESSAY">Tự luận (Essay)</option>
+                    <option value="SPEAKING">Nói (Speaking)</option>
+                  </select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div class="form-group">
+                    <label class="form-label">Câu bắt đầu</label>
+                    <input type="number" id="reg-q-from" class="form-input" min="1" onchange="updateSelectedRegionProperty()">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Câu kết thúc</label>
+                    <input type="number" id="reg-q-to" class="form-input" min="1" onchange="updateSelectedRegionProperty()">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Specific area for IMAGE_ASSET -->
+              <div id="specific-image-asset" style="display:none; border-top:1px solid var(--ksh-border); padding-top:12px; margin-top:12px;">
+                <div class="form-group">
+                  <label class="form-label">Vị trí đính kèm (Placement)</label>
+                  <select id="reg-img-placement" class="form-select" onchange="handlePlacementChange()">
+                    <option value="UNASSIGNED">Chưa gán vào đề</option>
+                    <option value="GROUP_IMAGE">Minh họa Nhóm (Group)</option>
+                    <option value="QUESTION_IMAGE">Minh họa Câu hỏi (Question)</option>
+                    <option value="PASSAGE_IMAGE">Minh họa Bài đọc (Passage)</option>
+                    <option value="OPTION_IMAGE">Minh họa phương án (Option)</option>
+                    <option value="EXAMPLE_IMAGE">Minh họa Ví dụ mẫu</option>
+                  </select>
+                </div>
+                <div class="form-group" id="opt-index-field" style="display:none;">
+                  <label class="form-label">Thứ tự phương án (Option Index)</label>
+                  <input type="number" id="reg-img-opt-idx" class="form-input" min="1" placeholder="1 cho A, 2 cho B..." onchange="updateSelectedRegionProperty()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Mô tả alt text ảnh</label>
+                  <input type="text" id="reg-img-alt" class="form-input" placeholder="Mô tả cho học sinh khi tải lỗi..." onchange="updateSelectedRegionProperty()">
+                </div>
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:600; margin-bottom:12px; cursor:pointer;">
+                  <input type="checkbox" id="reg-save-library" onchange="updateSelectedRegionProperty()">
+                  Lưu vào Kho ảnh của tôi
+                </label>
+                <button type="button" class="pi-btn-secondary" style="width:100%; padding:8px 10px; background:#fff; margin-bottom:12px;" onclick="saveSelectedCropToLibrary()">Lưu vào kho ảnh</button>
+              </div>
+
+              <div id="region-destination-summary" style="margin:12px 0; padding:10px 12px; border:1px solid #D8E0EE; border-radius:8px; background:#F8FAFD; color:#475467; font-size:0.76rem; line-height:1.5;"></div>
+
+              <div class="form-group">
+                <label class="form-label">Ghi chú thêm cho AI</label>
+                <textarea id="reg-note" class="form-textarea" rows="3" placeholder="Ghi chú nhận diện..." oninput="updateSelectedRegionProperty()"></textarea>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" id="reg-inc-text" onchange="updateSelectedRegionProperty()">
+                  Đọc chữ trong vùng
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" id="reg-inc-image" onchange="updateSelectedRegionProperty()">
+                  Đọc hình ảnh trong vùng
+                </label>
+              </div>
+
+              <div style="display:flex; gap:8px; border-top:1px solid var(--ksh-border); padding-top:16px; margin-top:16px;">
+                <button class="pi-btn-secondary" style="flex:1; padding:10px; background:#fff;" onclick="duplicateSelectedRegion()">Nhân bản</button>
+                <button class="pi-btn-secondary" style="flex:1; padding:10px; color:var(--ksh-danger); border-color:rgba(220,76,100,0.2); background:#fff;" onclick="deleteSelectedRegion()">Xóa vùng</button>
+              </div>
+            </div>
+
+            <!-- Danh sách các vùng trên trang hiện tại -->
+            <div style="margin-top:32px; border-top:1px solid var(--ksh-border); padding-top:20px;">
+              <h4 style="margin:0 0 12px 0; font-size:0.76rem; font-weight:700; color:var(--ksh-text-muted); text-transform:uppercase;">Vùng trên trang này</h4>
+              <div id="regions-list-on-page" style="display:flex; flex-direction:column; gap:6px;">
+                <!-- Dynamically populated list -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.2 Tab AI Draft -->
+          <div id="panel-draft-view" style="display:none;">
+            <div id="draft-empty-state" style="text-align:center; padding:40px 0; color:var(--ksh-text-muted);">
+              <p style="font-size:0.82rem;">Chưa có kết quả phân tích AI. Hãy đánh dấu các vùng và nhấn "Phân tích bằng AI".</p>
+            </div>
+            <div id="draft-tree-container" style="display:none; max-height:60vh; overflow-y:auto;">
+              <!-- Tree list -->
+            </div>
+            
+            <div id="draft-action-panel" style="display:none; border-top:1px solid var(--ksh-border); padding-top:16px; margin-top:16px;">
+              <button class="pi-btn-primary" style="width:100%; margin-bottom:10px;" onclick="convertDraftToManual()">Đưa vào màn biên soạn</button>
+              <button class="pi-btn-secondary" style="width:100%; margin-bottom:10px; background:#fff;" onclick="openLearnerPreview()">Xem như học sinh</button>
+              <button th:if="${sessionInfo.linkedDraftId == null}" class="pi-btn-secondary" style="width:100%; background:#fff;" onclick="openAttachDraftModal()">Ghép vào bản nháp có sẵn</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Payload Preview Modal -->
+<div class="preview-modal" id="payload-preview-modal">
+  <div class="preview-card">
+    <div class="preview-header">
+      <h3 style="margin:0; font-size:1.05rem; font-weight:800;">Kiểm tra trước khi AI phân tích</h3>
+      <button class="stage-tool-btn" style="color:var(--ksh-text);" onclick="closePayloadPreview()">✕</button>
+    </div>
+    
+    <div class="preview-tabs">
+      <button class="preview-tab-btn active" id="p-tab-overview" onclick="switchPreviewTab('overview')">Tổng quan</button>
+      <button class="preview-tab-btn" id="p-tab-regions" onclick="switchPreviewTab('regions')">Nội dung đã chọn</button>
+      <button class="preview-tab-btn" id="p-tab-images" onclick="switchPreviewTab('images')">Ảnh đính kèm</button>
+    </div>
+
+    <div class="preview-body silent-scroll">
+      
+      <!-- Tab 1: Overview -->
+      <div id="p-panel-overview">
+        <div class="preview-stat-grid">
+          <div class="preview-stat-card">
+            <strong id="p-stat-pages">0 trang</strong>
+            <span>Phạm vi trang chọn</span>
+          </div>
+          <div class="preview-stat-card">
+            <strong id="p-stat-target">-</strong>
+            <span>Nơi nhận nội dung</span>
+          </div>
+          <div class="preview-stat-card">
+            <strong id="p-stat-regions">0 vùng</strong>
+            <span>Nội dung đã chọn</span>
+          </div>
+          <div class="preview-stat-card">
+            <strong id="p-stat-crops">0 ảnh</strong>
+            <span>Ảnh gửi kèm</span>
+          </div>
+        </div>
+
+        <div style="border-radius:10px; padding:16px; background:rgba(217,144,0,0.06); border:1px solid rgba(217,144,0,0.15); font-size:0.82rem; color:var(--ksh-warning); line-height:1.4;">
+          <strong>Phạm vi gửi:</strong> AI không nhận toàn bộ tệp PDF. Hệ thống chỉ gửi nội dung thuộc các trang hoặc vùng giáo viên đã chọn và các ảnh được liệt kê tại đây.
+        </div>
+      </div>
+
+      <!-- Tab 3: Regions -->
+      <div id="p-panel-regions" style="display:none;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--ksh-border); color:var(--ksh-text-muted);">
+              <th style="padding:10px;">Nội dung</th>
+              <th style="padding:10px;">Trang</th>
+              <th style="padding:10px;">Loại</th>
+              <th style="padding:10px;">Đọc chữ</th>
+              <th style="padding:10px;">Đọc ảnh</th>
+              <th style="padding:10px;">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody id="p-regions-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 4: Images -->
+      <div id="p-panel-images" style="display:none;">
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;" id="p-images-list">
+          <!-- Dynamically populated crops -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal Extracted Page Text -->
+<div class="preview-modal" id="extracted-text-modal">
+  <div class="preview-card" style="width:650px; height:70vh;">
+    <div class="preview-header">
+      <h3 style="margin:0; font-size:1.05rem; font-weight:800;">Kiểm tra văn bản trong PDF</h3>
+      <button class="stage-tool-btn" style="color:var(--ksh-text);" onclick="closeExtractedTextDrawer()">✕</button>
+    </div>
+    
+    <div style="display:flex; background:var(--ksh-surface-sec); padding:10px; border-bottom:1px solid var(--ksh-border); align-items:center; gap:12px;">
+      <span style="font-size:0.8rem; font-weight:700;">Xem trang:</span>
+      <select id="txt-page-select" class="form-select" style="width:120px; padding:4px;" onchange="loadPageExtractedText()"></select>
+      <span style="font-size:0.75rem; color:var(--ksh-text-muted);" id="txt-char-count">0 ký tự</span>
+    </div>
+
+    <div class="preview-body" style="padding:16px;">
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <button type="button" id="txt-tab-readable" class="pi-btn-primary" style="padding:6px 10px;" onclick="switchExtractedTextMode('readable')">Bản dễ đọc</button>
+        <button type="button" id="txt-tab-raw" class="pi-btn-secondary" style="padding:6px 10px; background:#fff;" onclick="switchExtractedTextMode('raw')">Văn bản gốc</button>
+      </div>
+      <div id="txt-readable-content" style="height:calc(100% - 72px); overflow:auto; white-space:pre-wrap; line-height:1.65; padding:14px; border:1px solid var(--ksh-border); border-radius:8px; background:#fff;"></div>
+      <textarea id="txt-raw-textarea" class="form-textarea" style="display:none; width:100%; height:calc(100% - 72px); font-family:monospace; font-size:0.82rem; background:var(--ksh-surface-sec);" readonly></textarea>
+      <div style="font-size:0.75rem; color:var(--ksh-text-muted); margin-top:8px;">
+        Đây là văn bản hệ thống đọc được từ PDF. Bố cục phức tạp hoặc chữ nằm trong ảnh vẫn cần giáo viên kiểm tra trên trang gốc.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Attach Draft -->
+<div class="preview-modal" id="attach-draft-modal">
+  <div class="preview-card" style="width:450px; height:auto;">
+    <div class="preview-header">
+      <h3 style="margin:0; font-size:1rem; font-weight:800;">Ghép vào bản nháp hiện có</h3>
+      <button class="stage-tool-btn" style="color:var(--ksh-text);" onclick="closeAttachDraftModal()">✕</button>
+    </div>
+    <div class="preview-body" style="padding:20px;">
+      <div class="form-group">
+        <label class="form-label">Chọn bản nháp đích (Draft ID)</label>
+        <input type="number" id="attach-target-id" class="form-input" placeholder="Nhập ID bản nháp của bạn..." required>
+      </div>
+      <button class="pi-btn-primary" style="width:100%; margin-top:12px;" onclick="submitAttachDraft()">Bắt đầu ghép đề</button>
+    </div>
+  </div>
+</div>
+
+<!-- Full Screen Loading Overlay -->
+<div class="spinner-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <h3 style="margin:0 0 6px 0; color:#172033; font-weight:700;" id="loading-title">Đang xử lý...</h3>
+  <p style="margin:0; font-size:0.82rem; color:var(--ksh-text-muted);" id="loading-subtitle">Vui lòng chờ.</p>
+</div>
+
+<!-- Asset Library Drawer (Sidebar overlay) -->
+<div class="asset-library-drawer" id="asset-library-drawer">
+  <div class="asset-library-header">
+    <h3 style="margin:0; font-size:1.05rem; font-weight:800; color:var(--ksh-text);">Kho ảnh của tôi</h3>
+    <button class="stage-tool-btn" style="color:var(--ksh-text); font-size: 1.2rem; cursor:pointer;" onclick="closeAssetLibraryDrawer()">✕</button>
+  </div>
+  <div style="padding:16px; border-bottom:1px solid var(--ksh-border); background:var(--ksh-surface-sec); display:flex; flex-direction:column; gap:8px;">
+    <input type="text" id="asset-search-input" class="form-input" placeholder="Tìm kiếm theo tên..." oninput="loadLibraryAssets()">
+    <select id="asset-type-filter" class="form-select" onchange="loadLibraryAssets()">
+      <option value="">Tất cả loại ảnh</option>
+      <option value="IMAGE">Ảnh crop PDF</option>
+      <option value="QUESTION_IMAGE">Ảnh câu hỏi</option>
+      <option value="PASSAGE_IMAGE">Ảnh bài đọc</option>
+      <option value="OPTION_IMAGE">Ảnh phương án</option>
+      <option value="EXAMPLE_IMAGE">Ảnh ví dụ mẫu</option>
+    </select>
+  </div>
+  <div class="silent-scroll" style="flex:1; padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; align-content:start;" id="library-assets-grid">
+    <!-- Grid of assets -->
+  </div>
+</div>
+
+<script th:inline="javascript">
+  const SESSION_ID = /*[[${sessionId}]]*/ null;
+  const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
+  const TOTAL_PAGES = /*[[${sessionInfo.totalPages}]]*/ 1;
+  const TARGET_TEST_NO = /*[[${sessionInfo.targetTestNo}]]*/ 1;
+  const TARGET_SKILL = /*[[${sessionInfo.targetSkill}]]*/ 'READING';
+  const TARGET_LESSON_CODE = /*[[${sessionInfo.targetLessonCode}]]*/ 'R1';
+</script>
+
+<script>
+  // ═══ WORKSPACE FRONTEND STATE MANAGEMENT ═══
+  const state = {
+    regions: [],
+    selectedRegionId: null,
+    hoveredRegionId: null,
+    drawingRegion: null,
+    activeTool: 'select', // select, draw, pan
+    isDrawing: false,
+    isResizing: false,
+    resizeHandle: null,
+    regionsVisible: true
+  };
+
+  let pdfDocument = null;
+  let currentPageNum = 1;
+  let currentZoom = 1.0;
+  let renderTask = null;
+  let autosaveTimeout = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const savedMode = localStorage.getItem('practicePdfWorkspaceMode') || 'guided';
+    setWorkspaceMode(savedMode, true);
+    if (SESSION_ID) {
+      loadWorkspace();
+      setupStageListeners();
+    }
+  });
+
+  function setWorkspaceMode(mode, savePreference = true) {
+    const normalized = mode === 'advanced' ? 'advanced' : 'guided';
+    document.body.classList.toggle('workspace-guided', normalized === 'guided');
+    document.getElementById('mode-guided')?.classList.toggle('active', normalized === 'guided');
+    document.getElementById('mode-advanced')?.classList.toggle('active', normalized === 'advanced');
+    const help = document.getElementById('workspace-mode-help');
+    if (help) {
+      help.textContent = normalized === 'guided'
+              ? 'Chọn phạm vi trang, AI sẽ tự nhận diện nội dung trong các trang đó.'
+              : 'Khoanh vùng và phân loại nội dung để kiểm soát request chính xác hơn.';
+    }
+    if (normalized === 'guided') {
+      const strategy = document.getElementById('extraction-strategy');
+      if (strategy && strategy.value !== 'FULL_SELECTED_PAGES') {
+        strategy.value = 'FULL_SELECTED_PAGES';
+        if (savePreference && SESSION_ID) triggerAutosave();
+      }
+      if (typeof setWorkspaceTool === 'function') setWorkspaceTool('select');
+    }
+    if (savePreference) localStorage.setItem('practicePdfWorkspaceMode', normalized);
+  }
+
+  async function loadWorkspace() {
+    showLoading("Đang tải PDF...", "Vui lòng giữ kết nối.");
+    try {
+      // 1. Load session data
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}`);
+      if (!res.ok) throw new Error("Không tải được session metadata.");
+      const session = await res.json();
+      setDraftSaveState('SAVED', session.lastSavedAt ? 'Đã lưu bản nháp' : 'Chưa có bản lưu gần đây');
+      const status = session.status || 'READY_FOR_AI';
+      if (status === 'AI_COMPLETED') {
+        setAiAnalysisState('SUCCEEDED', { message: 'Phiên import này đã có kết quả AI.' });
+      } else if (status === 'PROCESSING') {
+        setAiAnalysisState('PROCESSING', { message: 'AI đang xử lý phiên import này.' });
+      } else if (status.includes('FAILED')) {
+        setAiAnalysisState('FAILED_RETRYABLE', { message: 'Lần phân tích trước thất bại. Bạn có thể xem request, chỉnh vùng và thử lại.' });
+      } else {
+        setAiAnalysisState('READY', { message: 'KSH sẽ kiểm tra vùng khoanh trước khi gửi dữ liệu sang AI.' });
+      }
+      
+      currentPageNum = session.currentPage || 1;
+      currentZoom = 1.0;
+
+      // 2. Load PDF file
+      const pdfUrl = `/practice/manage/import-sessions/${SESSION_ID}/file`;
+      pdfDocument = await pdfjsLib.getDocument(pdfUrl).promise;
+
+      // 3. Load annotations
+      await loadAnnotations();
+
+      // 4. Render layout lists
+      renderSidebarPages();
+      populatePageSelect();
+
+      // 5. Render active page
+      await renderPage(currentPageNum);
+      
+    } catch (e) {
+      alert("Lỗi tải PDF: " + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function loadAnnotations() {
+    const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/annotations`);
+    if (res.ok) {
+      state.regions = await res.json();
+      drawAnnotationBoxes();
+      renderPageRegionsList();
+    }
+  }
+
+  function renderSidebarPages() {
+    const container = document.getElementById('pages-list-container');
+    container.innerHTML = '';
+    const start = parseInt(document.getElementById('start-page-input').value) || 1;
+    const end = parseInt(document.getElementById('end-page-input').value) || TOTAL_PAGES;
+
+    for (let i = 1; i <= TOTAL_PAGES; i++) {
+      const active = (i >= start && i <= end);
+      const isCurrent = (i === currentPageNum);
+      
+      const item = document.createElement('div');
+      item.className = `page-thumb-item ${isCurrent ? 'active' : ''}`;
+      item.style.opacity = active ? '1' : '0.4';
+      item.onclick = () => changePage(i);
+
+      const numSpan = document.createElement('span');
+      numSpan.style.fontSize = '0.82rem';
+      numSpan.style.fontWeight = '700';
+      numSpan.innerText = `Trang ${i}`;
+      
+      const count = state.regions.filter(r => r.pageNumber === i && r.regionType !== 'IGNORE').length;
+      const countSpan = document.createElement('span');
+      countSpan.style.fontSize = '0.72rem';
+      countSpan.style.color = 'var(--ksh-text-muted)';
+      countSpan.innerText = count > 0 ? ` (${count} vùng)` : '';
+
+      item.appendChild(numSpan);
+      item.appendChild(countSpan);
+      container.appendChild(item);
+    }
+  }
+
+  function populatePageSelect() {
+    const select = document.getElementById('txt-page-select');
+    select.innerHTML = '';
+    for (let i = 1; i <= TOTAL_PAGES; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.innerText = `Trang ${i}`;
+      select.appendChild(opt);
+    }
+  }
+
+  async function renderPage(pageNum) {
+    if (!pdfDocument) return;
+
+    const canvas = document.getElementById('pdf-render-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const page = await pdfDocument.getPage(pageNum);
+    const viewport = page.getViewport({ scale: currentZoom });
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    const container = document.getElementById('canvas-container');
+    container.style.width = viewport.width + 'px';
+    container.style.height = viewport.height + 'px';
+
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport
+    };
+
+    if (renderTask) {
+      renderTask.cancel();
+    }
+
+    renderTask = page.render(renderContext);
+    await renderTask.promise;
+
+    drawAnnotationBoxes();
+    updateZoomLabel();
+  }
+
+  function setWorkspaceTool(tool) {
+    state.activeTool = tool;
+    document.querySelectorAll('.stage-tool-btn').forEach(btn => btn.classList.remove('active'));
+    
+    const btn = document.getElementById('tool-' + tool);
+    if (btn) btn.classList.add('active');
+
+    const layer = document.getElementById('overlays-layer');
+    if (tool === 'pan') {
+      layer.classList.add('pan-mode');
+    } else {
+      layer.classList.remove('pan-mode');
+    }
+  }
+
+  function toggleRegionsVisibility() {
+    state.regionsVisible = !state.regionsVisible;
+    const layer = document.getElementById('overlays-layer');
+    layer.style.display = state.regionsVisible ? 'block' : 'none';
+    
+    const btn = document.getElementById('tool-toggle-regions');
+    if (state.regionsVisible) {
+      btn.style.color = '#fff';
+    } else {
+      btn.style.color = 'rgba(255,255,255,0.4)';
+    }
+  }
+
+  function zoomWorkspace(factor) {
+    currentZoom = Math.max(0.5, Math.min(3.0, currentZoom + factor));
+    renderPage(currentPageNum);
+  }
+
+  function fitWorkspaceWidth() {
+    const viewWidth = document.getElementById('canvas-viewport').clientWidth - 48;
+    pdfDocument.getPage(currentPageNum).then(page => {
+      const viewport = page.getViewport({ scale: 1.0 });
+      currentZoom = viewWidth / viewport.width;
+      renderPage(currentPageNum);
+    });
+  }
+
+  function updateZoomLabel() {
+    document.getElementById('zoom-label').innerText = Math.round(currentZoom * 100) + '%';
+  }
+
+  async function changePage(num) {
+    if (num === currentPageNum) return;
+    currentPageNum = num;
+    
+    document.querySelectorAll('.page-thumb-item').forEach((el, i) => {
+      if (i + 1 === num) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+
+    showLoading(`Đang chuyển sang trang ${num}...`, "Vui lòng giữ kết nối.");
+    await renderPage(num);
+    renderPageRegionsList();
+    hideLoading();
+
+    // Trigger save state
+    triggerAutosave();
+  }
+
+  // ═══ STAGE MOUSE EVENTS / DRAW & RESIZE ANNOTATIONS ═══
+  let startX = 0, startY = 0;
+  let boxLeft = 0, boxTop = 0, boxWidth = 0, boxHeight = 0;
+
+  function setupStageListeners() {
+    // Escape key listener to clear drawing/selection
+    window.addEventListener('keydown', (e) => {
+      const keyboardTarget = e.target instanceof Element ? e.target : null;
+      if (keyboardTarget?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (e.key === 'Escape') {
+        cancelCurrentOperation();
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (state.selectedRegionId) {
+          deleteSelectedRegion();
+        }
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tool = { s: 'select', d: 'draw', h: 'pan' }[e.key.toLowerCase()];
+        if (tool) {
+          e.preventDefault();
+          setWorkspaceTool(tool);
+        }
+      }
+    });
+  }
+
+  function cancelCurrentOperation() {
+    state.isDrawing = false;
+    state.isResizing = false;
+    state.resizeHandle = null;
+    const tempRect = document.getElementById('temp-draw-rect');
+    if (tempRect) tempRect.remove();
+    
+    // Clear selection
+    state.selectedRegionId = null;
+    drawAnnotationBoxes();
+    document.getElementById('inspector-empty-state').style.display = 'block';
+    document.getElementById('inspector-form-area').style.display = 'none';
+  }
+
+  function handleStageMouseDown(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+
+    // Check if clicked resize handle
+    if (state.selectedRegionId) {
+      const handleEl = e.target.closest('.handle');
+      if (handleEl) {
+        state.isResizing = true;
+        state.resizeHandle = handleEl.dataset.handle;
+        e.stopPropagation();
+        return;
+      }
+    }
+
+    // Check if clicked existing region box
+    const regionBox = e.target.closest('.region-box');
+    if (regionBox) {
+      const rId = parseInt(regionBox.dataset.regionId);
+      selectRegion(rId);
+      e.stopPropagation();
+      return;
+    }
+
+    // Otherwise, handle new drawing if tool is DRAW
+    if (state.activeTool === 'draw') {
+      state.isDrawing = true;
+      const tempRect = document.createElement('div');
+      tempRect.id = 'temp-draw-rect';
+      tempRect.style.position = 'absolute';
+      tempRect.style.border = '2px dashed var(--ksh-primary)';
+      tempRect.style.background = 'rgba(79,110,247,0.15)';
+      tempRect.style.left = startX + 'px';
+      tempRect.style.top = startY + 'px';
+      e.currentTarget.appendChild(tempRect);
+    } else {
+      // Clear selection if click empty space
+      state.selectedRegionId = null;
+      drawAnnotationBoxes();
+      document.getElementById('inspector-empty-state').style.display = 'block';
+      document.getElementById('inspector-form-area').style.display = 'none';
+      renderPageRegionsList();
+    }
+  }
+
+  function handleStageMouseMove(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const curX = e.clientX - rect.left;
+    const curY = e.clientY - rect.top;
+
+    if (state.isDrawing) {
+      const tempRect = document.getElementById('temp-draw-rect');
+      if (tempRect) {
+        const left = Math.min(startX, curX);
+        const top = Math.min(startY, curY);
+        const w = Math.abs(startX - curX);
+        const h = Math.abs(startY - curY);
+        tempRect.style.left = left + 'px';
+        tempRect.style.top = top + 'px';
+        tempRect.style.width = w + 'px';
+        tempRect.style.height = h + 'px';
+      }
+    } else if (state.isResizing && state.selectedRegionId) {
+      const activeAnno = state.regions.find(r => r.id === state.selectedRegionId);
+      if (!activeAnno) return;
+
+      const layer = document.getElementById('overlays-layer');
+      const layerW = layer.clientWidth;
+      const layerH = layer.clientHeight;
+
+      let left = activeAnno.xRatio * layerW;
+      let top = activeAnno.yRatio * layerH;
+      let w = activeAnno.widthRatio * layerW;
+      let h = activeAnno.heightRatio * layerH;
+
+      const right = left + w;
+      const bottom = top + h;
+
+      if (state.resizeHandle === 'se') {
+        w = Math.max(15, curX - left);
+        h = Math.max(15, curY - top);
+      } else if (state.resizeHandle === 'sw') {
+        const newLeft = Math.min(curX, right - 15);
+        w = right - newLeft;
+        left = newLeft;
+      } else if (state.resizeHandle === 'ne') {
+        const newTop = Math.min(curY, bottom - 15);
+        h = bottom - newTop;
+        top = newTop;
+        w = Math.max(15, curX - left);
+      } else if (state.resizeHandle === 'nw') {
+        const newLeft = Math.min(curX, right - 15);
+        const newTop = Math.min(curY, bottom - 15);
+        w = right - newLeft;
+        h = bottom - newTop;
+        left = newLeft;
+        top = newTop;
+      }
+
+      // Update ratios temporarily
+      activeAnno.xRatio = left / layerW;
+      activeAnno.yRatio = top / layerH;
+      activeAnno.widthRatio = w / layerW;
+      activeAnno.heightRatio = h / layerH;
+
+      drawAnnotationBoxes();
+    }
+  }
+
+  async function handleStageMouseUp(e) {
+    if (state.isDrawing) {
+      state.isDrawing = false;
+      const tempRect = document.getElementById('temp-draw-rect');
+      if (!tempRect) return;
+
+      const left = parseFloat(tempRect.style.left);
+      const top = parseFloat(tempRect.style.top);
+      const w = parseFloat(tempRect.style.width);
+      const h = parseFloat(tempRect.style.height);
+      tempRect.remove();
+
+      if (w < 12 || h < 12) return; // ignore minor clicks
+
+      const layer = document.getElementById('overlays-layer');
+      const layerW = layer.clientWidth;
+      const layerH = layer.clientHeight;
+
+      const newAnno = {
+        pageNumber: currentPageNum,
+        regionType: 'AUTO_DETECT',
+        xRatio: left / layerW,
+        yRatio: top / layerH,
+        widthRatio: w / layerW,
+        heightRatio: h / layerH,
+        includeInAi: true,
+        includeTextInAi: true,
+        includeImageInAi: true,
+        saveToAssetLibrary: false,
+        displayOrder: state.regions.filter(r => r.pageNumber === currentPageNum).length + 1
+      };
+
+      showLoading("Đang ghi nhận vùng mới...", "Hệ thống đang đồng bộ dữ liệu.");
+      try {
+        const token = document.querySelector('meta[name="_csrf"]').content;
+        const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+        const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/annotations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            [header]: token
+          },
+          body: JSON.stringify(newAnno)
+        });
+
+        if (res.ok) {
+          const saved = await res.json();
+          state.regions.push(saved);
+          drawAnnotationBoxes();
+          selectRegion(saved.id);
+          renderSidebarPages();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        hideLoading();
+      }
+    } else if (state.isResizing) {
+      state.isResizing = false;
+      state.resizeHandle = null;
+      
+      // Auto save updated coordinate points
+      const activeAnno = state.regions.find(r => r.id === state.selectedRegionId);
+      if (activeAnno) {
+        saveAnnotationToDatabase(activeAnno);
+      }
+    }
+  }
+
+  function findCurrentRegionCropAsset(assets, annotation) {
+    if (!Array.isArray(assets) || !annotation) return null;
+
+    const sameCoordinate = (left, right) => Number.isFinite(Number(left))
+      && Number.isFinite(Number(right))
+      && Math.abs(Number(left) - Number(right)) <= 1e-9;
+    const usableStatuses = new Set(['TEMPORARY', 'ACTIVE']);
+
+    return assets
+      .filter(asset => Number(asset.sourceRegionId) === Number(annotation.id))
+      .filter(asset => usableStatuses.has(String(asset.status || '').toUpperCase()))
+      .filter(asset => Number(asset.sourcePageNumber) === Number(annotation.pageNumber))
+      .filter(asset => sameCoordinate(asset.cropX, annotation.xRatio))
+      .filter(asset => sameCoordinate(asset.cropY, annotation.yRatio))
+      .filter(asset => sameCoordinate(asset.cropWidth, annotation.widthRatio))
+      .filter(asset => sameCoordinate(asset.cropHeight, annotation.heightRatio))
+      .sort((left, right) => {
+        const updatedDifference = Date.parse(right.updatedAt || 0) - Date.parse(left.updatedAt || 0);
+        return updatedDifference || Number(right.id || 0) - Number(left.id || 0);
+      })[0] || null;
+  }
+
+  async function selectRegion(id) {
+    state.selectedRegionId = id;
+    drawAnnotationBoxes();
+    
+    const ann = state.regions.find(r => r.id === id);
+    if (!ann) return;
+
+    // Open form inspector
+    document.getElementById('inspector-empty-state').style.display = 'none';
+    document.getElementById('inspector-form-area').style.display = 'block';
+
+    // Populate data
+    document.getElementById('reg-type').value = ann.regionType;
+    document.getElementById('reg-note').value = ann.lecturerNote || '';
+    document.getElementById('reg-inc-text').checked = ann.includeTextInAi !== false;
+    document.getElementById('reg-inc-image').checked = ann.includeImageInAi !== false;
+
+    // Load crop preview thumbnail from backend LecturerAsset
+    const cropSec = document.getElementById('inspector-crop-preview-sec');
+    const toggleBtn = document.getElementById('btn-toggle-crop-library');
+    if (cropSec) cropSec.style.display = 'none';
+    if (toggleBtn) toggleBtn.style.display = 'none';
+    state.selectedAssetId = null;
+    state.selectedAssetStatus = null;
+    
+    if (ann.includeImageInAi !== false) {
+      try {
+        const res = await fetch(`/practice/manage/assets?sessionId=${SESSION_ID}`);
+        if (res.ok) {
+          const assets = await res.json();
+          const asset = findCurrentRegionCropAsset(assets, ann);
+          if (asset && cropSec) {
+            cropSec.style.display = 'block';
+            document.getElementById('inspector-crop-img').src = `/practice/materials/${asset.id}/content`;
+            document.getElementById('inspector-crop-size').innerText = Math.round(asset.fileSize / 1024) + ' KB';
+            
+            // Track asset for toggle button
+            state.selectedAssetId = asset.id;
+            state.selectedAssetStatus = asset.status;
+
+            const statusSpan = document.getElementById('inspector-crop-status');
+            if (asset.status === 'ACTIVE') {
+              statusSpan.innerText = 'Đã lưu kho';
+              statusSpan.style.color = 'var(--ksh-success)';
+              try { document.getElementById('reg-save-library').checked = true; } catch(e) {}
+              // Toggle button: show "remove from library"
+              if (toggleBtn) {
+                toggleBtn.style.display = 'block';
+                toggleBtn.innerText = 'Bỏ khỏi Kho ảnh';
+                toggleBtn.style.background = '#fff';
+                toggleBtn.style.color = 'var(--ksh-danger)';
+                toggleBtn.style.borderColor = 'var(--ksh-danger)';
+              }
+            } else {
+              statusSpan.innerText = 'Lưu tạm';
+              statusSpan.style.color = 'var(--ksh-primary)';
+              try { document.getElementById('reg-save-library').checked = false; } catch(e) {}
+              // Toggle button: show "save to library"
+              if (toggleBtn) {
+                toggleBtn.style.display = 'block';
+                toggleBtn.innerText = 'Lưu vào Kho ảnh của tôi';
+                toggleBtn.style.background = 'var(--ksh-primary)';
+                toggleBtn.style.color = '#fff';
+                toggleBtn.style.borderColor = 'var(--ksh-primary)';
+              }
+            }
+          }
+        }
+      } catch(err) {
+        console.warn("Failed to load crop asset info", err);
+      }
+    }
+
+    renderRegionSpecificFields(ann.regionType, ann);
+
+    // Render suggestive AI note template
+    showSuggestionTemplate(ann.regionType);
+    renderPageRegionsList();
+  }
+
+  function toggleOptionIndex(placement) {
+    const field = document.getElementById('opt-index-field');
+    if (placement === 'OPTION_IMAGE') {
+      field.style.display = 'block';
+    } else {
+      field.style.display = 'none';
+    }
+  }
+
+  function handlePlacementChange() {
+    const placement = document.getElementById('reg-img-placement').value;
+    toggleOptionIndex(placement);
+    updateSelectedRegionProperty();
+  }
+
+  function drawAnnotationBoxes() {
+    const layer = document.getElementById('overlays-layer');
+    layer.querySelectorAll('.region-box').forEach(el => el.remove());
+
+    const pageAnnos = state.regions.filter(r => r.pageNumber === currentPageNum);
+    const layerW = layer.clientWidth;
+    const layerH = layer.clientHeight;
+
+    pageAnnos.forEach(ann => {
+      const box = document.createElement('div');
+      box.className = `region-box ${ann.regionType} ${state.selectedRegionId === ann.id ? 'active' : ''}`;
+      box.dataset.regionId = ann.id;
+
+      box.style.left = (ann.xRatio * layerW) + 'px';
+      box.style.top = (ann.yRatio * layerH) + 'px';
+      box.style.width = (ann.widthRatio * layerW) + 'px';
+      box.style.height = (ann.heightRatio * layerH) + 'px';
+
+      // Small header label
+      const label = document.createElement('span');
+      label.className = 'region-label';
+      label.innerText = getRegionTypeLabel(ann.regionType);
+      box.appendChild(label);
+
+      // Resize Handles
+      const handles = ['nw', 'ne', 'se', 'sw'];
+      handles.forEach(h => {
+        const handle = document.createElement('div');
+        handle.className = `handle ${h}`;
+        handle.dataset.handle = h;
+        box.appendChild(handle);
+      });
+
+      layer.appendChild(box);
+    });
+  }
+
+  function getRegionTypeLabel(type) {
+    const labels = {
+      'AUTO_DETECT': 'Tự nhận diện',
+      'INSTRUCTION': 'Hướng dẫn',
+      'PASSAGE': 'Bài đọc',
+      'TRANSCRIPT': 'Transcript',
+      'EXAMPLE_BOX': 'Ví dụ mẫu',
+      'GROUP_HEADER': 'Nhóm câu',
+      'QUESTION_BLOCK': 'Vùng câu hỏi',
+      'QUESTION_PROMPT': 'Đề bài',
+      'OPTIONS': 'Lựa chọn',
+      'ANSWER_KEY': 'Đáp án',
+      'IMAGE_ASSET': 'Hình ảnh',
+      'IGNORE': 'Bỏ qua'
+    };
+    return labels[type] || type;
+  }
+
+  // ═══ NOTES & TEMPLATES ═══
+  const noteTemplates = {
+    'AUTO_DETECT': 'AI tự xác định vai trò của vùng này. Không suy diễn nội dung ngoài vùng.',
+    'INSTRUCTION': 'Đây là hướng dẫn chung cho nhóm. Giữ nguyên nội dung tiếng Hàn. Không tạo thành câu hỏi riêng.',
+    'PASSAGE': 'Đây là bài đọc dùng chung. Dùng nội dung này làm ngữ cảnh cho các câu hỏi, không tách thành lựa chọn.',
+    'TRANSCRIPT': 'Đây là lời thoại của phần nghe. Không hiển thị transcript trong chế độ thi nếu đề yêu cầu nghe audio.',
+    'EXAMPLE_BOX': 'Đây là ví dụ <보기>. Tách ví dụ, lựa chọn và đáp án mẫu nếu có. Không tính làm câu hỏi.',
+    'GROUP_HEADER': 'Vùng này xác định nhóm câu. Dùng làm instruction/range cho group.',
+    'QUESTION_BLOCK': 'Nhận diện các câu. Tách riêng prompt, options, answer key. Gợi ý kiểu câu hỏi.',
+    'QUESTION_PROMPT': 'Đây là đề bài câu hỏi. Không đưa các lựa chọn ① ② ③ ④ vào prompt.',
+    'OPTIONS': 'Đây là danh sách phương án. Giữ đúng thứ tự ① ② ③ ④ và tách thành mảng options.',
+    'ANSWER_KEY': 'Đáp án chính thức. Không hiển thị cho học sinh trong lúc làm bài.',
+    'IMAGE_ASSET': 'Giữ nguyên hình ảnh này. Lưu thành asset và gắn vào placement tương ứng.',
+    'IGNORE': 'Bỏ qua hoàn toàn vùng này. Không gửi text hoặc ảnh cho AI.'
+  };
+
+  function showSuggestionTemplate(type) {
+    const panel = document.getElementById('note-template-group');
+    const label = document.getElementById('note-template-text');
+    
+    if (noteTemplates[type]) {
+      panel.style.display = 'block';
+      label.innerText = noteTemplates[type];
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+
+  function insertNoteTemplate() {
+    const type = document.getElementById('reg-type').value;
+    const noteArea = document.getElementById('reg-note');
+    if (noteTemplates[type]) {
+      noteArea.value = noteTemplates[type];
+      updateSelectedRegionProperty();
+    }
+  }
+
+  function handleRegionTypeChange() {
+    const type = document.getElementById('reg-type').value;
+    const ann = state.regions.find(region => region.id === state.selectedRegionId);
+    if (ann) ann.regionType = type;
+    renderRegionSpecificFields(type, ann || {}, true);
+    showSuggestionTemplate(type);
+    updateSelectedRegionProperty();
+  }
+
+  function renderRegionSpecificFields(type, ann = {}, focusNewField = false) {
+    const qBlock = document.getElementById('specific-question-block');
+    const imgAsset = document.getElementById('specific-image-asset');
+    qBlock.style.display = type === 'QUESTION_BLOCK' ? 'block' : 'none';
+    imgAsset.style.display = type === 'IMAGE_ASSET' ? 'block' : 'none';
+
+    if (type === 'QUESTION_BLOCK') {
+      document.getElementById('reg-q-type').value = ann.expectedQuestionType || 'AUTO_DETECT';
+      document.getElementById('reg-q-from').value = ann.expectedQuestionFrom || '';
+      document.getElementById('reg-q-to').value = ann.expectedQuestionTo || '';
+      if (focusNewField) window.setTimeout(() => document.getElementById('reg-q-type').focus(), 0);
+    } else if (type === 'IMAGE_ASSET') {
+      document.getElementById('reg-img-placement').value = ann.assetPlacement || 'UNASSIGNED';
+      document.getElementById('reg-img-alt').value = ann.altText || '';
+      document.getElementById('reg-save-library').checked = ann.saveToAssetLibrary === true;
+      toggleOptionIndex(ann.assetPlacement || 'UNASSIGNED');
+      if (focusNewField) window.setTimeout(() => document.getElementById('reg-img-placement').focus(), 0);
+    }
+    renderRegionDestinationSummary(type, ann);
+  }
+
+  function targetSkillLabel() {
+    return { READING: 'Phần Đọc', LISTENING: 'Phần Nghe', WRITING: 'Phần Viết', SPEAKING: 'Phần Nói' }[TARGET_SKILL] || TARGET_SKILL;
+  }
+
+  function renderRegionDestinationSummary(type, ann = {}) {
+    const summary = document.getElementById('region-destination-summary');
+    if (!summary) return;
+    const target = `Test ${TARGET_TEST_NO} · ${TARGET_LESSON_CODE} · ${targetSkillLabel()}`;
+    const messages = {
+      AUTO_DETECT: `AI tự xác định vai trò của vùng trước khi đưa vào ${target}.`,
+      INSTRUCTION: `Hiển thị như hướng dẫn dùng chung của nhóm trong ${target}.`,
+      PASSAGE: `Hiển thị như bài đọc dùng chung phía trên các câu liên quan trong ${target}.`,
+      TRANSCRIPT: `Dùng làm ngữ cảnh nghe và giải thích sau nộp; mặc định không lộ trong lúc học sinh làm bài.`,
+      EXAMPLE_BOX: `Hiển thị như ví dụ mẫu, không được tính thành câu hỏi.`,
+      GROUP_HEADER: `Dùng để xác định ranh giới và tiêu đề nhóm câu.`,
+      QUESTION_PROMPT: `Chỉ dùng làm nội dung đề của câu hỏi.`,
+      OPTIONS: `Chỉ dùng làm các lựa chọn trả lời của câu hỏi.`,
+      ANSWER_KEY: `Dùng làm đáp án chấm điểm và không hiển thị trước khi học sinh nộp bài.`,
+      IMAGE_ASSET: `Ảnh được gắn vào vị trí đã chọn trong đề học sinh.`,
+      IGNORE: `Vùng này bị loại khỏi dữ liệu gửi AI và không xuất hiện trong đề.`
+    };
+    if (type === 'QUESTION_BLOCK') {
+      const from = Number(ann.expectedQuestionFrom || document.getElementById('reg-q-from').value || 0);
+      const to = Number(ann.expectedQuestionTo || document.getElementById('reg-q-to').value || 0);
+      const range = from > 0 && to >= from
+        ? ` Câu nguồn ${from}-${to} sẽ được giữ để đối chiếu và đánh số lại liên tục trong ${TARGET_LESSON_CODE}.`
+        : '';
+      summary.textContent = `Tạo một hoặc nhiều câu hỏi trong ${target}.${range}`;
+      return;
+    }
+    summary.textContent = messages[type] || `Nội dung sẽ được kiểm tra trước khi đưa vào ${target}.`;
+  }
+
+  // ═══ UPDATE REGION PROPERTIES & AUTOSAVE ═══
+  function updateSelectedRegionProperty() {
+    if (!state.selectedRegionId) return;
+
+    const ann = state.regions.find(r => r.id === state.selectedRegionId);
+    if (!ann) return;
+
+    ann.regionType = document.getElementById('reg-type').value;
+    ann.lecturerNote = document.getElementById('reg-note').value;
+    ann.includeTextInAi = document.getElementById('reg-inc-text').checked;
+    ann.includeImageInAi = document.getElementById('reg-inc-image').checked;
+
+    if (ann.regionType === 'QUESTION_BLOCK') {
+      ann.expectedQuestionType = document.getElementById('reg-q-type').value;
+      ann.expectedQuestionFrom = parseInt(document.getElementById('reg-q-from').value) || null;
+      ann.expectedQuestionTo = parseInt(document.getElementById('reg-q-to').value) || null;
+    } else if (ann.regionType === 'IMAGE_ASSET') {
+      ann.assetPlacement = document.getElementById('reg-img-placement').value;
+      ann.altText = document.getElementById('reg-img-alt').value;
+      ann.saveToAssetLibrary = document.getElementById('reg-save-library').checked;
+      if (ann.assetPlacement === 'OPTION_IMAGE') {
+        ann.optionIndex = parseInt(document.getElementById('reg-img-opt-idx').value) || null;
+      }
+    }
+
+    renderRegionDestinationSummary(ann.regionType, ann);
+
+    drawAnnotationBoxes();
+    
+    // Trigger Debounced autosave to Database
+    triggerAutosave();
+  }
+
+  function triggerAutosave() {
+    setDraftSaveState('SAVING', 'Đang lưu...');
+
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    
+    autosaveTimeout = setTimeout(async () => {
+      try {
+        if (state.selectedRegionId) {
+          const ann = state.regions.find(r => r.id === state.selectedRegionId);
+          if (ann) await saveAnnotationToDatabase(ann);
+        }
+        
+        // Also save Session general states
+        await saveWorkspaceStateToServer();
+        setDraftSaveState('SAVED', 'Đã lưu bản nháp');
+      } catch (err) {
+        setDraftSaveState('SAVE_FAILED', 'Lưu thất bại');
+      }
+    }, 1000);
+  }
+
+  async function saveAnnotationToDatabase(ann) {
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/annotations/${ann.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        [header]: token
+      },
+      body: JSON.stringify(ann)
+    });
+    if (!res.ok) throw new Error("Auto-save annotation error.");
+  }
+
+  async function saveWorkspaceStateToServer() {
+    const start = parseInt(document.getElementById('start-page-input').value) || 1;
+    const end = parseInt(document.getElementById('end-page-input').value) || TOTAL_PAGES;
+    const strategy = document.getElementById('extraction-strategy').value;
+
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [header]: token
+      },
+      body: JSON.stringify({
+        currentPage: currentPageNum,
+        startPage: start,
+        endPage: end,
+        extractionStrategy: strategy
+      })
+    });
+    if (!res.ok) throw new Error("Không lưu được trạng thái import.");
+  }
+
+  function saveWorkspaceState() {
+    triggerAutosave();
+    renderSidebarPages();
+  }
+
+  async function duplicateSelectedRegion() {
+    if (!state.selectedRegionId) return;
+    const ann = state.regions.find(r => r.id === state.selectedRegionId);
+    if (!ann) return;
+
+    showLoading("Đang sao chép vùng...", "Vui lòng đợi.");
+    try {
+      const copy = { ...ann, id: null, displayOrder: ann.displayOrder + 1, xRatio: ann.xRatio + 0.03, yRatio: ann.yRatio + 0.03 };
+      
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/annotations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [header]: token
+        },
+        body: JSON.stringify(copy)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        state.regions.push(saved);
+        drawAnnotationBoxes();
+        selectRegion(saved.id);
+        renderSidebarPages();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function deleteSelectedRegion() {
+    if (!state.selectedRegionId) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa vùng này?")) return;
+
+    showLoading("Đang xóa vùng...", "Vui lòng đợi.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/annotations/${state.selectedRegionId}`, {
+        method: 'DELETE',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        state.regions = state.regions.filter(r => r.id !== state.selectedRegionId);
+        state.selectedRegionId = null;
+        drawAnnotationBoxes();
+
+        document.getElementById('inspector-empty-state').style.display = 'block';
+        document.getElementById('inspector-form-area').style.display = 'none';
+        
+        renderSidebarPages();
+        renderPageRegionsList();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function renderPageRegionsList() {
+    const list = document.getElementById('regions-list-on-page');
+    list.innerHTML = '';
+    const pageAnnos = state.regions.filter(r => r.pageNumber === currentPageNum);
+
+    if (pageAnnos.length === 0) {
+      list.innerHTML = `<span style="font-size:0.8rem; color:var(--ksh-text-muted);">Trang hiện tại chưa có vùng đánh dấu.</span>`;
+      return;
+    }
+
+    pageAnnos.forEach(r => {
+      const div = document.createElement('div');
+      div.className = `region-item-row ${state.selectedRegionId === r.id ? 'active' : ''}`;
+      div.onclick = () => selectRegion(r.id);
+      
+      let badge = r.regionType;
+      if (r.regionType === 'QUESTION_BLOCK' && r.expectedQuestionFrom && r.expectedQuestionTo) {
+        badge += ` (${r.expectedQuestionFrom}-${r.expectedQuestionTo})`;
+      }
+      
+      div.innerHTML = `
+        <span style="font-size:0.82rem; font-weight:700; color:var(--ksh-text);">${getRegionTypeLabel(r.regionType)}</span>
+        <span style="font-size:0.7rem; color:var(--ksh-text-muted); font-weight:600;">#${r.id}</span>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  // ═══ DRAWER: EXTRACTED RAW TEXT VIEW ═══
+  async function openExtractedTextDrawer() {
+    document.getElementById('extracted-text-modal').style.display = 'flex';
+    document.getElementById('txt-page-select').value = currentPageNum;
+    await loadPageExtractedText();
+    switchExtractedTextMode('readable');
+  }
+
+  function closeExtractedTextDrawer() {
+    document.getElementById('extracted-text-modal').style.display = 'none';
+  }
+
+  async function loadPageExtractedText() {
+    const page = document.getElementById('txt-page-select').value;
+    try {
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/extracted-text?page=${page}`);
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data.rawText || '';
+        document.getElementById('txt-raw-textarea').value = rawText;
+        document.getElementById('txt-readable-content').textContent = formatExtractedText(rawText);
+        document.getElementById('txt-char-count').innerText = `${data.rawCharCount} ký tự`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function formatExtractedText(rawText) {
+    return String(rawText || '')
+      .normalize('NFC')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map(line => line.replace(/\t/g, ' ').replace(/[ ]{3,}/g, '  ').trimEnd())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function switchExtractedTextMode(mode) {
+    const raw = mode === 'raw';
+    document.getElementById('txt-readable-content').style.display = raw ? 'none' : 'block';
+    document.getElementById('txt-raw-textarea').style.display = raw ? 'block' : 'none';
+    document.getElementById('txt-tab-readable').className = raw ? 'pi-btn-secondary' : 'pi-btn-primary';
+    document.getElementById('txt-tab-raw').className = raw ? 'pi-btn-primary' : 'pi-btn-secondary';
+  }
+
+  // ═══ MODAL: PAYLOAD PREVIEW ═══
+  let payloadPreviewData = null;
+
+  async function openPayloadPreview() {
+    showLoading("Đang tải dữ liệu...", "Đang bóc tách payload preview.");
+    try {
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/payload-preview`);
+      if (!res.ok) throw new Error("Lỗi bóc tách preview.");
+      const data = await res.json();
+      payloadPreviewData = data;
+
+      // Populate Overview tab stats
+      const stats = data.stats;
+      const context = data.context || {};
+      document.getElementById('p-stat-pages').innerText = `Trang ${context.pageFrom || '-'}-${context.pageTo || '-'} (${stats.selectedPagesCount || 0})`;
+      document.getElementById('p-stat-target').innerText = `Test ${context.targetTestNo || TARGET_TEST_NO} · ${context.targetLessonCode || TARGET_LESSON_CODE}`;
+      document.getElementById('p-stat-regions').innerText = `${data.regions.length} vùng`;
+      document.getElementById('p-stat-crops').innerText = `${stats.cropCount} ảnh`;
+
+      // Render Regions Tab
+      const tableBody = document.getElementById('p-regions-table-body');
+      tableBody.innerHTML = '';
+      data.regions.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--ksh-border)';
+        tr.innerHTML = `
+          <td style="padding:10px; font-weight:700;">Vùng ${escapeMarkup(String(r.regionId).replace('region-', '#').replace('page-', 'trang '))}</td>
+          <td style="padding:10px;">${r.page}</td>
+          <td style="padding:10px; color:var(--ksh-primary); font-weight:600;">${escapeMarkup(getRegionTypeLabel(r.type))}</td>
+          <td style="padding:10px;">${r.includeText ? 'Có' : 'Không'}</td>
+          <td style="padding:10px;">${r.includeImage ? 'Có' : 'Không'}</td>
+          <td style="padding:10px; font-style:italic;">${escapeMarkup(r.note || '')}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      // Render Images Tab
+      const imgList = document.getElementById('p-images-list');
+      imgList.innerHTML = '';
+      if (data.crops.length === 0) {
+        imgList.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:16px; color:var(--ksh-text-muted);">Không có ảnh nào được gửi kèm.</div>`;
+      } else {
+        data.crops.forEach(c => {
+          const div = document.createElement('div');
+          div.className = 'preview-stat-card';
+          div.style.textAlign = 'center';
+          div.innerHTML = `
+            <img src="${c.url}" style="max-width:100%; max-height:80px; object-fit:contain; border:1px solid var(--ksh-border); border-radius:6px; background:#fff; padding:4px;">
+            <div style="font-weight:700; font-size:0.75rem; margin-top:8px;">Ảnh từ ${escapeMarkup(c.regionId)}</div>
+            <div style="font-size:0.68rem; color:var(--ksh-text-muted);">${(c.sizeBytes/1024).toFixed(1)} KB · ${escapeMarkup(c.placement || 'Chưa gán')}</div>
+          `;
+          imgList.appendChild(div);
+        });
+      }
+
+      // Switch to Overview by default
+      switchPreviewTab('overview');
+
+      document.getElementById('payload-preview-modal').style.display = 'flex';
+    } catch (e) {
+      alert("Lỗi preview: " + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function closePayloadPreview() {
+    document.getElementById('payload-preview-modal').style.display = 'none';
+  }
+
+  function switchPreviewTab(tab) {
+    document.querySelectorAll('.preview-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const activeTab = document.getElementById('p-tab-' + tab);
+    if (!activeTab) return;
+    activeTab.classList.add('active');
+
+    const panels = ['overview', 'regions', 'images'];
+    panels.forEach(p => {
+      const panel = document.getElementById('p-panel-' + p);
+      if (panel) panel.style.display = (p === tab) ? 'block' : 'none';
+    });
+  }
+
+  function escapeMarkup(value) {
+    return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+  }
+
+  // ═══ RUN AI ANALYSIS & REVIEW DRAFT ═══
+  let aiGeneratedDraft = null;
+  let aiAttemptCount = 0;
+  let lastAiRequestId = '-';
+
+  function setDraftSaveState(stateName, message) {
+    const el = document.getElementById('save-status');
+    if (!el) return;
+    el.classList.remove('is-saving', 'is-saved', 'is-error');
+    const normalized = stateName || 'SAVED';
+    if (normalized === 'SAVING') el.classList.add('is-saving');
+    else if (normalized === 'SAVE_FAILED') el.classList.add('is-error');
+    else el.classList.add('is-saved');
+    el.innerText = message || (normalized === 'SAVING' ? 'Đang lưu...' : normalized === 'SAVE_FAILED' ? 'Lưu thất bại' : 'Đã lưu bản nháp');
+  }
+
+  function setAiAnalysisState(stateName, opts = {}) {
+    const badge = document.getElementById('ws-status');
+    if (!badge) return;
+    const title = document.getElementById('ai-pop-title');
+    const message = document.getElementById('ai-pop-message');
+    const provider = document.getElementById('ai-pop-provider');
+    const attempt = document.getElementById('ai-pop-attempt');
+    const time = document.getElementById('ai-pop-time');
+    const request = document.getElementById('ai-pop-request');
+    const map = {
+      NOT_STARTED: ['AI chưa chạy', 'is-idle'],
+      READY: ['AI sẵn sàng', 'is-ready'],
+      PROCESSING: ['AI đang phân tích', 'is-processing'],
+      SUCCEEDED: ['AI đã phân tích xong', 'is-success'],
+      FAILED_RETRYABLE: ['AI cần kiểm tra lại', 'is-error'],
+      FAILED_FINAL: ['AI thất bại', 'is-error'],
+      CANCELLED: ['AI đã hủy', 'is-idle']
+    };
+    const config = map[stateName] || map.READY;
+    badge.className = `ws-status-badge ${config[1]}`;
+    badge.innerText = config[0];
+    if (title) title.innerText = config[0];
+    if (message) message.innerText = opts.message || 'KSH sẽ kiểm tra vùng khoanh trước khi gửi dữ liệu sang AI.';
+    if (provider) provider.innerText = `Provider: ${opts.provider || 'OpenAI/Gemini endpoint'}`;
+    if (attempt) attempt.innerText = `Số lần thử: ${aiAttemptCount}`;
+    if (time) time.innerText = `Lần cuối: ${opts.lastAttemptAt || '-'}`;
+    if (request) request.innerText = `Request ID: ${opts.requestId || lastAiRequestId}`;
+  }
+
+  function toggleAiStatusPopover() {
+    document.getElementById('ai-status-popover')?.classList.toggle('open');
+  }
+
+  function toggleAccountMenu(event) {
+    event?.stopPropagation();
+    const menu = document.getElementById('ws-account-menu');
+    const btn = document.getElementById('ws-account-btn');
+    const willOpen = !menu.classList.contains('open');
+    menu.classList.toggle('open', willOpen);
+    btn?.setAttribute('aria-expanded', String(willOpen));
+  }
+
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.ai-status-wrap')) {
+      document.getElementById('ai-status-popover')?.classList.remove('open');
+    }
+    if (!event.target.closest('.ws-account')) {
+      document.getElementById('ws-account-menu')?.classList.remove('open');
+      document.getElementById('ws-account-btn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      document.getElementById('ai-status-popover')?.classList.remove('open');
+      document.getElementById('ws-account-menu')?.classList.remove('open');
+      document.getElementById('ws-account-btn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  async function runAiAnalysis() {
+    if (!confirm("Bắt đầu gửi dữ liệu sang AI nhận dạng cấu trúc câu hỏi? Quá trình này có thể tốn từ 15-45 giây.")) return;
+    
+    aiAttemptCount += 1;
+    const attemptTime = new Date().toLocaleString('vi-VN');
+    setAiAnalysisState('PROCESSING', { message: 'Đang lưu trạng thái, kiểm tra vùng khoanh và gọi AI.', lastAttemptAt: attemptTime });
+    showLoading("Đang lưu trạng thái và phân tích...", "Hệ thống đang chuẩn bị dữ liệu và gọi AI.");
+    try {
+      await saveWorkspaceStateToServer();
+
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/generate`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errors = Array.isArray(payload.errors) ? payload.errors : [];
+        const firstError = errors[0]?.messageVi || payload.message || payload.error || "AI Parser trả về lỗi.";
+        setAiAnalysisState(payload.status || 'FAILED_RETRYABLE', {
+          message: firstError,
+          lastAttemptAt: attemptTime,
+          requestId: payload.requestId || lastAiRequestId
+        });
+        document.getElementById('ai-status-popover')?.classList.add('open');
+        throw new Error(firstError);
+      }
+      const draft = payload;
+      aiGeneratedDraft = draft;
+
+      setAiAnalysisState('SUCCEEDED', {
+        message: 'AI đã bóc tách cấu trúc đề thi thành công. Kiểm tra lại ở tab AI Draft trước khi chuyển sang biên soạn.',
+        lastAttemptAt: attemptTime,
+        requestId: lastAiRequestId
+      });
+
+      const structure = JSON.parse(draft.draftJson);
+      renderDraftTree(structure);
+      switchInspectorTab('draft');
+      
+      await saveWorkspaceStateToServer();
+    } catch (e) {
+      console.warn("AI analysis failed", e);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function renderDraftTree(structure) {
+    const container = document.getElementById('draft-tree-container');
+    container.innerHTML = '';
+    const emptyState = document.getElementById('draft-empty-state');
+    const actionPanel = document.getElementById('draft-action-panel');
+
+    const sections = structure.sections || [];
+    if (sections.length === 0) {
+      emptyState.style.display = 'block';
+      container.style.display = 'none';
+      actionPanel.style.display = 'none';
+      return;
+    }
+
+    emptyState.style.display = 'none';
+    container.style.display = 'block';
+    actionPanel.style.display = 'block';
+
+    sections.forEach(sec => {
+      const secNode = document.createElement('div');
+      secNode.className = 'region-item-row';
+      secNode.style.fontWeight = '800';
+      secNode.textContent = `Test ${sec.testNo || TARGET_TEST_NO} · ${sec.lessonCode || TARGET_LESSON_CODE} · ${sec.title || sec.skill}`;
+      container.appendChild(secNode);
+
+      const groups = sec.groups || [];
+      groups.forEach(grp => {
+        const grpNode = document.createElement('div');
+        grpNode.className = 'region-item-row';
+        grpNode.style.marginLeft = '12px';
+        grpNode.textContent = `${grp.groupCode || grp.label || 'Nhóm câu'} · ${grp.questions ? grp.questions.length : 0} câu`;
+        container.appendChild(grpNode);
+
+        const questions = grp.questions || [];
+        questions.forEach(q => {
+          const qNode = document.createElement('div');
+          qNode.className = 'region-item-row';
+          qNode.style.marginLeft = '24px';
+          qNode.style.background = '#FFFFFF';
+          const sourceNo = Number(q.sourceQuestionNo || 0);
+          qNode.textContent = sourceNo > 0 && sourceNo !== Number(q.questionNo)
+            ? `Câu ${q.questionNo} · nguồn PDF câu ${sourceNo} · ${q.questionType}`
+            : `Câu ${q.questionNo} · ${q.questionType}`;
+          
+          qNode.onclick = () => {
+            document.querySelectorAll('#draft-tree-container .region-item-row').forEach(el => el.classList.remove('active'));
+            qNode.classList.add('active');
+            
+            // Highlight sources
+            highlightSourceRegions(q.sourceRegionIds);
+          };
+
+          container.appendChild(qNode);
+        });
+      });
+    });
+  }
+
+  function highlightSourceRegions(sourceRegionIds) {
+    if (!sourceRegionIds || sourceRegionIds.length === 0) return;
+    
+    // Parse regionId format "region-15"
+    const ids = sourceRegionIds.map(rid => parseInt(rid.replace('region-', '')));
+    const match = state.regions.find(r => ids.includes(r.id));
+    
+    if (match) {
+      changePage(match.pageNumber).then(() => {
+        const box = document.querySelector(`.region-box[data-region-id="${match.id}"]`);
+        if (box) {
+          box.classList.add('active');
+          box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Red warning blink
+          box.style.borderColor = 'var(--ksh-danger)';
+          box.style.borderWidth = '6px';
+          setTimeout(() => {
+            box.style.borderColor = '';
+            box.style.borderWidth = '';
+          }, 1200);
+        }
+      });
+    }
+  }
+
+  async function convertDraftToManual() {
+    if (LINKED_DRAFT_ID) {
+      window.location.href = `/practice/manage/drafts/${LINKED_DRAFT_ID}`;
+      return;
+    }
+    showLoading("Đang chuyển đổi sang trình soạn thảo...", "Hệ thống đang liên kết manual draft.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/create-manual-draft`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        const manualDraft = await res.json();
+        alert("Đã chuyển đổi cấu trúc AI bóc tách sang Manual Draft biên tập thủ công thành công!");
+        window.location.href = `/practice/manage/drafts/${manualDraft.id}`;
+      }
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function openLearnerPreview() {
+    const draftId = aiGeneratedDraft?.id || LINKED_DRAFT_ID;
+    if (!draftId) {
+      alert('Hãy phân tích tài liệu trước khi xem màn hình học sinh.');
+      return;
+    }
+    window.open(`/practice/manage/drafts/${draftId}?preview=1`, '_blank', 'noopener');
+  }
+
+  function openAttachDraftModal() {
+    document.getElementById('attach-draft-modal').style.display = 'flex';
+  }
+
+  function closeAttachDraftModal() {
+    document.getElementById('attach-draft-modal').style.display = 'none';
+  }
+
+  async function submitAttachDraft() {
+    const draftId = document.getElementById('attach-target-id').value;
+    if (!draftId) {
+      alert("Vui lòng nhập Draft ID đích.");
+      return;
+    }
+
+    showLoading("Đang ghép vào bản nháp...", "Vui lòng giữ kết nối.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/attach-to-draft?targetDraftId=${draftId}`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+
+      if (res.ok) {
+        alert("Ghép kết quả import vào bản nháp đích thành công!");
+        window.location.href = `/practice/manage/drafts/${draftId}`;
+      } else {
+        const errText = await res.text();
+        throw new Error(errText || "Lỗi ghép đề.");
+      }
+    } catch (e) {
+      alert("Lỗi ghép đề: " + e.message);
+    } finally {
+      hideLoading();
+      closeAttachDraftModal();
+    }
+  }
+
+  // ═══ SESSION SNAPSHOT & UTILITIES ═══
+  async function cancelChanges() {
+    if (!confirm("Hủy toàn bộ thay đổi chưa lưu và khôi phục về bản lưu gần nhất?")) return;
+
+    showLoading("Đang khôi phục snapshot...", "Vui lòng chờ.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/cancel-changes`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        await loadWorkspace();
+        cancelCurrentOperation();
+      }
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function renameWorkspaceSession() {
+    const newName = prompt("Nhập tên mới cho bản nháp import:", document.querySelector('.ws-title').innerText);
+    if (!newName || newName.trim() === "") return;
+
+    showLoading("Đang đổi tên...", "Vui lòng chờ.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [header]: token
+        },
+        body: JSON.stringify({
+          currentPage: currentPageNum,
+          extractionStrategy: document.getElementById('extraction-strategy').value
+        })
+      });
+      
+      if (res.ok) {
+        // Simple update title display (we mock save title or reload header)
+        // Since we are changing state we can save to database
+        // We trigger manual reload or direct update
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function deleteWorkspaceSession() {
+    if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn phiên PDF Import này cùng tất cả ảnh cắt? Bản biên soạn thủ công liên kết (nếu có) sẽ KHÔNG bị ảnh hưởng.")) return;
+
+    showLoading("Đang xóa bản nháp...", "Vui lòng chờ.");
+    try {
+      const token = document.querySelector('meta[name="_csrf"]').content;
+      const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}`, {
+        method: 'DELETE',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        alert("Đã xóa phiên PDF Import thành công.");
+        window.location.href = "/practice/manage/import";
+      }
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function switchInspectorTab(tab) {
+    document.querySelectorAll('.inspector-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab-btn-' + tab).classList.add('active');
+
+    if (tab === 'inspector') {
+      document.getElementById('panel-inspector-view').style.display = 'block';
+      document.getElementById('panel-draft-view').style.display = 'none';
+    } else {
+      document.getElementById('panel-inspector-view').style.display = 'none';
+      document.getElementById('panel-draft-view').style.display = 'block';
+    }
+  }
+
+  function syncOverlays() {
+    drawAnnotationBoxes();
+  }
+
+  // ═══ PRIVATE LECTURER ASSET LIBRARY drawer management ═══
+  function openAssetLibraryDrawer() {
+    document.getElementById('asset-library-drawer').classList.add('open');
+    loadLibraryAssets();
+  }
+
+  function closeAssetLibraryDrawer() {
+    document.getElementById('asset-library-drawer').classList.remove('open');
+  }
+
+  async function loadLibraryAssets() {
+    const search = document.getElementById('asset-search-input').value;
+    const type = document.getElementById('asset-type-filter').value;
+    const grid = document.getElementById('library-assets-grid');
+    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:16px; color:var(--ksh-text-muted);">Đang tải ảnh...</div>';
+
+    try {
+      const res = await fetch(`/practice/manage/assets`);
+      if (res.ok) {
+        let assets = await res.json();
+        
+        // Client side filtering
+        if (search) {
+          assets = assets.filter(a => a.title.toLowerCase().includes(search.toLowerCase()));
+        }
+        if (type) {
+          assets = assets.filter(a => a.assetType === type);
+        }
+
+        grid.innerHTML = '';
+        if (assets.length === 0) {
+          grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:22px; color:var(--ksh-text-muted); line-height:1.55;">Kho ảnh của bạn chưa có ảnh nào. Khi crop một vùng IMAGE_ASSET, hãy bấm “Lưu vào kho ảnh” để tái sử dụng trong các đề sau.</div>';
+          return;
+        }
+
+        assets.forEach(a => {
+          const card = document.createElement('div');
+          card.className = 'preview-stat-card';
+          card.style.position = 'relative';
+          card.style.display = 'flex';
+          card.style.flexDirection = 'column';
+          card.style.alignItems = 'center';
+          card.style.padding = '8px';
+          card.style.background = 'var(--ksh-surface-sec)';
+          card.style.border = '1px solid var(--ksh-border)';
+          card.style.borderRadius = '6px';
+
+          card.innerHTML = `
+            <img src="/practice/materials/${a.id}/content" style="max-width:100%; max-height:80px; object-fit:contain; background:#fff; border-radius:4px; border:1px solid var(--ksh-border);">
+            <div style="font-weight:700; font-size:0.75rem; margin-top:8px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; width:100%; text-align:center;" title="${a.title}">${a.title}</div>
+            <div style="font-size:0.65rem; color:var(--ksh-text-muted); margin-bottom:8px;">${(a.fileSize/1024).toFixed(1)} KB</div>
+            <div style="display:flex; gap:4px; width:100%;">
+              <button class="pi-btn-secondary" style="flex:1; padding:3px; font-size:0.68rem;" onclick="associateAssetToSelectedRegion(${a.id})">Gắn</button>
+              <button class="pi-btn-danger" style="flex:1; padding:3px; font-size:0.68rem; background:var(--ksh-danger); color:#fff; border:none;" onclick="deleteLibraryAsset(${a.id})">Xóa</button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
+    } catch(err) {
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:16px; color:var(--ksh-danger);">Lỗi tải ảnh: ${err.message}</div>`;
+    }
+  }
+  // Toggle crop between TEMPORARY ↔ ACTIVE (save/unsave from personal library)
+  async function toggleCropLibraryStatus() {
+    if (!state.selectedRegionId || !state.selectedAssetId) {
+      alert("Vui lòng chọn một vùng có ảnh crop trước.");
+      return;
+    }
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+    const assetId = state.selectedAssetId;
+    const currentStatus = state.selectedAssetStatus;
+
+    try {
+      if (currentStatus === 'TEMPORARY') {
+        // Promote: TEMPORARY → ACTIVE
+        showLoading("Đang lưu vào kho ảnh...", "Lưu crop vào thư viện cá nhân.");
+        const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${assetId}`, {
+          method: 'POST',
+          headers: { [header]: token }
+        });
+        if (!res.ok) throw new Error("Không lưu được ảnh vào kho.");
+        const ann = state.regions.find(r => r.id === state.selectedRegionId);
+        if (ann) { ann.saveToAssetLibrary = true; }
+      } else {
+        // Demote: ACTIVE → TEMPORARY
+        showLoading("Đang bỏ lưu...", "Chuyển crop về trạng thái tạm.");
+        const res = await fetch(`/practice/manage/assets/${assetId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', [header]: token },
+          body: JSON.stringify({ status: 'TEMPORARY' })
+        });
+        if (!res.ok) throw new Error("Không bỏ lưu được ảnh khỏi kho.");
+        const ann = state.regions.find(r => r.id === state.selectedRegionId);
+        if (ann) { ann.saveToAssetLibrary = false; }
+      }
+      // Refresh inspector and library drawer
+      await selectRegion(state.selectedRegionId);
+      loadLibraryAssets();
+    } catch (err) {
+      alert("Lỗi: " + err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function saveSelectedCropToLibrary() {
+    if (!state.selectedRegionId) {
+      alert("Vui lòng chọn một vùng ảnh trước khi lưu vào kho ảnh.");
+      return;
+    }
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    showLoading("Đang lưu crop vào kho ảnh...", "KSH đang tìm crop tạm của vùng đã chọn.");
+    try {
+      const assetsRes = await fetch(`/practice/manage/assets?sessionId=${SESSION_ID}`);
+      if (!assetsRes.ok) throw new Error("Không tải được danh sách crop tạm.");
+      const assets = await assetsRes.json();
+      const ann = state.regions.find(r => r.id === state.selectedRegionId);
+      const asset = findCurrentRegionCropAsset(assets, ann);
+      if (!asset) throw new Error("Vùng này chưa có crop tạm. Hãy bật gửi ảnh và lưu lại vùng trước.");
+
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${asset.id}`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+      if (!res.ok) throw new Error("Không lưu được ảnh vào kho.");
+
+      if (ann) {
+        ann.saveToAssetLibrary = true;
+        document.getElementById('reg-save-library').checked = true;
+        await saveAnnotationToDatabase(ann);
+      }
+      await selectRegion(state.selectedRegionId);
+      loadLibraryAssets();
+    } catch (err) {
+      alert("Lỗi lưu ảnh: " + err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function associateAssetToSelectedRegion(assetId) {
+    if (!state.selectedRegionId) {
+      alert("Vui lòng chọn một vùng trên PDF trước khi gắn ảnh.");
+      return;
+    }
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    showLoading("Đang gắn ảnh...", "Đang liên kết ảnh vào vùng đã chọn.");
+    try {
+      // Call promote asset endpoint to link asset to this session region
+      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${assetId}`, {
+        method: 'POST',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        alert("Đã gắn ảnh từ thư viện vào vùng thành công!");
+        selectRegion(state.selectedRegionId);
+      } else {
+        throw new Error("Lỗi kết nối.");
+      }
+    } catch(err) {
+      alert("Lỗi: " + err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function deleteLibraryAsset(assetId) {
+    if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn ảnh này khỏi thư viện? Tất cả các bản nháp đang dùng ảnh này sẽ bị ảnh hưởng.")) return;
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+    showLoading("Đang xóa ảnh...", "Đang loại bỏ khỏi thư viện cá nhân.");
+    try {
+      const res = await fetch(`/practice/manage/assets/${assetId}`, {
+        method: 'DELETE',
+        headers: {
+          [header]: token
+        }
+      });
+      if (res.ok) {
+        loadLibraryAssets();
+        // Clear preview if deleted asset was selected
+        if (state.selectedRegionId) {
+          selectRegion(state.selectedRegionId);
+        }
+      }
+    } catch(err) {
+      alert("Lỗi xóa ảnh: " + err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function showLoading(title, subtitle) {
+    document.getElementById('loading-title').innerText = title;
+    document.getElementById('loading-subtitle').innerText = subtitle;
+    document.getElementById('loading-overlay').style.display = 'flex';
+  }
+
+  function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
+</script>
+</body>
+</html>

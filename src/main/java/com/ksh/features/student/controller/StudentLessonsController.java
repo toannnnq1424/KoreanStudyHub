@@ -207,4 +207,3 @@ public class StudentLessonsController {
                 + "?section=" + sectionId + "&lesson=" + lessonId;
     }
 }
-

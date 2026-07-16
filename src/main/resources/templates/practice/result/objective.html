@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="panel(result)">
+  <section class="pr-section" aria-labelledby="objective-overview-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker" th:text="${result.identity().skillLabel()}">Đọc</p>
+        <h2 id="objective-overview-title">Tổng quan đáp án</h2>
+      </div>
+      <span class="pr-denominator"
+            th:text="${result.answers().scoredLabel()}">40/40 câu đã chấm</span>
+    </div>
+
+    <div class="pr-distribution" aria-label="Phân bố trạng thái đáp án">
+      <div class="pr-stat is-correct">
+        <strong th:text="${result.answers().correct()}">0</strong>
+        <span>Đúng</span>
+      </div>
+      <div class="pr-stat is-partial">
+        <strong th:text="${result.answers().partial()}">0</strong>
+        <span>Đúng một phần</span>
+      </div>
+      <div class="pr-stat is-incorrect">
+        <strong th:text="${result.answers().incorrect()}">0</strong>
+        <span>Sai</span>
+      </div>
+      <div class="pr-stat is-unanswered">
+        <strong th:text="${result.answers().notAnswered()}">0</strong>
+        <span>Chưa trả lời</span>
+      </div>
+      <div class="pr-stat is-pending" th:if="${result.answers().pending() > 0}">
+        <strong th:text="${result.answers().pending()}">0</strong>
+        <span>Đang chấm</span>
+      </div>
+      <div class="pr-stat is-unavailable" th:if="${result.answers().unscorable() > 0}">
+        <strong th:text="${result.answers().unscorable()}">0</strong>
+        <span>Không thể chấm</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="pr-section" aria-labelledby="objective-breakdown-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Theo dạng câu hỏi</p>
+        <h2 id="objective-breakdown-title">Phân tích độ chính xác</h2>
+      </div>
+    </div>
+
+    <div class="pr-table-wrap">
+      <table class="pr-table">
+        <thead>
+        <tr>
+          <th>Dạng câu hỏi</th>
+          <th>Tổng</th>
+          <th>Đúng</th>
+          <th>Một phần</th>
+          <th>Sai</th>
+          <th>Bỏ trống</th>
+          <th>Đang chấm</th>
+          <th>Không thể chấm</th>
+          <th>Độ chính xác</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row : ${result.payload().breakdown()}">
+          <td data-label="Dạng câu hỏi" th:text="${row.label()}">Trắc nghiệm</td>
+          <td data-label="Tổng" th:text="${row.answers().total()}">0</td>
+          <td data-label="Đúng" class="is-positive" th:text="${row.answers().correct()}">0</td>
+          <td data-label="Một phần" class="is-caution" th:text="${row.answers().partial()}">0</td>
+          <td data-label="Sai" class="is-negative" th:text="${row.answers().incorrect()}">0</td>
+          <td data-label="Bỏ trống" th:text="${row.answers().notAnswered()}">0</td>
+          <td data-label="Đang chấm" class="is-caution" th:text="${row.answers().pending()}">0</td>
+          <td data-label="Không thể chấm" class="is-negative"
+              th:text="${row.answers().unscorable()}">0</td>
+          <td data-label="Độ chính xác">
+            <span class="pr-accuracy" th:if="${row.accuracyDisplay() != null}"
+                  th:text="${row.accuracyDisplay()}">80%</span>
+            <span th:unless="${row.accuracyDisplay() != null}">Chưa có</span>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pr-actions">
+      <a class="pr-primary-action"
+         th:href="@{/practice/attempts/{id}/result/detail(id=${result.identity().attemptId()})}">
+        Xem đáp án và giải thích
+      </a>
+    </div>
+  </section>
+</th:block>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="panel(result)">
+  <section class="pr-section" aria-labelledby="writing-overview-title">
+    <div class="pr-section-heading">
+      <div>
+        <p class="pr-section-kicker">Phân tích bài viết</p>
+        <h2 id="writing-overview-title">Kết quả theo nhiệm vụ viết</h2>
+      </div>
+      <span class="pr-denominator"
+            th:text="${result.feedback().progressLabel('bài đã có đánh giá')}">1/1 bài đã có đánh giá</span>
+    </div>
+
+    <div class="pr-segmented" role="tablist" aria-label="Chọn nhiệm vụ viết"
+         data-result-tabs="writing-tasks" th:unless="${result.payload().tasks().isEmpty()}">
+      <button type="button" role="tab"
+              th:each="task, status : ${result.payload().tasks()}"
+              th:id="${'writing-task-tab-' + status.index}"
+              th:attr="aria-controls=${'writing-task-panel-' + status.index},aria-selected=${status.first}"
+              th:classappend="${status.first ? ' is-active' : ''}"
+              th:data-result-target="${'writing-task-panel-' + status.index}"
+              th:text="${task.taskLabel()}">Câu 53</button>
+    </div>
+
+    <article class="pr-writing-task"
+             th:each="task, taskStatus : ${result.payload().tasks()}"
+             th:id="${'writing-task-panel-' + taskStatus.index}"
+             role="tabpanel"
+             th:attr="aria-labelledby=${'writing-task-tab-' + taskStatus.index}"
+             th:hidden="${!taskStatus.first}">
+      <header class="pr-task-header">
+        <div>
+          <span class="pr-task-type" th:text="${task.taskType()}">Q53</span>
+          <h3 th:text="${task.taskLabel()}">Câu 53</h3>
+          <p th:text="${task.prompt()}">Đề bài</p>
+        </div>
+        <div class="pr-task-score" th:if="${task.score().available()}">
+          <strong th:text="${task.score().pointsDisplay()}">20/30</strong>
+          <span th:if="${task.score().percentage() != null}"
+                th:text="${task.score().percentage().stripTrailingZeros().toPlainString()} + '%'">67%</span>
+        </div>
+        <span class="pr-feedback-state" th:unless="${task.score().available()}"
+              th:text="${task.feedback().label()}">Đang chờ đánh giá</span>
+      </header>
+
+      <p class="pr-task-summary" th:if="${task.summary() != null}" th:text="${task.summary()}">Nhận xét</p>
+
+      <div class="pr-rubric-list" th:classappend="${task.analysisLenses().isEmpty() ? ' is-six-row' : ''}">
+        <div class="pr-rubric-row" th:each="criterion : ${task.officialCriteria()}">
+          <div>
+            <strong th:text="${criterion.label()}">Tiêu chí</strong>
+            <p th:if="${criterion.feedback() != null}" th:text="${criterion.feedback()}">Nhận xét</p>
+          </div>
+          <div class="pr-rubric-result">
+            <span class="pr-band-chip"
+                  th:classappend="${' is-' + criterion.band().cssClass()}"
+                  th:text="${criterion.band().label()}">Tốt</span>
+            <strong th:if="${criterion.scoreDisplay() != null}" th:text="${criterion.scoreDisplay()}">8/10</strong>
+            <span th:unless="${criterion.scoreDisplay() != null}">Chưa có điểm</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pr-writing-lenses" th:unless="${task.analysisLenses().isEmpty()}">
+        <div class="pr-segmented is-compact" role="tablist" aria-label="Chọn góc phân tích"
+             th:data-result-tabs="${'writing-lenses-' + taskStatus.index}">
+          <button type="button" role="tab"
+                  th:each="lens, lensStatus : ${task.analysisLenses()}"
+                  th:id="${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}"
+                  th:attr="aria-controls=${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index},aria-selected=${lensStatus.first}"
+                  th:classappend="${lensStatus.first ? ' is-active' : ''}"
+                  th:data-result-target="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
+                  th:text="${lens.label()}">Nội dung</button>
+        </div>
+
+        <section class="pr-lens-panel"
+                 th:each="lens, lensStatus : ${task.analysisLenses()}"
+                 th:id="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
+                 role="tabpanel"
+                 th:attr="aria-labelledby=${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}"
+                 th:hidden="${!lensStatus.first}">
+          <div class="pr-lens-summary">
+            <span class="pr-band-chip" th:classappend="${' is-' + lens.band().cssClass()}"
+                  th:text="${lens.band().label()}">Tốt</span>
+            <p th:if="${lens.summary() != null}" th:text="${lens.summary()}">Nhận xét</p>
+          </div>
+          <div class="pr-scale" th:attr="aria-label=${lens.band().label()}">
+            <span class="is-limited" th:classappend="${lens.band().name() == 'LIMITED' ? ' is-selected' : ''}"></span>
+            <span class="is-developing" th:classappend="${lens.band().name() == 'DEVELOPING' ? ' is-selected' : ''}"></span>
+            <span class="is-good" th:classappend="${lens.band().name() == 'GOOD' ? ' is-selected' : ''}"></span>
+            <span class="is-very-good" th:classappend="${lens.band().name() == 'VERY_GOOD' ? ' is-selected' : ''}"></span>
+            <span class="is-unavailable" th:classappend="${lens.band().name() == 'UNAVAILABLE' ? ' is-selected' : ''}"></span>
+          </div>
+          <ul class="pr-evidence-list" th:unless="${lens.evidence().isEmpty()}">
+            <li th:each="evidence : ${lens.evidence()}" th:text="${evidence}">Bằng chứng</li>
+          </ul>
+          <p class="pr-score-note" th:unless="${lens.countedSeparately()}">
+            Góc phân tích này dùng chung điểm Ngôn ngữ và Biểu đạt, không cộng thêm vào tổng điểm.
+          </p>
+        </section>
+      </div>
+    </article>
+
+    <div class="pr-empty" th:if="${result.payload().tasks().isEmpty()}">
+      Không có nhiệm vụ viết trong immutable snapshot của bài làm.
+    </div>
+
+    <div class="pr-actions">
+      <a class="pr-primary-action"
+         th:href="@{/practice/attempts/{id}/result/detail(id=${result.identity().attemptId()})}">
+        Xem bài viết và phản hồi chi tiết
+      </a>
+    </div>
+  </section>
+</th:block>
+</body>
+</html>

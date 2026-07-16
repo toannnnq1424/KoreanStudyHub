@@ -1,0 +1,22 @@
+CREATE TABLE practice_speaking_media_cleanup_tasks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    cleanup_reason VARCHAR(40) NOT NULL,
+    storage_provider VARCHAR(32) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    due_at DATETIME NOT NULL,
+    next_attempt_at DATETIME NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    attempt_count BIGINT NOT NULL DEFAULT 0,
+    last_error_code VARCHAR(40) NULL,
+    completed_at DATETIME NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uk_psm_cleanup_storage UNIQUE (storage_provider, storage_key),
+    INDEX idx_psm_cleanup_status_next_attempt (status, next_attempt_at),
+    INDEX idx_psm_cleanup_due_at (due_at),
+    CONSTRAINT chk_psm_cleanup_provider CHECK (storage_provider IN ('LOCAL','OBJECT_STORAGE')),
+    CONSTRAINT chk_psm_cleanup_reason CHECK (cleanup_reason IN ('SUPERSEDED_RETENTION','LOGICAL_DELETE','ACTIVATION_COMPENSATION')),
+    CONSTRAINT chk_psm_cleanup_status CHECK (status IN ('PENDING','RETRY','COMPLETED','TERMINAL')),
+    CONSTRAINT chk_psm_cleanup_attempt_count CHECK (attempt_count >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
