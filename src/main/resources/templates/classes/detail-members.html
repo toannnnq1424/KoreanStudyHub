@@ -9,7 +9,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <span id="flash-data"
-      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
       style="display:none;"></span>
 
 <div class="class-detail-layout">
@@ -55,40 +55,40 @@
       <!-- Table -->
       <table class="m-table" th:if="${memberTotal > 0}">
         <thead>
-          <tr>
-            <th>Họ và tên</th>
-            <th class="col-school">Email</th>
-            <th class="col-phone">SĐT</th>
-            <th class="col-joined center">Tham gia qua</th>
-            <th></th>
-          </tr>
+        <tr>
+          <th>Họ và tên</th>
+          <th class="col-school">Email</th>
+          <th class="col-phone">SĐT</th>
+          <th class="col-joined center">Tham gia qua</th>
+          <th></th>
+        </tr>
         </thead>
         <tbody>
-          <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
-            <td>
-              <div class="stu">
-                <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
-                     th:text="${m.avatarLabel}">??</div>
-                <div>
-                  <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
-                  <div class="stu-sub" th:text="${m.email}">email</div>
-                </div>
+        <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
+          <td>
+            <div class="stu">
+              <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
+                   th:text="${m.avatarLabel}">??</div>
+              <div>
+                <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
+                <div class="stu-sub" th:text="${m.email}">email</div>
               </div>
-            </td>
-            <td class="col-school" th:text="${m.email}">email</td>
-            <td class="col-phone" th:text="${m.displayPhone()}">—</td>
-            <td class="col-joined td-center">
-              <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
-            </td>
-            <td>
-              <div class="row-actions">
-                <button class="act-del" type="button" title="Sắp ra mắt" disabled
-                        aria-label="Xoá học sinh khỏi lớp">
-                  <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-              </div>
-            </td>
-          </tr>
+            </div>
+          </td>
+          <td class="col-school" th:text="${m.email}">email</td>
+          <td class="col-phone" th:text="${m.displayPhone()}">—</td>
+          <td class="col-joined td-center">
+            <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="act-del" type="button" title="Sắp ra mắt" disabled
+                      aria-label="Xoá học sinh khỏi lớp">
+                <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
         </tbody>
       </table>
 
@@ -97,10 +97,36 @@
         Chưa có học sinh nào trong lớp. Mã mời đã hiển thị ở thanh bên (hoặc tại trang Cài đặt lớp học).
       </div>
 
-      <!-- Pending placeholder -->
+      <!-- Pending join requests -->
       <div class="pending">
-        <h4>Chờ duyệt <span>&bull; 0</span></h4>
-        <p>Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.</p>
+        <h4>Chờ duyệt <span th:text="'&bull; ' + ${pendingTotal != null ? pendingTotal : 0}">&bull; 0</span></h4>
+        <p th:if="${pendingTotal == null or pendingTotal == 0}">
+          Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.
+        </p>
+        <ul class="pending-list" th:if="${pendingTotal != null and pendingTotal > 0}">
+          <li class="pending-item" th:each="p : ${pendingMembers}">
+            <div class="stu">
+              <div class="avatar" th:style="'background:' + ${p.avatarGradient}"
+                   th:text="${p.avatarLabel}">??</div>
+              <div>
+                <div class="stu-name" th:text="${p.fullName}">Họ tên</div>
+                <div class="stu-sub" th:text="${p.email}">email</div>
+              </div>
+            </div>
+            <div class="pending-actions">
+              <form th:action="@{|/lecturer/classes/${clazz.id}/members/${p.userId}/approve|}"
+                    method="post" class="pending-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="pending-approve">Duyệt</button>
+              </form>
+              <form th:action="@{|/lecturer/classes/${clazz.id}/members/${p.userId}/reject|}"
+                    method="post" class="pending-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="pending-reject">Từ chối</button>
+              </form>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
   </main>
