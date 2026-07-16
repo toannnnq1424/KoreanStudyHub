@@ -517,7 +517,7 @@ Frontend nhận `annotations[]` từ `aiFeedbackJson`:
 | File | Nội dung |
 |---|---|
 | `V1__init_*.sql` – `V15__*.sql` | Các migration cũ (auth, classes, lessons, attachments...) |
-| `V16__practice_hub.sql` | Consolidated migration: Thiết lập toàn bộ các bảng dữ liệu mô-đun Practice (`sets`, `tests`, `sections`, `question_groups`, `questions`, `submissions`, `attempts`, `ai_analysis_usage`, `explanation_cache`, `drafts`, `edit_logs`, `workspace_sessions`, `region_annotations`, `draft_asset_usages`, `lecturer_assets`, `page_extractions`, `ai_request_audits`) và dữ liệu Seed mẫu.
+| `V25__practice_hub.sql` | Consolidated migration: Thiết lập toàn bộ các bảng dữ liệu mô-đun Practice (`sets`, `tests`, `sections`, `question_groups`, `questions`, `submissions`, `attempts`, `ai_analysis_usage`, `explanation_cache`, `drafts`, `edit_logs`, `workspace_sessions`, `region_annotations`, `draft_asset_usages`, `lecturer_assets`, `page_extractions`, `ai_request_audits`) và dữ liệu Seed mẫu. Migration Practice bắt đầu từ V25 sau khi tích hợp với dải V16-V24 của `main`.
 
 **`question_explanation_cache` schema**:
 ```sql

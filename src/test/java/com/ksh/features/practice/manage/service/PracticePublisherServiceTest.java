@@ -133,7 +133,7 @@ class PracticePublisherServiceTest {
     @Test
     void migrationOnlyAddsNullableWritingTaskTypeColumn() throws Exception {
         String sql = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "src/main/resources/db/migration/V20__practice_question_writing_task_type.sql"
+                "src/main/resources/db/migration/V29__practice_question_writing_task_type.sql"
         ));
 
         assertEquals("""

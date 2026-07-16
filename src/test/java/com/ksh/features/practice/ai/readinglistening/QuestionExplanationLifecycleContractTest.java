@@ -19,7 +19,7 @@ class QuestionExplanationLifecycleContractTest {
     void migrationSeparatesDeduplicatedArtifactsFromImmutableVersionBindingsAndTasks()
             throws IOException {
         String migration = Files.readString(Path.of(
-                "src/main/resources/db/migration/V28__question_explanation_artifact_lifecycle.sql"));
+                "src/main/resources/db/migration/V37__question_explanation_artifact_lifecycle.sql"));
 
         assertThat(migration).contains(
                 "CREATE TABLE question_explanation_artifacts",
