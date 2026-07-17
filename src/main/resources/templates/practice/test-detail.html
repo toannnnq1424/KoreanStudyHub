@@ -13,6 +13,15 @@
 
   <main class="pi-main-wrapper">
     <div class="pd-page pd-test-page">
+      <div th:if="${error}" class="pd-feedback pd-feedback-error" role="alert">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>
+        <span th:text="${error}">Không thể mở phần thi.</span>
+      </div>
+      <div th:if="${success}" class="pd-feedback pd-feedback-success" role="status">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+        <span th:text="${success}">Thao tác thành công.</span>
+      </div>
+
       <div class="pd-test-nav">
         <nav class="pd-breadcrumb" aria-label="Điều hướng">
           <a th:href="@{/practice/sets/{setId}(setId=${view.set().id()})}" aria-label="Quay lại bộ đề">
