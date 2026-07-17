@@ -173,6 +173,27 @@ class JoinClassServiceTest {
         assertThat(token.getUseCount()).isZero();
     }
 
+    // ───────── owner self-join guard ─────────
+
+    @Test
+    void owner_redeeming_own_invite_throws_own_class_without_writes() {
+        ClassInviteCode token = activeToken("AB23CD");
+        when(inviteRepository.findByCodeForUpdate("AB23CD")).thenReturn(Optional.of(token));
+
+        ClassEntity clazz = buildClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThatThrownBy(() -> service.join("AB23CD", OWNER_ID))
+                .isInstanceOf(InviteCodeValidationException.class)
+                .extracting(ex -> ((InviteCodeValidationException) ex).getReason())
+                .isEqualTo(InviteRejectionReason.OWN_CLASS);
+
+        verify(enrollmentRepository, never()).findByUserIdAndClassId(any(), any());
+        verify(enrollmentRepository, never()).save(any());
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any());
+        assertThat(token.getUseCount()).isZero();
+    }
+
     // ───────── enrollment lifecycle ─────────
 
     @Test
@@ -415,8 +436,7 @@ class JoinClassServiceTest {
     @Test
     void approve_pending_activates_increments_use_count_and_notifies() {
         ClassEntity clazz = buildClass();
-        when(classRepository.findByIdForUpdate(CLASS_ID)).thenReturn(Optional.of(clazz));
-        when(classesService.isEditableBy(clazz, OWNER_ID, Role.LECTURER)).thenReturn(true);
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
 
         Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
         ReflectionTestUtils.setField(pending, "inviteCodeId", 5L);
@@ -443,8 +463,7 @@ class JoinClassServiceTest {
     void approve_when_full_leaves_pending() {
         ClassEntity clazz = buildClass();
         ReflectionTestUtils.setField(clazz, "maxStudents", 1);
-        when(classRepository.findByIdForUpdate(CLASS_ID)).thenReturn(Optional.of(clazz));
-        when(classesService.isEditableBy(clazz, OWNER_ID, Role.LECTURER)).thenReturn(true);
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
 
         Enrollment pending = buildEnrollment(Enrollment.STATUS_PENDING);
         when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
@@ -463,9 +482,8 @@ class JoinClassServiceTest {
     @Test
     void approve_non_owner_denied() {
         ClassEntity clazz = buildClass();
-        when(classRepository.findByIdForUpdate(CLASS_ID)).thenReturn(Optional.of(clazz));
-        // HEAD may edit the class, but approval remains owner-only.
-        when(classesService.isEditableBy(clazz, 999L, Role.HEAD)).thenReturn(true);
+        // getEditable allows HEAD, but requireOwner still checks lecturerId.
+        when(classesService.getEditable(CLASS_ID, 999L, Role.HEAD)).thenReturn(clazz);
 
         assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, 999L, Role.HEAD))
                 .isInstanceOf(AccessDeniedException.class);
