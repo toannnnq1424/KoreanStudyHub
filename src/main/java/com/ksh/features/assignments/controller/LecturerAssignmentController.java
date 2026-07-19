@@ -69,7 +69,7 @@ public class LecturerAssignmentController {
     /** Lists all assignments for the class (lecturer view). */
     @GetMapping
     public String list(@PathVariable Long classId,
-                       @AuthenticationPrincipal kshUserDetails user,
+                       @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         try {
@@ -88,7 +88,7 @@ public class LecturerAssignmentController {
     /** Renders the create-assignment form. */
     @GetMapping("/new")
     public String newForm(@PathVariable Long classId,
-                          @AuthenticationPrincipal kshUserDetails user,
+                          @AuthenticationPrincipal KshUserDetails user,
                           Model model) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         // Use null-check rather than containsAttribute: flash attributes can be present
@@ -106,7 +106,7 @@ public class LecturerAssignmentController {
     /** Handles assignment creation; redirects to list on success. */
     @PostMapping
     public String create(@PathVariable Long classId,
-                         @AuthenticationPrincipal kshUserDetails user,
+                         @AuthenticationPrincipal KshUserDetails user,
                          @RequestParam(required = false) String title,
                          @RequestParam(required = false) String description,
                          @RequestParam(required = false) java.math.BigDecimal maxScore,
@@ -135,7 +135,7 @@ public class LecturerAssignmentController {
     @GetMapping("/{assignmentId}/edit")
     public String editForm(@PathVariable Long classId,
                            @PathVariable Long assignmentId,
-                           @AuthenticationPrincipal kshUserDetails user,
+                           @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         try {
@@ -158,7 +158,7 @@ public class LecturerAssignmentController {
     @PostMapping("/{assignmentId}/edit")
     public String update(@PathVariable Long classId,
                          @PathVariable Long assignmentId,
-                         @AuthenticationPrincipal kshUserDetails user,
+                         @AuthenticationPrincipal KshUserDetails user,
                          @RequestParam(required = false) String title,
                          @RequestParam(required = false) String description,
                          @RequestParam(required = false) java.math.BigDecimal maxScore,
@@ -185,7 +185,7 @@ public class LecturerAssignmentController {
     @PostMapping("/{assignmentId}/publish")
     public String publish(@PathVariable Long classId,
                           @PathVariable Long assignmentId,
-                          @AuthenticationPrincipal kshUserDetails user,
+                          @AuthenticationPrincipal KshUserDetails user,
                           RedirectAttributes ra) {
         try {
             assignmentService.publish(classId, assignmentId, user.getId(), user.getRole());
@@ -202,7 +202,7 @@ public class LecturerAssignmentController {
     @PostMapping("/{assignmentId}/close")
     public String close(@PathVariable Long classId,
                         @PathVariable Long assignmentId,
-                        @AuthenticationPrincipal kshUserDetails user,
+                        @AuthenticationPrincipal KshUserDetails user,
                         RedirectAttributes ra) {
         try {
             assignmentService.close(classId, assignmentId, user.getId(), user.getRole());
@@ -221,7 +221,7 @@ public class LecturerAssignmentController {
     @GetMapping("/{assignmentId}/submissions")
     public String submissions(@PathVariable Long classId,
                               @PathVariable Long assignmentId,
-                              @AuthenticationPrincipal kshUserDetails user,
+                              @AuthenticationPrincipal KshUserDetails user,
                               Model model) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         try {
@@ -243,7 +243,7 @@ public class LecturerAssignmentController {
     public String gradeForm(@PathVariable Long classId,
                             @PathVariable Long assignmentId,
                             @PathVariable Long submissionId,
-                            @AuthenticationPrincipal kshUserDetails user,
+                            @AuthenticationPrincipal KshUserDetails user,
                             Model model) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         try {
@@ -267,7 +267,7 @@ public class LecturerAssignmentController {
     public String grade(@PathVariable Long classId,
                         @PathVariable Long assignmentId,
                         @PathVariable Long submissionId,
-                        @AuthenticationPrincipal kshUserDetails user,
+                        @AuthenticationPrincipal KshUserDetails user,
                         @RequestParam(required = false) java.math.BigDecimal score,
                         @RequestParam(required = false) String feedback,
                         RedirectAttributes ra) {
