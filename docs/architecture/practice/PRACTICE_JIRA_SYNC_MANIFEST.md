@@ -1,6 +1,6 @@
 # Practice Jira Synchronization Manifest
 
-Status: `STEP_9_COMPLETE`
+Status: `STEP_9_PRODUCT_MODULE_HIERARCHY_COMPLETE`
 
 Project: `SCRUM`
 
@@ -33,6 +33,14 @@ Date prepared: 2026-07-17
 - Confirm the site's exact issue type names and Sprint field before writes.
 - Task is the parent planning/delivery unit. Bugs remain Bugs. Implementation
   units below a Task use the site's supported Sub-task type.
+- The canonical product view is the ten-module hierarchy in Section 6. The
+  earlier phase hierarchy is retained only as delivery history and evidence;
+  it is not the functional decomposition of Practice.
+- The formal Use Case DOCX groups those ten modules into four reader-facing
+  areas for readability: Practice Test Management (AUT/XLS/PDF), Skill-based
+  Attempt Lifecycle (CAT/PLY), Versioned Results and Evidence
+  (RLE/WRT/SPK/RES), and Practice Progress Management (PRG). This presentation
+  layer does not collapse or replace the ten canonical Jira module Tasks.
 
 ## 2. Duplicate Search
 
@@ -70,7 +78,11 @@ Read-only result on 2026-07-17:
 - the user confirmed those generic tickets are different features, so this
   batch must create an independent `[Practice]` hierarchy.
 
-## 3. Candidate Hierarchy
+## 3. Historical Delivery Hierarchy
+
+This hierarchy records when work was delivered through Phase 13. It remains
+useful for sprint and commit evidence, but the ten module Tasks in Section 6 are
+the canonical backlog view for product scope and Use Case ownership.
 
 ### P1 - Phase 13A-13C learner experience
 
@@ -303,14 +315,11 @@ Subtask placement rule discovered during the write:
 
 ## 5. Synchronization Results
 
-Read-only reconciliation is complete. Atlassian Rovo is authenticated, the
-project metadata and Sprint ids are confirmed, and no existing issue explicitly
-owns `/practice`. `SCRUM-363` and `SCRUM-321` are recorded as out-of-scope false
-matches and will not be modified.
-
-No issue has yet been created, edited, transitioned or assigned to a sprint.
-The user confirmed the single reviewed 43-item write batch on 2026-07-17.
-Execution and post-write reconciliation are in progress.
+Read-only reconciliation and both approved write passes are complete.
+Atlassian Rovo is authenticated, the project metadata and Sprint ids are
+confirmed, and no pre-existing issue explicitly owned `/practice`. `SCRUM-363`
+and `SCRUM-321` remain recorded as out-of-scope false matches and were not
+modified.
 
 Created so far:
 
@@ -352,3 +361,81 @@ Final reconciliation:
   unmodified;
 - post-write JQL returned exactly `SCRUM-438..SCRUM-480` with no missing or
   duplicate key.
+
+## 6. Canonical Product Module Hierarchy
+
+The phase-oriented hierarchy above did not fully express the functional scope
+of Practice. A second, product-oriented pass therefore created one Task for
+each bounded Practice module and three Use Case Subtasks under every Task.
+These Tasks are cross-phase product containers and deliberately are not placed
+into a closed historical sprint. Their descriptions reference the applicable
+Phase 13 delivery tickets as implementation evidence.
+
+| Module | Jira Task | Product responsibility | Use Case Subtasks |
+|---|---|---|---|
+| CAT | `SCRUM-481` | Catalog, access and attempt entry | `SCRUM-491..493` |
+| AUT | `SCRUM-482` | Manual authoring, publishing and revision | `SCRUM-494..496` |
+| XLS | `SCRUM-483` | Excel template, preview and import | `SCRUM-497..499` |
+| PDF | `SCRUM-484` | PDF workspace and AI-assisted draft import | `SCRUM-500..502` |
+| PLY | `SCRUM-485` | Skill-native player and attempt lifecycle | `SCRUM-503..505` |
+| RLE | `SCRUM-486` | Reading/Listening explanation lifecycle | `SCRUM-506..508` |
+| WRT | `SCRUM-487` | Korean Writing AI evaluation and result evidence | `SCRUM-509..511` |
+| SPK | `SCRUM-488` | Speaking media, transcription and evaluation | `SCRUM-512..514` |
+| RES | `SCRUM-489` | Result overview and evidence detail | `SCRUM-515..517` |
+| PRG | `SCRUM-490` | Progress, drill-down and recovery | `SCRUM-518..520` |
+
+Final product-hierarchy reconciliation on 2026-07-17:
+
+- exactly 10 top-level Tasks and 30 Subtasks exist as `SCRUM-481..SCRUM-520`;
+- every module Task owns exactly three Use Case Subtasks;
+- CAT through RLE are Done; WRT, SPK, RES and PRG remain In Progress because
+  they contain approved Phase 13E/13F work;
+- 25 current-capability Subtasks are Done;
+- `SCRUM-511`, `SCRUM-514`, `SCRUM-516`, `SCRUM-519` and `SCRUM-520` remain
+  To Do because those learner evidence/progress slices are not implemented;
+- every issue carries Practice/module labels and an explicit `/practice`
+  boundary;
+- no Task or Subtask was created under, linked as a child of, or used to modify
+  `SCRUM-363`, `SCRUM-321` or another product feature.
+
+## 7. Recommended Four-Stream Delivery Blueprint
+
+The current Jira issues above remain the truthful historical and product
+traceability record. For the next implementation planning pass, Appendix B of
+`KSH_PRACTICE_USE_CASE_SPECIFICATIONS.docx` recommends four dependency-ordered
+parent Tasks instead of using Markdown timestamps to reconstruct work order:
+
+| Order | Delivery Task | Internal module labels | Depends on |
+|---:|---|---|---|
+| 1 | `[Practice][MGT] Deliver Practice Test Management` | AUT, XLS, PDF | None |
+| 2 | `[Practice][ATT] Deliver Skill-based Attempt Lifecycle` | CAT, PLY | MGT publication/version contracts |
+| 3 | `[Practice][RSL] Deliver Versioned Results and Evidence` | RLE, WRT, SPK, RES | ATT submitted-attempt/evidence contracts |
+| 4 | `[Practice][PRG] Deliver Practice Progress Management` | PRG | RSL normalized/authorized result contracts |
+
+Each proposed Task owns eight ordered Sub-tasks:
+
+1. confirm requirements and formal Use Case acceptance contracts;
+2. maintain the functional-area class diagram;
+3. maintain every affected Use Case sequence diagram;
+4. finalize architecture, state, data and authorization contracts;
+5. implement backend behavior;
+6. implement frontend behavior;
+7. add integration, security, failure and performance tests;
+8. run UAT, record evidence and close release blockers.
+
+Bug placement rules:
+
+- create a Bug only when the defect has reproducible evidence;
+- keep it as a standalone `Bug` issue and link it to the affected parent Task
+  with `blocks` for contract, security, version, timing, scoring or downstream
+  data failures, or `relates to` for a contained non-blocking defect;
+- record steps, expected/actual behavior, evidence, affected Use Case/version,
+  severity and the regression test proving the fix;
+- resolve contract and integrity Bugs before dependent-stream implementation,
+  integration/UI Bugs before UAT and every release blocker before the parent
+  Task is Done;
+- do not create fictional Bug tickets, use a catch-all fix-bugs Subtask, or
+  backdate creation/sprint history from `.md` files.
+
+This section documents the recommended future structure only. No Jira write,
+issue move, key replacement or timestamp change is authorized by this update.

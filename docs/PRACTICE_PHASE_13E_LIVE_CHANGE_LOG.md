@@ -601,6 +601,148 @@ Jira write ledger:
 - Step 9 is complete. The architecture/fixture/Listening/Jira prerequisites are
   green; no Phase 13E production code was implemented during this step.
 
+### PRE13E-F17 - phase-only Jira hierarchy hides the ten Practice modules
+
+Status: `RESOLVED_STEP_9_PRODUCT_VIEW`
+
+Finding:
+
+- the first Jira synchronization accurately recorded Phase 13 delivery, bugs
+  and sprint history, but its top-level Tasks were phase containers;
+- it did not give CAT, AUT, XLS, PDF, PLY, RLE, WRT, SPK, RES and PRG their own
+  product Tasks with formal Use Case children;
+- this made the backlog look like a Phase 13 checklist instead of the complete
+  Practice feature decomposition.
+
+Decision and correction:
+
+- retain `SCRUM-438..SCRUM-480` as truthful delivery/sprint evidence;
+- create `SCRUM-481..SCRUM-490` as the canonical ten-module product hierarchy;
+- create `SCRUM-491..SCRUM-520` as exactly three Use Case Subtasks per module;
+- mark only code-backed current capabilities Done and leave the five planned
+  13E/13F Use Cases To Do;
+- keep the module Tasks outside closed historical sprints because they span
+  multiple phases; their descriptions link back to delivery evidence;
+- verify by JQL: 40/40 issues, 10 Tasks, 30 Subtasks, six Tasks Done, four Tasks
+  In Progress, 25 Subtasks Done and five Subtasks To Do;
+- `SCRUM-363` and all other non-Practice features remain untouched.
+
+### PRE13E-F18 - formal Use Case DOCX mixed Vietnamese and technical rules
+
+Status: `RESOLVED_DOCUMENTATION`
+
+Finding:
+
+- the architecture DOCX covered all 30 Use Cases, but its reader-facing copy
+  was Vietnamese and its Business Rules used capability-local technical ids;
+- the requested submission format is English, and Business Rules must be short
+  enough for a non-technical reader to understand without reading the code.
+
+Correction and evidence:
+
+- add a dedicated English content source for ten capabilities, 30 Use Cases and
+  globally ordered Business Rules `BR-01..BR-60`;
+- keep current/planned status and code traceability, but explain preconditions,
+  success, failure-safe outcomes, flows and messages in plain English;
+- render each Business Rule as a bold id followed by one direct policy
+  statement, matching the requested `BR-01` example style;
+- regenerate only the DOCX so the reviewed Draw.io architecture source remains
+  unchanged;
+- structural QA confirms 30 unique Use Case ids, 60 unique sequential Business
+  Rules, no Vietnamese characters and a valid DOCX archive;
+- LibreOffice render QA confirms 33 clean pages with no clipped tables,
+  overflow, overlap or broken title wrapping.
+
+### PRE13E-F19 - ten top-level DOCX modules felt inflated and fixed rule counts prevented reuse
+
+Status: `RESOLVED_DOCUMENTATION`
+
+Finding:
+
+- the ten technical modules are useful for code, Draw.io and Jira traceability,
+  but presenting all ten as equal reader-facing DOCX sections made the Practice
+  specification feel unnecessarily fragmented;
+- forcing every Use Case to own the same number of local Business Rules and
+  System Messages repeated shared authorization, role and version policies;
+- reader-facing actor terminology still used `Learner` in places although the
+  requested product term is `Student`.
+
+Correction and evidence:
+
+- group the unchanged 30 Use Cases into four functional areas: Practice Test
+  Management; Skill-based Attempt Lifecycle; Versioned Results and Evidence;
+  and Practice Progress Management;
+- preserve all ten internal module codes and all Use Case ids for code, Draw.io
+  and Jira traceability; the Jira hierarchy remains ten module Tasks and thirty
+  Use Case Subtasks;
+- replace fixed local rule/message counts with shared catalogs containing 49
+  Business Rules and 44 System Messages; each Use Case references only the
+  identifiers it needs and shared policies may be reused;
+- use `Student` consistently in reader-facing copy while retaining current
+  implementation class names such as `PracticeLearnerAccessService`;
+- structural QA confirms four groups, ten internal modules, 30 unique Use Case
+  ids, 49 continuously numbered Business Rules, 44 shared System Messages and
+  no reader-facing `Learner` term;
+- DOCX archive validation and full 33-page render review confirm no table
+  overflow, overlap, clipping or broken title wrapping. Apparent black regions
+  in two image previews were viewer artifacts; source PNG pixel bounds and the
+  rendered PDF remain intact.
+
+### PRE13E-F20 - Jira work order must follow four Practice dependencies, not reconstructed timestamps
+
+Status: `RESOLVED_DOCUMENTATION`
+
+Finding:
+
+- the existing Jira phase and ten-module hierarchies remain truthful evidence,
+  but neither by itself explains the safest future implementation order;
+- ordering planned work from timestamps in Markdown logs would confuse
+  evidence chronology with architecture dependency and could imply false Jira
+  creation or sprint history;
+- Bug work must sit beside the Task it affects and must not become a fictional
+  catch-all Subtask.
+
+Correction and evidence:
+
+- append a prospective Jira delivery blueprint to the Use Case DOCX with four
+  parent Tasks ordered `MGT -> ATT -> RSL -> PRG`;
+- preserve the ten technical module codes as Components, labels and Use Case
+  traceability rather than ten competing delivery streams;
+- give every parent Task eight ordered Sub-tasks for requirements, class
+  diagram, sequence diagrams, architecture contracts, backend, frontend, tests
+  and UAT;
+- provide three risk-based Bug summary templates per Task and require a real
+  standalone Bug linked with `blocks` or `relates to` only after reproduction;
+- state explicitly that Jira dates, Sprint placement and work logs must remain
+  truthful and must never be backdated from `.md` timestamps;
+- regenerate the DOCX to 38 pages; pages 1-33 are byte-identical to the prior
+  verified render, and pages 34-38 were visually inspected with no clipping,
+  overflow, overlap or split tables.
+
+### PRE13E-F21 - Mermaid delivery code needed renderer-level validation
+
+Status: `RESOLVED_DOCUMENTATION`
+
+Finding:
+
+- the requested paste-ready package requires four class diagrams and 30
+  sequence diagrams, but block-count validation alone cannot prove that Mermaid
+  accepts every diagram;
+- Mermaid CLI found a trailing semicolon on generated `cssClass` statements
+  that a lightweight sequence parser did not expose.
+
+Correction and evidence:
+
+- add `generate_practice_mermaid_artifacts.py` and generate exactly four
+  functional-area class diagrams plus one sequence diagram for each of the 30
+  formal Use Cases;
+- remove the invalid `cssClass` terminator and regenerate both Markdown files;
+- preserve current/planned status styling, ten internal module namespaces,
+  stable Use Case ids and reader-facing `Student` participant labels;
+- render all four class diagrams and all 30 sequence diagrams successfully with
+  Mermaid CLI and local Chrome; generated SVGs remain temporary QA evidence and
+  are not added to the repository.
+
 ## 4. Change Inventory
 
 | Date | Area | Change | Status |
@@ -615,7 +757,12 @@ Jira write ledger:
 | 2026-07-17 | Listening preflight | Add post-Step-7 reproduce/plan/fix task for sound check that does not enter the test | Step 8 complete; F15 resolved |
 | 2026-07-17 | Listening preflight | Add V38 seed-only immutable version repair, exact bundled check-audio allowlist and visible Test Detail feedback | Complete; compile, 101/101 focused gate, Flyway and real Chrome journey green |
 | 2026-07-17 | Jira synchronization | Create and reconcile independent Practice hierarchy `SCRUM-438..SCRUM-480`; exclude SCRUM-363/SCRUM-321 as other features | Step 9 complete; 43/43, 28 Done, 15 To Do |
+| 2026-07-17 | Jira product hierarchy | Add canonical ten-module Tasks `SCRUM-481..490` and thirty Use Case Subtasks `SCRUM-491..520`; retain phase tickets only as delivery evidence | Complete; 10 Tasks, 30 Subtasks, 25 current Use Cases Done, 5 planned Use Cases To Do |
+| 2026-07-17 | Use Case document | Rewrite all reader-facing content in English and replace local technical rules with plain-language `BR-01..BR-60` | Complete; structural checks and 33-page visual render QA passed |
 | 2026-07-17 | Runtime warning | Classify JDK 26/ClassGraph `Unsafe.invokeCleaner` warning without dependency churn | Recorded; no code change |
+| 2026-07-18 | Use Case document grouping | Present 30 Use Cases in four reader-facing areas; use shared `BR-01..BR-49` and 44 reusable System Messages; standardize `Student` terminology | Complete; valid DOCX and 33-page visual QA passed |
+| 2026-07-18 | Jira delivery appendix | Add dependency-ordered `MGT -> ATT -> RSL -> PRG` parent Tasks, 32 ordered Sub-tasks, 12 linked Bug templates and no-backdating policy | Complete; DOCX now 38 pages, prior 33 unchanged and five appendix pages visually reviewed |
+| 2026-07-18 | Mermaid delivery code | Generate four functional-area class diagrams and 30 Use Case sequence diagrams | Complete; all 34 blocks rendered successfully with Mermaid CLI |
 
 ## 5. Open Items Before 13E Implementation
 

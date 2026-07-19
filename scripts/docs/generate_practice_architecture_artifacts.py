@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import argparse
 import math
+import sys
 import textwrap
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,20 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from practice_use_case_english import (  # noqa: E402
+    ACTOR_NAMES,
+    BUSINESS_RULES,
+    CAPABILITY_COPY,
+    DOCUMENT_GROUPS,
+    SYSTEM_MESSAGES,
+    USE_CASE_COPY,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +82,318 @@ STATUS_STYLE = {
     "DEFERRED 15": (COLORS["deferred_15_fill"], COLORS["deferred_15_stroke"]),
     "EXTERNAL": (COLORS["external_fill"], COLORS["external_stroke"]),
 }
+
+
+JIRA_DELIVERY_STREAMS: list[dict[str, Any]] = [
+    {
+        "order": 1,
+        "code": "MGT",
+        "name": "Practice Test Management",
+        "summary": "[Practice][MGT] Deliver Practice Test Management",
+        "modules": "AUT, XLS, PDF",
+        "depends_on": "None",
+        "blocks": "ATT",
+        "description": (
+            "Provide one governed authoring path for manual editing, Excel import and PDF-assisted import. "
+            "Every path must produce the same canonical draft before validation, immutable publication and version management."
+        ),
+        "acceptance": [
+            "A Lecturer can author, validate, publish and manage only Practice content that the Lecturer is authorized to own.",
+            "Manual, Excel and PDF input converge into the same canonical draft and publication rules.",
+            "Published versions and their referenced assets remain immutable and auditable.",
+        ],
+        "subtasks": [
+            (
+                "1",
+                "[Practice][MGT][Design] Confirm requirements and Use Case contracts",
+                "Approve actors, permissions, lifecycle states and acceptance criteria for UC-AUT-01..03, UC-XLS-01..03 and UC-PDF-01..03.",
+            ),
+            (
+                "2",
+                "[Practice][MGT][Design] Maintain the class diagram",
+                "Keep one MGT class diagram aligned with current classes, planned boundaries and module ownership.",
+            ),
+            (
+                "3",
+                "[Practice][MGT][Design] Maintain nine sequence diagrams",
+                "Model each authoring, validation, import, publication and version-management interaction before implementation changes.",
+            ),
+            (
+                "4",
+                "[Practice][MGT][Architecture] Finalize draft, asset and version contracts",
+                "Define canonical draft mapping, ownership, validation, transaction boundaries, immutable snapshots and failure-safe import behavior.",
+            ),
+            (
+                "5",
+                "[Practice][MGT][Backend] Implement authoring and publication services",
+                "Implement or refine manual, Excel and PDF adapters so they reuse canonical validation and immutable publication services.",
+            ),
+            (
+                "6",
+                "[Practice][MGT][Frontend] Complete the Lecturer workspace",
+                "Deliver understandable manual editing, Excel preview and PDF crop/import flows with validation feedback before publication.",
+            ),
+            (
+                "7",
+                "[Practice][MGT][Test] Verify security and content integrity",
+                "Cover ownership, invalid input, asset access, import atomicity, duplicate submission, publication and historical-version protection.",
+            ),
+            (
+                "8",
+                "[Practice][MGT][UAT] Run Lecturer journeys and close evidence",
+                "Complete end-to-end authoring journeys, record evidence and resolve all release-blocking linked Bugs.",
+            ),
+        ],
+        "bugs": [
+            (
+                "Contract",
+                "[Practice][MGT][Bug] Import output bypasses canonical draft validation",
+                "Blocks Backend and every downstream stream until the reproduced contract breach is fixed.",
+            ),
+            (
+                "Security",
+                "[Practice][MGT][Bug] Published version or owned asset can be mutated or exposed incorrectly",
+                "Blocks publication and release; link to MGT with the affected version and authorization evidence.",
+            ),
+            (
+                "UX/Data",
+                "[Practice][MGT][Bug] Excel or PDF preview differs from the final imported draft",
+                "Blocks UAT when the mismatch can change questions, answers, media or scoring data.",
+            ),
+        ],
+    },
+    {
+        "order": 2,
+        "code": "ATT",
+        "name": "Skill-based Attempt Lifecycle",
+        "summary": "[Practice][ATT] Deliver Skill-based Attempt Lifecycle",
+        "modules": "CAT, PLY",
+        "depends_on": "MGT publication and version contracts",
+        "blocks": "RSL",
+        "description": (
+            "Provide the Student journey from catalog and preflight through start, resume, autosave, discard and submit. "
+            "Reading, Listening, Writing and Speaking share one version-locked attempt lifecycle while retaining skill-specific controls."
+        ),
+        "acceptance": [
+            "A Student sees and starts only an authorized published version.",
+            "Timer, device preflight, autosave, resume, discard and submit follow one explicit state machine.",
+            "Every saved answer and media item remains bound to the immutable version locked at attempt start.",
+        ],
+        "subtasks": [
+            (
+                "1",
+                "[Practice][ATT][Design] Confirm lifecycle and preflight contracts",
+                "Approve UC-CAT-01..03 and UC-PLY-01..03, including state transitions, timing authority, access and skill-specific device gates.",
+            ),
+            (
+                "2",
+                "[Practice][ATT][Design] Maintain the class diagram",
+                "Keep the ATT class diagram aligned with catalog, access, version lock, attempt, answer, media and scoring ownership.",
+            ),
+            (
+                "3",
+                "[Practice][ATT][Design] Maintain six sequence diagrams",
+                "Model browse/detail/start plus save, resume, discard and submit interactions with alternate and failure-safe outcomes.",
+            ),
+            (
+                "4",
+                "[Practice][ATT][Architecture] Finalize the attempt state machine",
+                "Define version locking, timer authority, idempotency, concurrency, autosave ordering, media ownership and submission boundaries.",
+            ),
+            (
+                "5",
+                "[Practice][ATT][Backend] Implement attempt lifecycle services",
+                "Implement or refine authorized start, resume, save, discard and submit operations for all four skills.",
+            ),
+            (
+                "6",
+                "[Practice][ATT][Frontend] Complete preflight and skill players",
+                "Deliver device checks and stable Reading, Listening, Writing and Speaking player states without timer or navigation regressions.",
+            ),
+            (
+                "7",
+                "[Practice][ATT][Test] Verify timing, concurrency and media behavior",
+                "Cover zero-time starts, duplicate commands, stale autosave, resume, device checks, private speaking media and submission races.",
+            ),
+            (
+                "8",
+                "[Practice][ATT][UAT] Run Student attempt journeys",
+                "Complete all skill journeys and resolve release-blocking lifecycle Bugs before result work is accepted.",
+            ),
+        ],
+        "bugs": [
+            (
+                "Lifecycle",
+                "[Practice][ATT][Bug] Attempt starts at 00:00 or violates the configured timing authority",
+                "Blocks all player UAT and RSL because submitted evidence would be unreliable.",
+            ),
+            (
+                "Concurrency",
+                "[Practice][ATT][Bug] Autosave or resume overwrites a newer answer or version lock",
+                "Blocks submit and result generation until the reproduced ordering defect has a regression test.",
+            ),
+            (
+                "Device/UX",
+                "[Practice][ATT][Bug] Listening or Speaking device check cannot enter the correct player",
+                "Blocks the affected skill journey; the check must prove usable playback or recording without unnecessary waiting.",
+            ),
+        ],
+    },
+    {
+        "order": 3,
+        "code": "RSL",
+        "name": "Versioned Results and Evidence",
+        "summary": "[Practice][RSL] Deliver Versioned Results and Evidence",
+        "modules": "RLE, WRT, SPK, RES",
+        "depends_on": "ATT submitted attempt and evidence contracts",
+        "blocks": "PRG",
+        "description": (
+            "Present result overview and evidence detail from the exact version used by the attempt. "
+            "Objective explanations, Writing evaluation and Speaking evaluation remain separate durable evidence layers with honest pending and failure states."
+        ),
+        "acceptance": [
+            "Result reads never change an answer, score, explanation or evaluation artifact.",
+            "Reading and Listening show official answer evidence; Writing and Speaking show skill-appropriate evaluation without fabricated data.",
+            "Every overview, detail, retry and review action enforces Student, reviewer and version authorization.",
+        ],
+        "subtasks": [
+            (
+                "1",
+                "[Practice][RSL][Design] Confirm result and evidence contracts",
+                "Approve UC-RLE-01..03, UC-WRT-01..03, UC-SPK-01..03 and UC-RES-01..03, including pending, failed and historical states.",
+            ),
+            (
+                "2",
+                "[Practice][RSL][Design] Maintain the class diagram",
+                "Keep the RSL class diagram aligned with result assemblers, evidence presenters, durable jobs, artifacts and authorization.",
+            ),
+            (
+                "3",
+                "[Practice][RSL][Design] Maintain twelve sequence diagrams",
+                "Model objective explanation, Writing and Speaking evaluation, overview, detail and retry or review interactions.",
+            ),
+            (
+                "4",
+                "[Practice][RSL][Architecture] Finalize durable evidence contracts",
+                "Define fingerprints, queue or outbox lifecycle, idempotency, artifact provenance, retry policy and immutable version reads.",
+            ),
+            (
+                "5",
+                "[Practice][RSL][Backend] Implement evidence preparation and result reads",
+                "Implement or refine workers, orchestrators, assemblers and presenters without provider calls from result GET requests.",
+            ),
+            (
+                "6",
+                "[Practice][RSL][Frontend] Complete overview and evidence detail",
+                "Deliver objective, Writing and Speaking result experiences with clear criteria, status, provenance and authorized media playback.",
+            ),
+            (
+                "7",
+                "[Practice][RSL][Test] Verify version, provider and authorization safety",
+                "Cover wrong-version access, historical attempts, provider timeout, retry, duplicate jobs, partial evidence and reviewer permissions.",
+            ),
+            (
+                "8",
+                "[Practice][RSL][UAT] Validate all four result experiences",
+                "Compare overview and detail against approved Korean-language scoring criteria and close all release-blocking linked Bugs.",
+            ),
+        ],
+        "bugs": [
+            (
+                "Version/Auth",
+                "[Practice][RSL][Bug] Result exposes evidence from the wrong attempt, version or Student",
+                "Security and data-integrity release blocker; fix before any progress aggregation is trusted.",
+            ),
+            (
+                "AI Evidence",
+                "[Practice][RSL][Bug] Provider failure fabricates or overwrites an accepted score or explanation",
+                "Blocks the affected skill result and retry flow until provenance and idempotency are proven by tests.",
+            ),
+            (
+                "Presentation",
+                "[Practice][RSL][Bug] Speaking invents per-question scores or Writing criteria are mislabeled",
+                "Blocks UAT because the UI would misrepresent the approved Korean-language scoring contract.",
+            ),
+        ],
+    },
+    {
+        "order": 4,
+        "code": "PRG",
+        "name": "Practice Progress Management",
+        "summary": "[Practice][PRG] Deliver Practice Progress Management",
+        "modules": "PRG",
+        "depends_on": "RSL normalized and authorized result contracts",
+        "blocks": "Phase 13E exit and Phase 13F recovery acceptance",
+        "description": (
+            "Provide bounded, authorized progress aggregation across completed Practice attempts. "
+            "Students can filter trends, inspect weak areas and open a valid recovery path without mixing incompatible score scales."
+        ),
+        "acceptance": [
+            "Progress includes only authorized attempts and compatible normalized metrics.",
+            "Filters, empty states, drill-down and recovery links remain bounded and predictable.",
+            "Aggregation and presentation remain read-only and do not trigger evaluation provider work.",
+        ],
+        "subtasks": [
+            (
+                "1",
+                "[Practice][PRG][Design] Confirm progress and recovery contracts",
+                "Approve UC-PRG-01..03, metric definitions, filter behavior, empty states, retention and authorization boundaries.",
+            ),
+            (
+                "2",
+                "[Practice][PRG][Design] Maintain the class diagram",
+                "Keep the PRG class diagram aligned with bounded queries, aggregation, presentation and recovery-link ownership.",
+            ),
+            (
+                "3",
+                "[Practice][PRG][Design] Maintain three sequence diagrams",
+                "Model overview, filter or drill-down and recovery interactions with empty, invalid and unauthorized alternatives.",
+            ),
+            (
+                "4",
+                "[Practice][PRG][Architecture] Finalize metric and query contracts",
+                "Define compatible scales, aggregation windows, pagination, indexes, retention and deep-link authorization.",
+            ),
+            (
+                "5",
+                "[Practice][PRG][Backend] Implement bounded progress queries",
+                "Implement or refine authorized aggregate, trend, weakness and recovery presenters without unbounded loading.",
+            ),
+            (
+                "6",
+                "[Practice][PRG][Frontend] Complete progress and recovery UI",
+                "Deliver useful filters, trends, weak-area summaries, empty states, drill-down and recovery commands.",
+            ),
+            (
+                "7",
+                "[Practice][PRG][Test] Verify scale, authorization and performance",
+                "Cover mixed skills, incompatible scales, no data, large history, invalid filters, cross-Student access and deep links.",
+            ),
+            (
+                "8",
+                "[Practice][PRG][UAT] Validate progress decisions",
+                "Confirm that displayed insights are understandable, reproducible and linked to valid evidence or recovery journeys.",
+            ),
+        ],
+        "bugs": [
+            (
+                "Availability/Auth",
+                "[Practice][PRG][Bug] Progress query fails or exposes another Student's data",
+                "Blocks the entire PRG Task and release; include filter, account and authorization evidence.",
+            ),
+            (
+                "Metrics",
+                "[Practice][PRG][Bug] Incompatible score scales are combined into one misleading trend",
+                "Blocks the affected metric and recovery recommendation until normalization is corrected.",
+            ),
+            (
+                "Navigation",
+                "[Practice][PRG][Bug] Drill-down or recovery opens the wrong attempt or an unauthorized command",
+                "Blocks the affected action and must be fixed with deep-link authorization regression coverage.",
+            ),
+        ],
+    },
+]
 
 
 def uc(
@@ -1316,6 +1644,94 @@ CAPABILITIES: list[dict[str, Any]] = [
 EXPECTED_CODES = ["CAT", "AUT", "XLS", "PDF", "PLY", "RLE", "WRT", "SPK", "RES", "PRG"]
 
 
+def build_docx_model() -> list[dict[str, Any]]:
+    """Overlay reader-facing English copy without changing Draw.io data."""
+
+    model = deepcopy(CAPABILITIES)
+    use_case_ids = {item["id"] for cap in model for item in cap["use_cases"]}
+    if set(USE_CASE_COPY) != use_case_ids:
+        missing = sorted(use_case_ids - set(USE_CASE_COPY))
+        extra = sorted(set(USE_CASE_COPY) - use_case_ids)
+        raise ValueError(f"English Use Case copy mismatch; missing={missing}, extra={extra}")
+    if set(CAPABILITY_COPY) != set(EXPECTED_CODES):
+        raise ValueError("English capability copy must cover all ten capabilities")
+
+    actor_names = {
+        actor
+        for cap in model
+        for actor in cap["actors"] + cap["secondary"]
+    } | {
+        actor
+        for cap in model
+        for item in cap["use_cases"]
+        for actor in item["primary"] + item["secondary"]
+    }
+    unknown_actors = sorted(actor_names - set(ACTOR_NAMES))
+    if unknown_actors:
+        raise ValueError(f"Missing English actor names: {unknown_actors}")
+
+    for cap in model:
+        cap_copy = CAPABILITY_COPY[cap["code"]]
+        cap["name"] = cap_copy["name"]
+        cap["purpose"] = cap_copy["purpose"]
+        cap["actors"] = [ACTOR_NAMES[name] for name in cap["actors"]]
+        cap["secondary"] = [ACTOR_NAMES[name] for name in cap["secondary"]]
+        for item in cap["use_cases"]:
+            item_copy = USE_CASE_COPY[item["id"]]
+            for field in (
+                "title",
+                "description",
+                "preconditions",
+                "success",
+                "failure",
+                "steps",
+                "alternatives",
+            ):
+                item[field] = deepcopy(item_copy[field])
+            item["primary"] = [ACTOR_NAMES[name] for name in item["primary"]]
+            item["secondary"] = [ACTOR_NAMES[name] for name in item["secondary"]]
+            item["rules"] = [
+                (rule_id, BUSINESS_RULES[rule_id])
+                for rule_id in item_copy["rule_ids"]
+            ]
+            item["messages"] = [
+                (message_id, SYSTEM_MESSAGES[message_id])
+                for message_id in item_copy["message_ids"]
+            ]
+    return model
+
+
+DOCX_CAPABILITIES = build_docx_model()
+
+
+def build_docx_groups() -> list[dict[str, Any]]:
+    """Group the ten technical modules into four reader-facing business areas."""
+
+    capability_by_code = {cap["code"]: cap for cap in DOCX_CAPABILITIES}
+    covered_codes = [code for group in DOCUMENT_GROUPS for code in group["capabilities"]]
+    if sorted(covered_codes) != sorted(EXPECTED_CODES) or len(covered_codes) != len(set(covered_codes)):
+        raise ValueError("Document groups must cover every technical capability exactly once")
+
+    groups: list[dict[str, Any]] = []
+    for group_copy in DOCUMENT_GROUPS:
+        group = deepcopy(group_copy)
+        group["modules"] = []
+        group["use_cases"] = []
+        for code in group_copy["capabilities"]:
+            capability = capability_by_code[code]
+            group["modules"].append({"code": code, "name": capability["name"]})
+            for source_item in capability["use_cases"]:
+                item = deepcopy(source_item)
+                item["module_code"] = code
+                item["module_name"] = capability["name"]
+                group["use_cases"].append(item)
+        groups.append(group)
+    return groups
+
+
+DOCX_GROUPS = build_docx_groups()
+
+
 def validate_model() -> None:
     codes = [cap["code"] for cap in CAPABILITIES]
     if codes != EXPECTED_CODES:
@@ -1336,6 +1752,50 @@ def validate_model() -> None:
                     raise ValueError(f"Unknown participant in {item['id']}: {source} -> {target}")
     if len(use_case_ids) != 30 or len(set(use_case_ids)) != 30:
         raise ValueError("The architecture baseline must contain 30 unique Use Cases")
+    if len(DOCUMENT_GROUPS) != 4:
+        raise ValueError("The DOCX must expose exactly four functional groups")
+    expected_rule_ids = [f"BR-{index:02d}" for index in range(1, len(BUSINESS_RULES) + 1)]
+    if list(BUSINESS_RULES) != expected_rule_ids:
+        raise ValueError("Business Rules must use a continuous global sequence")
+    assigned_rule_ids = [
+        rule_id
+        for group in DOCX_GROUPS
+        for item in group["use_cases"]
+        for rule_id, _statement in item["rules"]
+    ]
+    if set(assigned_rule_ids) != set(expected_rule_ids):
+        raise ValueError("Every Business Rule must be referenced by at least one Use Case")
+    assigned_message_ids = [
+        message_id
+        for group in DOCX_GROUPS
+        for item in group["use_cases"]
+        for message_id, _statement in item["messages"]
+    ]
+    if set(assigned_message_ids) != set(SYSTEM_MESSAGES):
+        raise ValueError("Every System Message must be referenced by at least one Use Case")
+    for group in DOCX_GROUPS:
+        for item in group["use_cases"]:
+            if not 1 <= len(item["rules"]) <= 6:
+                raise ValueError(f"{item['id']} must reference an appropriate variable number of Business Rules")
+            if not 1 <= len(item["messages"]) <= 4:
+                raise ValueError(f"{item['id']} must reference an appropriate variable number of System Messages")
+    reader_copy = []
+    for group in DOCX_GROUPS:
+        reader_copy.extend([group["name"], group["purpose"]])
+        for item in group["use_cases"]:
+            reader_copy.extend(item["primary"] + item["secondary"])
+            reader_copy.extend(
+                [item["title"], item["description"]]
+                + item["preconditions"]
+                + item["success"]
+                + item["failure"]
+                + item["steps"]
+                + item["alternatives"]
+                + [statement for _rule_id, statement in item["rules"]]
+                + [statement for _message_id, statement in item["messages"]]
+            )
+    if any("Learner" in text or "learner" in text for text in reader_copy):
+        raise ValueError("Reader-facing DOCX copy must use Student instead of Learner")
 
 
 def rgb(hex_color: str) -> RGBColor:
@@ -1432,7 +1892,7 @@ def set_repeat_table_header(row) -> None:
 
 def add_page_number(paragraph) -> None:
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run = paragraph.add_run("Trang ")
+    run = paragraph.add_run("Page ")
     set_run_font(run, size=9, color=COLORS["muted"])
     fld_char_begin = OxmlElement("w:fldChar")
     fld_char_begin.set(qn("w:fldCharType"), "begin")
@@ -1646,7 +2106,7 @@ def add_cell_list(cell, items: list[str], numbering: NumberingFactory, *, number
 
 def add_postconditions(cell, success_items: list[str], failure_items: list[str], numbering: NumberingFactory) -> None:
     cell.text = ""
-    for heading, items, color in (("Thành công", success_items, COLORS["success"]), ("Thất bại / fail-safe", failure_items, COLORS["error"])):
+    for heading, items, color in (("Success", success_items, COLORS["success"]), ("Failure-safe outcome", failure_items, COLORS["error"])):
         p = cell.add_paragraph() if cell.paragraphs[0].text else cell.paragraphs[0]
         p.paragraph_format.space_after = Pt(1)
         run = p.add_run(heading)
@@ -1659,6 +2119,37 @@ def add_postconditions(cell, success_items: list[str], failure_items: list[str],
             lp.paragraph_format.line_spacing = 1.0
             item_run = lp.add_run(item)
             set_run_font(item_run, size=8.6, color=COLORS["ink"])
+
+
+def add_business_rules(cell, items: list[tuple[str, str]]) -> None:
+    """Render plain-language rule ids and statements as compact definition blocks."""
+
+    cell.text = ""
+    for index, (rule_id, statement) in enumerate(items):
+        paragraph = cell.paragraphs[0] if index == 0 else cell.add_paragraph()
+        paragraph.paragraph_format.space_before = Pt(0)
+        paragraph.paragraph_format.space_after = Pt(3)
+        paragraph.paragraph_format.line_spacing = 1.05
+        id_run = paragraph.add_run(rule_id)
+        set_run_font(id_run, size=8.7, color=COLORS["blue_dark"], bold=True)
+        id_run.add_break()
+        statement_run = paragraph.add_run(statement)
+        set_run_font(statement_run, size=8.7, color=COLORS["ink"])
+
+
+def add_system_messages(cell, items: list[tuple[str, str]]) -> None:
+    """Render shared message ids and their Student-facing wording."""
+
+    cell.text = ""
+    for index, (message_id, statement) in enumerate(items):
+        paragraph = cell.paragraphs[0] if index == 0 else cell.add_paragraph()
+        paragraph.paragraph_format.space_before = Pt(0)
+        paragraph.paragraph_format.space_after = Pt(2)
+        paragraph.paragraph_format.line_spacing = 1.0
+        id_run = paragraph.add_run(f"{message_id}: ")
+        set_run_font(id_run, size=8.7, color=COLORS["blue_dark"], bold=True)
+        statement_run = paragraph.add_run(statement)
+        set_run_font(statement_run, size=8.7, color=COLORS["ink"])
 
 
 def add_use_case_table(doc: Document, item: dict[str, Any], numbering: NumberingFactory) -> None:
@@ -1687,8 +2178,8 @@ def add_use_case_table(doc: Document, item: dict[str, Any], numbering: Numbering
     add_postconditions(add_row("Postconditions"), item["success"], item["failure"], numbering)
     add_cell_list(add_row("Normal Sequence / Flow"), item["steps"], numbering, numbered=True)
     add_cell_list(add_row("Alternative Sequences / Flows"), item["alternatives"], numbering)
-    add_cell_list(add_row("Business Rules"), item["rules"], numbering)
-    add_cell_list(add_row("System Messages"), item["messages"], numbering)
+    add_business_rules(add_row("Business Rules"), item["rules"])
+    add_system_messages(add_row("System Messages"), item["messages"])
 
     # Merged rows need explicit aggregate widths after Word has rewritten tcW.
     for row in table.rows[1:]:
@@ -1703,12 +2194,80 @@ def add_use_case_table(doc: Document, item: dict[str, Any], numbering: Numbering
             tc_w.set(qn("w:type"), "dxa")
 
 
+def add_document_bullets(doc: Document, items: list[str], *, size: float = 8.8) -> None:
+    for item in items:
+        paragraph = doc.add_paragraph(style="List Bullet")
+        paragraph.paragraph_format.space_before = Pt(0)
+        paragraph.paragraph_format.space_after = Pt(1)
+        paragraph.paragraph_format.line_spacing = 1.0
+        run = paragraph.add_run(item)
+        set_run_font(run, size=size, color=COLORS["ink"])
+
+
+def add_jira_delivery_stream_page(doc: Document, stream: dict[str, Any]) -> None:
+    doc.add_heading(
+        f"B.{stream['order']} Task {stream['order']} - {stream['name']}",
+        level=1,
+    )
+
+    summary = doc.add_table(rows=4, cols=2)
+    summary.style = "Table Grid"
+    set_table_geometry(summary, [2100, 7260])
+    summary_rows = [
+        ("Suggested Task", stream["summary"]),
+        ("Traceability modules", stream["modules"]),
+        ("Depends on", stream["depends_on"]),
+        ("Blocks", stream["blocks"]),
+    ]
+    for row, (label, value) in zip(summary.rows, summary_rows):
+        add_cell_plain(row.cells[0], label, bold=True, color=COLORS["blue_dark"], size=8.3)
+        set_cell_shading(row.cells[0], COLORS["blue_light"])
+        add_cell_plain(row.cells[1], value, size=8.3)
+
+    doc.add_heading("Description", level=2)
+    description = doc.add_paragraph(stream["description"])
+    description.paragraph_format.space_after = Pt(4)
+    for run in description.runs:
+        set_run_font(run, size=9.0, color=COLORS["ink"])
+
+    doc.add_heading("Acceptance boundary", level=2)
+    add_document_bullets(doc, stream["acceptance"], size=8.4)
+
+    doc.add_heading("Ordered Sub-tasks", level=2)
+    subtasks = doc.add_table(rows=1, cols=3)
+    subtasks.style = "Table Grid"
+    set_table_geometry(subtasks, [600, 3480, 5280])
+    for index, header in enumerate(("#", "Suggested Sub-task", "Deliverable / Done condition")):
+        add_cell_plain(subtasks.rows[0].cells[index], header, bold=True, color=COLORS["ink"], size=7.8)
+        set_cell_shading(subtasks.rows[0].cells[index], COLORS["blue_light"])
+    set_repeat_table_header(subtasks.rows[0])
+    for order, title, done in stream["subtasks"]:
+        row = subtasks.add_row()
+        add_cell_plain(row.cells[0], order, bold=True, color=COLORS["blue_dark"], size=7.4)
+        add_cell_plain(row.cells[1], title, bold=True, size=7.4)
+        add_cell_plain(row.cells[2], done, size=7.3)
+
+    doc.add_heading("Linked Bug templates", level=2)
+    bugs = doc.add_table(rows=1, cols=3)
+    bugs.style = "Table Grid"
+    set_table_geometry(bugs, [1080, 4680, 3600])
+    for index, header in enumerate(("Risk", "Suggested Bug summary", "Placement / release effect")):
+        add_cell_plain(bugs.rows[0].cells[index], header, bold=True, color=COLORS["ink"], size=7.7)
+        set_cell_shading(bugs.rows[0].cells[index], COLORS["blue_light"])
+    set_repeat_table_header(bugs.rows[0])
+    for risk, title, placement in stream["bugs"]:
+        row = bugs.add_row()
+        add_cell_plain(row.cells[0], risk, bold=True, color=COLORS["error"], size=7.2)
+        add_cell_plain(row.cells[1], title, bold=True, size=7.2)
+        add_cell_plain(row.cells[2], placement, size=7.1)
+
+
 def generate_docx() -> None:
     doc = Document()
     configure_document(doc)
     numbering = NumberingFactory(doc)
     doc.core_properties.title = "KSH Practice Use Case Specifications"
-    doc.core_properties.subject = "Pre-13E capability architecture baseline"
+    doc.core_properties.subject = "Pre-13E four-area functional baseline"
     doc.core_properties.author = "KSH Engineering"
     doc.core_properties.keywords = "KSH, Practice, Use Case, Phase 13E, Architecture"
 
@@ -1716,11 +2275,11 @@ def generate_docx() -> None:
     doc.add_paragraph().paragraph_format.space_after = Pt(16)
     add_title_paragraph(doc, "KSH PRACTICE", 12, COLORS["blue"], after=12)
     add_title_paragraph(doc, "Use Case Specifications", 25, COLORS["ink"], after=4)
-    add_title_paragraph(doc, "Capability baseline before Phase 13E", 14, COLORS["muted"], bold=False, after=18)
+    add_title_paragraph(doc, "Four-area functional baseline before Phase 13E", 14, COLORS["muted"], bold=False, after=18)
     add_metadata_line(doc, "Branch", "feature/practice-reduce-scope")
     add_metadata_line(doc, "Status", "PRE_13E_ARCHITECTURE_BASELINE")
-    add_metadata_line(doc, "Date", "17/07/2026")
-    add_metadata_line(doc, "Scope", "Only /practice: 10 capabilities and 30 formal Use Cases")
+    add_metadata_line(doc, "Date", "18/07/2026")
+    add_metadata_line(doc, "Scope", "Only /practice: 4 functional groups, 10 traceability modules and 30 formal Use Cases")
     add_metadata_line(doc, "Authority", "Current Spring Boot code plus approved Phase 13E-13H roadmap")
     doc.add_paragraph().paragraph_format.space_after = Pt(14)
     callout = doc.add_table(rows=1, cols=1)
@@ -1729,38 +2288,39 @@ def generate_docx() -> None:
     set_cell_shading(callout.cell(0, 0), COLORS["panel"])
     add_cell_plain(
         callout.cell(0, 0),
-        "Quy ước bằng chứng: CURRENT là code hiện hữu. PLANNED 13E/13F là ranh giới đã duyệt nhưng chưa phải lớp production. DEFERRED 13H/15 là nghĩa vụ kiểm thử hoặc dọn tương thích về sau.",
+        "Evidence convention: CURRENT means implemented code. PLANNED 13E/13F identifies an approved boundary that is not production code yet. Business Rules and System Messages use shared global identifiers and may be referenced by more than one Use Case.",
         size=10,
     )
     doc.add_page_break()
 
-    doc.add_heading("1. Capability Map", level=1)
+    doc.add_heading("1. Functional Group Map", level=1)
     p = doc.add_paragraph(
-        "Practice được chia theo capability có ownership và invariants riêng. Bảng này là mục lục traceability cho tài liệu Use Case, class diagram và sequence diagram."
+        "Practice is presented through four business-facing areas. The ten technical modules remain as traceability labels so the document stays compact without losing its connection to code, class diagrams or sequence diagrams."
     )
     p.paragraph_format.space_after = Pt(8)
     matrix = doc.add_table(rows=1, cols=4)
     matrix.style = "Table Grid"
-    set_table_geometry(matrix, [720, 2500, 1800, 4340])
-    headers = ["Mã", "Capability", "Actor chính", "Ranh giới hiện tại / kế hoạch"]
+    set_table_geometry(matrix, [720, 2500, 2600, 3540])
+    headers = ["Code", "Functional area", "Internal modules", "Use Cases"]
     for i, header in enumerate(headers):
         add_cell_plain(matrix.rows[0].cells[i], header, bold=True, color=COLORS["ink"], size=9)
         set_cell_shading(matrix.rows[0].cells[i], COLORS["blue_light"])
     set_repeat_table_header(matrix.rows[0])
-    for cap in CAPABILITIES:
+    for group in DOCX_GROUPS:
         row = matrix.add_row()
-        planned = sorted({cls[2] for cls in cap["classes"] if cls[2] != "CURRENT"})
-        values = [cap["code"], cap["name"], ", ".join(cap["actors"]), "CURRENT" + ("; " + ", ".join(planned) if planned else "")]
+        module_labels = ", ".join(module["code"] for module in group["modules"])
+        use_case_ids = ", ".join(item["id"] for item in group["use_cases"])
+        values = [group["code"], group["name"], module_labels, use_case_ids]
         for i, value in enumerate(values):
             add_cell_plain(row.cells[i], value, bold=(i == 0), color=COLORS["blue_dark"] if i == 0 else COLORS["ink"], size=8.8)
-    doc.add_heading("2. Architecture Rules", level=1)
+    doc.add_heading("2. Shared Architecture Rules", level=1)
     rules = [
-        "Attempt rendering và scoring luôn dùng immutable version đã khóa trên attempt.",
-        "Reading/Listening result GET là read-only; provider chỉ chạy qua durable lifecycle của 13D.",
-        "Learner answer, official key, teacher explanation và shared AI artifact là các lớp dữ liệu tách biệt.",
-        "Writing/Speaking provider failure không được tạo score hoặc evidence giả.",
-        "Speaking media là private và mọi playback/resolution đều qua authorization.",
-        "Phase 13E chỉ bổ sung evidence presentation; Phase 13F chỉ bổ sung aggregate/recovery thật.",
+        "Attempt rendering and scoring always use the immutable version locked to the attempt.",
+        "Reading and Listening result reads are read-only; provider work runs only through the durable preparation lifecycle.",
+        "Student answers, official answers, teacher explanations and shared AI artifacts remain separate evidence layers.",
+        "Writing or Speaking provider failure never creates a fabricated score or evidence item.",
+        "Speaking media is private, and every upload or playback request requires authorization.",
+        "Phase 13E adds evidence presentation; Phase 13F adds real progress aggregation and recovery behavior.",
     ]
     for rule in rules:
         p = doc.add_paragraph(rule, style="List Bullet")
@@ -1769,14 +2329,16 @@ def generate_docx() -> None:
     doc.add_page_break()
 
     use_case_index = 0
-    for cap_index, cap in enumerate(CAPABILITIES, start=1):
-        for item in cap["use_cases"]:
+    for group_index, group in enumerate(DOCX_GROUPS, start=1):
+        for item in group["use_cases"]:
             use_case_index += 1
             kicker = doc.add_paragraph()
             kicker.paragraph_format.space_before = Pt(0)
             kicker.paragraph_format.space_after = Pt(2)
             kicker.paragraph_format.keep_with_next = True
-            run = kicker.add_run(f"CAPABILITY {cap_index:02d}/10  |  {cap['code']}  |  USE CASE {use_case_index:02d}/30")
+            run = kicker.add_run(
+                f"AREA {group_index:02d}/04  |  {group['code']} {group['name']}  |  MODULE {item['module_code']}  |  USE CASE {use_case_index:02d}/30"
+            )
             set_run_font(run, size=8.5, color=COLORS["muted"], bold=True)
             add_title_paragraph(doc, f"{item['id']}  {item['title']}", 15, COLORS["ink"], after=3)
             status_p = doc.add_paragraph()
@@ -1793,23 +2355,129 @@ def generate_docx() -> None:
                 doc.add_page_break()
 
     doc.add_page_break()
-    doc.add_heading("Appendix A. Diagram Inventory", level=1)
-    current_page_count = 2 + len(CAPABILITIES) * 2 + sum(len(cap["use_cases"]) for cap in CAPABILITIES)
+    doc.add_heading("Appendix A. Functional Group Inventory", level=1)
     doc.add_paragraph(
-        f"KSH_PRACTICE_ARCHITECTURE.drawio.xml hiện được bố trí thành {current_page_count} trang để có thể chỉnh sửa riêng từng capability và luồng. Đây là hệ quả của mô hình 10 capability Practice, không phải yêu cầu hoặc acceptance theo số trang. Tên trang dùng mã capability và Use Case ổn định để đối chiếu trực tiếp."
+        "The DOCX uses four reader-facing areas while preserving the stable technical module and Use Case codes used by implementation and architecture artifacts. Business Rules and System Messages are shared catalogs: a single identifier can apply to several Use Cases."
     )
     appendix = doc.add_table(rows=1, cols=3)
     appendix.style = "Table Grid"
-    set_table_geometry(appendix, [1200, 3300, 4860])
-    for i, header in enumerate(("Capability", "Use Cases", "Diagram pages")):
+    set_table_geometry(appendix, [2700, 1800, 4860])
+    for i, header in enumerate(("Functional area", "Internal modules", "Use Cases")):
         add_cell_plain(appendix.rows[0].cells[i], header, bold=True, size=9)
         set_cell_shading(appendix.rows[0].cells[i], COLORS["blue_light"])
     set_repeat_table_header(appendix.rows[0])
-    for cap in CAPABILITIES:
+    for group in DOCX_GROUPS:
         row = appendix.add_row()
-        values = [cap["code"], ", ".join(item["id"] for item in cap["use_cases"]), "1 Use Case + 1 Class + 3 Sequence"]
+        values = [
+            f"{group['code']} - {group['name']}",
+            ", ".join(module["code"] for module in group["modules"]),
+            ", ".join(item["id"] for item in group["use_cases"]),
+        ]
         for i, value in enumerate(values):
             add_cell_plain(row.cells[i], value, bold=(i == 0), size=8.8)
+
+    doc.add_page_break()
+    doc.add_heading("Appendix B. Recommended Jira Delivery Hierarchy", level=1)
+    intro = doc.add_paragraph(
+        "This appendix defines a prospective implementation order for the Practice feature. It is a dependency-driven delivery plan, not a reconstruction of when work happened. Jira creation dates, sprint placement and work logs must remain truthful and must never be backdated from timestamps in Markdown files."
+    )
+    intro.paragraph_format.space_after = Pt(8)
+    for run in intro.runs:
+        set_run_font(run, size=9.5, color=COLORS["ink"])
+
+    callout = doc.add_table(rows=1, cols=1)
+    callout.style = "Table Grid"
+    set_table_geometry(callout, [9360])
+    set_cell_shading(callout.cell(0, 0), COLORS["panel"])
+    add_cell_plain(
+        callout.cell(0, 0),
+        "Recommended hierarchy: one Practice Epic or project scope, four business-facing parent Tasks, ordered Sub-tasks inside each Task, and reproducible Bugs linked to the affected Task. The ten technical module codes remain Components, labels and traceability references; they are not ten competing delivery streams.",
+        size=9.0,
+    )
+
+    doc.add_heading("Dependency order", level=2)
+    dependency_table = doc.add_table(rows=1, cols=5)
+    dependency_table.style = "Table Grid"
+    set_table_geometry(dependency_table, [600, 800, 2700, 2560, 2700])
+    for index, header in enumerate(("#", "Code", "Parent Task", "Depends on", "Why this order matters")):
+        add_cell_plain(dependency_table.rows[0].cells[index], header, bold=True, size=8.0)
+        set_cell_shading(dependency_table.rows[0].cells[index], COLORS["blue_light"])
+    set_repeat_table_header(dependency_table.rows[0])
+    dependency_reasons = {
+        "MGT": "Published immutable content and version contracts are the input to an attempt.",
+        "ATT": "A submitted, version-locked attempt is the authoritative input to result evidence.",
+        "RSL": "Normalized authorized results are the authoritative input to progress aggregation.",
+        "PRG": "Progress completes the read-side loop and may then guide a new authorized attempt.",
+    }
+    for stream in JIRA_DELIVERY_STREAMS:
+        row = dependency_table.add_row()
+        values = [
+            str(stream["order"]),
+            stream["code"],
+            stream["name"],
+            stream["depends_on"],
+            dependency_reasons[stream["code"]],
+        ]
+        for index, value in enumerate(values):
+            add_cell_plain(
+                row.cells[index],
+                value,
+                bold=(index in (0, 1)),
+                color=COLORS["blue_dark"] if index in (0, 1) else COLORS["ink"],
+                size=7.7,
+            )
+
+    doc.add_heading("Issue hierarchy and placement rules", level=2)
+    hierarchy = doc.add_table(rows=1, cols=3)
+    hierarchy.style = "Table Grid"
+    set_table_geometry(hierarchy, [1500, 2820, 5040])
+    for index, header in enumerate(("Issue type", "Recommended role", "Placement rule")):
+        add_cell_plain(hierarchy.rows[0].cells[index], header, bold=True, size=8.0)
+        set_cell_shading(hierarchy.rows[0].cells[index], COLORS["blue_light"])
+    set_repeat_table_header(hierarchy.rows[0])
+    hierarchy_rows = [
+        (
+            "Epic / project scope",
+            "Practice delivery umbrella",
+            "Contains the four parent Tasks when the project uses Epics; do not mix unrelated Class Tests or Assignments into this scope.",
+        ),
+        (
+            "Task",
+            "One of the four delivery streams",
+            "Owns description, acceptance boundary, dependency and the ordered implementation Sub-tasks shown below.",
+        ),
+        (
+            "Sub-task",
+            "One verifiable deliverable",
+            "Use for requirements, diagrams, architecture, backend, frontend, tests and UAT. Keep each Done condition independently reviewable.",
+        ),
+        (
+            "Bug",
+            "One reproduced defect",
+            "Create as a standalone Bug and link it to the affected Task with blocks or relates to. Do not create fictional Bugs or a catch-all fix-bugs Sub-task.",
+        ),
+    ]
+    for issue_type, role, placement in hierarchy_rows:
+        row = hierarchy.add_row()
+        add_cell_plain(row.cells[0], issue_type, bold=True, color=COLORS["blue_dark"], size=7.8)
+        add_cell_plain(row.cells[1], role, size=7.8)
+        add_cell_plain(row.cells[2], placement, size=7.7)
+
+    doc.add_heading("Bug evidence and release policy", level=2)
+    add_document_bullets(
+        doc,
+        [
+            "Create a Bug only after the defect is reproduced. Record steps, expected and actual behavior, evidence, affected Use Case and version, severity, and the regression test that proves the fix.",
+            "Use blocks when the defect invalidates a contract, security boundary, version integrity, timing, scoring or downstream data. Use relates to for a contained non-blocking defect.",
+            "Resolve contract and integrity Bugs before dependent-stream implementation; resolve integration and UI Bugs before UAT; resolve every release blocker before the parent Task is Done.",
+            "The Bug summaries below are reusable risk templates, not claims that those defects currently exist.",
+        ],
+        size=8.5,
+    )
+
+    for stream in JIRA_DELIVERY_STREAMS:
+        doc.add_page_break()
+        add_jira_delivery_stream_page(doc, stream)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     doc.save(DOCX_PATH)
@@ -2178,14 +2846,21 @@ def generate_preview_contact_sheets(preview_dir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-dir", type=Path, help="Optional internal PNG QA directory")
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("--docx-only", action="store_true", help="Generate only the DOCX artifact")
+    output_group.add_argument("--drawio-only", action="store_true", help="Generate only the Draw.io artifact")
     args = parser.parse_args()
     validate_model()
-    generate_docx()
-    generate_drawio()
+    if not args.drawio_only:
+        generate_docx()
+    if not args.docx_only:
+        generate_drawio()
     if args.preview_dir:
         generate_preview_contact_sheets(args.preview_dir)
-    print(f"Generated {DOCX_PATH}")
-    print(f"Generated {DRAWIO_PATH}")
+    if not args.drawio_only:
+        print(f"Generated {DOCX_PATH}")
+    if not args.docx_only:
+        print(f"Generated {DRAWIO_PATH}")
     if args.preview_dir:
         print(f"Generated previews in {args.preview_dir}")
 
