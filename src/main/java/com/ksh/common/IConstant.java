@@ -4,12 +4,12 @@ package com.ksh.common;
  * Project-wide constants shared by controllers (and any other layer that
  * benefits from the same key set). Consumers reference these unqualified via
  * a static import — interface fields are implicitly
- * {@code public static final}, so {@code import static com.ulp.common.IConstant.*}
+ * {@code public static final}, so {@code import static com.ksh.common.IConstant.*}
  * lets a class write {@code ATTR_FORM} directly without {@code IConstant.} prefix.
  *
  * <p><b>Why an interface, not a final class with statics?</b>
  * The interface stays as a namespace for the constants. Consumers pull them
- * in with {@code import static com.ulp.common.IConstant.*}, which keeps the
+ * in with {@code import static com.ksh.common.IConstant.*}, which keeps the
  * keys as an <em>implementation detail</em> of the consumer rather than
  * leaking through its public type (the classic "constant interface
  * anti-pattern" — Effective Java Item 22). Sub-interfaces can still extend
@@ -28,7 +28,7 @@ package com.ksh.common;
  * <p><b>What does NOT go here:</b>
  * <ul>
  *   <li>Entity column names — they belong on the entity.</li>
- *   <li>Role / permission strings — see {@code com.ulp.security.Roles}.</li>
+ *   <li>Role / permission strings — see {@code com.ksh.security.Roles}.</li>
  *   <li>One-off literals used by a single method — keep them inline.</li>
  *   <li>Localised UI strings once {@code MessageSource} ships — migrate to
  *       {@code messages.properties}.</li>
@@ -232,22 +232,22 @@ public interface IConstant {
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
-    // ───────── Learning-progress flash messages (ULP-4.5) ────────────
+    // ───────── Learning-progress flash messages (ksh-4.5) ────────────
     String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
     String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
 
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (ULP-4.6, Vietnamese UI text) ──
+    // ───────── Lesson-comment messages (ksh-4.6, Vietnamese UI text) ──
     String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
-    // Moderator hide/unhide (ULP-11.7).
+    // Moderator hide/unhide (ksh-11.7).
     String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
-    // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
+    // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
     String API_FLASHCARDS       = "/api/flashcards";
@@ -337,9 +337,19 @@ public interface IConstant {
     String MSG_EXAM_MEDIA_YOUTUBE_INVALID = "URL YouTube không hợp lệ";
     String MSG_EXAM_MEDIA_URL_SCHEME = "URL media phải bắt đầu bằng http:// hoặc https://";
     String MSG_EXAM_MEDIA_TYPE_INVALID = "Loại media không hợp lệ";
+    String MSG_EXAM_IMAGE_EMPTY = "File ảnh rỗng";
+    String MSG_EXAM_IMAGE_TOO_LARGE = "Ảnh vượt quá giới hạn 2MB";
+    String MSG_EXAM_IMAGE_TYPE = "Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP";
+    String MSG_EXAM_IMAGE_INVALID = "Nội dung file không phải ảnh hợp lệ";
+    String MSG_QUESTION_CONTENT_BLANK = "Nội dung câu hỏi không được để trống";
+    String MSG_OPTION_CONTENT_BLANK = "Nội dung đáp án không được để trống";
     String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
     String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
     String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
+    String MSG_EXAM_QUESTION_BANK_LOCKED =
+            "Bài test đã có bài nộp: không thể thêm/xoá câu hỏi hoặc đáp án. Bạn vẫn có thể sửa nội dung.";
+    String MSG_EXAM_CONTENT_TOO_LARGE =
+            "Nội dung câu hỏi/đáp án quá lớn. Hãy chèn ảnh bằng nút ảnh (không dán base64).";
     String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
     String MSG_PRACTICE_INVALID_SOURCE = "Nguồn câu hỏi không hợp lệ";
 
@@ -397,7 +407,7 @@ public interface IConstant {
     // Flash messages (Vietnamese UI text).
     String MSG_NOTIF_READ = "Đã đánh dấu đã đọc";
 
-    // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
+    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
     // Route prefix / canonical URL.
     String BASE_MY_MESSAGES = "/my/messages";
 
@@ -434,10 +444,10 @@ public interface IConstant {
 
     // Shared pager fragment — Map of query params to preserve across pages
     // (status/q/size/…). Consumed by templates/fragments/pager.html.
-    // Numbered-button window size lives in com.ulp.common.PageWindow.
+    // Numbered-button window size lives in com.ksh.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
 
-    // ───────── Admin course categories (ULP-11.4) ────────────────────
+    // ───────── Admin course categories (ksh-11.4) ────────────────────
     // View names.
     String VIEW_ADMIN_CATEGORIES      = "admin/categories";
     String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";

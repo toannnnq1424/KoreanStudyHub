@@ -56,19 +56,22 @@ public final class HtmlSanitizer {
         // output inserts \n + indentation between block elements, which Quill
         // later re-parses as empty <p><br></p> paragraphs — see bug fix for
         // lesson rich-text round-trip drift.
+        //
+        // A non-empty base URI is required for preserveRelativeLinks to keep
+        // server-uploaded paths like /uploads/exams/<uuid>.png (Quill img src).
         Document.OutputSettings settings = new Document.OutputSettings()
                 .prettyPrint(false);
-        return Jsoup.clean(html, "", SAFELIST, settings);
+        return Jsoup.clean(html, "https://ksh.local", SAFELIST, settings);
     }
 
     private static Safelist buildSafelist() {
         Safelist list = new Safelist()
                 .addTags("h1", "h2", "h3", "h4", "h5", "h6",
-                         "p", "br", "hr",
-                         "strong", "b", "em", "i", "u", "s",
-                         "blockquote", "pre", "code",
-                         "ol", "ul", "li",
-                         "a", "img");
+                        "p", "br", "hr",
+                        "strong", "b", "em", "i", "u", "s",
+                        "blockquote", "pre", "code",
+                        "ol", "ul", "li",
+                        "a", "img");
 
         list.addAttributes("a", "href", "target", "rel");
         list.addProtocols("a", "href", "http", "https", "mailto");
@@ -77,6 +80,8 @@ public final class HtmlSanitizer {
         // Allow inline data URIs in addition to http(s) so a lecturer can
         // paste a small embedded image without the attachment pipeline.
         list.addProtocols("img", "src", "data", "http", "https");
+        // Keep relative /uploads/... paths from server image upload endpoints.
+        list.preserveRelativeLinks(true);
 
         return list;
     }
