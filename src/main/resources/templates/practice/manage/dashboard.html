@@ -105,6 +105,7 @@
                 </td>
                 <td>
                   <a th:href="@{/practice/manage/drafts/{id}(id=${d.id})}" class="pp-table-link" style="margin-right:16px; font-weight:700;">Tiếp tục sửa</a>
+                  <a th:href="@{/practice/manage/drafts/{id}(id=${d.id},preview=1)}" class="pp-table-link" style="margin-right:16px; font-weight:700;">Preview</a>
                   <form th:action="@{/practice/manage/drafts/{id}/delete(id=${d.id})}" method="post" style="display:inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn bản nháp này?');">
                     <button type="submit" class="pp-table-link" style="background:none; border:none; color:var(--pp-error); font-weight:600; cursor:pointer; padding:0; font-family:inherit; font-size:inherit;">Xóa nháp</button>
                   </form>
@@ -161,6 +162,7 @@
                 </td>
                 <td>
                   <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem chi tiết</a>
+                  <a th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pp-table-link" style="margin-right:12px;">Preview</a>
                   <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pp-table-link" style="margin-right:12px;">Lịch sử</a>
                   <a th:if="${item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Sửa đề</a>
                   <form th:if="${!item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/lock(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Khóa</button></form>
@@ -214,6 +216,7 @@
                 <td><span th:text="${item.ownerLocked ? 'Đã khóa' : item.status}">PUBLISHED</span></td>
                 <td>
                   <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem</a>
+                  <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pp-table-link" style="margin-right:12px;">Preview</a>
                   <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pp-table-link" style="margin-right:12px;">Lịch sử</a>
                   <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link">Tạo bản sửa</a>
                 </td>
