@@ -12,12 +12,26 @@
   window.__KSH_SHARED_APP_INITIALIZED__ = true;
 
   // ── Dropdown toggle ────────────────────────────────────────────────
+  function setDropdownOpen(dropdown, open) {
+    dropdown.classList.toggle('open', open);
+    dropdown.querySelectorAll('[data-toggle="dropdown"]').forEach(function (trigger) {
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
   document.addEventListener('click', function (e) {
     // Close any open dropdown when clicking outside
     document.querySelectorAll('.open').forEach(function (el) {
       if (!el.contains(e.target)) {
-        el.classList.remove('open');
+        setDropdownOpen(el, false);
       }
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.dropdown.open').forEach(function (dropdown) {
+      setDropdownOpen(dropdown, false);
     });
   });
 
@@ -28,9 +42,9 @@
       if (parent) {
         // Close all other dropdowns
         document.querySelectorAll('.dropdown.open').forEach(function (d) {
-          if (d !== parent) d.classList.remove('open');
+          if (d !== parent) setDropdownOpen(d, false);
         });
-        parent.classList.toggle('open');
+        setDropdownOpen(parent, !parent.classList.contains('open'));
       }
     });
   });

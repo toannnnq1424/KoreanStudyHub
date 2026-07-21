@@ -854,11 +854,13 @@ public class PracticeController {
     }
 
     @GetMapping(PracticeRoutes.PROFILE)
+    @PreAuthorize(Roles.PREAUTH_STUDENT)
     public String profileRedirect() {
         return PracticeRoutes.redirectToProgress();
     }
 
     @GetMapping(PracticeRoutes.PROGRESS)
+    @PreAuthorize(Roles.PREAUTH_STUDENT)
     public String progress(@AuthenticationPrincipal KshUserDetails user,
                            @RequestParam(value = "tab", defaultValue = "overview") String tab,
                            Model model) {

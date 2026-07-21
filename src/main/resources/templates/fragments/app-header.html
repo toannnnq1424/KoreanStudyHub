@@ -25,6 +25,40 @@
     <a sec:authorize="hasRole('STUDENT')"
        th:href="@{/my/classes}" th:classappend="${active == 'my-classes'} ? 'active'">Lớp của tôi</a>
     <a th:href="@{/my/flashcards}" th:classappend="${active == 'flashcards'} ? 'active'">Thẻ ghi nhớ</a>
+    <div class="dropdown nav-practice-dropdown"
+         sec:authorize="hasAnyRole('STUDENT','LECTURER')">
+      <div class="nav-practice-trigger" th:classappend="${active == 'practice'} ? 'active'">
+        <a class="nav-practice-link" th:href="@{/practice}">Luyện tập</a>
+        <button type="button"
+                class="nav-practice-toggle"
+                data-toggle="dropdown"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-label="Mở menu Luyện tập">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="menu left nav-practice-menu" role="menu" aria-label="Điều hướng Luyện tập">
+        <a sec:authorize="hasRole('STUDENT')" th:href="@{/practice}" class="menu-item" role="menuitem">
+          Luyện tập
+        </a>
+        <a sec:authorize="hasRole('STUDENT')" th:href="@{/practice/progress}" class="menu-item" role="menuitem">
+          Tiến độ
+        </a>
+        <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage}" class="menu-item" role="menuitem">
+          Manage Test Sets
+        </a>
+        <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage/revisions}" class="menu-item" role="menuitem">
+          Lịch sử sửa đổi
+        </a>
+        <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage/materials}" class="menu-item" role="menuitem">
+          Kho tài nguyên
+        </a>
+      </div>
+    </div>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
        th:href="@{/lecturer/dashboard}" th:classappend="${active == 'dashboard'} ? 'active'">Tổng quan</a>
     <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
