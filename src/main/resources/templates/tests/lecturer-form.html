@@ -18,8 +18,9 @@
          box + class nav. No class nav item maps to the tests screen, so no
          entry is highlighted (empty activeTab). Create mode has no class yet,
          so the layout collapses to a single full-width column. -->
-    <aside th:if="${mode == 'edit' and clazz != null}"
-           th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+    <th:block th:if="${mode == 'edit' and clazz != null}">
+        <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+    </th:block>
 
     <main class="col detail-page lf-page">
 

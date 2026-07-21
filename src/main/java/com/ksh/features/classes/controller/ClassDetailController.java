@@ -150,7 +150,7 @@ public class ClassDetailController {
                               Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
         detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
-        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        model.addAttribute( ATTR_EXAMS_PAGE, examService.listForClass(id, page));
         return VIEW_CLASS_DETAIL_TESTS;
     }
 

@@ -10,7 +10,7 @@
  *      type for a persisted lesson — block the form submit until the
  *      confirmation is acknowledged.
  *
- * Notifications use window.KshToast per project rule (no alert/inline).
+ * Notifications use window.UlpToast per project rule (no alert/inline).
  */
 (function () {
     'use strict';
@@ -33,7 +33,7 @@
         var headerMeta = document.querySelector('meta[name="_csrf_header"]');
         var hidden = document.querySelector('input[name="_csrf"]');
         var token = meta ? meta.getAttribute('content')
-                 : (hidden ? hidden.value : null);
+            : (hidden ? hidden.value : null);
         var header = headerMeta ? headerMeta.getAttribute('content') : 'X-CSRF-TOKEN';
         return token ? { header: header, token: token } : null;
     }
@@ -45,8 +45,8 @@
     }
 
     function toast(kind, message) {
-        if (window.KshToast && typeof window.KshToast[kind] === 'function') {
-            window.KshToast[kind](message);
+        if (window.UlpToast && typeof window.UlpToast[kind] === 'function') {
+            window.UlpToast[kind](message);
         } else {
             // Non-fatal fallback so the user still sees the message.
             console.log('[' + kind + '] ' + message);
@@ -67,7 +67,7 @@
         var select = document.querySelector('select[name="contentType"]');
         if (select) return select.value || 'RICHTEXT';
         var radio = document.querySelector(
-                'input[type="radio"][name="contentType"]:checked');
+            'input[type="radio"][name="contentType"]:checked');
         return radio ? radio.value : 'RICHTEXT';
     }
 
@@ -84,7 +84,7 @@
         var radios = document.querySelectorAll('input[type="radio"][name="contentType"]');
         if (!radios.length) return;
         var current = document.querySelector(
-                'input[type="radio"][name="contentType"]:checked');
+            'input[type="radio"][name="contentType"]:checked');
         applySectionVisibility(current ? current.value : 'RICHTEXT');
         radios.forEach(function (r) {
             r.addEventListener('change', function () {
@@ -106,7 +106,7 @@
             if (uploadBlock) uploadBlock.classList.toggle('is-hidden', !isUpload);
         }
         var initial = document.querySelector(
-                'input[type="radio"][name="videoProviderUi"]:checked');
+            'input[type="radio"][name="videoProviderUi"]:checked');
         syncBlocks(initial ? initial.value : 'YOUTUBE');
         radios.forEach(function (r) {
             r.addEventListener('change', function () { syncBlocks(r.value); });
@@ -116,6 +116,16 @@
     // Holds the PDF the lecturer picked but has not uploaded yet. Upload is
     // deferred until the main form is saved (see bindSubmitFlow).
     var pendingPdfFile = null;
+    // Pending library PDF asset id — mutually exclusive with pendingPdfFile.
+    var pendingLibraryPdfAssetId = null;
+
+    function setPdfSelectedLabel(text) {
+        var label = document.getElementById('lessonPdfSelected');
+        if (label) {
+            label.textContent = text;
+            label.hidden = false;
+        }
+    }
 
     function bindPdfUpload() {
         var input = document.getElementById('lessonPdfInput');
@@ -126,12 +136,35 @@
         function selectFile(file) {
             if (!file) return;
             pendingPdfFile = file;
-            var label = document.getElementById('lessonPdfSelected');
-            if (label) {
-                label.textContent = 'Đã chọn: ' + file.name
-                        + ' — bấm "Lưu thay đổi" để tải lên';
-                label.hidden = false;
-            }
+            pendingLibraryPdfAssetId = null;
+            setPdfSelectedLabel('Đã chọn: ' + file.name
+                + ' — bấm "Lưu thay đổi" để tải lên');
+        }
+
+        var fromLibBtn = document.getElementById('lessonPdfFromLibraryBtn');
+        if (fromLibBtn) {
+            fromLibBtn.addEventListener('click', function () {
+                if (!window.UlpLibraryPicker) {
+                    toast('error', 'Không mở được kho học liệu');
+                    return;
+                }
+                window.UlpLibraryPicker.open({
+                    kind: 'DOCUMENT',
+                    onSelect: function (item) {
+                        if (!item || !item.id) return;
+                        // PDF bind requires PDF mime; reject other docs early.
+                        if (item.mimeType && item.mimeType.toLowerCase() !== 'application/pdf') {
+                            toast('error', 'Chỉ có thể chọn tệp PDF làm nội dung chính');
+                            return;
+                        }
+                        pendingLibraryPdfAssetId = item.id;
+                        pendingPdfFile = null;
+                        setPdfSelectedLabel('Đã chọn từ kho: '
+                            + (item.title || item.originalFilename)
+                            + ' — bấm "Lưu thay đổi" để gắn');
+                    }
+                });
+            });
         }
 
         drop.addEventListener('click', function () { input.click(); });
@@ -154,7 +187,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 drop.classList.toggle('is-dragover',
-                        ev === 'dragenter' || ev === 'dragover');
+                    ev === 'dragenter' || ev === 'dragover');
             });
         });
         drop.addEventListener('drop', function (e) {
@@ -169,7 +202,15 @@
      * is no longer a PDF type — so the form save proceeds.
      */
     function uploadPendingPdf(next) {
-        if (!pendingPdfFile || getSelectedContentType() !== 'PDF') {
+        if (getSelectedContentType() !== 'PDF') {
+            next(true);
+            return;
+        }
+        if (pendingLibraryPdfAssetId) {
+            bindPendingLibraryPdf(next);
+            return;
+        }
+        if (!pendingPdfFile) {
             next(true);
             return;
         }
@@ -210,9 +251,52 @@
         xhr.send(fd);
     }
 
+    function bindPendingLibraryPdf(next) {
+        var drop = document.getElementById('lessonPdfDrop');
+        var url = drop ? drop.getAttribute('data-pdf-from-library-url') : null;
+        if (!url || !pendingLibraryPdfAssetId) { next(true); return; }
+        var csrf = getCsrfHeader();
+        var headers = { 'Accept': 'application/json' };
+        if (csrf) headers[csrf.header] = csrf.token;
+        var body = new URLSearchParams();
+        body.set('assetId', String(pendingLibraryPdfAssetId));
+        var pair = csrfBodyPair();
+        if (pair) body.set(pair.name, pair.value);
+        fetch(url, {
+            method: 'POST',
+            headers: headers,
+            credentials: 'same-origin',
+            body: body
+        }).then(function (res) {
+            return res.json().catch(function () { return null; })
+                .then(function (json) { return { ok: res.ok, json: json }; });
+        }).then(function (result) {
+            if (result.ok) {
+                pendingLibraryPdfAssetId = null;
+                next(true);
+            } else {
+                toast('error', (result.json && result.json.message) || 'Gắn PDF từ kho thất bại');
+                next(false);
+            }
+        }).catch(function () {
+            toast('error', 'Lỗi mạng khi gắn PDF từ kho');
+            next(false);
+        });
+    }
+
     // Holds the MP4 the lecturer picked but has not uploaded yet. Upload is
     // deferred until the main form is saved (see bindSubmitFlow).
     var pendingVideoFile = null;
+    // Pending library video asset id — mutually exclusive with pendingVideoFile.
+    var pendingLibraryVideoAssetId = null;
+
+    function setVideoSelectedLabel(text) {
+        var label = document.getElementById('lessonVideoSelected');
+        if (label) {
+            label.textContent = text;
+            label.hidden = false;
+        }
+    }
 
     function bindVideoUpload() {
         var input = document.getElementById('lessonVideoInput');
@@ -223,12 +307,30 @@
         function selectFile(file) {
             if (!file) return;
             pendingVideoFile = file;
-            var label = document.getElementById('lessonVideoSelected');
-            if (label) {
-                label.textContent = 'Đã chọn: ' + file.name
-                        + ' — bấm "Lưu thay đổi" để tải lên';
-                label.hidden = false;
-            }
+            pendingLibraryVideoAssetId = null;
+            setVideoSelectedLabel('Đã chọn: ' + file.name
+                + ' — bấm "Lưu thay đổi" để tải lên');
+        }
+
+        var fromLibBtn = document.getElementById('lessonVideoFromLibraryBtn');
+        if (fromLibBtn) {
+            fromLibBtn.addEventListener('click', function () {
+                if (!window.UlpLibraryPicker) {
+                    toast('error', 'Không mở được kho học liệu');
+                    return;
+                }
+                window.UlpLibraryPicker.open({
+                    kind: 'VIDEO',
+                    onSelect: function (item) {
+                        if (!item || !item.id) return;
+                        pendingLibraryVideoAssetId = item.id;
+                        pendingVideoFile = null;
+                        setVideoSelectedLabel('Đã chọn từ kho: '
+                            + (item.title || item.originalFilename)
+                            + ' — bấm "Lưu thay đổi" để gắn');
+                    }
+                });
+            });
         }
 
         drop.addEventListener('click', function () { input.click(); });
@@ -250,7 +352,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 drop.classList.toggle('is-dragover',
-                        ev === 'dragenter' || ev === 'dragover');
+                    ev === 'dragenter' || ev === 'dragover');
             });
         });
         drop.addEventListener('drop', function (e) {
@@ -265,7 +367,18 @@
      * immediately with true so the form save proceeds.
      */
     function uploadPendingVideo(next) {
-        if (!pendingVideoFile || getSelectedContentType() !== 'VIDEO') {
+        if (getSelectedContentType() !== 'VIDEO') {
+            next(true);
+            return;
+        }
+        // Library video bind only applies when UPLOAD provider is selected.
+        var providerInput = document.querySelector('input[type="hidden"][name="videoProvider"]');
+        var provider = providerInput ? providerInput.value : '';
+        if (pendingLibraryVideoAssetId && provider === 'UPLOAD') {
+            bindPendingLibraryVideo(next);
+            return;
+        }
+        if (!pendingVideoFile) {
             next(true);
             return;
         }
@@ -303,6 +416,39 @@
             next(false);
         });
         xhr.send(fd);
+    }
+
+    function bindPendingLibraryVideo(next) {
+        var drop = document.getElementById('lessonVideoDrop');
+        var url = drop ? drop.getAttribute('data-video-from-library-url') : null;
+        if (!url || !pendingLibraryVideoAssetId) { next(true); return; }
+        var csrf = getCsrfHeader();
+        var headers = { 'Accept': 'application/json' };
+        if (csrf) headers[csrf.header] = csrf.token;
+        var body = new URLSearchParams();
+        body.set('assetId', String(pendingLibraryVideoAssetId));
+        var pair = csrfBodyPair();
+        if (pair) body.set(pair.name, pair.value);
+        fetch(url, {
+            method: 'POST',
+            headers: headers,
+            credentials: 'same-origin',
+            body: body
+        }).then(function (res) {
+            return res.json().catch(function () { return null; })
+                .then(function (json) { return { ok: res.ok, json: json }; });
+        }).then(function (result) {
+            if (result.ok) {
+                pendingLibraryVideoAssetId = null;
+                next(true);
+            } else {
+                toast('error', (result.json && result.json.message) || 'Gắn video từ kho thất bại');
+                next(false);
+            }
+        }).catch(function () {
+            toast('error', 'Lỗi mạng khi gắn video từ kho');
+            next(false);
+        });
     }
 
     /**

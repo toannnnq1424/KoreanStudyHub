@@ -5,6 +5,8 @@ import com.ksh.entities.PublicViewToken;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
 import com.ksh.features.lessons.repository.PublicViewTokenRepository;
 import com.ksh.features.upload.LessonAttachmentStorageService;
+import com.ksh.features.upload.LibraryStorageService;
+import com.ksh.features.upload.UploadFileHelper;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +31,18 @@ public class PublicViewTokenService {
     private final PublicViewTokenRepository tokenRepository;
     private final LessonAttachmentRepository attachmentRepository;
     private final LessonAttachmentStorageService storage;
+    private final LibraryStorageService libraryStorage;
     private final String appBaseUrl;
 
     public PublicViewTokenService(PublicViewTokenRepository tokenRepository,
-                                   LessonAttachmentRepository attachmentRepository,
-                                   LessonAttachmentStorageService storage,
-                                   @Value("${app.base-url:http://localhost:8080}") String appBaseUrl) {
+                                  LessonAttachmentRepository attachmentRepository,
+                                  LessonAttachmentStorageService storage,
+                                  LibraryStorageService libraryStorage,
+                                  @Value("${app.base-url:http://localhost:8080}") String appBaseUrl) {
         this.tokenRepository = tokenRepository;
         this.attachmentRepository = attachmentRepository;
         this.storage = storage;
+        this.libraryStorage = libraryStorage;
         this.appBaseUrl = appBaseUrl;
     }
 
@@ -73,7 +78,11 @@ public class PublicViewTokenService {
         }
         LessonAttachment att = attachmentRepository.findById(tok.getAttachmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
-        Path absolute = storage.resolveAbsolutePath(att.getStoredPath());
+        // Dual-root: library-backed rows live under uploads/library, not lessons/.
+        Path absolute = att.isLibraryBacked()
+                || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())
+                ? libraryStorage.resolveAbsolutePath(att.getStoredPath())
+                : storage.resolveAbsolutePath(att.getStoredPath());
         return new AttachmentHandle(absolute, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
     }
@@ -86,6 +95,6 @@ public class PublicViewTokenService {
 
     /** Tuple returned by {@link #resolve} so the controller can stream the file. */
     public record AttachmentHandle(Path absolutePath, String originalFilename,
-                                    String mimeType, long sizeBytes) {
+                                   String mimeType, long sizeBytes) {
     }
 }

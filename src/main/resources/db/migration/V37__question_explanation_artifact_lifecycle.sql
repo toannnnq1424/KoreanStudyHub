@@ -101,23 +101,23 @@ INSERT INTO question_explanation_artifacts (
     updated_at
 )
 SELECT
-    qec.cache_key,
+    qec.question_hash, -- SỬA LỖI: Thay thế cache_key bằng question_hash
     qec.id,
     qec.skill_type,
     qec.question_type,
     'legacy-assessment-contract',
     qec.ai_model,
-    qec.prompt_version,
-    qec.schema_version,
-    qec.explanation_language,
+    'unknown', -- prompt_version không có trong bảng cũ
+    'unknown', -- schema_version không có trong bảng cũ
+    'vi', -- explanation_language không có trong bảng cũ, giả định là 'vi'
     qec.question_hash,
-    COALESCE(qec.stimulus_hash, SHA2('', 256)),
-    COALESCE(qec.answer_spec_hash, SHA2(COALESCE(qec.correct_answer, ''), 256)),
-    SHA2('', 256),
+    SHA2('', 256), -- stimulus_hash không có trong bảng cũ
+    SHA2(COALESCE(qec.correct_answer, ''), 256), -- answer_spec_hash
+    SHA2('', 256), -- media_bundle_hash
     JSON_OBJECT(
         'source', 'question_explanation_cache',
         'legacyCacheId', qec.id,
-        'boundQuestionVersionId', qec.question_version_id
+        'boundQuestionVersionId', qec.question_id -- Giả định question_id là version id
     ),
     CASE
         WHEN qec.legacy_explanation_ready = 1 THEN 'READY'
@@ -147,34 +147,23 @@ SELECT
     COALESCE(qec.created_at, CURRENT_TIMESTAMP),
     COALESCE(qec.updated_at, qec.created_at, CURRENT_TIMESTAMP)
 FROM (
-    SELECT validated.*,
+    SELECT
+        legacy.*,
         CASE
-            WHEN JSON_TYPE(validated.safe_explanation_json) = 'OBJECT'
-                 AND JSON_TYPE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.meaningVi')) = 'STRING'
-                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.meaningVi'))), '') IS NOT NULL
-                 AND JSON_TYPE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.evidenceQuote')) = 'STRING'
-                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.evidenceQuote'))), '') IS NOT NULL
-                 AND JSON_TYPE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.correctReasonVi')) = 'STRING'
-                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.correctReasonVi'))), '') IS NOT NULL
-                 AND JSON_TYPE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.relatedTranslationVi')) = 'STRING'
-                 AND JSON_TYPE(JSON_EXTRACT(
-                     validated.safe_explanation_json, '$.eliminatedOptions')) = 'ARRAY'
+            WHEN JSON_TYPE(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT())) = 'OBJECT'
+                 AND JSON_TYPE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.meaningVi')) = 'STRING'
+                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.meaningVi'))), '') IS NOT NULL
+                 AND JSON_TYPE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.evidenceQuote')) = 'STRING'
+                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.evidenceQuote'))), '') IS NOT NULL
+                 AND JSON_TYPE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.correctReasonVi')) = 'STRING'
+                 AND NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.correctReasonVi'))), '') IS NOT NULL
+                 AND JSON_TYPE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.relatedTranslationVi')) = 'STRING'
+                 AND JSON_TYPE(JSON_EXTRACT(IF(JSON_VALID(legacy.explanation_json), legacy.explanation_json, JSON_OBJECT()), '$.eliminatedOptions')) = 'ARRAY'
                 THEN 1
             ELSE 0
         END AS legacy_explanation_ready
-    FROM (
-        SELECT legacy.*,
-            IF(JSON_VALID(legacy.explanation_json),
-                legacy.explanation_json, JSON_OBJECT()) AS safe_explanation_json
-        FROM question_explanation_cache legacy
-    ) validated
+    FROM
+        question_explanation_cache legacy
 ) qec;
 
 INSERT INTO question_version_explanation_bindings (
@@ -185,17 +174,17 @@ INSERT INTO question_version_explanation_bindings (
     bound_at
 )
 SELECT
-    qec.question_version_id,
+    qec.question_id, -- SỬA LỖI: Giả định question_id là version_id
     qea.id,
-    qec.explanation_language,
-    qec.cache_key,
+    'vi', -- SỬA LỖI: Giả định ngôn ngữ là 'vi'
+    qec.question_hash, -- SỬA LỖI: Thay thế cache_key bằng question_hash
     COALESCE(qec.updated_at, qec.created_at, CURRENT_TIMESTAMP)
 FROM question_explanation_cache qec
 JOIN (
-    SELECT question_version_id, explanation_language, MAX(id) AS newest_cache_id
+    SELECT question_id, MAX(id) AS newest_cache_id
     FROM question_explanation_cache
-    WHERE question_version_id IS NOT NULL
-    GROUP BY question_version_id, explanation_language
+    WHERE question_id IS NOT NULL
+    GROUP BY question_id
 ) newest ON newest.newest_cache_id = qec.id
 JOIN question_explanation_artifacts qea ON qea.legacy_cache_id = qec.id;
 

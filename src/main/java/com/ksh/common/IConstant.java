@@ -4,12 +4,12 @@ package com.ksh.common;
  * Project-wide constants shared by controllers (and any other layer that
  * benefits from the same key set). Consumers reference these unqualified via
  * a static import — interface fields are implicitly
- * {@code public static final}, so {@code import static com.ksh.common.IConstant.*}
+ * {@code public static final}, so {@code import static com.ulp.common.IConstant.*}
  * lets a class write {@code ATTR_FORM} directly without {@code IConstant.} prefix.
  *
  * <p><b>Why an interface, not a final class with statics?</b>
  * The interface stays as a namespace for the constants. Consumers pull them
- * in with {@code import static com.ksh.common.IConstant.*}, which keeps the
+ * in with {@code import static com.ulp.common.IConstant.*}, which keeps the
  * keys as an <em>implementation detail</em> of the consumer rather than
  * leaking through its public type (the classic "constant interface
  * anti-pattern" — Effective Java Item 22). Sub-interfaces can still extend
@@ -28,7 +28,7 @@ package com.ksh.common;
  * <p><b>What does NOT go here:</b>
  * <ul>
  *   <li>Entity column names — they belong on the entity.</li>
- *   <li>Role / permission strings — see {@code com.ksh.security.Roles}.</li>
+ *   <li>Role / permission strings — see {@code com.ulp.security.Roles}.</li>
  *   <li>One-off literals used by a single method — keep them inline.</li>
  *   <li>Localised UI strings once {@code MessageSource} ships — migrate to
  *       {@code messages.properties}.</li>
@@ -45,8 +45,15 @@ public interface IConstant {
     String BASE_LECTURER     = "/lecturer";
     String PATH_CLASSES      = "/classes";
     String URL_CLASSES_LIST  = BASE_LECTURER + PATH_CLASSES;
+    String PATH_DASHBOARD    = "/dashboard";
+    String URL_LECTURER_DASHBOARD = BASE_LECTURER + PATH_DASHBOARD;
+    String PATH_LIBRARY      = "/library";
+    String URL_LIBRARY       = BASE_LECTURER + PATH_LIBRARY;
+    String URL_LIBRARY_API   = URL_LIBRARY + "/api";
 
     // ───────── View names ────────────────────────────────────────────
+    String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
+    String VIEW_LIBRARY                 = "library/index";
     String VIEW_CLASS_MANAGE            = "classes/manage";
     String VIEW_CLASS_FORM              = "classes/form";
     String VIEW_CLASS_DETAIL_BOARD      = "classes/detail-board";
@@ -85,6 +92,21 @@ public interface IConstant {
     String ATTR_PROGRESS_STATUS  = "progressStatus";
     String ATTR_PROGRESS_QUERY   = "progressQuery";
     String ATTR_PROGRESS_SIZE    = "progressSize";
+
+    // Lecturer teaching dashboard (ULP-9.1).
+    String ATTR_TEACHING_STATS      = "teachingStats";
+    String ATTR_TEACHING_CLASS_ROWS = "teachingClassRows";
+    String ATTR_TEACHING_QUERY      = "teachingQuery";
+    String ATTR_TEACHING_SIZE       = "teachingSize";
+
+    // Personal file library (lecturer-file-library).
+    String ATTR_LIBRARY_PAGE   = "libraryPage";
+    String ATTR_LIBRARY_QUERY  = "libraryQuery";
+    String ATTR_LIBRARY_KIND   = "libraryKind";
+    String ATTR_LIBRARY_SIZE   = "librarySize";
+    String ATTR_LIBRARY_TOTAL_COUNT    = "libraryTotalCount";
+    String ATTR_LIBRARY_DOCUMENT_COUNT = "libraryDocumentCount";
+    String ATTR_LIBRARY_VIDEO_COUNT    = "libraryVideoCount";
 
     // Additional cross-cutting model attribute keys (used by ≥2 controllers).
     String ATTR_USER          = "user";
@@ -232,22 +254,22 @@ public interface IConstant {
     String MSG_STUDENT_LESSONS_EMPTY_SECTION = "Chương này chưa có bài giảng";
     String MSG_STUDENT_LESSONS_EMPTY_CLASS   = "Lớp này chưa có chương";
 
-    // ───────── Learning-progress flash messages (ksh-4.5) ────────────
+    // ───────── Learning-progress flash messages (ULP-4.5) ────────────
     String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
     String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
 
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (ksh-4.6, Vietnamese UI text) ──
+    // ───────── Lesson-comment messages (ULP-4.6, Vietnamese UI text) ──
     String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
     String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
     String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
-    // Moderator hide/unhide (ksh-11.7).
+    // Moderator hide/unhide (ULP-11.7).
     String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
 
-    // ───────── Flashcards (ksh-5.x) ──────────────────────────────────
+    // ───────── Flashcards (ULP-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
     String API_FLASHCARDS       = "/api/flashcards";
@@ -392,6 +414,16 @@ public interface IConstant {
     String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
     String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";
     String MSG_NOT_ENROLLED          = "Bạn không thuộc lớp này";
+    String MSG_ASSIGNMENT_TITLE_BLANK = "Tiêu đề không được để trống";
+    String MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE = "Điểm tối đa không được âm";
+
+    // Notification titles/bodies for assignment events (lecturer/student services).
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_TITLE = "Bài tập mới được xuất bản";
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_BODY_PREFIX = "Bài tập \"";
+    String MSG_NOTIF_ASSIGNMENT_PUBLISHED_BODY_SUFFIX = "\" vừa được xuất bản.";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_TITLE = "Bài tập đã được chấm điểm";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_PREFIX = "Bài tập \"";
+    String MSG_NOTIF_ASSIGNMENT_GRADED_BODY_MID = "\" của bạn đã được chấm. Điểm: ";
 
     // ───────── Notifications (Sprint 5, #63/#64) ─────────────────────
     // Route prefix / canonical URL.
@@ -407,7 +439,7 @@ public interface IConstant {
     // Flash messages (Vietnamese UI text).
     String MSG_NOTIF_READ = "Đã đánh dấu đã đọc";
 
-    // ───────── Direct messaging (Epic #13, ksh-8.3 + ksh-8.4) ────────
+    // ───────── Direct messaging (Epic #13, ULP-8.3 + ULP-8.4) ────────
     // Route prefix / canonical URL.
     String BASE_MY_MESSAGES = "/my/messages";
 
@@ -434,6 +466,14 @@ public interface IConstant {
     int DEFAULT_PROGRESS_PAGE_SIZE = 10;
     int MAX_PROGRESS_PAGE_SIZE = 100;
 
+    // Lecturer teaching dashboard — class table page size (default + upper bound).
+    int DEFAULT_TEACHING_PAGE_SIZE = 10;
+    int MAX_TEACHING_PAGE_SIZE = 100;
+
+    // Personal file library — SSR / picker page size.
+    int DEFAULT_LIBRARY_PAGE_SIZE = 12;
+    int MAX_LIBRARY_PAGE_SIZE = 50;
+
     // Lesson comments — root comments per "load more" page (default + upper bound).
     // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
     int DEFAULT_COMMENT_PAGE_SIZE = 10;
@@ -444,10 +484,10 @@ public interface IConstant {
 
     // Shared pager fragment — Map of query params to preserve across pages
     // (status/q/size/…). Consumed by templates/fragments/pager.html.
-    // Numbered-button window size lives in com.ksh.common.PageWindow.
+    // Numbered-button window size lives in com.ulp.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
 
-    // ───────── Admin course categories (ksh-11.4) ────────────────────
+    // ───────── Admin course categories (ULP-11.4) ────────────────────
     // View names.
     String VIEW_ADMIN_CATEGORIES      = "admin/categories";
     String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";
@@ -468,4 +508,54 @@ public interface IConstant {
     String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
     String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
     String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
+
+    // ───────── Admin departments + HEAD shell ────────────────────────
+    String URL_ADMIN_DEPARTMENTS = "/admin/departments";
+    String VIEW_ADMIN_DEPARTMENTS      = "admin/departments";
+    String VIEW_ADMIN_DEPARTMENTS_FORM = "admin/departments-form";
+    String TAB_DEPARTMENTS = "departments";
+
+    String ATTR_DEPARTMENTS     = "departments";
+    String ATTR_HEAD_CANDIDATES = "headCandidates";
+    // Shared key "activitiesPage" — same string as users edit history tab.
+    String ATTR_ACTIVITIES_PAGE = "activitiesPage";
+
+    String MSG_DEPARTMENT_CREATED     = "Đã tạo bộ môn ";
+    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật bộ môn";
+    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện bộ môn";
+    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
+    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
+
+    // HEAD product area.
+    String BASE_HEAD              = "/head";
+    String URL_HEAD_DASHBOARD     = BASE_HEAD;
+    String URL_HEAD_ASSIGN        = BASE_HEAD + "/assign";
+    String URL_HEAD_REPORT        = BASE_HEAD + "/report";
+    String VIEW_HEAD_DASHBOARD    = "head/dashboard";
+    String VIEW_HEAD_ASSIGN       = "head/assign";
+    String VIEW_HEAD_REPORT       = "head/report";
+    String ATTR_HEAD_DEPARTMENT   = "headDepartment";
+    String ATTR_HEAD_KPIS         = "kpis";
+    String ATTR_HEAD_RECENT       = "recentClasses";
+    String ATTR_HEAD_CLASS_ROWS   = "classRows";
+    String ATTR_HEAD_LECTURERS    = "lecturers";
+    String ATTR_HEAD_REPORT_ROWS  = "reportRows";
+    String ATTR_HEAD_EMPTY        = "emptyDepartment";
+    String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
+    String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
+
+    // ───────── Personal file library (Vietnamese UI text) ────────────
+    String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";
+    String MSG_LIBRARY_RENAMED         = "Đã đổi tên tệp trong kho";
+    String MSG_LIBRARY_DELETED         = "Đã xoá tệp khỏi kho học liệu";
+    String MSG_LIBRARY_ASSET_NOT_FOUND = "Không tìm thấy học liệu";
+    String MSG_LIBRARY_ASSET_IN_USE    =
+            "Không thể xoá: học liệu đang được dùng trong bài giảng";
+    String MSG_LIBRARY_TITLE_BLANK     = "Tên hiển thị không được để trống";
+    String MSG_LIBRARY_BIND_INVALID_KIND =
+            "Loại học liệu không phù hợp với thao tác này";
+    String MSG_LIBRARY_BIND_NOT_PDF    = "Chỉ có thể chọn tệp PDF làm nội dung chính";
+    String MSG_LIBRARY_BOUND_PDF       = "Đã gắn PDF từ kho học liệu";
+    String MSG_LIBRARY_BOUND_VIDEO     = "Đã gắn video từ kho học liệu";
+    String MSG_LIBRARY_BOUND_ATTACHMENT = "Đã gắn tệp từ kho học liệu";
 }
