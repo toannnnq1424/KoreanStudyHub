@@ -218,7 +218,8 @@ Architecture description required in Jira:
 - Root cause: canonical seed section `2` had no delivery audio; the service
   failed closed and Test Detail hid the flash error. The browser never reached
   the preflight script, so waiting for `ended` was not the original cause.
-- Evidence: `PRE13E-F15`, Flyway V38, focused `101/101` gate and Chrome attempt
+- Evidence: `PRE13E-F15`, Flyway V44 on integrated main (V38 on the feature
+  branch), focused `101/101` gate and Chrome attempt
   `13006`.
 
 Sub-tasks:

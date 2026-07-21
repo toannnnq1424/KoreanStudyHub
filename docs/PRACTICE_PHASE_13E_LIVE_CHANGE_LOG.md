@@ -499,7 +499,8 @@ Acceptance cases:
 
 Resolution and evidence:
 
-- `V38__practice_seed_listening_check_audio.sql` repairs only the canonical
+- `V44__practice_seed_listening_check_audio.sql` (renumbered from the feature
+  branch's V38 during the main merge) repairs only the canonical
   development seed and publishes a new immutable version; the already applied
   V25 history and version 1 snapshot remain unchanged;
 - the deterministic `listening-speaker-check.wav` fixture is 1.8 seconds,
@@ -511,7 +512,8 @@ Resolution and evidence:
   returning to the same screen;
 - JDK 17 compile passed and the focused service/UI/integration gate passed
   `101/101`, with zero failures and zero errors;
-- Flyway applied V38 successfully to the local UI schema. Published Listening
+- Flyway applied the migration successfully to the local UI schema (V38 on the
+  feature branch; V44 after integration into main). Published Listening
   version 2 contains the bundled check-audio reference while historical
   version 1 remains available to its existing attempt;
 - the in-app test browser loaded the asset but its environment blocks audio
@@ -755,7 +757,7 @@ Correction and evidence:
 | 2026-07-17 | Result browser baseline | Review all eight desktop/mobile routes, interaction tabs, immutable explanations and console state | Step 7 complete; Detail findings F10-F14 feed 13E |
 | 2026-07-17 | Result Detail baseline | Confirm R/L answer/explanation rendering; record wrong Listening-as-Reading label and missing semantic landmarks | Finding recorded for 13E |
 | 2026-07-17 | Listening preflight | Add post-Step-7 reproduce/plan/fix task for sound check that does not enter the test | Step 8 complete; F15 resolved |
-| 2026-07-17 | Listening preflight | Add V38 seed-only immutable version repair, exact bundled check-audio allowlist and visible Test Detail feedback | Complete; compile, 101/101 focused gate, Flyway and real Chrome journey green |
+| 2026-07-17 | Listening preflight | Add seed-only immutable version repair (V44 on main), exact bundled check-audio allowlist and visible Test Detail feedback | Complete; compile, 101/101 focused gate, Flyway and real Chrome journey green |
 | 2026-07-17 | Jira synchronization | Create and reconcile independent Practice hierarchy `SCRUM-438..SCRUM-480`; exclude SCRUM-363/SCRUM-321 as other features | Step 9 complete; 43/43, 28 Done, 15 To Do |
 | 2026-07-17 | Jira product hierarchy | Add canonical ten-module Tasks `SCRUM-481..490` and thirty Use Case Subtasks `SCRUM-491..520`; retain phase tickets only as delivery evidence | Complete; 10 Tasks, 30 Subtasks, 25 current Use Cases Done, 5 planned Use Cases To Do |
 | 2026-07-17 | Use Case document | Rewrite all reader-facing content in English and replace local technical rules with plain-language `BR-01..BR-60` | Complete; structural checks and 33-page visual render QA passed |

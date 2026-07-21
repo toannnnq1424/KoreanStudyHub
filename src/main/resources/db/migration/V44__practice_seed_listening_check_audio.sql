@@ -1,3 +1,4 @@
+-- Integrated as V44 because main already uses V38 for test media.
 -- Repair only the canonical V25 Listening sample. Lecturer-authored Listening
 -- sections remain restricted to material-library references by validation.
 UPDATE practice_sections section_row

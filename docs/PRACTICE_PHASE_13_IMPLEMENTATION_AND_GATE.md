@@ -82,7 +82,7 @@ not absorb unrelated Flashcard, lesson, iConstant or other product modules.
 
 Step 8 completed on 2026-07-17. The canonical seed now has a deterministic
 1.8-second check-audio reference in a new immutable published version through
-Flyway V38; arbitrary static media remains rejected and Test Detail renders the
+Flyway V44 on integrated main (V38 on the feature branch); arbitrary static media remains rejected and Test Detail renders the
 failure feedback. JDK 17 compile and the focused `101/101` gate passed. A real
 Chrome journey proved that the confirmation unlocked while audio was still
 playing, then opened attempt `13006` with a `30:00` Listening timer. Step 9 Jira
