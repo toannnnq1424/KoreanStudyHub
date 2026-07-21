@@ -7,7 +7,7 @@
 --
 -- See openspec/changes/lecturer-file-library/design.md (D1–D5).
 
-CREATE TABLE library_assets (
+CREATE TABLE IF NOT EXISTS library_assets (
                                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                 owner_id BIGINT NOT NULL,
                                 title VARCHAR(255) NOT NULL,
