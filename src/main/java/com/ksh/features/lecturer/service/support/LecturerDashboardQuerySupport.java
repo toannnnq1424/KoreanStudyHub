@@ -1,17 +1,17 @@
 package com.ksh.features.lecturer.service.support;
 
-import com.ulp.entities.ClassEntity;
-import com.ulp.features.classes.repository.ClassRepository;
-import com.ulp.features.classes.repository.EnrollmentRepository;
-import com.ulp.features.classes.repository.EnrollmentRepository.ClassCount;
-import com.ulp.features.classes.repository.EnrollmentRepository.ClassUserId;
-import com.ulp.features.classes.service.support.ProgressMath;
-import com.ulp.features.lecturer.dto.LecturerDashboardDtos.ClassDashboardRow;
-import com.ulp.features.lessons.repository.LessonRepository;
-import com.ulp.features.lessons.repository.LessonRepository.ClassLessonId;
-import com.ulp.features.progress.repository.LearningProgressRepository;
-import com.ulp.features.progress.repository.LearningProgressRepository.UserLessonId;
-import com.ulp.security.Role;
+import com.ksh.entities.ClassEntity;
+import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.repository.EnrollmentRepository.ClassCount;
+import com.ksh.features.classes.repository.EnrollmentRepository.ClassUserId;
+import com.ksh.features.classes.service.support.ProgressMath;
+import com.ksh.features.lecturer.dto.LecturerDashboardDtos.ClassDashboardRow;
+import com.ksh.features.lessons.repository.LessonRepository;
+import com.ksh.features.lessons.repository.LessonRepository.ClassLessonId;
+import com.ksh.features.progress.repository.LearningProgressRepository;
+import com.ksh.features.progress.repository.LearningProgressRepository.UserLessonId;
+import com.ksh.security.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
-import static com.ulp.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
-import static com.ulp.common.IConstant.MAX_TEACHING_PAGE_SIZE;
+import static com.ksh.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
+import static com.ksh.common.IConstant.MAX_TEACHING_PAGE_SIZE;
 
 /**
  * Batch loaders + table window helpers for {@code LecturerDashboardService}.
