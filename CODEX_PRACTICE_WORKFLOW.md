@@ -64,6 +64,35 @@ Do not mark a top-level phase closed merely because the ledger was updated.
 Closure still requires the relevant review/gate outcome or an explicit user
 override.
 
+### Mandatory live phase log from Phase 13E
+
+Starting with Phase 13E, the summary ledger in this file is necessary but no
+longer sufficient. Every phase and every approved implementation slice must
+also have one dedicated Markdown live log under `docs/`.
+
+The dedicated log must be created and read before implementation begins, then
+updated immediately whenever any of the following occurs:
+
+- the user adds, removes or changes a requirement while the phase is active;
+- the implementation direction or a technical decision changes;
+- a file, route, class, function, database contract or UI state is added,
+  changed, replaced or deleted;
+- static review finds a defect, stale path, dead-code risk, compatibility
+  concern or missing acceptance case;
+- a finding is fixed, deferred, rejected or routed to another phase;
+- environment, migration or fixture work changes how the phase can be reviewed.
+
+Each entry must state the request or finding, the reasoning/decision, the exact
+change or deferral, and the affected files or component boundary. Do not rely
+on chat history as the only record and do not postpone notes until the end of a
+large patch.
+
+Before the validation/test step of a phase, Codex must reread the entire live
+log once, reconcile every open item against the current diff, record the
+result, and only then issue the `READY_FOR_PHASE_VALIDATION` report. This live
+log rule does not authorize intermediate tests and does not replace the
+single-validation-unit policy.
+
 ## Product Language Policy
 
 KSH is a Vietnamese/Korean learning website. Learner-facing website copy,
@@ -2679,37 +2708,39 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-15 | Phase 13D Skill-native Result UX Amendment | SCOPE_DRAFTED_WAITING_USER_GO | SCOPE_DRAFTED_WAITING_USER_GO | N/A | c3ba3a9 | Documentation-only amendment based on supplied KSH/PREP screenshots plus static rubric/template review. No Java, SQL, template or CSS implementation; no test, compile, build, lint, startup, migration run, provider call or browser QA. | Replaces the proposed one-size-fits-all overview UI with one canonical envelope/top-level assembler/shared frame and exactly three wired presenters: objective Reading/Listening, Korean-native Writing and holistic Speaking. Speaking aggregates the attempt across the six existing Korean rubric criteria and does not show per-question analysis in overview. Long-form Writing uses four analysis lenses without changing or double-counting its three official TOPIK score criteria; Q51/Q52 retain the native per-blank rubric. Semantic multi-color segmented scales must be evidence-backed, labeled and responsive; transcript-only Speaking delivery evidence remains limited and live Speaking AI remains `NO-GO`. | User must review the amended `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md` Section 6.9.2 plus acceptance scenarios and give an explicit GO. After GO, implement the complete approved 13D as one validation unit with no intermediate test/compile/build/lint/startup. |
 | 2026-07-16 | Phase 13D Result and Immutable Explanation Implementation | SCOPE_DRAFTED_WAITING_USER_GO | IMPLEMENTED_PENDING_PHASE_VALIDATION | working tree | c3ba3a9 | User approved the complete 13D scope. Implementation and static review only; no test, compile, build, lint, application startup, migration test, provider call or browser QA has run. One accidental mid-phase `git diff --check` completed cleanly and is recorded transparently; it is not phase validation. | Implements one canonical result assembler/shared shell with objective, Korean-native Writing and holistic Speaking presenters; immutable content-fingerprinted Reading/Listening artifacts, version bindings, durable preparation/task/worker/retry/reconciliation and read-only result GET; removes the superseded cache/generator/result paths. The same validation unit includes timer restore, Listening preflight, `/practice/progress`, visible PDF crop with stale-crop invalidation and canonical ESSAY Q51-Q54 points 10/10/30/50. Step 5 static review and Step 6 inventory are complete. | Review the full diff, report `READY_FOR_PHASE_VALIDATION` with exact files/commands, then run one consolidated JDK 17 validation including the user-requested full suite. Do not stage unrelated deleted/untracked files. |
 | 2026-07-16 | Phase 13D Step 6 Compatibility And Seed Debt Inventory | IMPLEMENTED_PENDING_PHASE_VALIDATION | INVENTORY_COMPLETE_PENDING_FINAL_DIFF_REVIEW | working tree | c3ba3a9 | Static source/test/route/migration documentation audit only. No compatibility code was deleted or disabled, and no test, compile, build, lint, startup, migration test, provider call or browser QA ran. | Added `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`: historical Writing/non-Writing ESSAY, Speaking mixed feedback, no-version/ungrouped fallbacks, aliases/import adapters, old detail paths, dead assets, migration/dev seed and ad-hoc fixture debt are classified separately from architecture that must remain. | Review the complete 13D diff. Phase 15, not 13D, will resolve and clean the inventory in one controlled batch, prove the database, then load the premium seed and run Manual UAT. |
+| 2026-07-17 | Phase 13D Consolidated Validation And Main Integration | INVENTORY_COMPLETE_PENDING_FINAL_DIFF_REVIEW | FULL_SUITE_GREEN_COMMITTED_PUSHED | bcc1467 | da350b5 | JDK 17 compile passed; the consolidated targeted gate passed 311/311; the user-requested full suite passed 1642/1642 with zero failures/errors/skips. Phase 13D was committed as `bcc1467`, Practice migrations were moved behind main V24 in `a089fd1`, and main was integrated into the feature branch in `da350b5`. Browser/device QA was not claimed and remains in 13H. | Canonical result overview, immutable R/L explanation lifecycle and supplemental corrections are validated. The branch remains `feature/practice-reduce-scope`; future commit/push stays on this branch and no main merge is allowed without a new explicit user instruction. | Complete the architecture/use-case artifact pack and four-skill result fixtures before starting 13E implementation. |
+| 2026-07-17 | Pre-13E Architecture And Result Fixture Gate | FULL_SUITE_GREEN_COMMITTED_PUSHED | PREPARATION_IN_PROGRESS | N/A | da350b5 | Static code/roadmap/diagram-source review and local fixture environment only. No Phase 13E implementation validation has run. The local UI database was moved to a fresh V1-V37 schema after the legacy `ksh_db` history collided with renumbered `V29`; the old test database was preserved. | User added a mandatory pre-13E deliverable: capability-based Use Case specifications, one class diagram per Practice capability and multiple sequence diagrams per capability, based on current code plus approved roadmap. A dedicated Phase 13E live log is now mandatory. | Finish and review the DOCX/Draw.io artifact pack; create stable overview/detail attempts for all four skills; provide authenticated URLs for PREP comparison; then request approval to begin 13E. |
+| 2026-07-17 | Pre-13E Architecture, Fixture And Listening Gate | PREPARATION_IN_PROGRESS | PREPARATION_STEP_8_GREEN_STEP_9_PENDING | working tree | da350b5 | Generated and visually reviewed the Practice-only Use Case/Class/Sequence pack; loaded deterministic Result/Detail attempts `13001..13004`; authenticated all eight URLs; JDK 17 compile passed; the Listening correction gate passed 101/101; Flyway V38 applied; a real Chrome journey unlocked confirmation during playback and opened attempt `13006` with a 30:00 timer. No Phase 13E production implementation or AI-provider call ran. | V38 adds an immutable seed-only Listening version with deterministic check audio, exact allowlisting and visible failure feedback. The legacy Detail findings F10-F14 remain explicit 13E inputs; the in-app browser audio-output block was isolated from the application and Chrome supplied the audible proof. | Run only the duplicate-safe `/practice` Jira synchronization in Step 9. Keep historical records transparently labelled `retrospective/backfilled`; do not absorb Flashcard, lesson, iConstant or another feature. |
+| 2026-07-17 | Pre-13E Jira Reconciliation | PREPARATION_STEP_8_GREEN_STEP_9_PENDING | PREPARATION_COMPLETE_WAITING_EXPLICIT_GO | working tree | da350b5 | Atlassian Rovo read project `SCRUM`, confirmed Task/Bug/Subtask and Sprint ids, found zero exact Practice-owned issues, then created and re-queried `SCRUM-438..SCRUM-480`: 6 Tasks, 4 Bugs and 33 Subtasks; 17 items in Scrum 3, 26 in Scrum 4; 28 completed items Done and 15 future 13E-13H items To Do. | `SCRUM-363 Tests & Assignments` and `SCRUM-321 Optional AI Prototype` are explicitly different features and were not modified. Practice architecture tickets name the DOCX Use Cases, one class diagram per capability and sequence diagrams per Use Case. Historical Jira creation dates were not falsified; descriptions carry actual dates/commits and `retrospective/backfilled`. | All pre-13E prerequisites are complete. Reread the Phase 13E live log and wait for the user's explicit GO before changing Phase 13E production code. |
 
 ## Current Required Next Action
 
-Current next action:
+Phase 13D passed its consolidated JDK 17 validation, was committed as `bcc1467`
+and pushed. Practice Flyway versions were moved after main V24 in `a089fd1`, and
+main was integrated into `feature/practice-reduce-scope` in `da350b5`. Do not
+merge this branch into main again unless the user gives a new explicit command.
 
-Current required next action: the post-commit 13C2 correction completed Step
-8/8, passed the focused 247/247 and later full 1321/1321 validation, and is
-committed/pushed as `c3ba3a9`. The user approved the exact Section 6.9 Phase 13D
-scope and its skill-native result amendment. Implementation and Step 5 static
-review are complete. Step 6 is an inventory-only documentation pass and is now
-complete: it records
-compatibility/test-data debt for one Phase 15 cleanup batch and does not delete
-or guard those paths during Phase 13D.
-Local MOCK Speaking result attempt `687` remains available for learner `4` with
-DEV seed login `student@ksh.edu.vn` / `password`; it is fixture data, not
-provider/audio evidence. Do not stage `.tmp-ksh-audio-generator.html`,
-`openspec-temp/` or unrelated user changes. The working tree now contains one
-canonical result envelope/top-level assembler/shared frame with exactly three
-wired presenters, holistic Speaking, Korean-native Writing, refined objective
-R/L, immutable content-fingerprinted explanation artifacts/version bindings,
-durable preparation/task/retry/reconciliation, read-only result GETs and removal
-of superseded parallel paths. Supplemental timer, Listening preflight, progress,
-PDF crop and canonical ESSAY Q51-Q54 point corrections are part of the same
-validation unit. The Step 6 inventory is at
-`docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`.
-The next action is complete-diff review, followed by the
-`READY_FOR_PHASE_VALIDATION` report with the exact one-pass plan. No additional
-test/compile/build/lint/startup may run before that report. The user requested a
-full suite in the final validation. Detailed evidence
-presentation remains 13E, richer progress/recovery UX remains 13F, and final
-browser/device release closure remains 13H.
+The capability-based Practice Use Case/Class/Sequence pack, stable four-skill
+Result/Detail fixtures, eight authenticated comparison URLs, Listening
+preflight correction and Jira Step 9 synchronization are complete. Jira records
+`SCRUM-438..SCRUM-480` contain only `/practice`: 43/43 work items, 17 in Scrum
+3, 26 in Scrum 4, 28 Done and 15 future Phase 13E-13H items To Do. Existing
+`SCRUM-363`, `SCRUM-321`, Flashcard, lesson, iConstant and other features were
+not modified.
+
+The current required next action is to wait for an explicit Phase 13E GO. After
+GO, reread `docs/PRACTICE_PHASE_13E_LIVE_CHANGE_LOG.md` before the first code
+edit and implement the mandatory F10-F14 Result Detail acceptance inputs as one
+documented Phase 13E slice. Do not start 13F-13H early.
+
+The local UI runtime uses fresh schema `ksh_phase13e_result_ui` at Flyway V38.
+The legacy `ksh_db` was preserved because its old Practice V16-V28 history
+collides with the renumbered current migrations. Do not repair or mutate that
+legacy history as a shortcut. The supplied `SEP490_G103_KoreanHub.drawio.xml`
+currently exists as a truncated 1,025-byte file and must not be represented as
+a successfully parsed 84-page source. Keep `.tmp-ksh-audio-generator.html`,
+`SEP490_G103_KoreanHub.drawio.xml`, `openspec-temp/` and unrelated user changes
+unstaged.
 
 Phase 8 overall is CLOSED_WITH_ACCEPTED_DEBT. Phase 9 is
 CLOSED_WITH_ACCEPTED_DEBT, with Phase 9G stabilization committed. Phase 10 is
@@ -2718,7 +2749,8 @@ Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
 `PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13A is
 `COMPLETE_FOCUSED_GATE_GREEN`; 13B is `COMPLETE_FOCUSED_GATE_GREEN`; 13C2 is
 `FULL_SUITE_GREEN_COMMITTED_PUSHED`; and Phase 13D is
-`IMPLEMENTED_PENDING_PHASE_VALIDATION`. Overall Phase 13 remains open. Live
+`FULL_SUITE_GREEN_COMMITTED_PUSHED`. Phase 13E is in preparation only and
+overall Phase 13 remains open. Live
 Speaking AI rollout remains NO-GO because the evaluator does not yet receive
 learner audio.
 React modernization remains

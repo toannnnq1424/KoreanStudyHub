@@ -1,6 +1,6 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 ## 1. Authority and scope lock
 
@@ -38,14 +38,70 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13A library/state foundation | `COMPLETE_FOCUSED_GATE_GREEN` | Bounded catalog, learner access, navigation/performance correction, focused tests and route/dead-code audit are complete; no browser QA is claimed |
 | 13B detail/preflight/version lock | `COMPLETE_FOCUSED_GATE_GREEN` | Set/test detail, immutable attempt routing, canonical Speaking delivery, full-screen microphone preflight and immutable Listening speaker preflight passed the consolidated 13C2 focused validation. Browser/device QA remains in 13H |
 | 13C skill-native players | `13C2_FULL_SUITE_GREEN_COMMITTED_PUSHED_PHASE_13_OPEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and visual fill-blank authoring are implemented. The correction passed the complete 1321-test suite and was committed/pushed as `c3ba3a9`; Phase 13 is not closed and final browser/device plus post-13D-13G closure validation remains in 13H |
-| 13D result overview and immutable explanation lifecycle | `IMPLEMENTED_PENDING_PHASE_VALIDATION` | The approved canonical result envelope, three wired skill-native presenters, immutable Reading/Listening artifacts/bindings/tasks, after-commit preparation, crash-gap reconciliation, retry and read-only result GET are implemented. Supplemental timer, Listening preflight, progress, PDF crop and fixed Writing-task corrections are included. Step 5 static review and Step 6 inventory are complete; compatibility/test-data debt is retained for Phase 15. Final complete-diff review remains before validation, and no phase validation has run |
-| 13E result evidence | `NOT_STARTED` | Render learner answer, official key, teacher explanation and the immutable AI artifact separately; do not create a second explanation pipeline |
+| 13D result overview and immutable explanation lifecycle | `FULL_SUITE_GREEN_COMMITTED_PUSHED` | JDK 17 compile passed, the consolidated targeted gate passed 311/311 and the requested full suite passed 1642/1642. Implementation is committed as `bcc1467`; migration renumbering is `a089fd1`; main integration on the feature branch is `da350b5`. Browser/device QA remains in 13H |
+| 13E result evidence | `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO` | The capability Use Case/class/sequence diagram pack, stable four-skill Result/Detail fixtures, eight authenticated review URLs, Listening preflight correction and Jira hierarchy `SCRUM-438..SCRUM-480` are complete. 13E must render learner answer, official key, teacher explanation and the immutable AI artifact separately without creating a second explanation pipeline |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates and operational UX only; no decorative percentages and no replacement explanation pipeline |
 | 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
 | 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, focused/full tests and browser journeys before closure |
 
 After each completed slice, this ledger and the detailed evidence section must
 be updated before starting the next slice.
+
+### 2.1 Mandatory prerequisites before 13E implementation
+
+The user added the following precondition on 2026-07-17:
+
+- read the supplied Draw.io XML and available visual Use Case examples;
+- audit current `/practice` code together with approved roadmap documents;
+- split Practice into bounded capabilities instead of one oversized feature;
+- create formal Use Case specifications for those capabilities;
+- create one class diagram per capability and multiple sequence diagrams per
+  capability;
+- create stable Result and Result Detail fixtures for all four skills and give
+  the learner URLs for PREP comparison;
+- record every request, design decision, static finding, edit and deferral in
+  the dedicated Phase 13E live log as work happens.
+
+After those seven preparation steps, a separate correction step must reproduce
+and plan the reported Listening preflight defect before implementation: when
+the learner can start audible playback, the sound-check action must allow entry
+to the test and must not require the sample audio to finish. The investigation
+must distinguish missing fixture media from browser playback/state/navigation
+defects rather than bypassing the preflight.
+
+After that correction is implemented and evidenced, Step 9 must synchronize the
+work with Jira project `SCRUM`. It must inspect existing issues before creating
+new records, use the correct Task, Bug and Sub-task hierarchy, and assign work to
+Scrum 3 or Scrum 4 according to the actual phase boundary. Work completed before
+the synchronization may be added only as transparently labelled
+`retrospective/backfilled` issues with real dates and links to the relevant
+Markdown ledger and commits; Jira history must not be fabricated.
+The Jira batch is limited to module `/practice`. Architecture issues must name
+the capability-based Use Case, class-diagram and sequence-diagram work, and must
+not absorb unrelated Flashcard, lesson, iConstant or other product modules.
+
+Step 8 completed on 2026-07-17. The canonical seed now has a deterministic
+1.8-second check-audio reference in a new immutable published version through
+Flyway V38; arbitrary static media remains rejected and Test Detail renders the
+failure feedback. JDK 17 compile and the focused `101/101` gate passed. A real
+Chrome journey proved that the confirmation unlocked while audio was still
+playing, then opened attempt `13006` with a `30:00` Listening timer. Step 9 Jira
+reconciliation created the independent Practice hierarchy `SCRUM-438..SCRUM-480`:
+43/43 items, 17 in Scrum 3, 26 in Scrum 4, 28 Done and 15 future items To Do.
+The prerequisite gate is complete and Phase 13E waits for an explicit GO.
+
+The source XML currently available at
+`SEP490_G103_KoreanHub.drawio.xml` is truncated after 1,025 bytes even though it
+declares 84 pages. It is useful only for the initial page metadata/style hint;
+it is not valid XML and cannot be treated as a complete design source. The new
+artifact pack must therefore be generated from audited code and roadmap facts,
+and this limitation must remain documented until a complete source is supplied.
+
+Local UI review uses the isolated schema `ksh_phase13e_result_ui`, migrated from
+V1 through V37. The old `ksh_db` is preserved because it contains the previous
+Practice V16-V28 history and reports a false/current V29 collision after the
+main-branch migration integration. Do not use Flyway repair to conceal that
+incompatible test history.
 
 For 13C2, implementation units were individual issues/patches while the
 validation unit was the whole phase. All approved issues were implemented and
@@ -482,7 +538,8 @@ contains these implementation units:
 - Listening has a separate speaker preflight backed by canonical section-level
   delivery JSON copied into immutable section versions. Lecturer authoring and
   validation require an internal check-audio asset before new Listening content
-  can be published; the learner must finish playback and confirm audibility.
+  can be published; the learner may confirm audibility as soon as playback
+  starts and does not have to wait for the sample to finish.
 - Fill-blank authoring keeps stable `{{blank:id}}` values only as an internal
   serialization contract. The lecturer sees a visual content composer with
   numbered inline answer slots and never has to read or paste canonical token

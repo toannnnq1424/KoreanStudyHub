@@ -130,6 +130,10 @@ class PracticeFunctionalUiContractTest {
                 "submit.disabled = !(playbackVerified && confirm.checked)",
                 "['ArrowLeft', 'ArrowRight', 'Home', 'End']");
         assertThat(preflightJs).doesNotContain("completed = true", "nghe hết audio mẫu");
+        assertThat(testDetail).contains(
+                "th:if=\"${error}\"",
+                "pd-feedback-error",
+                "role=\"alert\"");
         assertThat(editor).contains(
                 "listening-check-audio-area",
                 "handleListeningCheckAudioSelect",

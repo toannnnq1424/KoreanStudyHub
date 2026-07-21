@@ -30,6 +30,36 @@
   stroke-width: 1.9;
 }
 
+.pd-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.pd-feedback svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.pd-feedback-error {
+  border-color: #f0b8bd;
+  background: #fff1f2;
+  color: #9f2733;
+}
+
+.pd-feedback-success {
+  border-color: #addbc7;
+  background: #effaf5;
+  color: #176b47;
+}
+
 .pd-breadcrumb,
 .pd-breadcrumb a,
 .pd-test-switcher,

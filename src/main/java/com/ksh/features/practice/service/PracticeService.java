@@ -106,6 +106,8 @@ public class PracticeService {
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
             Pattern.compile("^/practice/materials/[1-9][0-9]*/content$");
+    private static final String BUILT_IN_LISTENING_CHECK_AUDIO_REFERENCE =
+            "/audio/practice/listening-speaker-check.wav";
 
     private final PracticeSetRepository setRepository;
     private final PracticeQuestionRepository questionRepository;
@@ -1747,8 +1749,8 @@ public class PracticeService {
                         exception.getMessage());
             }
         }
-        String canonicalSafeReference = safeInternalMaterialReference(canonicalReference);
-        String legacySafeReference = safeInternalMaterialReference(legacyFallback);
+        String canonicalSafeReference = safeListeningCheckAudioReference(canonicalReference);
+        String legacySafeReference = safeListeningCheckAudioReference(legacyFallback);
         String reference = firstNonBlank(canonicalSafeReference, legacySafeReference);
         if (isBlank(reference)) {
             throw new IllegalStateException(
@@ -1895,6 +1897,17 @@ public class PracticeService {
         }
         String normalized = reference.trim();
         return MATERIAL_CONTENT_REFERENCE_PATTERN.matcher(normalized).matches() ? normalized : "";
+    }
+
+    private static String safeListeningCheckAudioReference(String reference) {
+        if (reference == null || reference.isBlank()) {
+            return "";
+        }
+        String normalized = reference.trim();
+        if (BUILT_IN_LISTENING_CHECK_AUDIO_REFERENCE.equals(normalized)) {
+            return normalized;
+        }
+        return safeInternalMaterialReference(normalized);
     }
 
     private static String stripMarkdownImages(String value) {
