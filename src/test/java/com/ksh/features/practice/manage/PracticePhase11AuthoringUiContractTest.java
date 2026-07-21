@@ -308,6 +308,7 @@ class PracticePhase11AuthoringUiContractTest {
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
         String manageController = read("src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
         String practiceCss = read("src/main/resources/static/css/practice-index.css");
+        String manageDashboardCss = read("src/main/resources/static/css/practice/manage-dashboard.css");
 
         assertTrue(index.contains("Kho luyện tập | KSH"));
         assertTrue(index.contains("Bạch Hổ KSH"));
@@ -338,6 +339,14 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(dashboard.contains("Học liệu của tôi"));
         assertTrue(dashboard.contains("preview=true"));
         assertTrue(dashboard.contains("preview=1"));
+        assertTrue(dashboard.contains("/css/practice/manage-dashboard.css"));
+        assertTrue(dashboard.contains("class=\"pm-action-list\""));
+        assertTrue(dashboard.contains("pm-action-btn--primary"));
+        assertTrue(dashboard.contains("pm-action-btn--preview"));
+        assertTrue(dashboard.contains("pm-action-btn--warning"));
+        assertTrue(dashboard.contains("pm-action-btn--danger"));
+        assertTrue(manageDashboardCss.contains(".pm-action-btn:focus-visible"));
+        assertTrue(manageDashboardCss.contains(".pm-action-collaboration[open]"));
         assertTrue(manageController.contains("@RequestParam(value = \"preview\", defaultValue = \"false\") boolean preview"));
         assertTrue(manageController.contains("return preview ? editorUrl + \"?preview=1\" : editorUrl;"));
 

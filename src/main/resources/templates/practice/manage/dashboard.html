@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice/manage-dashboard.css}">
 </head>
 <body class="pi-body">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
@@ -103,12 +104,14 @@
                 <td>
                   <span style="font-size:0.85rem; color:var(--pp-text);" th:text="${#temporals.format(d.updatedAt, 'HH:mm dd/MM/yyyy')}">12:00 01/01/2026</span>
                 </td>
-                <td>
-                  <a th:href="@{/practice/manage/drafts/{id}(id=${d.id})}" class="pp-table-link" style="margin-right:16px; font-weight:700;">Tiếp tục sửa</a>
-                  <a th:href="@{/practice/manage/drafts/{id}(id=${d.id},preview=1)}" class="pp-table-link" style="margin-right:16px; font-weight:700;">Preview</a>
-                  <form th:action="@{/practice/manage/drafts/{id}/delete(id=${d.id})}" method="post" style="display:inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn bản nháp này?');">
-                    <button type="submit" class="pp-table-link" style="background:none; border:none; color:var(--pp-error); font-weight:600; cursor:pointer; padding:0; font-family:inherit; font-size:inherit;">Xóa nháp</button>
-                  </form>
+                <td class="pm-action-cell pm-action-cell--draft">
+                  <div class="pm-action-list">
+                    <a th:href="@{/practice/manage/drafts/{id}(id=${d.id})}" class="pm-action-btn pm-action-btn--primary">Tiếp tục sửa</a>
+                    <a th:href="@{/practice/manage/drafts/{id}(id=${d.id},preview=1)}" class="pm-action-btn pm-action-btn--preview">Preview</a>
+                    <form th:action="@{/practice/manage/drafts/{id}/delete(id=${d.id})}" method="post" class="pm-action-form" onsubmit="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn bản nháp này?');">
+                      <button type="submit" class="pm-action-btn pm-action-btn--danger">Xóa nháp</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -160,17 +163,18 @@
                   <span style="padding:4px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); color:#10b981; font-size:0.78rem; font-weight:600;" th:text="${item.status}">PUBLISHED</span>
                   <span th:if="${item.ownerLocked}" style="margin-left:6px; padding:4px 8px; border-radius:6px; background:#fff7ed; color:#c2410c; font-size:0.75rem; font-weight:600;">Đã khóa</span>
                 </td>
-                <td>
-                  <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem chi tiết</a>
-                  <a th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pp-table-link" style="margin-right:12px;">Preview</a>
-                  <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pp-table-link" style="margin-right:12px;">Lịch sử</a>
-                  <a th:if="${item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Sửa đề</a>
-                  <form th:if="${!item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/lock(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Khóa</button></form>
-                  <form th:if="${item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/unlock(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Mở khóa</button></form>
-                  <form th:if="${item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/archive(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Lưu trữ</button></form>
-                  <form th:if="${item.status == 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/unarchive(id=${item.id})}" method="post" style="display:inline; margin-right:8px;"><button class="pp-table-link" type="submit" style="background:none;border:0;padding:0;cursor:pointer;">Khôi phục</button></form>
-                  <details class="pp-collaboration-details">
-                    <summary class="pp-table-link">Cộng tác viên</summary>
+                <td class="pm-action-cell">
+                  <div class="pm-action-list">
+                    <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Xem chi tiết</a>
+                    <a th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pm-action-btn pm-action-btn--preview">Preview</a>
+                    <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Lịch sử</a>
+                    <a th:if="${item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pm-action-btn pm-action-btn--primary">Sửa đề</a>
+                    <form th:if="${!item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/lock(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Khóa</button></form>
+                    <form th:if="${item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/unlock(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Mở khóa</button></form>
+                    <form th:if="${item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/archive(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Lưu trữ</button></form>
+                    <form th:if="${item.status == 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/unarchive(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--success" type="submit">Khôi phục</button></form>
+                    <details class="pp-collaboration-details pm-action-collaboration">
+                      <summary class="pm-action-btn pm-action-btn--collaboration">Cộng tác viên</summary>
                     <form th:action="@{/practice/manage/sets/{id}/share(id=${item.id})}" method="post" class="pp-collaboration-form">
                       <label>
                         Email giảng viên
@@ -191,7 +195,8 @@
                         </form>
                       </div>
                     </div>
-                  </details>
+                    </details>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -214,11 +219,13 @@
                 <td th:text="${authorsMap.get(item.createdBy) != null ? authorsMap.get(item.createdBy) : 'Giảng viên'}">Giảng viên</td>
                 <td>Shared with me</td>
                 <td><span th:text="${item.ownerLocked ? 'Đã khóa' : item.status}">PUBLISHED</span></td>
-                <td>
-                  <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pp-table-link" style="margin-right:12px;">Xem</a>
-                  <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pp-table-link" style="margin-right:12px;">Preview</a>
-                  <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pp-table-link" style="margin-right:12px;">Lịch sử</a>
-                  <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pp-table-link">Tạo bản sửa</a>
+                <td class="pm-action-cell pm-action-cell--shared">
+                  <div class="pm-action-list">
+                    <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Xem</a>
+                    <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" class="pm-action-btn pm-action-btn--preview">Preview</a>
+                    <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Lịch sử</a>
+                    <a th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:href="@{/practice/manage/sets/{id}/edit(id=${item.id})}" class="pm-action-btn pm-action-btn--primary">Tạo bản sửa</a>
+                  </div>
                 </td>
               </tr>
             </tbody>
