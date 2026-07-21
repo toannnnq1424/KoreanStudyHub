@@ -52,10 +52,12 @@ public class PracticeManageController {
  
     @GetMapping("/sets/{setId}/edit")
     public String editSet(@org.springframework.web.bind.annotation.PathVariable("setId") Long setId,
+                          @RequestParam(value = "preview", defaultValue = "false") boolean preview,
                           @AuthenticationPrincipal KshUserDetails user) {
         com.ksh.entities.PracticeDraft draft = draftService.createDraftFromPublishedSet(
                 setId, user.getId());
-        return "redirect:/practice/manage/drafts/" + draft.getId();
+        String editorUrl = "redirect:/practice/manage/drafts/" + draft.getId();
+        return preview ? editorUrl + "?preview=1" : editorUrl;
     }
  
     @GetMapping({"", "/"})

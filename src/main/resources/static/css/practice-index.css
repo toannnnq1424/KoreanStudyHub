@@ -43,7 +43,14 @@ body.pi-body {
   background-color: var(--pi-bg);
   color: var(--pi-ink);
   -webkit-font-smoothing: antialiased;
+  height: auto;
   min-height: 100vh;
+}
+
+/* Keep the sticky app header bounded by the full Practice document rather
+   than the global 100%-height body, and render its menus above the sidebar. */
+.pi-body > .header {
+  z-index: 1100;
 }
 
 /* ─── Container ─── */
@@ -168,6 +175,13 @@ body.pi-body {
 .pi-main-wrapper {
   margin-left: 72px;
   min-height: 100vh;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 641px) {
+  .pi-sidebar:hover ~ .pi-main-wrapper {
+    margin-left: 260px;
+  }
 }
 
 /* 2-Column Grid Layout */

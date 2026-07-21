@@ -306,6 +306,8 @@ class PracticePhase11AuthoringUiContractTest {
         String controller = read("src/main/java/com/ksh/features/practice/controller/PracticeController.java");
         String roles = read("src/main/java/com/ksh/security/Roles.java");
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
+        String manageController = read("src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
+        String practiceCss = read("src/main/resources/static/css/practice-index.css");
 
         assertTrue(index.contains("Kho luyện tập | KSH"));
         assertTrue(index.contains("Bạch Hổ KSH"));
@@ -334,6 +336,15 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(dashboard.contains("My Test Sets"));
         assertTrue(dashboard.contains("Other Lecturers' Test Sets"));
         assertFalse(dashboard.contains("Học liệu của tôi"));
+        assertTrue(dashboard.contains("preview=true"));
+        assertTrue(dashboard.contains("preview=1"));
+        assertTrue(manageController.contains("@RequestParam(value = \"preview\", defaultValue = \"false\") boolean preview"));
+        assertTrue(manageController.contains("return preview ? editorUrl + \"?preview=1\" : editorUrl;"));
+
+        assertTrue(practiceCss.contains("height: auto;"));
+        assertTrue(practiceCss.contains(".pi-body > .header"));
+        assertTrue(practiceCss.contains(".pi-sidebar:hover ~ .pi-main-wrapper"));
+        assertTrue(practiceCss.contains("margin-left: 260px;"));
     }
 
     @Test
