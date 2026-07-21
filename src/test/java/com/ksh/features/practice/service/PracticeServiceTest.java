@@ -120,6 +120,41 @@ class PracticeServiceTest {
     }
 
     @Test
+    void listeningPreflightAcceptsOnlyTheBundledSeedSpeakerCheckOutsideMaterialRoutes() {
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getSetId()).thenReturn(2L);
+        when(section.getTestId()).thenReturn(2L);
+        when(section.getSkill()).thenReturn("LISTENING");
+        when(section.getTitle()).thenReturn("Phần Nghe");
+        when(section.getDeliveryJson()).thenReturn("""
+                {"schemaVersion":"practice-section-delivery-v1","listeningDelivery":{"checkAudioReference":"/audio/practice/listening-speaker-check.wav"}}
+                """);
+        when(sectionRepository.findById(2L)).thenReturn(Optional.of(section));
+        when(groupRepository.findBySectionIdOrderByDisplayOrderAsc(2L)).thenReturn(List.of());
+
+        PracticeService.ListeningPreflightDelivery delivery =
+                practiceService.getListeningPreflightDelivery(2L, 2L, 2L);
+
+        assertEquals("/audio/practice/listening-speaker-check.wav", delivery.checkAudioReference());
+    }
+
+    @Test
+    void listeningPreflightRejectsOtherStaticAudioPaths() {
+        PracticeSection section = mock(PracticeSection.class);
+        when(section.getSetId()).thenReturn(2L);
+        when(section.getTestId()).thenReturn(2L);
+        when(section.getSkill()).thenReturn("LISTENING");
+        when(section.getDeliveryJson()).thenReturn("""
+                {"schemaVersion":"practice-section-delivery-v1","listeningDelivery":{"checkAudioReference":"/audio/untrusted.wav"}}
+                """);
+        when(sectionRepository.findById(2L)).thenReturn(Optional.of(section));
+        when(groupRepository.findBySectionIdOrderByDisplayOrderAsc(2L)).thenReturn(List.of());
+
+        assertThrows(IllegalStateException.class,
+                () -> practiceService.getListeningPreflightDelivery(2L, 2L, 2L));
+    }
+
+    @Test
     void listeningPreflightRejectsUnsafeCanonicalReferenceWithoutMaskingLegacyFallback() {
         PracticeSection section = mock(PracticeSection.class);
         when(section.getSetId()).thenReturn(1L);
