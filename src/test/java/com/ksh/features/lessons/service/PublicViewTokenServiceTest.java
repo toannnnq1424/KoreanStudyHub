@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration tests for {@link PublicViewTokenService}. Boots the full Spring
  * context with MySQL so the FK from {@code public_view_tokens.attachment_id}
  * to {@code lesson_attachments} and the token TTL/cleanup logic are exercised
- * end-to-end. Covers create → resolve → expiry → scheduled cleanup (ksh-4.x).
+ * end-to-end. Covers create → resolve → expiry → scheduled cleanup (KSH-4.x).
  */
 @SpringBootTest
 @Transactional

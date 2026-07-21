@@ -38,7 +38,7 @@ import java.util.Objects;
  * </ul>
  *
  * <p>Caller identity is supplied directly by controllers from
- * {@code @AuthenticationPrincipal kshUserDetails} as {@code (Long userId, Role role)}.
+ * {@code @AuthenticationPrincipal KshUserDetails} as {@code (Long userId, Role role)}.
  * The service does not look up the caller by email — Spring Security has already
  * loaded the user during authentication, so a second SELECT per request would be
  * wasted work.

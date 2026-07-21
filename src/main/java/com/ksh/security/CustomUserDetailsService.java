@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Loads user authentication data from the database for Spring Security.
  *
- * <p>In ksh, users authenticate with their <b>email address</b>, so the
+ * <p>In KSH, users authenticate with their <b>email address</b>, so the
  * {@code username} parameter passed by Spring Security is treated as an email.
  * Returns a {@link KshUserDetails} principal that exposes {@code fullName},
  * enabling Thymeleaf templates to use a shared accessor across both
@@ -36,7 +36,7 @@ public class CustomUserDetailsService implements UserDetailsService {
      *
      * <p>This method is called by Spring Security during form-login authentication.
      * The {@code username} parameter is treated as an email, which is the unique
-     * login identifier in ksh.
+     * login identifier in KSH.
      *
      * @param email the email address submitted on the login form
      * @return a fully-populated {@link KshUserDetails} for the matching account

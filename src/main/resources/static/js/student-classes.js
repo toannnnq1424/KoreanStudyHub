@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Student classes behavior
+   KSH — Student classes behavior
    - Flash → toast on page load (success / error / info)
    - Leave-class menu action gated by confirm modal
    - Auto-uppercase the join-code input as the user types

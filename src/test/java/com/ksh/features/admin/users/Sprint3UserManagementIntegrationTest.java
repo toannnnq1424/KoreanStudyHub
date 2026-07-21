@@ -49,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Seed users from {@code V5__seed_test_users.sql}:
  * {@code admin@ksh.edu.vn}, {@code lecturer@ksh.edu.vn}, {@code head@ksh.edu.vn},
- * {@code student@ksh.edu.vn} — password {@code "password"} for all.
+ * {@code student@ksh.edu.vn} — password {@code "123456"} for all.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -170,7 +170,7 @@ class Sprint3UserManagementIntegrationTest {
         long activityBefore = activityRepository.count();
 
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "Brand.New@ksh.Edu.Vn")
+                        .param("email", "Brand.New@Ksh.Edu.Vn")
                         .param("fullName", "Brand New")
                         .param("role", "LECTURER")
                         .param("phone", "")
@@ -211,7 +211,7 @@ class Sprint3UserManagementIntegrationTest {
     void create_rejects_duplicate_email_case_insensitively() throws Exception {
         // Seed admin email is "admin@ksh.edu.vn"; submit the same with mixed case.
         mockMvc.perform(post("/admin/users").with(csrf())
-                        .param("email", "ADMIN@ksh.EDU.VN")
+                        .param("email", "ADMIN@Ksh.EDU.VN")
                         .param("fullName", "Another Admin")
                         .param("role", "ADMIN")
                         .param("password", "temp1234")
@@ -560,8 +560,8 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     void findByEmailIgnoreCase_resolves_mixed_case_input() {
         var lookup1 = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn");
-        var lookup2 = userRepository.findByEmailIgnoreCase("Admin@ksh.edu.vn");
-        var lookup3 = userRepository.findByEmailIgnoreCase("ADMIN@ksh.EDU.VN");
+        var lookup2 = userRepository.findByEmailIgnoreCase("Admin@KSH.edu.vn");
+        var lookup3 = userRepository.findByEmailIgnoreCase("ADMIN@KSH.EDU.VN");
 
         assertThat(lookup1).isPresent();
         assertThat(lookup2).isPresent();
@@ -619,10 +619,10 @@ class Sprint3UserManagementIntegrationTest {
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void admin_departments_still_renders_placeholder() throws Exception {
+    void admin_departments_renders_management_page() throws Exception {
         mockMvc.perform(get("/admin/departments"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("admin/placeholder"));
+                .andExpect(view().name("admin/departments"));
     }
 
     @Test
@@ -648,7 +648,7 @@ class Sprint3UserManagementIntegrationTest {
     private User createUser(String email, Role role) {
         User u = UserFactory.newAdminCreated(
                 email,
-                passwordEncoder.encode("password"),
+                passwordEncoder.encode("123456"),
                 "Test " + role,
                 role,
                 true,

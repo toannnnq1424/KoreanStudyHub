@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Admin pages behavior (dashboard chart, etc.)
+   KSH — Admin pages behavior (dashboard chart, etc.)
    Loaded by /admin/*. Requires app.js + Chart.js.
    ══════════════════════════════════════════════════════════════════════════ */
 

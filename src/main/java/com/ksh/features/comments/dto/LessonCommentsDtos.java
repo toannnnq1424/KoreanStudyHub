@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Transport DTOs for the lesson-comments API (ksh-4.6).
+ * Transport DTOs for the lesson-comments API (KSH-4.6).
  *
  * <p>All comment content is plain text; the client renders it via
  * {@code textContent} so no server-side HTML escaping is needed here.

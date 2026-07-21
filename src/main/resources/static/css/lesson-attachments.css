@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Ksh — Lesson Attachments (Ksh-4.0c) — Redesigned
+   KSH — Lesson Attachments (KSH-4.0c) — Redesigned
    Inline dropzone + uploaded files list inside the lesson edit page.
    Scoped to #lessonAttachmentsCard so rules cannot bleed elsewhere.
    ══════════════════════════════════════════════════════════════════════════ */
@@ -98,16 +98,16 @@
   padding: 36px 20px;
   text-align: center;
   background:
-          radial-gradient(circle at top, rgba(99, 102, 241, 0.06), transparent 60%),
-          #ffffff;
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.06), transparent 60%),
+    #ffffff;
   cursor: pointer;
   transition: background .15s ease, border-color .15s ease, transform .15s ease;
 }
 #lessonAttachmentsCard .latt-drop:hover {
   border-color: #818cf8;
   background:
-          radial-gradient(circle at top, rgba(99, 102, 241, 0.1), transparent 60%),
-          #fafbff;
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.1), transparent 60%),
+    #fafbff;
 }
 #lessonAttachmentsCard .latt-drop:focus-visible {
   outline: 2px solid #2563eb;

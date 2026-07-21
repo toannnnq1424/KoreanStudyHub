@@ -68,6 +68,7 @@ class JoinClassServiceTest {
         service = new JoinClassService(inviteRepository, enrollmentRepository,
                 classRepository, activityWriter, userRepository, notificationService,
                 classesService);
+        when(classRepository.findByIdForUpdate(CLASS_ID)).thenReturn(Optional.of(buildClass()));
     }
 
     // ───────── invalid token ─────────

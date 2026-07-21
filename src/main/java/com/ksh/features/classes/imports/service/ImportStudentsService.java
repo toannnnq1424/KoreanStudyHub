@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Top-level service for the student-import feature (ksh-3.4).
+ * Top-level service for the student-import feature (KSH-3.4).
  *
  * <p>{@link #previewUpload} validates the file and stages a pending
  * {@link ImportSession}. {@link #confirmImport} replays it, delegating per-row

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Lesson comment thread (ksh-4.6)
+   KSH — Lesson comment thread (KSH-4.6)
    ----------------------------------------------------------------------------
    Facebook-style threaded rows rendered by lesson-comments-render.js: avatar +
    rounded bubble, collapsible replies (up to 3 levels), and the "load more"
@@ -96,7 +96,7 @@
   color: var(--shub-text-muted, #6b7280);
 }
 
-/* ── Moderator-hidden comment (ksh-11.7) ──────────────────────────────── */
+/* ── Moderator-hidden comment (KSH-11.7) ──────────────────────────────── */
 /* Only a moderator ever receives a hidden row; it renders dimmed with a red
    "Đã ẩn" tag — visually distinct from the italic deleted placeholder. */
 .lesson-comment-bubble.is-hidden {

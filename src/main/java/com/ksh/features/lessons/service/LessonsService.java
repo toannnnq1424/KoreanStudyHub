@@ -173,7 +173,7 @@ public class LessonsService {
         // only YouTube/Vimeo URLs flow in from the form.
         if (CONTENT_TYPE_VIDEO.equals(requestedType)
                 && (VIDEO_PROVIDER_YOUTUBE.equals(form.videoProvider())
-                || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider()))) {
+                    || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider()))) {
             lesson.setVideoProvider(form.videoProvider());
             lesson.setVideoUrl(form.videoUrl());
         }

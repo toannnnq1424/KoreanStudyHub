@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 
 /**
  * JPA entity mapping the {@code flashcard_reviews} table (SM-2 spaced
- * repetition, ksh-5.x).
+ * repetition, KSH-5.x).
  *
  * <p>Holds exactly ONE row per (user, card) — enforced by the
  * {@code UNIQUE(user_id, flashcard_id)} constraint added in migration V18.

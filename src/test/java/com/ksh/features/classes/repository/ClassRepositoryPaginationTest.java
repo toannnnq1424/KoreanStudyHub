@@ -55,7 +55,7 @@ class ClassRepositoryPaginationTest {
         Long noiseLecturer = lookupUserId("head@ksh.edu.vn");
         classRepository.saveAndFlush(newClass("PG-Noise", randomCode(), noiseLecturer));
 
-        // Page 0 of size 20 -> 20 rows; page 1 of size 20 -> 5 rows.
+        // Page 0 of size 20 â†’ 20 rows; page 1 of size 20 â†’ 5 rows.
         Page<ClassEntity> page0 = classRepository.findAllByLecturerId(
                 lecturerId, PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
         Page<ClassEntity> page1 = classRepository.findAllByLecturerId(

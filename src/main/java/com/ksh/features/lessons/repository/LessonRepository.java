@@ -33,7 +33,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
      * Returns the ids of every PUBLISHED, non-soft-deleted lesson belonging to
      * a class (via its sections). Used by the lecturer progress dashboard as the
      * denominator + the scoped id-list for the single grouped aggregate query,
-     * avoiding a per-student query (ksh lecturer-student-progress, design D2).
+     * avoiding a per-student query (KSH lecturer-student-progress, design D2).
      *
      * <p>The {@code @SQLRestriction} on both {@link Lesson} and {@code Section}
      * transparently excludes soft-deleted rows; the status filter keeps DRAFT
@@ -73,7 +73,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
      */
     @Query(value = "SELECT COALESCE(MAX(display_order), -1) FROM lessons "
             + "WHERE section_id = :sectionId AND is_deleted = 0",
-            nativeQuery = true)
+           nativeQuery = true)
     short findMaxDisplayOrder(@Param("sectionId") Long sectionId);
 
     /**
@@ -84,7 +84,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     @Modifying
     @Query(value = "UPDATE lessons SET pdf_attachment_id = NULL "
             + "WHERE pdf_attachment_id = :attachmentId",
-            nativeQuery = true)
+           nativeQuery = true)
     void clearPdfAttachmentId(@Param("attachmentId") Long attachmentId);
 }
 

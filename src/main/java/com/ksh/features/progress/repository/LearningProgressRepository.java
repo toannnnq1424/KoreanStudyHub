@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Spring Data JPA repository for {@link LearningProgress} (ksh-4.5).
+ * Spring Data JPA repository for {@link LearningProgress} (KSH-4.5).
  *
  * <p>{@link LearningProgress} has no {@code @SQLRestriction} (the table has
  * no soft-delete column), so every method sees all rows.

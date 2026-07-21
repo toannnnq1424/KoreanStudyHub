@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * REST controller for the student-import feature (ksh-3.4).
+ * REST controller for the student-import feature (KSH-3.4).
  *
  * <p>Three endpoints are exposed under {@code /lecturer/classes/{classId}/import-students}:
  * <ul>

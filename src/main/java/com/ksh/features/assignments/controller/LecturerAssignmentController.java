@@ -28,8 +28,8 @@ import static com.ksh.common.IConstant.*;
  * Lecturer-facing controller for the assignments feature (Sprint 6, #70).
  *
  * <p>All endpoints are scoped to {@code /lecturer/classes/{classId}/assignments}.
- * Ownership is enforced in {@link AssignmentService} — non-owner receives 404
- * (no existence leak). Flash messages drain to kshToast via the page-level JS.
+ * Ownership is enforced in {@link LecturerAssignmentService} — non-owner receives 404
+ * (no existence leak). Flash messages drain to KshToast via the page-level JS.
  *
  * <p>PRG (Post-Redirect-Get) pattern is used for all mutations.
  */

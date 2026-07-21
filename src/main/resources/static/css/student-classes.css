@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Ksh — Student classes UI (My classes list + Join form)
+   KSH — Student classes UI (My classes list + Join form)
    Layout pattern mirrors lecturer's /lecturer/classes (manage.html) — uses
    .class-page / .panel / .class-row from classes.css and overrides only what
    differs for the student-side data model (no numeric stats; text columns).

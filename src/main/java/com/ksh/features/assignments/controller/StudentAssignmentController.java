@@ -27,7 +27,7 @@ import static com.ksh.common.IConstant.*;
  * <p>All endpoints are scoped to {@code /classes/{classId}/assignments} under
  * the student's authenticated context. Enrollment is enforced in
  * {@link StudentAssignmentService} — non-enrolled students receive 404 (no existence
- * leak). Flash messages drain to kshToast via the page-level JS.
+ * leak). Flash messages drain to KshToast via the page-level JS.
  *
  * <p>PRG (Post-Redirect-Get) pattern is used for all mutations.
  */
@@ -39,7 +39,7 @@ public class StudentAssignmentController {
     private final ClassRepository classRepository;
     private final ClassDetailModelSupport modelSupport;
 
-    public StudentAssignmentController(StudentAssignmentService  assignmentService,
+    public StudentAssignmentController(StudentAssignmentService assignmentService,
                                        ClassRepository classRepository,
                                        ClassDetailModelSupport modelSupport) {
         this.assignmentService = assignmentService;

@@ -13,7 +13,10 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-import static com.ksh.common.IConstant.*;
+import static com.ksh.common.IConstant.MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE;
+import static com.ksh.common.IConstant.MSG_ASSIGNMENT_NOT_FOUND;
+import static com.ksh.common.IConstant.MSG_ASSIGNMENT_TITLE_BLANK;
+import static com.ksh.common.IConstant.MSG_NOT_ENROLLED;
 
 /**
  * Shared assignment access, mapping, and form helpers used by lecturer and

@@ -1,7 +1,7 @@
 package com.ksh.features.classes.imports.dto;
 
 /**
- * Status code attached to every parsed Excel row during student import (ksh-3.4).
+ * Status code attached to every parsed Excel row during student import (KSH-3.4).
  *
  * <p>Rows can be in one of three categories:
  * <ul>

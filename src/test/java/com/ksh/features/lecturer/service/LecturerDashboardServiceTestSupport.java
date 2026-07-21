@@ -1,6 +1,12 @@
 package com.ksh.features.lecturer.service;
 
-import com.ksh.entities.*;
+import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Enrollment;
+import com.ksh.entities.LearningProgress;
+import com.ksh.entities.Lesson;
+import com.ksh.entities.Section;
+import com.ksh.entities.User;
+import com.ksh.entities.UserFactory;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;

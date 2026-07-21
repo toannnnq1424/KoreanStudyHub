@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Flip-mode study fetch (ksh-5.x): all cards of a deck the caller may study. */
+/** Flip-mode study fetch (KSH-5.x): all cards of a deck the caller may study. */
 @Service
 public class FlashcardStudyService {
 

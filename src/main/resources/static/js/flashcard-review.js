@@ -1,4 +1,4 @@
-/* Smart Review mode (ksh-5.x): flip to reveal, then rate recall (Không nhớ /
+/* Smart Review mode (KSH-5.x): flip to reveal, then rate recall (Không nhớ /
  * Khó / Tốt / Dễ → quality 1/3/4/5). Each rating POSTs to the review endpoint,
  * upserting the user's SM-2 state, then advances to the next due card.
  * User content is rendered with textContent.

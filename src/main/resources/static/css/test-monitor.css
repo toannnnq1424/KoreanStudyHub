@@ -1,17 +1,17 @@
 /* Lecturer live monitor (Epic #11). */
 
 .tst-btn {
-    display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
-    border-radius: 8px; border: 1px solid #d0d7de; background: #fff; color: #1f2328;
-    font-weight: 600; font-size: 14px; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border-radius: 8px; border: 1px solid #d0d7de; background: #fff; color: #1f2328;
+  font-weight: 600; font-size: 14px; text-decoration: none;
 }
 
 .mn-page {
-    background: var(--bg, #fff);
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(16,24,40,.05));
-    padding: 20px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(16,24,40,.05));
+  padding: 20px;
 }
 .mn-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .mn-title { font-size: 22px; font-weight: 800; margin: 0; }
@@ -33,5 +33,5 @@
 .mn-active-dot { color: #22c55e; font-size: 12px; margin-left: 6px; }
 
 @media (max-width: 640px) {
-    .mn-stats { grid-template-columns: repeat(2, 1fr); }
+  .mn-stats { grid-template-columns: repeat(2, 1fr); }
 }

@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link LessonCommentsService} (ksh-4.6): threading,
+ * Integration tests for {@link LessonCommentsService} (KSH-4.6): threading,
  * validation, authz, ownership, and soft-delete placeholder rules.
  */
 @SpringBootTest
@@ -259,7 +259,7 @@ class LessonCommentsServiceTest {
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
-    // ── Moderation: hide / unhide (ksh-11.7) ──────────────────────────
+    // ── Moderation: hide / unhide (KSH-11.7) ──────────────────────────
 
     @Test
     void lecturer_hides_comment_hidden_for_student_flagged_for_moderator() {

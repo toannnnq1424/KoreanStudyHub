@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code comments} table (ksh-4.6).
+ * JPA entity mapping the {@code comments} table (KSH-4.6).
  *
  * <p>A comment is a plain-text question or reply on a lesson. One level of
  * threading is supported: {@code parent_id} is null for a root question and

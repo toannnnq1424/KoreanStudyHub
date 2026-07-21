@@ -41,7 +41,7 @@ import static com.ksh.features.lessons.controller.support.AjaxResponses.internal
 import static com.ksh.features.lessons.controller.support.AjaxResponses.notFound;
 
 /**
- * JSON / streaming endpoints for lesson attachments (ksh-4.0c).
+ * JSON / streaming endpoints for lesson attachments (KSH-4.0c).
  *
  * <p>Split from {@link LessonsApiController} per design D6: keeps both files
  * under the ~200-line guideline and isolates the file-IO concerns from the

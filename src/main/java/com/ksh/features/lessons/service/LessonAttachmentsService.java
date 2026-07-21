@@ -166,7 +166,7 @@ public class LessonAttachmentsService {
      */
     @Transactional
     public LessonAttachmentRow bindPdfFromLibrary(Long classId, Long sectionId, Long lessonId,
-                                                  Long assetId, Long userId, Role role) {
+                                                   Long assetId, Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
@@ -198,7 +198,7 @@ public class LessonAttachmentsService {
      */
     @Transactional
     public LessonAttachmentRow bindAttachmentFromLibrary(Long classId, Long sectionId, Long lessonId,
-                                                         Long assetId, Long userId, Role role) {
+                                                          Long assetId, Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         loadLesson(sectionId, lessonId);

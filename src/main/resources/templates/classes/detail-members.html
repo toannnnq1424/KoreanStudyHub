@@ -55,40 +55,40 @@
       <!-- Table -->
       <table class="m-table" th:if="${memberTotal > 0}">
         <thead>
-        <tr>
-          <th>Họ và tên</th>
-          <th class="col-school">Email</th>
-          <th class="col-phone">SĐT</th>
-          <th class="col-joined center">Tham gia qua</th>
-          <th></th>
-        </tr>
+          <tr>
+            <th>Họ và tên</th>
+            <th class="col-school">Email</th>
+            <th class="col-phone">SĐT</th>
+            <th class="col-joined center">Tham gia qua</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
-        <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
-          <td>
-            <div class="stu">
-              <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
-                   th:text="${m.avatarLabel}">??</div>
-              <div>
-                <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
-                <div class="stu-sub" th:text="${m.email}">email</div>
+          <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
+            <td>
+              <div class="stu">
+                <div class="avatar" th:style="'background:' + ${m.avatarGradient}"
+                     th:text="${m.avatarLabel}">??</div>
+                <div>
+                  <div class="stu-name" th:text="${m.fullName}">Họ tên</div>
+                  <div class="stu-sub" th:text="${m.email}">email</div>
+                </div>
               </div>
-            </div>
-          </td>
-          <td class="col-school" th:text="${m.email}">email</td>
-          <td class="col-phone" th:text="${m.displayPhone()}">—</td>
-          <td class="col-joined td-center">
-            <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
-          </td>
-          <td>
-            <div class="row-actions">
-              <button class="act-del" type="button" title="Sắp ra mắt" disabled
-                      aria-label="Xoá học sinh khỏi lớp">
-                <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
-            </div>
-          </td>
-        </tr>
+            </td>
+            <td class="col-school" th:text="${m.email}">email</td>
+            <td class="col-phone" th:text="${m.displayPhone()}">—</td>
+            <td class="col-joined td-center">
+              <span class="pill" th:text="${m.displayJoinedVia()}">—</span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <button class="act-del" type="button" title="Sắp ra mắt" disabled
+                        aria-label="Xoá học sinh khỏi lớp">
+                  <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -136,7 +136,7 @@
 <script th:src="@{/js/class-detail.js}"></script>
 <script th:src="@{/js/import-excel.js}"></script>
 
-<!-- ───────────────────── Import Excel Modal (ksh-3.4) ───────────────────── -->
+<!-- ───────────────────── Import Excel Modal (KSH-3.4) ───────────────────── -->
 <dialog id="importExcelModal" aria-labelledby="importExcelTitle">
   <div class="iex-header">
     <h2 id="importExcelTitle">Import danh sách sinh viên từ Excel</h2>

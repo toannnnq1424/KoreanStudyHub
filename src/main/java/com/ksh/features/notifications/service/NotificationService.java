@@ -69,7 +69,7 @@ public class NotificationService {
         // Best-effort email for whitelisted types only.
         if (NotificationType.EMAIL_TYPES.contains(type)) {
             userRepository.findById(userId).ifPresent(user -> {
-                String subject = "[ksh] " + title;
+                String subject = "[KSH] " + title;
                 boolean sent = mailService.send(user.getEmail(), subject, content);
                 if (sent) {
                     saved.setEmailSent(true);

@@ -15,10 +15,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.ksh.common.IConstant.*;
+import static com.ksh.common.IConstant.ATTR_PAGER_PARAMS;
+import static com.ksh.common.IConstant.ATTR_TEACHING_CLASS_ROWS;
+import static com.ksh.common.IConstant.ATTR_TEACHING_QUERY;
+import static com.ksh.common.IConstant.ATTR_TEACHING_SIZE;
+import static com.ksh.common.IConstant.ATTR_TEACHING_STATS;
+import static com.ksh.common.IConstant.BASE_LECTURER;
+import static com.ksh.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
+import static com.ksh.common.IConstant.URL_LECTURER_DASHBOARD;
+import static com.ksh.common.IConstant.VIEW_LECTURER_DASHBOARD;
 
 /**
- * Renders the lecturer teaching dashboard (ksh-9.1).
+ * Renders the lecturer teaching dashboard (KSH-9.1).
  *
  * <p>Endpoints:
  * <ul>

@@ -45,9 +45,9 @@ public class EmailSettingsService {
     private static final String MASKED = EmailSettingsDtos.MASKED;
     private static final Set<String> SECRET_KEYS = Set.of("smtp.password");
 
-    private static final String TEST_SUBJECT = "ksh — SMTP test email";
+    private static final String TEST_SUBJECT = "KSH — SMTP test email";
     private static final String TEST_BODY =
-            "This is a test email from ksh. If you received this, your SMTP "
+            "This is a test email from KSH. If you received this, your SMTP "
                     + "configuration works.";
 
     private final SystemSettingsRepository repository;

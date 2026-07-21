@@ -14,7 +14,7 @@ import java.nio.file.Paths;
 import static com.ksh.features.upload.UploadFileHelper.MAX_DOCUMENT_SIZE_BYTES;
 
 /**
- * Filesystem storage for lesson attachments (ksh-4.0c).
+ * Filesystem storage for lesson attachments (KSH-4.0c).
  *
  * <p>Validation is delegated to {@link UploadFileHelper}. Files land under
  * {@code <uploadRoot>/lessons/{lessonId}/<uuid>.<ext>}.

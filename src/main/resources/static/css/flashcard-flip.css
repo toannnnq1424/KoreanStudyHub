@@ -1,4 +1,4 @@
-/* Flip study viewer (shared by flip + review modes, ksh-5.x). */
+/* Flip study viewer (shared by flip + review modes, KSH-5.x). */
 
 .fc-study { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 .fc-study-empty { max-width: 480px; margin: 40px auto; }

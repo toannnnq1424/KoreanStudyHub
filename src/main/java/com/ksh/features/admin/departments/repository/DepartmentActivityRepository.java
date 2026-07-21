@@ -1,6 +1,7 @@
 package com.ksh.features.admin.departments.repository;
 
 import com.ksh.entities.DepartmentActivity;
+import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentActivityRow;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

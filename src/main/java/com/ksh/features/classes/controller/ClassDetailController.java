@@ -150,7 +150,7 @@ public class ClassDetailController {
                               Model model) {
         ClassEntity clazz = classesService.getViewable(id, user.getId(), user.getRole());
         detailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
-        model.addAttribute( ATTR_EXAMS_PAGE, examService.listForClass(id, page));
+        model.addAttribute(ATTR_EXAMS_PAGE, examService.listForClass(id, page));
         return VIEW_CLASS_DETAIL_TESTS;
     }
 
@@ -182,12 +182,13 @@ public class ClassDetailController {
      * Handles: {@code /schedule}, {@code /roles}, {@code /groups}, {@code /assignments},
      * {@code /scores}, {@code /materials}.
      *
-     * <p>Note: {@code /lessons} is intentionally not mapped here because it is
-     * owned by the lessons feature controllers.
+     * <p>Note: {@code /lessons} and {@code /assignments} are intentionally NOT mapped here —
+     * they are owned by {@code SectionsController} and {@code LecturerAssignmentController}
+     * respectively. Adding both mappings would raise
+     * {@code IllegalStateException: Ambiguous mapping} at startup.
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
                 "/classes/{id}/groups",
-                "/classes/{id}/assignments",
                 "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,

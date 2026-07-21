@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  *
  * <p>An attachment belongs to a single {@link Lesson} and is hard-deleted
  * together with its on-disk file when the lecturer removes it or when the
- * parent lesson is soft-deleted (see ULP-4.0c design D1/D2). There is no
+ * parent lesson is soft-deleted (see KSH-4.0c design D1/D2). There is no
  * {@code is_deleted} column — when this row is gone, the file is gone too.
  *
  * <p>Plain getters (no Lombok {@code @Data}) to avoid the equals/hashCode

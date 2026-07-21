@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   ksh — Section actions on the lessons tab (ksh-4.0a / Scope A redesign)
+   KSH — Section actions on the lessons tab (KSH-4.0a / Scope A redesign)
    Vanilla JS for soft-delete, drag-reorder, search filter, and the new
    3-dot action menu in the folders column.
 
    The lessons page layout has 3 columns: class-sidebar | folders (sections)
-   | content (lessons placeholder for ksh-4.0b). Folder click navigates via
+   | content (lessons placeholder for KSH-4.0b). Folder click navigates via
    plain <a href> with ?section={id} — no JS needed for selection.
 
    Create + rename live on dedicated full-page forms — see SectionsController

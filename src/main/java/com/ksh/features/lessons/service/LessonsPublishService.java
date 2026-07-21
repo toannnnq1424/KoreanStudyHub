@@ -20,7 +20,7 @@ import static com.ksh.common.IConstant.MSG_LESSON_NOT_FOUND;
 import static com.ksh.common.IConstant.MSG_SECTION_NOT_FOUND;
 
 /**
- * Publish / unpublish operations for the lessons tab (ksh-4.0b).
+ * Publish / unpublish operations for the lessons tab (KSH-4.0b).
  *
  * <p>Pulled out of {@link LessonsService} during the C.3 structural split
  * so the publish state-transition concern is isolated from CRUD and

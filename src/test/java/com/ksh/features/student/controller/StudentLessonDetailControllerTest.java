@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Integration tests for the legacy standalone lesson detail endpoint
- * {@code GET /my/classes/{classId}/lessons/{lessonId}} (ksh-4.2).
+ * {@code GET /my/classes/{classId}/lessons/{lessonId}} (KSH-4.2).
  *
  * <p>After the single-template refactor the route returns a permanent
  * 301 redirect to the canonical query-param form

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Write service backing student learning-progress recording (ksh-4.5).
+ * Write service backing student learning-progress recording (KSH-4.5).
  *
  * <p>Re-applies the same four authz gates as
  * {@code com.ksh.features.student.service.StudentLessonDetailService}

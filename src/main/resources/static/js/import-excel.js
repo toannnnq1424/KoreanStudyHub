@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Import Students from Excel (ksh-3.4)
+   KSH — Import Students from Excel (KSH-3.4)
    Vanilla JS for the 3-step modal on /lecturer/classes/{id}/members.
    Exports a single global: window.openImportExcelModal(opts).
    Markup lives in templates/classes/detail-members.html.

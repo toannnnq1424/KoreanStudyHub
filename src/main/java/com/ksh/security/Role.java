@@ -1,7 +1,7 @@
 package com.ksh.security;
 
 /**
- * The four system roles of ksh, matching the CHECK constraint on the {@code users.role} column:
+ * The four system roles of KSH, matching the CHECK constraint on the {@code users.role} column:
  * {@code CHECK (role IN ('STUDENT','LECTURER','HEAD','ADMIN'))}.
  *
  * <p>Business hierarchy: {@code HEAD} inherits all permissions of {@code LECTURER}.

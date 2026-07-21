@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đăng nhập vào tài khoản của bạn | ksh — University Learning Platform</title>
-  <link rel="stylesheet" th:href="@{/css/main.css}">
+  <title>Đăng nhập vào tài khoản của bạn | KSH — University Learning Platform</title>
   <style>
     :root{
       --primary:#1E88E5; --primary-dark:#1565C0; --fg:#202227; --heading:#22313F;
@@ -90,7 +89,7 @@
   <header>
     <a th:href="@{/login}" class="logo" id="logo">
       <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1E88E5"/><path d="M16 7l8 4v6c0 4.4-3.4 7.2-8 8-4.6-.8-8-3.6-8-8v-6l8-4z" fill="#fff"/><path d="M16 11l4 2-4 2-4-2 4-2z" fill="#1E88E5"/></svg>
-      ksh
+      KSH
     </a>
     <div class="header-right" id="headerRight">
       <button class="nav-btn" data-act="home">Trang chủ</button>
@@ -103,7 +102,7 @@
       <div class="split">
         <div class="panel">
           <div class="card">
-            <h1>Chào mừng bạn đến với ksh</h1>
+            <h1>Chào mừng bạn đến với KSH</h1>
             <div class="role-block">
               <p class="role-label">Chọn vai trò của bạn</p>
               <div class="select" id="roleSelect">
@@ -150,7 +149,7 @@
             <!-- Flash data → toast (consumed by inline script at bottom of page).
                  Messages are resolved server-side in AuthController so the
                  template never touches param.* (Thymeleaf 3.1 restricts that
-                 in th:attr). -->
+                 in th:attr). All notifications use the local KshToast helper. -->
             <div id="flash-data" hidden
                  th:if="${flashError != null or flashSuccess != null}"
                  th:attr="data-flash-error=${flashError},data-flash-success=${flashSuccess}"></div>
@@ -185,7 +184,7 @@
             <p class="hint" th:if="${@environment.acceptsProfiles('dev') or @environment.getProperty('app.show-test-accounts') == 'true'}">
               Tài khoản thử nghiệm (Sprint 0):<br>
               <code>admin@ksh.edu.vn</code> · <code>lecturer@ksh.edu.vn</code> · <code>student@ksh.edu.vn</code><br>
-              Mật khẩu: <code>password</code>
+              Mật khẩu: <code>123456</code>
             </p>
           </div>
         </div>

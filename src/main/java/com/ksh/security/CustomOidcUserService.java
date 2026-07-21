@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * Custom OIDC user service — delegate to the default service, then enforce
- * ksh's registration rules. Only pre-registered, active, non-locked users may
+ * KSH's registration rules. Only pre-registered, active, non-locked users may
  * sign in via Google OAuth. On first sign-in we link {@code users.google_id}
  * and upsert one {@code user_oauth_providers} row.
  *

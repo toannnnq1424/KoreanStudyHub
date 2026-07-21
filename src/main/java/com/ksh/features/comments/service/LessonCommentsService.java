@@ -30,7 +30,7 @@ import static com.ksh.common.IConstant.MSG_COMMENT_PARENT_INVALID;
 import static com.ksh.common.IConstant.MSG_COMMENT_TOO_LONG;
 
 /**
- * Service for the lesson-comments feature (ksh-4.6).
+ * Service for the lesson-comments feature (KSH-4.6).
  *
  * <p>Authorization mirrors {@code StudentLessonDetailService}'s gates
  * (canonical), plus a role check that also admits the class's owning

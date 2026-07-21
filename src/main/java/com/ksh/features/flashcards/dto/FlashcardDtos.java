@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-/** View-model, form and API DTOs for the Flashcard feature (ksh-5.x). */
+/** View-model, form and API DTOs for the Flashcard feature (KSH-5.x). */
 public final class FlashcardDtos {
 
     private FlashcardDtos() {

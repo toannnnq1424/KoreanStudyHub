@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Class management page behavior
+   KSH — Class management page behavior
    Loaded by /lecturer/classes (manage). Requires app.js (KshModal + dropdowns).
    ══════════════════════════════════════════════════════════════════════════ */
 

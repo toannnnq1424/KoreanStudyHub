@@ -13,7 +13,7 @@ import org.hibernate.annotations.SQLRestriction;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code flashcard_decks} table (ksh-5.x).
+ * JPA entity mapping the {@code flashcard_decks} table (KSH-5.x).
  *
  * <p>A deck is a personal collection of two-sided cards owned by a student.
  * A fresh deck is {@link #VISIBILITY_PRIVATE}; the owner may switch it to

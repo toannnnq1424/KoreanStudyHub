@@ -63,7 +63,7 @@ class DbConfiguredMailSenderTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "u",
                 "smtp.password", "p",
-                "smtp.from_name", "ksh Team",
+                "smtp.from_name", "KSH Team",
                 "smtp.from_email", "noreply@ksh.edu.vn",
                 "smtp.reply_to", ""
         ));
@@ -72,7 +72,7 @@ class DbConfiguredMailSenderTest {
         assertThat(from).hasSize(1);
         InternetAddress addr = (InternetAddress) from[0];
         assertThat(addr.getAddress()).isEqualTo("noreply@ksh.edu.vn");
-        assertThat(addr.getPersonal()).isEqualTo("ksh Team");
+        assertThat(addr.getPersonal()).isEqualTo("KSH Team");
     }
 
     @Test
@@ -103,7 +103,7 @@ class DbConfiguredMailSenderTest {
                 "smtp.encryption", "tls",
                 "smtp.username", "u",
                 "smtp.password", "p",
-                "smtp.from_name", "ksh",
+                "smtp.from_name", "KSH",
                 "smtp.from_email", "noreply@ksh.edu.vn",
                 "smtp.reply_to", "support@ksh.edu.vn"
         ));

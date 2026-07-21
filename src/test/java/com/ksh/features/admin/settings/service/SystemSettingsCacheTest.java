@@ -135,7 +135,7 @@ class SystemSettingsCacheTest {
         // Save SMTP — eviction should drop only the SMTP entry.
         EmailSettingsForm form = new EmailSettingsForm(
                 "smtp.example.com", 587, "tls", "u@example.com",
-                "", "ksh", "u@example.com", "");
+                "", "KSH", "u@example.com", "");
         emailSettingsService.save(form, adminId);
 
         assertThat(cache.get(SystemSettingGroups.SMTP))

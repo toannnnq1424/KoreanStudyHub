@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Drives lecturer and student flows end-to-end via MockMvc so the full
  * Spring Security filter chain, controller layer, and service layer participate.
  * Uses {@code @WithUserDetails} (not {@code @WithMockUser}) because the
- * controllers rely on {@code @AuthenticationPrincipal kshUserDetails}.
+ * controllers rely on {@code @AuthenticationPrincipal KshUserDetails}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

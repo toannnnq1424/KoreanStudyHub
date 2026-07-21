@@ -1,9 +1,9 @@
 /* Lecturer exam authoring form + question builder (Epic #11). */
 
 .tst-btn {
-    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-    padding: 8px 14px; border-radius: 8px; border: 1px solid #d0d7de;
-    background: #fff; color: #1f2328; font-weight: 600; font-size: 14px; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid #d0d7de;
+  background: #fff; color: #1f2328; font-weight: 600; font-size: 14px; text-decoration: none;
 }
 .tst-btn:hover { background: #f3f4f6; }
 .tst-btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
@@ -19,9 +19,9 @@
 /* Edit mode: the form lives in the right grid column, so shed the standalone
    centring cap + padding — the .class-detail-layout wrapper owns spacing. */
 .class-detail-layout:not(.lf-no-sidebar) .lf-page {
-    max-width: none;
-    margin: 0;
-    padding: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 /* The shared .detail-toolbar is sticky by default (used by lesson/section/user
@@ -48,106 +48,106 @@
 /* Exam format picker: reading vs media. Choose first, then fill the rest. */
 .lf-mode-field { margin-bottom: 16px; }
 .lf-mode-cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 .lf-mode-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px 14px 14px 12px;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 12px;
-    background: #fbfcfd;
-    cursor: pointer;
-    transition: border-color .15s, box-shadow .15s, background .15s;
-    user-select: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 14px 14px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fbfcfd;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  user-select: none;
 }
 .lf-mode-card:hover {
-    border-color: #bfdbfe;
-    background: #f8fbff;
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 .lf-mode-card.is-selected {
-    border-color: #2563eb;
-    background: #eff6ff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
 }
 .lf-mode-card input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 .lf-mode-icon {
-    flex: 0 0 auto;
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    font-size: 16px;
-    line-height: 1;
-    color: #4b5563;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  font-size: 16px;
+  line-height: 1;
+  color: #4b5563;
 }
 .lf-mode-icon i { font-size: 16px; }
 .lf-mode-card.is-selected .lf-mode-icon {
-    border-color: #93c5fd;
-    background: #dbeafe;
-    color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 .lf-mode-body {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 .lf-mode-body strong {
-    font-size: 14px;
-    font-weight: 700;
-    color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
 }
 .lf-mode-body small {
-    font-size: 12.5px;
-    line-height: 1.4;
-    color: #6b7280;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #6b7280;
 }
 
 .lf-reading-block,
 .lf-media-block {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px dashed #e5e7eb;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #e5e7eb;
 }
 .lf-reading-block[hidden],
 .lf-media-block[hidden] { display: none !important; }
 .lf-media-head { margin-bottom: 12px; }
 .lf-media-title {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #111827;
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
 }
 .lf-media-hint {
-    margin: 0;
-    font-size: 12.5px;
-    color: #6b7280;
-    line-height: 1.4;
+  margin: 0;
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 /* Description / reading-passage rich editor (same family as question editor). */
 .lf-desc-editor { background: #fff; border-radius: 8px; }
 .lf-desc-editor .ql-toolbar.ql-snow {
-    border: 1px solid #d0d7de; border-radius: 8px 8px 0 0; background: #f8fafc;
+  border: 1px solid #d0d7de; border-radius: 8px 8px 0 0; background: #f8fafc;
 }
 .lf-desc-editor .ql-container.ql-snow {
-    border: 1px solid #d0d7de; border-top: 0; border-radius: 0 0 8px 8px;
-    min-height: 140px; font-size: 14px; font-family: inherit;
+  border: 1px solid #d0d7de; border-top: 0; border-radius: 0 0 8px 8px;
+  min-height: 140px; font-size: 14px; font-family: inherit;
 }
 .lf-desc-editor .ql-editor { min-height: 140px; line-height: 1.55; }
 .lf-desc-editor .ql-editor img {
-    max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block;
+  max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block;
 }
 .lf-desc-editor .ql-editor.ql-blank::before { font-style: normal; color: #9ca3af; }
 
@@ -159,168 +159,168 @@
 .lf-q-explanation { margin-bottom: 10px; }
 .lf-q-editor { margin-bottom: 10px; background: #fff; border-radius: 8px; }
 .lf-q-editor .ql-toolbar.ql-snow {
-    border: 1px solid #d0d7de; border-radius: 8px 8px 0 0; background: #f8fafc;
+  border: 1px solid #d0d7de; border-radius: 8px 8px 0 0; background: #f8fafc;
 }
 .lf-q-editor .ql-container.ql-snow {
-    border: 1px solid #d0d7de; border-top: 0; border-radius: 0 0 8px 8px;
-    min-height: 110px; font-size: 14px; font-family: inherit;
+  border: 1px solid #d0d7de; border-top: 0; border-radius: 0 0 8px 8px;
+  min-height: 110px; font-size: 14px; font-family: inherit;
 }
 .lf-q-editor .ql-editor { min-height: 110px; line-height: 1.55; }
 .lf-q-editor .ql-editor img {
-    max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block;
+  max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block;
 }
 .lf-q-editor .ql-editor.ql-blank::before { font-style: normal; color: #9ca3af; }
 
 /* Compact answer rows: letter badge + inline editor; toolbar only when focused. */
 .lf-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .lf-option {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: start;
-    gap: 10px;
-    padding: 8px;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background: #fff;
-    transition: border-color .15s, box-shadow .15s, background .15s;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color .15s, box-shadow .15s, background .15s;
 }
 .lf-option:hover { border-color: #d0d7de; }
 .lf-option.is-active {
-    border-color: #93c5fd;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
 }
 .lf-option.is-correct {
-    border-color: #86efac;
-    background: #f0fdf4;
+  border-color: #86efac;
+  background: #f0fdf4;
 }
 .lf-option.is-correct.is-active {
-    border-color: #4ade80;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, .14);
+  border-color: #4ade80;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .14);
 }
 
 .lf-o-mark {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    margin-top: 4px;
-    cursor: pointer;
-    flex: 0 0 auto;
-    user-select: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 4px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  user-select: none;
 }
 .lf-o-correct {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 .lf-o-letter {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    border: 1.5px solid #d0d7de;
-    background: #f8fafc;
-    color: #374151;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1;
-    transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1.5px solid #d0d7de;
+  background: #f8fafc;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
 }
 .lf-o-mark:hover .lf-o-letter {
-    border-color: #93c5fd;
-    background: #eff6ff;
-    color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 .lf-option.is-correct .lf-o-letter {
-    border-color: #22c55e;
-    background: #22c55e;
-    color: #fff;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
 }
 
 /* Quill mounts toolbar as a sibling of the host (.lf-o-editor), so the
    bordered surface is the body wrapper, not the host alone. */
 .lf-o-body {
-    min-width: 0;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    transition: border-color .15s;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color .15s;
 }
 .lf-option.is-active .lf-o-body { border-color: #bfdbfe; }
 .lf-option.is-correct .lf-o-body { border-color: #bbf7d0; background: #fff; }
 
 /* Keep answer toolbar compact and collapsed until the row is focused. */
 .lf-o-body > .ql-toolbar.ql-snow {
-    display: none !important;
-    border: 0;
-    border-bottom: 1px solid #e5e7eb;
-    border-radius: 0;
-    background: #f8fafc;
-    padding: 4px 6px;
+  display: none !important;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: #f8fafc;
+  padding: 4px 6px;
 }
 .lf-option.is-active .lf-o-body > .ql-toolbar.ql-snow {
-    display: flex !important;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
 }
 .lf-o-body > .ql-toolbar.ql-snow .ql-formats { margin-right: 8px; }
 .lf-o-body > .ql-toolbar.ql-snow button {
-    width: 28px;
-    height: 28px;
+  width: 28px;
+  height: 28px;
 }
 .lf-o-editor,
 .lf-o-body > .ql-container.ql-snow {
-    border: 0 !important;
-    border-radius: 0;
-    min-height: 40px;
-    font-size: 14px;
-    font-family: inherit;
-    background: transparent;
+  border: 0 !important;
+  border-radius: 0;
+  min-height: 40px;
+  font-size: 14px;
+  font-family: inherit;
+  background: transparent;
 }
 .lf-o-editor .ql-editor,
 .lf-o-body .ql-editor {
-    min-height: 40px;
-    max-height: 180px;
-    overflow-y: auto;
-    line-height: 1.45;
-    padding: 9px 12px;
+  min-height: 40px;
+  max-height: 180px;
+  overflow-y: auto;
+  line-height: 1.45;
+  padding: 9px 12px;
 }
 .lf-option.is-active .lf-o-body .ql-editor { min-height: 52px; }
 .lf-o-body .ql-editor p { margin: 0; }
 .lf-o-body .ql-editor img {
-    max-width: min(100%, 280px);
-    height: auto;
-    border-radius: 6px;
-    margin: 6px 0;
-    display: block;
+  max-width: min(100%, 280px);
+  height: auto;
+  border-radius: 6px;
+  margin: 6px 0;
+  display: block;
 }
 .lf-o-body .ql-editor.ql-blank::before {
-    font-style: normal;
-    color: #9ca3af;
-    left: 12px;
-    right: 12px;
+  font-style: normal;
+  color: #9ca3af;
+  left: 12px;
+  right: 12px;
 }
 
 .lf-option .lf-icon-btn {
-    margin-top: 5px;
-    opacity: .55;
-    transition: opacity .15s, background .15s, color .15s;
+  margin-top: 5px;
+  opacity: .55;
+  transition: opacity .15s, background .15s, color .15s;
 }
 .lf-option:hover .lf-icon-btn,
 .lf-option.is-active .lf-icon-btn { opacity: 1; }
 .lf-icon-btn { border: none; background: #f3f4f6; color: #6b7280; border-radius: 6px;
-    width: 28px; height: 28px; cursor: pointer; font-size: 14px; flex: 0 0 auto; }
+  width: 28px; height: 28px; cursor: pointer; font-size: 14px; flex: 0 0 auto; }
 .lf-icon-btn:hover { background: #fee2e2; color: #b91c1c; }
 .lf-hint { color: #9ca3af; font-size: 13px; text-align: center; }
 
 @media (max-width: 640px) {
-    .lf-grid { grid-template-columns: 1fr; }
-    .lf-mode-cards { grid-template-columns: 1fr; }
+  .lf-grid { grid-template-columns: 1fr; }
+  .lf-mode-cards { grid-template-columns: 1fr; }
 }

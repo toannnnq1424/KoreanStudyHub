@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * OidcUser decorator that maps the ksh user's role into Spring Security authorities.
+ * OidcUser decorator that maps the KSH user's role into Spring Security authorities.
  * Delegates attribute/id-token/user-info calls to the underlying Google OidcUser.
  */
 public class CustomOidcUserPrincipal implements OidcUser {
@@ -31,7 +31,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
     }
 
-    /** Returns the local ksh user id resolved during OIDC authentication. */
+    /** Returns the local KSH user id resolved during OIDC authentication. */
     public Long getId() {
         return id;
     }
@@ -42,7 +42,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
     }
 
     /**
-     * Returns the user's email address, which serves as the username in ksh.
+     * Returns the user's email address, which serves as the username in KSH.
      * <p>Exposes a uniform {@code principal.username} accessor so Thymeleaf
      * templates work identically for both form-login and OAuth2/OIDC sessions.</p>
      *
@@ -52,7 +52,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         return username;
     }
 
-    // OidcUser delegation
+    // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override public Map<String, Object> getClaims() { return delegate.getClaims(); }
     @Override public OidcUserInfo getUserInfo() { return delegate.getUserInfo(); }

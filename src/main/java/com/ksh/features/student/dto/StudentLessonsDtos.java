@@ -26,7 +26,7 @@ public class StudentLessonsDtos {
      * @param contentType RICHTEXT / PDF / VIDEO — lets the right-rail card
      *                    pick the matching thumb icon without a service hop
      * @param completed   true when the viewing student has a COMPLETED
-     *                    learning-progress row for this lesson (ksh-4.5)
+     *                    learning-progress row for this lesson (KSH-4.5)
      */
     public record StudentLessonRow(
             Long id,
@@ -45,7 +45,7 @@ public class StudentLessonsDtos {
      *
      * @param completedCount how many of this section's PUBLISHED lessons the
      *                       student has completed; the published count is the
-     *                       size of {@link #lessons()} (ksh-4.5)
+     *                       size of {@link #lessons()} (KSH-4.5)
      */
     public record SectionWithLessons(
             Long sectionId,
@@ -74,7 +74,7 @@ public class StudentLessonsDtos {
      * @param completedTotal class-wide count of COMPLETED published lessons
      * @param publishedTotal class-wide count of PUBLISHED lessons (denominator)
      * @param percent        integer completion percent (0 when no published
-     *                       lessons; rounded half-up) (ksh-4.5)
+     *                       lessons; rounded half-up) (KSH-4.5)
      */
     public record ClassLessonsView(
             Long classId,

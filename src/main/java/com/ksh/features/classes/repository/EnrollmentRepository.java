@@ -91,7 +91,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      */
     @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId AND e.classId = :classId")
     Optional<Enrollment> findByUserIdAndClassId(@Param("userId") Long userId,
-                                                @Param("classId") Long classId);
+                                                 @Param("classId") Long classId);
 
     /**
      * Returns all enrollments for the given user with the specified
@@ -106,7 +106,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
             "WHERE e.user.id = :userId AND e.status = :status " +
             "ORDER BY e.joinedAt DESC")
     List<Enrollment> findAllByUserIdAndStatusOrderByJoinedAtDesc(@Param("userId") Long userId,
-                                                                 @Param("status") String status);
+                                                                  @Param("status") String status);
 
     /**
      * Returns the number of currently ACTIVE enrollments for the

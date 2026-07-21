@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 /**
  * Turns a flat, oldest-first APPROVED comment list into the threaded
- * {@link CommentRow} tree (ksh-4.6). Kept separate from
+ * {@link CommentRow} tree (KSH-4.6). Kept separate from
  * {@link LessonCommentsService} so each file stays focused (design D2).
  *
  * <p>Threading rules: up to three levels deep (writes clamp deeper replies).
@@ -41,7 +41,7 @@ public class CommentThreadAssembler {
      * the caller-supplied order of {@code all} — the paged service feeds them
      * newest-first — while replies within each thread are re-sorted oldest-first.
      *
-     * <p>When {@code moderator} is true (ksh-11.7), hidden (REJECTED) nodes are
+     * <p>When {@code moderator} is true (KSH-11.7), hidden (REJECTED) nodes are
      * kept as real rows flagged {@code hidden=true}, and every visible node is
      * flagged {@code canModerate=true}. When false, output is identical to the
      * pre-moderation behaviour and no hidden node is expected in {@code all}.

@@ -8,7 +8,7 @@ import java.util.List;
 
 import static com.ksh.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
 
-/** DTOs for the lecturer teaching dashboard (ksh-9.1). */
+/** DTOs for the lecturer teaching dashboard (KSH-9.1). */
 public final class LecturerDashboardDtos {
 
     private LecturerDashboardDtos() {

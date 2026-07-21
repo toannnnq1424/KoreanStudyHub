@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code flashcards} table (ksh-5.x).
+ * JPA entity mapping the {@code flashcards} table (KSH-5.x).
  *
  * <p>A card is a two-sided item inside a {@link FlashcardDeck}. Each side has
  * required text; cards keep their position in the deck via {@code sort_order}.

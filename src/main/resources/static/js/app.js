@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Shared client-side behavior (vanilla JS, no framework)
+   KSH — Shared client-side behavior (vanilla JS, no framework)
    - Dropdown toggle (click trigger → open/close menu, close-on-outside-click)
    - Tab switching
    - Confirm modal helper (window.KshModal.confirm)

@@ -54,7 +54,7 @@ public class Enrollment {
         CODE,
         /** Student clicked a 32-character invite link. */
         LINK,
-        /** Lecturer bulk-loaded the student via Excel import (ksh-3.4). */
+        /** Lecturer bulk-loaded the student via Excel import (KSH-3.4). */
         IMPORT
     }
 

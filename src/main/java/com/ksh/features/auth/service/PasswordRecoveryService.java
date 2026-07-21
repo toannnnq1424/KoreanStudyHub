@@ -38,7 +38,7 @@ public class PasswordRecoveryService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
-    /** 96 random bytes -> about 128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
+    /** 96 random bytes â†’ ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
     private static final int TOKEN_BYTES = 96;
     private static final int TOKEN_TTL_HOURS = 1;
 
@@ -88,14 +88,14 @@ public class PasswordRecoveryService {
 
         String link = baseUrl + "/reset-password?token=" + rawToken;
         String body = "Hi " + user.getFullName() + ",\n\n"
-                + "You (or someone else) requested a password reset for your ksh account.\n\n"
+                + "You (or someone else) requested a password reset for your KSH account.\n\n"
                 + "Click the link below to set a new password (expires in " + TOKEN_TTL_HOURS + " hour(s)):\n"
                 + link + "\n\n"
                 + "If you did not request this, you can safely ignore this email.\n\n"
-                + "— ksh Team";
+                + "— KSH Team";
 
         boolean sent = mailService.send(user.getEmail(),
-                "ksh Password Reset", body);
+                "KSH Password Reset", body);
         if (!sent) {
             // SMTP is not configured or the send failed. Log at WARN without the
             // token (WARN is typically collected by log aggregators). The reset

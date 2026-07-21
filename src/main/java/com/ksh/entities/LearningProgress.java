@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code learning_progress} table (ksh-4.5).
+ * JPA entity mapping the {@code learning_progress} table (KSH-4.5).
  *
  * <p>Tracks one student's progress through a single lesson. The unique key
  * {@code idx_lp_user_lesson} guarantees at most one row per (user, lesson);

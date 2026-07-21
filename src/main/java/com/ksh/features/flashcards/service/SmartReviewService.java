@@ -19,7 +19,7 @@ import java.util.List;
 import static com.ksh.common.IConstant.MSG_CARD_NOT_FOUND;
 
 /**
- * Smart Review (SM-2) service (ksh-5.x): selects due cards for a user and
+ * Smart Review (SM-2) service (KSH-5.x): selects due cards for a user and
  * records recall ratings, upserting exactly one review row per (user, card).
  * Scheduling per user is fully isolated — one student's ratings never touch
  * another's due set on a shared deck.

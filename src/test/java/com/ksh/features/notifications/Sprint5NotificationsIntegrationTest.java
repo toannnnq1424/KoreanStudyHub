@@ -119,11 +119,10 @@ class Sprint5NotificationsIntegrationTest {
                 .andExpect(view().name("notifications/index"));
     }
 
-
     // ── Header dropdown recent feed ─────────────────────────────────
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void recent_endpoint_returns_items_and_count() throws Exception {
         mockMvc.perform(get("/my/notifications/recent")
                         .header("X-Requested-With", "XMLHttpRequest"))
@@ -133,7 +132,7 @@ class Sprint5NotificationsIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ulp.edu.vn")
+    @WithUserDetails("student@ksh.edu.vn")
     void open_with_ajax_returns_json_instead_of_redirect() throws Exception {
         mockMvc.perform(post("/my/notifications/999999/open")
                         .param("ajax", "1")

@@ -88,7 +88,7 @@
     <section class="admin-list-panel">
       <div class="admin-list-table-scroll">
         <table class="admin-list-table" th:if="${not page.isEmpty()}">
-          <thead>
+        <thead>
           <tr>
             <th>Họ tên / Email</th>
             <th>Vai trò</th>
@@ -98,8 +98,8 @@
             <th>Tạo lúc</th>
             <th class="col-actions" aria-label="Thao tác"></th>
           </tr>
-          </thead>
-          <tbody>
+        </thead>
+        <tbody>
           <tr th:each="row : ${page.content}"
               th:attr="data-user-id=${row.id},
                        data-is-self=${row.id == currentUserId},
@@ -244,8 +244,8 @@
               </form>
             </td>
           </tr>
-          </tbody>
-        </table>
+        </tbody>
+      </table>
       </div>
 
       <div th:if="${page.isEmpty()}" class="admin-list-empty" role="status" aria-live="polite">

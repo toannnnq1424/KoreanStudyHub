@@ -113,7 +113,7 @@
           <div class="form-row">
             <label for="fromName">From Name <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="fromName" th:field="*{fromName}"
-                   placeholder="ksh" maxlength="100"
+                   placeholder="KSH" maxlength="100"
                    required aria-required="true"
                    th:attr="aria-invalid=${#fields.hasErrors('fromName')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('fromName')} ? 'fromName-error' : ''">
             <span id="fromName-error" class="field-error" role="alert"

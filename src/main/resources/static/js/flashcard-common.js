@@ -1,4 +1,4 @@
-/* Flashcards — shared helpers (ksh-5.x).
+/* Flashcards — shared helpers (KSH-5.x).
  *
  * Provides window.FcCommon: CSRF header lookup, a KshToast wrapper, and a JSON
  * fetch helper. Also drains #flash-data into toasts on page load so redirect

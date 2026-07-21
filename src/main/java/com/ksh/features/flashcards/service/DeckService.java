@@ -28,7 +28,7 @@ import java.util.List;
 import static com.ksh.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
 import static com.ksh.common.IConstant.MSG_SHARE_CLASS_INVALID;
 
-/** Deck CRUD, listing and sharing (ksh-5.x). */
+/** Deck CRUD, listing and sharing (KSH-5.x). */
 @Service
 public class DeckService {
 

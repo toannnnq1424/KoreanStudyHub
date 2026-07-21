@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link StudentLessonDetailService#getLessonDetail} (ksh-4.2).
+ * Integration tests for {@link StudentLessonDetailService#getLessonDetail} (KSH-4.2).
  * Boots the full Spring context with MySQL so {@code @SQLRestriction} on
  * {@link Lesson} / {@link ClassEntity} is exercised end-to-end.
  */

@@ -36,7 +36,7 @@ import static com.ksh.common.IConstant.VIEW_MESSAGING_INDEX;
 
 /**
  * Server-rendered controller for direct messaging under {@code /my/messages}
- * (Epic #13, ksh-8.3). Any authenticated user reaches these routes; per-thread
+ * (Epic #13, KSH-8.3). Any authenticated user reaches these routes; per-thread
  * access is enforced in {@link MessagingService} (404 no-leak when the caller is
  * not a participant), and the recipient gate applies at conversation creation.
  *

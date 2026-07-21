@@ -49,7 +49,10 @@ public class LecturerDashboardService {
                                               String q, int page, int size) {
         List<ClassEntity> classes = querySupport.loadScopedClasses(userId, role);
         if (classes.isEmpty()) {
-            return TeachingDashboardView.empty();
+            // Preserve the requested (clamped) page size even for an empty
+            // scope so the controller's pager and size selector stay stable.
+            return new TeachingDashboardView(
+                    TeachingStats.empty(), querySupport.paginate(List.of(), page, size));
         }
 
         List<Long> classIds = classes.stream().map(ClassEntity::getId).toList();

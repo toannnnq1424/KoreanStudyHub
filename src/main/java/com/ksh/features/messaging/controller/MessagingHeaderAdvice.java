@@ -11,7 +11,7 @@ import static com.ksh.common.IConstant.ATTR_MSG_UNREAD;
 /**
  * Exposes the caller's unread message count to every server-rendered view so the
  * shared header fragment ({@code fragments/app-header}) can render the chat badge
- * with the correct initial number (Epic #13, ksh-8.4).
+ * with the correct initial number (Epic #13, KSH-8.4).
  *
  * <p>The advice is a single cheap COUNT per request; live updates thereafter are
  * pushed over STOMP by {@code messaging.js}. It contributes only a model

@@ -1,209 +1,156 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ksh — Lesson comment thread renderer (ksh-4.6)
+   KSH — Lesson comments orchestrator (KSH-4.6)
    ----------------------------------------------------------------------------
-   DOM-only builder for one comment subtree (Facebook-style: avatar + rounded
-   bubble, relative time, replies collapsed behind a toggle, nesting capped at 3).
-   All user content is injected via textContent (never innerHTML); avatarGradient
-   is a server-generated CSS value applied via style.background.
-
-   Exposes window.KshCommentThread(deps) → { node }. The orchestrator
-   (lesson-comments.js) owns fetching, pagination, CSRF and toasts and injects
-   them as deps = { api, base, mutate, reload, contentRequiredMsg }.
+   Owns the "Thảo luận" panel's data flow: CSRF-guarded fetch, load-more root
+   pagination, the composer, and mutation → reload. DOM tree building is
+   delegated to window.KshCommentThread (lesson-comments-render.js), which must
+   load first. Feedback via window.KshToast.
    ══════════════════════════════════════════════════════════════════════════ */
 (function () {
-    'use strict';
+  'use strict';
 
-    var MAX_DEPTH = 3;
+  var MSG_CONTENT_REQUIRED = 'Nội dung không được để trống';
 
-    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  var panel = document.querySelector('.lesson-comments[data-lesson-id]');
+  if (!panel) return;
+  if (typeof window.KshCommentThread !== 'function') {
+    // Renderer script missing/mis-ordered — fail loud rather than silently blank.
+    console.error('lesson-comments: KshCommentThread renderer not loaded');
+    return;
+  }
 
-    function absoluteTime(d) {
-        return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear()
-            + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  var lessonId = panel.getAttribute('data-lesson-id');
+  var base = '/api/lessons/' + lessonId + '/comments';
+  var listEl = panel.querySelector('[data-role="list"]');
+  var statusEl = panel.querySelector('[data-role="status"]');
+  var composer = panel.querySelector('[data-role="composer"]');
+  var composerInput = panel.querySelector('[data-role="input"]');
+
+  // Load-more pagination state: current root page + whether more roots exist.
+  var currentPage = 0;
+  var hasNext = false;
+  var loadMoreBtn = null;
+
+  function meta(name) {
+    var el = document.querySelector('meta[name="' + name + '"]');
+    return el ? el.getAttribute('content') : null;
+  }
+
+  function headers(hasBody) {
+    var h = { 'Accept': 'application/json' };
+    if (hasBody) h['Content-Type'] = 'application/json';
+    var token = meta('_csrf'), header = meta('_csrf_header');
+    if (token && header) h[header] = token;
+    return h;
+  }
+
+  function api(method, url, body) {
+    return fetch(url, {
+      method: method,
+      headers: headers(!!body),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json()
+        .catch(function () { return { ok: false, message: 'Lỗi máy chủ' }; })
+        .then(function (json) {
+          if (!res.ok || !json.ok) {
+            throw new Error(json.message || 'Thao tác thất bại');
+          }
+          return json.data;
+        });
+    });
+  }
+
+  function setStatus(msg) {
+    if (msg) { statusEl.textContent = msg; statusEl.hidden = false; }
+    else { statusEl.textContent = ''; statusEl.hidden = true; }
+  }
+
+  function mutate(promise, okMsg) {
+    return promise.then(function () {
+      if (okMsg && window.KshToast) window.KshToast.success(okMsg);
+      // Reset to the first page: newest-first means new comments appear on top.
+      // Trade-off: editing/deleting a comment on a deep page also resets to top.
+      load(0, false);
+    }).catch(function (err) {
+      if (window.KshToast) window.KshToast.error(err.message || 'Thao tác thất bại');
+      throw err;
+    });
+  }
+
+  // Presentational tree builder; data flow (fetch/pagination/toasts) stays here.
+  var thread = window.KshCommentThread({
+    api: api,
+    base: base,
+    mutate: mutate,
+    reload: function () { return load(0, false); },
+    contentRequiredMsg: MSG_CONTENT_REQUIRED
+  });
+
+  // Renders a page of roots; append=false clears first, true concatenates.
+  function renderInto(comments, append) {
+    if (!append) listEl.textContent = '';
+    comments.forEach(function (c) { listEl.appendChild(thread.node(c, 1)); });
+  }
+
+  // Lazily creates the "Xem thêm" button once, placed right after the list.
+  function ensureLoadMoreBtn() {
+    if (loadMoreBtn) return loadMoreBtn;
+    loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'lesson-comments-loadmore';
+    loadMoreBtn.type = 'button';
+    loadMoreBtn.textContent = 'Xem thêm bình luận';
+    loadMoreBtn.addEventListener('click', function () {
+      loadMoreBtn.disabled = true; // guard against double-tap while loading
+      load(currentPage + 1, true).catch(function () { loadMoreBtn.disabled = false; });
+    });
+    if (listEl.parentNode) listEl.parentNode.insertBefore(loadMoreBtn, listEl.nextSibling);
+    return loadMoreBtn;
+  }
+
+  function updateLoadMore() {
+    if (hasNext) {
+      var btn = ensureLoadMoreBtn();
+      btn.hidden = false;
+      btn.disabled = false;
+    } else if (loadMoreBtn) {
+      loadMoreBtn.hidden = true;
     }
+  }
 
-    // Relative "time ago" label; falls back to DD/MM/YYYY past a week.
-    function relativeTime(d) {
-        var diff = Date.now() - d.getTime();
-        if (diff < 0) diff = 0;
-        var s = Math.floor(diff / 1000);
-        if (s < 60) return 'Vừa xong';
-        var m = Math.floor(s / 60);
-        if (m < 60) return m + ' phút';
-        var h = Math.floor(m / 60);
-        if (h < 24) return h + ' giờ';
-        var days = Math.floor(h / 24);
-        if (days < 7) return days + ' ngày';
-        return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
-    }
+  // Loads one root page. append=true keeps prior pages (load-more); false resets.
+  function load(page, append) {
+    return api('GET', base + '?page=' + page).then(function (data) {
+      data = data || {};
+      var comments = data.comments || [];
+      currentPage = typeof data.page === 'number' ? data.page : page;
+      hasNext = !!data.hasNext;
+      // Empty state only applies to the fresh first page.
+      if (!append && data.totalRoots === 0) {
+        listEl.textContent = '';
+        setStatus('Chưa có thảo luận nào. Hãy là người đầu tiên đặt câu hỏi.');
+        updateLoadMore();
+        return;
+      }
+      setStatus(null);
+      renderInto(comments, append);
+      updateLoadMore();
+    }).catch(function (err) {
+      if (!append) setStatus('Không tải được thảo luận. Vui lòng thử lại.');
+      throw err;
+    });
+  }
 
-    function el(tag, cls, text) {
-        var node = document.createElement(tag);
-        if (cls) node.className = cls;
-        if (text != null) node.textContent = text;
-        return node;
-    }
+  if (composer) {
+    composer.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var val = (composerInput.value || '').trim();
+      if (!val) { if (window.KshToast) window.KshToast.error(MSG_CONTENT_REQUIRED); return; }
+      mutate(api('POST', base, { content: val }), 'Đã gửi bình luận').then(function () {
+        composerInput.value = '';
+      });
+    });
+  }
 
-    function actionButton(label, danger, onClick) {
-        var b = el('button', 'lesson-comment-action' + (danger ? ' is-danger' : ''), label);
-        b.type = 'button';
-        b.addEventListener('click', onClick);
-        return b;
-    }
-
-    /**
-     * Builds a comment subtree. deps wires the DOM back to the orchestrator's data
-     * flow so this file stays purely presentational.
-     */
-    function createThread(deps) {
-        var api = deps.api, base = deps.base, mutate = deps.mutate, reload = deps.reload;
-        var MSG_CONTENT_REQUIRED = deps.contentRequiredMsg;
-
-        // Inline textarea + submit/cancel used by reply and edit flows.
-        function miniComposer(initial, submitLabel, onSubmit, onCancel) {
-            var wrap = el('div', 'lesson-comment-reply-box');
-            var ta = el('textarea', 'lesson-comments-input');
-            ta.rows = 2; ta.maxLength = 2000; ta.value = initial || '';
-            var actions = el('div', 'lesson-comments-composer-actions');
-            var submit = el('button', 'lesson-comments-reply-submit', submitLabel);
-            submit.type = 'button';
-            submit.addEventListener('click', function () {
-                var val = ta.value.trim();
-                if (!val) { if (window.KshToast) window.KshToast.error(MSG_CONTENT_REQUIRED); return; }
-                submit.disabled = true;
-                onSubmit(val).catch(function () { submit.disabled = false; });
-            });
-            var cancel = actionButton('Huỷ', false, onCancel);
-            actions.appendChild(submit);
-            actions.appendChild(cancel);
-            wrap.appendChild(ta);
-            wrap.appendChild(actions);
-            return wrap;
-        }
-
-        // Round avatar: author image when present, else initials on a colour gradient.
-        function avatar(c) {
-            var wrap = el('div', 'lesson-comment-avatar');
-            if (c.authorAvatarUrl) {
-                var img = el('img', 'lesson-comment-avatar-img');
-                img.src = c.authorAvatarUrl;
-                img.alt = '';
-                wrap.appendChild(img);
-            } else {
-                wrap.classList.add('is-fallback');
-                if (c.avatarGradient) wrap.style.background = c.avatarGradient; // server value
-                if (!c.deleted) wrap.textContent = c.avatarLabel || '?';
-            }
-            return wrap;
-        }
-
-        function bubble(c) {
-            var b = el('div', 'lesson-comment-bubble' + (c.deleted ? ' is-deleted' : ''));
-            b.appendChild(el('span', 'lesson-comment-author',
-                c.deleted ? 'Người dùng' : (c.authorName || 'Người dùng')));
-            if (c.lecturer && !c.deleted) b.appendChild(el('span', 'lesson-comment-badge', 'GV'));
-            var body = el('div', 'lesson-comment-body',
-                c.deleted ? '[Bình luận đã bị xoá]' : c.content);
-            b.appendChild(body);
-            return { bubble: b, body: body };
-        }
-
-        function actionRow(c, node, body) {
-            var row = el('div', 'lesson-comment-actions');
-            // Reply is offered on every level; the API clamps nesting back to 3.
-            row.appendChild(actionButton('Trả lời', false, function () { openReply(c, node); }));
-            if (c.canEdit) row.appendChild(actionButton('Sửa', false, function () { startEdit(c, body); }));
-            if (c.canDelete) row.appendChild(actionButton('Xoá', true, function () { confirmDelete(c, row); }));
-            var d = new Date(c.createdAt);
-            if (!isNaN(d.getTime())) {
-                var time = el('span', 'lesson-comment-time',
-                    relativeTime(d) + (c.edited ? ' · đã chỉnh sửa' : ''));
-                time.title = absoluteTime(d);
-                row.appendChild(time);
-            }
-            return row;
-        }
-
-        function commentNode(c, depth) {
-            var node = el('div', 'lesson-comment');
-            node.setAttribute('data-depth', depth);
-            node.appendChild(avatar(c));
-
-            var col = el('div', 'lesson-comment-col');
-            var parts = bubble(c);
-            col.appendChild(parts.bubble);
-            if (!c.deleted) col.appendChild(actionRow(c, node, parts.body));
-
-            // Reply composer mounts here, above any nested replies.
-            var replyMount = el('div', 'lesson-comment-reply-mount');
-            col.appendChild(replyMount);
-            node._replyMount = replyMount;
-
-            if (c.replies && c.replies.length) {
-                col.appendChild(repliesBlock(c, depth));
-            }
-
-            node.appendChild(col);
-            return node;
-        }
-
-        // Collapsed-by-default replies plus a "Xem N câu trả lời" / "Ẩn" toggle.
-        function repliesBlock(c, depth) {
-            var frag = document.createDocumentFragment();
-            var count = c.replies.length;
-            var wrap = el('div', 'lesson-comment-replies');
-            wrap.hidden = true;
-            var childDepth = Math.min(depth + 1, MAX_DEPTH);
-            c.replies.forEach(function (r) { wrap.appendChild(commentNode(r, childDepth)); });
-
-            var toggle = el('button', 'lesson-comment-toggle');
-            toggle.type = 'button';
-            function sync() {
-                toggle.textContent = wrap.hidden
-                    ? '▾ Xem ' + count + ' câu trả lời'
-                    : '▴ Ẩn câu trả lời';
-            }
-            sync();
-            toggle.addEventListener('click', function () {
-                wrap.hidden = !wrap.hidden;
-                sync();
-            });
-
-            frag.appendChild(toggle);
-            frag.appendChild(wrap);
-            return frag;
-        }
-
-        function openReply(c, node) {
-            var mount = node._replyMount;
-            if (!mount || mount.querySelector('.lesson-comment-reply-box')) return;
-            var box = miniComposer('', 'Gửi', function (val) {
-                return mutate(api('POST', base, { content: val, parentId: c.id }), 'Đã gửi trả lời');
-            }, function () { mount.textContent = ''; });
-            mount.appendChild(box);
-            var ta = box.querySelector('textarea');
-            if (ta) ta.focus();
-        }
-
-        function startEdit(c, body) {
-            var box = miniComposer(c.content, 'Lưu', function (val) {
-                return mutate(api('PUT', base + '/' + c.id, { content: val }), 'Đã cập nhật bình luận');
-            }, function () { reload(); });
-            body.replaceWith(box);
-        }
-
-        // Inline confirm (house rule bans native confirm/alert).
-        function confirmDelete(c, row) {
-            row.textContent = '';
-            row.appendChild(el('span', 'lesson-comment-time', 'Xoá bình luận này?'));
-            row.appendChild(actionButton('Xoá', true, function () {
-                mutate(api('DELETE', base + '/' + c.id), 'Đã xoá bình luận');
-            }));
-            row.appendChild(actionButton('Huỷ', false, function () { reload(); }));
-        }
-
-        return { node: commentNode };
-    }
-
-    window.KshCommentThread = createThread;
+  load(0, false);
 })();

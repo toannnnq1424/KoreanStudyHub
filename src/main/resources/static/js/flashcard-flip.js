@@ -1,4 +1,4 @@
-/* Flip study mode (ksh-5.x): flip front/back, next/prev, shuffle, counter.
+/* Flip study mode (KSH-5.x): flip front/back, next/prev, shuffle, counter.
  * User content is rendered with textContent (never innerHTML).
  */
 (function () {

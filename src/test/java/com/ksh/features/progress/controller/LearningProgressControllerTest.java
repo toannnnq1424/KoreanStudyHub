@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc tests for {@link LearningProgressController} (ksh-4.5): PRG redirect
+ * MockMvc tests for {@link LearningProgressController} (KSH-4.5): PRG redirect
  * with flash, 404 for outsiders, and CSRF enforcement.
  */
 @SpringBootTest

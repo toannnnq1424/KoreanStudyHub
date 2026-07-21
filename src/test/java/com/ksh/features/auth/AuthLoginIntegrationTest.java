@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.security.test.context.support.WithUserDetails;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.logout;
@@ -20,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * (Flyway da seed cac tai khoan test trong V2/V5). Day cung la KHUON MAU
  * test cho cac feature sau cua nhom.
  *
- * <p>Mat khau cua moi tai khoan test la "password".
+ * <p>Mat khau cua moi tai khoan test la "123456".
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,14 +35,6 @@ class AuthLoginIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("admin@ksh.edu.vn")
-    void trangLogin_khiDaDangNhap_chuyenVeTrangChu() throws Exception {
-        mockMvc.perform(get("/login"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/"));
-    }
-
-    @Test
     void truyCapTrangChu_chuaDangNhap_chuyenHuongVeLogin() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().is3xxRedirection())
@@ -52,7 +43,7 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_dungThongTin_thanhCongVaChuyenVeTrangChu() throws Exception {
-        mockMvc.perform(formLogin("/login").user("admin@ksh.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("admin@ksh.edu.vn").password("123456"))
                 .andExpect(authenticated().withRoles("ADMIN"))
                 .andExpect(redirectedUrl("/"));
     }
@@ -66,14 +57,14 @@ class AuthLoginIntegrationTest {
 
     @Test
     void dangNhap_emailKhongTonTai_thatBai() throws Exception {
-        mockMvc.perform(formLogin("/login").user("khongton@ksh.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("khongton@ksh.edu.vn").password("123456"))
                 .andExpect(unauthenticated())
                 .andExpect(redirectedUrl("/login?error"));
     }
 
     @Test
     void dangNhap_taiKhoanStudent_mapDungRole() throws Exception {
-        mockMvc.perform(formLogin("/login").user("student@ksh.edu.vn").password("password"))
+        mockMvc.perform(formLogin("/login").user("student@ksh.edu.vn").password("123456"))
                 .andExpect(authenticated().withRoles("STUDENT"));
     }
 

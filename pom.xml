@@ -39,7 +39,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
-		<!-- WebSocket (STOMP messaging for real-time chat, ksh-8.3) -->
+		<!-- WebSocket (STOMP messaging for real-time chat, KSH-8.3) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-websocket</artifactId>
@@ -83,14 +83,14 @@
 			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 
-		<!-- Apache POI: Excel parsing for student import (ksh-3.4) -->
+		<!-- Apache POI: Excel parsing for student import (KSH-3.4) -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
 			<version>5.2.5</version>
 		</dependency>
 
-		<!-- Jsoup: HTML sanitiser for Lesson rich-text body (ksh-4.0b) -->
+		<!-- Jsoup: HTML sanitiser for Lesson rich-text body (KSH-4.0b) -->
 		<dependency>
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
@@ -129,7 +129,7 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- STOMP-over-SockJS client assets for the messaging UI (ksh-8.3).
+		<!-- STOMP-over-SockJS client assets for the messaging UI (KSH-8.3).
 		     webjars-locator-core resolves version-agnostic /webjars/** paths. -->
 		<dependency>
 			<groupId>org.webjars</groupId>
@@ -159,6 +159,19 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

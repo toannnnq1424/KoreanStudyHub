@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════
-   ksh — Lessons tab (ksh-4.0a / Scope A redesign)
+   KSH — Lessons tab (KSH-4.0a / Scope A redesign)
    3-column shell: class-sidebar | folders (sections) | content (lessons
    placeholder). Folder list keeps drag-reorder, soft-delete, and inline
    search filter from the previous layout — the markup just moved into
@@ -265,7 +265,7 @@
   color: var(--color-heading-navy, #1e3a8a);
 }
 /* Single inline badge replacing the disabled-toolbar placeholder. Tells
-   the user the missing controls are intentional (ksh-4.0b feature) so
+   the user the missing controls are intentional (KSH-4.0b feature) so
    the page doesn't read as "broken". */
 .content-coming-badge {
   display: inline-flex; align-items: center;
@@ -399,7 +399,7 @@
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   Lesson list + form (ksh-4.0b)
+   Lesson list + form (KSH-4.0b)
    Co-located with section CSS because the lesson list is rendered inside
    the same lessons-tab page and the lesson form shares the detail-page
    design system.

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Ksh — Admin Departments page behaviour
+   KSH — Admin Departments page behaviour
    Flash → toast drain and row toggle (Hiện/Ẩn). Dropdown menus come from app.js.
    ══════════════════════════════════════════════════════════════════════════ */
 

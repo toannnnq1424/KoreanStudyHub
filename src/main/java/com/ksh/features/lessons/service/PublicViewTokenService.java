@@ -35,10 +35,10 @@ public class PublicViewTokenService {
     private final String appBaseUrl;
 
     public PublicViewTokenService(PublicViewTokenRepository tokenRepository,
-                                  LessonAttachmentRepository attachmentRepository,
-                                  LessonAttachmentStorageService storage,
-                                  LibraryStorageService libraryStorage,
-                                  @Value("${app.base-url:http://localhost:8080}") String appBaseUrl) {
+                                   LessonAttachmentRepository attachmentRepository,
+                                   LessonAttachmentStorageService storage,
+                                   LibraryStorageService libraryStorage,
+                                   @Value("${app.base-url:http://localhost:8080}") String appBaseUrl) {
         this.tokenRepository = tokenRepository;
         this.attachmentRepository = attachmentRepository;
         this.storage = storage;
@@ -95,6 +95,6 @@ public class PublicViewTokenService {
 
     /** Tuple returned by {@link #resolve} so the controller can stream the file. */
     public record AttachmentHandle(Path absolutePath, String originalFilename,
-                                   String mimeType, long sizeBytes) {
+                                    String mimeType, long sizeBytes) {
     }
 }

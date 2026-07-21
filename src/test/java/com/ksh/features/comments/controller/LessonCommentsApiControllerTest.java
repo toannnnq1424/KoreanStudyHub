@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc tests for {@link LessonCommentsApiController} (ksh-4.6): status codes,
+ * MockMvc tests for {@link LessonCommentsApiController} (KSH-4.6): status codes,
  * JSON envelope shape, and the authz matrix (404 for outsider / DRAFT, 400 for
  * bad input, 403 for cross-user delete).
  */
@@ -188,7 +188,7 @@ class LessonCommentsApiControllerTest {
                 .andExpect(jsonPath("$.ok").value(true));
     }
 
-    // ── Moderation: hide / unhide (ksh-11.7) ──────────────────────────
+    // ── Moderation: hide / unhide (KSH-11.7) ──────────────────────────
 
     @Test
     @WithUserDetails(LECTURER_EMAIL)

@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Application service for direct messaging (Epic #13, ksh-8.3 + ksh-8.4).
+ * Application service for direct messaging (Epic #13, KSH-8.3 + KSH-8.4).
  *
  * <p>Owns conversation creation (gated by {@link MessagingAccess}), listing,
  * opening (with read-marking), sending (with real-time STOMP push), the unread

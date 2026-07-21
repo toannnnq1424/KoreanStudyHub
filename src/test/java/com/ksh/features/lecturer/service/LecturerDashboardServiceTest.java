@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static com.ksh.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Integration tests for {@link LecturerDashboardService} aggregates. */
@@ -47,8 +46,7 @@ class LecturerDashboardServiceTest {
         assertThat(view.stats()).isEqualTo(TeachingStats.empty());
         assertThat(view.classes().getTotalElements()).isZero();
         assertThat(view.classes().getContent()).isEmpty();
-        // Empty page keeps the dashboard default size (W3).
-        assertThat(view.classes().getSize()).isEqualTo(DEFAULT_TEACHING_PAGE_SIZE);
+        assertThat(view.classes().getSize()).isEqualTo(20);
     }
 
     @Test

@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MockMvc integration tests for direct messaging (Epic #13, ksh-8.3 + ksh-8.4).
+ * MockMvc integration tests for direct messaging (Epic #13, KSH-8.3 + KSH-8.4).
  *
  * <p>Covers: the conversation list, the recipient gate at conversation start,
  * per-thread membership (404 no-leak for a foreign thread), the send flow (JSON

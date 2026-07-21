@@ -31,7 +31,7 @@ import static com.ksh.features.lessons.controller.support.AjaxResponses.internal
 import static com.ksh.features.lessons.controller.support.AjaxResponses.notFound;
 
 /**
- * JSON API for lesson comments (ksh-4.6) under
+ * JSON API for lesson comments (KSH-4.6) under
  * {@code /api/lessons/{lessonId}/comments}.
  *
  * <p>All authorization lives in {@link LessonCommentsService}; this

@@ -133,7 +133,7 @@ class ClassInviteCodeRepositoryTest {
     }
 
     private static String uniqueShortSuffix() {
-        // 4-char random suffix -> combined with prefix yields <=10 chars
+        // 4-char random suffix â†’ combined with prefix yields <=10 chars
         // so we fit comfortably under the column length 20.
         return Long.toString(System.nanoTime() % 100000, 36).toUpperCase();
     }

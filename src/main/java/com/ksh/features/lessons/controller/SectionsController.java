@@ -33,7 +33,7 @@ import static com.ksh.features.lessons.controller.support.SectionFormSupport.les
 import static com.ksh.features.lessons.controller.support.SectionFormSupport.sectionEditUrl;
 
 /**
- * Section CRUD form endpoints for the lessons tab (ksh-4.0a).
+ * Section CRUD form endpoints for the lessons tab (KSH-4.0a).
  *
  * <p>Create / rename run as full-page forms following the pattern of
  * {@code ClassesController.createForm/create}: GET renders the form, POST

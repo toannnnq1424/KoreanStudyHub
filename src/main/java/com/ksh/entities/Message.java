@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code messages} table (Epic #13, ksh-8.3).
+ * JPA entity mapping the {@code messages} table (Epic #13, KSH-8.3).
  *
  * <p>One row per message in a {@link Conversation}. "Unread" is derived, not
  * stored: a message counts as unread for the recipient while

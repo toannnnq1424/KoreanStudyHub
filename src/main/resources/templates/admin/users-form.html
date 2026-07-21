@@ -223,22 +223,22 @@
         <div class="admin-list-table-scroll">
           <table class="detail-table">
             <thead>
-            <tr>
-              <th>Loại</th>
-              <th>Nội dung</th>
-              <th>Người thực hiện</th>
-              <th>Thời điểm</th>
-            </tr>
+              <tr>
+                <th>Loại</th>
+                <th>Nội dung</th>
+                <th>Người thực hiện</th>
+                <th>Thời điểm</th>
+              </tr>
             </thead>
             <tbody>
-            <tr th:each="row : ${activitiesPage.content}">
-              <td>
-                <span class="detail-type-badge" th:text="${row.type()}">TYPE</span>
-              </td>
-              <td th:text="${row.message() != null ? row.message() : '—'}">message</td>
-              <td th:text="${row.actorEmail() != null ? row.actorEmail() : '—'}">actor</td>
-              <td th:text="${row.createdAt() != null ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm') : '—'}">—</td>
-            </tr>
+              <tr th:each="row : ${activitiesPage.content}">
+                <td>
+                  <span class="detail-type-badge" th:text="${row.type()}">TYPE</span>
+                </td>
+                <td th:text="${row.message() != null ? row.message() : '—'}">message</td>
+                <td th:text="${row.actorEmail() != null ? row.actorEmail() : '—'}">actor</td>
+                <td th:text="${row.createdAt() != null ? #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm') : '—'}">—</td>
+              </tr>
             </tbody>
           </table>
         </div>

@@ -26,7 +26,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Security configuration for the ksh application.
+ * Security configuration for the KSH application.
  *
  * <ul>
  *   <li>Form login — always active.</li>
@@ -72,7 +72,7 @@ public class SecurityConfig {
      *
      * <p>Redirects the user to {@code /login?error=oauth_unregistered} when an
      * OAuth2 authentication attempt fails (e.g. the Google account is not yet
-     * registered in ksh, or Google sign-in is currently disabled in the admin
+     * registered in KSH, or Google sign-in is currently disabled in the admin
      * panel).</p>
      *
      * @return an {@link AuthenticationFailureHandler} that redirects to the login error page
@@ -141,9 +141,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
+                        .requestMatchers(
+                                "/uploads/practice-audio/**",
+                                "/uploads/practice-images/**",
+                                "/uploads/lecturer-assets/**"
+                        ).denyAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
+                        .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/head/**").hasRole(Roles.HEAD)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)

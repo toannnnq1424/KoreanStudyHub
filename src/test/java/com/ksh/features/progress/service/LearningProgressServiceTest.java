@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link LearningProgressService} (ksh-4.5). Also
+ * Integration tests for {@link LearningProgressService} (KSH-4.5). Also
  * exercises {@link StudentLessonsService} aggregates so DRAFT-exclusion is
  * covered end-to-end against MySQL.
  */

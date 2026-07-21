@@ -39,7 +39,7 @@ import static com.ksh.features.lessons.controller.support.LessonFormSupport.less
 
 /**
  * View controller for the Lesson CRUD endpoints inside a class's lessons
- * tab (ksh-4.0b). JSON endpoints (delete, reorder) live on
+ * tab (KSH-4.0b). JSON endpoints (delete, reorder) live on
  * {@link LessonsApiController}.
  *
  * <p>Create / edit run as full-page forms following the

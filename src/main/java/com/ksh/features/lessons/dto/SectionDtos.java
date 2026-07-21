@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTOs for the section CRUD feature on the lessons tab (ksh-4.0a).
+ * DTOs for the section CRUD feature on the lessons tab (KSH-4.0a).
  *
  * <p>All section-related transport types are co-located in this single file
  * — the contract surface is small and stays comprehensible side by side.

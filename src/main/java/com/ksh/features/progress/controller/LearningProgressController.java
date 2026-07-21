@@ -16,7 +16,7 @@ import static com.ksh.common.IConstant.MSG_PROGRESS_MARKED_COMPLETE;
 import static com.ksh.common.IConstant.MSG_PROGRESS_MARKED_INCOMPLETE;
 
 /**
- * Handles the student "mark lesson complete" toggle (ksh-4.5).
+ * Handles the student "mark lesson complete" toggle (KSH-4.5).
  *
  * <p>POST-Redirect-Get: the toggle reloads the lessons page so every
  * aggregate (section counts, class percent, rail badges) refreshes at once.

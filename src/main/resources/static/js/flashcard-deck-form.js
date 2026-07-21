@@ -1,4 +1,4 @@
-/* Flashcard deck editor (ksh-5.x).
+/* Flashcard deck editor (KSH-5.x).
  *
  * Quizlet-style, text-only card rows: add / remove / reorder. The SINGLE submit
  * orchestrator validates the rows, saves the card set via AJAX, then lets the

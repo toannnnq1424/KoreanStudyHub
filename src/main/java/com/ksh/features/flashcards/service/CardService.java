@@ -20,7 +20,7 @@ import java.util.Set;
 import static com.ksh.common.IConstant.MSG_CARD_SIDE_BLANK;
 
 /**
- * Card bulk-save (full replace) + editor read (ksh-5.x).
+ * Card bulk-save (full replace) + editor read (KSH-5.x).
  *
  * <p>The editor submits the whole card list; {@link #replaceCards} diffs it
  * against the deck's current cards in one transaction: kept ids are updated

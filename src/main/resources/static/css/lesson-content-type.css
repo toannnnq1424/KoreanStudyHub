@@ -475,16 +475,16 @@
     padding: 28px 20px;
     text-align: center;
     background:
-            radial-gradient(circle at top, rgba(239, 68, 68, 0.05), transparent 60%),
-            #ffffff;
+        radial-gradient(circle at top, rgba(239, 68, 68, 0.05), transparent 60%),
+        #ffffff;
     cursor: pointer;
     transition: background .15s ease, border-color .15s ease, transform .15s ease;
 }
 .lpdf-drop:hover {
     border-color: #f87171;
     background:
-            radial-gradient(circle at top, rgba(239, 68, 68, 0.09), transparent 60%),
-            #fffafa;
+        radial-gradient(circle at top, rgba(239, 68, 68, 0.09), transparent 60%),
+        #fffafa;
 }
 .lpdf-drop:focus-visible {
     outline: 2px solid #ef4444;

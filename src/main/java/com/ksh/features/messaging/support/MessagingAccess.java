@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Recipient eligibility gate for direct messaging (Epic #13, ksh-8.3).
+ * Recipient eligibility gate for direct messaging (Epic #13, KSH-8.3).
  *
  * <p>The gate is intentionally NARROW: it decides whether one user may START a
  * new conversation with another, and it powers recipient search. It is NOT

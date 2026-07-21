@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Section CRUD service for the lessons tab (ksh-4.0a).
+ * Section CRUD service for the lessons tab (KSH-4.0a).
  *
  * <p>Covers list, create, rename, and soft-delete. Reorder + its
  * ordering-shape validation live on {@link SectionsReorderService}; this

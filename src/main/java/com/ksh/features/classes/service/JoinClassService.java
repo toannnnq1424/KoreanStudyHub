@@ -141,6 +141,11 @@ public class JoinClassService {
      */
     @Transactional
     public ClassEntity approve(Long classId, Long studentUserId, Long actorId, Role actorRole) {
+        // This must be the transaction's first database read. Under MySQL's
+        // default REPEATABLE READ isolation, locking later would leave the
+        // capacity query on a snapshot created before a competing approval.
+        classRepository.findByIdForUpdate(classId)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
         ClassEntity clazz = requireOwner(classId, actorId, actorRole);
         Enrollment row = enrollmentRepository.findByUserIdAndClassId(studentUserId, classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy yêu cầu tham gia"));
@@ -148,19 +153,28 @@ public class JoinClassService {
             throw new IllegalStateException("Yêu cầu không ở trạng thái chờ duyệt");
         }
 
-        validator.enforceCapacity(clazz);
-
-        // Increment use_count under lock when the original invite is still on the row.
+        // Lock the shared invite before re-checking capacity. Every CODE/LINK
+        // approval for this class uses the same invite row, so this serializes
+        // concurrent approvals for the final class slot as well as use_count.
+        // Checking capacity before acquiring the lock would let both transactions
+        // observe the same free slot and activate two enrollments.
+        ClassInviteCode lockedInvite = null;
         if (row.getInviteCodeId() != null) {
-            ClassInviteCode invite = inviteRepository.findByIdForUpdate(row.getInviteCodeId())
+            lockedInvite = inviteRepository.findByIdForUpdate(row.getInviteCodeId())
                     .orElse(null);
-            if (invite != null) {
-                if (invite.getMaxUses() != null && invite.getUseCount() >= invite.getMaxUses()) {
+            if (lockedInvite != null) {
+                if (lockedInvite.getMaxUses() != null
+                        && lockedInvite.getUseCount() >= lockedInvite.getMaxUses()) {
                     throw new IllegalStateException("Mã mời đã đạt giới hạn lượt dùng");
                 }
-                invite.incrementUseCount();
-                inviteRepository.save(invite);
             }
+        }
+
+        validator.enforceCapacity(clazz);
+
+        if (lockedInvite != null) {
+            lockedInvite.incrementUseCount();
+            inviteRepository.save(lockedInvite);
         }
 
         row.activateFromPending();

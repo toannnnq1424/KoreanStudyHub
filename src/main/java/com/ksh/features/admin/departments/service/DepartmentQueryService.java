@@ -3,7 +3,11 @@ package com.ksh.features.admin.departments.service;
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentActivityRow;
-import com.ksh.features.admin.departments.dto.DepartmentDtos.*;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentFilter;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentOption;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentRow;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.HeadCandidate;
 import com.ksh.features.admin.departments.repository.DepartmentActivityRepository;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
@@ -13,7 +17,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Read-only department queries for admin list/form screens.

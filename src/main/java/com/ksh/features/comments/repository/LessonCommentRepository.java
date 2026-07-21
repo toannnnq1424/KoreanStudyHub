@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Spring Data JPA repository for {@link Comment} (ksh-4.6).
+ * Spring Data JPA repository for {@link Comment} (KSH-4.6).
  *
  * <p>{@link Comment} deliberately has NO {@code @SQLRestriction}, so the reply
  * query below still returns soft-deleted rows — a deleted mid-thread node must
@@ -37,7 +37,7 @@ public interface LessonCommentRepository extends JpaRepository<Comment, Long> {
                                                       String moderationStatus);
 
     /**
-     * Moderator variant of the ROOT page query (ksh-11.7): loads non-deleted
+     * Moderator variant of the ROOT page query (KSH-11.7): loads non-deleted
      * roots whose {@code moderation_status} is in the given set, so a moderator
      * page includes hidden (REJECTED) roots alongside APPROVED ones. The student
      * path keeps calling the single-status method above.
