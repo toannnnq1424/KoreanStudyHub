@@ -967,6 +967,15 @@ class PracticeIntegrationTest {
     }
 
     @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void testProgressDeniedForLecturer() throws Exception {
+        mockMvc.perform(get("/practice/progress"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/practice/profile"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testProgressUsesPracticeAttemptSkillAndLinks() throws Exception {
         practiceSet.setSkill("MIXED");

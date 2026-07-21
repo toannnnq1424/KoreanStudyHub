@@ -202,7 +202,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("URL.createObjectURL"));
         assertTrue(excel.contains("uploadPendingMedia"));
         assertFalse(dashboard.contains("@{/practice/manage/excel}"));
-        assertTrue(dashboard.contains("Nhập Excel nằm trong từng phần kỹ năng"));
+        assertTrue(dashboard.contains("Excel import is available inside each skill section."));
     }
 
     @Test
@@ -301,6 +301,11 @@ class PracticePhase11AuthoringUiContractTest {
         String index = read("src/main/resources/templates/practice/index.html");
         String progress = read("src/main/resources/templates/practice/progress.html");
         String sidebar = read("src/main/resources/templates/fragments/practice-sidebar.html");
+        String header = read("src/main/resources/templates/fragments/app-header.html");
+        String security = read("src/main/java/com/ksh/config/SecurityConfig.java");
+        String controller = read("src/main/java/com/ksh/features/practice/controller/PracticeController.java");
+        String roles = read("src/main/java/com/ksh/security/Roles.java");
+        String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
 
         assertTrue(index.contains("Kho luyện tập | KSH"));
         assertTrue(index.contains("Bạch Hổ KSH"));
@@ -310,6 +315,25 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(index.contains("sec:authorize=\"hasRole('LECTURER')\""));
         assertFalse(index.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
         assertFalse(sidebar.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+        assertTrue(sidebar.contains("sec:authorize=\"hasRole('STUDENT')\""));
+        assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Luyện tập</span>"));
+        assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Manage Test Sets</span>"));
+        assertFalse(sidebar.contains("<span class=\"pi-nav-text\">Kho đề</span>"));
+
+        assertTrue(header.contains("class=\"dropdown nav-practice-dropdown\""));
+        assertTrue(header.contains("class=\"nav-practice-link\" th:href=\"@{/practice}\">Luyện tập</a>"));
+        assertTrue(header.contains("sec:authorize=\"hasRole('STUDENT')\" th:href=\"@{/practice/progress}\""));
+        assertTrue(header.contains("sec:authorize=\"hasRole('LECTURER')\" th:href=\"@{/practice/manage}\""));
+
+        assertTrue(roles.contains("PREAUTH_STUDENT = \"hasRole('STUDENT')\""));
+        assertTrue(security.contains(".requestMatchers(\"/practice/progress\", \"/practice/profile\").hasRole(Roles.STUDENT)"));
+        assertTrue(controller.contains("@GetMapping(PracticeRoutes.PROGRESS)\n    @PreAuthorize(Roles.PREAUTH_STUDENT)"));
+        assertTrue(index.contains("class=\"pc-side-section\" sec:authorize=\"hasRole('STUDENT')\""));
+
+        assertTrue(dashboard.contains("Manage Test Sets"));
+        assertTrue(dashboard.contains("My Test Sets"));
+        assertTrue(dashboard.contains("Other Lecturers' Test Sets"));
+        assertFalse(dashboard.contains("Học liệu của tôi"));
     }
 
     @Test

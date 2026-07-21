@@ -33,7 +33,9 @@
         </header>
 
         <th:block th:with="resume=${catalog.resumeCard()}">
-          <section class="pc-resume-banner" th:if="${resume != null}"
+          <section class="pc-resume-banner"
+                   sec:authorize="hasRole('STUDENT')"
+                   th:if="${resume != null}"
                    th:attr="data-primary-skill=${resume.primarySkill()}"
                    aria-labelledby="pc-resume-title">
             <div class="pc-resume-art" aria-hidden="true">
@@ -199,7 +201,7 @@
           </noscript>
         </section>
 
-        <section class="pc-side-section">
+        <section class="pc-side-section" sec:authorize="hasRole('STUDENT')">
           <div class="pc-side-section-heading">
             <h2>Tiến độ của tôi</h2>
             <a th:href="@{/practice/progress}">Xem chi tiết</a>

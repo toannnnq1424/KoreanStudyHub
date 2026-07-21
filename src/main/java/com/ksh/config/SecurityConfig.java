@@ -150,6 +150,7 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
+                        .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
                         .requestMatchers("/head/**").hasRole(Roles.HEAD)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)

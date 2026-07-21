@@ -30,6 +30,9 @@ public final class Roles {
     /** Exact lecturer role for practice authoring owned by lecturers only. */
     public static final String PREAUTH_LECTURER = "hasRole('LECTURER')";
 
+    /** Exact student role for learner-only practice progress and attempt pages. */
+    public static final String PREAUTH_STUDENT = "hasRole('STUDENT')";
+
     /** Comma-separated list usable for governance and reviewer-only routes. */
     public static final String HEAD_OR_ADMIN = "'HEAD','ADMIN'";
 
