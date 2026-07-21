@@ -47,6 +47,39 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     long countByClassIdAndStatus(Long classId, String status);
 
     /**
+     * Batch ACTIVE enrollment counts grouped by class id. Callers MUST pass a
+     * non-empty collection (empty {@code IN ()} is invalid SQL).
+     *
+     * @param classIds the classes to count
+     * @return one projection row per class that has at least one ACTIVE enrollment
+     */
+    @Query("SELECT e.classId AS classId, COUNT(e) AS cnt FROM Enrollment e "
+            + "WHERE e.classId IN :classIds AND e.status = 'ACTIVE' "
+            + "GROUP BY e.classId")
+    List<ClassCount> countActiveGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    /**
+     * Returns ACTIVE (classId, userId) pairs for the given classes. Used by the
+     * teaching dashboard to compute per-class averages without N+1. Callers MUST
+     * pass a non-empty collection.
+     */
+    @Query("SELECT e.classId AS classId, e.user.id AS userId FROM Enrollment e "
+            + "WHERE e.classId IN :classIds AND e.status = 'ACTIVE'")
+    List<ClassUserId> findActiveUserIdsByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    /** Projection for {@link #countActiveGroupedByClassIds}. */
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
+
+    /** Projection for {@link #findActiveUserIdsByClassIds}. */
+    interface ClassUserId {
+        Long getClassId();
+        Long getUserId();
+    }
+
+    /**
      * Returns the (at-most-one) enrollment row for the given
      * (user, class) pair regardless of status. Required by the join
      * pipeline to distinguish first-time joins, re-joins after
@@ -58,7 +91,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      */
     @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId AND e.classId = :classId")
     Optional<Enrollment> findByUserIdAndClassId(@Param("userId") Long userId,
-                                                 @Param("classId") Long classId);
+                                                @Param("classId") Long classId);
 
     /**
      * Returns all enrollments for the given user with the specified
@@ -73,7 +106,7 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
             "WHERE e.user.id = :userId AND e.status = :status " +
             "ORDER BY e.joinedAt DESC")
     List<Enrollment> findAllByUserIdAndStatusOrderByJoinedAtDesc(@Param("userId") Long userId,
-                                                                  @Param("status") String status);
+                                                                 @Param("status") String status);
 
     /**
      * Returns the number of currently ACTIVE enrollments for the

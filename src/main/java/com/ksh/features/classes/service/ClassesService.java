@@ -3,6 +3,7 @@ package com.ksh.features.classes.service;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.ClassInviteCode;
+import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.repository.ClassInviteCodeRepository;
@@ -37,7 +38,7 @@ import java.util.Objects;
  * </ul>
  *
  * <p>Caller identity is supplied directly by controllers from
- * {@code @AuthenticationPrincipal KshUserDetails} as {@code (Long userId, Role role)}.
+ * {@code @AuthenticationPrincipal kshUserDetails} as {@code (Long userId, Role role)}.
  * The service does not look up the caller by email — Spring Security has already
  * loaded the user during authentication, so a second SELECT per request would be
  * wasted work.
@@ -61,12 +62,13 @@ public class ClassesService {
                           ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
-                          InviteCodeService inviteCodeService) {
+                          InviteCodeService inviteCodeService,
+                          UserRepository userRepository) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, inviteCodeService);
+                codeGenerator, inviteCodeService, userRepository);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────

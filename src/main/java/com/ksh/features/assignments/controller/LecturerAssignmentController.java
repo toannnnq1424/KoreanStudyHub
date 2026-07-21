@@ -3,7 +3,7 @@ package com.ksh.features.assignments.controller;
 import com.ksh.entities.ClassEntity;
 import com.ksh.features.assignments.dto.AssignmentDtos.AssignmentForm;
 import com.ksh.features.assignments.dto.AssignmentDtos.GradeForm;
-import com.ksh.features.assignments.service.AssignmentService;
+import com.ksh.features.assignments.service.LecturerAssignmentService;
 import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.security.Roles;
@@ -38,11 +38,11 @@ import static com.ksh.common.IConstant.*;
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class LecturerAssignmentController {
 
-    private final AssignmentService assignmentService;
+    private final LecturerAssignmentService assignmentService;
     private final ClassRepository classRepository;
     private final ClassDetailModelSupport modelSupport;
 
-    public LecturerAssignmentController(AssignmentService assignmentService,
+    public LecturerAssignmentController(LecturerAssignmentService assignmentService,
                                         ClassRepository classRepository,
                                         ClassDetailModelSupport modelSupport) {
         this.assignmentService = assignmentService;

@@ -1,7 +1,8 @@
 package com.ksh.features.auth.repository;
 
-import com.ksh.features.admin.users.dto.UserRow;
 import com.ksh.entities.User;
+import com.ksh.features.admin.users.dto.UserRow;
+import com.ksh.security.Role;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -66,7 +69,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return number of users matching role AND is_active = 1 AND is_deleted = 0
      */
     @Query(value = "SELECT COUNT(*) FROM users " +
-                   "WHERE role = :role AND is_active = 1 AND is_deleted = 0",
+            "WHERE role = :role AND is_active = 1 AND is_deleted = 0",
             nativeQuery = true)
     long countActiveAdmins(@Param("role") String role);
 
@@ -119,40 +122,40 @@ public interface UserRepository extends JpaRepository<User, Long> {
      *                  {@code ORDER BY} fragment built in JPA)
      */
     @Query(value = "SELECT u.id AS id, " +
-                   "       u.full_name AS fullName, " +
-                   "       u.email AS email, " +
-                   "       u.role AS role, " +
-                   "       u.is_active AS active, " +
-                   "       u.is_locked AS locked, " +
-                   "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
-                   "       u.last_login_at AS lastLoginAt, " +
-                   "       u.created_at AS createdAt, " +
-                   "       u.avatar_url AS avatarUrl " +
-                   "FROM users u " +
-                   "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                   "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                   "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                   "    (:status IS NULL      AND u.is_deleted = 0)" +
-                   ") " +
-                   "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                   "AND (:q IS NULL OR :q = '' OR " +
-                   "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                   "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
+            "       u.full_name AS fullName, " +
+            "       u.email AS email, " +
+            "       u.role AS role, " +
+            "       u.is_active AS active, " +
+            "       u.is_locked AS locked, " +
+            "       u.is_deleted AS deleted, " +
+            "       u.department_id AS departmentId, " +
+            "       u.last_login_at AS lastLoginAt, " +
+            "       u.created_at AS createdAt, " +
+            "       u.avatar_url AS avatarUrl " +
+            "FROM users u " +
+            "WHERE (" +
+            "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+            "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+            "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+            "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+            "    (:status IS NULL      AND u.is_deleted = 0)" +
+            ") " +
+            "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+            "AND (:q IS NULL OR :q = '' OR " +
+            "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+            "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
             countQuery = "SELECT COUNT(*) FROM users u " +
-                         "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                         "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                         "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                         "    (:status IS NULL      AND u.is_deleted = 0)" +
-                         ") " +
-                         "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                         "AND (:q IS NULL OR :q = '' OR " +
-                         "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                         "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
+                    "WHERE (" +
+                    "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                    "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+                    "    (:status IS NULL      AND u.is_deleted = 0)" +
+                    ") " +
+                    "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+                    "AND (:q IS NULL OR :q = '' OR " +
+                    "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
             nativeQuery = true)
     Page<UserRow> searchUsersForAdmin(@Param("q") String q,
                                       @Param("role") String role,
@@ -161,49 +164,49 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts ASCENDING by role
-     * priority: ADMIN (1) -> HEAD (2) -> LECTURER (3) -> STUDENT (4), then by
+     * priority: ADMIN (1) â†’ HEAD (2) â†’ LECTURER (3) â†’ STUDENT (4), then by
      * {@code created_at} DESC as tie-breaker. Pageable's own sort is ignored
      * for ordering purposes because Spring Data does not bind ORDER BY
      * direction or expressions as parameters.
      */
     @Query(value = "SELECT u.id AS id, " +
-                   "       u.full_name AS fullName, " +
-                   "       u.email AS email, " +
-                   "       u.role AS role, " +
-                   "       u.is_active AS active, " +
-                   "       u.is_locked AS locked, " +
-                   "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
-                   "       u.last_login_at AS lastLoginAt, " +
-                   "       u.created_at AS createdAt, " +
-                   "       u.avatar_url AS avatarUrl " +
-                   "FROM users u " +
-                   "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                   "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                   "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                   "    (:status IS NULL      AND u.is_deleted = 0)" +
-                   ") " +
-                   "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                   "AND (:q IS NULL OR :q = '' OR " +
-                   "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                   "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
-                   "ORDER BY CASE u.role " +
-                   "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
-                   "  WHEN 'LECTURER' THEN 3 ELSE 4 END ASC, u.created_at DESC",
+            "       u.full_name AS fullName, " +
+            "       u.email AS email, " +
+            "       u.role AS role, " +
+            "       u.is_active AS active, " +
+            "       u.is_locked AS locked, " +
+            "       u.is_deleted AS deleted, " +
+            "       u.department_id AS departmentId, " +
+            "       u.last_login_at AS lastLoginAt, " +
+            "       u.created_at AS createdAt, " +
+            "       u.avatar_url AS avatarUrl " +
+            "FROM users u " +
+            "WHERE (" +
+            "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+            "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+            "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+            "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+            "    (:status IS NULL      AND u.is_deleted = 0)" +
+            ") " +
+            "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+            "AND (:q IS NULL OR :q = '' OR " +
+            "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+            "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
+            "ORDER BY CASE u.role " +
+            "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
+            "  WHEN 'LECTURER' THEN 3 ELSE 4 END ASC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
-                         "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                         "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                         "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                         "    (:status IS NULL      AND u.is_deleted = 0)" +
-                         ") " +
-                         "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                         "AND (:q IS NULL OR :q = '' OR " +
-                         "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                         "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
+                    "WHERE (" +
+                    "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                    "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+                    "    (:status IS NULL      AND u.is_deleted = 0)" +
+                    ") " +
+                    "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+                    "AND (:q IS NULL OR :q = '' OR " +
+                    "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
             nativeQuery = true)
     Page<UserRow> searchUsersForAdminByRolePriorityAsc(@Param("q") String q,
                                                        @Param("role") String role,
@@ -212,50 +215,56 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts DESCENDING by role
-     * priority: STUDENT -> LECTURER -> HEAD -> ADMIN, then by {@code created_at}
+     * priority: STUDENT â†’ LECTURER â†’ HEAD â†’ ADMIN, then by {@code created_at}
      * DESC as tie-breaker. See {@link #searchUsersForAdminByRolePriorityAsc}.
      */
     @Query(value = "SELECT u.id AS id, " +
-                   "       u.full_name AS fullName, " +
-                   "       u.email AS email, " +
-                   "       u.role AS role, " +
-                   "       u.is_active AS active, " +
-                   "       u.is_locked AS locked, " +
-                   "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
-                   "       u.last_login_at AS lastLoginAt, " +
-                   "       u.created_at AS createdAt, " +
-                   "       u.avatar_url AS avatarUrl " +
-                   "FROM users u " +
-                   "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                   "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                   "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                   "    (:status IS NULL      AND u.is_deleted = 0)" +
-                   ") " +
-                   "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                   "AND (:q IS NULL OR :q = '' OR " +
-                   "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                   "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
-                   "ORDER BY CASE u.role " +
-                   "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
-                   "  WHEN 'LECTURER' THEN 3 ELSE 4 END DESC, u.created_at DESC",
+            "       u.full_name AS fullName, " +
+            "       u.email AS email, " +
+            "       u.role AS role, " +
+            "       u.is_active AS active, " +
+            "       u.is_locked AS locked, " +
+            "       u.is_deleted AS deleted, " +
+            "       u.department_id AS departmentId, " +
+            "       u.last_login_at AS lastLoginAt, " +
+            "       u.created_at AS createdAt, " +
+            "       u.avatar_url AS avatarUrl " +
+            "FROM users u " +
+            "WHERE (" +
+            "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+            "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+            "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+            "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+            "    (:status IS NULL      AND u.is_deleted = 0)" +
+            ") " +
+            "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+            "AND (:q IS NULL OR :q = '' OR " +
+            "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+            "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
+            "ORDER BY CASE u.role " +
+            "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
+            "  WHEN 'LECTURER' THEN 3 ELSE 4 END DESC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
-                         "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
-                         "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
-                         "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
-                         "    (:status IS NULL      AND u.is_deleted = 0)" +
-                         ") " +
-                         "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
-                         "AND (:q IS NULL OR :q = '' OR " +
-                         "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
-                         "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
+                    "WHERE (" +
+                    "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                    "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
+                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
+                    "    (:status IS NULL      AND u.is_deleted = 0)" +
+                    ") " +
+                    "AND (:role IS NULL OR :role = '' OR u.role = :role) " +
+                    "AND (:q IS NULL OR :q = '' OR " +
+                    "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
+                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
             nativeQuery = true)
     Page<UserRow> searchUsersForAdminByRolePriorityDesc(@Param("q") String q,
                                                         @Param("role") String role,
                                                         @Param("status") String status,
                                                         Pageable pageable);
+
+    /**
+     * Active users in the given roles, ordered by name.
+     * Soft-deleted rows are excluded by the entity {@code @SQLRestriction}.
+     */
+    List<User> findByRoleInAndActiveTrueOrderByFullNameAsc(Collection<Role> roles);
 }
