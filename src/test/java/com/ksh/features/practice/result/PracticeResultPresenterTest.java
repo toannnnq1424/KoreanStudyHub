@@ -22,9 +22,10 @@ import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
-import com.ksh.features.practice.dto.PracticeDtos.ResultEvaluationBand;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingCriterionResult;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -47,6 +48,22 @@ import static org.mockito.Mockito.when;
 class PracticeResultPresenterTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void resultStateDoesNotDescribeTranscriptOnlySpeakingAsFullyScored() {
+        PracticeAttempt speaking = mock(PracticeAttempt.class);
+        when(speaking.getStatus()).thenReturn(PracticeAttempt.STATUS_GRADED);
+        when(speaking.getSkill()).thenReturn("SPEAKING");
+
+        PracticeAttempt writing = mock(PracticeAttempt.class);
+        when(writing.getStatus()).thenReturn(PracticeAttempt.STATUS_GRADED);
+        when(writing.getSkill()).thenReturn("WRITING");
+
+        assertThat(PracticeResultAssembler.resultState(speaking).label())
+                .isEqualTo("Đã xử lý phản hồi");
+        assertThat(PracticeResultAssembler.resultState(writing).label())
+                .isEqualTo("Đã chấm");
+    }
 
     @Test
     void objectiveOverviewPreservesPartialPendingUnansweredAndUnscorableStates() {
@@ -89,16 +106,219 @@ class PracticeResultPresenterTest {
         assertThat(result.answers().total()).isEqualTo(4);
         assertThat(result.answers().scoredDenominator()).isEqualTo(2);
         assertThat(result.feedback().state()).isEqualTo("PENDING");
+        assertThat(result.feedback().label()).isEqualTo("Giải thích đáp án đang được chuẩn bị");
         assertThat(result.score().available()).isTrue();
     }
 
     @Test
-    void koreanWritingKeepsOfficialRubricAndAddsFourNonDuplicatingAnalysisLensesForLongForm() {
+    void objectiveScoreRateUsesEarnedOverPossiblePointsInsteadOfAnswerAccuracy() {
+        AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
+        QuestionTypeResolver typeResolver = mock(QuestionTypeResolver.class);
+        AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
+        QuestionExplanationReadService explanations = mock(QuestionExplanationReadService.class);
+        ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
+                codec, typeResolver, scoringEngine, explanations);
+        List<PracticeQuestionVersion> questions = List.of(
+                objectiveQuestion(111L),
+                objectiveQuestion(112L));
+        when(typeResolver.resolve(anyString())).thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
+        when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
+        when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
+        when(codec.adaptLegacyLearnerAnswer(anyString(), anyString(), any()))
+                .thenReturn(mock(LearnerAnswer.class));
+        when(scoringEngine.score(any(), any(), any()))
+                .thenReturn(score(AssessmentScoreStatus.PARTIALLY_CORRECT, "1", "2"))
+                .thenReturn(score(AssessmentScoreStatus.CORRECT, "4", "4"));
+        when(explanations.availability(List.of(111L, 112L)))
+                .thenReturn(new ResultFeedbackAvailability("READY", "stale label", 2, 2));
+
+        PracticeResultPresenter.Presentation result = presenter.present(context(
+                "LISTENING",
+                questions,
+                Map.of("111", "partial", "112", "correct"),
+                null));
+        ObjectiveResultPayload payload = (ObjectiveResultPayload) result.payload();
+
+        assertThat(payload.breakdown()).singleElement().satisfies(row -> {
+            assertThat(row.answers().correct()).isEqualTo(1);
+            assertThat(row.answers().partial()).isEqualTo(1);
+            assertThat(row.pointsDisplay()).isEqualTo("5/6");
+            assertThat(row.scoreRatePercentage()).isEqualByComparingTo("83.33");
+            assertThat(row.scoreRateDisplay()).isEqualTo("83.33%");
+        });
+    }
+
+    @Test
+    void objectiveAliasesShareCanonicalGroupsAndUnsupportedTypesFailClosed() {
+        AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
+        QuestionTypeResolver typeResolver = new QuestionTypeResolver();
+        AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
+        QuestionExplanationReadService explanations = mock(QuestionExplanationReadService.class);
+        ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
+                codec, typeResolver, scoringEngine, explanations);
+        List<PracticeQuestionVersion> questions = List.of(
+                objectiveQuestion(115L, "MCQ"),
+                objectiveQuestion(116L, "MCQ_SINGLE"),
+                objectiveQuestion(117L, "SINGLE_CHOICE"),
+                objectiveQuestion(118L, "TFNG"),
+                objectiveQuestion(119L, "TRUE_FALSE_NOT_GIVEN"),
+                objectiveQuestion(120L, "GAP_FILL"),
+                objectiveQuestion(121L, "FILL_BLANK"),
+                objectiveQuestion(122L, "ALIEN_LEGACY_TYPE"));
+        when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
+        when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
+        when(codec.adaptLegacyLearnerAnswer(anyString(), anyString(), any()))
+                .thenReturn(mock(LearnerAnswer.class));
+        when(scoringEngine.score(any(), any(), any()))
+                .thenReturn(score(AssessmentScoreStatus.CORRECT, "1", "1"));
+        when(explanations.availability(List.of(115L, 116L, 117L, 118L, 119L, 120L, 121L, 122L)))
+                .thenReturn(new ResultFeedbackAvailability("UNAVAILABLE", "stale", 0, 8));
+
+        PracticeResultPresenter.Presentation result = presenter.present(context(
+                "READING",
+                questions,
+                Map.of("115", "a", "116", "b", "117", "c", "118", "d",
+                        "119", "e", "120", "f", "121", "g", "122", "h"),
+                null));
+        ObjectiveResultPayload payload = (ObjectiveResultPayload) result.payload();
+
+        assertThat(payload.breakdown()).hasSize(4);
+        assertThat(payload.breakdown().get(0).questionType()).isEqualTo("SINGLE_CHOICE");
+        assertThat(payload.breakdown().get(0).label()).isEqualTo("Trắc nghiệm một đáp án");
+        assertThat(payload.breakdown().get(0).answers().total()).isEqualTo(3);
+        assertThat(payload.breakdown().get(1).questionType()).isEqualTo("TRUE_FALSE_NOT_GIVEN");
+        assertThat(payload.breakdown().get(1).label())
+                .isEqualTo("Đúng, sai hoặc không có thông tin");
+        assertThat(payload.breakdown().get(1).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(2).questionType()).isEqualTo("FILL_BLANK");
+        assertThat(payload.breakdown().get(2).label()).isEqualTo("Điền từ");
+        assertThat(payload.breakdown().get(2).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(3).questionType()).isEqualTo("UNSCORABLE");
+        assertThat(payload.breakdown().get(3).label()).isEqualTo("Loại câu hỏi không thể chấm");
+        assertThat(payload.breakdown().get(3).answers().unscorable()).isEqualTo(1);
+        assertThat(payload.breakdown())
+                .extracting(row -> row.questionType())
+                .doesNotContain("MCQ", "MCQ_SINGLE", "TFNG", "GAP_FILL",
+                        "ALIEN_LEGACY_TYPE");
+    }
+
+    @Test
+    void objectiveScoreRateRemainsUnavailableForZeroDenominatorAndNullableSummary() {
+        AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
+        QuestionTypeResolver typeResolver = mock(QuestionTypeResolver.class);
+        AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
+        QuestionExplanationReadService explanations = mock(QuestionExplanationReadService.class);
+        ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
+                codec, typeResolver, scoringEngine, explanations);
+        PracticeQuestionVersion question = objectiveQuestion(121L);
+        when(typeResolver.resolve(anyString())).thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
+        when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
+        when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
+        when(codec.adaptLegacyLearnerAnswer(anyString(), anyString(), any()))
+                .thenReturn(mock(LearnerAnswer.class));
+        when(scoringEngine.score(any(), any(), any()))
+                .thenReturn(score(AssessmentScoreStatus.PENDING_AI, "0", "0"));
+        when(explanations.availability(List.of(121L)))
+                .thenReturn(new ResultFeedbackAvailability("UNAVAILABLE", "stale label", 0, 1));
+
+        PracticeResultPresenter.Presentation result = presenter.present(context(
+                "READING", List.of(question), Map.of("121", "pending"), null));
+        ObjectiveResultPayload payload = (ObjectiveResultPayload) result.payload();
+        ResultScoreSummary unavailable = new ResultScoreSummary(
+                null, null, null, null, "EARNED_POINTS", "Điểm đạt được", null);
+        ResultScoreSummary earnedWithoutStoredScore = new ResultScoreSummary(
+                null, BigDecimal.valueOf(5), null, null,
+                "EARNED_POINTS", "Điểm đạt được", null);
+
+        assertThat(payload.breakdown()).singleElement().satisfies(row -> {
+            assertThat(row.pointsDisplay()).isEqualTo("0/0");
+            assertThat(row.scoreRatePercentage()).isNull();
+            assertThat(row.scoreRateDisplay()).isNull();
+        });
+        assertThat(unavailable.available()).isFalse();
+        assertThat(unavailable.primaryDisplay()).isNull();
+        assertThat(unavailable.pointsDisplay()).isNull();
+        assertThat(earnedWithoutStoredScore.available()).isTrue();
+        assertThat(earnedWithoutStoredScore.primaryDisplay()).isEqualTo("5");
+        assertThat(earnedWithoutStoredScore.pointsDisplay()).isNull();
+    }
+
+    @Test
+    void objectiveFeedbackPreservesEveryExplanationLifecycleStateWithLearnerCopy() {
+        AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
+        QuestionTypeResolver typeResolver = mock(QuestionTypeResolver.class);
+        AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
+        QuestionExplanationReadService explanations = mock(QuestionExplanationReadService.class);
+        ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
+                codec, typeResolver, scoringEngine, explanations);
+        PracticeQuestionVersion question = objectiveQuestion(131L);
+        when(typeResolver.resolve(anyString())).thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
+        when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
+        when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
+        when(codec.adaptLegacyLearnerAnswer(anyString(), anyString(), any()))
+                .thenReturn(mock(LearnerAnswer.class));
+        when(scoringEngine.score(any(), any(), any()))
+                .thenReturn(score(AssessmentScoreStatus.CORRECT, "1", "1"));
+        when(explanations.availability(List.of(131L))).thenReturn(
+                new ResultFeedbackAvailability("READY", "stale", 1, 1),
+                new ResultFeedbackAvailability("PARTIAL", "stale", 1, 2),
+                new ResultFeedbackAvailability("PENDING", "stale", 0, 1),
+                new ResultFeedbackAvailability("FAILED", "stale", 0, 1),
+                new ResultFeedbackAvailability("UNAVAILABLE", "stale", 0, 1));
+        List<String> states = List.of("READY", "PARTIAL", "PENDING", "FAILED", "UNAVAILABLE");
+        List<String> labels = List.of(
+                "Giải thích đáp án đã sẵn sàng",
+                "Một phần giải thích đáp án đã sẵn sàng",
+                "Giải thích đáp án đang được chuẩn bị",
+                "Chưa thể cung cấp giải thích đáp án",
+                "Đề này hiện chưa có giải thích đáp án");
+
+        for (int index = 0; index < states.size(); index++) {
+            PracticeResultPresenter.Presentation result = presenter.present(context(
+                    "READING", List.of(question), Map.of("131", "answer"), null));
+            assertThat(result.feedback().state()).isEqualTo(states.get(index));
+            assertThat(result.feedback().label()).isEqualTo(labels.get(index));
+        }
+    }
+
+    @Test
+    void koreanWritingKeepsTaskNativeRubricsAndUsesScorelessDiagnosticLensesForLongForm() throws Exception {
         PracticeQuestionVersion q51 = writingQuestion(151L, 51, WritingTaskType.Q51);
+        PracticeQuestionVersion q52 = writingQuestion(152L, 52, WritingTaskType.Q52);
         PracticeQuestionVersion q53 = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeQuestionVersion q54 = writingQuestion(154L, 54, WritingTaskType.Q54);
+        String longKoreanPrompt = "한국 사회의 변화가 개인과 공동체에 미치는 영향을 설명하고 "
+                + "구체적인 근거를 들어 자신의 견해를 논리적으로 서술하십시오. ".repeat(8);
+        when(q54.getPrompt()).thenReturn(longKoreanPrompt);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
                 {
+                  "151": {
+                    "raw_score": 8,
+                    "raw_score_max": 10,
+                    "score_available": true,
+                    "rubric_scores": [
+                      {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":2,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_1_EXPRESSION","score":1,"maxScore":1},
+                      {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","score":1,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","score":1,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","score":1,"maxScore":1}
+                    ]
+                  },
+                  "152": {
+                    "raw_score": 7,
+                    "raw_score_max": 10,
+                    "score_available": true,
+                    "rubric_scores": [
+                      {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":1,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_1_EXPRESSION","score":1,"maxScore":1},
+                      {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","score":1,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","score":1,"maxScore":2},
+                      {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","score":1,"maxScore":1}
+                    ]
+                  },
                   "153": {
                     "raw_score": 24,
                     "raw_score_max": 30,
@@ -108,6 +328,20 @@ class PracticeResultPresenterTest {
                       {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":12,"feedback":"Đủ ý chính"},
                       {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9,"feedback":"Bố cục rõ"},
                       {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9,"feedback":"Diễn đạt phù hợp"}
+                    ],
+                    "strengths":[
+                      {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","category":"CONTENT","explanationVi":"Bao phủ đúng yêu cầu"},
+                      {"criterionId":"W_LANGUAGE_EXPRESSION","category":"VOCABULARY","explanationVi":"Dùng từ phù hợp"}
+                    ]
+                  },
+                  "154": {
+                    "raw_score": 40,
+                    "raw_score_max": 50,
+                    "score_available": true,
+                    "rubric_scores": [
+                      {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":16,"maxScore":20},
+                      {"criterionId":"W_ORGANIZATION_COHERENCE","score":12,"maxScore":15},
+                      {"criterionId":"W_LANGUAGE_EXPRESSION","score":12,"maxScore":15}
                     ]
                   }
                 }
@@ -116,33 +350,52 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = presenter.present(context(
                 "WRITING",
-                List.of(q51, q53),
-                Map.of("151", "short answer", "153", "long answer"),
+                List.of(q51, q52, q53, q54),
+                Map.of("151", "short answer", "152", "second short answer",
+                        "153", "long answer", "154", "longer answer"),
                 attempt));
         WritingResultPayload payload = (WritingResultPayload) result.payload();
 
-        assertThat(payload.tasks()).hasSize(2);
-        assertThat(payload.tasks().get(0).officialCriteria()).hasSize(6);
-        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
-        assertThat(payload.tasks().get(1).officialCriteria())
+        assertThat(payload.tasks()).hasSize(4);
+        assertThat(payload.tasks())
+                .extracting(task -> task.questionId())
+                .containsExactly(151L, 152L, 153L, 154L);
+        assertThat(payload.tasks().subList(0, 2)).allSatisfy(task -> {
+            assertThat(task.clozeTask()).isTrue();
+            assertThat(task.officialCriteria())
+                    .extracting(criterion -> criterion.maxScore())
+                    .containsExactly(
+                            BigDecimal.valueOf(2), BigDecimal.valueOf(2), BigDecimal.ONE,
+                            BigDecimal.valueOf(2), BigDecimal.valueOf(2), BigDecimal.ONE);
+            assertThat(task.analysisLenses()).isEmpty();
+        });
+        assertThat(payload.tasks().get(2).score().pointsDisplay()).isEqualTo("24/30");
+        assertThat(payload.tasks().get(2).officialCriteria())
                 .extracting(criterion -> criterion.label())
                 .containsExactly(
                         "Hoàn thành nhiệm vụ và Nội dung",
                         "Cấu trúc và Mạch lạc",
                         "Ngôn ngữ và Biểu đạt");
-        assertThat(payload.tasks().get(1).analysisLenses())
+        assertThat(payload.tasks().get(2).analysisLenses())
                 .extracting(lens -> lens.label())
                 .containsExactly(
                         "Nhiệm vụ và Nội dung",
                         "Cấu trúc và mạch lạc",
                         "Từ vựng và Diễn đạt",
                         "Ngữ pháp và Độ chính xác");
-        assertThat(payload.tasks().get(1).analysisLenses().subList(2, 4))
-                .allSatisfy(lens -> {
-                    assertThat(lens.countedSeparately()).isFalse();
-                    assertThat(lens.band()).isEqualTo(ResultEvaluationBand.UNAVAILABLE);
-                    assertThat(lens.score()).isNull();
-                });
+        assertThat(payload.tasks().get(2).analysisLenses().get(0).evidence())
+                .contains("Bao phủ đúng yêu cầu");
+        assertThat(payload.tasks().get(2).analysisLenses().get(2).evidence())
+                .contains("Dùng từ phù hợp");
+        assertThat(objectMapper.writeValueAsString(payload.tasks().get(2).analysisLenses()))
+                .doesNotContain("\"score\"", "\"maxScore\"", "\"percentage\"", "\"band\"",
+                        "\"countedSeparately\"");
+        assertThat(payload.tasks().get(3).score().pointsDisplay()).isEqualTo("40/50");
+        assertThat(payload.tasks().get(3).prompt()).isEqualTo(longKoreanPrompt);
+        assertThat(payload.tasks().get(3).officialCriteria())
+                .extracting(criterion -> criterion.maxScore())
+                .containsExactly(BigDecimal.valueOf(20), BigDecimal.valueOf(15), BigDecimal.valueOf(15));
+        assertThat(payload.tasks()).allSatisfy(task -> assertThat(task.detailAvailable()).isTrue());
     }
 
     @Test
@@ -167,6 +420,7 @@ class PracticeResultPresenterTest {
         assertThat(payload.tasks().get(0).score().pointsDisplay()).isEqualTo("10/10");
         assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
         assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+        assertThat(payload.tasks().get(0).detailAvailable()).isFalse();
     }
 
     @Test
@@ -189,6 +443,60 @@ class PracticeResultPresenterTest {
         assertThat(result.answers().unscorable()).isZero();
         assertThat(result.answers().scoredDenominator()).isZero();
         assertThat(result.score().available()).isFalse();
+        WritingResultPayload payload = (WritingResultPayload) result.payload();
+        assertThat(payload.tasks().get(0).evaluated()).isFalse();
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
+        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+    }
+
+    @Test
+    void writingUnavailableFeedbackDoesNotFabricateScoreRubricOrDiagnostics() {
+        PracticeQuestionVersion question = writingQuestion(154L, 54, WritingTaskType.Q54);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"154":{"evaluation_status":"EVALUATION_UNAVAILABLE",
+                  "evaluation_reason":"PROVIDER_UNAVAILABLE","score_available":false}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING",
+                List.of(question),
+                Map.of("154", "Bài viết đã được nộp"),
+                attempt));
+        WritingResultPayload payload = (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(payload.tasks().get(0).answered()).isTrue();
+        assertThat(payload.tasks().get(0).evaluated()).isFalse();
+        assertThat(payload.tasks().get(0).score().available()).isFalse();
+        assertThat(payload.tasks().get(0).score().scaleLabel()).isEqualTo("Thang điểm 50");
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
+        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+    }
+
+    @Test
+    void writingRejectsRubricRowsWhoseMaxDoesNotMatchTheTaskPolicy() {
+        PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{"raw_score":24,"raw_score_max":30,"score_available":true,
+                  "rubric_scores":[
+                    {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":10},
+                    {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9},
+                    {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9}
+                  ]}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING", List.of(question), Map.of("153", "Bài viết đã nộp"), attempt));
+        WritingResultPayload payload = (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(payload.tasks().get(0).score().available()).isFalse();
+        assertThat(payload.tasks().get(0).score().scaleLabel()).isEqualTo("Thang điểm 30");
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
+        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
     }
 
     @Test
@@ -209,11 +517,8 @@ class PracticeResultPresenterTest {
         assertThat(result.answers().unscorable()).isEqualTo(1);
         assertThat(payload.tasks().get(0).score().available()).isFalse();
         assertThat(payload.tasks().get(0).summary()).isNull();
-        assertThat(payload.tasks().get(0).officialCriteria())
-                .allSatisfy(criterion -> {
-                    assertThat(criterion.score()).isNull();
-                    assertThat(criterion.band()).isEqualTo(ResultEvaluationBand.UNAVAILABLE);
-                });
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
+        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
     }
 
     @Test
@@ -260,8 +565,8 @@ class PracticeResultPresenterTest {
         assertThat(result.score().available()).isFalse();
         assertThat(payload.tasks().get(0).feedback().state()).isEqualTo("UNAVAILABLE");
         assertThat(payload.tasks().get(0).score().available()).isFalse();
-        assertThat(payload.tasks().get(0).officialCriteria())
-                .allSatisfy(criterion -> assertThat(criterion.score()).isNull());
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
+        assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
     }
 
     @Test
@@ -271,23 +576,49 @@ class PracticeResultPresenterTest {
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
                 {
+                  "_contract":"speaking_ai_v1",
                   "speaking_feedback_by_question": {
                     "201": {
-                      "summary_vi":"Ý chính rõ nhưng cần nói liền mạch hơn.",
-                      "score":4,
-                      "rubric_scores":[
-                        {"score":4,"feedback":"Nội dung 1"},{"score":4,"feedback":"Ngữ pháp 1"},
-                        {"score":4,"feedback":"Từ vựng 1"},{"score":4,"feedback":"Mạch lạc 1"},
-                        {"score":4,"feedback":"Lưu loát 1"},{"score":4,"feedback":"Phát âm 1"}
+                      "evaluationStatus":"EVALUATED","scoreAvailable":false,"source":"PROVIDER",
+                      "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                      "evidenceMode":"TRANSCRIPT_ONLY",
+                      "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                      "contractTrust":"CURRENT_VERIFIED",
+                      "promptVersion":"speaking-eval-v3-transcript-language-only",
+                      "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "actuallyHeardTranscript":"first transcript",
+                      "overallSummary":"Ý chính rõ và đúng chủ đề.",
+                      "actionPlan":[
+                        {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","subCriterionId":"S_GRAMMAR_PARTICLES","title":"Ôn trợ từ theo bản chép lời","instruction":"Sửa ba câu dùng trợ từ chưa phù hợp.","reason":"Củng cố kiểm soát câu.","priority":"HIGH"}
+                      ],
+                      "rubricScores":[
+                        {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"feedback":"Nội dung 1","availability":"SCORED"},
+                        {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":16,"maxScore":20,"feedback":"Ngữ pháp 1","availability":"SCORED"},
+                        {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"maxScore":15,"feedback":"Từ vựng 1","availability":"SCORED"},
+                        {"criterion":"S_COHERENCE_ORGANIZATION","score":12,"maxScore":15,"feedback":"Mạch lạc 1","availability":"SCORED"},
+                        {"criterion":"S_FLUENCY","score":null,"maxScore":null,"feedback":"Chưa chấm","availability":"NOT_SCORABLE"},
+                        {"criterion":"S_PRONUNCIATION_DELIVERY","score":null,"maxScore":null,"feedback":"Chưa chấm","availability":"NOT_SCORABLE"}
                       ]
                     },
                     "202": {
-                      "summary_vi":"Diễn đạt phù hợp và có tiến bộ.",
-                      "score":5,
-                      "rubric_scores":[
-                        {"score":5,"feedback":"Nội dung 2"},{"score":5,"feedback":"Ngữ pháp 2"},
-                        {"score":5,"feedback":"Từ vựng 2"},{"score":5,"feedback":"Mạch lạc 2"},
-                        {"score":5,"feedback":"Lưu loát 2"},{"score":5,"feedback":"Phát âm 2"}
+                      "evaluationStatus":"EVALUATED","scoreAvailable":false,"source":"PROVIDER",
+                      "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                      "evidenceMode":"TRANSCRIPT_ONLY",
+                      "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                      "contractTrust":"CURRENT_VERIFIED",
+                      "promptVersion":"speaking-eval-v3-transcript-language-only",
+                      "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "actuallyHeardTranscript":"second transcript",
+                      "overallSummary":"Diễn đạt phù hợp và có tiến bộ.",
+                      "rubricScores":[
+                        {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":18,"maxScore":20,"feedback":"Nội dung 2","availability":"SCORED"},
+                        {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":17,"maxScore":20,"feedback":"Ngữ pháp 2","availability":"SCORED"},
+                        {"criterion":"S_VOCABULARY_EXPRESSIONS","score":13,"maxScore":15,"feedback":"Từ vựng 2","availability":"SCORED"},
+                        {"criterion":"S_COHERENCE_ORGANIZATION","score":13,"maxScore":15,"feedback":"Mạch lạc 2","availability":"SCORED"},
+                        {"criterion":"S_FLUENCY","score":null,"maxScore":null,"feedback":"Chưa chấm","availability":"NOT_SCORABLE"},
+                        {"criterion":"S_PRONUNCIATION_DELIVERY","score":null,"maxScore":null,"feedback":"Chưa chấm","availability":"NOT_SCORABLE"}
                       ]
                     }
                   }
@@ -309,15 +640,246 @@ class PracticeResultPresenterTest {
         assertThat(payload.coveredSegments()).isEqualTo(2);
         assertThat(payload.totalSegments()).isEqualTo(2);
         assertThat(payload.overallSummaries()).hasSize(2);
-        assertThat(payload.criteria()).hasSize(6)
-                .allSatisfy(criterion -> assertThat(criterion.coveredSegments()).isEqualTo(2));
+        assertThat(payload.criteria()).hasSize(6);
+        assertThat(payload.criteria().stream()
+                .filter(criterion -> !criterion.criterionId().equals("S_FLUENCY")
+                        && !criterion.criterionId().equals("S_PRONUNCIATION_DELIVERY")))
+                .allSatisfy(criterion -> {
+                    assertThat(criterion.coveredSegments()).isEqualTo(2);
+                    assertThat(criterion.availability()).isEqualTo("SCORED");
+                });
         assertThat(payload.criteria().stream()
                 .filter(criterion -> criterion.criterionId().equals("S_FLUENCY")
                         || criterion.criterionId().equals("S_PRONUNCIATION_DELIVERY")))
-                .allMatch(criterion -> criterion.advisoryOnly());
+                .allSatisfy(criterion -> {
+                    assertThat(criterion.availability()).isEqualTo("NOT_SCORABLE");
+                    assertThat(criterion.score()).isNull();
+                    assertThat(criterion.percentage()).isNull();
+                    assertThat(criterion.scoreDisplay()).isNull();
+                });
         assertThat(payload.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
-        assertThat(payload.holisticScore().available()).isTrue();
+        assertThat(payload.evaluatorCapability()).isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(payload.contractTrust()).isEqualTo("CURRENT_VERIFIED");
+        assertThat(payload.profileState()).isEqualTo("READY");
+        assertThat(payload.holisticScoreAvailable()).isFalse();
+        assertThat(payload.holisticScore().available()).isFalse();
+        assertThat(payload.actionPlan()).singleElement().satisfies(item -> {
+            assertThat(item.criterionId()).isEqualTo("S_GRAMMAR_SENTENCE_CONTROL");
+            assertThat(item.subcriterionId()).isEqualTo("S_GRAMMAR_PARTICLES");
+        });
+        assertThat(objectMapper.writeValueAsString(payload.actionPlan()))
+                .doesNotContain("S_FLUENCY", "S_PRONUNCIATION", "ngữ điệu", "phát âm");
         assertThat(objectMapper.writeValueAsString(payload)).doesNotContain("questionId");
+    }
+
+    @Test
+    void speakingPartialCoverageKeepsMissingSegmentsOutOfScoresAndCoverage() {
+        PracticeQuestionVersion ready = speakingQuestion(201L);
+        PracticeQuestionVersion pending = speakingQuestion(202L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {
+                  "_contract":"speaking_ai_v1",
+                  "speaking_feedback_by_question":{
+                    "201":{
+                      "evaluationStatus":"EVALUATED","scoreAvailable":false,"source":"PROVIDER",
+                      "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                      "evidenceMode":"TRANSCRIPT_ONLY",
+                      "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                      "contractTrust":"CURRENT_VERIFIED",
+                      "promptVersion":"speaking-eval-v3-transcript-language-only",
+                      "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "actuallyHeardTranscript":"ready transcript",
+                      "rubricScores":[
+                        {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
+                        {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":15,"maxScore":20,"availability":"SCORED"},
+                        {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"maxScore":15,"availability":"SCORED"},
+                        {"criterion":"S_COHERENCE_ORGANIZATION","score":11,"maxScore":15,"availability":"SCORED"},
+                        {"criterion":"S_FLUENCY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"},
+                        {"criterion":"S_PRONUNCIATION_DELIVERY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"}
+                      ]
+                    },
+                    "202":{"evaluationStatus":"PROCESSING"}
+                  }
+                }
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(ready, pending),
+                Map.of("201", "ready transcript", "202", "pending transcript"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("PARTIAL");
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("PARTIAL");
+        assertThat(payload.coveredSegments()).isEqualTo(1);
+        assertThat(payload.totalSegments()).isEqualTo(2);
+        assertThat(payload.criteria().stream().filter(SpeakingCriterionResult::scored))
+                .hasSize(4)
+                .allSatisfy(criterion -> {
+                    assertThat(criterion.coveredSegments()).isEqualTo(1);
+                    assertThat(criterion.totalSegments()).isEqualTo(2);
+                });
+        assertThat(payload.criteria().stream().filter(SpeakingCriterionResult::notScorable))
+                .hasSize(2)
+                .allSatisfy(criterion -> assertThat(criterion.score()).isNull());
+    }
+
+    @Test
+    void speakingCurrentLowConfidenceTranscriptKeepsProvenanceWithoutCreatingScoresOrCoverage() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {
+                  "_contract":"speaking_ai_v1",
+                  "speaking_feedback_by_question":{"201":{
+                    "evaluationStatus":"TRANSCRIPTION_LOW_CONFIDENCE",
+                    "scoreAvailable":false,
+                    "source":"PROVIDER",
+                    "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                    "evidenceMode":"TRANSCRIPT_ONLY",
+                    "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                    "contractTrust":"CURRENT_VERIFIED",
+                    "promptVersion":"speaking-eval-v3-transcript-language-only",
+                    "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "actuallyHeardTranscript":"들은 문장",
+                    "transcriptConfidence":0.31,
+                    "rubricScores":[],
+                    "criterionFeedback":[]
+                  }}
+                }
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(question), Map.of("201", "들은 문장"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("LOW_CONFIDENCE");
+        assertThat(result.feedback().label()).isEqualTo("Bản chép lời có độ tin cậy thấp");
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(result.answers().correct()).isZero();
+        assertThat(result.answers().partial()).isZero();
+        assertThat(result.answers().incorrect()).isZero();
+        assertThat(result.answers().scoredDenominator()).isZero();
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("LOW_CONFIDENCE");
+        assertThat(payload.coveredSegments()).isZero();
+        assertThat(payload.evaluatorCapability())
+                .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(payload.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
+        assertThat(payload.evidenceContractVersion())
+                .isEqualTo("speaking-evidence-v1-transcript-language-only");
+        assertThat(payload.contractTrust()).isEqualTo("CURRENT_VERIFIED");
+        assertThat(payload.holisticScoreAvailable()).isFalse();
+        assertThat(payload.holisticScore().available()).isFalse();
+        assertThat(payload.profileTitle()).isEqualTo("Bản chép lời có độ tin cậy thấp");
+        assertThat(payload.profileStateDescription()).contains("không đủ tin cậy để chấm tiêu chí");
+        assertThat(payload.evidenceSourceLabel()).contains("độ tin cậy thấp");
+        assertThat(payload.evidenceNote()).contains("không được dùng để chấm tiêu chí");
+        assertThat(payload.actionPlan()).isEmpty();
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.coveredSegments()).isZero();
+            assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.weight()).isNull();
+            assertThat(criterion.percentage()).isNull();
+        });
+    }
+
+    @Test
+    void speakingReservedDirectAudioCapabilityFailsClosedUntilGovernedFlagsAreEnabled() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {
+                  "_contract":"speaking_ai_v1",
+                  "speaking_feedback_by_question":{"201":{
+                    "evaluationStatus":"EVALUATED","scoreAvailable":true,"source":"PROVIDER",
+                    "evaluatorCapability":"AUDIO_DIRECT_FULL_RESERVED",
+                    "evidenceMode":"DIRECT_AUDIO_AND_TRANSCRIPT",
+                    "evidenceContractVersion":"speaking-evidence-future-audio-direct-reserved",
+                    "contractTrust":"CURRENT_VERIFIED","overallScore":92,
+                    "rubricScores":[
+                      {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":18,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":18,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_VOCABULARY_EXPRESSIONS","score":14,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_COHERENCE_ORGANIZATION","score":14,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_FLUENCY","score":14,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_PRONUNCIATION_DELIVERY","score":14,"maxScore":15,"availability":"SCORED"}
+                    ]
+                  }}
+                }
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
+        assertThat(payload.holisticScoreAvailable()).isFalse();
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.weight()).isNull();
+        });
+    }
+
+    @Test
+    void speakingLegacySixCriterionScoreIsIdentifiedAndNeverUpgraded() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"speaking_feedback_by_question":{"201":{
+                  "score":8,"percentage":88.89,"summary_vi":"Kết quả cũ",
+                  "rubric_scores":[
+                    {"score":8},{"score":8},{"score":8},
+                    {"score":8},{"score":8},{"score":8}
+                  ]
+                }}}
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(question), Map.of("201", "legacy transcript"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(payload.coveredSegments()).isZero();
+        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
+        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.evidenceContractVersion()).isNull();
+        assertThat(payload.holisticScoreAvailable()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.weight()).isNull();
+            assertThat(criterion.percentage()).isNull();
+            assertThat(criterion.scoreDisplay()).isNull();
+        });
     }
 
     @Test
@@ -344,7 +906,88 @@ class PracticeResultPresenterTest {
         assertThat(result.answers().unscorable()).isZero();
         assertThat(result.answers().scoredDenominator()).isZero();
         assertThat(result.score().available()).isFalse();
-        assertThat(((SpeakingResultPayload) result.payload()).holisticScore().available()).isFalse();
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+        assertThat(payload.holisticScore().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("PENDING");
+        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
+        assertThat(payload.evidenceContractVersion()).isNull();
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.weight()).isNull();
+        });
+    }
+
+    @Test
+    void speakingMissingFeedbackRemainsPendingWithoutFabricatingZero() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn(null);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("PENDING");
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("PENDING");
+        assertThat(payload.coveredSegments()).isZero();
+        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
+        assertThat(payload.evidenceContractVersion()).isNull();
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.scoreDisplay()).isNull();
+        });
+    }
+
+    @Test
+    void speakingCurrentContractFailureIsUnavailableRatherThanZero() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {
+                  "_contract":"speaking_ai_v1",
+                  "speaking_feedback_by_question":{"201":{
+                    "evaluationStatus":"EVALUATION_UNAVAILABLE","scoreAvailable":false,
+                    "source":"PROVIDER",
+                    "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                    "evidenceMode":"TRANSCRIPT_ONLY",
+                    "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                    "contractTrust":"CURRENT_VERIFIED",
+                    "promptVersion":"speaking-eval-v3-transcript-language-only",
+                    "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "rubricScores":[]
+                  }}
+                }
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.profileState()).isEqualTo("FAILED");
+        assertThat(payload.coveredSegments()).isZero();
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.scoreDisplay()).isNull();
+        });
     }
 
     @Test
@@ -387,14 +1030,79 @@ class PracticeResultPresenterTest {
                 attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
-        assertThat(result.feedback().state()).isEqualTo("READY");
-        assertThat(payload.coveredSegments()).isEqualTo(2);
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(payload.coveredSegments()).isZero();
         assertThat(payload.totalSegments()).isEqualTo(2);
         assertThat(payload.overallSummaries())
-                .contains("Phần nói rõ ý.", "Phần trả lời viết lịch sử đã được giữ lại.");
+                .containsExactly("Phần trả lời viết lịch sử đã được giữ lại.");
         assertThat(payload.criteria())
-                .allSatisfy(criterion -> assertThat(criterion.coveredSegments()).isEqualTo(1));
+                .allSatisfy(criterion -> {
+                    assertThat(criterion.coveredSegments()).isZero();
+                    assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
+                    assertThat(criterion.score()).isNull();
+                });
+        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(2);
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(objectMapper.writeValueAsString(payload)).doesNotContain("questionId");
+    }
+
+    @Test
+    void speakingMixedCurrentTranscriptAndLegacyEssayCountsOnlyCurrentCoverage() {
+        PracticeQuestionVersion speaking = speakingQuestion(211L);
+        PracticeQuestionVersion legacyEssay = speakingLegacyEssayQuestion(212L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {
+                  "_contract":"speaking_mixed_v1",
+                  "speaking_feedback_by_question":{"211":{
+                    "evaluationStatus":"EVALUATED","scoreAvailable":false,"source":"PROVIDER",
+                    "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                    "evidenceMode":"TRANSCRIPT_ONLY",
+                    "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                    "contractTrust":"CURRENT_VERIFIED",
+                    "promptVersion":"speaking-eval-v3-transcript-language-only",
+                    "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "actuallyHeardTranscript":"current transcript",
+                    "rubricScores":[
+                      {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":15,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_COHERENCE_ORGANIZATION","score":11,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_FLUENCY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"},
+                      {"criterion":"S_PRONUNCIATION_DELIVERY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"}
+                    ]
+                  }},
+                  "essay_feedback_by_question":{"212":{
+                    "raw_score":8,"raw_score_max":10,
+                    "summary_vi":"Bản sao lịch sử chỉ để đọc."
+                  }}
+                }
+                """);
+
+        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper()).present(context(
+                "SPEAKING", List.of(speaking, legacyEssay),
+                Map.of("211", "current transcript", "212", "legacy written response"), attempt));
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("PARTIAL");
+        assertThat(payload.coveredSegments()).isEqualTo(1);
+        assertThat(payload.totalSegments()).isEqualTo(2);
+        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
+        assertThat(payload.contractTrust()).isEqualTo("MIXED_WITH_LEGACY_UNVERIFIED");
+        assertThat(payload.evaluatorCapability())
+                .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(payload.profileState()).isEqualTo("PARTIAL");
+        assertThat(payload.criteria().stream().filter(SpeakingCriterionResult::scored))
+                .hasSize(4)
+                .allSatisfy(row -> assertThat(row.coveredSegments()).isEqualTo(1));
+        assertThat(payload.holisticScoreAvailable()).isFalse();
     }
 
     @Test
@@ -421,10 +1129,17 @@ class PracticeResultPresenterTest {
                 attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
-        assertThat(result.feedback().state()).isEqualTo("READY");
-        assertThat(payload.coveredSegments()).isEqualTo(1);
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(payload.coveredSegments()).isZero();
         assertThat(payload.overallSummaries())
                 .containsExactly("Phản hồi phẳng của câu lịch sử vẫn khả dụng.");
+        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.criteria()).allSatisfy(criterion -> {
+            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(criterion.score()).isNull();
+        });
         assertThat(objectMapper.writeValueAsString(payload)).doesNotContain("questionId");
     }
 
@@ -455,6 +1170,11 @@ class PracticeResultPresenterTest {
         assertThat(result.feedback().state()).isEqualTo("FAILED");
         assertThat(result.answers().unscorable()).isEqualTo(1);
         assertThat(result.score().available()).isFalse();
+        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
+        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
+        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.holisticScoreAvailable()).isFalse();
     }
 
     @Test
@@ -559,10 +1279,14 @@ class PracticeResultPresenterTest {
     }
 
     private static PracticeQuestionVersion objectiveQuestion(Long id) {
+        return objectiveQuestion(id, "SINGLE_CHOICE");
+    }
+
+    private static PracticeQuestionVersion objectiveQuestion(Long id, String questionType) {
         PracticeQuestionVersion question = mock(PracticeQuestionVersion.class);
         when(question.getId()).thenReturn(id);
         when(question.getQuestionId()).thenReturn(id);
-        when(question.getQuestionType()).thenReturn("SINGLE_CHOICE");
+        when(question.getQuestionType()).thenReturn(questionType);
         when(question.getPoints()).thenReturn(BigDecimal.ONE);
         return question;
     }

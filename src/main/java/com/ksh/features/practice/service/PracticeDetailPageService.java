@@ -32,6 +32,7 @@ import static com.ksh.features.practice.dto.PracticeDtos.getSkillLabel;
 public class PracticeDetailPageService {
 
     private static final int INITIAL_ATTEMPT_LIMIT = 2;
+    private static final String SPEAKING_SCORE_UNAVAILABLE = "Không có điểm Nói tổng hợp";
 
     private final PracticeSectionRepository sectionRepository;
     private final PracticeAttemptRepository attemptRepository;
@@ -184,6 +185,7 @@ public class PracticeDetailPageService {
 
     private PracticeSkillAttemptCard toSkillCard(PracticeSection section,
                                                  List<PracticeAttempt> sectionAttempts) {
+        boolean speaking = "SPEAKING".equals(normalizeSkill(section.getSkill()));
         PracticeAttempt inProgress = sectionAttempts.stream()
                 .filter(this::isInProgressAttempt)
                 .findFirst()
@@ -199,7 +201,7 @@ public class PracticeDetailPageService {
             attemptCards.add(new PracticeAttemptCard(
                     attempt.getId(),
                     completed.size() - index,
-                    formatScore(attempt),
+                    formatScore(attempt, speaking),
                     attempt.getStatus(),
                     attemptStatusLabel(attempt),
                     activityAt(attempt),
@@ -220,7 +222,7 @@ public class PracticeDetailPageService {
         }
 
         PracticeAttempt latest = completed.isEmpty() ? null : completed.get(0);
-        PracticeAttempt best = completed.stream()
+        PracticeAttempt best = speaking ? null : completed.stream()
                 .filter(attempt -> normalizedScore(attempt) != null)
                 .max(Comparator.comparing(this::normalizedScore))
                 .orElse(null);
@@ -236,8 +238,10 @@ public class PracticeDetailPageService {
                 List.copyOf(attemptCards),
                 state,
                 stateLabel,
-                latest == null ? "Chưa có" : formatScore(latest),
-                best == null ? "Chưa có" : formatScore(best));
+                speaking ? SPEAKING_SCORE_UNAVAILABLE
+                        : latest == null ? "Chưa có" : formatScore(latest, false),
+                speaking ? SPEAKING_SCORE_UNAVAILABLE
+                        : best == null ? "Chưa có" : formatScore(best, false));
     }
 
     private boolean isActiveAttempt(PracticeAttempt attempt) {
@@ -269,18 +273,23 @@ public class PracticeDetailPageService {
     private String attemptStatusLabel(PracticeAttempt attempt) {
         if (PracticeAttempt.ANALYSIS_QUEUED.equals(attempt.getAnalysisStatus())
                 || PracticeAttempt.ANALYSIS_PROCESSING.equals(attempt.getAnalysisStatus())) {
-            return "Đang chấm AI";
+            return isSpeakingAttempt(attempt) ? "Đang xử lý phản hồi" : "Đang chấm AI";
         }
         if (PracticeAttempt.ANALYSIS_FAILED.equals(attempt.getAnalysisStatus())) {
-            return "Chấm AI chưa hoàn tất";
+            return isSpeakingAttempt(attempt)
+                    ? "Chưa thể xử lý phản hồi"
+                    : "Chấm AI chưa hoàn tất";
         }
         if (PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
-            return "Đã chấm";
+            return isSpeakingAttempt(attempt) ? "Đã xử lý phản hồi" : "Đã chấm";
         }
         return "Đã nộp";
     }
 
-    private String formatScore(PracticeAttempt attempt) {
+    private String formatScore(PracticeAttempt attempt, boolean speakingSection) {
+        if (speakingSection || isSpeakingAttempt(attempt)) {
+            return SPEAKING_SCORE_UNAVAILABLE;
+        }
         if (attempt.getScorePercentage() != null
                 && "PERCENTAGE".equals(attempt.getScoreUnit())) {
             return decimal(attempt.getScorePercentage()) + "%";
@@ -297,6 +306,7 @@ public class PracticeDetailPageService {
     }
 
     private BigDecimal normalizedScore(PracticeAttempt attempt) {
+        if (isSpeakingAttempt(attempt)) return null;
         if (attempt.getScorePercentage() != null) {
             return attempt.getScorePercentage();
         }
@@ -309,6 +319,10 @@ public class PracticeDetailPageService {
         }
         return earned.multiply(BigDecimal.valueOf(100))
                 .divide(attempt.getTotalPoints(), 4, RoundingMode.HALF_UP);
+    }
+
+    private boolean isSpeakingAttempt(PracticeAttempt attempt) {
+        return attempt != null && "SPEAKING".equals(normalizeSkill(attempt.getSkill()));
     }
 
     private String decimal(BigDecimal value) {

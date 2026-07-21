@@ -1431,8 +1431,12 @@ mọi teacher/admin assumption phải quay về KSH schema/RBAC. Speaking audio 
 PREP/IELTS/TOEIC research là học tập/tham khảo UI/UX learner-side: information
 architecture, preflight, player shell, result/detail/progress states và error
 recovery. Không copy brand, asset, wording, CSS, API, route structure, content
-hoặc product claim. Không truy cập live PREP nếu user chưa cấp quyền và tài
-khoản trong đúng task cần truy cập.
+hoặc product claim; đặc biệt không copy taxonomy/tiêu chí IELTS, band, chip
+label, denominator hay descriptor. PREP-style chip chỉ là navigation pattern;
+label/order/applicability/denominator/descriptor phải đến từ named versioned KSH
+task-native Korean policy và count chỉ đến từ backend-validated evidence. Không
+truy cập live PREP nếu user chưa cấp quyền và tài khoản trong đúng task cần truy
+cập.
 
 Research chỉ bổ sung, không thay baseline cũ. Baseline preservation audit khóa
 ánh xạ sau; không mục nào được xem là hoàn tất chỉ vì đã được viết lại:
@@ -1527,21 +1531,30 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
   bốn kỹ năng, nhưng main content tách đúng ba presenter đã wiring: objective
   dùng chung cho Đọc/Nghe, Viết và Nói; không tạo controller/service/scoring
   pipeline thứ hai;
-- Speaking overview tổng hợp toàn bộ attempt theo sáu tiêu chí tiếng Hàn và
-  immutable task weights/denominator, không phân tích theo từng câu. Recording
-  segment chỉ là media navigation; per-question evidence thuộc 13E;
-- Speaking fluency/pronunciation dựa transcript phải ghi rõ bằng chứng hạn chế;
-  không hiển thị phoneme/intonation/audio metric khi evaluator chưa nhận audio;
+> **Current-source note (`2026-07-22`, UX-05):** current transcript-only runtime
+> uses four scored language rows, two null `NOT_SCORABLE` acoustic rows and no
+> holistic/subtotal/attempt score; see F06 and the UX-correction live log.
+
+- Speaking overview tổng hợp toàn bộ attempt thành hồ sơ bốn tiêu chí ngôn ngữ
+  dựa trên transcript, không phân tích theo từng câu và không cộng thành điểm
+  Nói tổng hợp. Recording segment chỉ là media navigation; per-question evidence
+  thuộc 13E;
+- Speaking Fluency và Pronunciation/Delivery hiện null/`NOT_SCORABLE`; không
+  hiển thị phoneme/intonation/audio metric, band hoặc level khi evaluator chưa
+  nhận audio;
 - Writing có task selector từ immutable question metadata. Q51-Q54 đều giữ
   canonical type `ESSAY`; Q51/Q52 dùng task-native rubric theo hai câu trả lời,
-  còn Q53/Q54/general giữ ba tiêu chí điểm TOPIK nhưng trình bày bốn góc
+  còn Q53/Q54/general giữ ba tiêu chí điểm KSH hiện tại nhưng trình bày bốn góc
   nhìn: nội dung, cấu trúc, từ vựng/diễn đạt, ngữ pháp/độ chính xác. Hai góc nhìn
-  ngôn ngữ không được nhân đôi official language score;
+  ngôn ngữ không được nhân đôi điểm ngôn ngữ. Trọng số `12/9/9` và `20/15/15`
+  là policy luyện tập KSH chưa đặt tên, không phải bảng trọng số TOPIK chính thức;
 - Reading/Listening giữ objective overview nhưng nâng hierarchy, spacing và
   answer-state distribution; điểm 0 không được render lời chúc mừng;
-- segmented criterion scale dùng semantic red/amber/green-blue/neutral cùng
-  label chữ, responsive và chỉ từ persisted evidence; không random variation,
-  không sao chép PREP branding/IELTS band;
+- segmented criterion scale có thể dùng red/amber/green-blue/neutral như visual
+  token truy cập được; visible level/label/order/denominator/descriptor chỉ đến
+  từ named versioned KSH task-native policy và validator-accepted persisted
+  evidence, không phải một global band taxonomy; không random variation, không
+  sao chép PREP branding/IELTS band;
 - xóa overview R/L tách riêng, hard-coded/fabricated result JavaScript và mọi
   fragment/helper song song không còn caller; final audit phải có một shell và
   đúng ba presenter được gọi;
@@ -1579,6 +1592,13 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 
 ### 13E - Evidence-based result detail
 
+- status hiện tại: `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO`; chưa mở production
+  implementation;
+- chỉ bắt đầu sau khi bounded `PHASE_13D_UX_CORRECTION` có consolidated green
+  validation và user cho GO riêng;
+- tách đúng ba màn/contract: Objective Reading/Listening Detail, Writing Detail
+  và Speaking Detail. Có thể dùng chung visual primitives và một read-only
+  dispatcher, nhưng không giữ generic browser JSON parser/template xuyên skill;
 - learner answer, official answer, teacher explanation và AI artifact phân biệt rõ;
 - chỉ đọc artifact/binding/status canonical do 13D cung cấp; không tạo cache,
   fingerprint, worker hoặc generation/retry service thứ hai;
@@ -1587,6 +1607,12 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
   DOM offset; Listening transcript/audio evidence có timestamp/speaker khi có;
 - Writing giữ original immutable và tách correction, upgraded answer,
   sample/rubric/criterion evidence;
+- Writing/Speaking có đúng bốn feedback tab `OVERVIEW`, `STRENGTHS`,
+  `NEEDS_IMPROVEMENT`, `UPGRADED_ANSWER`; lecturer reference nằm ngoài AI tab;
+- PREP-style chip chỉ làm scan/filter/evidence navigation; label và parent là
+  task-native KSH Korean construct, count là exact validator-accepted finding,
+  không phải IELTS taxonomy/score/band. Transcript-only Speaking không có
+  acoustic chip từ STT;
 - AI có confidence/limited-evidence state và không thay official answer key;
 - không dùng wording ngụ ý official equivalence cho AI score/feedback;
 - report entry point chuẩn bị context cho Phase 14.
@@ -1718,6 +1744,35 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 - permission/privacy/dedupe/attachment/malformed-content UAT;
 - immutable history và audit trail đầy đủ.
 
+### Gate bắt buộc giữa 14F và 15A — Pre-Phase-15 production correctness
+
+Phase 15 không được chuyển từ `NOT_STARTED` sang `IN_PROGRESS` chỉ để bắt đầu
+phát hiện hoặc vá các blocker ngôn ngữ/vận hành. Sau các dependency thực sự của
+13E-13H và Phase 14, Codex phải thực thi
+`P15-PRE-01..14` trong
+`docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md` như một
+gate riêng **trước** 15A.
+
+Một row có thể đóng bằng implementation mới, bằng evidence chứng minh lát cắt
+trước đã đáp ứng, hoặc — chỉ với capability tùy chọn — bằng
+`DISABLED_BY_POLICY_WITH_PROOF`/`NOT_APPLICABLE_WITH_PROOF`. Ví dụ, nếu direct
+audio Speaking vẫn bị tắt thì không cần giả lập calibration acoustic; phải chứng
+minh request không gửi audio tới scorer, readiness luôn NO-GO và mọi surface giữ
+acoustic ở null/`NOT_SCORABLE`. Nếu bật capability, privacy/consent phải được
+duyệt trước khi chuyển audio, rồi dark evaluation và calibration phải xanh trước
+rollout. Configuration flag không phải exit proof.
+
+`P15-PRE-14` còn là entry blocker riêng: code-owned human instruction phải theo
+field-language matrix Việt/Hàn, stable machine ID vẫn ASCII; W/S cần named
+versioned task-native Korean construct/diagnostic registry, R/L cần type-native
+learning/explanation lens, exact evidence validation, out-of-domain/no-claim,
+Korean-SME sign-off và calibration. Phase 13D/13E chỉ cung cấp bounded
+fail-closed/UI proof; vài prompt/rule/file code không bao giờ là tuyên bố bao phủ
+toàn bộ tiếng Hàn lịch sử và hiện đại.
+
+Chỉ sau khi gate này được ký nhận, 15A mới dọn compatibility/data theo các quyết
+định `REMOVE`, `MIGRATE`, `RETAIN_WITH_EXPIRY`, `DELETE_UAT_ONLY` hoặc `KEEP`.
+
 ## 13. Kế hoạch Phase 15 - Manual UAT and Release Hardening
 
 Phase 15 là nơi trả debt vận hành và quyết định GO/NO-GO, không phải nơi vá dồn
@@ -1725,6 +1780,7 @@ mọi feature còn thiếu.
 
 ### 15A - Compatibility cleanup and automated release gate
 
+- chỉ bắt đầu sau khi gate `P15-PRE-01..14` phía trên đã có closure hợp lệ;
 - dùng
   `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`
   làm checklist bắt buộc; mỗi item phải được quyết định `REMOVE`, `MIGRATE`,

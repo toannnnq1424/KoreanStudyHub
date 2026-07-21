@@ -29,13 +29,21 @@ public class SpeakingFeedbackCompatibilityReader {
         }
         if (legacy.has("evaluationStatus")) {
             try {
-                return objectMapper.treeToValue(legacy, SpeakingEvaluationResult.class);
+                SpeakingEvaluationResult parsed = objectMapper.treeToValue(legacy, SpeakingEvaluationResult.class);
+                return parsed.currentEvidenceContract()
+                        && rawTypedRubricValuesAreSafe(legacy)
+                        ? parsed : legacyUnverified(parsed);
             } catch (Exception ex) {
                 return normalizer.contractFailure("SPEAKING_FEEDBACK_JSON_INVALID");
             }
         }
         if (legacy.has("evaluation_status")) {
-            return normalizer.normalize(legacy);
+            // Current application writes use the typed camelCase envelope. A
+            // stored snake_case provider payload predates the capability proof
+            // and must never be silently upgraded to the current contract.
+            return legacyUnverified(
+                    normalizer.normalize(legacy),
+                    namedLegacyRubricIdentities(legacy.path("rubric_scores")));
         }
         BigDecimal percentage = number(legacy, "percentage");
         if (percentage == null) {
@@ -110,6 +118,116 @@ public class SpeakingFeedbackCompatibilityReader {
                 upgraded, sample, List.of(), List.of(), error, false);
     }
 
+    private SpeakingEvaluationResult legacyUnverified(SpeakingEvaluationResult value) {
+        return legacyUnverified(
+                value,
+                value == null ? List.of() : value.rubricScores());
+    }
+
+    private SpeakingEvaluationResult legacyUnverified(
+            SpeakingEvaluationResult value,
+            List<SpeakingEvaluationResult.RubricScore> identifiedRows
+    ) {
+        if (value == null) {
+            return legacyResult(
+                    null,
+                    identifiedRows,
+                    null,
+                    null,
+                    "LEGACY_SPEAKING_CONTRACT_UNVERIFIED");
+        }
+        List<SpeakingEvaluationResult.RubricScore> legacyRows = identifiedRows.stream()
+                .map(row -> new SpeakingEvaluationResult.RubricScore(
+                        row.criterion(),
+                        null,
+                        null,
+                        row.feedback(),
+                        SpeakingCriterionAvailability.LEGACY_UNVERIFIED))
+                .toList();
+        List<SpeakingEvaluationResult.CriterionFeedback> legacyCriterionFeedback =
+                value.criterionFeedback().stream()
+                        .map(row -> new SpeakingEvaluationResult.CriterionFeedback(
+                                row.criterion(),
+                                row.displayName(),
+                                null,
+                                null,
+                                row.levelLabel(),
+                                row.summary(),
+                                row.strengths(),
+                                row.needsImprovement(),
+                                row.subcriteria()))
+                        .toList();
+        return new SpeakingEvaluationResult(
+                SpeakingEvaluationStatus.LEGACY_RESULT,
+                false,
+                SpeakingEvaluationSource.LEGACY,
+                value.model(),
+                value.transcriptionModel(),
+                value.promptVersion(),
+                value.rubricVersion(),
+                value.schemaVersion(),
+                SpeakingEvaluatorCapability.LEGACY_UNKNOWN,
+                SpeakingEvidenceMode.UNKNOWN,
+                null,
+                SpeakingContractTrust.LEGACY_UNVERIFIED,
+                value.audioMediaId(),
+                value.mediaVersion(),
+                value.transcript(),
+                value.normalizedTranscript(),
+                value.actuallyHeardTranscript(),
+                value.interpretedIntent(),
+                value.intentConfidence(),
+                value.transcriptConfidence(),
+                null,
+                null,
+                null,
+                value.overallSummary(),
+                value.taskAchievementSummary(),
+                value.majorStrengths(),
+                value.majorNeedsImprovement(),
+                value.actionPlan(),
+                legacyCriterionFeedback,
+                value.transcriptAnnotations(),
+                value.strengths(),
+                value.needsImprovement(),
+                value.confidenceNotes(),
+                legacyRows,
+                value.findings(),
+                value.evidence(),
+                value.recommendations(),
+                value.upgradedAnswer(),
+                value.sampleAnswer(),
+                List.of(),
+                List.of(),
+                value.errorCategory() == null
+                        ? "LEGACY_SPEAKING_CONTRACT_UNVERIFIED" : value.errorCategory(),
+                false);
+    }
+
+    private boolean rawTypedRubricValuesAreSafe(JsonNode typed) {
+        JsonNode rows = typed.get("rubricScores");
+        if (rows == null || !rows.isArray()) {
+            return true;
+        }
+        for (JsonNode row : rows) {
+            SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(
+                    text(row, "criterion"));
+            String availability = text(row, "availability");
+            boolean carriesNumber = row.hasNonNull("score") || row.hasNonNull("maxScore");
+            if (availability != null
+                    && !SpeakingCriterionAvailability.SCORED.name().equals(availability)
+                    && carriesNumber) {
+                return false;
+            }
+            if (criterion != null && criterion.requiresAcousticEvidence()
+                    && (!SpeakingCriterionAvailability.NOT_SCORABLE.name().equals(availability)
+                    || carriesNumber)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private List<SpeakingEvaluationResult.RubricScore> legacyRubrics(JsonNode array) {
         if (!array.isArray()) {
             return List.of();
@@ -127,12 +245,38 @@ public class SpeakingFeedbackCompatibilityReader {
             }
             if (percentage != null) {
                 SpeakingRubricCriterion criterion = SpeakingRubricCriterion.values()[index];
-                BigDecimal score = percentage.multiply(criterion.maxScore())
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 rows.add(new SpeakingEvaluationResult.RubricScore(
-                        criterion, score, criterion.maxScore(), text(node, "feedback")));
+                        criterion, null, null, text(node, "feedback"),
+                        SpeakingCriterionAvailability.LEGACY_UNVERIFIED));
             }
             index++;
+        }
+        return List.copyOf(rows);
+    }
+
+    private List<SpeakingEvaluationResult.RubricScore> namedLegacyRubricIdentities(JsonNode array) {
+        if (!array.isArray()) {
+            return List.of();
+        }
+        java.util.EnumSet<SpeakingRubricCriterion> seen =
+                java.util.EnumSet.noneOf(SpeakingRubricCriterion.class);
+        List<SpeakingEvaluationResult.RubricScore> rows = new ArrayList<>();
+        for (JsonNode node : array) {
+            String externalId = firstText(node, "criterion_id", "criterionId");
+            if (externalId == null) {
+                externalId = text(node, "criterion");
+            }
+            SpeakingRubricCriterion criterion =
+                    SpeakingRubricCriterion.fromExternalId(externalId);
+            if (criterion == null || !seen.add(criterion)) {
+                continue;
+            }
+            rows.add(new SpeakingEvaluationResult.RubricScore(
+                    criterion,
+                    null,
+                    null,
+                    null,
+                    SpeakingCriterionAvailability.LEGACY_UNVERIFIED));
         }
         return List.copyOf(rows);
     }

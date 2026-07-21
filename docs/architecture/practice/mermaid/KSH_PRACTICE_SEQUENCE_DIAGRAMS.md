@@ -572,7 +572,7 @@ sequenceDiagram
     P06->>P07: persist validated status/evidence
 ```
 
-#### UC-SPK-03 - Review a holistic Speaking result and per-question evidence
+#### UC-SPK-03 - Review a transcript-grounded Speaking profile and per-question evidence
 
 Status: `PLANNED 13E`
 
@@ -585,13 +585,13 @@ sequenceDiagram
     participant P04 as PracticeResultDetailAssembler (13E)
     participant P05 as SpeakingEvidencePresenter (13E)
     participant P06 as Private Media Endpoint
-    Note over P01,P06: PLANNED 13E - UC-SPK-03 - Review a holistic Speaking result and per-question evidence
+    Note over P01,P06: PLANNED 13E - UC-SPK-03 - Review a transcript-grounded profile and per-question evidence
     P01->>P02: open Speaking detail
     P02->>P03: GET result/detail
-    P03->>P04: load holistic + question evidence
+    P03->>P04: load typed profile + question evidence
     P04->>P05: map transcript/media/evidence
     P05->>P06: create authorized playback references
-    P05-->>P02: render holistic and per-question evidence
+    P05-->>P02: render evidence-honest profile and per-question evidence
 ```
 
 ### Module RES - Result Overview & Detail

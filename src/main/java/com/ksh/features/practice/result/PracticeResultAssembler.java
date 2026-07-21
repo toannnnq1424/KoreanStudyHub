@@ -142,10 +142,13 @@ public class PracticeResultAssembler {
         }
     }
 
-    private static ResultState resultState(PracticeAttempt attempt) {
-        return PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())
-                ? new ResultState("GRADED", "Đã chấm")
-                : new ResultState("SUBMITTED", "Đã nộp");
+    static ResultState resultState(PracticeAttempt attempt) {
+        if (!PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
+            return new ResultState("SUBMITTED", "Đã nộp");
+        }
+        return "SPEAKING".equals(attempt.getSkill())
+                ? new ResultState("GRADED", "Đã xử lý phản hồi")
+                : new ResultState("GRADED", "Đã chấm");
     }
 
     private static void requireResultState(PracticeAttempt attempt) {

@@ -1,5 +1,6 @@
 package com.ksh.features.practice.ai.readiness;
 
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorCapability;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorProperties;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
 import org.springframework.stereotype.Component;
@@ -65,10 +66,20 @@ public class SpeakingProviderRolloutReadiness {
                     "Thiếu API key cho Speaking evaluator khi gate được bật.",
                     "8F-A"));
         }
+        SpeakingEvaluatorCapability currentCapability =
+                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION;
+        if (!currentCapability.directLearnerAudioRequired()
+                || !currentCapability.acousticCriteriaSupported()
+                || !currentCapability.holisticScoreSupported()) {
+            issues.add(AiReadinessIssue.blocker(
+                    "DIRECT_AUDIO_FULL_EVALUATOR_NOT_READY",
+                    "Evaluator hiện tại chỉ nhận transcript; chưa có evaluator trực tiếp nhận audio người học, hiệu chuẩn acoustic và phê duyệt rollout.",
+                    "P15-PRE-01"));
+        }
         if (transcriptionEnabled && evaluatorEnabled) {
             issues.add(AiReadinessIssue.info(
                     "LIVE_PROVIDER_PATH_CONFIGURED",
-                    "Provider path được cấu hình nhưng vẫn cần calibration, monitoring, storage decision và rollout gate.",
+                    "Transcript provider path đã được cấu hình nhưng không phải direct-audio full evaluator và không mở rollout.",
                     "8F-E"));
         }
 

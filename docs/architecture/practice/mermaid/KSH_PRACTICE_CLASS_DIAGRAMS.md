@@ -388,12 +388,14 @@ classDiagram
         }
         class SpeakingRuleEngine {
             <<Domainservice>>
-            +sixKoreanCriteria()
+            +fourTranscriptCriteria()
+            +twoAcousticCriteriaNotScorable()
             +evidenceChecks()
         }
         class SpeakingResultPresenter {
             <<Presenter>>
-            +holisticOverview()
+            +transcriptLanguageProfile()
+            +noHolisticScoreWithoutDirectAudio()
             +noPerQuestionOverview()
         }
         class SpeakingEvidencePresenter {

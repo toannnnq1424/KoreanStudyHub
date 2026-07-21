@@ -1,12 +1,13 @@
 package com.ksh.features.practice.ai.speaking;
 
-import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public final class SpeakingPromptRules {
-    public static final String PROMPT_VERSION = "speaking-eval-v2";
-    public static final String RUBRIC_VERSION = "speaking-rubric-v1";
-    public static final String SCHEMA_VERSION = "speaking-schema-v1";
+    public static final String PROMPT_VERSION = "speaking-eval-v3-transcript-language-only";
+    public static final String RUBRIC_VERSION = "speaking-rubric-v2-transcript-language-profile";
+    public static final String SCHEMA_VERSION = "speaking-schema-v2-partial-language-profile";
+    public static final String EVIDENCE_CONTRACT_VERSION =
+            SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION.contractVersion();
 
     private SpeakingPromptRules() {
     }
@@ -26,8 +27,7 @@ public final class SpeakingPromptRules {
                 koreanVocabularyExpressionChecklist(),
                 registerHonorificEndingRules(),
                 coherenceRules(),
-                fluencyRules(),
-                pronunciationGuardrails(),
+                acousticEvidenceProhibition(),
                 actuallyHeardVsInterpretedIntentRules(),
                 spamOffTopicGuardrail(),
                 textFallbackRule(textFallback),
@@ -42,7 +42,8 @@ public final class SpeakingPromptRules {
                 This is not an official TOPIK Speaking score.
                 Do not output an official TOPIK Speaking score, external band score, IELTS-style score, or native-like judgement.
                 Do not make medical, speech-therapy, native-like, or exact phoneme-level claims.
-                Pronunciation and delivery comments are advisory unless a later specialized pronunciation provider supplies alignment evidence.
+                This evaluator receives no learner audio, audio stream, audio URL, acoustic measurements, or aligned timestamps.
+                Do not score or diagnose Fluency, Pronunciation, Delivery, intelligibility, rhythm, intonation, linking, or acoustic listener burden.
                 Do not use few-shot calibration samples or invented sample datasets for scoring.
                 When a governed question image is attached, read it as authoritative task context together with question_text.
                 Do not claim visual details that are not visible in the attached image.
@@ -55,10 +56,10 @@ public final class SpeakingPromptRules {
                 [LANGUAGE POLICY]
                 Do NOT use English in learner-facing explanations.
                 Use Vietnamese for learner-facing explanations: overall_summary, task_achievement_summary,
-                feedback, explanationVi, confidence_notes, action_plan titles/instructions/reasons.
+                feedback, explanation_vi, confidence_notes, action_plan titles/instructions/reasons.
                 Use exact transcript text for evidence. Do not translate, normalize, or rewrite evidence.
-                Use Korean for correction, suggestionKo, upgraded_answer, and sample_answer when a Korean correction or model answer is needed.
-                Internal IDs such as criterionId, subcriterionId, evidenceSource, and status values remain machine-readable constants.
+                Use Korean for correction, suggestion_ko, upgraded_answer, and sample_answer when a Korean correction or model answer is needed.
+                Internal IDs such as criterion_id, sub_criterion_id, evidence_source, and status values remain machine-readable constants.
                 """;
     }
 
@@ -69,11 +70,13 @@ public final class SpeakingPromptRules {
                 The allowed_rubric provides each criterion and its max_score.
                 Always use the supplied max_score and do not assume fixed weights.
                 Do not create new primary criteria. Do not change weights.
-                Do not score by feeling. Use the transcript, prompt, safe audio metadata, and deterministic signals.
+                Use only the transcript, prompt, and transcript-grounded deterministic signals.
+                AUDIO_METADATA is provenance only and is never evidence for a score or diagnostic claim.
                 Do not use a 10-point band. Do not use 9.0 / 7.5 / 5.0 band labels.
                 Do not return an official TOPIK score, external band score, or separate total outside the schema.
                 If quality is uneven, reflect the difference in individual criteria and subcriteria instead of forcing a generic overall band.
-                overall_score must equal the sum of the allowed_rubric criterion scores; backend normalizer may recompute it.
+                Return score_available=false, overall_score=null, and level_label=null because a holistic Speaking score is unavailable.
+                Do not rescale the four language criteria to 100 and do not redistribute missing acoustic weights.
 
                 [ALLOWED_RUBRIC PRIMARY CRITERIA]
                 %s
@@ -84,10 +87,11 @@ public final class SpeakingPromptRules {
         return """
                 [EVIDENCE SOURCE RULES]
                 Evidence source values must be only: %s.
+                AUDIO_METADATA is not an allowed grounding source for this evaluator.
                 TEXT_SPAN evidence must be an exact substring of actually_heard_transcript and not empty.
                 WHOLE_ANSWER evidence must be an empty string.
-                TASK_METADATA may only be used when authoritative task metadata exists.
-                Do not invent timestamps. startOffset/endOffset may be null if unavailable.
+                TASK_METADATA is not accepted by the current evidence output contract. Task metadata may inform Content evaluation but must not create a highlight/finding.
+                Provider startOffset/endOffset are not authoritative and may be null; backend derives offsets from the exact transcript span.
                 Do not create findings without safe evidence.
                 Scan the transcript from beginning to end and group repeated issue types reasonably.
                 """.formatted(evidenceSources());
@@ -96,17 +100,18 @@ public final class SpeakingPromptRules {
     static String overallAndRubricSection() {
         return """
                 [OVERALL AND RUBRIC SECTION]
-                Rich feedback contract: produce evidence-grounded learner feedback at overall, criterion, and transcript levels.
+                Produce a transcript-grounded language profile at criterion and transcript levels.
                 Content / Task Achievement is evaluated by S_CONTENT_TASK_FULFILLMENT.
                 Stable learner-facing labels include Vocabulary / Expressions, Grammar / Sentence Control,
                 Register / Honorifics / Ending Consistency, and Coherence / Organization.
                 Evaluate whether the learner answered the question, covered prompt bullets/requirements,
                 developed ideas with reasons/details/examples, stayed on topic, and avoided repetition, rambling, or unfinished ideas.
-                If transcript is incomplete but interpreted_intent is clear, give partial credit only for Content / Task Fulfillment.
-                Do not use interpreted_intent to repair Grammar, Fluency, Pronunciation, or Delivery.
+                Do not use interpreted_intent to award or repair any criterion score under the current evidence contract.
                 Produce overall_summary and task_achievement_summary in Vietnamese.
-                Produce rubric_scores for every allowed_rubric primary criterion using S_* criterion IDs.
-                Produce criterion_feedback for every primary criterion with subcriteria suitable for future UI tabs.
+                Produce rubric_scores and criterion_feedback for every allowed_rubric primary criterion using S_* criterion IDs.
+                Every sub_criterion_id must belong to its declared primary criterion: S_CONTENT_* to Content,
+                S_GRAMMAR_* to Grammar, S_VOCAB_* to Vocabulary, and S_COHERENCE_* to Coherence.
+                Do not output Fluency or Pronunciation/Delivery criterion rows.
                 """;
     }
 
@@ -114,11 +119,11 @@ public final class SpeakingPromptRules {
         return """
                 [STRENGTHS AND NEEDS IMPROVEMENT SECTION]
                 Produce strengths and needs_improvement arrays using evidence.
-                Each strength must include criterionId, subcriterionId, evidenceScope, evidence, evidenceSource,
-                explanationVi, and correction="".
-                Each needs_improvement item must include criterionId, subcriterionId, evidenceScope, evidence,
-                evidenceSource, explanationVi, and correction.
-                criterionId and subcriterionId must come from allowed_rubric / allowed_subcriteria.
+                Each strength must include criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
+                explanation_vi, and correction="".
+                Each needs_improvement item must include criterion_id, sub_criterion_id, evidence_scope, evidence,
+                evidence_source, explanation_vi, and correction.
+                criterion_id and sub_criterion_id must come from allowed_rubric / allowed_subcriteria.
                 strengths correction must always be an empty string.
                 needs_improvement correction must be corrected Korean text, a Korean phrase, or a Korean speaking practice phrase.
                 Do not create fake strengths.
@@ -129,12 +134,11 @@ public final class SpeakingPromptRules {
         return """
                 [TRANSCRIPT ANNOTATION SECTION]
                 Produce transcript_annotations when safe evidence exists.
-                Each item must include criterionId, subcriterionId, evidenceScope, evidence, evidenceSource,
-                startOffset, endOffset, annotationType, explanationVi, and suggestionKo.
-                annotationType must be strength, needs_improvement, or advisory.
-                Pronunciation annotations are advisory only.
+                Each item must include criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
+                start_offset, end_offset, annotation_type, explanation_vi, and suggestion_ko.
+                annotation_type must be strength, needs_improvement, or advisory.
                 Do not annotate too densely.
-                Do not create phoneme-level facts without specialized provider / timestamp / alignment evidence.
+                Do not create acoustic, pronunciation, fluency, pause, pacing, rhythm, intonation, linking, or phoneme-level findings.
                 """;
     }
 
@@ -144,7 +148,7 @@ public final class SpeakingPromptRules {
                 upgraded_answer must be Korean only.
                 upgraded_answer is an improved version of the learner's answer: preserve intended meaning, topic, and content;
                 keep close to the learner's current level; improve vocabulary, grammar, particles, endings, register,
-                linking, natural Korean expression, and clarity; do not invent unrelated facts; do not turn a simple spoken
+                textual connectors, natural Korean expression, and clarity; do not invent unrelated facts; do not turn a simple spoken
                 answer into overly academic writing.
                 sample_answer must be Korean only.
                 sample_answer is a stronger model speaking answer for the same prompt, natural Korean, appropriate to the
@@ -157,8 +161,8 @@ public final class SpeakingPromptRules {
         return """
                 [ACTION PLAN SECTION]
                 Output 2-3 action_plan items based on needs_improvement.
-                Each action_plan item must include criterionId, subcriterionId, titleVi,
-                instructionVi, reasonVi, and priority.
+                Each action_plan item must include criterion_id, sub_criterion_id, title,
+                instruction, reason, and priority.
                 Do not require a second AI call.
                 """;
     }
@@ -200,37 +204,26 @@ public final class SpeakingPromptRules {
                 """;
     }
 
-    static String fluencyRules() {
+    static String acousticEvidenceProhibition() {
         return """
-                [FLUENCY RULES]
-                Evaluate hesitation, pacing, fillers, repetition, self-correction, continuity, and listener burden.
-                Common fillers include 음, 어, 그, 뭐, 뭐랄까, 그러니까, 약간, 이제.
-                If timestamps or pause metrics are not provided, be conservative and do not invent pause duration.
-                """;
-    }
-
-    static String pronunciationGuardrails() {
-        return """
-                [PRONUNCIATION / DELIVERY GUARDRAILS]
-                Pronunciation feedback is advisory only.
-                Pronunciation / Delivery is advisory only.
-                Allowed wording: suspected pronunciation issue, possible batchim/linking/vowel issue,
-                low transcript confidence, listener burden, possible clarity issue.
-                Forbidden wording: exact phoneme diagnosis as fact, official TOPIK speaking score,
-                native-like judgement as objective fact, medical or speech therapy claims.
-                Do not create phoneme-level facts without specialized pronunciation provider / timestamp / alignment evidence.
+                [ACOUSTIC EVIDENCE PROHIBITION]
+                Fluency and Pronunciation / Delivery are NOT_SCORABLE under this capability.
+                Do not infer hesitation, pauses, pacing, speech rate, fillers, self-repair, continuity,
+                pronunciation, intelligibility, listener effort, rhythm, intonation, stress, linking,
+                batchim realization, or other acoustic properties from transcript text, spelling,
+                ASR confidence, media existence, duration, byte size, MIME type, or AUDIO_METADATA.
+                Do not output numeric scores, max-normalized percentages, levels, bands, strengths,
+                needs, annotations, recommendations, or action-plan items for those constructs.
                 """;
     }
 
     static String actuallyHeardVsInterpretedIntentRules() {
         return """
                 [ACTUALLY HEARD VS INTERPRETED INTENT]
-                Preserve both actually_heard_transcript and interpreted_intent.
-                actually_heard_transcript is primary evidence for Grammar, Vocabulary, Register, Fluency, Pronunciation/Delivery.
-                interpreted_intent may support Content partial credit only.
-                interpreted_intent must not silently repair Grammar, Fluency, Pronunciation, or Delivery.
-                If transcript confidence is low, language and delivery judgments must be conservative.
-                listener_burden must reflect how much the listener has to infer.
+                actually_heard_transcript is primary evidence for Content, Grammar, Vocabulary, Register, and Coherence.
+                The current output contract requires interpreted_intent=null and intent_confidence=null.
+                Do not use interpreted intent to award a score, create a finding, repair Grammar, or create acoustic claims.
+                ASR confidence describes transcription confidence only; it is not audio-quality or pronunciation evidence.
                 """;
     }
 
@@ -253,17 +246,16 @@ public final class SpeakingPromptRules {
         if (!textFallback) {
             return """
                     [TEXT FALLBACK RULE]
-                    Audio-derived transcript is available. Evaluate delivery only from transcript confidence and safe audio metadata.
+                    An STT transcript is available, but learner audio is not provided to this evaluator.
+                    Apply the same transcript-language-only contract. Acoustic criteria remain NOT_SCORABLE.
                     """;
         }
         return """
                 [TEXT FALLBACK RULE]
-                    Input is a text-only fallback. textFallback=true. Make text fallback explicit in source/status.
+                Input is a text-only fallback. textFallback=true. Make text fallback explicit in source/status.
                 Content, Grammar, Vocabulary, and Coherence may be scored from text.
-                Fluency must be conservative and text-limited.
-                Pronunciation & Delivery must be capped or marked not audio-grounded.
-                    do not pretend learner audio was evaluated.
-                Do not create pronunciation certainty from text-only input.
+                Fluency and Pronunciation / Delivery are NOT_SCORABLE, with no score, max percentage, level, or band.
+                Do not pretend learner audio was evaluated.
                 """;
     }
 
@@ -271,38 +263,35 @@ public final class SpeakingPromptRules {
         return """
                 [OUTPUT JSON SECTION]
                 Output strict JSON only, parseable by a standard JSON parser.
-                Use the exact field names from the provided JSON schema, including camelCase item fields where the schema defines them.
+                Use the exact snake_case field names from the provided JSON schema.
                 Include at least:
-                evaluation_status, score_available, source, model, transcription_model, prompt_version, rubric_version,
-                schema_version, audio_media_id, media_version, transcript, normalized_transcript,
-                actually_heard_transcript, interpreted_intent, intent_confidence, transcript_confidence,
-                listener_burden, overall_score, level_label, overall_summary, task_achievement_summary,
+                evaluation_status, score_available, interpreted_intent=null, intent_confidence=null,
+                overall_score=null, level_label=null, overall_summary, task_achievement_summary,
                 rubric_scores, criterion_feedback, strengths, needs_improvement, transcript_annotations, upgraded_answer,
                 sample_answer, confidence_notes, action_plan, findings, evidence, recommendations,
-                pronunciation_advisory, fluency_observations, error_category, retryable.
-                rubric_scores item: criterionId, name, score, maxScore, feedback.
-                criterion_feedback item: criterionId, name, score, maxScore, levelLabel, summary,
-                strengths, needsImprovement, subcriteria.
-                criterion_feedback subcriteria item: subcriterionId, name, levelLabel, summary, evidenceRefs.
-                If evidenceRefs are not supported, return an empty array instead of inventing references.
-                strengths item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource, explanationVi, correction="".
-                needs_improvement item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource, explanationVi, correction.
-                transcript_annotations item: criterionId, subcriterionId, evidenceScope, evidence, evidenceSource,
-                startOffset, endOffset, annotationType, explanationVi, suggestionKo.
-                action_plan item: criterionId, subcriterionId, titleVi, instructionVi, reasonVi, priority.
+                error_category, retryable. Backend provenance, transcript identity, model/version identity and media identity
+                are authoritative application fields and must not be invented by the model. score_available must be false.
+                rubric_scores item: criterion, score, max_score, feedback.
+                criterion_feedback item: criterion_id, display_name, score, max_score, level_label, summary,
+                strengths, needs_improvement, subcriteria.
+                criterion_feedback subcriteria item: sub_criterion_id, display_name, level_label, summary,
+                strengths, needs_improvement.
+                strengths item: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source, explanation_vi, correction="".
+                needs_improvement item: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source, explanation_vi, correction.
+                transcript_annotations item: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
+                start_offset, end_offset, annotation_type, explanation_vi, suggestion_ko.
+                action_plan item: criterion_id, sub_criterion_id, title, instruction, reason, priority.
                 """;
     }
 
     public static String rubricSummary() {
-        return Arrays.stream(SpeakingRubricCriterion.values())
+        return SpeakingRubricCriterion.transcriptGroundedCriteria().stream()
                 .map(row -> "- %s (%s): max_score=%s".formatted(
                         row.id(), row.label(), row.maxScore().stripTrailingZeros().toPlainString()))
                 .collect(Collectors.joining("\n"));
     }
 
     private static String evidenceSources() {
-        return Arrays.stream(SpeakingEvidenceSource.values())
-                .map(Enum::name)
-                .collect(Collectors.joining(", "));
+        return SpeakingEvidenceSource.TRANSCRIPT.name();
     }
 }

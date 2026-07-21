@@ -114,8 +114,57 @@ class PracticeDetailPageServiceTest {
             assertThat(card.latestScoreLabel()).isEqualTo("9/10");
             assertThat(card.bestScoreLabel()).isEqualTo("9/10");
             assertThat(card.state()).isEqualTo("IN_PROGRESS");
+            assertThat(card.completedAttempts()).extracting(attempt -> attempt.statusLabel())
+                    .containsOnly("Đã nộp");
         });
         verify(attemptRepository).findByTestIdAndUserIdOrderByCreatedAtDesc(10L, 7L);
+    }
+
+    @Test
+    void speakingSkillCardNeverLeaksLegacyOrMissingHolisticScores() {
+        PracticeSection speaking = section(201L, 20L, "SPEAKING", 1);
+        PracticeAttempt legacyNumeric = gradedAttempt(
+                2001L, 20L, 201L, "SPEAKING", 90, "2026-07-14T09:00:00");
+        PracticeAttempt currentWithoutScore = gradedAttempt(
+                2002L, 20L, 201L, "SPEAKING", null, "2026-07-14T10:00:00");
+        when(attemptRepository.findByTestIdAndUserIdOrderByCreatedAtDesc(20L, 7L))
+                .thenReturn(List.of(legacyNumeric, currentWithoutScore));
+
+        List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
+                20L, List.of(speaking), 7L);
+
+        assertThat(cards).singleElement().satisfies(card -> {
+            assertThat(card.completedAttempts()).extracting(attempt -> attempt.scoreLabel())
+                    .containsExactly(
+                            "Không có điểm Nói tổng hợp",
+                            "Không có điểm Nói tổng hợp");
+            assertThat(card.latestScoreLabel()).isEqualTo("Không có điểm Nói tổng hợp");
+            assertThat(card.bestScoreLabel()).isEqualTo("Không có điểm Nói tổng hợp");
+            assertThat(card.completedAttempts()).extracting(attempt -> attempt.statusLabel())
+                    .containsOnly("Đã xử lý phản hồi");
+            assertThat(card.completedAttempts()).extracting(attempt -> attempt.scoreLabel())
+                    .noneMatch(label -> label.matches(".*\\d.*"));
+        });
+    }
+
+    @Test
+    void speakingSkillCardUsesFeedbackCopyForQueuedAndFailedAnalysis() {
+        PracticeSection speaking = section(201L, 20L, "SPEAKING", 1);
+        PracticeAttempt queued = completedAttempt(
+                2001L, 20L, 201L, "SPEAKING", 0, "2026-07-14T09:00:00");
+        queued.setAnalysisStatus(PracticeAttempt.ANALYSIS_QUEUED);
+        PracticeAttempt failed = completedAttempt(
+                2002L, 20L, 201L, "SPEAKING", 0, "2026-07-14T10:00:00");
+        failed.markAnalysisFailed("PROVIDER_UNAVAILABLE");
+        when(attemptRepository.findByTestIdAndUserIdOrderByCreatedAtDesc(20L, 7L))
+                .thenReturn(List.of(queued, failed));
+
+        List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
+                20L, List.of(speaking), 7L);
+
+        assertThat(cards).singleElement().satisfies(card ->
+                assertThat(card.completedAttempts()).extracting(attempt -> attempt.statusLabel())
+                        .containsExactly("Chưa thể xử lý phản hồi", "Đang xử lý phản hồi"));
     }
 
     private PracticeSection section(Long id, Long testId, String skill, int displayOrder) {
@@ -154,6 +203,20 @@ class PracticeDetailPageServiceTest {
         PracticeAttempt attempt = new PracticeAttempt(7L, 1L, testId, skill, sectionId);
         setField(attempt, "id", id);
         setField(attempt, "updatedAt", LocalDateTime.parse(updatedAt));
+        return attempt;
+    }
+
+    private PracticeAttempt gradedAttempt(Long id,
+                                          Long testId,
+                                          Long sectionId,
+                                          String skill,
+                                          Integer score,
+                                          String submittedAt) {
+        PracticeAttempt attempt = new PracticeAttempt(7L, 1L, testId, skill, sectionId);
+        attempt.markGraded(score == null ? null : BigDecimal.valueOf(score),
+                BigDecimal.TEN, "{}", "{}");
+        setField(attempt, "id", id);
+        setField(attempt, "submittedAt", LocalDateTime.parse(submittedAt));
         return attempt;
     }
 

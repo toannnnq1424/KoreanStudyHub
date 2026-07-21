@@ -134,13 +134,24 @@ function renderHeatmap() {
 let radarChartInstance = null;
 let donutChartInstance = null;
 let lineChartInstance = null;
+const SKILL_LABELS_VI = Object.freeze({
+  READING: 'Đọc',
+  LISTENING: 'Nghe',
+  WRITING: 'Viết',
+  SPEAKING: 'Nói'
+});
+
+function skillLabelVi(skill) {
+  return SKILL_LABELS_VI[skill] || 'Kỹ năng';
+}
 
 function renderOverviewCharts() {
   // 1. Radar Chart: Skills score
   const radarCanvas = document.getElementById('chart-radar-skills');
   if (radarCanvas && OVERVIEW_DATA.skillMetrics) {
-    const labels = OVERVIEW_DATA.skillMetrics.map(m => m.skillLabel);
-    const dataPoints = OVERVIEW_DATA.skillMetrics.map(m => m.normalizedScore);
+    const scoredMetrics = OVERVIEW_DATA.skillMetrics.filter(m => m.skill !== 'SPEAKING');
+    const labels = scoredMetrics.map(m => skillLabelVi(m.skill));
+    const dataPoints = scoredMetrics.map(m => m.normalizedScore);
 
     const ctx = radarCanvas.getContext('2d');
     if (radarChartInstance) radarChartInstance.destroy();
@@ -192,7 +203,7 @@ function renderOverviewCharts() {
   // 2. Donut Chart: Attempts distribution
   const donutCanvas = document.getElementById('chart-donut-distribution');
   if (donutCanvas && OVERVIEW_DATA.skillMetrics) {
-    const labels = OVERVIEW_DATA.skillMetrics.map(m => m.skillLabel);
+    const labels = OVERVIEW_DATA.skillMetrics.map(m => skillLabelVi(m.skill));
     const counts = OVERVIEW_DATA.skillMetrics.map(m => m.attemptCount);
     const totalCount = counts.reduce((a, b) => a + b, 0);
 
@@ -206,10 +217,10 @@ function renderOverviewCharts() {
         datasets: [{
           data: counts,
           backgroundColor: [
-            'rgba(59, 130, 246, 0.75)',  // Blue (Reading)
-            'rgba(168, 85, 247, 0.75)', // Purple (Listening)
-            'rgba(16, 185, 129, 0.75)', // Green (Writing)
-            'rgba(249, 115, 22, 0.75)'  // Orange (Speaking)
+            'rgba(59, 130, 246, 0.75)',
+            'rgba(168, 85, 247, 0.75)',
+            'rgba(16, 185, 129, 0.75)',
+            'rgba(249, 115, 22, 0.75)'
           ],
           borderColor: '#ffffff',
           borderWidth: 2,
@@ -252,10 +263,9 @@ function renderAnalyticsCharts() {
 
     // Group score trends by skill
     const datasetMap = {
-      'READING': { label: 'Đọc (Reading)', data: [], borderColor: 'rgba(59, 130, 246, 0.85)', backgroundColor: 'rgba(59, 130, 246, 0.05)' },
-      'LISTENING': { label: 'Nghe (Listening)', data: [], borderColor: 'rgba(168, 85, 247, 0.85)', backgroundColor: 'rgba(168, 85, 247, 0.05)' },
-      'WRITING': { label: 'Viết (Writing)', data: [], borderColor: 'rgba(16, 185, 129, 0.85)', backgroundColor: 'rgba(16, 185, 129, 0.05)' },
-      'SPEAKING': { label: 'Nói (Speaking)', data: [], borderColor: 'rgba(249, 115, 22, 0.85)', backgroundColor: 'rgba(249, 115, 22, 0.05)' }
+      'READING': { label: 'Đọc', data: [], borderColor: 'rgba(59, 130, 246, 0.85)', backgroundColor: 'rgba(59, 130, 246, 0.05)' },
+      'LISTENING': { label: 'Nghe', data: [], borderColor: 'rgba(168, 85, 247, 0.85)', backgroundColor: 'rgba(168, 85, 247, 0.05)' },
+      'WRITING': { label: 'Viết', data: [], borderColor: 'rgba(16, 185, 129, 0.85)', backgroundColor: 'rgba(16, 185, 129, 0.05)' }
     };
 
     const uniqueDates = [];
@@ -285,6 +295,7 @@ function renderAnalyticsCharts() {
     const datasets = Object.keys(datasetMap).map(skill => {
       const ds = datasetMap[skill];
       return {
+        skill: skill,
         label: ds.label,
         data: ds.data,
         borderColor: ds.borderColor,
@@ -339,9 +350,7 @@ function renderAnalyticsCharts() {
                 if (val === null) return null;
                 const index = context.dataIndex;
                 const date = uniqueDates[index];
-                const skillKeys = ['READING', 'LISTENING', 'WRITING', 'SPEAKING'];
-                // Find matching skill key
-                const skillKey = skillKeys[context.datasetIndex];
+                const skillKey = context.dataset.skill;
                 const info = pointsMap[date][skillKey];
                 const title = info && info.title ? ` (${info.title})` : '';
                 return ` ${context.dataset.label}: ${val}%${title}`;
@@ -359,7 +368,7 @@ function switchSkillAccordion(skill) {
   // Active classes for accordion tabs
   document.querySelectorAll('.pp-accordion-tab-btn').forEach(btn => {
     btn.classList.remove('active');
-    if (btn.innerText.toUpperCase().includes(skill)) {
+    if (btn.dataset.skill === skill) {
       btn.classList.add('active');
     }
   });
@@ -370,36 +379,48 @@ function switchSkillAccordion(skill) {
   body.innerHTML = '';
 
   if (!ANALYTICS_DATA.questionTypePerf) {
-    renderEmptyTable(body);
+    renderEmptyTable(body, skill);
     return;
   }
 
   const filtered = ANALYTICS_DATA.questionTypePerf.filter(p => p.skill === skill);
 
   if (filtered.length === 0) {
-    renderEmptyTable(body);
+    renderEmptyTable(body, skill);
     return;
   }
 
   filtered.forEach(row => {
     const tr = document.createElement('tr');
+    const typeCell = tr.insertCell();
+    const typeName = document.createElement('strong');
+    typeName.textContent = row.questionTypeLabel || 'Dạng câu hỏi';
+    typeCell.appendChild(typeName);
 
-    tr.innerHTML = `
-      <td><strong>${row.questionTypeLabel}</strong> <span style="font-size:0.75rem; color:#94a3b8;">(${row.questionType})</span></td>
-      <td>${row.totalAttempts} lượt câu</td>
-      <td class="pp-table-badge">${row.averageScore}%</td>
-      <td style="font-weight:600; color:#334155;">${row.bestScore}%</td>
-      <td style="color:#64748b; font-size:0.82rem;">${row.lastPracticedAt || '--'}</td>
-    `;
+    tr.insertCell().textContent = `${row.totalAttempts} lượt câu`;
+    const averageCell = tr.insertCell();
+    averageCell.className = 'pp-table-badge';
+    averageCell.textContent = `${row.averageScore}%`;
+    const bestCell = tr.insertCell();
+    bestCell.style.fontWeight = '600';
+    bestCell.style.color = '#334155';
+    bestCell.textContent = `${row.bestScore}%`;
+    const lastCell = tr.insertCell();
+    lastCell.style.color = '#64748b';
+    lastCell.style.fontSize = '0.82rem';
+    lastCell.textContent = row.lastPracticedAt || '--';
     body.appendChild(tr);
   });
 }
 
-function renderEmptyTable(container) {
+function renderEmptyTable(container, skill) {
+  const message = skill === 'SPEAKING'
+    ? 'Chưa có điểm Nói tổng hợp.'
+    : 'Chưa có lượt đề nào ghi lại chi tiết cho kỹ năng này.';
   container.innerHTML = `
     <tr>
       <td colspan="5" style="text-align:center; color:#94a3b8; padding:32px;">
-        Chưa có lượt đề nào ghi lại chi tiết cho kỹ năng này.
+        ${message}
       </td>
     </tr>
   `;

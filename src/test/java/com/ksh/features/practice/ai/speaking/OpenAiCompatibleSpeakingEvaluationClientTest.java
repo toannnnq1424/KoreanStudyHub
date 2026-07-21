@@ -50,7 +50,9 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
         client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false, image));
 
         assertThat(transport.body().get("messages").toString())
-                .contains("image_url", "data:image/png;base64,cG5n", "question_image", "image-sha");
+                .contains("image_url", "data:image/png;base64,cG5n", "question_image")
+                .doesNotContain("image-sha")
+                .doesNotContain("audio_media_id", "media_version", "audio/webm");
     }
 
     @Test
@@ -141,6 +143,22 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
         assertThat(transport.calls()).isEqualTo(1);
     }
 
+    @Test
+    void textChatClientRejectsReservedDirectAudioCapabilityWithoutCallingProvider() {
+        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(transport);
+
+        SpeakingEvaluationProviderResult result = client.evaluate(requestWithCapability(
+                SpeakingEvaluatorCapability.AUDIO_DIRECT_FULL_RESERVED,
+                SpeakingEvidenceMode.DIRECT_AUDIO_AND_TRANSCRIPT,
+                SpeakingEvaluatorCapability.AUDIO_DIRECT_FULL_RESERVED.contractVersion()));
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.failureStatus()).isEqualTo(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED);
+        assertThat(result.errorCategory()).isEqualTo("UNSUPPORTED_EVALUATOR_CAPABILITY");
+        assertThat(transport.calls()).isZero();
+    }
+
     private void assertHttp(HttpStatus status, boolean retryable) {
         RuntimeException ex = status.is4xxClientError()
                 ? HttpClientErrorException.create(status, status.getReasonPhrase(), null, null, null)
@@ -151,6 +169,23 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
         assertEquals(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE, result.failureStatus());
         assertEquals("PROVIDER_HTTP_ERROR", result.errorCategory());
         assertThat(result.retryable()).isEqualTo(retryable);
+    }
+
+    private SpeakingEvaluationRequest requestWithCapability(
+            SpeakingEvaluatorCapability capability,
+            SpeakingEvidenceMode mode,
+            String evidenceVersion
+    ) {
+        SpeakingEvaluationRequest base = SpeakingEvaluationPromptBuilderTest.request(false);
+        return new SpeakingEvaluationRequest(
+                base.attemptId(), base.questionId(), base.questionText(), base.targetLevel(),
+                base.expectedAnswerGuidance(), base.imageEvidence(), base.audioMediaId(),
+                base.mediaVersion(), base.mimeType(), base.byteSize(), base.durationMs(),
+                base.transcriptionProvider(), base.transcriptionModel(), base.language(),
+                base.transcript(), base.normalizedTranscript(), base.actuallyHeardTranscript(),
+                base.interpretedIntent(), base.transcriptConfidence(), base.textFallback(),
+                base.promptVersion(), base.rubricVersion(), base.schemaVersion(),
+                capability, mode, evidenceVersion);
     }
 
     private OpenAiCompatibleSpeakingEvaluationClient clientWithTransport(CapturingTransport transport) {
@@ -175,9 +210,9 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                 model,
                 Duration.ofSeconds(30),
                 0,
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1");
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
     }
 
     static String validEvaluationJson() {
@@ -195,9 +230,9 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                   "media_version":13,
                   "transcript":"저는 학생 이에요",
                   "normalized_transcript":"저는 학생이에요.",
-                  "actually_heard_transcript":"저는 학생이에요.",
-                  "interpreted_intent":"The learner introduces themself.",
-                  "intent_confidence":0.8,
+                  "actually_heard_transcript":"저는 학생 이에요",
+                  "interpreted_intent":null,
+                  "intent_confidence":null,
                   "transcript_confidence":0.81,
                   "listener_burden":"LOW",
                   "overall_score":78,

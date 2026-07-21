@@ -22,7 +22,6 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingAnnotationView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFindingView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultAnswerDistribution;
-import com.ksh.features.practice.dto.PracticeDtos.ResultEvaluationBand;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ResultRubricCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
@@ -80,7 +79,8 @@ final class WritingResultPresenter implements PracticeResultPresenter {
         int ready = 0;
         int notAnswered = 0;
         int pending = 0;
-        int unscorable = 0;
+        int failed = 0;
+        int unavailable = 0;
 
         for (PracticeQuestionVersion question : questions) {
             String answer = context.answers().getOrDefault(String.valueOf(question.getQuestionId()), "");
@@ -96,16 +96,17 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                 switch (task.feedback().state()) {
                     case "READY" -> ready++;
                     case "PENDING" -> pending++;
-                    default -> unscorable++;
+                    case "FAILED" -> failed++;
+                    default -> unavailable++;
                 }
             }
         }
 
         int answered = questions.size() - notAnswered;
         ResultFeedbackAvailability feedback = aggregateFeedback(
-                ready, pending, unscorable, answered);
+                ready, pending, failed, unavailable, answered);
         ResultAnswerDistribution distribution = new ResultAnswerDistribution(
-                0, 0, 0, notAnswered, pending, unscorable, questions.size(), ready);
+                0, 0, 0, notAnswered, pending, failed + unavailable, questions.size(), ready);
         ResultScoreSummary displayScore = feedback.ready()
                 ? context.score()
                 : context.score().unavailableView();
@@ -157,7 +158,8 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                 availability,
                 summary,
                 List.of(),
-                List.of());
+                List.of(),
+                false);
     }
 
     private AssessmentScoreResult scoreObjective(
@@ -204,14 +206,17 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                 compatibilityReader.parseStoredEntry(usableFeedbackNode);
         WritingEvaluationResult evaluation = contract.value();
         boolean scoreContractReady = evaluation != null && evaluation.scoreAvailableFlag();
-        List<ResultRubricCriterion> criteria = criteria(
+        List<ResultRubricCriterion> parsedCriteria = criteria(
                 rubric, usableFeedbackNode, scoreContractReady);
-        ResultScoreSummary score = taskScore(evaluation, criteria, rubric);
+        ResultScoreSummary score = taskScore(evaluation, parsedCriteria, rubric);
         ResultFeedbackAvailability availability = taskFeedback(
                 answered, malformedStoredFeedback, feedback, usableFeedbackNode, contract, score);
+        List<ResultRubricCriterion> visibleCriteria = availability.ready()
+                ? parsedCriteria
+                : List.of();
         List<WritingAnalysisLens> lenses = isCloze(taskType)
                 ? List.of()
-                : longFormLenses(criteria, availability.ready() ? feedback : null);
+                : longFormLenses(visibleCriteria, availability.ready() ? feedback : null);
 
         return new WritingTaskResult(
                 question.getQuestionId(),
@@ -227,8 +232,9 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                         ? firstPresent(feedback == null ? null : feedback.summaryVi(),
                                 feedback == null ? null : feedback.summary())
                         : null,
-                criteria,
-                lenses);
+                visibleCriteria,
+                lenses,
+                "ESSAY".equals(question.getQuestionType()));
     }
 
     private List<ResultRubricCriterion> criteria(
@@ -245,17 +251,18 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             if (maxScore == null) {
                 maxScore = decimal(stored, "max_score");
             }
-            if (maxScore == null) {
-                maxScore = BigDecimal.valueOf(expected.maxScore());
+            BigDecimal expectedMaxScore = BigDecimal.valueOf(expected.maxScore());
+            if (maxScore != null && maxScore.compareTo(expectedMaxScore) != 0) {
+                score = null;
             }
-            BigDecimal percentage = percentage(score, maxScore);
+            if (score != null && (score.signum() < 0 || score.compareTo(expectedMaxScore) > 0)) {
+                score = null;
+            }
             result.add(new ResultRubricCriterion(
                     expected.criterionId(),
                     expected.displayName(),
                     score,
-                    maxScore,
-                    percentage,
-                    ResultEvaluationBand.fromPercentage(percentage),
+                    expectedMaxScore,
                     text(stored, "feedback")));
         }
         return List.copyOf(result);
@@ -271,14 +278,14 @@ final class WritingResultPresenter implements PracticeResultPresenter {
         }
         boolean complete = !criteria.isEmpty() && criteria.stream()
                 .allMatch(row -> row.score() != null && row.maxScore() != null);
-        BigDecimal earned = complete
-                ? criteria.stream().map(ResultRubricCriterion::score)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
-                : evaluation.rawScore();
-        BigDecimal possible = complete
-                ? criteria.stream().map(ResultRubricCriterion::maxScore)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
-                : evaluation.rawScoreMax();
+        if (!complete) {
+            return new ResultScoreSummary(null, null, null, null,
+                    "POINTS", "Thang điểm " + rubric.totalMaxScore(), null);
+        }
+        BigDecimal earned = criteria.stream().map(ResultRubricCriterion::score)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal possible = criteria.stream().map(ResultRubricCriterion::maxScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal percentage = percentage(earned, possible);
         return new ResultScoreSummary(
                 earned,
@@ -316,23 +323,14 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             ResultRubricCriterion source,
             WritingFeedbackView feedback,
             Set<String> categories,
-            boolean countedSeparately) {
+            boolean allowCriterionFallback) {
         List<String> evidence = evidence(
-                feedback, source.criterionId(), categories, countedSeparately);
-        boolean hasLensEvidence = countedSeparately || !evidence.isEmpty();
+                feedback, source.criterionId(), categories, allowCriterionFallback);
         return new WritingAnalysisLens(
                 code,
                 label,
                 source.criterionId(),
-                hasLensEvidence ? source.score() : null,
-                hasLensEvidence ? source.maxScore() : null,
-                hasLensEvidence ? source.percentage() : null,
-                hasLensEvidence ? source.band() : ResultEvaluationBand.UNAVAILABLE,
-                countedSeparately
-                        ? source.feedback()
-                        : evidence.stream().findFirst().orElse(null),
-                evidence,
-                countedSeparately);
+                evidence);
     }
 
     private static List<String> evidence(
@@ -395,9 +393,19 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             return new ResultFeedbackAvailability("PENDING", "Đang chờ đánh giá", 0, 1);
         }
         String status = feedback == null ? null : feedback.evaluationStatus();
-        if (status != null && (status.contains("PENDING") || status.contains("QUEUED")
-                || status.contains("PROCESSING"))) {
+        String normalizedStatus = normalize(status);
+        if (normalizedStatus.contains("PENDING") || normalizedStatus.contains("QUEUED")
+                || normalizedStatus.contains("PROCESSING")) {
             return new ResultFeedbackAvailability("PENDING", "Đang xử lý đánh giá", 0, 1);
+        }
+        if (normalizedStatus.contains("UNAVAILABLE") || normalizedStatus.contains("NOT_SCORABLE")) {
+            return new ResultFeedbackAvailability(
+                    "UNAVAILABLE", "Nhiệm vụ này hiện chưa có đánh giá khả dụng", 0, 1);
+        }
+        if (normalizedStatus.contains("FAILED") || normalizedStatus.contains("ERROR")
+                || normalizedStatus.contains("INVALID")) {
+            return new ResultFeedbackAvailability(
+                    "FAILED", "Không thể hoàn tất đánh giá nhiệm vụ này", 0, 1);
         }
         if (contract.value() != null && contract.value().scoreAvailableFlag() && score.available()) {
             return new ResultFeedbackAvailability("READY", "Đã có đánh giá", 1, 1);
@@ -409,6 +417,7 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             int ready,
             int pending,
             int failed,
+            int unavailable,
             int total) {
         if (total == 0) {
             return new ResultFeedbackAvailability(
@@ -427,6 +436,10 @@ final class WritingResultPresenter implements PracticeResultPresenter {
         if (failed > 0) {
             return new ResultFeedbackAvailability(
                     "FAILED", "Chưa có đánh giá bài viết khả dụng", 0, total);
+        }
+        if (unavailable > 0) {
+            return new ResultFeedbackAvailability(
+                    "UNAVAILABLE", "Một hoặc nhiều nhiệm vụ chưa có đánh giá khả dụng", 0, total);
         }
         return new ResultFeedbackAvailability(
                 "UNAVAILABLE", "Chưa có dữ liệu đánh giá bài viết", 0, total);
@@ -467,7 +480,13 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                 return row;
             }
         }
-        return fallbackIndex < rows.size() ? rows.get(fallbackIndex) : null;
+        if (fallbackIndex >= rows.size()) {
+            return null;
+        }
+        JsonNode fallback = rows.get(fallbackIndex);
+        String fallbackCriterionId = firstPresent(
+                text(fallback, "criterionId"), text(fallback, "criterion_id"));
+        return fallbackCriterionId == null ? fallback : null;
     }
 
     private static BigDecimal decimal(JsonNode node, String field) {

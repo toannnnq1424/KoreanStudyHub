@@ -25,6 +25,7 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackViewMapper;
+import com.ksh.features.practice.ai.speaking.SpeakingScorePolicy;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
@@ -102,6 +103,7 @@ public class PracticeService {
     private static final String SPEAKING_MIXED_CONTRACT_FIELD = "_contract";
     private static final String SPEAKING_MIXED_SPEAKING_FIELD = "speaking_feedback_by_question";
     private static final String SPEAKING_MIXED_ESSAY_FIELD = "essay_feedback_by_question";
+    private static final String SPEAKING_SCORE_UNAVAILABLE = "Không có điểm Nói tổng hợp";
     private static final Pattern MARKDOWN_IMAGE_PATTERN =
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
@@ -398,16 +400,17 @@ public class PracticeService {
                     : buildSpeakingQuestionFeedbackRows(liveSectionQuestions(attempt, section), attempt.getAnswersJson(), attempt.getAiFeedbackJson())
                 : List.of();
 
+        boolean speakingResult = skill != null && "SPEAKING".equalsIgnoreCase(skill.trim());
         return new PracticeResultView(
                 attempt.getId(),
                 attempt.getTestId(),
                 lockedSnapshot.map(PracticeVersionSnapshot::setVersion)
                         .map(PracticeService::toSetRow)
                         .orElseGet(() -> toSetRow(set)),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
-                "SPEAKING".equals(skill)
-                        ? percentageLabel(attempt.getScore())
+                speakingResult ? null : attempt.getScore(),
+                speakingResult ? null : attempt.getTotalPoints(),
+                speakingResult
+                        ? SPEAKING_SCORE_UNAVAILABLE
                         : scoreLabel(attempt.getScore(), attempt.getTotalPoints()),
                 attempt.getAnswersJson(),
                 attempt.getAiFeedbackJson(),
@@ -906,11 +909,11 @@ public class PracticeService {
     }
 
     private double getNormalizedAttemptScore(PracticeAttempt attempt) {
-        if (attempt.getScore() == null) return 0.0;
+        if (attempt.getScore() == null || isSpeakingAttempt(attempt)) return 0.0;
         if (attempt.getScorePercentage() != null) {
             return attempt.getScorePercentage().doubleValue();
         }
-        if ("WRITING".equals(attempt.getSkill()) || "SPEAKING".equals(attempt.getSkill())) {
+        if ("WRITING".equals(attempt.getSkill())) {
             return attempt.getScore().doubleValue();
         }
         if (attempt.getTotalPoints() != null && attempt.getTotalPoints().compareTo(BigDecimal.ZERO) > 0) {
@@ -932,7 +935,15 @@ public class PracticeService {
     }
 
     private boolean hasValidProgressScore(PracticeAttempt attempt) {
-        return isCompletedProgressAttempt(attempt) && attempt.getScore() != null;
+        return isCompletedProgressAttempt(attempt)
+                && !isSpeakingAttempt(attempt)
+                && attempt.getScore() != null;
+    }
+
+    private boolean isSpeakingAttempt(PracticeAttempt attempt) {
+        return attempt != null
+                && attempt.getSkill() != null
+                && "SPEAKING".equalsIgnoreCase(attempt.getSkill().trim());
     }
 
     private List<PracticeAttempt> attemptsBySkill(List<PracticeAttempt> attempts, String skill) {
@@ -963,12 +974,13 @@ public class PracticeService {
             title += " - " + section.getTitle();
         }
 
+        boolean speaking = isSpeakingAttempt(attempt);
         return new PracticeResultSummary(
                 attempt.getId(),
                 title,
                 attempt.getSkill(),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
+                speaking ? null : attempt.getScore(),
+                speaking ? null : attempt.getTotalPoints(),
                 attempt.getSubmittedAt(),
                 progressActivityAt(attempt),
                 attempt.getStatus(),
@@ -1040,7 +1052,10 @@ public class PracticeService {
                 avgScore = Math.round((sum / scoredSkillAttempts.size()) * 100.0) / 100.0;
             }
             skillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
-                    skill, PracticeDtos.getSkillLabel(skill), avgScore, skillAttempts.size(), 0.0));
+                    skill, PracticeDtos.getSkillLabel(skill),
+                    "SPEAKING".equals(skill) ? null : avgScore,
+                    skillAttempts.size(),
+                    "SPEAKING".equals(skill) ? null : 0.0));
         }
 
         if (allAttempts.isEmpty()) {
@@ -1114,13 +1129,16 @@ public class PracticeService {
             recentHistory.add(toAttemptSummary(attempt, setsById, testsById, sectionsById));
         }
 
-        String currentLevel = "Cần luyện thêm";
-        if (recentAverageScore >= 80.0) {
-            currentLevel = "Vững";
-        } else if (recentAverageScore >= 65.0) {
-            currentLevel = "Khá";
-        } else if (recentAverageScore >= 50.0) {
-            currentLevel = "Đang tiến bộ";
+        String currentLevel = "Chưa có dữ liệu điểm";
+        if (!scoredAttempts.isEmpty()) {
+            currentLevel = "Cần luyện thêm";
+            if (recentAverageScore >= 80.0) {
+                currentLevel = "Vững";
+            } else if (recentAverageScore >= 65.0) {
+                currentLevel = "Khá";
+            } else if (recentAverageScore >= 50.0) {
+                currentLevel = "Đang tiến bộ";
+            }
         }
 
         return new com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview(
@@ -1147,12 +1165,17 @@ public class PracticeService {
         for (String skill : skills) {
             double thisWeekSum = 0.0;
             int thisWeekCount = 0;
+            int thisWeekActivityCount = 0;
             double lastWeekSum = 0.0;
             int lastWeekCount = 0;
             for (PracticeAttempt attempt : allAttempts) {
-                if (!skill.equals(attempt.getSkill()) || !hasValidProgressScore(attempt)) continue;
+                if (!skill.equals(attempt.getSkill()) || !isCompletedProgressAttempt(attempt)) continue;
                 java.time.LocalDateTime activityAt = progressActivityAt(attempt);
                 if (activityAt == null) continue;
+                if (activityAt.isAfter(startOfThisWeek)) {
+                    thisWeekActivityCount++;
+                }
+                if (!hasValidProgressScore(attempt)) continue;
                 double norm = getNormalizedAttemptScore(attempt);
                 if (activityAt.isAfter(startOfThisWeek)) {
                     thisWeekSum += norm;
@@ -1169,7 +1192,9 @@ public class PracticeService {
                     : Math.round((thisWeekAvg - lastWeekAvg) * 100.0) / 100.0;
             weeklySkillMetrics.add(new com.ksh.features.practice.dto.PracticeDtos.SkillMetric(
                     skill, PracticeDtos.getSkillLabel(skill),
-                    Math.round(thisWeekAvg * 100.0) / 100.0, thisWeekCount, delta));
+                    "SPEAKING".equals(skill) ? null : Math.round(thisWeekAvg * 100.0) / 100.0,
+                    thisWeekActivityCount,
+                    "SPEAKING".equals(skill) ? null : delta));
         }
 
         List<PracticeAttempt> scoredRecent = recentAttempts.stream()
@@ -2122,7 +2147,7 @@ public class PracticeService {
 
     private static String percentageLabel(BigDecimal score) {
         if (score == null) {
-            return "0%";
+            return "—";
         }
         return score.setScale(2, RoundingMode.HALF_UP)
                 .stripTrailingZeros()
@@ -3524,13 +3549,11 @@ public class PracticeService {
                     continue;
                 }
                 feedbackByQuestion.put(q.questionId(), result);
-                if (!result.scoreAvailable() || result.overallScore() == null) {
+                BigDecimal earnedQuestionPoints = SpeakingScorePolicy.earnedQuestionPoints(q.points(), result);
+                if (earnedQuestionPoints == null) {
                     allSpeakingScoreBearing = false;
                     continue;
                 }
-                BigDecimal earnedQuestionPoints = clamp(result.overallScore(), BigDecimal.ZERO, BigDecimal.valueOf(100))
-                        .multiply(q.points())
-                        .divide(BigDecimal.valueOf(100), java.math.MathContext.DECIMAL128);
                 earnedPoints = earnedPoints.add(earnedQuestionPoints);
             } else {
                 throw new IllegalStateException("Unsupported SPEAKING question type for question ID "

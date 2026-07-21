@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai.speaking;
 
 public enum SpeakingEvaluationStatus {
     EVALUATED(true),
+    // Pipeline-admissible so the evaluator may return evidence-grounded advisory
+    // feedback. Normalizer/Result invariants require an empty numeric profile.
     TRANSCRIPTION_LOW_CONFIDENCE(true),
     TRANSCRIPTION_UNAVAILABLE(false),
     EVALUATION_UNAVAILABLE(false),

@@ -528,7 +528,13 @@ public final class PracticeDtos {
             String rubricVersion,
             String schemaVersion,
             String model,
-            String transcriptionModel
+            String transcriptionModel,
+            String evaluatorCapability,
+            String evidenceMode,
+            String evidenceContractVersion,
+            String contractTrust,
+            boolean profileAvailable,
+            boolean holisticScoreAvailable
     ) {
         public SpeakingFeedbackView(
                 BigDecimal percentage,
@@ -548,7 +554,8 @@ public final class PracticeDtos {
                     null, percentage != null, null, summaryVi == null ? summary : summaryVi, null,
                     List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                     null, null, null, null, null, null, null, List.of(), List.of(),
-                    null, false, null, null, null, null, null, engine, null);
+                    null, false, null, null, null, null, null, engine, null,
+                    "LEGACY_UNKNOWN", "UNKNOWN", null, "LEGACY_UNVERIFIED", false, false);
         }
 
         public SpeakingFeedbackView {
@@ -563,6 +570,14 @@ public final class PracticeDtos {
             annotations = annotations == null ? List.of() : List.copyOf(annotations);
             pronunciationAdvisory = pronunciationAdvisory == null ? List.of() : List.copyOf(pronunciationAdvisory);
             fluencyObservations = fluencyObservations == null ? List.of() : List.copyOf(fluencyObservations);
+            if (!holisticScoreAvailable) {
+                percentage = null;
+                scoreAvailable = false;
+                levelLabel = null;
+                listenerBurden = null;
+                pronunciationAdvisory = List.of();
+                fluencyObservations = List.of();
+            }
         }
     }
 
@@ -572,10 +587,35 @@ public final class PracticeDtos {
             String feedback,
             String criterionId,
             BigDecimal score,
-            BigDecimal maxScore
+            BigDecimal maxScore,
+            String availability
     ) {
+        public SpeakingRubricScoreView {
+            availability = speakingAvailability(availability, score);
+            if ("SCORED".equals(availability) && (score == null || maxScore == null)) {
+                availability = "UNAVAILABLE";
+            }
+            if (!"SCORED".equals(availability)) {
+                percentage = null;
+                score = null;
+                maxScore = null;
+            }
+        }
+
+        public SpeakingRubricScoreView(
+                String name,
+                BigDecimal percentage,
+                String feedback,
+                String criterionId,
+                BigDecimal score,
+                BigDecimal maxScore
+        ) {
+            this(name, percentage, feedback, criterionId, score, maxScore,
+                    score == null ? "UNAVAILABLE" : "SCORED");
+        }
+
         public SpeakingRubricScoreView(String name, BigDecimal percentage, String feedback) {
-            this(name, percentage, feedback, null, null, null);
+            this(name, percentage, feedback, null, null, null, "UNAVAILABLE");
         }
     }
 
@@ -618,7 +658,17 @@ public final class PracticeDtos {
             String instructionVi,
             String reasonVi,
             String priority
-    ) {}
+    ) {
+        public String criterionLabel() {
+            return switch (criterionId == null ? "" : criterionId) {
+                case "S_CONTENT_TASK_FULFILLMENT" -> "Nội dung và hoàn thành yêu cầu";
+                case "S_GRAMMAR_SENTENCE_CONTROL" -> "Ngữ pháp và kiểm soát câu";
+                case "S_VOCABULARY_EXPRESSIONS" -> "Từ vựng và biểu đạt";
+                case "S_COHERENCE_ORGANIZATION" -> "Mạch lạc và tổ chức ý";
+                default -> null;
+            };
+        }
+    }
 
     public record SpeakingTranscriptAnnotationView(
             String criterionId,
@@ -869,9 +919,9 @@ public final class PracticeDtos {
     public record SkillMetric(
             String skill,
             String skillLabel,
-            double normalizedScore,
+            Double normalizedScore,
             int attemptCount,
-            double deltaFromLastPeriod
+            Double deltaFromLastPeriod
     ) {}
 
     public record HeatmapCell(
@@ -985,11 +1035,6 @@ public final class PracticeDtos {
             }
         }
 
-        public boolean celebratory() {
-            return score.percentage() != null
-                    && score.percentage().compareTo(BigDecimal.valueOf(70)) >= 0;
-        }
-
         public String elapsedDisplay() {
             if (elapsedSeconds == null) {
                 return null;
@@ -1034,7 +1079,14 @@ public final class PracticeDtos {
         }
 
         public String primaryDisplay() {
-            BigDecimal display = "PERCENTAGE".equals(unit) ? percentage : value;
+            BigDecimal display;
+            if ("PERCENTAGE".equals(unit)) {
+                display = percentage != null ? percentage : value;
+            } else if ("EARNED_POINTS".equals(unit)) {
+                display = earnedPoints != null ? earnedPoints : value;
+            } else {
+                display = value != null ? value : percentage;
+            }
             return display == null ? null : compactResultNumber(display);
         }
 
@@ -1112,12 +1164,19 @@ public final class PracticeDtos {
             ResultAnswerDistribution answers,
             BigDecimal earnedPoints,
             BigDecimal possiblePoints,
-            BigDecimal accuracyPercentage
+            BigDecimal scoreRatePercentage
     ) {
-        public String accuracyDisplay() {
-            return accuracyPercentage == null
+        public String pointsDisplay() {
+            if (earnedPoints == null || possiblePoints == null) {
+                return null;
+            }
+            return compactResultNumber(earnedPoints) + "/" + compactResultNumber(possiblePoints);
+        }
+
+        public String scoreRateDisplay() {
+            return scoreRatePercentage == null
                     ? null
-                    : compactResultNumber(accuracyPercentage) + "%";
+                    : compactResultNumber(scoreRatePercentage) + "%";
         }
     }
 
@@ -1147,11 +1206,24 @@ public final class PracticeDtos {
             ResultFeedbackAvailability feedback,
             String summary,
             List<ResultRubricCriterion> officialCriteria,
-            List<WritingAnalysisLens> analysisLenses
+            List<WritingAnalysisLens> analysisLenses,
+            boolean detailAvailable
     ) {
         public WritingTaskResult {
             officialCriteria = immutableResultList(officialCriteria);
             analysisLenses = immutableResultList(analysisLenses);
+        }
+
+        public boolean answered() {
+            return learnerAnswer != null && !learnerAnswer.isBlank();
+        }
+
+        public boolean evaluated() {
+            return feedback != null && feedback.ready() && score != null && score.available();
+        }
+
+        public boolean clozeTask() {
+            return "Q51".equals(taskType) || "Q52".equals(taskType);
         }
     }
 
@@ -1159,17 +1231,10 @@ public final class PracticeDtos {
             String code,
             String label,
             String sourceCriterionId,
-            BigDecimal score,
-            BigDecimal maxScore,
-            BigDecimal percentage,
-            ResultEvaluationBand band,
-            String summary,
-            List<String> evidence,
-            boolean countedSeparately
+            List<String> evidence
     ) {
         public WritingAnalysisLens {
             evidence = immutableResultList(evidence);
-            band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
         }
     }
 
@@ -1178,13 +1243,19 @@ public final class PracticeDtos {
             ResultScoreSummary holisticScore,
             int coveredSegments,
             int totalSegments,
+            String profileState,
             String evidenceMode,
             String evidenceNote,
             List<String> overallSummaries,
             List<String> strengths,
             List<String> needsImprovement,
             List<SpeakingActionPlanView> actionPlan,
-            List<SpeakingCriterionResult> criteria
+            List<SpeakingCriterionResult> criteria,
+            String evaluatorCapability,
+            String evidenceContractVersion,
+            String contractTrust,
+            boolean holisticScoreAvailable,
+            int legacyUnverifiedSegments
     ) implements ResultSkillPayload {
         public SpeakingResultPayload {
             kind = "SPEAKING";
@@ -1193,6 +1264,54 @@ public final class PracticeDtos {
             needsImprovement = immutableResultList(needsImprovement);
             actionPlan = immutableResultList(actionPlan);
             criteria = immutableResultList(criteria);
+            profileState = switch (profileState == null ? "" : profileState) {
+                case "READY", "PARTIAL", "PENDING", "FAILED", "UNAVAILABLE",
+                        "LOW_CONFIDENCE", "LEGACY_UNVERIFIED" -> profileState;
+                default -> "UNAVAILABLE";
+            };
+            boolean transcriptProfile = ("CURRENT_VERIFIED".equals(contractTrust)
+                    || "MIXED_WITH_LEGACY_UNVERIFIED".equals(contractTrust))
+                    && "TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION".equals(evaluatorCapability)
+                    && "TRANSCRIPT_ONLY".equals(evidenceMode)
+                    && com.ksh.features.practice.ai.speaking.SpeakingPromptRules
+                            .EVIDENCE_CONTRACT_VERSION.equals(evidenceContractVersion);
+            boolean governedFutureHolisticProfile = "CURRENT_VERIFIED".equals(contractTrust)
+                    && holisticScoreAvailable
+                    && holisticScore != null
+                    && holisticScore.available()
+                    && "DIRECT_AUDIO_AND_TRANSCRIPT".equals(evidenceMode)
+                    && evaluatorCapability != null
+                    && !"AUDIO_DIRECT_FULL_RESERVED".equals(evaluatorCapability)
+                    && !"LEGACY_UNKNOWN".equals(evaluatorCapability)
+                    && evidenceContractVersion != null
+                    && !evidenceContractVersion.isBlank();
+            if (!transcriptProfile && !governedFutureHolisticProfile) {
+                contractTrust = "LEGACY_UNVERIFIED";
+                evaluatorCapability = "LEGACY_UNKNOWN";
+                evidenceMode = "UNKNOWN";
+                evidenceContractVersion = null;
+                holisticScoreAvailable = false;
+                actionPlan = List.of();
+                String unavailableCriterionState = legacyUnverifiedSegments > 0
+                        ? "LEGACY_UNVERIFIED" : "UNAVAILABLE";
+                criteria = criteria.stream()
+                        .map(criterion -> criterion.unavailableView(unavailableCriterionState))
+                        .toList();
+                if (legacyUnverifiedSegments > 0) {
+                    profileState = "LEGACY_UNVERIFIED";
+                } else if (!"PENDING".equals(profileState)
+                        && !"FAILED".equals(profileState)
+                        && !"UNAVAILABLE".equals(profileState)) {
+                    profileState = "UNAVAILABLE";
+                }
+            } else if (transcriptProfile) {
+                // The current transcript capability cannot produce an overall
+                // Speaking score, even if a stale caller supplies one.
+                holisticScoreAvailable = false;
+            }
+            if (!holisticScoreAvailable && holisticScore != null) {
+                holisticScore = holisticScore.unavailableView();
+            }
         }
 
         public SpeakingResultPayload(
@@ -1206,8 +1325,150 @@ public final class PracticeDtos {
                 List<String> needsImprovement,
                 List<SpeakingActionPlanView> actionPlan,
                 List<SpeakingCriterionResult> criteria) {
-            this("SPEAKING", holisticScore, coveredSegments, totalSegments, evidenceMode,
-                    evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria);
+            this("SPEAKING", holisticScore, coveredSegments, totalSegments,
+                    defaultSpeakingProfileState(coveredSegments, totalSegments), evidenceMode,
+                    evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria,
+                    "TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                    com.ksh.features.practice.ai.speaking.SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                    "CURRENT_VERIFIED", false, 0);
+        }
+
+        public SpeakingResultPayload(
+                ResultScoreSummary holisticScore,
+                int coveredSegments,
+                int totalSegments,
+                String profileState,
+                String evidenceMode,
+                String evidenceNote,
+                List<String> overallSummaries,
+                List<String> strengths,
+                List<String> needsImprovement,
+                List<SpeakingActionPlanView> actionPlan,
+                List<SpeakingCriterionResult> criteria,
+                String evaluatorCapability,
+                String evidenceContractVersion,
+                String contractTrust,
+                boolean holisticScoreAvailable,
+                int legacyUnverifiedSegments) {
+            this("SPEAKING", holisticScore, coveredSegments, totalSegments, profileState, evidenceMode,
+                    evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria,
+                    evaluatorCapability, evidenceContractVersion, contractTrust,
+                    holisticScoreAvailable, legacyUnverifiedSegments);
+        }
+
+        public SpeakingResultPayload(
+                ResultScoreSummary holisticScore,
+                int coveredSegments,
+                int totalSegments,
+                String evidenceMode,
+                String evidenceNote,
+                List<String> overallSummaries,
+                List<String> strengths,
+                List<String> needsImprovement,
+                List<SpeakingActionPlanView> actionPlan,
+                List<SpeakingCriterionResult> criteria,
+                String evaluatorCapability,
+                String evidenceContractVersion,
+                String contractTrust,
+                boolean holisticScoreAvailable,
+                int legacyUnverifiedSegments) {
+            this(holisticScore, coveredSegments, totalSegments,
+                    legacyUnverifiedSegments > 0 && coveredSegments == 0
+                            ? "LEGACY_UNVERIFIED"
+                            : defaultSpeakingProfileState(coveredSegments, totalSegments),
+                    evidenceMode, evidenceNote, overallSummaries, strengths, needsImprovement,
+                    actionPlan, criteria, evaluatorCapability, evidenceContractVersion,
+                    contractTrust, holisticScoreAvailable, legacyUnverifiedSegments);
+        }
+
+        public boolean transcriptGroundedProfile() {
+            return ("CURRENT_VERIFIED".equals(contractTrust)
+                    || "MIXED_WITH_LEGACY_UNVERIFIED".equals(contractTrust))
+                    && "TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION".equals(evaluatorCapability)
+                    && "TRANSCRIPT_ONLY".equals(evidenceMode);
+        }
+
+        public String profileTitle() {
+            if (holisticScoreAvailable) {
+                return "Kết quả Nói tổng hợp";
+            }
+            if (transcriptGroundedProfile()
+                    && ("READY".equals(profileState) || "PARTIAL".equals(profileState))) {
+                return "Hồ sơ ngôn ngữ dựa trên bản chép lời";
+            }
+            if (transcriptGroundedProfile() && "PENDING".equals(profileState)) {
+                return "Hồ sơ ngôn ngữ đang được xử lý";
+            }
+            if (transcriptGroundedProfile() && "LOW_CONFIDENCE".equals(profileState)) {
+                return "Bản chép lời có độ tin cậy thấp";
+            }
+            return "Hồ sơ đánh giá chưa khả dụng";
+        }
+
+        public String profileStateLabel() {
+            return switch (profileState) {
+                case "READY" -> "Hồ sơ đã sẵn sàng";
+                case "PARTIAL" -> "Hồ sơ mới có một phần";
+                case "PENDING" -> "Đang xử lý bằng chứng";
+                case "LOW_CONFIDENCE" -> "Bản chép lời có độ tin cậy thấp";
+                case "FAILED" -> "Chưa thể tạo hồ sơ";
+                case "LEGACY_UNVERIFIED" -> "Kết quả cũ chưa được xác minh";
+                default -> "Chưa có hồ sơ khả dụng";
+            };
+        }
+
+        public String profileStateDescription() {
+            return switch (profileState) {
+                case "READY" -> coveredSegments + "/" + totalSegments
+                        + " phần trả lời có bằng chứng đủ điều kiện.";
+                case "PARTIAL" -> coveredSegments + "/" + totalSegments
+                        + " phần trả lời có bằng chứng đủ điều kiện; phần còn lại không được tính là 0 điểm.";
+                case "PENDING" -> "Bằng chứng chưa xử lý xong; chưa có điểm nào được suy đoán trong thời gian chờ.";
+                case "LOW_CONFIDENCE" -> "Bản chép lời hiện tại không đủ tin cậy để chấm tiêu chí; trạng thái này không được quy đổi thành 0 điểm.";
+                case "FAILED" -> "Không có điểm nào được tạo khi xử lý bằng chứng không thành công.";
+                case "LEGACY_UNVERIFIED" -> "Dữ liệu lưu trước đây không đủ thông tin để xác minh; mọi số điểm cũ đều được ẩn.";
+                default -> "Chưa có bằng chứng đủ điều kiện và trạng thái này không có nghĩa là 0 điểm.";
+            };
+        }
+
+        public String evidenceSourceLabel() {
+            if (transcriptGroundedProfile()
+                    && ("READY".equals(profileState) || "PARTIAL".equals(profileState))) {
+                return "Bản chép lời của bài làm";
+            }
+            if (transcriptGroundedProfile() && "PENDING".equals(profileState)) {
+                return "Bản chép lời đang được xử lý";
+            }
+            if (transcriptGroundedProfile() && "LOW_CONFIDENCE".equals(profileState)) {
+                return "Bản chép lời đã xác minh nguồn nhưng có độ tin cậy thấp";
+            }
+            if (transcriptGroundedProfile() && "FAILED".equals(profileState)) {
+                return "Bản chép lời chưa đủ điều kiện đánh giá";
+            }
+            if (holisticScoreAvailable && "DIRECT_AUDIO_AND_TRANSCRIPT".equals(evidenceMode)) {
+                return "Âm thanh trực tiếp và bản chép lời đã xác minh";
+            }
+            return "Chưa có nguồn bằng chứng đủ điều kiện";
+        }
+
+        public String scopeLabel() {
+            if (transcriptGroundedProfile() && "LOW_CONFIDENCE".equals(profileState)) {
+                return "Chỉ ghi nhận nguồn bằng chứng; chưa đánh giá tiêu chí";
+            }
+            if (transcriptGroundedProfile()) {
+                return "4 tiêu chí ngôn ngữ; 2 tiêu chí cần âm thanh trực tiếp";
+            }
+            return holisticScoreAvailable
+                    ? "Hồ sơ Nói tổng hợp đã qua kiểm soát"
+                    : "Không suy đoán tiêu chí hoặc điểm tổng hợp";
+        }
+
+        public String trustLabel() {
+            return switch (contractTrust) {
+                case "CURRENT_VERIFIED" -> "Đã xác minh theo quy tắc đánh giá hiện tại";
+                case "MIXED_WITH_LEGACY_UNVERIFIED" -> "Chỉ phần bằng chứng hiện tại được dùng để chấm";
+                default -> "Chưa thể xác minh theo quy tắc đánh giá hiện tại";
+            };
         }
     }
 
@@ -1221,21 +1482,114 @@ public final class PracticeDtos {
             int totalSegments,
             ResultEvaluationBand band,
             String summary,
-            boolean advisoryOnly
+            boolean advisoryOnly,
+            String availability,
+            boolean requiresDirectAudioEvidence
     ) {
         public SpeakingCriterionResult {
+            availability = speakingAvailability(availability, score);
+            if ("NOT_SCORABLE".equals(availability) && !requiresDirectAudioEvidence) {
+                availability = "UNAVAILABLE";
+            }
+            if (!"SCORED".equals(availability)) {
+                weight = null;
+                score = null;
+                percentage = null;
+                summary = null;
+                advisoryOnly = false;
+                band = ResultEvaluationBand.UNAVAILABLE;
+            }
             band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
         }
 
+        public SpeakingCriterionResult(
+                String criterionId,
+                String label,
+                BigDecimal weight,
+                BigDecimal score,
+                BigDecimal percentage,
+                int coveredSegments,
+                int totalSegments,
+                ResultEvaluationBand band,
+                String summary,
+                boolean advisoryOnly
+        ) {
+            this(criterionId, label, weight, score, percentage, coveredSegments,
+                    totalSegments, band, summary, advisoryOnly,
+                    score == null ? "UNAVAILABLE" : "SCORED",
+                    speakingCriterionRequiresDirectAudio(criterionId));
+        }
+
+        public SpeakingCriterionResult(
+                String criterionId,
+                String label,
+                BigDecimal weight,
+                BigDecimal score,
+                BigDecimal percentage,
+                int coveredSegments,
+                int totalSegments,
+                ResultEvaluationBand band,
+                String summary,
+                boolean advisoryOnly,
+                String availability
+        ) {
+            this(criterionId, label, weight, score, percentage, coveredSegments,
+                    totalSegments, band, summary, advisoryOnly, availability,
+                    speakingCriterionRequiresDirectAudio(criterionId));
+        }
+
         public String coverageLabel() {
-            return coveredSegments + "/" + totalSegments + " phần trả lời có bằng chứng";
+            if ("NOT_SCORABLE".equals(availability)) {
+                return "Bộ đánh giá chưa nhận âm thanh trực tiếp của người học";
+            }
+            if ("LEGACY_UNVERIFIED".equals(availability)) {
+                return "Kết quả lưu trước đây chưa đủ thông tin xác minh";
+            }
+            if ("UNAVAILABLE".equals(availability)) {
+                return "Chưa có bằng chứng đủ điều kiện để chấm";
+            }
+            return coveredSegments + "/" + totalSegments
+                    + " phần trả lời có bằng chứng bản chép lời";
         }
 
         public String scoreDisplay() {
-            if (score == null || weight == null) {
+            if (!"SCORED".equals(availability) || score == null || weight == null) {
                 return null;
             }
             return compactResultNumber(score) + "/" + compactResultNumber(weight);
+        }
+
+        public boolean scored() {
+            return "SCORED".equals(availability) && scoreDisplay() != null;
+        }
+
+        public boolean notScorable() {
+            return "NOT_SCORABLE".equals(availability);
+        }
+
+        public String availabilityLabel() {
+            return switch (availability) {
+                case "SCORED" -> "Đã chấm từ bản chép lời";
+                case "NOT_SCORABLE" -> "Chưa thể chấm";
+                case "LEGACY_UNVERIFIED" -> "Kết quả cũ không khả dụng";
+                default -> "Chưa có dữ liệu chấm";
+            };
+        }
+
+        public String stateCssClass() {
+            return switch (availability) {
+                case "SCORED" -> "scored";
+                case "NOT_SCORABLE" -> "not-scorable";
+                case "LEGACY_UNVERIFIED" -> "legacy-unverified";
+                default -> "unavailable";
+            };
+        }
+
+        public SpeakingCriterionResult unavailableView(String unavailableState) {
+            return new SpeakingCriterionResult(
+                    criterionId, label, null, null, null, coveredSegments, totalSegments,
+                    ResultEvaluationBand.UNAVAILABLE, null, false, unavailableState,
+                    requiresDirectAudioEvidence);
         }
     }
 
@@ -1244,14 +1598,8 @@ public final class PracticeDtos {
             String label,
             BigDecimal score,
             BigDecimal maxScore,
-            BigDecimal percentage,
-            ResultEvaluationBand band,
             String feedback
     ) {
-        public ResultRubricCriterion {
-            band = band == null ? ResultEvaluationBand.UNAVAILABLE : band;
-        }
-
         public String scoreDisplay() {
             if (score == null || maxScore == null) {
                 return null;
@@ -1302,6 +1650,31 @@ public final class PracticeDtos {
 
     private static <T> List<T> immutableResultList(List<T> values) {
         return values == null ? List.of() : List.copyOf(values);
+    }
+
+    private static String speakingAvailability(String availability, BigDecimal score) {
+        String resolved = availability == null || availability.isBlank()
+                ? (score == null ? "UNAVAILABLE" : "SCORED")
+                : availability;
+        return switch (resolved) {
+            case "SCORED", "NOT_SCORABLE", "UNAVAILABLE", "LEGACY_UNVERIFIED" -> resolved;
+            default -> "UNAVAILABLE";
+        };
+    }
+
+    private static String defaultSpeakingProfileState(int coveredSegments, int totalSegments) {
+        if (totalSegments <= 0) {
+            return "UNAVAILABLE";
+        }
+        if (coveredSegments >= totalSegments) {
+            return "READY";
+        }
+        return coveredSegments > 0 ? "PARTIAL" : "UNAVAILABLE";
+    }
+
+    private static boolean speakingCriterionRequiresDirectAudio(String criterionId) {
+        return "S_FLUENCY".equals(criterionId)
+                || "S_PRONUNCIATION_DELIVERY".equals(criterionId);
     }
 
     private static String compactResultNumber(BigDecimal value) {

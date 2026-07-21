@@ -33,7 +33,7 @@ public class SpeakingEvaluationPromptBuilder {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "SPEAKING");
         payload.put("platform", "KSH Korean Study Hub");
-        payload.put("score_policy", "KSH internal practice score only; not an official certificate score.");
+        payload.put("score_policy", "Transcript-grounded KSH language profile only; holistic Speaking score unavailable.");
         payload.put("task", map(
                 "attempt_id", request.attemptId(),
                 "question_id", request.questionId(),
@@ -44,17 +44,20 @@ public class SpeakingEvaluationPromptBuilder {
                 ? Map.of("available", false)
                 : map(
                         "available", true,
-                        "asset_id", request.imageEvidence().assetId(),
-                        "mime_type", request.imageEvidence().mimeType(),
-                        "sha256", request.imageEvidence().sha256(),
-                        "size_bytes", request.imageEvidence().sizeBytes()));
-        payload.put("audio_metadata", map(
-                "audio_media_id", request.audioMediaId(),
-                "media_version", request.mediaVersion(),
-                "mime_type", safeText(request.mimeType()),
-                "byte_size", request.byteSize(),
-                "duration_ms", request.durationMs(),
-                "text_fallback", request.textFallback()));
+                        "mime_type", request.imageEvidence().mimeType()));
+        payload.put("evaluator_capability", map(
+                "capability", request.evaluatorCapability().name(),
+                "contract_version", request.evidenceContractVersion(),
+                "evidence_mode", request.evidenceMode().name(),
+                "transcript_source", request.textFallback() ? "TEXT_FALLBACK" : "STT",
+                "learner_audio_received_by_evaluator", false,
+                "direct_learner_audio_required", request.evaluatorCapability().directLearnerAudioRequired(),
+                "acoustic_criteria_available", request.evaluatorCapability().acousticCriteriaSupported(),
+                "holistic_score_available", false,
+                "not_scorable_criteria", Arrays.stream(SpeakingRubricCriterion.values())
+                        .filter(SpeakingRubricCriterion::requiresAcousticEvidence)
+                        .map(SpeakingRubricCriterion::id)
+                        .toList()));
         payload.put("transcription", map(
                 "provider", safeText(request.transcriptionProvider()),
                 "model", safeText(request.transcriptionModel()),
@@ -62,13 +65,16 @@ public class SpeakingEvaluationPromptBuilder {
                 "transcript", safeText(request.transcript()),
                 "normalized_transcript", safeText(request.normalizedTranscript()),
                 "actually_heard_transcript", safeText(request.actuallyHeardTranscript()),
-                "interpreted_intent", safeText(request.interpretedIntent()),
                 "transcript_confidence", request.transcriptConfidence()));
         payload.put("versions", map(
                 "prompt_version", request.promptVersion(),
                 "rubric_version", request.rubricVersion(),
-                "schema_version", request.schemaVersion()));
-        payload.put("allowed_evidence_sources", Arrays.stream(SpeakingEvidenceSource.values()).map(Enum::name).toList());
+                "schema_version", request.schemaVersion(),
+                "evidence_contract_version", request.evidenceContractVersion()));
+        payload.put("allowed_evidence_sources", Arrays.stream(SpeakingEvidenceSource.values())
+                .filter(SpeakingEvidenceSource::transcriptLanguageGrounding)
+                .map(Enum::name)
+                .toList());
         payload.put("allowed_rubric", rubricRows());
         payload.put("allowed_subcriteria", Arrays.stream(subcriterionIds()).toList());
         payload.put("pre_evaluation_signals", ruleSignals(request));
@@ -93,36 +99,20 @@ public class SpeakingEvaluationPromptBuilder {
 
     private Map<String, Object> schema() {
         Map<String, Object> schema = objectSchema(List.of(
-                "evaluation_status", "score_available", "source", "model", "transcription_model",
-                "prompt_version", "rubric_version", "schema_version", "transcript",
-                "normalized_transcript", "actually_heard_transcript", "interpreted_intent",
-                "listener_burden", "overall_score", "level_label", "overall_summary",
+                "evaluation_status", "score_available", "interpreted_intent", "intent_confidence",
+                "overall_score", "level_label", "overall_summary",
                 "task_achievement_summary", "major_strengths", "major_needs_improvement",
                 "action_plan", "criterion_feedback", "transcript_annotations",
                 "rubric_scores", "strengths", "needs_improvement", "confidence_notes",
                 "findings", "evidence", "recommendations",
-                "upgraded_answer", "sample_answer", "pronunciation_advisory",
-                "fluency_observations", "retryable"));
+                "upgraded_answer", "sample_answer", "error_category", "retryable"));
         schema.put("properties", props(
-                "evaluation_status", enumSchema(statusValues()),
-                "score_available", typed("boolean"),
-                "source", enumSchema("PROVIDER", "TEXT_FALLBACK", "MOCK", "LEGACY", "SYSTEM"),
-                "model", typed("string"),
-                "transcription_model", typed("string"),
-                "prompt_version", typed("string"),
-                "rubric_version", typed("string"),
-                "schema_version", typed("string"),
-                "audio_media_id", typed("integer"),
-                "media_version", typed("integer"),
-                "transcript", typed("string"),
-                "normalized_transcript", typed("string"),
-                "actually_heard_transcript", typed("string"),
-                "interpreted_intent", typed("string"),
-                "intent_confidence", typed("number"),
-                "transcript_confidence", typed("number"),
-                "listener_burden", typed("string"),
-                "overall_score", typed("number"),
-                "level_label", typed("string"),
+                "evaluation_status", enumSchema("EVALUATED"),
+                "score_available", constantBoolean(false),
+                "interpreted_intent", typed("null"),
+                "intent_confidence", typed("null"),
+                "overall_score", typed("null"),
+                "level_label", typed("null"),
                 "overall_summary", typed("string"),
                 "task_achievement_summary", typed("string"),
                 "major_strengths", arrayOf(typed("string")),
@@ -130,7 +120,8 @@ public class SpeakingEvaluationPromptBuilder {
                 "action_plan", arrayOf(actionPlanSchema()),
                 "criterion_feedback", arrayOf(criterionFeedbackSchema()),
                 "transcript_annotations", arrayOf(transcriptAnnotationSchema()),
-                "rubric_scores", arrayOf(rubricScoreSchema()),
+                "rubric_scores", fixedArrayOf(rubricScoreSchema(),
+                        SpeakingRubricCriterion.transcriptGroundedCriteria().size()),
                 "strengths", arrayOf(feedbackItemSchema(true)),
                 "needs_improvement", arrayOf(feedbackItemSchema(false)),
                 "confidence_notes", typed("string"),
@@ -139,8 +130,6 @@ public class SpeakingEvaluationPromptBuilder {
                 "recommendations", arrayOf(typed("string")),
                 "upgraded_answer", typed("string"),
                 "sample_answer", typed("string"),
-                "pronunciation_advisory", arrayOf(typed("string")),
-                "fluency_observations", arrayOf(typed("string")),
                 "error_category", typed("string"),
                 "retryable", typed("boolean")));
         return schema;
@@ -178,21 +167,14 @@ public class SpeakingEvaluationPromptBuilder {
                         "start_offset", "end_offset", "annotation_type", "explanation_vi", "suggestion_ko"),
                 props("criterion_id", enumSchema(rubricIds()),
                         "sub_criterion_id", enumSchema(subcriterionIds()),
-                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER", "TASK_METADATA"),
+                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
                         "evidence", typed("string"),
                         "evidence_source", enumSchema(evidenceSources()),
                         "start_offset", anyOf(typed("integer"), typed("null")),
                         "end_offset", anyOf(typed("integer"), typed("null")),
                         "annotation_type", enumSchema("strength", "needs_improvement", "advisory"),
                         "explanation_vi", typed("string"),
-                        "suggestion_ko", typed("string"),
-                        "category", enumSchema("CONTENT", "VOCABULARY", "GRAMMAR", "REGISTER",
-                                "COHERENCE", "FLUENCY", "PRONUNCIATION"),
-                        "original_span", typed("string"),
-                        "replacement", typed("string"),
-                        "explanation", typed("string"),
-                        "severity", typed("string"),
-                        "confidence", typed("number")));
+                        "suggestion_ko", typed("string")));
     }
 
     private Map<String, Object> feedbackItemSchema(boolean strength) {
@@ -201,11 +183,11 @@ public class SpeakingEvaluationPromptBuilder {
                         "evidence_source", "explanation_vi", "correction"),
                 props("criterion_id", enumSchema(rubricIds()),
                         "sub_criterion_id", enumSchema(subcriterionIds()),
-                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER", "TASK_METADATA"),
+                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
                         "evidence", typed("string"),
                         "evidence_source", enumSchema(evidenceSources()),
                         "explanation_vi", typed("string"),
-                        "correction", typed("string")));
+                        "correction", strength ? constantString("") : typed("string")));
     }
 
     private Map<String, Object> actionPlanSchema() {
@@ -244,7 +226,7 @@ public class SpeakingEvaluationPromptBuilder {
     }
 
     private List<Map<String, Object>> rubricRows() {
-        return Arrays.stream(SpeakingRubricCriterion.values())
+        return SpeakingRubricCriterion.transcriptGroundedCriteria().stream()
                 .map(row -> Map.<String, Object>of(
                         "criterion_id", row.id(),
                         "label", row.label(),
@@ -273,15 +255,13 @@ public class SpeakingEvaluationPromptBuilder {
     }
 
     private static String[] rubricIds() {
-        return Arrays.stream(SpeakingRubricCriterion.values())
+        return SpeakingRubricCriterion.transcriptGroundedCriteria().stream()
                 .map(SpeakingRubricCriterion::id)
                 .toArray(String[]::new);
     }
 
     private static String[] evidenceSources() {
-        return Arrays.stream(SpeakingEvidenceSource.values())
-                .map(Enum::name)
-                .toArray(String[]::new);
+        return new String[] {SpeakingEvidenceSource.TRANSCRIPT.name()};
     }
 
     private static String[] subcriterionIds() {
@@ -301,24 +281,8 @@ public class SpeakingEvaluationPromptBuilder {
                 "S_GRAMMAR_CONNECTORS",
                 "S_COHERENCE_ORGANIZATION",
                 "S_COHERENCE_LOGICAL_FLOW",
-                "S_COHERENCE_DISCOURSE_MARKERS",
-                "S_FLUENCY_HESITATION",
-                "S_FLUENCY_PACING",
-                "S_FLUENCY_SELF_CORRECTION",
-                "S_FLUENCY_FILLERS",
-                "S_FLUENCY_CONTINUITY",
-                "S_PRONUNCIATION_INTELLIGIBILITY",
-                "S_PRONUNCIATION_UNCLEAR_WORDS",
-                "S_PRONUNCIATION_SUSPECTED_BATCHIM_LINKING_VOWEL",
-                "S_PRONUNCIATION_RHYTHM_INTONATION_ADVISORY",
-                "S_PRONUNCIATION_CONFIDENCE_WARNING"
+                "S_COHERENCE_DISCOURSE_MARKERS"
         };
-    }
-
-    private static String[] statusValues() {
-        return Arrays.stream(SpeakingEvaluationStatus.values())
-                .map(Enum::name)
-                .toArray(String[]::new);
     }
 
     private static Map<String, Object> objectSchema(List<String> required) {
@@ -349,6 +313,21 @@ public class SpeakingEvaluationPromptBuilder {
         schema.put("type", "array");
         schema.put("items", items);
         return schema;
+    }
+
+    private static Map<String, Object> fixedArrayOf(Map<String, Object> items, int size) {
+        Map<String, Object> schema = new LinkedHashMap<>(arrayOf(items));
+        schema.put("minItems", size);
+        schema.put("maxItems", size);
+        return schema;
+    }
+
+    private static Map<String, Object> constantBoolean(boolean value) {
+        return Map.of("type", "boolean", "const", value);
+    }
+
+    private static Map<String, Object> constantString(String value) {
+        return Map.of("type", "string", "const", value);
     }
 
     private static Map<String, Object> enumSchema(String... values) {

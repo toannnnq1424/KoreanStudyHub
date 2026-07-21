@@ -93,6 +93,235 @@ result, and only then issue the `READY_FOR_PHASE_VALIDATION` report. This live
 log rule does not authorize intermediate tests and does not replace the
 single-validation-unit policy.
 
+## Phase-Scoped Validation And Project-Conversation Protocol
+
+Locked by user direction on `2026-07-22`. This section supersedes any older
+instruction that requires a test, compile, build, lint, commit or push after
+each small issue, patch or sub-slice.
+
+### Execution and validation units
+
+- An **implementation unit** is one approved issue, logical patch or sub-slice.
+  It may be reviewed and handed off separately.
+- A **validation unit** is the entire currently approved phase/correction
+  program named in its live log. For example, all R/L, Writing, Speaking and
+  shared-shell sub-slices of `Phase 13D-UX correction` form one validation unit.
+- Splitting implementation into several patches or conversations does not
+  create extra validation units.
+
+While a phase is being implemented, Codex must complete all approved issues in
+sequence, read existing tests only to understand contracts, edit code and
+perform static reasoning over the diff. Codex must keep a deferred validation
+inventory, but must not run any of the following after an individual file,
+issue, patch or slice:
+
+- unit, integration or full-suite tests;
+- Maven/Gradle compile or build;
+- application startup;
+- Docker or frontend build;
+- project-wide lint;
+- database migration tests;
+- repeated test runs merely to confirm a small correction.
+
+Testing is allowed only after all approved issues in the validation unit are
+implemented, the complete diff has been reviewed, no file remains half-edited,
+the live log has been reconciled, and Codex has explicitly reported
+`READY_FOR_PHASE_VALIDATION` with the exact proposed commands. Each phase gets
+one consolidated validation sequence, in this order:
+
+1. `git diff --check`;
+2. one compile or build;
+3. the smallest focused test set that covers the complete phase diff;
+4. integration tests only when the phase changed a real integration boundary;
+5. a full suite only when the user explicitly requests it, the phase is
+   genuinely broad, no safe focused selector exists, or release confirmation
+   remains necessary after the focused gate.
+
+If consolidated validation fails, first analyze the complete failure set,
+group failures by root cause and make one concentrated correction pass. Do not
+test after each small fix. After the whole correction pass, rerun the same
+consolidated validation once. A later cycle follows the same
+`analyze all -> grouped fix -> one validation run` shape.
+
+An intermediate check is exceptional and requires one of these conditions:
+
+- a change may have broken syntax so severely that the rest of the phase
+  cannot continue;
+- an irreversible migration assumption must be verified;
+- one technical assumption determines the complete implementation direction;
+- the user explicitly asks for an immediate check.
+
+Before using an exception, Codex must tell the user the exact check, why it
+cannot wait and its expected resource scope. Compile and unit tests are not
+default exceptions.
+
+### One Project conversation per phase slice
+
+Every newly opened implementation slice must have a separate conversation in
+the saved KSH Project. The coordinating conversation owns the phase plan, live
+log, dependency order, shared-contract decisions, conflict prevention and final
+validation. Each slice conversation owns only the files/responsibilities named
+in its steering prompt.
+
+Codex may automatically create, prompt, monitor and hand off the next approved
+slice conversations after the user has approved the containing phase. It does
+not need a new permission conversation merely to advance between already
+approved slices. It must stop for a new product decision, destructive/irreversible
+operation, external authority, scope expansion or unresolved conflict.
+
+The automation is operational, not merely advisory. For an approved phase the
+coordinator must, without waiting for repeated user prompts:
+
+1. verify the saved KSH Project, approved branch and remote tracking state;
+2. pull with `--ff-only` before the phase/slice when the integration checkout is
+   clean or when the coordinator has safely preserved only its own scoped work;
+3. create the slice conversation, generate/send its steering prompt and monitor
+   its handoff;
+4. audit code plus affected workflow/live-log/design/inventory documents and
+   update stale references when needed;
+5. integrate slices in dependency order and review the complete phase diff;
+6. announce `READY_FOR_PHASE_VALIDATION`, run the single approved consolidated
+   validation, and use grouped correction cycles if necessary;
+7. after the phase gate is green, stage exact owned files, commit and push the
+   approved feature branch automatically, then prompt the next approved phase
+   conversation.
+
+The coordinator, not every parallel research conversation, owns integration
+pull/push. This prevents several conversations from racing on one branch. A
+slice conversation may perform Git integration only when its prompt explicitly
+assigns it as the integrator. Standing automation authorization applies to
+normal fast-forward pull, exact-file stage, commit and push on
+`feature/practice-reduce-scope`; it does not authorize merge to `main`, rebase,
+force-push, history rewriting, destructive reset or staging unrelated files.
+If the remote diverges or a dirty tree contains work of unknown ownership,
+Codex preserves the work and resolves/requests direction instead of discarding
+it.
+
+Parallel agents/conversations are encouraged for read-only research and for
+independent file ownership. Two conversations must not concurrently edit the
+same local checkout or shared contract files. Overlapping implementation is
+serialized, or isolated in explicit worktrees and integrated one slice at a
+time. A slice must not run validation, stage, commit or push unless its steering
+prompt explicitly assigns that phase-level responsibility.
+
+### Model and speed routing lock
+
+User direction added `2026-07-22`:
+
+- coordination, planning and strictly read-only audit may use `gpt-5.6-sol`
+  with `ultra` reasoning and a `1.5` speed target when the runtime exposes that
+  control;
+- production/test code implementation, browser QA and every Git mutation or
+  integration operation (`pull`, stage, commit, push, merge) must use only
+  `gpt-5.6-sol` with `xhigh` reasoning at standard `x1` execution;
+- an audit agent remains read-only and cannot opportunistically patch code or
+  run Git. The coordinator must hand an accepted finding to a separately scoped
+  implementation agent using the required model class;
+- if the required model/reasoning route is unavailable, Codex stops before the
+  restricted action rather than silently downgrading. This routing rule does
+  not broaden merge/destructive authorization: merge to `main`, rebase,
+  force-push and history rewrite still require their existing explicit approval.
+
+### Mandatory documentation discovery and debt audit
+
+Every steering prompt must make documentation part of the implementation
+contract rather than optional background reading. Before reading or editing the
+owned production files, the slice must:
+
+1. read `CODEX_PRACTICE_WORKFLOW.md` and the complete active phase/correction
+   live log;
+2. read the current Practice phase gate/roadmap and every design or inventory
+   document explicitly named by the coordinator;
+3. use `rg --files` plus a focused Markdown content search to discover other
+   `/practice` documents that own the same route, DTO, policy, prompt, score,
+   compatibility, migration, seed or UAT boundary;
+4. always read
+   `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`
+   when the slice touches compatibility readers, legacy data, database shape,
+   seed fixtures, scoring/evaluation contracts or Manual UAT behavior;
+5. read
+   `docs/architecture/practice/KSH_LANGUAGE_ASSESSMENT_AND_EXPLANATION_DESIGN.md`
+   whenever the slice touches Reading/Listening explanation, Writing/Speaking
+   assessment, prompt/rubric/rule policy, evidence, score availability or
+   educator reference content.
+
+The slice must not silently implement a debt scheduled for a later phase or
+forget a debt that its patch changes. Its handoff must list the Markdown files
+read, state whether each affected contract remains current, update the active
+live log immediately, and identify every stale document that the coordinator
+must reconcile before validation. The coordinator performs a second affected-
+documentation audit across the integrated diff before declaring
+`READY_FOR_PHASE_VALIDATION`. In particular, no Phase 15 Manual UAT may start
+until all pre-Phase-15 debt/inventory entries affected by earlier implementation
+have an explicit `resolved`, `still applicable`, `superseded` or `blocked`
+disposition with file/database ownership.
+
+### Phase 13 UX forward-compatibility for pre-Phase-15 backend work
+
+Phase 13 UI/UX must prepare stable presentation seams for the approved backend
+corrections that will be completed before Phase 15 Manual UAT. This does not
+authorize Phase 13 to fabricate future data, silently implement Phase 15 debt
+or claim a capability that the backend does not yet possess. It requires:
+
+- typed, explicit `SCORABLE`, `NOT_SCORABLE`, `PENDING`, `FAILED`,
+  `UNAVAILABLE`, partial-coverage and unknown-safe presentation states instead
+  of inferring meaning from a null, zero, percentage or free-text label;
+- score unit, denominator, scoring-profile/rubric version, evidence capability,
+  provenance and feedback/explanation availability to remain separable fields;
+- current Speaking transcript-grounded language evaluation and future
+  direct-audio full evaluation to use a capability boundary, so future audio
+  integration can enable Fluency/Pronunciation and a holistic score without
+  replacing the result shell or pretending the current provider received audio;
+- Writing overview/detail seams that can expose a future governed
+  `scoringProfileId`, rubric version and educator reference independently from
+  the learner-upgraded answer, while current UI makes no official-equivalence
+  claim;
+- Reading/Listening explanation navigation that can accept future
+  question-type-native typed payloads without changing the canonical route or
+  causing result GET writes/provider calls;
+- compatibility/legacy parsing to finish before the canonical presenter DTO;
+  templates must not parse legacy JSON or duplicate backend policy;
+- new or unknown backend enum values to degrade to an honest unavailable/
+  informational state rather than a fabricated score or broken page.
+
+Every Phase 13 UX slice handoff must state which future pre-Phase-15 contract it
+is prepared to consume, what remains deliberately disabled, and which inventory
+entry owns the backend debt. The final Phase 13 UX reconciliation must verify
+that these seams remain present before consolidated validation.
+
+The coordinator generates and sends a prompt with this minimum structure:
+
+```text
+KSH /practice — <PHASE_ID> / <SLICE_ID>
+Mode: IMPLEMENTATION UNIT; validation is deferred to the phase coordinator.
+Branch/HEAD: <branch> / <head>.
+Read first: <workflow>, <complete live log>, <phase gate/roadmap>,
+<design/inventory>, then use focused `rg --files`/Markdown search to discover
+other documents owning the same contract; record every Markdown file audited.
+Objective: <one bounded outcome>.
+In scope: <exact contracts/files/responsibilities>.
+Out of scope: <adjacent phases, destructive data work, unrelated cleanup>.
+Invariants: immutable attempt/version identity, read-only result GET, official
+answer authority, evidence honesty, Vietnamese/Korean product language, and
+the phase-specific invariants listed in the live log.
+Test policy: do not run test, compile, build, lint, startup, Docker/frontend
+build or migration tests in this slice. Read tests for contracts, maintain the
+deferred test list and use only static diff review. Do not run `git diff --check`;
+that belongs to the single phase validation after READY_FOR_PHASE_VALIDATION.
+Git policy: do not stage, commit, push, rebase or modify unrelated user files.
+Handoff: report files changed, decisions, static risks, open items and exact
+deferred validation selectors; update the live log before declaring the slice
+implemented.
+```
+
+When the coordinator assigns the final integration role, the prompt replaces
+the Git-policy line with: `after the one phase validation is green, stage exact
+owned files, commit and push feature/practice-reduce-scope; never merge main,
+rebase, force-push or stage unrelated files.`
+
+Creating a separate conversation is a coordination boundary, not permission
+to broaden the phase or bypass the single-validation policy.
+
 ## Product Language Policy
 
 KSH is a Vietnamese/Korean learning website. Learner-facing website copy,
@@ -131,13 +360,13 @@ Rules:
 Audit reports may say that this MD needs a future status update,
 but AUDIT ONLY must not edit the MD unless the user explicitly changes the task to docs update.
 
-### 2. IMPLEMENT CODE + FOCUSED TEST
+### 2. IMPLEMENT CODE — PHASE VALIDATION DEFERRED
 
 Purpose:
 
 - implement one approved slice;
-- add/update focused tests;
-- validate the behavior of the slice.
+- add/update focused tests as code when the contract changes;
+- defer execution of those tests to the phase-level validation unit.
 
 Rules:
 
@@ -145,13 +374,14 @@ Rules:
 - no unrelated cleanup;
 - no next-phase feature;
 - no stage/commit/push;
-- no full test suite by default;
-- focused tests only unless user explicitly approves broader testing.
+- do not run test, compile, build, lint, startup or migration checks inside the
+  slice;
+- record the smallest focused validation selectors for the phase coordinator.
 
 Implementation output status can be:
 
 - IMPLEMENTED_PENDING_REVIEW
-- IMPLEMENTED_AND_FOCUSED_TESTED
+- IMPLEMENTED_PENDING_PHASE_VALIDATION
 
 Do not mark top-level phase closed from implementation alone.
 
@@ -205,7 +435,10 @@ Purpose:
 
 Rules:
 
-- only after user/assistant review says GO;
+- automatically after the containing phase has explicit implementation GO,
+  its single consolidated validation is green and its documentation is
+  reconciled; no repeated push permission is required for
+  `feature/practice-reduce-scope`;
 - stage exact files only;
 - no `git add .`;
 - no `git add -A`;
@@ -813,6 +1046,10 @@ Evaluator strategy note:
   copy UI or claim official IELTS/TOPIK scoring.
 - Pronunciation remains advisory unless a specialized provider/timestamp/alignment
   pipeline is added later.
+- Current-source supersession (`2026-07-22`): transcript/STT is not pronunciation
+  evidence. Phase 13D exposes Pronunciation/Delivery and Fluency only as null
+  `NOT_SCORABLE`; no advisory acoustic judgment is learner-visible without an
+  authorized audio-consuming evaluator and calibration.
 - Writing rubric scale consistency requires the separate 8E-CW audit.
 - 8E-C does not cache evaluator results.
 - 8E-C does not persist or render results; 8E-D owns persistence/UI.
@@ -931,6 +1168,10 @@ Implementation notes:
   Sample answer while preserving protected 8D audio playback.
 - 8E-D2 removed native-like pronunciation wording from the Speaking rendering
   path; pronunciation remains advisory.
+- Current-source supersession (`2026-07-22`): the legacy tab inventory above is
+  historical only. Current transcript-only result surfaces show no acoustic
+  number/advisory claim, and Phase 13E replaces the generic tabs with the locked
+  three-screen/four-feedback-tab contract only after its gate.
 - 8E-D3 focused validation passed for the persistence/readback, view-mapping,
   result-rendering contract, and legacy compatibility slice; no full suite and
   no provider/API call.
@@ -2193,8 +2434,12 @@ Canonical map after reduce-scope:
   subsystem.
 - PREP/IELTS/TOEIC research is learning/reference input for learner-side
   interaction patterns only. Do not copy brand, assets, content, CSS, API,
-  route structure or product claims. Do not access the live PREP site unless the
-  user explicitly grants permission and account details for that task.
+  route structure, criterion taxonomy, chip labels, score/band descriptors,
+  denominators or product claims. PREP-style chips are navigation primitives;
+  learner labels/order/applicability/denominators/descriptors come from a named
+  versioned KSH task-native Korean policy and counts come from backend-validated
+  evidence. Do not access the live PREP site unless the user explicitly grants
+  permission and account details for that task.
 
 ### Phase 13 — Results, Progress & UI/UX Polish
 
@@ -2316,9 +2561,20 @@ Required Phase 13 slices:
 - 13D: result overview with exam-native score scales and recent-attempt
   semantics. Preserve `score`, `scale`, `level`, `completion`, `timing` and
   `feedbackAvailability` as distinct fields;
-- 13E: evidence-based result detail for learner answer, official answer,
-  explanation, passage/transcript anchors, rubric, correction, upgraded answer
-  and sample content. AI is advisory and cannot replace the official answer key;
+- 13E: after the bounded `PHASE_13D_UX_CORRECTION` has consolidated green
+  validation and a separate explicit Phase 13E GO is given, evidence-based
+  result detail is split into exactly three screens/contracts: Objective
+  Reading/Listening, Writing and Speaking. They may share visual primitives and
+  one read-only dispatcher, but not one generic cross-skill browser JSON parser.
+  Each screen separates learner answer, official answer, explanation,
+  passage/transcript anchors, rubric, correction, upgraded answer and lecturer
+  reference as applicable. PREP-style chips are accepted only as compact
+  scan/filter/evidence-navigation interaction: KSH labels, order, applicability
+  and parents come from the task-native Korean construct/rubric registry, and
+  counts come only from backend-validated typed evidence. They are never copied
+  PREP/IELTS taxonomy, bands, scores or browser-derived counts; transcript-only
+  Speaking cannot manufacture acoustic chips from STT. AI is advisory and
+  cannot replace the official key;
 - 13F: progress/profile aggregation by skill and Writing task, with
   filters, sample-size/recency/confidence context and deep links to practice.
   Preserve explanation unavailable/retry states, idempotency and rate limits, and no
@@ -2333,12 +2589,18 @@ Required Phase 13 slices:
   encoding/icon and multi-test / multi-skill-container UAT; research evidence
   alone cannot satisfy this gate.
 
-Phase 13 slice protocol is mandatory: after each of 13A-13G, audit changed and
-obsolete routes, run only focused tests related to that slice, update the phase
-Markdown checkpoint, then commit and push before starting the next slice. The
-user performs interim visual review. Codex browser QA and the full regression
-suite are consolidated into 13H before Phase 13 closure, not repeated after
-every slice.
+Phase 13 slice protocol is governed by the global **Phase-Scoped Validation And
+Project-Conversation Protocol** added on 2026-07-22, which supersedes the older
+instruction to test, commit and push after every 13A-13G slice. Each approved
+slice uses a separate KSH Project conversation and remains an implementation
+unit: audit changed/obsolete routes and update the live Markdown checkpoint,
+but do not run test/compile/build/lint, stage, commit or push merely because the
+slice ended. The coordinator integrates all slices in the approved phase or
+correction program, reconciles the complete diff and documentation, declares
+`READY_FOR_PHASE_VALIDATION`, runs one consolidated validation unit, then
+stages exactly the owned files and performs one commit/push. Browser/device QA
+and any expressly deferred full regression still remain routed to 13H unless
+the approved validation plan says otherwise.
 
 Active 13C2 validation override (user direction, 2026-07-15): individual issues
 are implementation units, but all approved 13C2 work is one validation unit.
@@ -2404,6 +2666,67 @@ corrected version or score decision has actually been published.
 
 Status:
 NOT_STARTED
+
+#### Future mandatory entry gate designed before Phase 13E, executed only after dependencies
+
+This gate was documented while Phase 13D was complete and Phase 13E was still
+in preparation. Documentation now does **not** authorize its implementation,
+does not close Phase 13/14 and does not replace the current Phase 13E GO rule.
+The execution window is after the approved Phase 13E-13H and Phase 14
+dependencies and before Phase 15 changes from `NOT_STARTED` to `IN_PROGRESS`.
+
+At that future boundary, Codex must reread and execute:
+
+- `docs/architecture/practice/KSH_LANGUAGE_ASSESSMENT_AND_EXPLANATION_DESIGN.md`;
+- `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`,
+  especially core language blockers `P15-PRE-01..09` plus cross-skill language/
+  construct blocker `P15-PRE-14`, operational blockers `P15-PRE-10..13`, the
+  file ownership map, compatibility/database
+  decisions and exit checklist.
+
+The entry gate is mandatory:
+
+1. Re-scan current code after Phase 13E-13H/14 and map each responsibility to
+   its current file. Earlier correct implementation may satisfy a row through
+   evidence; it must not be reimplemented merely to touch an old filename.
+2. Transcript-only Speaking may score only transcript-grounded capabilities.
+   Fluency, pronunciation, intonation, pacing and delivery are
+   `NOT_SCORABLE`, non-numeric and excluded from the denominator unless an
+   authorized scoring component actually consumes learner audio and passes
+   Korean teacher-reviewed calibration.
+3. Writing must name/version its KSH/TOPIK-aligned practice profile, remove
+   contradictory task assumptions and make score, length/format policy,
+   metadata authority, prompt, normalizer, persistence and result wording agree.
+4. Reading/Listening explanation must use discriminated type-native contracts:
+   option rationale/elimination for `SINGLE_CHOICE`, per-blank reasoning for
+   `FILL_BLANK`, and entailment/contradiction/not-stated reasoning for
+   `TRUE_FALSE_NOT_GIVEN`. Long-source translation is evidence-region-first;
+   typed fields populate tables and AI does not return executable/display HTML.
+5. Phase 13E result detail has exactly three screens/contracts: Objective
+   Reading/Listening, Writing and Speaking. Writing/Speaking each have exactly
+   four feedback tabs: `OVERVIEW`,
+   `STRENGTHS`, `NEEDS_IMPROVEMENT`, `UPGRADED_ANSWER`. A lecturer-provided
+   answer/audio reference is a separate immutable authoring asset/panel, not an
+   evaluator-generated fifth tab and never score-bearing.
+6. Deterministic Writing/Speaking rules remain bounded high-confidence signals;
+   they do not claim to enumerate Korean and cannot manufacture a score.
+7. Every changed JSON contract has new-write/dual-read/invalidate evidence;
+   every relational change has a forward-migration or approved disposable-UAT
+   reset decision. Existing deployed Flyway history is never silently edited.
+8. Code-owned human-readable assessment instructions are reviewable in
+   Vietnamese with Korean examples/evidence, learner-facing labels cannot leak
+   unsupported English, and stable schema/criterion IDs remain untranslated.
+   Each supported task has a versioned construct × evidence × descriptor ×
+   diagnostic × calibration matrix; KSH does not claim exhaustive Korean
+   coverage.
+9. `P15-PRE-01..14` require a valid closure status, focused/contract tests and
+   teacher-reviewed calibration where applicable. Optional disabled capability
+   rows may close only as `DISABLED_BY_POLICY_WITH_PROOF` or
+   `NOT_APPLICABLE_WITH_PROOF`; configuration flags are not evidence.
+
+Phase 15 seed loading and Manual UAT are entry-blocked until this future gate is
+green. Conversely, this future rule must not be used as a reason to start its
+code changes while the current workflow is still preparing Phase 13E.
 
 Manual UAT data contract (locked 2026-07-11):
 
@@ -2712,12 +3035,18 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-17 | Pre-13E Architecture And Result Fixture Gate | FULL_SUITE_GREEN_COMMITTED_PUSHED | PREPARATION_IN_PROGRESS | N/A | da350b5 | Static code/roadmap/diagram-source review and local fixture environment only. No Phase 13E implementation validation has run. The local UI database was moved to a fresh V1-V37 schema after the legacy `ksh_db` history collided with renumbered `V29`; the old test database was preserved. | User added a mandatory pre-13E deliverable: capability-based Use Case specifications, one class diagram per Practice capability and multiple sequence diagrams per capability, based on current code plus approved roadmap. A dedicated Phase 13E live log is now mandatory. | Finish and review the DOCX/Draw.io artifact pack; create stable overview/detail attempts for all four skills; provide authenticated URLs for PREP comparison; then request approval to begin 13E. |
 | 2026-07-17 | Pre-13E Architecture, Fixture And Listening Gate | PREPARATION_IN_PROGRESS | PREPARATION_STEP_8_GREEN_STEP_9_PENDING | working tree | da350b5 | Generated and visually reviewed the Practice-only Use Case/Class/Sequence pack; loaded deterministic Result/Detail attempts `13001..13004`; authenticated all eight URLs; JDK 17 compile passed; the Listening correction gate passed 101/101; Flyway V38 applied on the feature branch (renumbered V44 on integrated main); a real Chrome journey unlocked confirmation during playback and opened attempt `13006` with a 30:00 timer. No Phase 13E production implementation or AI-provider call ran. | V44 on main adds an immutable seed-only Listening version with deterministic check audio, exact allowlisting and visible failure feedback. The legacy Detail findings F10-F14 remain explicit 13E inputs; the in-app browser audio-output block was isolated from the application and Chrome supplied the audible proof. | Run only the duplicate-safe `/practice` Jira synchronization in Step 9. Keep historical records transparently labelled `retrospective/backfilled`; do not absorb Flashcard, lesson, iConstant or another feature. |
 | 2026-07-17 | Pre-13E Jira Reconciliation | PREPARATION_STEP_8_GREEN_STEP_9_PENDING | PREPARATION_COMPLETE_WAITING_EXPLICIT_GO | working tree | da350b5 | Atlassian Rovo read project `SCRUM`, confirmed Task/Bug/Subtask and Sprint ids, found zero exact Practice-owned issues, then created and re-queried `SCRUM-438..SCRUM-480`: 6 Tasks, 4 Bugs and 33 Subtasks; 17 items in Scrum 3, 26 in Scrum 4; 28 completed items Done and 15 future 13E-13H items To Do. | `SCRUM-363 Tests & Assignments` and `SCRUM-321 Optional AI Prototype` are explicitly different features and were not modified. Practice architecture tickets name the DOCX Use Cases, one class diagram per capability and sequence diagrams per Use Case. Historical Jira creation dates were not falsified; descriptions carry actual dates/commits and `retrospective/backfilled`. | All pre-13E prerequisites are complete. Reread the Phase 13E live log and wait for the user's explicit GO before changing Phase 13E production code. |
+| 2026-07-22 | Language Assessment, Explanation And Future Pre-Phase-15 Design Inventory | PREPARATION_COMPLETE_WAITING_EXPLICIT_GO | PREPARATION_COMPLETE_WAITING_EXPLICIT_GO | working tree | da350b5 | Documentation/static source audit plus review of the four user-supplied local PREP Listening/Reading/Writing/Speaking screenshot folders. No production Java/SQL/template/CSS was changed; no test, compile, build, migration, provider call or browser run was performed. | Added a Korean-language assessment/explanation design covering score policy, rubric/diagnostic separation, prompt composition, evidence, rule-engine limits, type-native R/L explanations, transcript-only Speaking `NOT_SCORABLE` semantics, four-tab W/S detail, separate immutable lecturer reference and exact future file/database ownership. Expanded the Phase 15 inventory with `P15-PRE-01..06` and made the workflow gate mandatory only at future Phase 15 entry. | This is design/inventory only. Phase 13D remains complete, Phase 13 overall remains open and 13E is still in preparation. Keep the current action unchanged: reread the 13E live log and wait for explicit Phase 13E GO before any production-code edit. |
+| 2026-07-22 | Phase 13D Result Overview UX Correction Orchestration | PREPARATION_COMPLETE_WAITING_EXPLICIT_GO | IMPLEMENTATION_APPROVED_SLICE_ORCHESTRATION_IN_PROGRESS | working tree | e84af24 | Exact documentation files were stashed, `feature/practice-reduce-scope` was fast-forwarded from `52593e3` to `e84af24`, and the documentation was restored without conflict. Static source review and a read-only audit of 12 PREP overview screenshots were completed; no test, compile, build, lint, startup, migration test, provider call or browser QA ran. | Reopens only the Phase 13D overview presentation/correctness boundary as `PHASE_13D_UX_CORRECTION`: compact PREP-informed but KSH Korean task-native Objective and Writing hierarchy, evidence-honest Speaking score semantics before visual polish, one KSH Project conversation per implementation slice, coordinator-owned integration and one validation unit. Phase 13E Result Detail remains unopened. | Execute `13D-UX-01..05` sequentially through `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md`; audit the complete diff and declare `READY_FOR_PHASE_VALIDATION`; run one consolidated validation; then exact-stage, commit and push this branch. Do not start 13E during the correction program. |
+| 2026-07-22 | Phase 13D UX-05 Cross-skill Reconciliation And Fail-closed Hardening | IMPLEMENTATION_APPROVED_SLICE_ORCHESTRATION_IN_PROGRESS | IMPLEMENTED_PENDING_PHASE_VALIDATION | working tree | e84af24 | Static source/test/doc review and edits only. No unit/integration/full test, compile/build/lint/startup, Docker, migration/database/browser/provider check, `git diff --check` or Git mutation ran. Historical ledger rows above remain unchanged; their six-criterion/holistic Speaking language is superseded for current runtime by UX F06 and the UX-05 live-log handoff. Their “official TOPIK score criteria” wording is also historical: current Writing weights are an unnamed/internal KSH practice policy pending PRE-02. | Reserved direct-audio and pre-capability Speaking envelopes fail closed; malformed rubric rows cannot leak numbers; no representative evaluation implies unknown/unverified provenance; Objective aliases group canonically; historical non-ESSAY Writing has no misleading detail CTA. Phase 15 inventory now carries PRE-01..14, COMP-18..21 and a design/workflow/source crosswalk. | Coordinator reviews the complete working-tree diff, declares `READY_FOR_PHASE_VALIDATION`, then runs exactly one consolidated phase gate. Phase 13E remains unopened; do not implement Phase 15 debt in this correction. |
+| 2026-07-22 | Phase 13D Final Speaking Evidence, Detail And Consumer Guard | IMPLEMENTED_PENDING_PHASE_VALIDATION | IMPLEMENTED_PENDING_PHASE_VALIDATION | working tree | e84af24 | Static source/test/doc edits only; validation and Git mutation remain deferred to the one phase gate. | Low-confidence transcription stays a current transcript provenance state but produces no profile/score; detailed evidence is backend-validated against the authoritative transcript with parent/offset rules; a trusted score-bearing envelope requires exactly four scored language rows plus two null acoustic rows. Active legacy detail uses only backend-accepted scored rows and no browser-owned acoustic taxonomy. Catalog/detail/progress/history copy and metrics no longer represent Speaking as a holistic score. PREP contributes chip/IA interaction ideas only; KSH Korean task policy owns labels, order, taxonomy and evidence. | Finish the final static audit and grouped fixes, declare `READY_FOR_PHASE_VALIDATION`, run the one consolidated gate, then exact-stage/commit/push. Phase 13E remains unopened and still requires a separate GO. |
+| 2026-07-22 | Phase 13D UX Correction Consolidated Validation | IMPLEMENTED_PENDING_PHASE_VALIDATION | FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES | this commit | e84af24 | `git diff --check` passed; JDK 17 compile passed for 591 production sources; the post-fix focused non-DB selector passed 251/251 with zero failures/errors/skips. Two selected `PracticeIntegrationTest` routes were attempted but not executed: configured `ksh_phase13e_result_ui` reports V44 yet lacks `tests.media_type`, so Hibernate context validation failed before setup/assertions. They are not counted as passed. No full suite, browser/provider call, application startup, migration replay or database workaround ran. | Current transcript-only Speaking is fail-closed and numberless at holistic/attempt level; legacy snake_case criterion identity may remain for compatibility but no stored score/max/feedback becomes trusted. PREP remains UI/IA/chip interaction research only; KSH Korean task policy and backend-validated evidence own assessment semantics. | Exact-stage and commit/push the bounded correction while keeping the qualified gate label. Do not claim `COMPLETE_FOCUSED_GATE_GREEN`; exact authenticated route closure needs a fresh disposable current-schema gate. Phase 13E remains unopened and still requires separate explicit GO. |
 
 ## Current Required Next Action
 
-Phase 13D passed its consolidated JDK 17 validation, was committed as `bcc1467`
-and pushed. Practice Flyway versions were moved after main V24 in `a089fd1`, and
-main was integrated into `feature/practice-reduce-scope` in `da350b5`. Do not
+The original Phase 13D passed its consolidated JDK 17 validation, was committed
+as `bcc1467` and pushed. Practice Flyway versions were moved after main V24 in
+`a089fd1`, and main was integrated into `feature/practice-reduce-scope` in
+`da350b5`. The branch was subsequently fast-forwarded to `e84af24`. Do not
 merge this branch into main again unless the user gives a new explicit command.
 
 The capability-based Practice Use Case/Class/Sequence pack, stable four-skill
@@ -2728,10 +3057,41 @@ preflight correction and Jira Step 9 synchronization are complete. Jira records
 `SCRUM-363`, `SCRUM-321`, Flashcard, lesson, iConstant and other features were
 not modified.
 
-The current required next action is to wait for an explicit Phase 13E GO. After
-GO, reread `docs/PRACTICE_PHASE_13E_LIVE_CHANGE_LOG.md` before the first code
-edit and implement the mandatory F10-F14 Result Detail acceptance inputs as one
-documented Phase 13E slice. Do not start 13F-13H early.
+The user-approved bounded Phase 13D result-overview UX correction is now
+`FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES`
+across `13D-UX-01..05`. `git diff --check`, JDK 17 compile and the final
+251/251 non-DB focused selector are green. Two authenticated Result Detail
+route cases are not counted as passed: the configured isolated
+`ksh_phase13e_result_ui` datasource lacks `tests.media_type`, so Hibernate
+validation stopped before setup/assertions. No database history, migration or
+fixture was changed to bypass that mismatch. The current authorized action is
+to exact-stage, commit and push the bounded correction on
+`feature/practice-reduce-scope` while retaining this qualified gate label.
+Current transcript-only Speaking means exactly four independent numeric
+language rows at `20/20/15/15`, two null acoustic `NOT_SCORABLE` rows and no
+`/70`, subtotal, aggregate, holistic or attempt score; retained legacy numbers
+cannot enter latest/best/progress/history display. A current
+`TRANSCRIPTION_LOW_CONFIDENCE` result keeps its current transcript provenance
+for honest copy but exposes no rubric profile or number. Detailed evidence is
+accepted only after backend validation against the authoritative transcript;
+browser code cannot invent a criterion, acoustic chip, label or count.
+
+PREP remains interaction/IA research only. Compact chips, grouping and
+progressive disclosure may inform KSH layout, but PREP/IELTS taxonomy, bands,
+criterion names, scoring rules and product claims are forbidden inputs to the
+KSH assessment contract. KSH labels/order/parent mapping/availability come from
+a Korean task-native backend policy and validator-accepted evidence. This
+bounded Phase-13D policy does not claim exhaustive coverage of Korean;
+`P15-PRE-14` owns the supported-domain, construct, calibration and SME proof.
+
+Phase 13E remains `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO`; do not edit its
+production scope or start 13F-13H during this correction program. Its next
+implementation requires the two environment-blocked authenticated route cases
+to be closed on a fresh disposable current schema (or explicitly accepted by
+the user) and still requires a separate explicit GO. When authorized, it
+must split Result Detail into exactly three screens/contracts: Objective
+Reading/Listening, Writing and Speaking; shared visual primitives are allowed,
+the current generic cross-skill browser parser is not.
 
 The historical local UI runtime used schema `ksh_phase13e_result_ui` at Flyway
 V38; the same migration is V44 on integrated main.
@@ -2749,9 +3109,11 @@ CLOSED_WITH_ACCEPTED_DEBT after its implementation and stabilization gate.
 Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
 `PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`; Phase 13A is
 `COMPLETE_FOCUSED_GATE_GREEN`; 13B is `COMPLETE_FOCUSED_GATE_GREEN`; 13C2 is
-`FULL_SUITE_GREEN_COMMITTED_PUSHED`; and Phase 13D is
-`FULL_SUITE_GREEN_COMMITTED_PUSHED`. Phase 13E is in preparation only and
-overall Phase 13 remains open. Live
+`FULL_SUITE_GREEN_COMMITTED_PUSHED`; the original Phase 13D is
+`FULL_SUITE_GREEN_COMMITTED_PUSHED`; and its bounded result-overview correction
+is `FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES`.
+Phase 13E is in
+preparation only and overall Phase 13 remains open. Live
 Speaking AI rollout remains NO-GO because the evaluator does not yet receive
 learner audio.
 React modernization remains
@@ -2819,5 +3181,12 @@ Codex must answer internally:
 10. Am I about to run full suite for a small slice?
 11. Am I about to claim live rollout readiness without evidence?
 12. Am I about to mark a phase closed without commit/review/test evidence?
+13. Am I confusing a future Pre-Phase-15 design/inventory with authorization to
+    implement it during the current Phase 13E preparation?
+14. If Phase 15 entry is actually being requested, have `P15-PRE-01..14` and
+    their current-file/database/calibration evidence all passed first?
+15. Is this read-only audit/coordination, or a restricted code/browser/Git
+    action, and has it been routed to the required `gpt-5.6-sol` reasoning/speed
+    class without giving an audit agent mutation authority?
 
 If mismatch exists, stop and ask user.

@@ -204,29 +204,90 @@ class PracticeFunctionalUiContractTest {
                 "result.identity().testId()",
                 "practice/result/objective :: panel",
                 "practice/result/writing :: panel",
-                "practice/result/speaking :: panel");
+                "practice/result/speaking :: panel",
+                "result.answers().scoredLabel()",
+                "result.identity().skill() != 'SPEAKING'",
+                "result.identity().skill() == 'SPEAKING'",
+                "Phạm vi hồ sơ",
+                "phần có hồ sơ ngôn ngữ")
+                .doesNotContain("result.celebratory()", "pr-skill-mark");
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("rl-result.html"))).isFalse();
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/reading.html"))).isFalse();
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/listening.html"))).isFalse();
-        assertThat(objective).contains("Đúng một phần", "Không thể chấm", "giải thích");
+        assertThat(objective).contains(
+                "Đúng một phần",
+                "Không thể chấm",
+                "Điểm đạt được",
+                "Tỷ lệ điểm",
+                "row.pointsDisplay()",
+                "row.scoreRateDisplay()",
+                "th:case=\"'READY'\"",
+                "th:case=\"'PARTIAL'\"",
+                "th:case=\"'PENDING'\"",
+                "th:case=\"'FAILED'\"",
+                "th:case=\"'UNAVAILABLE'\"",
+                "Xem đáp án và giải thích hiện có",
+                "Xem đáp án")
+                .doesNotContain("Độ chính xác", "row.accuracyDisplay()");
         assertThat(writingPresenter).contains(
                 "Nhiệm vụ và Nội dung",
                 "Cấu trúc và mạch lạc",
                 "Từ vựng và Diễn đạt",
-                "Ngữ pháp và Độ chính xác");
-        assertThat(writing).contains("không cộng thêm vào tổng điểm")
-                .doesNotContain("Task Response", "Lexical Resource", "IELTS", "Band descriptors");
+                "Ngữ pháp và Độ chính xác",
+                "expectedMaxScore",
+                "visibleCriteria")
+                .doesNotContain("ResultEvaluationBand.fromPercentage");
+        assertThat(writing).contains(
+                "Đánh giá luyện tập KSH",
+                "không phải điểm hoặc chứng chỉ TOPIK chính thức",
+                "Thành phần tính điểm",
+                "Phân bổ điểm theo từng ô trống",
+                "không có điểm riêng và không cộng vào tổng điểm",
+                "Không tính điểm",
+                "task.evaluated()",
+                "th:case=\"'PENDING'\"",
+                "th:case=\"'FAILED'\"",
+                "th:case=\"'UNAVAILABLE'\"",
+                "th:tabindex=\"${status.first ? 0 : -1}\"",
+                "th:tabindex=\"${lensStatus.first ? 0 : -1}\"",
+                "<details class=\"pr-task-prompt\"",
+                "pr-task-prompt-preview",
+                "pr-task-prompt-full",
+                "questionId=${task.questionId()}",
+                "th:if=\"${task.detailAvailable()}\"",
+                "th:unless=\"${task.detailAvailable()}\"",
+                "Chi tiết riêng chưa khả dụng cho định dạng Writing lịch sử này",
+                "Chưa có trang chi tiết cho nhiệm vụ này")
+                .doesNotContain(
+                        "Task Response", "Lexical Resource", "IELTS", "Band descriptors",
+                        "criterion.band()", "lens.band()", "pr-scale", "th:hidden");
         assertThat(speaking).contains(
-                "Đánh giá toàn bài",
+                "Phạm vi và độ tin cậy",
+                "Hồ sơ ngôn ngữ dựa trên bản chép lời",
+                "Kết quả Nói tổng hợp",
+                "Không có điểm số",
+                "criterion.scored()",
+                "criterion.notScorable()",
                 "Kế hoạch luyện tập tiếp theo",
-                "Sáu tiêu chí tiếng Hàn",
-                "TRANSCRIPT_ONLY")
-                .doesNotContain("Câu 1", "data-result-tabs=\"speaking");
+                "Xem bản chép lời và bằng chứng chi tiết")
+                .doesNotContain(
+                        "Câu 1", "data-result-tabs=\"speaking", "IELTS", "radar",
+                        "criterion.band()", "criterion.percentage()", "pr-scale");
         assertThat(css).contains(
                 "--pr-blue:", "--pr-green:", "--pr-amber:", "--pr-red:", "--pr-gray:",
-                ".pr-speaking-action-plan", "@media (max-width: 720px)")
-                .doesNotContain("linear-gradient", "radial-gradient");
-        assertThat(js).contains("[data-result-tabs]", "aria-selected", "hidden");
+                ".pr-speaking-action-plan", ".pr-next-action", ".pr-table td::before",
+                ".pr-writing-scorecard", ".pr-writing-lenses", ".pr-writing-state",
+                ".pr-task-action-unavailable",
+                ".pr-speaking-profile-state", ".pr-speaking-provenance",
+                ".pr-speaking-criterion.is-not-scorable",
+                ".pr-task-prompt-preview", "-webkit-line-clamp: 3", ".pr-task-actions",
+                ".practice-result-page summary:focus-visible", "@media (max-width: 720px)")
+                .doesNotContain(
+                        "linear-gradient", "radial-gradient", "min-width: 800px",
+                        ".pr-band-chip", ".pr-scale", "radar");
+        assertThat(js).contains(
+                "[data-result-tabs]", "aria-selected", "hidden",
+                "ArrowRight", "ArrowLeft", "Home", "End");
     }
 
     @Test

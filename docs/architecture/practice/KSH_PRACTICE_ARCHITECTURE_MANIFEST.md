@@ -92,7 +92,7 @@ does not rename or merge their stable identifiers.
 | PLY | `UC-PLY-01` device preflight; `UC-PLY-02` play/save/resume; `UC-PLY-03` submit/timeout/discard |
 | RLE | `UC-RLE-01` prepare artifacts after commit; `UC-RLE-02` generate/reuse/retry; `UC-RLE-03` immutable read-only result lookup |
 | WRT | `UC-WRT-01` evaluate submitted essay; `UC-WRT-02` reuse/re-evaluate feedback; `UC-WRT-03` review Korean rubric evidence |
-| SPK | `UC-SPK-01` manage private recording; `UC-SPK-02` transcribe/evaluate; `UC-SPK-03` review holistic and per-question evidence |
+| SPK | `UC-SPK-01` manage private recording; `UC-SPK-02` transcribe/evaluate; `UC-SPK-03` review transcript-grounded profile and per-question evidence; holistic remains unavailable without authorized direct audio |
 | RES | `UC-RES-01` view result overview; `UC-RES-02` view evidence detail; `UC-RES-03` handle pending/failed/unavailable states |
 | PRG | `UC-PRG-01` view real aggregates; `UC-PRG-02` filter/drill down; `UC-PRG-03` recover/retry operational feedback |
 

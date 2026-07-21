@@ -19,9 +19,14 @@ import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
+import com.ksh.features.practice.ai.speaking.SpeakingContractTrust;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
+import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorCapability;
+import com.ksh.features.practice.ai.speaking.SpeakingEvidenceMode;
+import com.ksh.features.practice.ai.speaking.SpeakingPromptRules;
+import com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService;
 import com.ksh.features.practice.dto.PracticeDtos.*;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
@@ -1263,7 +1268,7 @@ class PracticeServiceTest {
         Optional<SkillMetric> readingMetric = overview.skillMetrics().stream()
                 .filter(m -> "READING".equals(m.skill())).findFirst();
         assertTrue(readingMetric.isPresent());
-        assertEquals(80.0, readingMetric.get().normalizedScore());
+        assertEquals(80.0, readingMetric.get().normalizedScore().doubleValue());
         assertEquals("READING", overview.recentHistory().get(0).skill());
     }
 
@@ -1303,8 +1308,71 @@ class PracticeServiceTest {
         Optional<SkillMetric> readingMetric = analytics.weeklySkillMetrics().stream()
                 .filter(m -> "READING".equals(m.skill())).findFirst();
         assertTrue(readingMetric.isPresent());
-        assertEquals(80.0, readingMetric.get().normalizedScore());
+        assertEquals(80.0, readingMetric.get().normalizedScore().doubleValue());
         assertEquals("READING", analytics.history().get(0).skill());
+    }
+
+    @Test
+    void speakingProgressNeverUsesLegacyOrMissingHolisticScores() {
+        PracticeAttempt reading = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        reading.markGraded(BigDecimal.valueOf(5), BigDecimal.TEN, "{}", "{}");
+        setEntityId(reading, 98L);
+        PracticeAttempt legacyNumericSpeaking =
+                new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 21L);
+        legacyNumericSpeaking.markGraded(
+                BigDecimal.valueOf(92), BigDecimal.valueOf(100), "{}", "{}");
+        setEntityId(legacyNumericSpeaking, 99L);
+        PracticeAttempt currentUnscoredSpeaking =
+                new PracticeAttempt(2L, 1L, 10L, "SPEAKING", 21L);
+        currentUnscoredSpeaking.markSubmitted(null, BigDecimal.valueOf(100), "{}");
+        setEntityId(currentUnscoredSpeaking, 100L);
+        when(attemptRepository.findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
+                2L, PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of(currentUnscoredSpeaking, legacyNumericSpeaking, reading));
+
+        PracticeProgressPageData page =
+                practiceService.getProgressPageData(2L, "Toan", "");
+
+        assertEquals(3, page.overview().totalCompletedTests());
+        assertEquals(50.0, page.overview().recentAverageScore());
+        assertEquals("Đang tiến bộ", page.overview().currentLevel());
+        assertTrue(page.analytics().scoreTrend().stream()
+                .noneMatch(point -> "SPEAKING".equals(point.skill())));
+        assertTrue(page.analytics().questionTypePerf().stream()
+                .noneMatch(row -> "SPEAKING".equals(row.skill())));
+        assertTrue(page.analytics().highlights().stream()
+                .noneMatch(row -> row.hasData() && "Nói".equals(row.skillOrType())));
+        assertEquals(2, page.overview().recentHistory().stream()
+                .filter(row -> "SPEAKING".equals(row.skill()))
+                .count());
+        page.overview().recentHistory().stream()
+                .filter(row -> "SPEAKING".equals(row.skill()))
+                .forEach(row -> {
+                    assertNull(row.score());
+                    assertNull(row.totalPoints());
+                });
+        assertEquals(2, page.analytics().history().stream()
+                .filter(row -> "SPEAKING".equals(row.skill()))
+                .count());
+        page.analytics().history().stream()
+                .filter(row -> "SPEAKING".equals(row.skill()))
+                .forEach(row -> {
+                    assertNull(row.score());
+                    assertNull(row.totalPoints());
+                });
+        SkillMetric speakingWeekly = page.analytics().weeklySkillMetrics().stream()
+                .filter(metric -> "SPEAKING".equals(metric.skill()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(2, speakingWeekly.attemptCount());
+        assertNull(speakingWeekly.normalizedScore());
+        assertNull(speakingWeekly.deltaFromLastPeriod());
+        SkillMetric speakingOverall = page.overview().skillMetrics().stream()
+                .filter(metric -> "SPEAKING".equals(metric.skill()))
+                .findFirst()
+                .orElseThrow();
+        assertNull(speakingOverall.normalizedScore());
+        assertNull(speakingOverall.deltaFromLastPeriod());
     }
 
     @Test
@@ -2150,8 +2218,9 @@ class PracticeServiceTest {
         assertEquals(List.of(101L, 102L), rows.stream().map(SpeakingQuestionFeedbackRow::questionId).toList());
         assertEquals("SECRET ANSWER ONE", rows.get(0).learnerAnswer());
         assertEquals("SECRET ANSWER TWO", rows.get(1).learnerAnswer());
-        assertEquals(0, rows.get(0).speakingFeedback().percentage().compareTo(new BigDecimal("33.33")));
-        assertEquals(0, rows.get(1).speakingFeedback().percentage().compareTo(new BigDecimal("77.78")));
+        assertNull(rows.get(0).speakingFeedback().percentage());
+        assertNull(rows.get(1).speakingFeedback().percentage());
+        assertEquals("LEGACY_UNVERIFIED", rows.get(0).speakingFeedback().contractTrust());
         assertFalse(rows.get(0).legacyFeedbackApplied());
         assertFalse(rows.get(1).legacyFeedbackApplied());
         String serializedFeedback = objectMapper.writeValueAsString(rows.get(0).speakingFeedback());
@@ -2165,25 +2234,29 @@ class PracticeServiceTest {
         setEntityId(q1, 101L);
         com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult result =
                 new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult(
-                        com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus.EVALUATED,
-                        true,
-                        com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource.PROVIDER,
+                        SpeakingEvaluationStatus.EVALUATED,
+                        false,
+                        SpeakingEvaluationSource.PROVIDER,
                         "gemini-compatible",
                         "gpt-4o-mini-transcribe",
-                        "prompt-v",
-                        "rubric-v",
-                        "schema-v",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION,
+                        SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                        SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                        SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                        SpeakingContractTrust.CURRENT_VERIFIED,
                         501L,
                         7L,
                         "저는 한국어를 공부해요.",
                         "저는 한국어를 공부해요.",
                         "저는 한국어를 공부해요.",
-                        "Learner studies Korean",
+                        null,
                         null,
                         new BigDecimal("0.93"),
-                        "LOW",
-                        new BigDecimal("82"),
-                        "B1",
+                        null,
+                        null,
+                        null,
                         "Bạn trả lời rõ ý.",
                         "Câu trả lời bám đề.",
                         List.of("Có ý chính rõ"),
@@ -2223,18 +2296,14 @@ class PracticeServiceTest {
                                 "")),
                         List.of(),
                         "Độ tin cậy ổn.",
-                        List.of(new com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult.RubricScore(
-                                com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
-                                new BigDecimal("16"),
-                                new BigDecimal("20"),
-                                "Nội dung tốt")),
+                        speakingLanguageProfileRows(),
                         List.of(),
                         List.of(),
                         List.of(),
                         "저는 한국어를 꾸준히 공부하고 있어요.",
                         "저는 매일 한국어를 공부하면서 새로운 표현을 익히고 있습니다.",
-                        List.of("Pronunciation advisory only"),
-                        List.of("Fluency text"),
+                        List.of(),
+                        List.of(),
                         null,
                         false);
 
@@ -2248,7 +2317,32 @@ class PracticeServiceTest {
         assertEquals(1, rows.size());
         assertNotNull(rows.get(0).speakingFeedback());
         assertEquals("EVALUATED", rows.get(0).speakingFeedback().evaluationStatus());
-        assertEquals(new BigDecimal("82"), rows.get(0).speakingFeedback().percentage());
+        assertNull(rows.get(0).speakingFeedback().percentage());
+        assertFalse(rows.get(0).speakingFeedback().scoreAvailable());
+        assertFalse(rows.get(0).speakingFeedback().holisticScoreAvailable());
+        assertEquals("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                rows.get(0).speakingFeedback().evaluatorCapability());
+        assertEquals("TRANSCRIPT_ONLY", rows.get(0).speakingFeedback().evidenceMode());
+        assertEquals(SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                rows.get(0).speakingFeedback().evidenceContractVersion());
+        assertEquals("CURRENT_VERIFIED", rows.get(0).speakingFeedback().contractTrust());
+        assertTrue(rows.get(0).speakingFeedback().profileAvailable());
+        assertNull(rows.get(0).speakingFeedback().levelLabel());
+        assertNull(rows.get(0).speakingFeedback().listenerBurden());
+        assertEquals(List.of("SCORED", "SCORED", "SCORED", "SCORED",
+                        "NOT_SCORABLE", "NOT_SCORABLE"),
+                rows.get(0).speakingFeedback().rubricScores().stream()
+                        .map(SpeakingRubricScoreView::availability)
+                        .toList());
+        List<BigDecimal> rubricMaxima = rows.get(0).speakingFeedback().rubricScores().stream()
+                .map(SpeakingRubricScoreView::maxScore)
+                .toList();
+        assertEquals(0, rubricMaxima.get(0).compareTo(new BigDecimal("20")));
+        assertEquals(0, rubricMaxima.get(1).compareTo(new BigDecimal("20")));
+        assertEquals(0, rubricMaxima.get(2).compareTo(new BigDecimal("15")));
+        assertEquals(0, rubricMaxima.get(3).compareTo(new BigDecimal("15")));
+        assertNull(rubricMaxima.get(4));
+        assertNull(rubricMaxima.get(5));
         assertEquals("Bạn trả lời rõ ý.", rows.get(0).speakingFeedback().overallSummary());
         assertEquals("저는 한국어를 공부해요.", rows.get(0).speakingFeedback().actuallyHeardTranscript());
         assertEquals(1, rows.get(0).speakingFeedback().actionPlan().size());
@@ -2290,8 +2384,9 @@ class PracticeServiceTest {
         assertEquals(2, rows.size());
         assertTrue(rows.get(0).legacyFeedbackApplied());
         assertTrue(rows.get(1).legacyFeedbackApplied());
-        assertEquals("Legacy global", rows.get(0).speakingFeedback().summaryVi());
-        assertEquals(0, rows.get(0).speakingFeedback().percentage().compareTo(new BigDecimal("77.78")));
+        assertNull(rows.get(0).speakingFeedback().summaryVi());
+        assertNull(rows.get(0).speakingFeedback().percentage());
+        assertEquals("LEGACY_UNVERIFIED", rows.get(0).speakingFeedback().contractTrust());
     }
 
     @Test
@@ -2355,18 +2450,20 @@ class PracticeServiceTest {
         assertTrue(feedbackRoot.path("speaking_feedback_by_question").has("101"));
         assertTrue(feedbackRoot.path("speaking_feedback_by_question").has("102"));
         assertTrue(attempt.getAnswersJson().contains("AUDIO_SUBMITTED"));
-        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("75.00")));
+        assertNull(attempt.getScore());
         assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(40)));
 
         String submittedFeedback = attempt.getAiFeedbackJson();
         practiceService.reEvaluate(99L, 2L);
 
         assertEquals(submittedFeedback, attempt.getAiFeedbackJson());
-        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("75.00")));
+        assertNull(attempt.getScore());
         assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(40)));
 
         PracticeResultView result = practiceService.getResult(99L, 2L);
-        assertEquals("75%", result.scoreLabel());
+        assertNull(result.score());
+        assertNull(result.totalPoints());
+        assertEquals("Không có điểm Nói tổng hợp", result.scoreLabel());
         assertEquals("AUDIO_SUBMITTED", result.speakingQuestionFeedbacks().get(1).learnerAnswer());
         verify(speakingMediaService).requireReadyMediaForOwner(2L, 99L, List.of(101L, 102L));
         verify(speakingService, times(4)).evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class));
@@ -2423,10 +2520,15 @@ class PracticeServiceTest {
         practiceService.submitAttempt(99L, 2L, Map.of());
 
         assertEquals("GRADED", attempt.getStatus());
-        assertEquals(0, attempt.getScore().compareTo(new BigDecimal("80.00")));
+        assertNull(attempt.getScore());
         JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
         assertEquals("speaking_ai_v1", feedback.path("_contract").asText());
         assertTrue(feedback.path("speaking_feedback_by_question").has("101"));
+        JsonNode persisted = feedback.path("speaking_feedback_by_question").path("101");
+        assertFalse(persisted.path("scoreAvailable").asBoolean(true));
+        assertTrue(persisted.path("overallScore").isNull());
+        assertEquals("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                persisted.path("evaluatorCapability").asText());
         assertFalse(attempt.getAiFeedbackJson().contains("provider_raw_body"));
         verify(speakingMediaService).requireReadyMediaForOwner(2L, 99L, List.of(101L));
         verify(speakingService, times(1)).evaluateQuestion(any(SpeakingEvaluationApplicationService.EvaluationInput.class));
@@ -2548,6 +2650,9 @@ class PracticeServiceTest {
         assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(35)));
 
         PracticeResultView result = practiceService.getResult(99L, 2L);
+        assertNull(result.score());
+        assertNull(result.totalPoints());
+        assertEquals("Không có điểm Nói tổng hợp", result.scoreLabel());
         assertEquals(List.of(100L, 101L, 202L), result.speakingQuestionFeedbacks().stream()
                 .map(SpeakingQuestionFeedbackRow::questionId)
                 .toList());
@@ -3381,14 +3486,18 @@ class PracticeServiceTest {
                 SpeakingEvaluationSource.PROVIDER,
                 "models/gemini-2.5-flash",
                 "gpt-4o-mini-transcribe",
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1",
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                SpeakingContractTrust.CURRENT_VERIFIED,
                 12L,
                 3L,
-                null,
-                null,
-                null,
+                "저는 한국어를 공부해요.",
+                "저는 한국어를 공부해요.",
+                "저는 한국어를 공부해요.",
                 null,
                 null,
                 null,
@@ -3405,7 +3514,7 @@ class PracticeServiceTest {
                 List.of(),
                 List.of(),
                 null,
-                List.of(),
+                speakingLanguageProfileRows(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -3415,5 +3524,28 @@ class PracticeServiceTest {
                 List.of(),
                 scoreAvailable ? null : status.name(),
                 retryable);
+    }
+
+    private List<SpeakingEvaluationResult.RubricScore> speakingLanguageProfileRows() {
+        return List.of(
+                speakingScored(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, "16", "20"),
+                speakingScored(SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL, "16", "20"),
+                speakingScored(SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS, "12", "15"),
+                speakingScored(SpeakingRubricCriterion.COHERENCE_ORGANIZATION, "12", "15"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.FLUENCY, null, null, "No audio",
+                        com.ksh.features.practice.ai.speaking.SpeakingCriterionAvailability.NOT_SCORABLE),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.PRONUNCIATION_DELIVERY, null, null, "No audio",
+                        com.ksh.features.practice.ai.speaking.SpeakingCriterionAvailability.NOT_SCORABLE));
+    }
+
+    private SpeakingEvaluationResult.RubricScore speakingScored(
+            SpeakingRubricCriterion criterion,
+            String score,
+            String max
+    ) {
+        return new SpeakingEvaluationResult.RubricScore(
+                criterion, new BigDecimal(score), new BigDecimal(max), "Language profile");
     }
 }

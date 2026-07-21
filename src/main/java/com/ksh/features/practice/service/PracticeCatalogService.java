@@ -212,7 +212,9 @@ public class PracticeCatalogService {
                 .orElse(null);
         if (latest == null) return new AttemptState("NOT_STARTED", "Chưa bắt đầu", null);
         if (PracticeAttempt.STATUS_GRADED.equals(latest.getStatus())) {
-            return new AttemptState("SCORED", "Đã có kết quả", null);
+            return isSpeakingAttempt(latest)
+                    ? new AttemptState("SCORED", "Đã xử lý phản hồi", null)
+                    : new AttemptState("SCORED", "Đã có kết quả", null);
         }
         if (!PracticeAttempt.STATUS_SUBMITTED.equals(latest.getStatus())) {
             return new AttemptState("NOT_STARTED", "Chưa bắt đầu", null);
@@ -224,14 +226,29 @@ public class PracticeCatalogService {
         }
         return switch (analysisStatus) {
             case PracticeAttempt.ANALYSIS_QUEUED, PracticeAttempt.ANALYSIS_PROCESSING ->
-                    new AttemptState("SCORING", "Đang chấm", null);
+                    isSpeakingAttempt(latest)
+                            ? new AttemptState("SCORING", "Đang xử lý phản hồi", null)
+                            : new AttemptState("SCORING", "Đang chấm", null);
             case PracticeAttempt.ANALYSIS_SUCCEEDED ->
-                    new AttemptState("SCORED", "Đã có kết quả", null);
-            case PracticeAttempt.ANALYSIS_FAILED -> latest.isObjectiveSkill()
-                    ? new AttemptState("PARTIAL", "Có điểm, thiếu phản hồi", null)
-                    : new AttemptState("FAILED", "Chấm điểm thất bại", null);
+                    isSpeakingAttempt(latest)
+                            ? new AttemptState("SCORED", "Đã xử lý phản hồi", null)
+                            : new AttemptState("SCORED", "Đã có kết quả", null);
+            case PracticeAttempt.ANALYSIS_FAILED -> {
+                if (latest.isObjectiveSkill()) {
+                    yield new AttemptState("PARTIAL", "Có điểm, thiếu phản hồi", null);
+                }
+                if (isSpeakingAttempt(latest)) {
+                    yield new AttemptState("FAILED", "Chưa thể xử lý phản hồi", null);
+                }
+                yield new AttemptState("FAILED", "Chấm điểm thất bại", null);
+            }
             default -> new AttemptState("SUBMITTED", "Đã nộp", null);
         };
+    }
+
+    private boolean isSpeakingAttempt(PracticeAttempt attempt) {
+        return attempt != null
+                && "SPEAKING".equalsIgnoreCase(attempt.getSkill());
     }
 
     private LocalDateTime attemptTimestamp(PracticeAttempt attempt) {

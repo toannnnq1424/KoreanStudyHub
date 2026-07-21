@@ -17,25 +17,23 @@ class SpeakingPromptRulesTest {
                 .contains("Do not use a 10-point band")
                 .contains("Do not use 9.0 / 7.5 / 5.0")
                 .contains("Do not use few-shot calibration samples")
-                .contains("Pronunciation feedback is advisory only")
                 .contains("exact phoneme-level")
-                .contains("TRANSCRIPT")
-                .contains("AUDIO_METADATA")
-                .contains("PROMPT")
-                .contains("INTERPRETED_INTENT")
+                .contains("Evidence source values must be only: TRANSCRIPT.")
+                .contains("AUDIO_METADATA is not an allowed grounding source")
+                .contains("TASK_METADATA is not accepted by the current evidence output contract")
+                .contains("interpreted_intent=null and intent_confidence=null")
                 .contains("S_CONTENT_TASK_FULFILLMENT")
                 .contains("S_GRAMMAR_SENTENCE_CONTROL")
                 .contains("S_VOCABULARY_EXPRESSIONS")
                 .contains("S_COHERENCE_ORGANIZATION")
-                .contains("S_FLUENCY")
-                .contains("S_PRONUNCIATION_DELIVERY")
+                .contains("Fluency and Pronunciation / Delivery are NOT_SCORABLE")
+                .contains("score_available=false, overall_score=null, and level_label=null")
+                .contains("Do not rescale the four language criteria to 100")
                 .contains("Content / Task Achievement")
                 .contains("Vocabulary / Expressions")
                 .contains("Grammar / Sentence Control")
                 .contains("Register / Honorifics / Ending Consistency")
                 .contains("Coherence / Organization")
-                .contains("Fluency")
-                .contains("Rich feedback contract")
                 .contains("action_plan")
                 .contains("criterion_feedback")
                 .contains("transcript_annotations")
@@ -44,6 +42,9 @@ class SpeakingPromptRulesTest {
                 .contains("confidence_notes")
                 .contains("allowed_rubric provides each criterion and its max_score")
                 .contains("do not assume fixed weights")
+                .doesNotContain("S_FLUENCY")
+                .doesNotContain("S_PRONUNCIATION_DELIVERY")
+                .doesNotContain("AUDIO_METADATA, PROMPT")
                 .doesNotContain("criteria with max 20 and max 15");
     }
 
@@ -82,10 +83,10 @@ class SpeakingPromptRulesTest {
                 .contains("말투")
                 .contains("높임말")
                 .contains("반말/존댓말")
-                .contains("음, 어, 그")
-                .contains("suspected pronunciation issue")
-                .contains("possible batchim/linking/vowel issue")
-                .contains("Do not create phoneme-level facts");
+                .contains("Do not infer hesitation, pauses, pacing, speech rate, fillers, self-repair")
+                .contains("ASR confidence describes transcription confidence only")
+                .contains("AUDIO_METADATA is provenance only")
+                .doesNotContain("evaluate fluency and listener burden conservatively");
     }
 
     @Test
@@ -114,8 +115,9 @@ class SpeakingPromptRulesTest {
 
         assertThat(prompt)
                 .contains("text-only fallback")
-                .contains("Pronunciation & Delivery must be capped")
-                .contains("do not pretend learner audio was evaluated");
+                .contains("Fluency and Pronunciation / Delivery are NOT_SCORABLE")
+                .contains("no score, max percentage, level, or band")
+                .contains("Do not pretend learner audio was evaluated");
     }
 
     @Test
@@ -123,12 +125,13 @@ class SpeakingPromptRulesTest {
         String prompt = SpeakingPromptRules.buildSystemPrompt(false);
 
         assertThat(prompt)
-                .contains("criterion_feedback item: criterionId, name, score, maxScore, levelLabel, summary")
-                .contains("strengths, needsImprovement, subcriteria")
-                .contains("subcriteria item: subcriterionId, name, levelLabel, summary, evidenceRefs")
-                .contains("return an empty array instead of inventing references")
-                .contains("action_plan item: criterionId, subcriterionId, titleVi, instructionVi, reasonVi, priority")
-                .contains("Use the exact field names from the provided JSON schema")
-                .contains("including camelCase item fields where the schema defines them");
+                .contains("criterion_feedback item: criterion_id, display_name, score, max_score, level_label, summary")
+                .contains("strengths, needs_improvement, subcriteria")
+                .contains("subcriteria item: sub_criterion_id, display_name, level_label, summary")
+                .contains("action_plan item: criterion_id, sub_criterion_id, title, instruction, reason, priority")
+                .contains("Use the exact snake_case field names from the provided JSON schema")
+                .contains("Backend provenance, transcript identity, model/version identity and media identity")
+                .doesNotContain("pronunciation_advisory")
+                .doesNotContain("fluency_observations");
     }
 }

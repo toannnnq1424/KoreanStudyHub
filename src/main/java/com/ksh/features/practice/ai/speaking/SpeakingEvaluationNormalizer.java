@@ -7,14 +7,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
 public class SpeakingEvaluationNormalizer {
-    public static final String SCHEMA_VERSION = "speaking-evaluation-v1";
-    public static final String RUBRIC_VERSION = "speaking-rubric-v1";
-    public static final String PROMPT_VERSION = "speaking-prompt-v1";
+    public static final String SCHEMA_VERSION = SpeakingPromptRules.SCHEMA_VERSION;
+    public static final String RUBRIC_VERSION = SpeakingPromptRules.RUBRIC_VERSION;
+    public static final String PROMPT_VERSION = SpeakingPromptRules.PROMPT_VERSION;
     private static final BigDecimal LOW_CONFIDENCE = new BigDecimal("0.50");
 
     public SpeakingEvaluationResult normalize(JsonNode input) {
@@ -31,82 +32,78 @@ public class SpeakingEvaluationNormalizer {
                 return unavailable(status, input);
             }
 
-            BigDecimal overall = decimal(input, "overall_score");
-            if (!percentage(overall)) {
-                return invalidProviderResult("INVALID_OVERALL_SCORE");
-            }
-            List<SpeakingEvaluationResult.RubricScore> rubrics = rubrics(input.path("rubric_scores"));
-            if (rubrics.size() != SpeakingRubricCriterion.values().length) {
-                return contractFailure("INVALID_RUBRIC_CONTRACT");
-            }
-
-            List<SpeakingEvaluationResult.Evidence> evidence = evidence(input.path("evidence"));
-            List<String> recommendations = strings(input.path("recommendations"));
             BigDecimal transcriptConfidence = confidence(input, "transcript_confidence");
             if (transcriptConfidence == null && input.hasNonNull("transcript_confidence")) {
                 return invalidProviderResult("INVALID_TRANSCRIPT_CONFIDENCE");
             }
 
-            boolean lowConfidence = transcriptConfidence != null
+            boolean lowConfidence = status == SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE
+                    || transcriptConfidence != null
                     && transcriptConfidence.compareTo(LOW_CONFIDENCE) < 0;
-            if (lowConfidence) {
-                rubrics = applyLowConfidenceCaps(rubrics, evidence);
-                recommendations = appendWarning(recommendations,
-                        "Low transcript confidence: language and delivery scores are limited when grounded evidence is weak.");
-                if (status == SpeakingEvaluationStatus.EVALUATED) {
-                    status = SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE;
-                }
+            String actuallyHeardTranscript = text(input, "actually_heard_transcript");
+            if (actuallyHeardTranscript == null) {
+                return invalidProviderResult("MISSING_AUTHORITATIVE_TRANSCRIPT");
             }
-            if (status == SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED) {
-                rubrics = applyTextFallbackCaps(rubrics);
-                recommendations = appendWarning(recommendations,
-                        "Text-only fallback: Pronunciation & Delivery is capped because no learner audio was evaluated.");
+            List<SpeakingEvaluationResult.RubricScore> rubrics = lowConfidence
+                    ? List.of()
+                    : rubrics(input.path("rubric_scores"));
+            if (!lowConfidence && rubrics.size() != SpeakingRubricCriterion.values().length) {
+                return contractFailure("INVALID_RUBRIC_CONTRACT");
             }
 
-            BigDecimal rubricTotal = rubrics.stream()
-                    .map(SpeakingEvaluationResult.RubricScore::score)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .setScale(2, RoundingMode.HALF_UP);
-            overall = rubricTotal;
+            List<SpeakingEvaluationResult.Evidence> evidence = evidence(
+                    input.path("evidence"), actuallyHeardTranscript);
+            List<String> recommendations = strings(input.path("recommendations"));
+            if (lowConfidence) {
+                recommendations = appendWarning(recommendations,
+                        "Độ tin cậy của bản chép lời thấp; không tạo hồ sơ điểm ngôn ngữ từ bản chép lời này.");
+                status = SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE;
+            }
 
             return new SpeakingEvaluationResult(
                     status,
-                    true,
+                    false,
                     source(input, status),
                     text(input, "model"),
                     text(input, "transcription_model"),
                     defaultText(input, "prompt_version", PROMPT_VERSION),
                     defaultText(input, "rubric_version", RUBRIC_VERSION),
                     defaultText(input, "schema_version", SCHEMA_VERSION),
+                    SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                    SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                    SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                    SpeakingContractTrust.CURRENT_VERIFIED,
                     longValue(input, "audio_media_id"),
                     longValue(input, "media_version"),
                     text(input, "transcript"),
                     text(input, "normalized_transcript"),
-                    text(input, "actually_heard_transcript"),
-                    text(input, "interpreted_intent"),
-                    confidence(input, "intent_confidence"),
+                    actuallyHeardTranscript,
+                    null,
+                    null,
                     transcriptConfidence,
-                    text(input, "listener_burden"),
-                    overall,
-                    text(input, "level_label"),
-                    text(input, "overall_summary"),
-                    text(input, "task_achievement_summary"),
-                    strings(input.path("major_strengths")),
-                    strings(input.path("major_needs_improvement")),
+                    null,
+                    null,
+                    null,
+                    transcriptGroundedText(text(input, "overall_summary")),
+                    transcriptGroundedText(text(input, "task_achievement_summary")),
+                    transcriptGroundedStrings(input.path("major_strengths")),
+                    transcriptGroundedStrings(input.path("major_needs_improvement")),
                     actionPlan(input.path("action_plan")),
-                    criterionFeedback(input.path("criterion_feedback")),
-                    transcriptAnnotations(input.path("transcript_annotations")),
-                    feedbackItems(input.path("strengths")),
-                    feedbackItems(input.path("needs_improvement")),
-                    text(input, "confidence_notes"),
+                    lowConfidence ? List.of() : criterionFeedback(input.path("criterion_feedback"), rubrics),
+                    transcriptAnnotations(input.path("transcript_annotations"), actuallyHeardTranscript),
+                    feedbackItems(input.path("strengths"), actuallyHeardTranscript, true),
+                    feedbackItems(input.path("needs_improvement"), actuallyHeardTranscript, false),
+                    transcriptGroundedText(text(input, "confidence_notes")),
                     rubrics,
-                    findings(input.path("findings")),
+                    // The legacy generic finding has no evidence scope or span and
+                    // therefore cannot be promoted to CURRENT_VERIFIED output.
+                    List.of(),
                     evidence,
-                    recommendations,
+                    recommendations.stream().filter(this::transcriptGroundedClaim).toList(),
                     text(input, "upgraded_answer"),
                     text(input, "sample_answer"),
-                    strings(input.path("pronunciation_advisory")),
-                    strings(input.path("fluency_observations")),
+                    List.of(),
+                    List.of(),
                     null,
                     input.path("retryable").asBoolean(false));
         } catch (RuntimeException ex) {
@@ -147,12 +144,41 @@ public class SpeakingEvaluationNormalizer {
         return new SpeakingEvaluationResult(
                 status, false, source, null, null,
                 PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION,
-                null, null, null, null, null, null,
-                null, null, null, null, null,
-                null, null, List.of(), List.of(), List.of(), List.of(), List.of(),
-                List.of(), List.of(), null,
-                List.of(), List.of(), List.of(), List.of(),
-                null, null, List.of(), List.of(), errorCategory, retryable);
+                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                SpeakingContractTrust.CURRENT_VERIFIED,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                List.of(),
+                List.of(),
+                errorCategory,
+                retryable);
     }
 
     private List<SpeakingEvaluationResult.RubricScore> rubrics(JsonNode array) {
@@ -169,10 +195,20 @@ public class SpeakingEvaluationNormalizer {
             if (criterion == null) {
                 criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterionId"));
             }
+            if (criterion == null) {
+                return List.of();
+            }
+            if (criterion.requiresAcousticEvidence()) {
+                // Compatibility input may still contain six rows. Acoustic rows
+                // are never accepted as measurements by this capability.
+                continue;
+            }
             BigDecimal score = decimal(node, "score");
-            if (criterion == null || score == null
+            BigDecimal suppliedMax = decimal(node, "max_score");
+            if (score == null
                     || score.compareTo(BigDecimal.ZERO) < 0
                     || score.compareTo(criterion.maxScore()) > 0
+                    || (suppliedMax != null && suppliedMax.compareTo(criterion.maxScore()) != 0)
                     || values.containsKey(criterion)) {
                 return List.of();
             }
@@ -180,19 +216,31 @@ public class SpeakingEvaluationNormalizer {
                     criterion,
                     score.setScale(2, RoundingMode.HALF_UP),
                     criterion.maxScore(),
-                    text(node, "feedback")));
+                    transcriptGroundedText(text(node, "feedback"))));
         }
         List<SpeakingEvaluationResult.RubricScore> ordered = new ArrayList<>();
         for (SpeakingRubricCriterion criterion : SpeakingRubricCriterion.values()) {
-            if (!values.containsKey(criterion)) {
-                return List.of();
+            if (criterion.requiresAcousticEvidence()) {
+                ordered.add(new SpeakingEvaluationResult.RubricScore(
+                        criterion,
+                        null,
+                        null,
+                        "Chưa chấm: evaluator không nhận bằng chứng âm thanh.",
+                        SpeakingCriterionAvailability.NOT_SCORABLE));
+            } else {
+                if (!values.containsKey(criterion)) {
+                    return List.of();
+                }
+                ordered.add(values.get(criterion));
             }
-            ordered.add(values.get(criterion));
         }
         return List.copyOf(ordered);
     }
 
-    private List<SpeakingEvaluationResult.Evidence> evidence(JsonNode array) {
+    private List<SpeakingEvaluationResult.Evidence> evidence(
+            JsonNode array,
+            String actuallyHeardTranscript
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
@@ -202,57 +250,63 @@ public class SpeakingEvaluationNormalizer {
                     SpeakingEvidenceSource.class, text(node, "source"));
             SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion"));
             BigDecimal confidence = confidence(node, "confidence");
-            if (source != null) {
+            String excerpt = rawText(node, "excerpt");
+            boolean transcriptExcerptValid = source != SpeakingEvidenceSource.TRANSCRIPT
+                    || exactTranscriptSpan(excerpt, actuallyHeardTranscript);
+            if (source != null && criterion != null
+                    && criterion.transcriptGrounded()
+                    && evidenceAllowed(source, criterion)
+                    && transcriptExcerptValid) {
                 rows.add(new SpeakingEvaluationResult.Evidence(
-                        source, criterion, text(node, "excerpt"), confidence));
+                        source, criterion, excerpt, confidence));
             }
         }
         return List.copyOf(rows);
     }
 
-    private List<SpeakingEvaluationResult.Finding> findings(JsonNode array) {
-        if (!array.isArray()) {
-            return List.of();
-        }
-        List<SpeakingEvaluationResult.Finding> rows = new ArrayList<>();
-        for (JsonNode node : array) {
-            if (node.isObject()) {
-                rows.add(new SpeakingEvaluationResult.Finding(
-                        text(node, "category"),
-                        text(node, "message"),
-                        text(node, "recommendation")));
-            }
-        }
-        return List.copyOf(rows);
-    }
-
-    private List<SpeakingEvaluationResult.CriterionFeedback> criterionFeedback(JsonNode array) {
+    private List<SpeakingEvaluationResult.CriterionFeedback> criterionFeedback(
+            JsonNode array,
+            List<SpeakingEvaluationResult.RubricScore> rubrics
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
         List<SpeakingEvaluationResult.CriterionFeedback> rows = new ArrayList<>();
         for (JsonNode node : array) {
-            SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
-            if (criterion == null) {
-                criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion"));
+            SpeakingRubricCriterion parsedCriterion =
+                    SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
+            if (parsedCriterion == null) {
+                parsedCriterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion"));
             }
-            if (criterion != null) {
+            final SpeakingRubricCriterion criterion = parsedCriterion;
+            if (criterion != null && criterion.transcriptGrounded()
+                    && transcriptGroundedClaim(text(node, "summary"))) {
+                SpeakingEvaluationResult.RubricScore score = rubrics.stream()
+                        .filter(row -> row.criterion() == criterion && row.scored())
+                        .findFirst()
+                        .orElse(null);
+                if (score == null) {
+                    continue;
+                }
                 rows.add(new SpeakingEvaluationResult.CriterionFeedback(
                         criterion,
                         text(node, "display_name"),
-                        decimal(node, "score"),
-                        decimal(node, "max_score"),
+                        score.score(),
+                        score.maxScore(),
                         text(node, "level_label"),
-                        text(node, "summary"),
-                        strings(node.path("strengths")),
-                        strings(node.path("needs_improvement")),
-                        subcriteria(node.path("subcriteria"))));
+                        transcriptGroundedText(text(node, "summary")),
+                        transcriptGroundedStrings(node.path("strengths")),
+                        transcriptGroundedStrings(node.path("needs_improvement")),
+                        subcriteria(node.path("subcriteria"), criterion)));
             }
         }
         return List.copyOf(rows);
     }
 
-    private List<SpeakingEvaluationResult.SubCriterionFeedback> subcriteria(JsonNode array) {
+    private List<SpeakingEvaluationResult.SubCriterionFeedback> subcriteria(
+            JsonNode array,
+            SpeakingRubricCriterion parent
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
@@ -262,42 +316,59 @@ public class SpeakingEvaluationNormalizer {
             if (id == null) {
                 id = text(node, "subCriterionId");
             }
-            if (id != null) {
+            if (parent != null && parent.ownsSubcriterion(id)
+                    && transcriptGroundedClaim(text(node, "summary"))) {
                 rows.add(new SpeakingEvaluationResult.SubCriterionFeedback(
                         id,
                         text(node, "display_name"),
                         text(node, "level_label"),
-                        text(node, "summary"),
-                        strings(node.path("strengths")),
-                        strings(node.path("needs_improvement"))));
+                        transcriptGroundedText(text(node, "summary")),
+                        transcriptGroundedStrings(node.path("strengths")),
+                        transcriptGroundedStrings(node.path("needs_improvement"))));
             }
         }
         return List.copyOf(rows);
     }
 
-    private List<SpeakingEvaluationResult.TranscriptAnnotation> transcriptAnnotations(JsonNode array) {
+    private List<SpeakingEvaluationResult.TranscriptAnnotation> transcriptAnnotations(
+            JsonNode array,
+            String actuallyHeardTranscript
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
         List<SpeakingEvaluationResult.TranscriptAnnotation> rows = new ArrayList<>();
+        Map<String, Integer> nextSpanSearch = new HashMap<>();
         for (JsonNode node : array) {
             SpeakingEvidenceSource source = enumValue(SpeakingEvidenceSource.class, text(node, "evidence_source"));
             SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
-            if (source != null) {
+            if (source != null && criterion != null && criterion.transcriptGrounded()
+                    && evidenceAllowed(source, criterion)
+                    && criterion.ownsSubcriterion(text(node, "sub_criterion_id"))
+                    && transcriptGroundedClaim(firstText(node, "explanation", "explanation_vi"))) {
+                ValidatedEvidence validatedEvidence = validateEvidence(
+                        firstText(node, "evidence_scope", "evidenceScope"),
+                        rawText(node, "evidence"),
+                        source,
+                        actuallyHeardTranscript,
+                        nextSpanSearch);
+                if (validatedEvidence == null) {
+                    continue;
+                }
                 rows.add(new SpeakingEvaluationResult.TranscriptAnnotation(
                         text(node, "annotation_type"),
                         text(node, "category"),
                         criterion,
                         text(node, "sub_criterion_id"),
-                        firstText(node, "original_span", "evidence"),
+                        validatedEvidence.textSpan() ? validatedEvidence.evidence() : null,
                         firstText(node, "replacement", "suggestion_ko"),
-                        firstInt(node, "start_offset", "startOffset"),
-                        firstInt(node, "end_offset", "endOffset"),
+                        validatedEvidence.startOffset(),
+                        validatedEvidence.endOffset(),
                         firstText(node, "explanation", "explanation_vi"),
                         text(node, "severity"),
                         source,
-                        firstText(node, "evidence_scope", "evidenceScope"),
-                        text(node, "evidence"),
+                        validatedEvidence.scope(),
+                        validatedEvidence.evidence(),
                         firstText(node, "explanation_vi", "explanationVi"),
                         firstText(node, "suggestion_ko", "suggestionKo"),
                         confidence(node, "confidence")));
@@ -306,7 +377,11 @@ public class SpeakingEvaluationNormalizer {
         return List.copyOf(rows);
     }
 
-    private List<SpeakingEvaluationResult.FeedbackItem> feedbackItems(JsonNode array) {
+    private List<SpeakingEvaluationResult.FeedbackItem> feedbackItems(
+            JsonNode array,
+            String actuallyHeardTranscript,
+            boolean strengths
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
@@ -320,12 +395,23 @@ public class SpeakingEvaluationNormalizer {
             if (source == null) {
                 source = enumValue(SpeakingEvidenceSource.class, text(node, "evidenceSource"));
             }
-            if (criterion != null && source != null) {
+            ValidatedEvidence validatedEvidence = validateEvidence(
+                    firstText(node, "evidence_scope", "evidenceScope"),
+                    rawText(node, "evidence"),
+                    source,
+                    actuallyHeardTranscript,
+                    new HashMap<>());
+            if (criterion != null && criterion.transcriptGrounded()
+                    && source != null && evidenceAllowed(source, criterion)
+                    && criterion.ownsSubcriterion(firstText(node, "sub_criterion_id", "subCriterionId"))
+                    && transcriptGroundedClaim(firstText(node, "explanation_vi", "explanationVi"))
+                    && (!strengths || "".equals(rawText(node, "correction")))
+                    && validatedEvidence != null) {
                 rows.add(new SpeakingEvaluationResult.FeedbackItem(
                         criterion,
-                        firstText(node, "sub_criterion_id", "subcriterionId"),
-                        firstText(node, "evidence_scope", "evidenceScope"),
-                        text(node, "evidence"),
+                        firstText(node, "sub_criterion_id", "subCriterionId"),
+                        validatedEvidence.scope(),
+                        validatedEvidence.evidence(),
                         source,
                         firstText(node, "explanation_vi", "explanationVi"),
                         node.has("correction") && node.get("correction").isTextual()
@@ -336,6 +422,68 @@ public class SpeakingEvaluationNormalizer {
         return List.copyOf(rows);
     }
 
+    private ValidatedEvidence validateEvidence(
+            String scope,
+            String evidence,
+            SpeakingEvidenceSource source,
+            String actuallyHeardTranscript,
+            Map<String, Integer> nextSpanSearch
+    ) {
+        if (scope == null || source == null) {
+            return null;
+        }
+        return switch (scope.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case "TEXT_SPAN" -> validatedTextSpan(
+                    evidence, source, actuallyHeardTranscript, nextSpanSearch);
+            case "WHOLE_ANSWER" -> source == SpeakingEvidenceSource.TRANSCRIPT
+                    && evidence != null && evidence.isEmpty()
+                    ? new ValidatedEvidence("WHOLE_ANSWER", "", null, null)
+                    : null;
+            // This normalizer receives no independently authenticated task-metadata
+            // envelope. Provider-authored TASK_METADATA can therefore never become
+            // CURRENT_VERIFIED evidence here.
+            case "TASK_METADATA" -> null;
+            default -> null;
+        };
+    }
+
+    private ValidatedEvidence validatedTextSpan(
+            String evidence,
+            SpeakingEvidenceSource source,
+            String actuallyHeardTranscript,
+            Map<String, Integer> nextSpanSearch
+    ) {
+        if (source != SpeakingEvidenceSource.TRANSCRIPT
+                || !exactTranscriptSpan(evidence, actuallyHeardTranscript)) {
+            return null;
+        }
+        int searchFrom = nextSpanSearch.getOrDefault(evidence, 0);
+        int startOffset = actuallyHeardTranscript.indexOf(evidence, searchFrom);
+        if (startOffset < 0) {
+            return null;
+        }
+        int endOffset = startOffset + evidence.length();
+        nextSpanSearch.put(evidence, endOffset);
+        return new ValidatedEvidence("TEXT_SPAN", evidence, startOffset, endOffset);
+    }
+
+    private boolean exactTranscriptSpan(String evidence, String actuallyHeardTranscript) {
+        return evidence != null && !evidence.isBlank()
+                && actuallyHeardTranscript != null
+                && actuallyHeardTranscript.contains(evidence);
+    }
+
+    private record ValidatedEvidence(
+            String scope,
+            String evidence,
+            Integer startOffset,
+            Integer endOffset
+    ) {
+        private boolean textSpan() {
+            return "TEXT_SPAN".equals(scope);
+        }
+    }
+
     private List<SpeakingEvaluationResult.ActionPlanItem> actionPlan(JsonNode array) {
         if (!array.isArray()) {
             return List.of();
@@ -343,63 +491,55 @@ public class SpeakingEvaluationNormalizer {
         List<SpeakingEvaluationResult.ActionPlanItem> rows = new ArrayList<>();
         for (JsonNode node : array) {
             SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
-            rows.add(new SpeakingEvaluationResult.ActionPlanItem(
-                    criterion,
-                    text(node, "sub_criterion_id"),
-                    text(node, "title"),
-                    text(node, "instruction"),
-                    text(node, "reason"),
-                    text(node, "priority")));
+            String subcriterion = text(node, "sub_criterion_id");
+            if (criterion != null && criterion.transcriptGrounded()
+                    && criterion.ownsSubcriterion(subcriterion)
+                    && transcriptGroundedClaim(text(node, "title"))
+                    && transcriptGroundedClaim(text(node, "instruction"))
+                    && transcriptGroundedClaim(text(node, "reason"))) {
+                rows.add(new SpeakingEvaluationResult.ActionPlanItem(
+                        criterion,
+                        subcriterion,
+                        text(node, "title"),
+                        text(node, "instruction"),
+                        text(node, "reason"),
+                        text(node, "priority")));
+            }
         }
         return List.copyOf(rows);
     }
 
-    private List<SpeakingEvaluationResult.RubricScore> applyLowConfidenceCaps(
-            List<SpeakingEvaluationResult.RubricScore> rubrics,
-            List<SpeakingEvaluationResult.Evidence> evidence
-    ) {
-        return rubrics.stream().map(row -> {
-            if (!requiresGroundedEvidence(row.criterion()) || hasGroundedEvidence(evidence, row.criterion())) {
-                return row;
-            }
-            BigDecimal cap = row.maxScore().divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-            return new SpeakingEvaluationResult.RubricScore(
-                    row.criterion(),
-                    row.score().min(cap),
-                    row.maxScore(),
-                    row.feedback());
-        }).toList();
-    }
-
-    private List<SpeakingEvaluationResult.RubricScore> applyTextFallbackCaps(
-            List<SpeakingEvaluationResult.RubricScore> rubrics
-    ) {
-        return rubrics.stream().map(row -> {
-            if (row.criterion() != SpeakingRubricCriterion.PRONUNCIATION_DELIVERY) {
-                return row;
-            }
-            BigDecimal cap = row.maxScore().divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-            return new SpeakingEvaluationResult.RubricScore(
-                    row.criterion(),
-                    row.score().min(cap),
-                    row.maxScore(),
-                    row.feedback());
-        }).toList();
-    }
-
-    private boolean requiresGroundedEvidence(SpeakingRubricCriterion criterion) {
-        return criterion == SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL
-                || criterion == SpeakingRubricCriterion.FLUENCY
-                || criterion == SpeakingRubricCriterion.PRONUNCIATION_DELIVERY;
-    }
-
-    private boolean hasGroundedEvidence(
-            List<SpeakingEvaluationResult.Evidence> evidence,
+    private boolean evidenceAllowed(
+            SpeakingEvidenceSource source,
             SpeakingRubricCriterion criterion
     ) {
-        return evidence.stream().anyMatch(row -> row.criterion() == criterion
-                && (row.source() == SpeakingEvidenceSource.TRANSCRIPT
-                || row.source() == SpeakingEvidenceSource.AUDIO_METADATA));
+        // The backend authoritatively injects only the transcript into the
+        // normalized provider envelope. Provider-authored prompt/intent claims
+        // cannot become CURRENT_VERIFIED evidence at this boundary.
+        return source == SpeakingEvidenceSource.TRANSCRIPT
+                && criterion != null && criterion.transcriptGrounded();
+    }
+
+    private List<String> transcriptGroundedStrings(JsonNode array) {
+        return strings(array).stream().filter(this::transcriptGroundedClaim).toList();
+    }
+
+    private String transcriptGroundedText(String value) {
+        return transcriptGroundedClaim(value) ? value : null;
+    }
+
+    private boolean transcriptGroundedClaim(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        String normalized = value.toLowerCase(java.util.Locale.ROOT);
+        return java.util.stream.Stream.of(
+                        "pronunciation", "delivery", "fluency", "hesitation", "pacing",
+                        "pause", "rhythm", "intonation", "listener burden", "linking",
+                        "batchim", "phoneme", "phát âm", "độ lưu loát", "lưu loát",
+                        "ngập ngừng", "nhịp điệu", "ngữ điệu", "nối âm", "tốc độ nói",
+                        "gánh nặng người nghe", "발음", "유창", "억양", "리듬", "받침")
+                .noneMatch(normalized::contains);
     }
 
     private List<String> appendWarning(List<String> values, String warning) {
@@ -429,12 +569,6 @@ public class SpeakingEvaluationNormalizer {
                 && value.compareTo(BigDecimal.ONE) <= 0 ? value : null;
     }
 
-    private boolean percentage(BigDecimal value) {
-        return value != null
-                && value.compareTo(BigDecimal.ZERO) >= 0
-                && value.compareTo(BigDecimal.valueOf(100)) <= 0;
-    }
-
     private BigDecimal decimal(JsonNode input, String field) {
         JsonNode value = input.get(field);
         return value != null && value.isNumber() ? value.decimalValue() : null;
@@ -443,16 +577,6 @@ public class SpeakingEvaluationNormalizer {
     private Long longValue(JsonNode input, String field) {
         JsonNode value = input.get(field);
         return value != null && value.canConvertToLong() ? value.longValue() : null;
-    }
-
-    private Integer intValue(JsonNode input, String field) {
-        JsonNode value = input.get(field);
-        return value != null && value.canConvertToInt() ? value.intValue() : null;
-    }
-
-    private Integer firstInt(JsonNode input, String first, String second) {
-        Integer value = intValue(input, first);
-        return value == null ? intValue(input, second) : value;
     }
 
     private String defaultText(JsonNode input, String field, String fallback) {
@@ -470,6 +594,14 @@ public class SpeakingEvaluationNormalizer {
         }
         String text = value.asText().trim();
         return text.isEmpty() ? null : text;
+    }
+
+    private String rawText(JsonNode input, String field) {
+        if (input == null) {
+            return null;
+        }
+        JsonNode value = input.get(field);
+        return value != null && value.isTextual() ? value.asText() : null;
     }
 
     private String firstText(JsonNode input, String first, String second) {

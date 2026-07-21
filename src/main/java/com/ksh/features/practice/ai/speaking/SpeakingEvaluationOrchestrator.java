@@ -43,7 +43,8 @@ public class SpeakingEvaluationOrchestrator {
         if (!providerResult.success()) {
             return normalizeFailure(providerResult.failureStatus(), providerResult.errorCategory(), providerResult.retryable());
         }
-        return normalizer.normalize(completeProviderJson(providerResult.evaluationJson(), request, providerResult));
+        return normalizer.normalize(completeProviderJson(
+                providerResult.evaluationJson(), request, providerResult, transcription.status()));
     }
 
     private SpeakingEvaluationRequest request(Input input) {
@@ -69,35 +70,55 @@ public class SpeakingEvaluationOrchestrator {
                 normalizedTranscript,
                 normalizedTranscript == null ? transcript : normalizedTranscript,
                 null,
-                null,
+                transcription.transcriptConfidence(),
                 transcription.status() == SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED,
                 properties.promptVersion(),
                 properties.rubricVersion(),
-                properties.schemaVersion());
+                properties.schemaVersion(),
+                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
     }
 
     private JsonNode completeProviderJson(
             JsonNode providerJson,
             SpeakingEvaluationRequest request,
-            SpeakingEvaluationProviderResult providerResult
+            SpeakingEvaluationProviderResult providerResult,
+            SpeakingEvaluationStatus transcriptionStatus
     ) {
         ObjectNode copy = providerJson == null || !providerJson.isObject()
                 ? objectMapper.createObjectNode()
                 : ((ObjectNode) providerJson.deepCopy());
-        putIfMissing(copy, "source", request.textFallback()
+        putAuthoritative(copy, "source", request.textFallback()
                 ? SpeakingEvaluationSource.TEXT_FALLBACK.name()
                 : SpeakingEvaluationSource.PROVIDER.name());
-        putIfMissing(copy, "model", providerResult.model());
-        putIfMissing(copy, "transcription_model", request.transcriptionModel());
-        putIfMissing(copy, "prompt_version", request.promptVersion());
-        putIfMissing(copy, "rubric_version", request.rubricVersion());
-        putIfMissing(copy, "schema_version", request.schemaVersion());
-        putIfMissing(copy, "audio_media_id", request.audioMediaId());
-        putIfMissing(copy, "media_version", request.mediaVersion());
-        putIfMissing(copy, "transcript", request.transcript());
-        putIfMissing(copy, "normalized_transcript", request.normalizedTranscript());
-        putIfMissing(copy, "actually_heard_transcript", request.actuallyHeardTranscript());
-        putIfMissing(copy, "transcript_confidence", request.transcriptConfidence());
+        putAuthoritative(copy, "model", providerResult.model());
+        putAuthoritative(copy, "transcription_model", request.transcriptionModel());
+        putAuthoritative(copy, "prompt_version", request.promptVersion());
+        putAuthoritative(copy, "rubric_version", request.rubricVersion());
+        putAuthoritative(copy, "schema_version", request.schemaVersion());
+        putAuthoritative(copy, "evaluator_capability", request.evaluatorCapability().name());
+        putAuthoritative(copy, "evidence_mode", request.evidenceMode().name());
+        putAuthoritative(copy, "evidence_contract_version", request.evidenceContractVersion());
+        SpeakingEvaluationStatus authoritativeStatus;
+        if (request.textFallback()) {
+            authoritativeStatus = SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED;
+        } else if (transcriptionStatus == SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE) {
+            authoritativeStatus = SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE;
+        } else {
+            authoritativeStatus = SpeakingEvaluationStatus.EVALUATED;
+        }
+        putAuthoritative(copy, "evaluation_status", authoritativeStatus.name());
+        putAuthoritative(copy, "audio_media_id", request.audioMediaId());
+        putAuthoritative(copy, "media_version", request.mediaVersion());
+        putAuthoritative(copy, "transcript", request.transcript());
+        putAuthoritative(copy, "normalized_transcript", request.normalizedTranscript());
+        putAuthoritative(copy, "actually_heard_transcript", request.actuallyHeardTranscript());
+        putAuthoritative(copy, "transcript_confidence", request.transcriptConfidence());
+        copy.remove("interpreted_intent");
+        copy.remove("intent_confidence");
+        copy.putNull("interpreted_intent");
+        copy.putNull("intent_confidence");
         if (request.textFallback()) {
             copy.remove("audio_media_id");
             copy.remove("media_version");
@@ -122,20 +143,23 @@ public class SpeakingEvaluationOrchestrator {
         return normalizer.normalize(node);
     }
 
-    private static void putIfMissing(ObjectNode node, String field, String value) {
-        if (!node.hasNonNull(field) && value != null && !value.isBlank()) {
+    private static void putAuthoritative(ObjectNode node, String field, String value) {
+        node.remove(field);
+        if (value != null && !value.isBlank()) {
             node.put(field, value);
         }
     }
 
-    private static void putIfMissing(ObjectNode node, String field, Long value) {
-        if (!node.hasNonNull(field) && value != null) {
+    private static void putAuthoritative(ObjectNode node, String field, Long value) {
+        node.remove(field);
+        if (value != null) {
             node.put(field, value);
         }
     }
 
-    private static void putIfMissing(ObjectNode node, String field, java.math.BigDecimal value) {
-        if (!node.hasNonNull(field) && value != null) {
+    private static void putAuthoritative(ObjectNode node, String field, java.math.BigDecimal value) {
+        node.remove(field);
+        if (value != null) {
             node.put(field, value);
         }
     }
@@ -182,11 +206,11 @@ public class SpeakingEvaluationOrchestrator {
                     + ", questionTextPresent=" + (questionText != null && !questionText.isBlank())
                     + ", targetLevelPresent=" + (targetLevel != null && !targetLevel.isBlank())
                     + ", expectedAnswerGuidancePresent=" + (expectedAnswerGuidance != null && !expectedAnswerGuidance.isBlank())
-                    + ", audioMediaId=" + audioMediaId
-                    + ", mediaVersion=" + mediaVersion
-                    + ", mimeType='" + mimeType + '\''
-                    + ", byteSize=" + byteSize
-                    + ", durationMs=" + durationMs
+                    + ", audioMediaPresent=" + (audioMediaId != null)
+                    + ", mediaVersionPresent=" + (mediaVersion != null)
+                    + ", mimeTypePresent=" + (mimeType != null && !mimeType.isBlank())
+                    + ", byteSizePresent=" + (byteSize != null)
+                    + ", durationPresent=" + (durationMs != null)
                     + ", questionImagePresent=" + (imageEvidence != null)
                     + ", transcriptionStatus=" + (transcriptionResult == null ? null : transcriptionResult.status())
                     + ", textFallbackPresent=" + (textFallbackAnswer != null && !textFallbackAnswer.isBlank())

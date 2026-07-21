@@ -1,6 +1,6 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-17
+Last updated: 2026-07-22
 
 ## 1. Authority and scope lock
 
@@ -39,6 +39,7 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13B detail/preflight/version lock | `COMPLETE_FOCUSED_GATE_GREEN` | Set/test detail, immutable attempt routing, canonical Speaking delivery, full-screen microphone preflight and immutable Listening speaker preflight passed the consolidated 13C2 focused validation. Browser/device QA remains in 13H |
 | 13C skill-native players | `13C2_FULL_SUITE_GREEN_COMMITTED_PUSHED_PHASE_13_OPEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and visual fill-blank authoring are implemented. The correction passed the complete 1321-test suite and was committed/pushed as `c3ba3a9`; Phase 13 is not closed and final browser/device plus post-13D-13G closure validation remains in 13H |
 | 13D result overview and immutable explanation lifecycle | `FULL_SUITE_GREEN_COMMITTED_PUSHED` | JDK 17 compile passed, the consolidated targeted gate passed 311/311 and the requested full suite passed 1642/1642. Implementation is committed as `bcc1467`; migration renumbering is `a089fd1`; main integration on the feature branch is `da350b5`. Browser/device QA remains in 13H |
+| 13D bounded result-overview UX/evidence correction | `FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. Two authenticated Result Detail route cases are not counted as passed because the isolated `ksh_phase13e_result_ui` schema lacks `tests.media_type` and failed Hibernate validation before assertions; no database workaround was performed. Phase 13E remains unopened. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 |
 | 13E result evidence | `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO` | The capability Use Case/class/sequence diagram pack, stable four-skill Result/Detail fixtures, eight authenticated review URLs, Listening preflight correction and Jira hierarchy `SCRUM-438..SCRUM-480` are complete. 13E must render learner answer, official key, teacher explanation and the immutable AI artifact separately without creating a second explanation pipeline |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates and operational UX only; no decorative percentages and no replacement explanation pipeline |
 | 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
@@ -820,13 +821,24 @@ copy PREP branding, certificate artwork, assets, wording, IELTS band labels or
 CSS. The result frame remains a light KSH interface and uses stronger hierarchy
 and real data instead of decorative certificate claims.
 
-Criterion scales use a shared, accessible semantic system:
+Criterion scales may reuse the following accessible visual tokens:
 
 - red: `Cần cải thiện` / limited evidence-backed performance;
 - amber: `Đang phát triển`;
 - green or teal: `Tốt`;
 - blue: `Rất tốt`;
 - neutral gray: `Chưa có dữ liệu`, `Đang chấm` or `Không đủ bằng chứng`.
+
+These colors are presentation tokens, not one global performance taxonomy.
+The sample phrases above are non-normative accessibility examples unless the
+named, versioned KSH task policy itself emits that descriptor.
+Visible chip/segment labels, ordering, denominators and descriptors must come
+from the active KSH task-native Korean rubric/construct policy and its stored
+evidence contract. PREP-style chips may be learned only as compact
+scan/filter/evidence-navigation controls: their counts are exact normalized
+evidence-backed findings, never scores, IELTS bands or copied PREP categories.
+A transcript-only Speaking result must not create pronunciation, intonation,
+rhythm, pause or fluency/acoustic chips from STT text.
 
 Color is never the only signal: every segment includes a text level/status and
 an accessible label. Thresholds come from the server-side scoring contract or
@@ -866,29 +878,38 @@ the Korean scoring contract enforced by `WritingScoringPolicy`:
 - Q51/Q52 keep the native six-row, two-blank rubric: content/context,
   grammar/structure and expression/naturalness for each blank. These tasks are
   not forced into four essay criteria.
-- Q53/Q54/general essays keep the three official scored criteria:
+- Q53/Q54/general essays keep the three current KSH score-bearing criteria:
   `Hoàn thành nhiệm vụ và Nội dung`, `Cấu trúc và Mạch lạc`, and
   `Ngôn ngữ và Biểu đạt`, with their task-native maximum scores.
 
 For long-form Q53/Q54/general essays, the PREP-like four-tab interaction is
 adapted into four Korean-writing analysis lenses:
 
-1. `Nhiệm vụ và Nội dung` maps to the official content/task score;
-2. `Cấu trúc và Mạch lạc` maps to the official organization score;
-3. `Từ vựng và Diễn đạt` is a structured drill-down of the official language
+1. `Nhiệm vụ và Nội dung` maps to the current KSH content/task score;
+2. `Cấu trúc và Mạch lạc` maps to the current KSH organization score;
+3. `Từ vựng và Diễn đạt` is a structured drill-down of the current KSH language
    score;
-4. `Ngữ pháp và Độ chính xác` is the other drill-down of that same official
+4. `Ngữ pháp và Độ chính xác` is the other drill-down of that same current KSH
    language score, including grammar and supported spelling/spacing evidence.
 
-The official `Ngôn ngữ và Biểu đạt` score is counted and displayed exactly
-once. The two drill-down lenses must not each invent a second official score,
-change TOPIK weighting or be labeled as IELTS bands. A lens without persisted
+The current `Ngôn ngữ và Biểu đạt` score is counted and displayed exactly
+once. The two drill-down lenses must not each invent a second score, claim an
+official TOPIK weighting or be labeled as IELTS bands. The current `12/9/9`
+and `20/15/15` weights remain an unnamed/internal KSH practice policy pending
+`P15-PRE-02`; they are not an official TOPIK scoring table. A lens without persisted
 structured evidence shows `Chưa có dữ liệu`; it does not synthesize sliders,
 descriptors or error counts. Descriptor text, findings and error chips come
 only from normalized stored evaluator output and are labeled as Korean-writing
 feedback, not `Band descriptors`.
 
 ##### 6.9.2.4 Speaking overview
+
+> **Superseded current-runtime note (`2026-07-22`, UX-05):** the text below is
+> the approved/original Phase 13D history. It no longer defines current score
+> semantics. F06 and UX-03..05 define a transcript-only four-row language
+> profile, two null `NOT_SCORABLE` acoustic rows, no `/70` subtotal and no
+> holistic or attempt score. Future full scoring requires authorized direct
+> audio.
 
 Speaking receives its own presenter and presents one holistic evaluation of
 the entire submitted Speaking attempt. The overview must not contain per-question
@@ -1072,7 +1093,7 @@ implementation unit that introduces their replacement:
 - remove the hard-coded/fabricated inline result JavaScript and either delete or
   rebuild the four currently unwired `templates/practice/result/*.html`
   fragments. The final shell must wire exactly three owned overview fragments:
-  objective R/L, Writing and holistic Speaking. No unused fourth fragment or
+  objective R/L, Writing and an evidence-bounded Speaking profile. No unused fourth fragment or
   duplicate generic result fragment remains;
 - rename or constrain the remaining skill-specific result assemblers as
   detail-only so they cannot silently become a second overview implementation;
@@ -1111,15 +1132,16 @@ The implementation must cover at least:
     promoted to `READY`;
 15. all four skills use one result route/envelope/shell and exactly one of the
     three skill-native presenters is rendered;
-16. a multi-question Speaking attempt renders one holistic summary with no
-    per-question rubric tabs in overview;
-17. Speaking aggregation reports immutable weighting, eligible/evaluated
-    coverage and earned/possible denominators; missing evaluations are not
-    averaged as zero or silently ignored;
-18. transcript-only Speaking feedback marks fluency/pronunciation evidence as
-    limited and never renders unsupported audio/phoneme metrics;
+16. a multi-question Speaking attempt renders one transcript-language profile
+    with no per-question rubric tabs in overview and no holistic score;
+17. Speaking aggregation reports eligible/evaluated coverage per current
+    transcript-grounded criterion; missing evaluations are not averaged as zero,
+    and the four rows are not summed into a subtotal/denominator;
+18. transcript-only Speaking feedback renders Fluency and
+    Pronunciation/Delivery as null `NOT_SCORABLE` and never renders unsupported
+    audio/phoneme metrics, band or qualitative level;
 19. Q53/Q54 Writing renders four Korean-writing analysis lenses while counting
-    the official three-criterion score once, with no IELTS labels or duplicated
+    the current KSH three-criterion score once, with no official-equivalence or IELTS labels or duplicated
     language points;
 20. Q51/Q52 remain `ESSAY` questions, retain their task-native two-answer
     scoring rubric and are not forced into the four long-form lenses;
@@ -1137,14 +1159,24 @@ The implementation must cover at least:
 #### 6.9.10 Boundary with later slices
 
 - 13D owns the canonical result envelope/top-level assembler/shared frame, the
-  three summary-level skill-native presenters, holistic Speaking aggregation,
+  three summary-level skill-native presenters, evidence-bounded Speaking profile aggregation,
   Korean-native Writing overview, artifact lifecycle, publish preparation,
   bounded worker/retry foundation and read-only result contract.
 - 13E owns detailed evidence presentation, evidence anchors and explicit visual
   separation of learner answer, official key, teacher explanation and the 13D
   AI artifact. Per-question Speaking analysis, submitted Writing text detail and
   recording/transcript evidence live there. It does not build another
-  cache/generator or another overview.
+  cache/generator or another overview. After the bounded
+  `PHASE_13D_UX_CORRECTION` has consolidated green validation and only with a
+  separate explicit Phase 13E GO, 13E replaces the legacy generic parser with
+  exactly three detail
+  screens/contracts: Objective Reading/Listening, Writing and Speaking. They may
+  share visual primitives and one read-only dispatcher, but not one cross-skill
+  browser JSON parser/template.
+- 13E must prove typed Vietnamese/Korean learner labels and validated evidence
+  placement on those screens. The complete versioned construct/diagnostic
+  matrix, Korean-SME sign-off and calibration remain `P15-PRE-14`; Phase 13E
+  must not claim exhaustive Korean-language coverage or copy PREP/IELTS criteria.
 - 13F owns real progress aggregates and richer recovery/operations UX. It reuses
   the 13D status and retry command.
 - 13G owns responsive, accessibility and performance sweeps.

@@ -62,6 +62,10 @@ class SpeakingEvaluationApplicationServiceTest {
         assertThat(evaluation.reused()).isFalse();
         assertThat(evaluation.result().audioMediaId()).isEqualTo(99L);
         assertThat(evaluation.result().mediaVersion()).isEqualTo(1L);
+        assertThat(evaluation.result().scoreAvailable()).isFalse();
+        assertThat(evaluation.result().overallScore()).isNull();
+        assertThat(evaluation.result().profileAvailable()).isTrue();
+        assertThat(evaluation.result().transcriptConfidence()).isEqualByComparingTo("0.82");
         assertThat(fixture.transcriptionCalls.get()).isEqualTo(1);
         assertThat(fixture.evaluationClient.calls()).isEqualTo(1);
     }
@@ -118,6 +122,9 @@ class SpeakingEvaluationApplicationServiceTest {
         assertThat(evaluation.result().evaluationStatus()).isEqualTo(SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED);
         assertThat(evaluation.result().source()).isEqualTo(SpeakingEvaluationSource.TEXT_FALLBACK);
         assertThat(evaluation.result().audioMediaId()).isNull();
+        assertThat(evaluation.result().scoreAvailable()).isFalse();
+        assertThat(evaluation.result().overallScore()).isNull();
+        assertThat(evaluation.result().profileAvailable()).isTrue();
         assertThat(fixture.transcriptionCalls.get()).isZero();
         assertThat(fixture.evaluationClient.calls()).isEqualTo(1);
     }
@@ -249,9 +256,9 @@ class SpeakingEvaluationApplicationServiceTest {
                 "models/gemini-2.5-flash",
                 Duration.ofSeconds(30),
                 0,
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1");
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
     }
 
     private PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection row(Long mediaId, Long version, String mimeType) {
@@ -273,9 +280,13 @@ class SpeakingEvaluationApplicationServiceTest {
                 source,
                 "models/gemini-2.5-flash",
                 "gpt-4o-mini-transcribe",
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1",
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                SpeakingContractTrust.CURRENT_VERIFIED,
                 mediaId,
                 mediaVersion,
                 transcript,
@@ -297,7 +308,7 @@ class SpeakingEvaluationApplicationServiceTest {
                 List.of(),
                 List.of(),
                 null,
-                List.of(),
+                scoreAvailable ? languageProfileRubrics() : List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -307,6 +318,28 @@ class SpeakingEvaluationApplicationServiceTest {
                 List.of(),
                 scoreAvailable ? null : status.name(),
                 retryable);
+    }
+
+    private List<SpeakingEvaluationResult.RubricScore> languageProfileRubrics() {
+        return List.of(
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                        new BigDecimal("16"), new BigDecimal("20"), "Content"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL,
+                        new BigDecimal("16"), new BigDecimal("20"), "Grammar"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS,
+                        new BigDecimal("12"), new BigDecimal("15"), "Vocabulary"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.COHERENCE_ORGANIZATION,
+                        new BigDecimal("12"), new BigDecimal("15"), "Coherence"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.FLUENCY, null, null, "No audio",
+                        SpeakingCriterionAvailability.NOT_SCORABLE),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.PRONUNCIATION_DELIVERY, null, null, "No audio",
+                        SpeakingCriterionAvailability.NOT_SCORABLE));
     }
 
     private record Fixture(

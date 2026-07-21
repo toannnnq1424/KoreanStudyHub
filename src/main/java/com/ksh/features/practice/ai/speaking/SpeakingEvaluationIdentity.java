@@ -86,7 +86,8 @@ public record SpeakingEvaluationIdentity(
     }
 
     private boolean commonFieldsMatch(SpeakingEvaluationResult stored) {
-        return java.util.Objects.equals(evaluatorModel, blankToNull(stored.model()))
+        return stored.currentEvidenceContract()
+                && java.util.Objects.equals(evaluatorModel, blankToNull(stored.model()))
                 && java.util.Objects.equals(promptVersion, blankToNull(stored.promptVersion()))
                 && java.util.Objects.equals(rubricVersion, blankToNull(stored.rubricVersion()))
                 && java.util.Objects.equals(schemaVersion, blankToNull(stored.schemaVersion()));
@@ -123,8 +124,8 @@ public record SpeakingEvaluationIdentity(
                 + "attemptId=" + attemptId
                 + ", questionId=" + questionId
                 + ", source=" + source
-                + ", audioMediaId=" + audioMediaId
-                + ", mediaVersion=" + mediaVersion
+                + ", audioMediaPresent=" + (audioMediaId != null)
+                + ", mediaVersionPresent=" + (mediaVersion != null)
                 + ", textFallbackHashPresent=" + (textFallbackHash != null)
                 + ", transcriptionModel='" + transcriptionModel + '\''
                 + ", evaluatorModel='" + evaluatorModel + '\''

@@ -1,5 +1,12 @@
 # Practice Phase 13E Live Change Log
 
+> **Current-source note (`2026-07-22`, UX-05):** Phase 13E remains unopened.
+> Historical PRE-13E findings below that say “six criteria” or “holistic” are
+> superseded for current runtime by Phase 13D F06/UX-03..05: transcript-only
+> four-row language profile, two acoustic `NOT_SCORABLE` rows, no subtotal or
+> holistic/attempt score. Phase 13E must consume that contract rather than
+> revive the old wording.
+
 Status: `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO`
 
 Started: 2026-07-17
@@ -20,11 +27,47 @@ semantically separate:
 - lecturer-authored explanation;
 - the immutable Reading/Listening AI explanation artifact created by 13D;
 - Writing submitted text, structured rubric evidence, corrections, rewrites
-  and samples;
+  and evaluator-generated sample outputs;
 - Speaking per-question transcript/recording evidence and structured feedback.
+
+For both Writing and Speaking, the AI feedback surface is locked to exactly
+four tabs: `OVERVIEW`, `STRENGTHS`, `NEEDS_IMPROVEMENT` and
+`UPGRADED_ANSWER`. Any lecturer-authored reference answer is immutable source
+content rendered in a separate panel outside those tabs. An evaluator-generated
+sample or sample response remains an AI artifact and must never be labelled,
+styled or persisted as the lecturer reference.
 
 Phase 13E must reuse the 13D artifact/binding/task lifecycle. It must not add a
 second cache, generator, worker, retry pipeline or overview assembler.
+
+User direction added `2026-07-22`: after the bounded
+`PHASE_13D_UX_CORRECTION` has consolidated green validation and only after a
+separate explicit Phase 13E GO, replace the legacy detail surfaces with exactly
+three screen contracts: Objective Reading/Listening Detail, Writing Detail and
+Speaking Detail. A canonical read-only route/assembler may dispatch among them,
+and visual primitives may be shared, but there must be no generic
+Writing/Speaking/R/L browser-side JSON parser or one template with cross-skill
+placeholder tabs.
+
+Validation note added `2026-07-22`: the correction currently has
+`FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES`, not
+an unqualified complete gate. The two authenticated Result Detail route cases
+must run on a fresh disposable current schema, or the user must explicitly
+accept that debt, before this prerequisite is treated as closed. The stable
+`ksh_phase13e_result_ui` fixture database must not be repaired or wiped as a
+shortcut.
+
+User direction added `2026-07-22` (chip reminder): Result and Result Detail may
+learn PREP's compact category-chip hierarchy, counts and evidence navigation,
+but only as an interaction pattern. KSH chip labels, order, applicability,
+parent criterion and any score-bearing label/denominator/descriptor come from a
+named versioned Korean task/rubric/construct policy; chip counts are exact
+backend-validator-accepted normalized findings with evidence and never IELTS
+bands, scores or copied PREP taxonomy. Transcript-only Speaking must not expose
+acoustic chips inferred from STT. Phase 13E supplies typed Vietnamese/Korean UI
+proof only; the complete construct matrix, Korean-SME sign-off and calibration
+remain `P15-PRE-14`. Phase 13E remains unopened; this is a locked acceptance
+input, not an authorization to implement the three detail screens now.
 
 ## 2. User Requirements Received During Preparation
 
@@ -281,14 +324,20 @@ Decision, change and verification:
   Speaking for learner `id=4` with complete immutable version locks;
 - bind READY Vietnamese explanation artifacts to Reading/Listening question
   versions `1`, `2` and `3`;
-- preserve the current Korean Writing rubric shape and the current
-  `speaking_ai_v1` six-criterion feedback contract;
+- preserve the historical Korean Writing rubric shape and historical
+  `speaking_ai_v1` fixture payload for reproducible baseline comparison;
 - execute the loader twice successfully and confirm the same four rows,
   valid answer/feedback JSON and valid explanation JSON after both runs;
 - document the eight stable authenticated review URLs in
   `docs/architecture/practice/PRACTICE_PHASE_13E_RESULT_FIXTURES.md`.
 
 This proves fixture repeatability only. Browser/UI acceptance remains Step 7.
+
+> **Current-runtime supersession:** the `13004` fixture statement above records
+> the old baseline only. Phase 13D UX-03..05 now requires four trusted
+> transcript-language score rows, two null acoustic `NOT_SCORABLE` rows and no
+> subtotal/holistic/attempt score. Phase 13E must not reinterpret the historical
+> fixture as current scoring authority.
 
 ### PRE13E-F10 - legacy Result Detail is not skill-native or fully semantic
 
@@ -344,8 +393,8 @@ Decision:
 
 - Phase 13E must ship a complete tab/tabpanel accessibility contract and
   remove cross-skill placeholder panels from the active Writing presenter;
-- preserve only evidence-backed Korean Writing lenses and official rubric
-  rows;
+- preserve only evidence-backed Korean Writing lenses and task-native KSH
+  rubric rows from the named versioned policy;
 - leave broader historical template/dead-code deletion aligned with the
   existing Phase 15 compatibility cleanup inventory when 13E no longer owns
   the active surface.
@@ -367,9 +416,17 @@ Decision:
   including a dedicated coherence/organization evidence view;
 - map criterion IDs to Korean-native Vietnamese labels instead of raw IDs,
   English IELTS labels or `Khác` fallback categories;
-- use Speaking-specific transcript, upgraded-response and sample-response copy;
-- keep the overview holistic and use per-question/detail content only as
-  supporting evidence, never as a second attempt score.
+- use Speaking-specific transcript and upgraded-response copy; if an
+  evaluator-generated sample response is retained, identify it only as an AI
+  artifact and never as the immutable lecturer reference;
+- keep detail content as supporting evidence, never a second attempt score.
+
+> **Superseded scoring wording:** “all six” here now means preserve all six
+> criterion identities/states end to end, not six numeric scores. Current
+> transcript-only Speaking has four numeric language rows, two null acoustic
+> `NOT_SCORABLE` rows and no subtotal, aggregate, holistic or attempt score. The
+> historical “keep the overview holistic” decision is replaced by the Phase 13D
+> evidence-honest profile.
 
 ### PRE13E-F14 - fixed Result Detail footer obscures the final mobile action
 
@@ -419,6 +476,28 @@ Decision:
 - then run a real browser journey proving `playing` unlocks confirmation and
   the POST reaches the player in the same session.
 
+### PRE13E-F16 - split Result Detail into exactly three screens
+
+Status: `REQUIREMENT_LOCKED_WAITING_PHASE_13E_GO`
+
+Decision:
+
+- `OBJECTIVE_DETAIL` owns both Reading and Listening, with discriminated
+  `SINGLE_CHOICE`, `FILL_BLANK` and `TRUE_FALSE_NOT_GIVEN` payloads;
+- `WRITING_DETAIL` owns Q51-Q54/GENERAL learner text, task-native rubric,
+  findings, corrections and upgraded answer;
+- `SPEAKING_DETAIL` owns recording/transcript, capability/evidence provenance,
+  findings and upgraded response without reviving acoustic scores from text;
+- both `WRITING_DETAIL` and `SPEAKING_DETAIL` expose exactly four AI feedback
+  tabs: `OVERVIEW`, `STRENGTHS`, `NEEDS_IMPROVEMENT` and `UPGRADED_ANSWER`;
+  the immutable lecturer reference is a separate panel outside the tablist;
+  evaluator-generated samples remain AI artifacts and cannot substitute for or
+  be presented as lecturer-authored reference content;
+- each screen gets a distinct presenter/DTO/template/test contract. Shared
+  shell components are allowed, but the current generic parser is not;
+- implementation starts only after the bounded Phase 13D UX correction has a
+  green consolidated validation and the user gives explicit Phase 13E GO.
+
 ### Step 7 authenticated browser baseline verdict
 
 Evidence:
@@ -428,8 +507,9 @@ Evidence:
   500 response or browser console warning/error;
 - Reading and Listening Result overviews render objective score and
   correct/incorrect counts; Writing renders its persisted Korean Q53 rubric;
-  Speaking renders a holistic six-criterion Korean evaluation rather than a
-  per-question attempt score;
+  Speaking historically rendered a holistic six-criterion Korean evaluation.
+  That Speaking observation is visual-baseline evidence only and is superseded
+  by the current four transcript-row/two `NOT_SCORABLE`/no-holistic contract;
 - Reading and Listening Detail render learner answer, official answer and the
   READY immutable explanation artifact without calling an AI provider on GET;
 - at the available 480-pixel mobile CSS viewport, all eight routes avoid
@@ -443,8 +523,9 @@ Verdict:
 
 - the four deterministic fixtures and eight URLs are accepted as the Phase 13E
   visual-comparison baseline;
-- the four skill-specific Result overviews are suitable as the current 13D
-  baseline, with only optional visual refinement left for 13E;
+- the four skill-specific Result overview screenshots are retained as the
+  historical comparison baseline. Current Phase 13D UX-01..05—not the old
+  Speaking score semantics—owns the overview contract;
 - the legacy Result Detail shell is intentionally **not** accepted as 13E-ready;
   findings `PRE13E-F10..F14` are mandatory Phase 13E acceptance inputs;
 - Step 7 is complete. No production Result code was changed during this review.

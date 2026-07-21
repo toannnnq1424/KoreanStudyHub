@@ -98,6 +98,7 @@ class PracticeCatalogServiceTest {
         assertThat(batch.items().get(0).completedTests()).isEqualTo(1);
         assertThat(batch.items().get(0).progressPercent()).isEqualTo(100);
         assertThat(batch.items().get(0).state()).isEqualTo("SCORED");
+        assertThat(batch.items().get(0).stateLabel()).isEqualTo("Đã có kết quả");
 
         verify(testRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
         verify(sectionRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
@@ -188,6 +189,41 @@ class PracticeCatalogServiceTest {
         assertThat(batch.items().get(0).skills()).extracting(skill -> skill.code())
                 .containsExactly("LISTENING", "READING");
         verify(testRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
+    }
+
+    @Test
+    void speakingCatalogStateDescribesFeedbackInsteadOfFullSkillScoring() {
+        PracticeSet set = set(SET_ID, "Luyện nói", PracticeSet.SKILL_SPEAKING);
+        PracticeTest test = test(TEST_ID, SET_ID);
+        PracticeSection speaking = section(31L, SET_ID, TEST_ID, "SPEAKING", 1);
+        PracticeAttempt graded = completedAttempt(41L, speaking, true);
+        PracticeAttempt queued = completedAttempt(42L, speaking, false);
+        queued.setAnalysisStatus(PracticeAttempt.ANALYSIS_PROCESSING);
+        PracticeAttempt failed = completedAttempt(43L, speaking, false);
+        failed.markAnalysisFailed("PROVIDER_UNAVAILABLE");
+        PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
+                eq(0L), eq(""), eq("SPEAKING"), eq(request)))
+                .thenReturn(new PageImpl<>(List.of(set), request, 1));
+        when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(test));
+        when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(speaking));
+        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of(graded), List.of(queued), List.of(failed));
+
+        PracticeCatalogQuery query = new PracticeCatalogQuery("", "SPEAKING", null, 0);
+        PracticeCatalogBatch gradedBatch = service.loadBatch(USER_ID, query);
+        PracticeCatalogBatch queuedBatch = service.loadBatch(USER_ID, query);
+        PracticeCatalogBatch failedBatch = service.loadBatch(USER_ID, query);
+
+        assertThat(gradedBatch.items().get(0).stateLabel()).isEqualTo("Đã xử lý phản hồi");
+        assertThat(queuedBatch.items().get(0).stateLabel()).isEqualTo("Đang xử lý phản hồi");
+        assertThat(failedBatch.items().get(0).stateLabel()).isEqualTo("Chưa thể xử lý phản hồi");
     }
 
     private PracticeSet set(long id, String title, String skill) {

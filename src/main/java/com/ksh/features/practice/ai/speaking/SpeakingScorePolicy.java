@@ -17,6 +17,17 @@ public final class SpeakingScorePolicy {
                 .divide(HUNDRED, 2, RoundingMode.HALF_UP);
     }
 
+    public static BigDecimal earnedQuestionPoints(
+            BigDecimal questionPoints,
+            SpeakingEvaluationResult evaluation
+    ) {
+        requireNonNegative(questionPoints, "questionPoints");
+        if (evaluation == null || !evaluation.holisticScoreAvailable()) {
+            return null;
+        }
+        return earnedQuestionPoints(questionPoints, evaluation.overallScore());
+    }
+
     public static BigDecimal attemptScore(Collection<BigDecimal> earnedQuestionPoints) {
         if (earnedQuestionPoints == null) {
             return BigDecimal.ZERO.setScale(2);

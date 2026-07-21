@@ -2401,6 +2401,8 @@ class PracticeIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "selectorQuestions = questions.filter(q => q.questionType === 'ESSAY')")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.mcqQuestionId())))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.essayQuestionId())));
         } finally {
@@ -2484,11 +2486,12 @@ class PracticeIntegrationTest {
     void testSpeakingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
         SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking Reevaluate UI");
         try {
-            assertEquals("80%", practiceService.getResult(fixture.attemptId(), student.getId()).scoreLabel());
+            assertEquals("Không có điểm Nói tổng hợp",
+                    practiceService.getResult(fixture.attemptId(), student.getId()).scoreLabel());
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Điểm luyện tập tham khảo")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Không có điểm Nói tổng hợp")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))));
         } finally {
             deleteSpeakingAttemptFixture(fixture);

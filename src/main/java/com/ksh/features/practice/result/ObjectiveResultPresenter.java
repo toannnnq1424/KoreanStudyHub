@@ -27,6 +27,8 @@ import java.util.Map;
 @Component
 final class ObjectiveResultPresenter implements PracticeResultPresenter {
 
+    private static final String UNSCORABLE_TYPE = "UNSCORABLE";
+
     private final AssessmentContractCodec contractCodec;
     private final QuestionTypeResolver typeResolver;
     private final AssessmentScoringEngine scoringEngine;
@@ -54,11 +56,23 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter {
         StateAccumulator overall = new StateAccumulator();
 
         for (PracticeQuestionVersion question : context.snapshot().questions()) {
-            TypeAccumulator type = byType.computeIfAbsent(
-                    question.getQuestionType(),
-                    ignored -> new TypeAccumulator(question.getQuestionType()));
+            CanonicalQuestionType canonicalType;
             try {
-                AssessmentScoreResult score = score(question,
+                canonicalType = typeResolver.resolve(question.getQuestionType());
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                byType.computeIfAbsent(
+                                UNSCORABLE_TYPE,
+                                ignored -> new TypeAccumulator(UNSCORABLE_TYPE))
+                        .addUnscorable();
+                overall.unscorable++;
+                continue;
+            }
+            String canonicalCode = canonicalType.name();
+            TypeAccumulator type = byType.computeIfAbsent(
+                    canonicalCode,
+                    ignored -> new TypeAccumulator(canonicalCode));
+            try {
+                AssessmentScoreResult score = score(question, canonicalType,
                         context.answers().getOrDefault(String.valueOf(question.getQuestionId()), ""));
                 type.add(score);
                 overall.add(score.status());
@@ -73,13 +87,33 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter {
             breakdown.add(type.toView());
         }
         ResultAnswerDistribution distribution = overall.toDistribution(context.snapshot().questions().size());
-        ResultFeedbackAvailability feedback = explanationReadService.availability(
-                context.snapshot().questions().stream().map(PracticeQuestionVersion::getId).toList());
+        ResultFeedbackAvailability feedback = learnerFeedback(
+                explanationReadService.availability(
+                        context.snapshot().questions().stream()
+                                .map(PracticeQuestionVersion::getId)
+                                .toList()));
         return new Presentation(context.score(), distribution, feedback, new ObjectiveResultPayload(breakdown));
     }
 
-    private AssessmentScoreResult score(PracticeQuestionVersion question, String rawAnswer) {
-        CanonicalQuestionType type = typeResolver.resolve(question.getQuestionType());
+    private static ResultFeedbackAvailability learnerFeedback(ResultFeedbackAvailability availability) {
+        String label = switch (availability.state()) {
+            case "READY" -> "Giải thích đáp án đã sẵn sàng";
+            case "PARTIAL" -> "Một phần giải thích đáp án đã sẵn sàng";
+            case "PENDING" -> "Giải thích đáp án đang được chuẩn bị";
+            case "FAILED" -> "Chưa thể cung cấp giải thích đáp án";
+            case "UNAVAILABLE" -> "Đề này hiện chưa có giải thích đáp án";
+            default -> blank(availability.label())
+                    ? "Trạng thái giải thích chưa xác định"
+                    : availability.label();
+        };
+        return new ResultFeedbackAvailability(
+                availability.state(), label, availability.readyCount(), availability.totalCount());
+    }
+
+    private AssessmentScoreResult score(
+            PracticeQuestionVersion question,
+            CanonicalQuestionType type,
+            String rawAnswer) {
         QuestionContent content = blank(question.getQuestionContentJson())
                 ? contractCodec.adaptLegacyContent(question.getOptionsJson(), question.getQuestionType())
                 : contractCodec.readQuestionContent(question.getQuestionContentJson(), type);
@@ -97,7 +131,8 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter {
             case "SINGLE_CHOICE" -> "Trắc nghiệm một đáp án";
             case "TRUE_FALSE_NOT_GIVEN" -> "Đúng, sai hoặc không có thông tin";
             case "FILL_BLANK" -> "Điền từ";
-            default -> type;
+            case UNSCORABLE_TYPE -> "Loại câu hỏi không thể chấm";
+            default -> "Loại câu hỏi không xác định";
         };
     }
 
@@ -154,6 +189,10 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter {
                     earned,
                     possible,
                     percentage(earned, possible));
+        }
+
+        private void addUnscorable() {
+            unscorable++;
         }
     }
 
