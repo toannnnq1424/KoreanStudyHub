@@ -10,6 +10,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class WritingScoringPolicyTest {
 
     @Test
+    void exposesStableInternalTaskNativeProfileIdentity() {
+        assertThat(WritingScoringPolicy.PROFILE_ID)
+                .isEqualTo("KSH_INTERNAL_TASK_NATIVE_V1");
+    }
+
+    @Test
     void q51AndQ52HaveTwoFivePointBlankRubrics() {
         assertClozeRubric("Q51");
         assertClozeRubric("Q52");

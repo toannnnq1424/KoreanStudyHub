@@ -10,6 +10,13 @@ Trạng thái: `PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`
 
 Gate: `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE = PRACTICE_CODE_GATE_GREEN`
 
+> **Current-source migration supersession (`2026-07-24`):**
+> historical checkpoint evidence below remains archival, but the current
+> migration verdict is `REBASELINE_GO_WITH_GUARDS`. No SQL/DB action is
+> authorized now. After consolidated Phase 13E and final pre-14 schema freeze,
+> rebaseline only if no retained/deployed/shared/canonical/upgrade obligation
+> exists; otherwise stop and preserve the applied chain/forward-only.
+
 ## 1. Quyết định sản phẩm
 
 Scope đa chứng chỉ và assessment governance tổng quát dừng tại checkpoint hiện
@@ -165,8 +172,11 @@ Backend chấm đúng/sai trước. `SINGLE_CHOICE` có đúng một key trong c
 aliases do giáo viên nhập. AI chỉ tạo giải thích tiếng Việt dựa trên context
 trên, không được sửa key/accepted values, tự thêm option hoặc đổi deterministic
 result.
-`question_explanation_cache` tiếp tục được giữ nhưng bỏ program/profile metadata
-không còn dùng.
+Historical 12R kept `question_explanation_cache`. Current R/L runtime instead
+uses `question_explanation_artifacts`,
+`question_version_explanation_bindings` and
+`question_explanation_generation_tasks`; these tables are R/L-only and must not
+be described as the Writing cache.
 
 ### Writing
 
@@ -224,12 +234,21 @@ một governance audit table song song chỉ để ghi cùng actor/action/time/r
 Kết quả bắt buộc: giảm 14 bảng, từ 42 xuống tối đa 28 bảng trong practice/
 assessment boundary.
 
+> **Current-source closure:** đây là target lịch sử của Phase 12R, không phải
+> backlog cho gate mới. Phase 12R đã drop đúng 14 bảng trên, fresh migration
+> proof đã xanh và `removed_tables_remaining=0`. Vì vậy
+> `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` không được mở một “drop generic
+> tables” batch khác. Mặc định migration đã áp dụng vẫn immutable/forward-only.
+> Ngoại lệ duy nhất là guarded Practice-only rebaseline ở Section 9.1 khi
+> no-obligation proof xanh; không repair hoặc reuse database cũ.
+
 ### 6.2 Bắt buộc giữ
 
 - live authoring graph: set, test, section, group, question;
 - immutable published graph và published version;
 - draft, attempt, edit log và Writing evaluation cache;
-- `question_explanation_cache`;
+- R/L artifact/task/binding lifecycle (historically
+  `question_explanation_cache`, currently `question_explanation_*`);
 - lecturer assets và `practice_material_references`;
 - `practice_speaking_media` và `practice_speaking_media_cleanup_tasks`;
 - asset lifecycle task hiện có vì private/published material vẫn cần cleanup an
@@ -377,6 +396,39 @@ stimulus hash, answer-key hash, prompt version, model và generated explanation.
   cleanup paths.
 
 ## 9. Migration strategy
+
+### 9.1 Current rebaseline decision — `REBASELINE_GO_WITH_GUARDS`
+
+Section 9 below records the historical branch-local V25 squash. It is not the
+current implementation recipe. The migration audit locks:
+
+- V26 and V39 are semantic duplicates of non-Practice exam `MEDIUMTEXT`
+  widening; V27 is mislabeled and creates the Writing cache;
+- V34 is stale “squashed” residue;
+- V37 legacy backfill is unsafe because it ignores V34's
+  `question_version_id`, assumes ID/fingerprint/language identity and then
+  drops the old cache; and
+- V44 is hard-coded local seed repair, not production schema.
+
+After consolidated Phase 13E and final pre-14 relational freeze, first prove no
+retained/deployed/shared/canonical/upgrade database obligation. If any exists or
+is unknown, stop and preserve checksums/forward-only. If green, pull and choose
+the next free version, preserving non-Practice V38-V43 bytes/checksums;
+`V44__practice_baseline.sql` is only proposed if still free.
+
+The replacement is one schema-only final-state Practice baseline, not
+rename-only/repair: immutable version graph, attempt/media lifecycle, Writing
+cache with complete bundle identity, R/L artifact/task and append-only
+active/superseded binding history plus required runtime tables. Exclude
+transient create/drop, legacy backfill/cache IDs/tables, content/demo seed and
+V44 local repair.
+
+Never Flyway repair/reuse an old DB. Keep it read-only evidence; migrate a newly
+named disposable DB with validate-on-migrate enabled and clean disabled except
+an allowlisted disposable profile; run fresh Flyway/Hibernate validation and
+minimal technical R/L/W/S smoke before 14A. Canonical SME-reviewed Vietnamese/
+Korean UAT seed is post-14F. Global non-Practice demo seed remains separate debt
+and no database is claimed as “master”.
 
 Update 2026-07-13: trước commit reduce-scope, user yêu cầu squash
 `V25`-`V29` thành một migration gọn và khớp thực tế, không copy-paste tuần tự

@@ -30,7 +30,7 @@ class WritingFeedbackViewMapperTest {
 
         WritingFeedbackView view = mapper.map(payload);
 
-        assertEquals("W_SENTENCE_VARIETY", view.strengths().get(0).criterionId());
+        assertEquals("W_LENGTH_REQUIREMENT_MET", view.strengths().get(0).criterionId());
         assertEquals("LENGTH", view.strengths().get(0).category());
         assertEquals("TEXT_SPAN", view.strengths().get(0).evidenceScope());
         assertNotNull(view.strengths().get(0).vietnameseLabel());
@@ -57,7 +57,7 @@ class WritingFeedbackViewMapperTest {
                     {"category":"need1","vietnameseLabel":"nvi1","uiLabel":"nui1","criterionId":"n1","evidence":"nev1","explanationVi":"nex1","correction":"fix","severity":"HIGH","errorType":"grammar","topikTip":"ntip"}
                   ],
                   "annotations":[
-                    {"id":"ann-1","kind":"strength","criterionId":"c1","category":"cat1","start":1,"end":5,"severity":"LOW","displayType":"WORD","index":1,"explanationVi":"ann ex","correction":"","evidence":"ev1"},
+                    {"id":"ann-1","kind":"need","criterionId":"W_GRAMMAR_ERRORS","category":"Provider content","start":1,"end":5,"severity":"LOW","displayType":"WORD","index":1,"explanationVi":"ann ex","correction":"fix","evidence":"ev1"},
                     {"id":"ann-2","kind":"need","start":6,"end":9,"index":2}
                   ],
                   "upgraded_answer":"better answer",
@@ -79,18 +79,63 @@ class WritingFeedbackViewMapperTest {
         assertEquals("summary vi", view.summaryVi());
         assertEquals("content", view.rubricScores().get(0).name());
         assertEquals("language", view.rubricScores().get(1).name());
-        assertEquals("cat1", view.strengths().get(0).category());
-        assertEquals("cat2", view.strengths().get(1).category());
-        assertEquals("need1", view.needsImprovement().get(0).category());
+        assertNull(view.strengths().get(0).category());
+        assertNull(view.strengths().get(1).category());
+        assertNull(view.needsImprovement().get(0).category());
         assertEquals("ann-1", view.annotations().get(0).id());
         assertEquals(Integer.valueOf(1), view.annotations().get(0).start());
         assertEquals(Integer.valueOf(5), view.annotations().get(0).end());
         assertEquals(Integer.valueOf(1), view.annotations().get(0).index());
-        assertEquals("ann-2", view.annotations().get(1).id());
+        assertEquals(1, view.annotations().size());
         assertEquals("better answer", view.upgradedAnswer());
         assertEquals("old1", view.sentenceRewrites().get(0).original());
         assertEquals("old2", view.sentenceRewrites().get(1).original());
         assertEquals("sample", view.sampleAnswer());
+    }
+
+    @Test
+    void providerLabelsCannotOverrideKshDescriptorLabels() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {"needs_improvement":[{
+                  "criterionId":"W_GRAMMAR_ERRORS",
+                  "category":"Content",
+                  "vietnameseLabel":"Provider label",
+                  "uiLabel":"Coherence",
+                  "evidenceScope":"TEXT_SPAN",
+                  "evidence":"문법 오류"
+                }]}
+                """);
+
+        WritingFeedbackView view = mapper.map(payload);
+
+        assertEquals("GRAMMAR", view.needsImprovement().get(0).category());
+        assertEquals("Lỗi ngữ pháp", view.needsImprovement().get(0).vietnameseLabel());
+        assertEquals("Lỗi ngữ pháp", view.needsImprovement().get(0).uiLabel());
+    }
+
+    @Test
+    void providerCategoryCannotReclassifyAnnotationAndUnknownOrInactiveIdsAreRejected()
+            throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {"annotations":[
+                  {"id":"valid","criterionId":"W_GRAMMAR_ERRORS","category":"CONTENT",
+                   "start":0,"end":4,"evidence":"문법","explanationVi":"Lỗi ngữ pháp"},
+                  {"id":"unknown","criterionId":"PROVIDER_CONTENT","category":"CONTENT",
+                   "start":5,"end":9,"evidence":"내용"},
+                  {"id":"inactive","criterionId":"W_SENTENCE_VARIETY","category":"GRAMMAR",
+                   "start":10,"end":14,"evidence":"분량"}
+                ]}
+                """);
+
+        WritingFeedbackView view = mapper.map(payload);
+
+        assertEquals(1, view.annotations().size());
+        assertEquals("valid", view.annotations().get(0).id());
+        assertEquals("W_GRAMMAR_ERRORS", view.annotations().get(0).criterionId());
+        assertEquals("GRAMMAR", view.annotations().get(0).category());
+        assertEquals(Integer.valueOf(0), view.annotations().get(0).start());
+        assertEquals(Integer.valueOf(4), view.annotations().get(0).end());
+        assertEquals("문법", view.annotations().get(0).evidence());
     }
 
     @Test
@@ -131,7 +176,7 @@ class WritingFeedbackViewMapperTest {
                   "rubric_scores":"bad",
                   "strengths":null,
                   "needs_improvement":{},
-                  "annotations":[1, {"id":"ok","start":1.5,"end":2,"index":"bad"}],
+                  "annotations":[1, {"id":"ok","criterionId":"W_GRAMMAR_ERRORS","start":1.5,"end":2,"index":"bad"}],
                   "sentence_rewrites":[true, {"original":"o"}]
                 }
                 """);

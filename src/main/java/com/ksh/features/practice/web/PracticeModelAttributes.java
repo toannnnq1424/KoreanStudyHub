@@ -17,6 +17,7 @@ public final class PracticeModelAttributes {
     public static final String MODE = "mode";
     public static final String ATTEMPT_ID = "attemptId";
     public static final String RESULT = "result";
+    public static final String RESULT_DETAIL = "resultDetail";
     public static final String QUESTIONS_JSON = "questionsJson";
     public static final String GROUPS_JSON = "groupsJson";
     public static final String ACTIVE_QUESTION_ID = "activeQuestionId";

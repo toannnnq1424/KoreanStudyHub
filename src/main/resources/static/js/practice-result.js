@@ -51,4 +51,76 @@
       });
     });
   });
+
+  const writingFilters = document.querySelectorAll('[data-writing-diagnostic-filter]');
+
+  writingFilters.forEach((filter) => {
+    filter.addEventListener('click', () => {
+      const panel = filter.closest('[role="tabpanel"]');
+      if (!panel) return;
+
+      const scopedFilters = Array.from(
+        panel.querySelectorAll('[data-writing-diagnostic-filter]')
+      );
+      const findings = Array.from(
+        panel.querySelectorAll('[data-writing-feature]')
+      ).filter((item) => !item.hasAttribute('data-writing-diagnostic-filter'));
+      const feature = filter.dataset.writingFeature;
+      const activateFilter = filter.getAttribute('aria-pressed') !== 'true';
+
+      scopedFilters.forEach((item) => item.setAttribute('aria-pressed', 'false'));
+      findings.forEach((finding) => {
+        finding.hidden = activateFilter
+          && finding.dataset.writingFeature !== feature;
+      });
+
+      if (!activateFilter) return;
+
+      filter.setAttribute('aria-pressed', 'true');
+      const firstMatch = findings.find(
+        (finding) => finding.dataset.writingFeature === feature
+      );
+      if (firstMatch) {
+        firstMatch.focus({ preventScroll: true });
+        firstMatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  });
+
+  const speakingFilters = document.querySelectorAll(
+    '[data-speaking-diagnostic-filter]'
+  );
+
+  speakingFilters.forEach((filter) => {
+    filter.addEventListener('click', () => {
+      const panel = filter.closest('[role="tabpanel"]');
+      if (!panel) return;
+
+      const scopedFilters = Array.from(
+        panel.querySelectorAll('[data-speaking-diagnostic-filter]')
+      );
+      const findings = Array.from(
+        panel.querySelectorAll('[data-speaking-feature]')
+      ).filter((item) => !item.hasAttribute('data-speaking-diagnostic-filter'));
+      const feature = filter.dataset.speakingFeature;
+      const activateFilter = filter.getAttribute('aria-pressed') !== 'true';
+
+      scopedFilters.forEach((item) => item.setAttribute('aria-pressed', 'false'));
+      findings.forEach((finding) => {
+        finding.hidden = activateFilter
+          && finding.dataset.speakingFeature !== feature;
+      });
+
+      if (!activateFilter) return;
+
+      filter.setAttribute('aria-pressed', 'true');
+      const firstMatch = findings.find(
+        (finding) => finding.dataset.speakingFeature === feature
+      );
+      if (firstMatch) {
+        firstMatch.focus({ preventScroll: true });
+        firstMatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  });
 })();

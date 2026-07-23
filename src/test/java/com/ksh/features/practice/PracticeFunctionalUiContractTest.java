@@ -299,6 +299,148 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
+    void resultDetailUsesThreeTypedServerRenderedScreenBoundaries() throws IOException {
+        String objective = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-objective.html"));
+        String writing = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-writing.html"));
+        String speaking = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-speaking.html"));
+        String detailCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-detail.css"));
+        String tabsJs = Files.readString(PRACTICE_RESULT_JS);
+
+        assertThat(objective).contains(
+                "data-result-detail-kind=\"OBJECTIVE_DETAIL\"",
+                "resultDetail.payload().summary().breakdown()",
+                "resultDetail.payload().sourceGroups()",
+                "resultDetail.payload().questions()",
+                "data-objective-question-type",
+                "Nguồn và bằng chứng gốc",
+                "Đáp án người học",
+                "Đáp án chính thức",
+                "Giải thích của giáo viên",
+                "Lời giải AI",
+                "Dịch đoạn liên quan",
+                "Bản chép lời đã được phê duyệt",
+                "Phương án, trạng thái người học và lý do loại chọn",
+                "Giá trị từng ô trống và đáp án được chấp nhận",
+                "Vì sao không phải",
+                "Digest tài sản",
+                "evidenceTranslations()",
+                "Gắn với bằng chứng",
+                "tabindex=\"-1\"")
+                .doesNotContain(
+                        "groupsJson", "JSON.parse", "questionsJson",
+                        "IELTS", "Band", "Task Response", "Lexical Resource",
+                        "th:utext", "pageIndex()");
+        assertThat(detailCss).contains(
+                ".prd-objective-layout",
+                ".prd-objective-nav-list a:focus-visible",
+                ".prd-objective-question:focus",
+                "@media (max-width: 980px)",
+                "@media (max-width: 640px)");
+        assertThat(writing).contains(
+                "data-result-detail-kind=\"WRITING_DETAIL\"",
+                "resultDetail.payload().scoreCriteria()",
+                "resultDetail.payload().diagnosticGroups()",
+                "group.strengthChips()",
+                "group.needsImprovementChips()",
+                "chip.labelVi()",
+                "chip.labelKo()",
+                "chip.count()",
+                "resultDetail.payload().scoreProfileId()",
+                "task.score().pointsDisplay()",
+                "task.feedback().label()",
+                "task.feedback().stateLabelKo()",
+                "data-writing-diagnostic-filter",
+                "data-writing-feature",
+                "aria-pressed",
+                "data-result-tabs",
+                "role=\"tabpanel\"",
+                "aria-controls",
+                "aria-labelledby",
+                "aria-selected",
+                "Tổng quan",
+                "개요",
+                "Điểm mạnh",
+                "강점",
+                "Cần cải thiện",
+                "개선 필요",
+                "Bài nâng cấp",
+                "개선된 답안",
+                "Không có đề bài bất biến khả dụng",
+                "Người học chưa nộp câu trả lời",
+                "/js/practice-result.js",
+                "name=\"questionId\"",
+                "_csrf.parameterName")
+                .doesNotContain(
+                        "questionsJson", "JSON.parse", "Content", "Coherence",
+                        "Bài mẫu", "data-tab=\"sample\"", "th:utext",
+                        "teacherReference()", "Bài tham khảo của giáo viên",
+                        "교사 참고 답안");
+        assertThat(writing.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(writing.indexOf("resultDetail.payload().scoreCriteria()"))
+                .isBetween(
+                        writing.indexOf("th:id=\"${'writing-panel-overview-"),
+                        writing.indexOf("th:id=\"${'writing-panel-strengths-"));
+        assertThat(detailCss).contains(
+                ".prd-writing-review-layout",
+                ".prd-writing-tabs",
+                ".prd-writing-tab.is-active",
+                ".prd-writing-tab:focus-visible",
+                ".prd-writing-panel[hidden]",
+                "@media (max-width: 940px)");
+        assertThat(tabsJs).contains(
+                "[data-result-tabs]",
+                "aria-selected",
+                "ArrowRight",
+                "ArrowLeft",
+                "Home",
+                "End",
+                "nextTab.focus()",
+                "[data-writing-diagnostic-filter]",
+                "aria-pressed",
+                "finding.hidden",
+                "firstMatch.focus",
+                "firstMatch.scrollIntoView",
+                "[data-speaking-diagnostic-filter]",
+                "dataset.speakingFeature")
+                .doesNotContain("JSON.parse", "JSON.stringify");
+        assertThat(speaking).contains(
+                "data-result-detail-kind=\"SPEAKING_DETAIL\"",
+                "data-speaking-active-question",
+                "data-speaking-evidence-mode",
+                "data-speaking-recording-state",
+                "data-speaking-acoustic-state",
+                "resultDetail.payload().scoreCriteria()",
+                "resultDetail.payload().diagnosticGroups()",
+                "resultDetail.payload().evidence().transcriptText()",
+                "resultDetail.payload().upgrade().learnerDerivedUpgrade()",
+                "data-speaking-diagnostic-filter",
+                "Tổng quan",
+                "개요",
+                "Điểm mạnh",
+                "강점",
+                "Cần cải thiện",
+                "개선 필요",
+                "Bài nâng cấp",
+                "개선된 답변",
+                "không chứng minh bộ đánh giá đã nghe âm thanh")
+                .doesNotContain(
+                        "questionsJson", "JSON.parse", "Content", "Coherence",
+                        "holistic", "subtotal", "AUDIO_SUBMITTED",
+                        "S_FLUENCY_", "S_PRONUNCIATION_");
+        assertThat(speaking.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(detailCss).contains(
+                ".prd-speaking-tabs",
+                ".prd-speaking-panel[hidden]",
+                ".prd-speaking-chip[aria-pressed=\"true\"]",
+                ".prd-speaking-recording audio",
+                "@media (max-width: 980px)");
+    }
+
+    @Test
     void dedicatedExamPlayersShareNavigationSafetyAndAdaptiveReadingContracts() throws IOException {
         String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
         String writingPlayer = Files.readString(PRACTICE_TEMPLATES.resolve("player-writing.html"));
@@ -375,10 +517,16 @@ class PracticeFunctionalUiContractTest {
         assertThat(PracticeRoutes.redirectToResultDetail(44L, 55L))
                 .isEqualTo("redirect:/practice/attempts/44/result/detail?questionId=55");
 
-        assertThat(PracticeViews.RESULT_DETAIL).isEqualTo("practice/result-detail");
+        assertThat(PracticeViews.RESULT_DETAIL_OBJECTIVE)
+                .isEqualTo("practice/result-detail-objective");
+        assertThat(PracticeViews.RESULT_DETAIL_WRITING)
+                .isEqualTo("practice/result-detail-writing");
+        assertThat(PracticeViews.RESULT_DETAIL_SPEAKING)
+                .isEqualTo("practice/result-detail-speaking");
         assertThat(PracticeViews.CATALOG_CARDS)
                 .isEqualTo("practice/fragments/catalog-cards :: cards");
         assertThat(PracticeModelAttributes.CATALOG).isEqualTo("catalog");
+        assertThat(PracticeModelAttributes.RESULT_DETAIL).isEqualTo("resultDetail");
         assertThat(PracticeModelAttributes.SPEAKING_MEDIA_PLAYBACK_ENABLED)
                 .isEqualTo("speakingMediaPlaybackEnabled");
         assertThat(PracticeFormFields.answerKey(66L)).isEqualTo("answer_66");

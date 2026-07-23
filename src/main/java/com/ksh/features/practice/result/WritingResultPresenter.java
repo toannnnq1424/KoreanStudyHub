@@ -15,31 +15,50 @@ import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
+import com.ksh.features.practice.ai.writing.WritingRubricCriterion;
 import com.ksh.features.practice.ai.writing.WritingScoringCriterion;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringRubric;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnnotationView;
+import com.ksh.features.practice.dto.PracticeDtos.WritingAnswerArtifact;
+import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticChip;
+import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticFinding;
+import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticGroup;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFindingView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultAnswerDistribution;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScoreCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ResultRubricCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnalysisLens;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.WritingSentenceRewriteView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
+import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Component
-final class WritingResultPresenter implements PracticeResultPresenter {
+final class WritingResultPresenter implements PracticeResultPresenter, PracticeResultDetailPresenter {
+
+    private static final String CURRENT_SCORING_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
+    private static final String CURRENT_EVALUATION_ENGINE = "KSH_WRITING_EVALUATOR_V2";
+    private static final Set<String> CURRENT_EVALUATION_SOURCES = Set.of("PROVIDER", "CACHE");
 
     private final ObjectMapper objectMapper;
     private final WritingFeedbackViewMapper feedbackMapper;
@@ -111,6 +130,414 @@ final class WritingResultPresenter implements PracticeResultPresenter {
                 ? context.score()
                 : context.score().unavailableView();
         return new Presentation(displayScore, distribution, feedback, new WritingResultPayload(tasks));
+    }
+
+    @Override
+    public ResultDetailPayload presentDetail(
+            PracticeResultContext context,
+            PracticeAttemptResultView overview,
+            Long questionId
+    ) {
+        if (!(overview.payload() instanceof WritingResultPayload writing)) {
+            throw new IllegalStateException("Writing Result Detail requires a Writing payload.");
+        }
+        // Explicit invalid/foreign selectors retain the accepted 13E-01
+        // compatibility fallback. The fallback is limited to detail-capable
+        // tasks already inside this immutable attempt, so it cannot leak or
+        // cross-select a foreign question.
+        Long activeQuestionId = writing.tasks().stream()
+                .filter(WritingTaskResult::detailAvailable)
+                .filter(task -> questionId != null && questionId.equals(task.questionId()))
+                .map(WritingTaskResult::questionId)
+                .findFirst()
+                .orElseGet(() -> writing.tasks().stream()
+                        .filter(WritingTaskResult::detailAvailable)
+                        .map(WritingTaskResult::questionId)
+                        .findFirst()
+                        .orElse(null));
+
+        JsonNode feedbackRoot = readTree(context.attempt().getAiFeedbackJson());
+        List<WritingTaskResult> detailTasks = writing.tasks().stream()
+                .map(task -> detailTask(
+                        task,
+                        currentTaskContractMatches(
+                                task,
+                                strictQuestionFeedbackNode(
+                                        feedbackRoot, task.questionId()))))
+                .toList();
+        List<ResultDetailScoreCriterion> scoreCriteria = new ArrayList<>();
+        for (int taskIndex = 0; taskIndex < detailTasks.size(); taskIndex++) {
+            WritingTaskResult task = detailTasks.get(taskIndex);
+            JsonNode currentQuestionNode = strictQuestionFeedbackNode(
+                    feedbackRoot, task.questionId());
+            if (!currentTaskContractMatches(task, currentQuestionNode)) {
+                continue;
+            }
+            for (int criterionIndex = 0;
+                 criterionIndex < task.officialCriteria().size();
+                 criterionIndex++) {
+                ResultRubricCriterion criterion = task.officialCriteria().get(criterionIndex);
+                scoreCriteria.add(new ResultDetailScoreCriterion(
+                        task.questionId(),
+                        criterion.criterionId(),
+                        ResultDetailDescriptorRegistry.scoreLabelVi(criterion.criterionId()),
+                        ResultDetailDescriptorRegistry.scoreLabelKo(criterion.criterionId()),
+                        criterion.score(),
+                        criterion.maxScore(),
+                        criterion.score() == null || criterion.maxScore() == null
+                                ? "UNAVAILABLE" : "SCORED",
+                        taskIndex * 100 + criterionIndex + 1));
+            }
+        }
+
+        WritingTaskResult activeTask = detailTasks.stream()
+                .filter(task -> activeQuestionId != null
+                        && activeQuestionId.equals(task.questionId()))
+                .findFirst()
+                .orElse(null);
+        List<WritingDiagnosticGroup> diagnosticGroups = List.of();
+        WritingUpgradeView upgrade = null;
+        DiagnosticAvailability diagnosticAvailability =
+                DiagnosticAvailability.noDetailTask();
+        if (activeTask != null) {
+            JsonNode selectedNode = strictQuestionFeedbackNode(
+                    feedbackRoot, activeTask.questionId());
+            upgrade = writingUpgrade(activeTask, selectedNode);
+            String feedbackState = activeTask.feedback() == null
+                    ? null
+                    : activeTask.feedback().state();
+            if (activeTask.feedback() == null
+                    || "PENDING".equals(feedbackState)
+                    || "FAILED".equals(feedbackState)
+                    || "UNAVAILABLE".equals(feedbackState)) {
+                diagnosticAvailability = DiagnosticAvailability.feedbackUnavailable();
+            } else if (!currentTaskContractMatches(activeTask, selectedNode)) {
+                diagnosticAvailability =
+                        DiagnosticAvailability.taskIdentityUnavailable();
+            } else if (activeTask.clozeTask()) {
+                // Current immutable task/finding contracts do not expose a
+                // blank id/index. Findings therefore fail closed instead of
+                // being guessed onto blank 1, blank 2, or an essay parent.
+                diagnosticAvailability = DiagnosticAvailability.blankIdentityUnavailable();
+            } else if (!activeTask.feedback().ready()) {
+                diagnosticAvailability = DiagnosticAvailability.feedbackUnavailable();
+            } else {
+                JsonNode currentQuestionNode = strictQuestionFeedbackNode(
+                        feedbackRoot, activeTask.questionId());
+                WritingFeedbackCompatibilityReader.EntryResult contract =
+                        compatibilityReader.parseStoredEntry(currentQuestionNode);
+                if (contract.value() == null) {
+                    diagnosticAvailability =
+                            DiagnosticAvailability.currentEvidenceUnavailable();
+                } else {
+                    List<ResolvedDiagnostic> resolved = new ArrayList<>();
+                    addValidatedWritingDiagnostics(
+                            resolved,
+                            activeTask,
+                            currentQuestionNode.path("strengths"),
+                            ResultDetailPolarity.STRENGTH);
+                    addValidatedWritingDiagnostics(
+                            resolved,
+                            activeTask,
+                            currentQuestionNode.path("needs_improvement"),
+                            ResultDetailPolarity.NEEDS_IMPROVEMENT);
+                    diagnosticGroups = diagnosticGroups(resolved);
+                    diagnosticAvailability = resolved.isEmpty()
+                            ? DiagnosticAvailability.noValidatedEvidence()
+                            : DiagnosticAvailability.available();
+                }
+            }
+        }
+
+        return new WritingDetailPayload(
+                activeTask == null ? overview.feedback() : activeTask.feedback(),
+                detailTasks,
+                activeQuestionId,
+                List.copyOf(scoreCriteria),
+                WritingScoringPolicy.PROFILE_ID,
+                WritingDiagnosticDescriptorRegistry.SEAM_ID,
+                WritingDiagnosticDescriptorRegistry.SEAM_STATE,
+                WritingDiagnosticDescriptorRegistry.SCOPE_NOTE_VI,
+                WritingDiagnosticDescriptorRegistry.SCOPE_NOTE_KO,
+                diagnosticAvailability.code(),
+                diagnosticAvailability.noteVi(),
+                diagnosticAvailability.noteKo(),
+                diagnosticGroups,
+                upgrade);
+    }
+
+    private static WritingTaskResult detailTask(
+            WritingTaskResult task,
+            boolean trustedTaskIdentity
+    ) {
+        if (trustedTaskIdentity || !task.detailAvailable()) {
+            return task;
+        }
+        boolean legacyUnverified = task.feedback() != null
+                && "LEGACY_UNVERIFIED".equals(task.feedback().state());
+        return new WritingTaskResult(
+                task.questionId(),
+                task.questionVersionId(),
+                task.questionNo(),
+                task.taskType(),
+                task.taskLabel(),
+                task.prompt(),
+                task.learnerAnswer(),
+                task.score() == null ? null : task.score().unavailableView(),
+                new ResultFeedbackAvailability(
+                        legacyUnverified ? "LEGACY_UNVERIFIED" : "UNAVAILABLE",
+                        legacyUnverified
+                                ? "Dữ liệu đánh giá cũ chỉ được nhận diện, không được tin làm kết quả"
+                                : "Không thể xác minh contract hiện hành của phản hồi",
+                        0,
+                        task.answered() ? 1 : 0),
+                null,
+                List.of(),
+                List.of(),
+                task.detailAvailable());
+    }
+
+    private static void addValidatedWritingDiagnostics(
+            List<ResolvedDiagnostic> target,
+            WritingTaskResult task,
+            JsonNode findings,
+            ResultDetailPolarity polarity
+    ) {
+        if (!findings.isArray()) {
+            return;
+        }
+        for (int index = 0; index < findings.size(); index++) {
+            JsonNode finding = findings.get(index);
+            if (finding == null || !finding.isObject()) {
+                continue;
+            }
+            // Validate the raw id before any compatibility canonicalization so
+            // an inactive alias and its canonical replacement cannot both count.
+            WritingRubricCriterion criterion = WritingRubricCriterion.parse(
+                    finding.path("criterionId").asText(null));
+            if (criterion == null || !criterion.activeForProvider()
+                    || !criterion.appliesTo(task.taskType())
+                    || !criterion.polarity().name().equals(polarity.name())) {
+                continue;
+            }
+            WritingRubricCriterion.EvidenceScope evidenceScope =
+                    explicitEvidenceScope(finding.get("evidenceScope"));
+            if (evidenceScope == null || !criterion.supports(evidenceScope)
+                    // Result Detail has no authoritative structured task metadata seam yet.
+                    || evidenceScope == WritingRubricCriterion.EvidenceScope.TASK_METADATA) {
+                continue;
+            }
+            String evidence = finding.path("evidence").asText("");
+            String explanation = finding.path("explanationVi").asText("").trim();
+            String correction = finding.path("correction").asText("").trim();
+            if (explanation.isBlank()) {
+                continue;
+            }
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && (evidence.isBlank()
+                    || task.learnerAnswer() == null
+                    || !task.learnerAnswer().contains(evidence))) {
+                continue;
+            }
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
+                    && !evidence.isEmpty()) {
+                continue;
+            }
+            if (polarity == ResultDetailPolarity.STRENGTH && !correction.isEmpty()) {
+                continue;
+            }
+            if (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                    && evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && correction.isBlank()) {
+                continue;
+            }
+            WritingDiagnosticDescriptorRegistry.Resolution descriptor =
+                    WritingDiagnosticDescriptorRegistry.resolve(
+                            criterion,
+                            task.taskType(),
+                            polarity,
+                            WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+            String evidenceAvailability = ResultDetailDescriptorRegistry
+                    .evidenceAvailability(evidenceScope.name());
+            if (descriptor == null || evidenceAvailability == null
+                    || (descriptor.parentCriterionId() != null
+                    && task.officialCriteria().stream().noneMatch(scoreCriterion ->
+                    descriptor.parentCriterionId().equals(
+                            scoreCriterion.criterionId())))) {
+                continue;
+            }
+            WritingDiagnosticDescriptorRegistry.FeatureDescriptor feature =
+                    descriptor.feature();
+            WritingDiagnosticDescriptorRegistry.CategoryDescriptor category =
+                    feature.category();
+            WritingDiagnosticFinding diagnostic = new WritingDiagnosticFinding(
+                    task.questionId(),
+                    "W:" + task.questionId() + ":" + descriptor.id() + ":" + (index + 1),
+                    category.code(),
+                    category.labelVi(),
+                    category.labelKo(),
+                    category.stableOrder(),
+                    feature.code(),
+                    feature.labelVi(),
+                    feature.labelKo(),
+                    feature.stableOrder(),
+                    polarity,
+                    descriptor.parentCriterionId(),
+                    descriptor.scoreEffect(),
+                    descriptor.applicability(),
+                    descriptor.target(),
+                    evidenceAvailability,
+                    evidenceScope.name(),
+                    evidence,
+                    explanation,
+                    correction,
+                    null,
+                    null,
+                    null,
+                    null);
+            target.add(new ResolvedDiagnostic(descriptor, diagnostic));
+        }
+    }
+
+    private static WritingRubricCriterion.EvidenceScope explicitEvidenceScope(JsonNode node) {
+        if (node == null || !node.isTextual() || node.asText().isBlank()) {
+            return null;
+        }
+        try {
+            return WritingRubricCriterion.EvidenceScope.valueOf(node.asText().trim());
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static List<WritingDiagnosticGroup> diagnosticGroups(
+            List<ResolvedDiagnostic> diagnostics
+    ) {
+        List<WritingDiagnosticGroup> groups = new ArrayList<>();
+        for (WritingDiagnosticDescriptorRegistry.CategoryDescriptor category
+                : WritingDiagnosticDescriptorRegistry.categories()) {
+            List<ResolvedDiagnostic> categoryDiagnostics = diagnostics.stream()
+                    .filter(value -> value.definition().feature().category().code()
+                            .equals(category.code()))
+                    .toList();
+            if (categoryDiagnostics.isEmpty()) {
+                continue;
+            }
+            List<WritingDiagnosticFinding> strengths = categoryDiagnostics.stream()
+                    .map(ResolvedDiagnostic::finding)
+                    .filter(finding ->
+                            finding.polarity() == ResultDetailPolarity.STRENGTH)
+                    .toList();
+            List<WritingDiagnosticFinding> needs = categoryDiagnostics.stream()
+                    .map(ResolvedDiagnostic::finding)
+                    .filter(finding ->
+                            finding.polarity() == ResultDetailPolarity.NEEDS_IMPROVEMENT)
+                    .toList();
+            List<WritingDiagnosticChip> categoryChips = chips(categoryDiagnostics);
+            groups.add(new WritingDiagnosticGroup(
+                    category.code(),
+                    category.labelVi(),
+                    category.labelKo(),
+                    category.stableOrder(),
+                    strengths,
+                    needs,
+                    categoryChips.stream()
+                            .filter(chip ->
+                                    chip.polarity() == ResultDetailPolarity.STRENGTH)
+                            .toList(),
+                    categoryChips.stream()
+                            .filter(chip ->
+                                    chip.polarity()
+                                            == ResultDetailPolarity.NEEDS_IMPROVEMENT)
+                            .toList()));
+        }
+        return List.copyOf(groups);
+    }
+
+    private static List<WritingDiagnosticChip> chips(
+            List<ResolvedDiagnostic> diagnostics
+    ) {
+        Map<String, ChipCount> counts = new LinkedHashMap<>();
+        for (ResolvedDiagnostic resolved : diagnostics) {
+            String key = resolved.definition().id()
+                    + ":" + resolved.finding().polarity().name();
+            counts.compute(key, (ignored, current) ->
+                    current == null
+                            ? new ChipCount(
+                                    resolved.definition(),
+                                    resolved.finding().polarity(),
+                                    1,
+                                    resolved.finding().evidenceAvailability())
+                            : current.incremented(resolved.finding().evidenceAvailability()));
+        }
+        return counts.values().stream()
+                .sorted(Comparator.comparingInt(value -> value.definition().stableOrder()))
+                .map(value -> new WritingDiagnosticChip(
+                        value.definition().id(),
+                        value.definition().feature().labelVi(),
+                        value.definition().feature().labelKo(),
+                        value.polarity(),
+                        value.definition().parentCriterionId(),
+                        value.definition().scoreEffect(),
+                        value.definition().applicability(),
+                        value.definition().stableOrder(),
+                        value.count(),
+                        false,
+                        value.evidenceAvailability()))
+                .toList();
+    }
+
+    private WritingUpgradeView writingUpgrade(
+            WritingTaskResult task,
+            JsonNode feedbackNode
+    ) {
+        WritingFeedbackView feedback = task.feedback() != null
+                && task.feedback().ready()
+                && currentTaskContractMatches(task, feedbackNode)
+                ? feedbackMapper.map(feedbackNode)
+                : null;
+        String upgradedAnswer = feedback == null ? null : feedback.upgradedAnswer();
+        String evaluatorSample = feedback == null ? null : feedback.sampleAnswer();
+        List<WritingSentenceRewriteView> rewrites = feedback == null
+                ? List.of()
+                : feedback.sentenceRewrites().stream()
+                        .filter(rewrite -> rewrite.original() != null
+                                && !rewrite.original().isBlank()
+                                && task.learnerAnswer() != null
+                                && task.learnerAnswer().contains(rewrite.original())
+                                && rewrite.upgraded() != null
+                                && !rewrite.upgraded().isBlank()
+                                && rewrite.reason() != null
+                                && !rewrite.reason().isBlank())
+                        .toList();
+        return new WritingUpgradeView(
+                task.questionId(),
+                answerArtifact(
+                        upgradedAnswer,
+                        "LEARNER_SUBMISSION_DERIVED_EVALUATOR_OUTPUT",
+                        "Bài nâng cấp dựa trên bài đã nộp",
+                        "제출 답안을 바탕으로 개선한 답안"),
+                rewrites,
+                answerArtifact(
+                        evaluatorSample,
+                        "EVALUATOR_GENERATED_NOT_TEACHER_REFERENCE",
+                        "Bài tham khảo do bộ đánh giá tạo",
+                        "평가기가 생성한 참고 답안"));
+    }
+
+    private static WritingAnswerArtifact answerArtifact(
+            String content,
+            String provenance,
+            String labelVi,
+            String labelKo
+    ) {
+        String normalized = content == null ? "" : content.trim();
+        return new WritingAnswerArtifact(
+                normalized,
+                normalized.isBlank() ? "UNAVAILABLE" : "AVAILABLE",
+                provenance,
+                labelVi,
+                labelKo);
     }
 
     private WritingTaskResult historicalObjectiveTask(
@@ -205,12 +632,20 @@ final class WritingResultPresenter implements PracticeResultPresenter {
         WritingFeedbackCompatibilityReader.EntryResult contract =
                 compatibilityReader.parseStoredEntry(usableFeedbackNode);
         WritingEvaluationResult evaluation = contract.value();
-        boolean scoreContractReady = evaluation != null && evaluation.scoreAvailableFlag();
+        boolean scoreContractReady = currentScoreContractMatches(
+                taskType, usableFeedbackNode, evaluation);
         List<ResultRubricCriterion> parsedCriteria = criteria(
                 rubric, usableFeedbackNode, scoreContractReady);
-        ResultScoreSummary score = taskScore(evaluation, parsedCriteria, rubric);
+        ResultScoreSummary score = taskScore(
+                scoreContractReady ? evaluation : null, parsedCriteria, rubric);
         ResultFeedbackAvailability availability = taskFeedback(
-                answered, malformedStoredFeedback, feedback, usableFeedbackNode, contract, score);
+                answered,
+                malformedStoredFeedback,
+                feedback,
+                usableFeedbackNode,
+                contract,
+                scoreContractReady,
+                score);
         List<ResultRubricCriterion> visibleCriteria = availability.ready()
                 ? parsedCriteria
                 : List.of();
@@ -380,6 +815,7 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             WritingFeedbackView feedback,
             JsonNode feedbackNode,
             WritingFeedbackCompatibilityReader.EntryResult contract,
+            boolean scoreContractReady,
             ResultScoreSummary score) {
         if (!answered) {
             return new ResultFeedbackAvailability(
@@ -407,7 +843,16 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             return new ResultFeedbackAvailability(
                     "FAILED", "Không thể hoàn tất đánh giá nhiệm vụ này", 0, 1);
         }
-        if (contract.value() != null && contract.value().scoreAvailableFlag() && score.available()) {
+        if (contract.value() != null
+                && contract.value().scoreAvailableFlag()
+                && !scoreContractReady) {
+            return new ResultFeedbackAvailability(
+                    "LEGACY_UNVERIFIED",
+                    "Dữ liệu đánh giá cũ chỉ được nhận diện, không được dùng làm điểm",
+                    0,
+                    1);
+        }
+        if (scoreContractReady && score.available()) {
             return new ResultFeedbackAvailability("READY", "Đã có đánh giá", 1, 1);
         }
         return new ResultFeedbackAvailability("FAILED", "Chưa có đánh giá khả dụng", 0, 1);
@@ -457,6 +902,54 @@ final class WritingResultPresenter implements PracticeResultPresenter {
             return candidate;
         }
         return singleQuestion && root.has("rubric_scores") ? root : null;
+    }
+
+    private JsonNode strictQuestionFeedbackNode(JsonNode root, Long questionId) {
+        if (root == null || !root.isObject() || questionId == null) {
+            return null;
+        }
+        JsonNode candidate = root.get(String.valueOf(questionId));
+        if (candidate != null && candidate.isTextual()) {
+            candidate = readTree(candidate.asText());
+        }
+        return candidate != null && candidate.isObject() ? candidate : null;
+    }
+
+    private boolean currentTaskContractMatches(
+            WritingTaskResult task,
+            JsonNode feedbackNode
+    ) {
+        if (task == null || task.taskType() == null || feedbackNode == null) {
+            return false;
+        }
+        WritingFeedbackCompatibilityReader.EntryResult contract =
+                compatibilityReader.parseStoredEntry(feedbackNode);
+        return currentScoreContractMatches(
+                task.taskType(), feedbackNode, contract.value());
+    }
+
+    private static boolean currentScoreContractMatches(
+            String taskType,
+            JsonNode feedbackNode,
+            WritingEvaluationResult evaluation
+    ) {
+        if (taskType == null
+                || feedbackNode == null
+                || !feedbackNode.isObject()
+                || evaluation == null
+                || !evaluation.scoreAvailableFlag()) {
+            return false;
+        }
+        String evaluationStatus = normalize(evaluation.evaluationStatus());
+        String evaluationSource = normalize(evaluation.evaluationSource());
+        return taskType.equals(evaluation.taskType())
+                && CURRENT_SCORING_CONTRACT.equals(
+                        text(feedbackNode, "scoring_contract"))
+                && CURRENT_EVALUATION_ENGINE.equals(evaluation.engine())
+                && "EVALUATED".equals(evaluationStatus)
+                && CURRENT_EVALUATION_SOURCES.contains(evaluationSource)
+                && feedbackNode.path("score_available").isBoolean()
+                && feedbackNode.path("score_available").asBoolean();
     }
 
     private JsonNode readTree(String json) {
@@ -556,5 +1049,80 @@ final class WritingResultPresenter implements PracticeResultPresenter {
         List<WritingFindingView> values = new ArrayList<>(first);
         values.addAll(second);
         return values;
+    }
+
+    private record ResolvedDiagnostic(
+            WritingDiagnosticDescriptorRegistry.Resolution definition,
+            WritingDiagnosticFinding finding
+    ) {
+    }
+
+    private record ChipCount(
+            WritingDiagnosticDescriptorRegistry.Resolution definition,
+            ResultDetailPolarity polarity,
+            int count,
+            String evidenceAvailability
+    ) {
+        private ChipCount incremented(String nextEvidenceAvailability) {
+            String merged = evidenceAvailability.equals(nextEvidenceAvailability)
+                    ? evidenceAvailability
+                    : "MIXED_EVIDENCE_AVAILABLE";
+            return new ChipCount(definition, polarity, count + 1, merged);
+        }
+    }
+
+    private record DiagnosticAvailability(
+            String code,
+            String noteVi,
+            String noteKo
+    ) {
+        private static DiagnosticAvailability available() {
+            return new DiagnosticAvailability(
+                    "AVAILABLE",
+                    "Đang hiển thị các phát hiện hiện tại đã vượt qua kiểm tra bằng chứng.",
+                    "현재 근거 검증을 통과한 항목을 표시합니다.");
+        }
+
+        private static DiagnosticAvailability noValidatedEvidence() {
+            return new DiagnosticAvailability(
+                    "NO_VALIDATED_EVIDENCE",
+                    "Chưa có phát hiện nào vượt qua kiểm tra bằng chứng cho câu đang chọn.",
+                    "선택한 문항에서 근거 검증을 통과한 항목이 없습니다.");
+        }
+
+        private static DiagnosticAvailability blankIdentityUnavailable() {
+            return new DiagnosticAvailability(
+                    "BLANK_IDENTITY_UNAVAILABLE",
+                    "Chưa thể gắn phát hiện vào ô trống vì dữ liệu hiện tại không có định danh ô có thẩm quyền.",
+                    "현재 데이터에 권위 있는 빈칸 식별자가 없어 진단 항목을 빈칸에 연결할 수 없습니다.");
+        }
+
+        private static DiagnosticAvailability feedbackUnavailable() {
+            return new DiagnosticAvailability(
+                    "FEEDBACK_UNAVAILABLE",
+                    "Câu đang chọn chưa có phản hồi khả dụng để hiển thị chẩn đoán.",
+                    "선택한 문항에는 진단을 표시할 수 있는 피드백이 아직 없습니다.");
+        }
+
+        private static DiagnosticAvailability currentEvidenceUnavailable() {
+            return new DiagnosticAvailability(
+                    "CURRENT_EVIDENCE_CONTRACT_UNAVAILABLE",
+                    "Phản hồi tương thích vẫn đọc được, nhưng không đủ contract hiện hành để tính phát hiện chẩn đoán.",
+                    "호환 피드백은 읽을 수 있지만 현재 진단 항목으로 집계할 계약 근거가 부족합니다.");
+        }
+
+        private static DiagnosticAvailability taskIdentityUnavailable() {
+            return new DiagnosticAvailability(
+                    "TASK_IDENTITY_UNAVAILABLE",
+                    "Phản hồi chỉ đọc được qua compatibility hoặc thiếu contract hiện hành; KSH không dùng nó làm chẩn đoán.",
+                    "호환 경로로만 읽히거나 현재 계약이 부족한 피드백은 KSH 진단에 사용하지 않습니다.");
+        }
+
+        private static DiagnosticAvailability noDetailTask() {
+            return new DiagnosticAvailability(
+                    "NO_DETAIL_TASK",
+                    "Không có nhiệm vụ Viết phù hợp để hiển thị chi tiết.",
+                    "상세 결과를 표시할 수 있는 쓰기 과제가 없습니다.");
+        }
     }
 }

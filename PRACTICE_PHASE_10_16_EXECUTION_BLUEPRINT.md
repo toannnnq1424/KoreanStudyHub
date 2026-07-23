@@ -36,6 +36,17 @@ chứng checkpoint bên dưới là lịch sử tại thời điểm chạy, cò
 hiện hành dùng dải V25-V37. Final-state single-scope hiện là
 `V34__practice_single_scope_final.sql`.
 
+Update 2026-07-24 migration-chain audit:
+`REBASELINE_GO_WITH_GUARDS` là quyết định kế hoạch sau consolidated Phase 13E
+và trước 14A, không phải hành động hiện tại. `question_explanation_*` chỉ thuộc
+R/L; Writing dùng `practice_writing_evaluation_cache`. V26 và V39 là semantic
+duplicate của exam rich-text widening; V27 bị đặt tên sai nhưng mới là file tạo
+Writing cache; V34 là residue “squashed” cũ; V37 backfill legacy không an toàn
+vì bỏ qua `question_version_id` của V34, giả định ID/fingerprint/language rồi
+drop cache cũ; V44 chỉ repair local development seed. Baseline mới chỉ được
+thực hiện nếu chứng minh không có retained/deployed/shared/canonical database
+obligation; nếu không chứng minh được thì dừng và giữ checksum/forward-only.
+
 - `PRE_PHASE_10_SECURITY_AND_GRAPH_GATE` đã hoàn tất;
 - Phase 10A-10H đã triển khai và đóng với accepted debt;
 - migration nền lịch sử của Phase 10 từng là `V25__assessment_program_configuration.sql`;
@@ -1404,6 +1415,15 @@ test evidence:
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
+> **Current implementation status (`2026-07-24`):** Phase 13D đã commit/push
+> tại `98153ac`; fresh V44 authenticated Result Detail route gate đạt `2/2`
+> xanh. Phase 13E đã được explicit GO; `13E-01..05` hiện
+> `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`. Complete diff và
+> current-source documents đã reconcile; phase là
+> `READY_FOR_PHASE_VALIDATION`. Chưa chạy validation/test/build/Git trước
+> readiness declaration. Workflow và Phase 13E live log Section 12 khóa một
+> consolidated validation duy nhất.
+
 Tên phase phải được hiểu rộng hơn "polish". New-type interaction, attempt-state
 semantics, result evidence và progress actionability đều là feature work hợp lệ.
 Giữ route KSH `set -> test -> mode -> attempt -> result -> result/detail`; tài
@@ -1584,18 +1604,39 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
   cache/generator chạy song song;
 - implementation/validation chi tiết và chính sách chỉ chạy một validation cuối
   phase được khóa tại `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md`
-  Section 6.9; user đã GO và implementation đang chờ một validation cuối phase.
+  Section 6.9; bounded correction đã commit/push tại `98153ac`, focused gate và
+  hai authenticated detail-route case trên disposable fresh V44 schema đều
+  xanh.
 - Step 6 của 13D chỉ lập inventory compatibility/legacy/test-data tại
   `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`;
-  không xóa hoặc chặn các path đó trong 13D. Phase 15 mới review tác động và dọn
-  theo một batch trước khi tạo seed chuẩn.
+  không xóa hoặc chặn các path đó trong 13D. Current-source routing đã
+  supersede câu lịch sử “Phase 15 dọn một batch”: target-stability work chạy ở
+  pre-14 gate sau validated 13E-13H; destructive/remaining cleanup vẫn ở
+  post-14 release closure trước seed.
 
 ### 13E - Evidence-based result detail
 
-- status hiện tại: `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO`; chưa mở production
-  implementation;
-- chỉ bắt đầu sau khi bounded `PHASE_13D_UX_CORRECTION` có consolidated green
-  validation và user cho GO riêng;
+- status hiện tại: `READY_FOR_PHASE_VALIDATION`; explicit GO đã được ghi nhận
+  ngày `2026-07-22`;
+- thực thi tuần tự `13E-00..05`, không test/build/Git giữa slice; toàn Phase 13E
+  là một validation unit sau khi complete diff đã review;
+- `13E-00`: reconcile tài liệu, prerequisite gate và current-screen evidence —
+  complete;
+- `13E-01`: typed three-screen envelope/dispatcher và backend display
+  descriptors — `IMPLEMENTED_PENDING_PHASE_VALIDATION`, independent audit
+  `ACCEPT_STATIC`, chưa validation/test/build/Git;
+- `13E-02`: R/L type-native explanation runtime cho single choice, fill blank
+  và true/false/not given, kèm explicit v2 read-compatibility decision nhưng
+  không migrate/rebind/delete persisted artifact trong 13E —
+  `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`;
+- `13E-03`: Writing bốn tab; score-bearing task achievement/content chỉ ở
+  Overview; Strengths/Needs dùng localized diagnostic findings —
+  `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`;
+- `13E-04`: Speaking bốn tab/chip IA với evidence provenance; không acoustic
+  chip từ STT — `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`;
+- `13E-05`: localization, accessibility, responsive reconciliation và một lượt
+  static compatibility reconciliation —
+  `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`;
 - tách đúng ba màn/contract: Objective Reading/Listening Detail, Writing Detail
   và Speaking Detail. Có thể dùng chung visual primitives và một read-only
   dispatcher, nhưng không giữ generic browser JSON parser/template xuyên skill;
@@ -1606,13 +1647,22 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 - Reading passage evidence anchor phải bền theo content version, không dùng raw
   DOM offset; Listening transcript/audio evidence có timestamp/speaker khi có;
 - Writing giữ original immutable và tách correction, upgraded answer,
-  sample/rubric/criterion evidence;
+  rubric/criterion evidence; lecturer reference chỉ render từ canonical
+  versioned source, không đổi nhãn AI `sample_answer` thành bài giáo viên;
 - Writing/Speaking có đúng bốn feedback tab `OVERVIEW`, `STRENGTHS`,
   `NEEDS_IMPROVEMENT`, `UPGRADED_ANSWER`; lecturer reference nằm ngoài AI tab;
-- PREP-style chip chỉ làm scan/filter/evidence navigation; label và parent là
-  task-native KSH Korean construct, count là exact validator-accepted finding,
-  không phải IELTS taxonomy/score/band. Transcript-only Speaking không có
+- PREP-style chip chỉ làm scan/filter/evidence navigation; descriptor `id`,
+  `labelVi`, optional `labelKo`, parent, applicability và count do backend cấp.
+  Browser không render raw enum như `Content/Coherence`, không tự đếm finding
+  và không dùng IELTS taxonomy/score/band. Transcript-only Speaking không có
   acoustic chip từ STT;
+- Phase 13E phải xóa raw learner-facing enum/label tiếng Anh, dùng nhãn Việt/Hàn
+  do backend sở hữu, và triển khai tập construct hiện đại theo task/evidence;
+  không được tuyên bố bao phủ toàn bộ tiếng Hàn. 13E-03 chỉ dựng Writing
+  diagnostic UI/contract seam dưới ba scoring criteria ổn định; versioned
+  expanded W/S registry + provider schema/prompt/normalizer/rule/cache identity
+  thuộc pre-14 gate. Final SME sign-off/calibration và audio-capable Speaking
+  scorer vẫn thuộc post-14/pre-15 release closure;
 - AI có confidence/limited-evidence state và không thay official answer key;
 - không dùng wording ngụ ý official equivalence cho AI score/feedback;
 - report entry point chuẩn bị context cho Phase 14.
@@ -1657,10 +1707,98 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 - Speaking UI/flow có trong Phase 13; live Speaking AI/audio production rollout
   vẫn cần storage/provider/UAT gate riêng.
 
+### Gate bắt buộc sau validated 13E-13H, trước 14A — `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`
+
+Gate này ổn định identity của target chấm điểm/giải thích/UI trước khi người học
+có thể report target đó. Đây là roadmap amendment; không đổi current action
+Phase 13E và không cho phép khởi động gate trước khi `13E-13H` hoàn tất, có
+consolidated validation được chấp nhận.
+
+Riêng cửa sổ chuẩn bị rebaseline chỉ mở sau khi consolidated Phase 13E
+validation được chấp nhận; baseline thật chỉ được dựng sau khi contract schema
+pre-14 cuối cùng đã khóa và trước 14A. Đây không phải rename-only, Flyway repair
+hay nối tuần tự migration cũ. Pull/reconcile inventory tại thời điểm thực thi,
+giữ nguyên byte/checksum của non-Practice V38-V43 và chọn version trống lúc đó;
+`V44__practice_baseline.sql` chỉ là tên đề xuất nếu V44 còn trống sau khi loại
+local-seed repair và upstream không chiếm số đó.
+
+Final-state baseline là schema-only: giữ immutable published graph, attempt/
+media lifecycle, Writing cache có đủ `AssessmentPolicyBundle` identity, R/L
+artifact/task, binding history append-only với đúng một active binding và các
+runtime table/index/constraint cần thiết. Không có transient create/drop,
+legacy backfill, content/demo seed, legacy cache ID/table hoặc V44 local seed
+repair. Nếu tồn tại bất kỳ retained/deployed/shared/canonical/upgrade obligation
+nào, dừng rebaseline và dùng forward migration được review riêng.
+
+Mandatory closure trước 14A:
+
+- `P15-PRE-02/04/09`: Writing score/profile/metadata/consistency; deterministic
+  W/S rules bounded/advisory; một versioned `AssessmentPolicyBundle` identity;
+- phần runtime/contract của `P15-PRE-14`: field language Việt/Hàn, typed R/L
+  explanation và versioned task-bounded construct/subcriterion contract cho cả
+  Writing lẫn Speaking. Current Writing finding categories/IDs và 16 Speaking
+  subcriteria/examples hiện có đều không exhaustive; Q51/Q52/Q53/Q54/GENERAL
+  task applicability, evidence authority, descriptor/impact và parent-score
+  mapping phải được audit/version. Giữ nguyên ba Writing scoring criteria;
+  morphology/particles, ending/speech-level/register/honorific,
+  tense/aspect/modality/negation, predicate-valency/호응, connectives,
+  clause/quotation/nominalization, passive/causative, word order/ellipsis/
+  reference, spelling/spacing/punctuation và vocabulary sense/collocation/
+  Sino-Korean/precision/naturalness/repetition là diagnostic dimensions, không
+  phải score rows mới. Findings có evidence/impact/frequency/confidence/
+  observability/taskApplicability. Writing strict schema còn thiếu
+  `subtype`/`impact`/`frequency`/`confidence` là runtime debt pre-14 dù
+  normalizer đã đọc một phần. 13E-03 chỉ dựng UI/contract seam; thêm enum không
+  phải SME/calibration proof;
+- `P15-COMP-18/19/20`: canonical new writes/runtime/UI không còn Writing 1-9,
+  Speaking text/word-count fake score hay Writing mock fallback; read-only
+  expiry adapter chỉ được giữ nếu retained historical evidence bắt buộc;
+- `P15-COMP-10`, chỉ sau consolidated Phase 13E validation: dọn cluster generic
+  detail route/DTO/template/parser đã được chứng minh dead để entry point Phase
+  14 có đúng một canonical typed screen context;
+- `P15-COMP-16`: artifact supersession/rebind append-only cho correction 14D;
+  đúng một binding compatible active và history cũ vẫn audit được; deliver
+  trong guarded final baseline hoặc forward migration khi baseline bị chặn;
+- Writing cache identity phải bao gồm task/profile/registry/descriptor/evidence/
+  prompt/schema/model/normalizer/rule version; R/L artifact identity là contract
+  riêng, không nhập chung vào Writing cache;
+- khóa datasource/Flyway safety: `validate-on-migrate=true`, clean disabled mặc
+  định, clean chỉ allowlist cho profile disposable; không repair và không reuse
+  schema cũ. Dùng DB mới có tên rõ, giữ DB cũ read-only evidence, chạy fresh
+  Flyway + Hibernate validation;
+- trước 14A chỉ load minimal deterministic technical smoke fixtures R/L/W/S để
+  chứng minh immutable report identity. Canonical seed Việt/Hàn do SME review
+  chỉ load sau 14F; global non-Practice demo seed chain là audit debt riêng và
+  không được gọi database nào là “master”;
+- lecturer reference hoặc round-trip immutable qua publish/version/result đã
+  được chứng minh trước 14A, hoặc hidden/unreportable và ghi debt;
+- privacy/consent/private-storage/retention/deletion/audit contract cho
+  screenshot/audio report attachment phải khóa trước 14B;
+- `P15-PRE-05` chỉ chốt data disposition, new-write, dual-read/invalidate và
+  forward rebind strategy; không destructive migration/reset.
+
+`P15-PRE-10..13` vẫn là implementation của 13F/13H và chỉ được verify như
+prerequisite trước Phase 14, không tái triển khai trong gate. `P15-COMP-01..09`,
+`11..12`, `14`, `21` chỉ được kéo lên khi caller/retained-data audit chứng minh
+chúng làm target Phase 14 không ổn định; nếu không, giữ ở release cleanup.
+
+Phase 12R đã drop đủ 14 generic governance/legacy tables và fresh proof có
+`removed_tables_remaining=0`; tuyệt đối không mở lại một batch “drop tables”
+chung. Quy tắc mặc định vẫn là không sửa migration đã áp dụng. Ngoại lệ duy nhất
+là guarded Practice-only rebaseline ở trên sau no-obligation proof; ngoài ngoại
+lệ đó schema change chỉ forward-only. Không repair, clean hay reuse DB cũ.
+
+Report-an-Error chỉ được mở khi target có stable immutable set/test/section/
+group/question-version, attempt, artifact/binding, Writing bundle/result và
+media identity; local fixture alias hoặc mutable live row không phải report
+identity hợp lệ.
+
 ## 12. Kế hoạch Phase 14 - Report an Error and Content Review
 
-Phase 14 phải là learner-visible review loop. Report state độc lập với content
-lifecycle `DRAFT/PUBLISHED/ARCHIVED` của Phase 12.
+Phase 14 giữ nguyên canonical 14A-14F “Report an Error & Content Review” như
+một learner-visible review loop. Không renumber và không rút Phase 14 thành một
+modal báo lỗi. Report state độc lập với content lifecycle
+`DRAFT/PUBLISHED/ARCHIVED` của Phase 12.
 
 Research chỉ mở rộng Phase 14. Baseline model/workflow/authorization/correction/
 feedback/gate cũ được giữ theo ánh xạ: report model -> 14A-14B; workflow status
@@ -1682,7 +1820,7 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
   draft/new version; explanation correction tạo artifact mới và supersede bản
   cũ; old attempt vẫn audit được; AI không tự publish.
 - Feedback loop: notification reporter/content owner; SLA/age dashboard;
-  duplicate grouping; metrics theo program/type/source/import; high-severity
+  duplicate grouping; metrics theo skill/type/source/import; high-severity
   wrong-answer có thể tạm block new attempts theo policy nhưng không xóa lịch sử.
 - Gate: report-to-correction-to-new-version E2E; permission/privacy tests;
   immutable history; audit log đầy đủ.
@@ -1690,7 +1828,7 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 ### 14A - Entry points and immutable context
 
 - entry point từ player, question review và result detail;
-- server tự gắn program, set/test/section/group/question, content version,
+- server tự gắn set/test/section/group/question, content version,
   attempt, reporter, timestamps, active view/tab và correlation ID;
 - target có thể là prompt, option, answer, explanation, translation, passage,
   transcript, audio, scoring hoặc UI;
@@ -1731,12 +1869,12 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 
 - notification/feedback cho reporter và content owner chỉ nói kết quả review
   thực tế; có SLA/age dashboard, duplicate grouping và metrics theo
-  program/type/source/import;
+  skill/type/source/import;
 - UI không ngụ ý report đã đổi điểm trước khi score decision/corrected version
   thật sự được review và publish;
 - high-severity wrong-answer report có thể tạm block new attempts theo policy
   sau review, nhưng không xóa lịch sử;
-- confirmed defect tạo regression fixture và metrics theo program/type/source;
+- confirmed defect tạo regression fixture và metrics theo skill/type/source;
 
 ### 14F - End-to-end gate
 
@@ -1744,34 +1882,25 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 - permission/privacy/dedupe/attachment/malformed-content UAT;
 - immutable history và audit trail đầy đủ.
 
-### Gate bắt buộc giữa 14F và 15A — Pre-Phase-15 production correctness
+### Gate bắt buộc sau 14F, trước 15A — `PRE_PHASE_15_RELEASE_CLOSURE_GATE`
 
-Phase 15 không được chuyển từ `NOT_STARTED` sang `IN_PROGRESS` chỉ để bắt đầu
-phát hiện hoặc vá các blocker ngôn ngữ/vận hành. Sau các dependency thực sự của
-13E-13H và Phase 14, Codex phải thực thi
-`P15-PRE-01..14` trong
-`docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md` như một
-gate riêng **trước** 15A.
+Gate này không làm lại production-correctness contract đã khóa trước 14A. Nó
+đóng release bằng:
 
-Một row có thể đóng bằng implementation mới, bằng evidence chứng minh lát cắt
-trước đã đáp ứng, hoặc — chỉ với capability tùy chọn — bằng
-`DISABLED_BY_POLICY_WITH_PROOF`/`NOT_APPLICABLE_WITH_PROOF`. Ví dụ, nếu direct
-audio Speaking vẫn bị tắt thì không cần giả lập calibration acoustic; phải chứng
-minh request không gửi audio tới scorer, readiness luôn NO-GO và mọi surface giữ
-acoustic ở null/`NOT_SCORABLE`. Nếu bật capability, privacy/consent phải được
-duyệt trước khi chuyển audio, rồi dark evaluation và calibration phải xanh trước
-rollout. Configuration flag không phải exit proof.
+- final `P15-PRE-07` Korean-SME sign-off và calibration đại diện;
+- `P15-PRE-01` branch A disable proof, hoặc branch B direct-audio chỉ sau
+  `P15-PRE-08`, captured scorer-consumed audio, dark evaluation và calibration;
+- destructive/environment cleanup còn lại `P15-COMP-15/22`, retained-data
+  removal và approved disposable-UAT reset; consume pre-14 baseline evidence,
+  không quyết định/squash baseline lần hai;
+- các conditional compatibility row còn lại;
+- premium seed sau cleanup; rồi browser/device/provider/load/security/manual UAT.
 
-`P15-PRE-14` còn là entry blocker riêng: code-owned human instruction phải theo
-field-language matrix Việt/Hàn, stable machine ID vẫn ASCII; W/S cần named
-versioned task-native Korean construct/diagnostic registry, R/L cần type-native
-learning/explanation lens, exact evidence validation, out-of-domain/no-claim,
-Korean-SME sign-off và calibration. Phase 13D/13E chỉ cung cấp bounded
-fail-closed/UI proof; vài prompt/rule/file code không bao giờ là tuyên bố bao phủ
-toàn bộ tiếng Hàn lịch sử và hiện đại.
-
-Chỉ sau khi gate này được ký nhận, 15A mới dọn compatibility/data theo các quyết
-định `REMOVE`, `MIGRATE`, `RETAIN_WITH_EXPIRY`, `DELETE_UAT_ONLY` hoặc `KEEP`.
+Configuration flag không phải exit proof. Mọi retained/deployed chain và toàn bộ
+non-Practice migration vẫn immutable/forward-only. Ngoại lệ Practice rebaseline
+chỉ tồn tại khi pre-14 no-obligation guard xanh; reset sau 14F chỉ áp dụng cho
+đúng disposable UAT environment được phê duyệt và không bao giờ dùng Flyway
+repair.
 
 ## 13. Kế hoạch Phase 15 - Manual UAT and Release Hardening
 
@@ -1780,7 +1909,8 @@ mọi feature còn thiếu.
 
 ### 15A - Compatibility cleanup and automated release gate
 
-- chỉ bắt đầu sau khi gate `P15-PRE-01..14` phía trên đã có closure hợp lệ;
+- chỉ bắt đầu sau khi `PRE_PHASE_15_RELEASE_CLOSURE_GATE` phía trên có closure
+  hợp lệ và không reopen evidence của `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`;
 - dùng
   `docs/PRACTICE_PHASE_15_COMPATIBILITY_CLEANUP_AND_SEED_UAT_INVENTORY.md`
   làm checklist bắt buộc; mỗi item phải được quyết định `REMOVE`, `MIGRATE`,
@@ -1788,10 +1918,11 @@ mọi feature còn thiếu.
 - trước khi xóa phải xác minh environment, migration version, backup và nghĩa vụ
   giữ attempt lịch sử; giả định data hiện tại là test data không thay thế bước
   xác minh này;
-- chờ Phase 13E thay thế result detail trước khi xóa DTO/service/template detail
-  cũ; không xóa immutable version isolation hoặc artifact lifecycle 13D;
-- dọn code, routes, DTO/templates, static assets, tests, seed/migration decision
-  và current docs trong một batch có review, tránh giữ hai half-path;
+- consume COMP-10 proof that pre-14 already removed the verified-dead generic
+  detail cluster; do not reopen it or remove immutable version isolation/
+  artifact lifecycle 13D;
+- dọn các code/routes/DTO/templates/static assets/tests/current docs còn lại
+  theo accepted conditional/destructive decisions trong một batch có review;
 - chạy static no-legacy scan, fresh schema rehearsal và representative upgrade
   nếu migration history vẫn phải được hỗ trợ;
 - chỉ tạo premium canonical seed sau khi cleanup/database gate xanh.
@@ -2016,8 +2147,12 @@ Pre-10 ownership/graph audit
   -> Phase 10 domain + scoring + explanation contracts
   -> Phase 11 lecturer authoring/import
   -> Phase 12 permissions/materials/profile governance
-  -> Phase 13 learner delivery/results/progress
+  -> Phase 13A-13E learner delivery/results + consolidated 13E validation
+  -> guarded Practice rebaseline after final pre-14 schema contract
+  -> Phase 13F-13H progress/recovery/stabilization evidence
+  -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
   -> Phase 14 report/correction workflow
+  -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 UAT/release hardening
   -> Phase 16 optional chatbot
 ```
@@ -2066,10 +2201,13 @@ Kết quả sáu câu audit:
 6. Ranh giới Phase 11 được giữ: learner interaction/polish vẫn thuộc Phase 13,
    governance/owner lock vẫn thuộc Phase 12.
 
-Current next action: implement 12R from
-`docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`. Không tiếp tục 12H generic
-governance, không merge hoặc mở Phase 13 trước khi schema/code/UI đã về một KSH
-scope ngầm định và JDK 17/browser stabilization gate xanh.
+Historical next action at this Phase 11 checkpoint (superseded): implement 12R
+from `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`; do not continue 12H
+generic governance or open Phase 13 before the single-scope gate. That
+prerequisite has since closed. The current action is defined in Section 11:
+`13E-01..05 = IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`; Phase 13E
+is `READY_FOR_PHASE_VALIDATION` for the one consolidated gate recorded in its
+live log Section 12.
 
 ## Phụ lục A - Historical baseline evidence map tại HEAD 448bdb1
 

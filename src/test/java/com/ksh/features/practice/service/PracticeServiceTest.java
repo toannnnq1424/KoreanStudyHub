@@ -2787,7 +2787,7 @@ class PracticeServiceTest {
 
         String answersJson = "{\"101\":\"Answer one\"}";
         String feedbackJson = """
-                {"101":{"raw_score":8.0,"raw_score_max":10.0,"rubric_scores":[{"name":"first","score":8,"feedback":"A"},{"name":"second","score":7,"feedback":"B"}],"strengths":"bad","needs_improvement":[1,{"criterionId":"need"}],"annotations":[{"id":"ann-1","start":0,"end":6,"index":1}],"sentence_rewrites":[{"original":"old","upgraded":"new","reason":"why"}],"unknown":{"kept":true}}}
+                {"101":{"raw_score":8.0,"raw_score_max":10.0,"rubric_scores":[{"name":"first","score":8,"feedback":"A"},{"name":"second","score":7,"feedback":"B"}],"strengths":"bad","needs_improvement":[1,{"criterionId":"W_GRAMMAR_ERRORS"}],"annotations":[{"id":"ann-1","criterionId":"W_GRAMMAR_ERRORS","category":"Provider content","start":0,"end":6,"index":1}],"sentence_rewrites":[{"original":"old","upgraded":"new","reason":"why"}],"unknown":{"kept":true}}}
                 """;
 
         List<PracticeQuestionFeedbackRow> rows = practiceService.buildQuestionFeedbackRows(
@@ -2801,7 +2801,8 @@ class PracticeServiceTest {
         assertEquals("second", row.writingFeedback().rubricScores().get(1).name());
         assertTrue(row.writingFeedback().strengths().isEmpty());
         assertEquals(1, row.writingFeedback().needsImprovement().size());
-        assertEquals("need", row.writingFeedback().needsImprovement().get(0).criterionId());
+        assertEquals("W_GRAMMAR_ERRORS",
+                row.writingFeedback().needsImprovement().get(0).criterionId());
         assertEquals("ann-1", row.writingFeedback().annotations().get(0).id());
         assertEquals("old", row.writingFeedback().sentenceRewrites().get(0).original());
         assertTrue(row.reEvaluatable());

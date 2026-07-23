@@ -8,6 +8,8 @@ import java.util.List;
 
 public final class WritingScoringPolicy {
 
+    public static final String PROFILE_ID = "KSH_INTERNAL_TASK_NATIVE_V1";
+
     private WritingScoringPolicy() {
     }
 

@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chi tiết kết quả Viết | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
+</head>
+<body class="prd-body">
+<header class="prd-header">
+  <a class="prd-back-btn"
+     th:href="@{/practice/attempts/{id}/result(id=${resultDetail.identity().attemptId()})}">
+    <span aria-hidden="true">&larr;</span> Quay lại kết quả
+  </a>
+  <strong>Chi tiết kết quả Viết</strong>
+  <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
+</header>
+
+<main class="prd-boundary-shell prd-writing-shell"
+      data-result-detail-kind="WRITING_DETAIL"
+      th:attr="data-contract-version=${resultDetail.schemaVersion()},
+               data-descriptor-policy=${resultDetail.descriptorPolicyId()},
+               data-writing-diagnostic-seam=${resultDetail.payload().diagnosticSeamId()},
+               data-writing-diagnostic-state=${resultDetail.payload().diagnosticSeamState()}">
+  <div th:if="${success}" class="prd-flash prd-flash-success" role="status" th:text="${success}"></div>
+  <div th:if="${error}" class="prd-flash prd-flash-error" role="alert" th:text="${error}"></div>
+
+  <section class="prd-boundary-hero" aria-labelledby="writing-detail-title">
+    <p class="prd-boundary-eyebrow" th:text="${resultDetail.payload().feedback().label()}">Đã có đánh giá</p>
+    <h1 id="writing-detail-title" th:text="${resultDetail.identity().sectionTitle()}">Phần Viết</h1>
+    <nav class="prd-boundary-task-nav" aria-label="Chọn nhiệm vụ Viết">
+      <a th:each="task : ${resultDetail.payload().tasks()}"
+         th:if="${task.detailAvailable()}"
+         th:href="@{/practice/attempts/{attemptId}/result/detail(attemptId=${resultDetail.identity().attemptId()},questionId=${task.questionId()})}"
+         th:classappend="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'is-active'"
+         th:aria-current="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'page'"
+         th:text="${task.taskLabel()}">Câu 53</a>
+    </nav>
+  </section>
+
+  <th:block th:each="task : ${resultDetail.payload().tasks()}"
+            th:if="${task.questionId().equals(resultDetail.payload().activeQuestionId())}">
+    <section class="prd-writing-review-layout"
+             th:attr="data-writing-active-question=${task.questionId()}">
+      <article class="prd-boundary-card prd-writing-source"
+               th:aria-labelledby="${'writing-source-title-' + task.questionId()}">
+        <h2 th:id="${'writing-source-title-' + task.questionId()}">Bài làm đã nộp</h2>
+        <div class="prd-writing-source-block">
+          <h3>Đề bài</h3>
+          <p class="prd-boundary-prompt"
+             th:if="${task.prompt() != null && !task.prompt().isBlank()}"
+             th:text="${task.prompt()}">Đề bài</p>
+          <p class="prd-writing-empty"
+             th:unless="${task.prompt() != null && !task.prompt().isBlank()}">
+            Không có đề bài bất biến khả dụng cho nhiệm vụ này.
+          </p>
+        </div>
+        <div class="prd-writing-source-block">
+          <h3>Bài làm của bạn</h3>
+          <div class="prd-boundary-answer"
+               lang="ko"
+               th:if="${task.learnerAnswer() != null && !task.learnerAnswer().isBlank()}"
+               th:text="${task.learnerAnswer()}">Bài làm của bạn</div>
+          <p class="prd-writing-empty"
+             th:unless="${task.learnerAnswer() != null && !task.learnerAnswer().isBlank()}">
+            Người học chưa nộp câu trả lời cho nhiệm vụ này.
+          </p>
+        </div>
+      </article>
+
+      <section class="prd-boundary-card prd-writing-feedback"
+               th:aria-labelledby="${'writing-feedback-title-' + task.questionId()}">
+        <h2 class="prd-visually-hidden"
+            th:id="${'writing-feedback-title-' + task.questionId()}">Phản hồi bài viết</h2>
+
+        <div class="prd-writing-tabs"
+             role="tablist"
+             aria-label="Phản hồi chi tiết bài viết"
+             aria-orientation="horizontal"
+             th:attr="data-result-tabs=${'writing-detail-' + task.questionId()}">
+          <button class="prd-writing-tab is-active"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  tabindex="0"
+                  th:id="${'writing-tab-overview-' + task.questionId()}"
+                  th:attr="aria-controls=${'writing-panel-overview-' + task.questionId()},
+                           data-result-target=${'writing-panel-overview-' + task.questionId()}">
+            <span>Tổng quan</span>
+            <span lang="ko">개요</span>
+          </button>
+          <button class="prd-writing-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  tabindex="-1"
+                  th:id="${'writing-tab-strengths-' + task.questionId()}"
+                  th:attr="aria-controls=${'writing-panel-strengths-' + task.questionId()},
+                           data-result-target=${'writing-panel-strengths-' + task.questionId()}">
+            <span>Điểm mạnh</span>
+            <span lang="ko">강점</span>
+          </button>
+          <button class="prd-writing-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  tabindex="-1"
+                  th:id="${'writing-tab-needs-' + task.questionId()}"
+                  th:attr="aria-controls=${'writing-panel-needs-' + task.questionId()},
+                           data-result-target=${'writing-panel-needs-' + task.questionId()}">
+            <span>Cần cải thiện</span>
+            <span lang="ko">개선 필요</span>
+          </button>
+          <button class="prd-writing-tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  tabindex="-1"
+                  th:id="${'writing-tab-upgrade-' + task.questionId()}"
+                  th:attr="aria-controls=${'writing-panel-upgrade-' + task.questionId()},
+                           data-result-target=${'writing-panel-upgrade-' + task.questionId()}">
+            <span>Bài nâng cấp</span>
+            <span lang="ko">개선된 답안</span>
+          </button>
+        </div>
+
+        <section class="prd-writing-panel"
+                 role="tabpanel"
+                 tabindex="0"
+                 th:id="${'writing-panel-overview-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-overview-' + task.questionId()}">
+          <header class="prd-writing-panel-heading">
+            <h3>Tổng quan <span lang="ko">개요</span></h3>
+            <p th:if="${task.summary() != null}" th:text="${task.summary()}">Nhận xét tổng quan</p>
+          </header>
+          <dl class="prd-writing-score-trust">
+            <div>
+              <dt>Hồ sơ chấm điểm</dt>
+              <dd th:text="${resultDetail.payload().scoreProfileId()}">KSH_INTERNAL_TASK_NATIVE_V1</dd>
+            </div>
+            <div>
+              <dt>Điểm nhiệm vụ</dt>
+              <dd th:if="${task.score() != null && task.score().pointsDisplay() != null}"
+                  th:text="${task.score().pointsDisplay()}">24/30</dd>
+              <dd th:unless="${task.score() != null && task.score().pointsDisplay() != null}">
+                Chưa có điểm khả dụng
+              </dd>
+            </div>
+            <div>
+              <dt>Trạng thái đánh giá</dt>
+              <dd>
+                <span th:text="${task.feedback().label()}">Đã có đánh giá</span>
+                <span aria-hidden="true"> · </span>
+                <span lang="ko" th:text="${task.feedback().stateLabelKo()}">평가 완료</span>
+              </dd>
+            </div>
+          </dl>
+          <div class="prd-writing-score-grid">
+            <article class="prd-writing-score-card"
+                     th:each="criterion : ${resultDetail.payload().scoreCriteria()}"
+                     th:if="${criterion.questionId().equals(task.questionId())}">
+              <h4 th:text="${criterion.labelVi()}">Hoàn thành nhiệm vụ và nội dung</h4>
+              <p lang="ko" th:if="${criterion.labelKo() != null}"
+                 th:text="${criterion.labelKo()}">과제 수행과 내용</p>
+              <strong th:if="${criterion.scoreDisplay() != null}"
+                      th:text="${criterion.scoreDisplay()}">10/12</strong>
+              <span th:unless="${criterion.scoreDisplay() != null}">Chưa có điểm khả dụng</span>
+            </article>
+          </div>
+          <p class="prd-writing-score-note">
+            Các phát hiện chẩn đoán ở tab Điểm mạnh và Cần cải thiện không có điểm riêng
+            và không được cộng vào kết quả.
+          </p>
+        </section>
+
+        <section class="prd-writing-panel"
+                 role="tabpanel"
+                 tabindex="0"
+                 hidden
+                 th:id="${'writing-panel-strengths-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-strengths-' + task.questionId()}">
+          <header class="prd-writing-panel-heading">
+            <h3>Điểm mạnh <span lang="ko">강점</span></h3>
+            <p th:text="${resultDetail.payload().diagnosticScopeNoteVi()}">Phạm vi chẩn đoán có giới hạn.</p>
+            <p lang="ko" th:text="${resultDetail.payload().diagnosticScopeNoteKo()}">진단 범위는 제한되어 있습니다.</p>
+          </header>
+          <p class="prd-writing-diagnostic-state"
+             th:text="${resultDetail.payload().diagnosticAvailabilityNoteVi()}">Trạng thái bằng chứng</p>
+          <div class="prd-writing-diagnostic-groups">
+            <section class="prd-writing-diagnostic-group"
+                     th:each="group : ${resultDetail.payload().diagnosticGroups()}"
+                     th:if="${group.hasStrengths()}"
+                     th:aria-labelledby="${'writing-strength-group-' + task.questionId() + '-' + group.categoryCode()}">
+              <header>
+                <h4 th:id="${'writing-strength-group-' + task.questionId() + '-' + group.categoryCode()}"
+                    th:text="${group.labelVi()}">Nhóm chẩn đoán</h4>
+                <p lang="ko" th:text="${group.labelKo()}">진단 범주</p>
+              </header>
+              <div class="prd-writing-chip-list" aria-label="Nhãn phát hiện điểm mạnh">
+                <button class="prd-writing-chip"
+                        type="button"
+                        aria-pressed="false"
+                        th:each="chip : ${group.strengthChips()}"
+                        th:attr="data-writing-diagnostic-filter=${chip.id()},
+                                 data-writing-feature=${chip.id()},
+                                 aria-label=${chip.labelVi() + ' / ' + chip.labelKo() + ': ' + chip.count()}">
+                  <span th:text="${chip.labelVi()}">Nhãn</span>
+                  <span lang="ko" th:text="${chip.labelKo()}">라벨</span>
+                  <strong th:text="${chip.count()}">1</strong>
+                </button>
+              </div>
+              <article class="prd-writing-finding is-strength"
+                       th:each="finding : ${group.strengths()}"
+                       tabindex="-1"
+                       th:id="${'writing-finding-' + finding.findingId()}"
+                       th:attr="data-writing-feature=${finding.featureCode() + '_' + finding.applicability()}">
+                <h5>
+                  <span th:text="${finding.featureLabelVi()}">Phát hiện</span>
+                  <span lang="ko" th:text="${finding.featureLabelKo()}">진단</span>
+                </h5>
+                <blockquote th:if="${finding.evidenceScope() == 'TEXT_SPAN'}"
+                            lang="ko" th:text="${finding.evidence()}">근거</blockquote>
+                <p class="prd-writing-whole-answer"
+                   th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
+                  Phát hiện áp dụng cho toàn bài; không có đoạn tô sáng giả.
+                </p>
+                <p th:text="${finding.explanationVi()}">Giải thích</p>
+              </article>
+            </section>
+          </div>
+          <p class="prd-writing-empty"
+             th:unless="${resultDetail.payload().hasStrengthFindings()}">
+            Chưa có điểm mạnh nào đủ bằng chứng để hiển thị.
+          </p>
+        </section>
+
+        <section class="prd-writing-panel"
+                 role="tabpanel"
+                 tabindex="0"
+                 hidden
+                 th:id="${'writing-panel-needs-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-needs-' + task.questionId()}">
+          <header class="prd-writing-panel-heading">
+            <h3>Cần cải thiện <span lang="ko">개선 필요</span></h3>
+            <p th:text="${resultDetail.payload().diagnosticScopeNoteVi()}">Phạm vi chẩn đoán có giới hạn.</p>
+            <p lang="ko" th:text="${resultDetail.payload().diagnosticScopeNoteKo()}">진단 범위는 제한되어 있습니다.</p>
+          </header>
+          <p class="prd-writing-diagnostic-state"
+             th:text="${resultDetail.payload().diagnosticAvailabilityNoteVi()}">Trạng thái bằng chứng</p>
+          <div class="prd-writing-diagnostic-groups">
+            <section class="prd-writing-diagnostic-group"
+                     th:each="group : ${resultDetail.payload().diagnosticGroups()}"
+                     th:if="${group.hasNeedsImprovement()}"
+                     th:aria-labelledby="${'writing-needs-group-' + task.questionId() + '-' + group.categoryCode()}">
+              <header>
+                <h4 th:id="${'writing-needs-group-' + task.questionId() + '-' + group.categoryCode()}"
+                    th:text="${group.labelVi()}">Nhóm chẩn đoán</h4>
+                <p lang="ko" th:text="${group.labelKo()}">진단 범주</p>
+              </header>
+              <div class="prd-writing-chip-list" aria-label="Nhãn phát hiện cần cải thiện">
+                <button class="prd-writing-chip"
+                        type="button"
+                        aria-pressed="false"
+                        th:each="chip : ${group.needsImprovementChips()}"
+                        th:attr="data-writing-diagnostic-filter=${chip.id()},
+                                 data-writing-feature=${chip.id()},
+                                 aria-label=${chip.labelVi() + ' / ' + chip.labelKo() + ': ' + chip.count()}">
+                  <span th:text="${chip.labelVi()}">Nhãn</span>
+                  <span lang="ko" th:text="${chip.labelKo()}">라벨</span>
+                  <strong th:text="${chip.count()}">1</strong>
+                </button>
+              </div>
+              <article class="prd-writing-finding is-need"
+                       th:each="finding : ${group.needsImprovement()}"
+                       tabindex="-1"
+                       th:id="${'writing-finding-' + finding.findingId()}"
+                       th:attr="data-writing-feature=${finding.featureCode() + '_' + finding.applicability()}">
+                <h5>
+                  <span th:text="${finding.featureLabelVi()}">Phát hiện</span>
+                  <span lang="ko" th:text="${finding.featureLabelKo()}">진단</span>
+                </h5>
+                <blockquote th:if="${finding.evidenceScope() == 'TEXT_SPAN'}"
+                            lang="ko" th:text="${finding.evidence()}">근거</blockquote>
+                <p class="prd-writing-whole-answer"
+                   th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
+                  Phát hiện áp dụng cho toàn bài; không có đoạn tô sáng giả.
+                </p>
+                <p th:text="${finding.explanationVi()}">Giải thích</p>
+                <div class="prd-writing-correction"
+                     th:if="${finding.correctionKo() != null && !finding.correctionKo().isBlank()}">
+                  <strong>Gợi ý sửa</strong>
+                  <p lang="ko" th:text="${finding.correctionKo()}">교정</p>
+                </div>
+              </article>
+            </section>
+          </div>
+          <p class="prd-writing-empty"
+             th:unless="${resultDetail.payload().hasNeedsImprovementFindings()}">
+            Chưa có điểm cần cải thiện nào đủ bằng chứng để hiển thị.
+          </p>
+        </section>
+
+        <section class="prd-writing-panel"
+                 role="tabpanel"
+                 tabindex="0"
+                 hidden
+                 th:id="${'writing-panel-upgrade-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-upgrade-' + task.questionId()}">
+          <header class="prd-writing-panel-heading">
+            <h3>Bài nâng cấp <span lang="ko">개선된 답안</span></h3>
+            <p>Mỗi phần dưới đây ghi rõ nguồn; bài nâng cấp và đầu ra bộ đánh giá không phải bài tham khảo của giáo viên.</p>
+          </header>
+
+          <article class="prd-writing-provenance-card is-learner-derived">
+            <header>
+              <h4 th:text="${resultDetail.payload().upgrade().learnerDerivedUpgrade().labelVi()}">Bài nâng cấp</h4>
+              <p lang="ko" th:text="${resultDetail.payload().upgrade().learnerDerivedUpgrade().labelKo()}">개선 답안</p>
+            </header>
+            <span class="prd-writing-provenance-badge">Dựa sát bài người học · đầu ra bộ đánh giá</span>
+            <div class="prd-writing-upgraded-answer"
+                 lang="ko"
+                 th:if="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}"
+                 th:text="${resultDetail.payload().upgrade().learnerDerivedUpgrade().content()}">개선된 답안</div>
+            <p class="prd-writing-empty"
+               th:unless="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}">
+              Chưa có bài nâng cấp khả dụng cho câu đang chọn.
+            </p>
+          </article>
+
+          <section class="prd-writing-rewrites"
+                   th:if="${!#lists.isEmpty(resultDetail.payload().upgrade().significantRewrites())}"
+                   th:aria-labelledby="${'writing-rewrites-title-' + task.questionId()}">
+            <h4 th:id="${'writing-rewrites-title-' + task.questionId()}">Các câu được viết lại đáng kể</h4>
+            <ol>
+              <li th:each="rewrite : ${resultDetail.payload().upgrade().significantRewrites()}">
+                <dl>
+                  <div>
+                    <dt>Nguyên văn chính xác của người học</dt>
+                    <dd lang="ko" th:text="${rewrite.original()}">원문</dd>
+                  </div>
+                  <div>
+                    <dt>Bản tiếng Hàn đã nâng cấp</dt>
+                    <dd lang="ko" th:text="${rewrite.upgraded()}">개선문</dd>
+                  </div>
+                  <div>
+                    <dt>Lý do</dt>
+                    <dd th:text="${rewrite.reason()}">Lý do bằng tiếng Việt</dd>
+                  </div>
+                </dl>
+              </li>
+            </ol>
+          </section>
+
+          <article class="prd-writing-provenance-card is-evaluator-sample"
+                   th:if="${resultDetail.payload().upgrade().evaluatorSample().available()}">
+            <header>
+              <h4 th:text="${resultDetail.payload().upgrade().evaluatorSample().labelVi()}">Bài tham khảo do bộ đánh giá tạo</h4>
+              <p lang="ko" th:text="${resultDetail.payload().upgrade().evaluatorSample().labelKo()}">평가기 참고 답안</p>
+            </header>
+            <span class="prd-writing-provenance-badge">Không phải bài của giáo viên</span>
+            <div class="prd-writing-reference-answer"
+                 lang="ko"
+                 th:text="${resultDetail.payload().upgrade().evaluatorSample().content()}">평가기가 생성한 답안</div>
+          </article>
+        </section>
+      </section>
+    </section>
+
+    <form id="questionReEvaluateForm"
+          class="prd-reevaluate-form prd-writing-reevaluate"
+          method="post"
+          th:action="@{/practice/attempts/{attemptId}/re-evaluate(attemptId=${resultDetail.identity().attemptId()})}">
+      <input type="hidden" name="questionId" th:value="${task.questionId()}">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+      <button class="prd-reevaluate-btn" type="submit">Chấm lại câu này</button>
+    </form>
+  </th:block>
+
+  <section class="prd-boundary-card prd-writing-empty"
+           th:if="${resultDetail.payload().activeQuestionId() == null}">
+    Không có nhiệm vụ Viết hỗ trợ trang chi tiết trong bài làm bất biến này.
+  </section>
+</main>
+<script th:src="@{/js/practice-result.js}"></script>
+</body>
+</html>

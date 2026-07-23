@@ -30,6 +30,7 @@ import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeService;
+import com.ksh.features.practice.result.PracticeResultDetailAssembler;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestCard;
@@ -114,6 +115,9 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeService practiceService;
+
+    @Autowired
+    private PracticeResultDetailAssembler resultDetailAssembler;
 
     @Autowired
     private PracticeDetailPageService detailPageService;
@@ -621,11 +625,11 @@ class PracticeIntegrationTest {
                 .andExpect(view().name("practice/result"))
                 .andExpect(model().attributeExists("result"));
 
-        // Perform GET detailed result view -> should redirect to rl-result-detail template
+        // Perform GET detailed result view -> typed Objective Detail template
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"))
-                .andExpect(model().attributeExists("result"));
+                .andExpect(view().name("practice/result-detail-objective"))
+                .andExpect(model().attributeExists("resultDetail"));
 
         // Perform POST Re-evaluation
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/re-evaluate")
@@ -649,7 +653,11 @@ class PracticeIntegrationTest {
 
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"));
+                .andExpect(view().name("practice/result-detail-objective"));
+
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail")
+                        .param("questionId", String.valueOf(question.getId())))
+                .andExpect(status().isBadRequest());
 
         verify(readingListeningExplanationClient, never()).generate(any(), anyList());
     }
@@ -725,18 +733,22 @@ class PracticeIntegrationTest {
                 .andExpect(view().name("practice/result"))
                 .andExpect(model().attributeExists("result"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Kết quả theo nhiệm vụ viết")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Ô 1 - Nội dung và ngữ cảnh")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Chưa có điểm số khả dụng")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Dữ liệu đánh giá cũ chỉ được nhận diện, không được dùng làm điểm")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Ô 1 - Nội dung và ngữ cảnh"))));
 
-        // Perform GET detailed result view -> should redirect to result-detail template for WRITING
+        // Perform GET detailed result view -> typed Writing Detail template
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/result-detail"))
-                .andExpect(model().attributeExists("result"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("currentQ.writingFeedback || {}")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("const rawAiFeedbackJson = \"{}\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))));
+                .andExpect(view().name("practice/result-detail-writing"))
+                .andExpect(model().attributeExists("resultDetail"))
+                .andExpect(model().attributeDoesNotExist("questionsJson", "groupsJson"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "data-result-detail-kind=\"WRITING_DETAIL\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("JSON.parse"))));
     }
 
     @Test
@@ -869,7 +881,11 @@ class PracticeIntegrationTest {
             assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(submitted.getAiFeedbackJson()));
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Legacy speaking essay")));
+                    .andExpect(view().name("practice/result-detail-speaking"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "data-result-detail-kind=\"SPEAKING_DETAIL\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "Chi tiết kết quả Nói")));
 
             when(writingEvaluationClient.evaluate(
                     eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
@@ -1804,7 +1820,7 @@ class PracticeIntegrationTest {
 
         mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"));
+                .andExpect(view().name("practice/result-detail-objective"));
 
         // 2. Writing attempt -> result & result-detail
         PracticeSection writingSection = new PracticeSection(practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
@@ -1828,7 +1844,7 @@ class PracticeIntegrationTest {
 
         mockMvc.perform(get("/practice/attempts/" + writingAttempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/result-detail"));
+                .andExpect(view().name("practice/result-detail-writing"));
     }
 
     @Test
@@ -1919,21 +1935,23 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testReadingResultDetailLegacyFallback() throws Exception {
-        // Create attempt for Reading section
-        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
-        readingAttempt.setStatus("SUBMITTED");
+    void testReadingResultDetailUsesTypedImmutableBoundary() throws Exception {
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt readingAttempt = attemptRepository.findById(attemptId).orElseThrow();
+        readingAttempt.markSubmitted(BigDecimal.ZERO, BigDecimal.valueOf(2.5), "{}");
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 
         mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Câu hỏi 1")));
+                .andExpect(view().name("practice/result-detail-objective"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "data-result-detail-kind=\"OBJECTIVE_DETAIL\"")));
     }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testReadingResultDetailEmptyState() throws Exception {
+    void testReadingResultDetailWithoutImmutableSnapshotFailsClosed() {
         PracticeSet emptySet = new PracticeSet(
                 "Empty Reading Detail Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", lecturer.getId()
         );
@@ -1953,10 +1971,10 @@ class PracticeIntegrationTest {
         readingAttempt.setStatus("SUBMITTED");
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 
-        mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Không tìm thấy dữ liệu câu hỏi cho lượt làm này.")));
+        Long attemptId = readingAttempt.getId();
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> resultDetailAssembler.assemble(attemptId, student.getId(), null));
+        assertThat(error.getMessage()).contains("immutable snapshot");
     }
 
     @Test
@@ -2048,14 +2066,17 @@ class PracticeIntegrationTest {
         q.setWritingTaskType(WritingTaskType.Q51);
         q.setGroupId(group.getId());
         q = questionRepository.saveAndFlush(q);
+        publishVersion(writingSet.getId());
 
         // Malicious input payload containing characters to escape
         String maliciousAnswer = "Tôi học tiếng Hàn 한국어 </script> <script>alert('hack')</script> \"quotes\" \\ backslash \n newline";
 
-        // Create Graded Attempt with malicious answer and JSON feedback mapping
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", section.getId());
-        attempt.setStatus("GRADED");
-        
+        // Start through the immutable published-version boundary, then attach
+        // the malicious stored payload to the locked attempt.
+        Long attemptId = practiceService.startAttempt(
+                writingSet.getId(), test.getId(), section.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
+
         // Write the structures
         Map<String, String> answersMap = Map.of(String.valueOf(q.getId()), maliciousAnswer);
         String answersJson = objectMapper.writeValueAsString(answersMap);
@@ -2076,12 +2097,10 @@ class PracticeIntegrationTest {
         // Load result detail page
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                // Assert no plain executable <script>alert tag is rendered in response (since HTML tags inside inline JSON string variables are escaped)
+                // The typed server-rendered boundary does not serialize provider feedback into a script.
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("</script> <script>alert"))))
-                // Thymeleaf JS Inlining escapes solidus and closing tag as <\/script>
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("<\\/script> <script>alert")))
-                // HTML structure is still HTTP 200 OK and render successful
-                .andExpect(view().name("practice/result-detail"));
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("JSON.parse"))))
+                .andExpect(view().name("practice/result-detail-writing"));
     }
 
     @Test
@@ -2327,11 +2346,11 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("currentQ.writingFeedback || {}")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("target only")));
+                    .andExpect(view().name("practice/result-detail-writing"))
+                    .andExpect(model().attributeExists("resultDetail"))
+                    .andExpect(model().attributeDoesNotExist("questionsJson", "groupsJson"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "data-result-detail-kind=\"WRITING_DETAIL\"")));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -2346,27 +2365,16 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = " + fixture.questionId())))
+                    .andExpect(view().name("practice/result-detail-writing"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-current=\"page\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"questionReEvaluateForm\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("method=\"post\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"questionId\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("Chấm lại câu này")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"writingFeedback\\\"")))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"feedbackNode\\\""))))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"reEvaluatable\\\":true")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionIndex = selectorQuestions.findIndex")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("String(question.questionId) === String(activeQuestionId)")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("setQuestion(initialQuestionIndex);")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("let reEvaluateSubmitting = false;")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("event.preventDefault();")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chấm lại...")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-busy")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateQuestionIdInput.value = '';")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("reEvaluateButton.disabled = true;")));
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("JSON.parse"))));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -2381,10 +2389,9 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", "999999999"))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const initialQuestionIndex = activeQuestionIndex >= 0 ? activeQuestionIndex : 0;")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("setQuestion(initialQuestionIndex);")));
+                    .andExpect(view().name("practice/result-detail-writing"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-current=\"page\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(fixture.prompt())));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -2399,12 +2406,11 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.mcqQuestionId())))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(view().name("practice/result-detail-writing"))
                     .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                            "selectorQuestions = questions.filter(q => q.questionType === 'ESSAY')")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.mcqQuestionId())))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"questionId\\\":" + fixture.essayQuestionId())));
+                            "questionId=" + fixture.essayQuestionId())))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(
+                            "questionId=" + fixture.mcqQuestionId()))));
         } finally {
             deleteWritingMixedAttemptFixture(fixture);
         }
@@ -2420,8 +2426,8 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + target.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(foreign.questionId())))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = null")))
+                    .andExpect(view().name("practice/result-detail-writing"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Prompt Target Active Question UI")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Prompt Foreign Active Question UI"))));
         } finally {
             deleteWritingAttemptFixture(target);
@@ -2453,13 +2459,15 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void testReadingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
-        PracticeAttempt readingAttempt = new PracticeAttempt(student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
-        readingAttempt.setStatus("SUBMITTED");
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt readingAttempt = attemptRepository.findById(attemptId).orElseThrow();
+        readingAttempt.markSubmitted(BigDecimal.ZERO, BigDecimal.valueOf(2.5), "{}");
         readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
 
         mockMvc.perform(get("/practice/attempts/" + readingAttempt.getId() + "/result/detail"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("practice/rl-result-detail"))
+                .andExpect(view().name("practice/result-detail-objective"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
     }
@@ -2472,7 +2480,7 @@ class PracticeIntegrationTest {
         try {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/rl-result-detail"))
+                    .andExpect(view().name("practice/result-detail-objective"))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Chấm lại câu này"))));
         } finally {
@@ -2490,8 +2498,11 @@ class PracticeIntegrationTest {
                     practiceService.getResult(fixture.attemptId(), student.getId()).scoreLabel());
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Không có điểm Nói tổng hợp")))
+                    .andExpect(view().name("practice/result-detail-speaking"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "data-result-detail-kind=\"SPEAKING_DETAIL\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("Không có điểm Nói tổng hợp"))))
                     .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<form id=\"questionReEvaluateForm\""))));
         } finally {
             deleteSpeakingAttemptFixture(fixture);
@@ -2532,10 +2543,11 @@ class PracticeIntegrationTest {
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("const activeQuestionId = " + fixture.questionId())))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":8.0")))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\\\"raw_score\\\":9.0"))));
+                    .andExpect(view().name("practice/result-detail-writing"))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                            "data-result-detail-kind=\"WRITING_DETAIL\"")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("raw_score"))));
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -2820,13 +2832,17 @@ class PracticeIntegrationTest {
         question.setGroupId(group.getId());
         question = questionRepository.saveAndFlush(question);
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", section.getId());
+        publishVersion(writingSet.getId());
+        Long attemptId = practiceService.startAttempt(
+                writingSet.getId(), test.getId(), section.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         String answersJson = "{\"" + question.getId() + "\":\"Existing answer\"}";
         String oldFeedbackJson = "{\"" + question.getId() + "\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
         if (graded) {
             attempt.markGraded(BigDecimal.valueOf(80.00), BigDecimal.TEN, answersJson, oldFeedbackJson);
         } else {
-            attempt.setStatus("IN_PROGRESS");
+            attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
+            attempt.setAnswersJson("{}");
         }
         attempt = attemptRepository.saveAndFlush(attempt);
         return new WritingAttemptFixture(
@@ -2843,6 +2859,7 @@ class PracticeIntegrationTest {
 
     private void deleteWritingAttemptFixture(WritingAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
         sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
@@ -2980,7 +2997,10 @@ class PracticeIntegrationTest {
         essay.setGroupId(group.getId());
         essay = questionRepository.saveAndFlush(essay);
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), writingSet.getId(), test.getId(), "WRITING", section.getId());
+        publishVersion(writingSet.getId());
+        Long attemptId = practiceService.startAttempt(
+                writingSet.getId(), test.getId(), section.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         String answersJson = "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}";
         String feedbackJson = "{\"" + essay.getId() + "\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
         attempt.markGraded(BigDecimal.valueOf(90.00), BigDecimal.valueOf(20), answersJson, feedbackJson);
@@ -2999,6 +3019,7 @@ class PracticeIntegrationTest {
 
     private void deleteWritingMixedAttemptFixture(WritingMixedAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.mcqQuestionId()).ifPresent(questionRepository::delete);
         questionRepository.findById(fixture.essayQuestionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
@@ -3033,7 +3054,10 @@ class PracticeIntegrationTest {
         question.setGroupId(group.getId());
         question = questionRepository.saveAndFlush(question);
 
-        PracticeAttempt attempt = new PracticeAttempt(student.getId(), listeningSet.getId(), test.getId(), "LISTENING", section.getId());
+        publishVersion(listeningSet.getId());
+        Long attemptId = practiceService.startAttempt(
+                listeningSet.getId(), test.getId(), section.getId(), student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         attempt.markSubmitted(BigDecimal.TEN, BigDecimal.TEN, "{\"" + question.getId() + "\":\"1\"}");
         attempt = attemptRepository.saveAndFlush(attempt);
 
@@ -3049,6 +3073,7 @@ class PracticeIntegrationTest {
 
     private void deleteListeningAttemptFixture(ListeningAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
         sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);

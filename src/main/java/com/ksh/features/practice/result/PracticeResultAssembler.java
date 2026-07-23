@@ -42,6 +42,10 @@ public class PracticeResultAssembler {
 
     @Transactional(readOnly = true)
     public PracticeAttemptResultView assemble(Long attemptId, Long userId) {
+        return assemble(loadContext(attemptId, userId));
+    }
+
+    PracticeResultContext loadContext(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
         requireResultState(attempt);
@@ -57,8 +61,13 @@ public class PracticeResultAssembler {
         }
 
         ResultScoreSummary score = scoreSummary(attempt);
-        PracticeResultContext context = new PracticeResultContext(
+        return new PracticeResultContext(
                 attempt, snapshot, readAnswers(attempt.getAnswersJson()), score);
+    }
+
+    PracticeAttemptResultView assemble(PracticeResultContext context) {
+        PracticeAttempt attempt = context.attempt();
+        PracticeVersionSnapshot snapshot = context.snapshot();
         List<PracticeResultPresenter> matches = presenters.stream()
                 .filter(presenter -> presenter.supports(attempt.getSkill()))
                 .toList();

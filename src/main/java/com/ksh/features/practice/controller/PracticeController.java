@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfDraftView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeResultDetailView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestCard;
@@ -17,6 +17,7 @@ import com.ksh.features.practice.service.PracticeLearnerAccessService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import com.ksh.features.practice.result.PracticeResultAssembler;
+import com.ksh.features.practice.result.PracticeResultDetailAssembler;
 import com.ksh.features.practice.web.PracticeFormFields;
 import com.ksh.features.practice.web.PracticeModelAttributes;
 import com.ksh.features.practice.web.PracticeRoutes;
@@ -67,6 +68,7 @@ public class PracticeController {
     private final PracticeAttemptDiscardService attemptDiscardService;
     private final PracticeSpeakingMediaService speakingMediaService;
     private final PracticeResultAssembler resultAssembler;
+    private final PracticeResultDetailAssembler resultDetailAssembler;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
@@ -80,6 +82,7 @@ public class PracticeController {
                               PracticeAttemptDiscardService attemptDiscardService,
                               PracticeSpeakingMediaService speakingMediaService,
                               PracticeResultAssembler resultAssembler,
+                              PracticeResultDetailAssembler resultDetailAssembler,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
                               com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository,
@@ -94,6 +97,7 @@ public class PracticeController {
         this.attemptDiscardService = attemptDiscardService;
         this.speakingMediaService = speakingMediaService;
         this.resultAssembler = resultAssembler;
+        this.resultDetailAssembler = resultDetailAssembler;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.sectionRepository = sectionRepository;
@@ -566,51 +570,15 @@ public class PracticeController {
                                       @RequestParam(value = "questionId", required = false) Long questionId,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
-        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        String skill = attempt.getSkill();
-
-        if ("READING".equals(skill) || "LISTENING".equals(skill)) {
-            com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
-                    practiceService.getReadingListeningResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, rlResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
-            try {
-                String groupsJson = objectMapper.writeValueAsString(rlResult.groups());
-                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, groupsJson);
-            } catch (Exception e) {
-                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, "[]");
-            }
-            return PracticeViews.READING_LISTENING_RESULT_DETAIL;
-        } else {
-            PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, standardResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
-            addSpeakingMediaModel(model, user.getId(), attempt, false);
-            Long activeQuestionId = activeWritingQuestionId(skill, standardResult, questionId);
-            model.addAttribute(PracticeModelAttributes.ACTIVE_QUESTION_ID, activeQuestionId);
-            try {
-                String questionsJson = "WRITING".equals(skill)
-                        ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
-                        : "SPEAKING".equals(skill) && !standardResult.speakingQuestionFeedbacks().isEmpty()
-                        ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks())
-                        : objectMapper.writeValueAsString(
-                            standardResult.answerReviews().stream()
-                                .map(q -> {
-                                    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-                                    m.put("questionId", q.questionId());
-                                    m.put("questionNo", q.questionNo());
-                                    m.put("questionType", q.questionType());
-                                    m.put("prompt", q.prompt());
-                                    m.put("learnerAnswer", q.learnerAnswer() == null ? "" : q.learnerAnswer());
-                                    return m;
-                                }).toList()
-                        );
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, questionsJson);
-            } catch (Exception e) {
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, "[]");
-            }
-            return PracticeViews.RESULT_DETAIL;
-        }
+        PracticeResultDetailView detail = resultDetailAssembler
+                .assemble(attemptId, user.getId(), questionId);
+        model.addAttribute(PracticeModelAttributes.RESULT_DETAIL, detail);
+        model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+        return switch (detail.screenKind()) {
+            case OBJECTIVE_DETAIL -> PracticeViews.RESULT_DETAIL_OBJECTIVE;
+            case WRITING_DETAIL -> PracticeViews.RESULT_DETAIL_WRITING;
+            case SPEAKING_DETAIL -> PracticeViews.RESULT_DETAIL_SPEAKING;
+        };
     }
 
     @PostMapping(PracticeRoutes.ATTEMPT_RE_EVALUATE)
@@ -831,18 +799,6 @@ public class PracticeController {
         if (includeUploadGate) {
             model.addAttribute(PracticeModelAttributes.SPEAKING_MEDIA_UPLOAD_ENABLED, speakingMediaUploadEnabled);
         }
-    }
-
-    private Long activeWritingQuestionId(String skill, PracticeResultView result, Long requestedQuestionId) {
-        if (!"WRITING".equals(skill) || requestedQuestionId == null || result.questionFeedbacks() == null) {
-            return null;
-        }
-        return result.questionFeedbacks().stream()
-                .filter(row -> requestedQuestionId.equals(row.questionId()))
-                .filter(row -> "ESSAY".equals(row.questionType()))
-                .findFirst()
-                .map(row -> requestedQuestionId)
-                .orElse(null);
     }
 
     private String safeReEvaluationError(PracticeAttemptConflictException ex) {

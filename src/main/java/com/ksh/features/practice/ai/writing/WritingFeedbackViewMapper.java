@@ -69,15 +69,15 @@ public class WritingFeedbackViewMapper {
             }
             String criterionId = text(item.get("criterionId"));
             WritingRubricCriterion criterion = WritingRubricCriterion.parse(criterionId);
-            String category = firstPresent(text(item.get("category")),
-                    criterion == null ? null : criterion.category().name());
-            String vietnameseLabel = firstPresent(text(item.get("vietnameseLabel")),
-                    criterion == null ? null : criterion.vietnameseLabel());
+            String category = criterion == null ? null : criterion.canonical().category().name();
+            String vietnameseLabel = criterion == null
+                    ? null
+                    : criterion.canonical().vietnameseLabel();
             rows.add(new WritingFindingView(
                     category,
                     vietnameseLabel,
-                    firstPresent(text(item.get("uiLabel")), vietnameseLabel),
-                    criterionId,
+                    vietnameseLabel,
+                    criterion == null ? null : criterion.canonicalId(),
                     firstPresent(text(item.get("evidenceScope")), "TEXT_SPAN"),
                     text(item.get("evidence")),
                     text(item.get("explanationVi")),
@@ -100,11 +100,16 @@ public class WritingFeedbackViewMapper {
             if (!item.isObject()) {
                 continue;
             }
+            WritingRubricCriterion criterion = WritingRubricCriterion.parse(
+                    text(item.get("criterionId")));
+            if (criterion == null || !criterion.activeForProvider()) {
+                continue;
+            }
             rows.add(new WritingAnnotationView(
                     text(item.get("id")),
                     text(item.get("kind")),
-                    text(item.get("criterionId")),
-                    text(item.get("category")),
+                    criterion.canonicalId(),
+                    criterion.canonical().category().name(),
                     integer(item.get("start")),
                     integer(item.get("end")),
                     text(item.get("severity")),
@@ -167,4 +172,5 @@ public class WritingFeedbackViewMapper {
     private String firstPresent(String preferred, String fallback) {
         return preferred == null || preferred.isBlank() ? fallback : preferred;
     }
+
 }

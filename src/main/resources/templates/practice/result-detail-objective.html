@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chi tiết kết quả Đọc/Nghe | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
+</head>
+<body class="prd-body">
+<header class="prd-header">
+  <a class="prd-back-btn"
+     th:href="@{/practice/attempts/{id}/result(id=${resultDetail.identity().attemptId()})}">
+    <span aria-hidden="true">&larr;</span> Quay lại kết quả
+  </a>
+  <strong>Chi tiết kết quả <span th:text="${resultDetail.identity().skillLabel()}">Đọc</span></strong>
+  <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
+</header>
+
+<main class="prd-boundary-shell prd-objective-shell"
+      data-result-detail-kind="OBJECTIVE_DETAIL"
+      th:attr="data-contract-version=${resultDetail.schemaVersion()}">
+  <section class="prd-boundary-hero" aria-labelledby="objective-detail-title">
+    <p class="prd-boundary-eyebrow" th:text="${resultDetail.state().label()}">Đã chấm</p>
+    <h1 id="objective-detail-title" th:text="${resultDetail.identity().sectionTitle()}">Phần Đọc</h1>
+    <p th:text="${resultDetail.payload().feedback().label()}">Giải thích đáp án đã sẵn sàng</p>
+  </section>
+
+  <section class="prd-boundary-card" aria-labelledby="objective-breakdown-title">
+    <h2 id="objective-breakdown-title">Tổng quan theo dạng câu hỏi</h2>
+    <div class="prd-boundary-grid">
+      <article class="prd-boundary-item"
+               th:each="row : ${resultDetail.payload().summary().breakdown()}">
+        <h3 th:text="${row.label()}">Trắc nghiệm một đáp án</h3>
+        <p th:text="${row.answers().scoredLabel()}">1/1 câu đã chấm</p>
+        <strong th:if="${row.pointsDisplay() != null}" th:text="${row.pointsDisplay()}">1/1</strong>
+      </article>
+    </div>
+  </section>
+
+  <nav class="prd-boundary-card prd-objective-nav"
+       aria-label="Điều hướng nguồn và câu hỏi">
+    <div>
+      <h2>Nguồn đề</h2>
+      <ul class="prd-objective-nav-list">
+        <li th:each="source : ${resultDetail.payload().sourceGroups()}">
+          <a th:href="${'#' + source.sourceId()}" th:text="${source.label()}">Đoạn đọc 1</a>
+        </li>
+      </ul>
+    </div>
+    <div>
+      <h2>Câu hỏi</h2>
+      <ol class="prd-objective-nav-list">
+        <li th:each="question : ${resultDetail.payload().questions()}">
+          <a th:href="${'#' + question.core().anchorId()}"
+             th:text="${'Câu ' + question.core().questionNo()}">Câu 1</a>
+        </li>
+      </ol>
+    </div>
+  </nav>
+
+  <div class="prd-objective-layout">
+    <aside class="prd-boundary-card prd-objective-sources" aria-labelledby="objective-source-title">
+      <h2 id="objective-source-title">Nguồn và bằng chứng gốc</h2>
+      <article class="prd-objective-source"
+               th:each="source : ${resultDetail.payload().sourceGroups()}"
+               th:id="${source.sourceId()}"
+               tabindex="-1">
+        <header>
+          <h3 th:text="${source.label()}">Đoạn đọc 1</h3>
+          <p class="prd-objective-provenance">
+            <span th:text="${source.provenanceLabelVi()}">Nguồn đề đã xuất bản và khóa</span>
+            <span aria-hidden="true"> · </span>
+            <span lang="ko" th:text="${source.provenanceLabelKo()}">게시 후 잠긴 출제 자료</span>
+          </p>
+        </header>
+        <p class="prd-objective-instruction"
+           th:if="${!source.instruction().isBlank()}"
+           th:text="${source.instruction()}">Đọc đoạn văn và trả lời.</p>
+        <div class="prd-objective-source-text"
+             th:if="${source.hasPassage()}"
+             lang="ko"
+             th:text="${source.passageText()}">본문</div>
+        <figure th:if="${source.hasImage()}">
+          <img th:src="${source.imageUrl()}" alt="Hình ảnh thuộc nguồn đề đã khóa">
+          <figcaption>Hình ảnh từ phiên bản đề bất biến</figcaption>
+        </figure>
+        <audio th:if="${source.hasAudio()}"
+               controls
+               preload="metadata"
+               th:src="${source.audioUrl()}">
+          Trình duyệt không hỗ trợ phát âm thanh.
+        </audio>
+        <details th:if="${source.hasApprovedTranscript()}">
+          <summary>Bản chép lời đã được phê duyệt</summary>
+          <p class="prd-objective-evidence-scope"
+             th:text="${source.transcriptEvidenceScope()}">LINGUISTIC_CONTENT_ONLY</p>
+          <div class="prd-objective-source-text"
+               lang="ko"
+               th:text="${source.transcriptText()}">대본</div>
+        </details>
+        <p class="prd-objective-unavailable"
+           th:if="${source.sourceKind() == 'LISTENING_AUDIO' and !source.hasApprovedTranscript()}">
+          Không có bản chép lời được phê duyệt để dùng làm bằng chứng văn bản.
+        </p>
+      </article>
+    </aside>
+
+    <section class="prd-objective-review" aria-labelledby="objective-review-title">
+      <h2 id="objective-review-title" class="prd-visually-hidden">Đáp án và lời giải từng câu</h2>
+      <article class="prd-boundary-card prd-objective-question"
+               th:each="question : ${resultDetail.payload().questions()}"
+               th:id="${question.core().anchorId()}"
+               th:attr="data-objective-question-type=${question.questionType().name()}"
+               tabindex="-1">
+        <header class="prd-objective-question-header">
+          <div>
+            <p class="prd-boundary-eyebrow"
+               th:text="${'Câu ' + question.core().questionNo()}">Câu 1</p>
+            <h3 th:text="${question.core().prompt()}" lang="ko">질문</h3>
+          </div>
+          <strong th:if="${question.core().pointsDisplay() != null}"
+                  th:text="${question.core().pointsDisplay()}">1/1</strong>
+        </header>
+
+        <table class="prd-objective-provenance-table">
+          <caption>Nguồn gốc dữ liệu hiển thị</caption>
+          <tbody>
+          <tr>
+            <th scope="row">Đáp án người học</th>
+            <td th:text="${question.core().learnerAnswerProvenance()}">Learner answer</td>
+          </tr>
+          <tr>
+            <th scope="row">Đáp án chính thức</th>
+            <td th:text="${question.core().officialKeyProvenance()}">Official key</td>
+          </tr>
+          <tr>
+            <th scope="row">Giải thích của giáo viên</th>
+            <td th:text="${question.core().teacherExplanationProvenance()}">Teacher</td>
+          </tr>
+          <tr>
+            <th scope="row">Lời giải AI</th>
+            <td th:text="${question.explanation().aiArtifactProvenance()}">AI artifact</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <section th:if="${question.questionType().name() == 'SINGLE_CHOICE'}"
+                 aria-label="Kết quả trắc nghiệm một đáp án">
+          <table class="prd-objective-answer-table">
+            <caption>Phương án, trạng thái người học và lý do loại chọn</caption>
+            <thead>
+            <tr>
+              <th scope="col">Phương án</th>
+              <th scope="col">Trạng thái</th>
+              <th scope="col">Giải thích</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="option : ${question.options()}"
+                th:classappend="${option.correct()} ? 'is-correct' : (${option.learnerSelected()} ? 'is-incorrect' : '')">
+              <th scope="row">
+                <span th:text="${option.visibleLabel()}">A</span>
+                <span lang="ko" th:text="${option.text()}">선택지</span>
+                <img th:if="${!option.imageReference().isBlank()}"
+                     th:src="${option.imageReference()}"
+                     th:alt="${'Hình ảnh của phương án ' + option.visibleLabel()}">
+              </th>
+              <td>
+                <span th:if="${option.learnerSelected()}">Người học đã chọn</span>
+                <span th:if="${option.correct()}">Đáp án đúng</span>
+                <span th:if="${!option.learnerSelected() and !option.correct()}">Không chọn</span>
+              </td>
+              <td th:text="${option.rationaleVi()}">Lý do</td>
+            </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section th:if="${question.questionType().name() == 'FILL_BLANK'}"
+                 aria-label="Kết quả điền từ">
+          <table class="prd-objective-answer-table">
+            <caption>Giá trị từng ô trống và đáp án được chấp nhận</caption>
+            <thead>
+            <tr>
+              <th scope="col">Ô trống / ngữ cảnh</th>
+              <th scope="col">Câu trả lời</th>
+              <th scope="col">Giá trị chấp nhận</th>
+              <th scope="col">Ràng buộc</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="blank : ${question.blanks()}"
+                th:classappend="${blank.correct()} ? 'is-correct' : 'is-incorrect'">
+              <th scope="row">
+                <strong th:text="${blank.blankId()}">blank_1</strong>
+                <span lang="ko" th:text="${blank.contextKo()}">문맥</span>
+              </th>
+              <td th:text="${blank.learnerValue().isBlank() ? 'Chưa trả lời' : blank.learnerValue()}">
+                도시
+              </td>
+              <td>
+                <ul>
+                  <li th:each="accepted : ${blank.acceptedValues()}"
+                      lang="ko"
+                      th:text="${accepted}">도시</li>
+                </ul>
+                <small th:text="${blank.normalizationPolicy()}">Quy tắc chuẩn hóa</small>
+              </td>
+              <td>
+                <p th:if="${!blank.contextExplanationVi().isBlank()}"
+                   th:text="${blank.contextExplanationVi()}">Ngữ cảnh</p>
+                <p th:if="${!blank.semanticConstraintVi().isBlank()}"
+                   th:text="${blank.semanticConstraintVi()}">Ngữ nghĩa</p>
+                <p th:if="${!blank.grammarConstraintVi().isBlank()}"
+                   th:text="${blank.grammarConstraintVi()}">Ngữ pháp</p>
+                <p th:if="${!blank.registerConstraintVi().isBlank()}"
+                   th:text="${blank.registerConstraintVi()}">Sắc thái</p>
+                <p class="prd-objective-unavailable"
+                   th:if="${blank.contextExplanationVi().isBlank()
+                         and blank.semanticConstraintVi().isBlank()
+                         and blank.grammarConstraintVi().isBlank()
+                         and blank.registerConstraintVi().isBlank()}">
+                  Chưa có phân tích ràng buộc được kiểm chứng.
+                </p>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section th:if="${question.questionType().name() == 'TRUE_FALSE_NOT_GIVEN'}"
+                 class="prd-objective-tfng"
+                 aria-label="Kết quả đúng sai không có thông tin">
+          <dl>
+            <div>
+              <dt>Mệnh đề</dt>
+              <dd lang="ko" th:text="${question.claimKo()}">주장</dd>
+            </div>
+            <div>
+              <dt>Người học chọn</dt>
+              <dd>
+                <span th:text="${question.learnerValueLabelVi()}">Đúng</span>
+                <span aria-hidden="true"> · </span>
+                <span lang="ko" th:text="${question.learnerValueLabelKo()}">맞음</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Đáp án chính thức</dt>
+              <dd>
+                <span th:text="${question.officialValueLabelVi()}">Sai</span>
+                <span aria-hidden="true"> · </span>
+                <span lang="ko" th:text="${question.officialValueLabelKo()}">틀림</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Quan hệ với nguồn</dt>
+              <dd>
+                <span th:text="${question.relationLabelVi()}">Trái với nguồn</span>
+                <span aria-hidden="true"> · </span>
+                <span lang="ko" th:text="${question.relationLabelKo()}">근거와 모순됨</span>
+              </dd>
+            </div>
+          </dl>
+          <p th:if="${!question.relationExplanationVi().isBlank()}"
+             th:text="${question.relationExplanationVi()}">Giải thích quan hệ</p>
+          <p th:if="${!question.missingInformationVi().isBlank()}">
+            <strong>Thông tin còn thiếu:</strong>
+            <span th:text="${question.missingInformationVi()}">Chi tiết chưa được nêu.</span>
+          </p>
+          <div class="prd-objective-alternatives">
+            <article th:each="alternative : ${question.alternatives()}">
+              <h4>
+                <span th:text="${'Vì sao không phải ' + alternative.labelVi()}">Vì sao không phải Đúng</span>
+                <span aria-hidden="true"> · </span>
+                <span lang="ko"
+                      th:text="${alternative.labelKo() + '이 아닌 이유'}">맞음이 아닌 이유</span>
+              </h4>
+              <p th:text="${alternative.reasonVi()}">Lý do</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="prd-objective-explanation" aria-label="Lời giải và bằng chứng">
+          <h4>Giải thích</h4>
+          <p class="prd-objective-unavailable"
+             th:if="${!question.explanation().ready()}"
+             th:text="${question.explanation().stateLabel()}">Chưa có lời giải</p>
+          <div th:if="${question.explanation().ready()}">
+            <p th:if="${!question.explanation().aiMeaningVi().isBlank()}"
+               th:text="${question.explanation().aiMeaningVi()}">Diễn giải</p>
+            <p th:if="${!question.explanation().correctReasonVi().isBlank()}">
+              <strong>Lý do đáp án đúng:</strong>
+              <span th:text="${question.explanation().correctReasonVi()}">Lý do</span>
+            </p>
+            <h5>Bằng chứng đã kiểm chứng</h5>
+            <ul class="prd-objective-evidence-list">
+              <li th:each="evidence : ${question.explanation().evidenceRefs()}">
+                <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
+                            lang="ko"
+                            th:text="${evidence.exactQuoteKo()}">근거</blockquote>
+                <dl th:if="${evidence.kind().name() == 'IMAGE_REGION'}">
+                  <div>
+                    <dt>Digest tài sản</dt>
+                    <dd th:text="${evidence.assetDigest()}">sha256</dd>
+                  </div>
+                  <div>
+                    <dt>Vị trí</dt>
+                    <dd th:text="${'Ảnh ' + evidence.imageIndex()
+                                   + ', ' + evidence.regionMode()}">Ảnh 0, WHOLE_IMAGE</dd>
+                  </div>
+                </dl>
+                <small th:text="${evidence.purpose()}">Mục đích bằng chứng</small>
+                <small th:text="${' · Mã ' + evidence.evidenceId()}"> · Mã e1</small>
+              </li>
+            </ul>
+            <details th:each="translation : ${question.explanation().evidenceTranslations()}">
+              <summary th:text="${translation.label()}">
+                Dịch đoạn liên quan
+              </summary>
+              <p th:text="${translation.translationVi()}">
+                Bản dịch đoạn liên quan
+              </p>
+              <small th:text="${'Gắn với bằng chứng ' + translation.evidenceId()}">
+                Gắn với bằng chứng e1
+              </small>
+            </details>
+          </div>
+        </section>
+
+        <details class="prd-objective-teacher"
+                 th:if="${!question.core().teacherExplanation().isBlank()}">
+          <summary>Giải thích của giáo viên</summary>
+          <p th:text="${question.core().teacherExplanation()}">Giải thích đã khóa</p>
+        </details>
+      </article>
+    </section>
+  </div>
+
+  <aside class="prd-boundary-card prd-objective-registry-state" aria-labelledby="construct-state-title">
+    <h2 id="construct-state-title">Mô tả năng lực theo nhiệm vụ</h2>
+    <p th:text="${resultDetail.payload().constructRegistryNote()}">
+      Chưa hiển thị construct chip khi chưa có registry đã duyệt.
+    </p>
+    <p class="prd-objective-unavailable">Chưa khả dụng cho phiên bản này.</p>
+  </aside>
+</main>
+</body>
+</html>

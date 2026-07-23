@@ -1,6 +1,6 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-22
+Last updated: 2026-07-24
 
 ## 1. Authority and scope lock
 
@@ -26,6 +26,14 @@ The active product scope is fixed:
 - lecturer-to-lecturer collaboration, immutable history, private materials and
   Reading/Listening deterministic scoring plus AI explanation remain intact.
 
+Migration-chain reconciliation on `2026-07-24` returned
+`REBASELINE_GO_WITH_GUARDS`. This is plan-only during active Phase 13E: no SQL,
+database, Flyway or fixture action is authorized here. The earliest execution
+window is after consolidated Phase 13E validation and before 14A, after the
+final pre-14 relational contracts are frozen. It stops if any retained,
+deployed, shared, canonical or upgrade-supported database must preserve the
+current Practice chain.
+
 PREP research and the supplied screenshots are capability evidence only. They
 may inform hierarchy, preflight, player, result, progress and state design, but
 KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
@@ -39,11 +47,19 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13B detail/preflight/version lock | `COMPLETE_FOCUSED_GATE_GREEN` | Set/test detail, immutable attempt routing, canonical Speaking delivery, full-screen microphone preflight and immutable Listening speaker preflight passed the consolidated 13C2 focused validation. Browser/device QA remains in 13H |
 | 13C skill-native players | `13C2_FULL_SUITE_GREEN_COMMITTED_PUSHED_PHASE_13_OPEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and visual fill-blank authoring are implemented. The correction passed the complete 1321-test suite and was committed/pushed as `c3ba3a9`; Phase 13 is not closed and final browser/device plus post-13D-13G closure validation remains in 13H |
 | 13D result overview and immutable explanation lifecycle | `FULL_SUITE_GREEN_COMMITTED_PUSHED` | JDK 17 compile passed, the consolidated targeted gate passed 311/311 and the requested full suite passed 1642/1642. Implementation is committed as `bcc1467`; migration renumbering is `a089fd1`; main integration on the feature branch is `da350b5`. Browser/device QA remains in 13H |
-| 13D bounded result-overview UX/evidence correction | `FOCUSED_NON_DB_GATE_GREEN_WITH_2_ENVIRONMENT_BLOCKED_INTEGRATION_CASES` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. Two authenticated Result Detail route cases are not counted as passed because the isolated `ksh_phase13e_result_ui` schema lacks `tests.media_type` and failed Hibernate validation before assertions; no database workaround was performed. Phase 13E remains unopened. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 |
-| 13E result evidence | `PREPARATION_COMPLETE_WAITING_EXPLICIT_GO` | The capability Use Case/class/sequence diagram pack, stable four-skill Result/Detail fixtures, eight authenticated review URLs, Listening preflight correction and Jira hierarchy `SCRUM-438..SCRUM-480` are complete. 13E must render learner answer, official key, teacher explanation and the immutable AI artifact separately without creating a second explanation pipeline |
+| 13D bounded result-overview UX/evidence correction | `COMPLETE_WITH_FOCUSED_AND_AUTHENTICATED_ROUTE_GATE_GREEN` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. The two previously blocked authenticated Result Detail cases subsequently passed `2/2` on a fresh disposable schema migrated V1-V44; the disposable schema was removed and the stale fixture schema was not repaired. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 and the workflow ledger dated 2026-07-22 |
+| 13E result evidence | `READY_FOR_PHASE_VALIDATION` | `13E-00` reconciled the gate; `13E-01..05` implemented the typed three-screen boundary, type-native Objective R/L, four-tab Writing/Speaking Detail and final localization/compatibility reconciliation. Every slice is `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`; the complete diff and current-source documents are reconciled. Run only the one consolidated JDK 17 gate recorded in the 13E live log Section 12. Pre-14 correctness and post-14 academic/audio/destructive closure remain unopened |
 | 13F progress/recovery | `NOT_STARTED` | Real aggregates and operational UX only; no decorative percentages and no replacement explanation pipeline |
 | 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
 | 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, focused/full tests and browser journeys before closure |
+
+The later `13E-03` Writing slice is limited to the typed UI/contract seam:
+preserve three stable scoring criteria, render task-bounded diagnostics as
+non-additive evidence and state that coverage is not exhaustive. It does not
+complete the expanded Korean registry or academic proof.
+`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` later owns the Writing/Speaking
+registry plus provider schema/prompt/normalizer/rule/cache identity; final SME
+and calibration remain post-14.
 
 After each completed slice, this ledger and the detailed evidence section must
 be updated before starting the next slice.
@@ -89,7 +105,13 @@ Chrome journey proved that the confirmation unlocked while audio was still
 playing, then opened attempt `13006` with a `30:00` Listening timer. Step 9 Jira
 reconciliation created the independent Practice hierarchy `SCRUM-438..SCRUM-480`:
 43/43 items, 17 in Scrum 3, 26 in Scrum 4, 28 Done and 15 future items To Do.
-The prerequisite gate is complete and Phase 13E waits for an explicit GO.
+The prerequisite gate is complete. On `2026-07-22`, the user gave explicit
+Phase 13E GO; the previously blocked authenticated Writing/Speaking Result
+Detail routes then passed `2/2` on a disposable fresh V44 schema. Phase 13E is
+now `IMPLEMENTATION_IN_PROGRESS_13E_03`: `13E-01` and Objective R/L `13E-02`
+are `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC` with no consolidated
+validation/test/build/Git evidence; Writing Detail `13E-03` is the only active
+implementation conversation.
 
 The source XML currently available at
 `SEP490_G103_KoreanHub.drawio.xml` is truncated after 1,025 bytes even though it
@@ -650,12 +672,12 @@ Audit findings were rechecked against the current source and locked contracts:
 | --- | --- | --- |
 | Speaking pronunciation/fluency is evaluated without evaluator access to learner audio | **CONFIRMED, LIVE ROLLOUT BLOCKER** | Current flow is audio -> transcription -> evaluator. The evaluator receives transcript, media metadata and optional question image, but no audio bytes/URL. Pronunciation, intonation, hesitation and pacing are therefore not audio-grounded. Keep live Speaking AI `NO-GO`; before provider rollout/Phase 15 either add authorized provider-specific audio input and calibrate it with real recordings, or mark/exclude audio-only criteria instead of presenting them as measured scores. |
 | `textFallbackAnswer` is swallowed | **OUTDATED / NOT REPRODUCED** | `SpeakingEvaluationApplicationService.evaluateTextFallback` builds a fallback transcription and passes both it and the fallback answer into the orchestrator. The remaining rule is that a text fallback cannot produce audio-grounded pronunciation/fluency claims. |
-| Speaking transcription query filters legacy ungrouped questions | **CONFIRMED COMPATIBILITY DEBT** | The current implicit join still requires `q.groupId`. New canonical content is grouped, but the reduced-scope contract preserves bounded legacy ungrouped compatibility. Correct before enabling live Speaking AI or, at latest, before Phase 15 UAT. |
-| Writing catch blocks contain unreachable mock fallback | **CONFIRMED DEAD CODE; PROPOSED MOCK BEHAVIOR REJECTED** | The always-true branch makes the later mock call unreachable. Current tests intentionally require `EVALUATION_UNAVAILABLE` and no mock score when a provider/key fails; silently grading with fake scores would violate the fail-closed AI contract. Remove the dead branch in the 13H dead-code pass while preserving provider-unavailable semantics. |
-| Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | Add bounded, configurable timeouts and timeout tests before AI release/Phase 15 UAT. Do not treat mock scoring as the timeout fallback. |
-| Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | Batch collaborators and users with `IN` queries before Phase 15 performance UAT; retain current authorization filtering. |
-| Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external deletion/work remains possible. Add atomic claim/lease or skip-locked behavior before multi-node/R2 rollout and Phase 15 operational UAT. |
-| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | Add an atomic session status transition/idempotency key for generation. Design crop offloading with transaction/context/error semantics; a bare `@Async` annotation is not an adequate fix. Complete before provider/load UAT. |
+| Speaking transcription query filters legacy ungrouped questions | **CONFIRMED COMPATIBILITY DEBT** | The current implicit join still requires `q.groupId`. New canonical content is grouped. `P15-COMP-21` moves pre-14 only if caller/retained-data evidence proves this path affects a reportable target; otherwise resolve it in post-14 release cleanup before live provider UAT. |
+| Writing catch blocks contain unreachable mock fallback | **CONFIRMED DEAD CODE; PROPOSED MOCK BEHAVIOR REJECTED** | The always-true branch makes the later mock call unreachable. Current tests intentionally require `EVALUATION_UNAVAILABLE` and no mock score when a provider/key fails. Remove it in 13H; pre-14 COMP-20 verifies accepted evidence or removes any remaining dead dependency without duplicating correct 13H work. |
+| Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | PRE-10 is 13H implementation that must complete/validate before Phase 14; pre-14 only verifies evidence. Provider/load UAT remains post-14. Do not use mock scoring as timeout fallback. |
+| Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | PRE-11 batches collaborators/users in 13H and is validated before Phase 14; pre-14 does not reimplement it. Performance UAT remains post-14. |
+| Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external work remains possible. PRE-12 adds atomic claim/lease or skip-locked behavior in 13H and is validated before Phase 14; multi-node/R2 UAT stays post-14. |
+| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | PRE-13 adds atomic transition/idempotency and bounded crop semantics in 13F/13H before Phase 14. The pre-14 gate verifies that evidence; provider/load UAT stays post-14. |
 | Lecturer receives 403 on learner Speaking playback | **CONFIRMED FUTURE REVIEW DEBT** | Current endpoint is student-only and owner-scoped. Lecturer access must use an explicit reviewer authorization path, not `hasRole('LECTURER')` alone. Complete before manual-grading/reviewer UAT. |
 | Collaborator publish is an authorization bypass | **REJECTED AGAINST LOCKED PRODUCT CONTRACT** | The reduced-scope policy explicitly permits an active lecturer collaborator to edit/publish/restore/material while owner lock is off. Changing this requires a product-policy decision, not a security hotfix. |
 | MCQ breaks above four options | **OUTDATED STATIC FINDING** | Current player iterates dynamic `optionRows()` and has no fixed four-option cap. Responsive browser evidence is still required in 13H. |
@@ -742,14 +764,16 @@ confirmed that ownership remains protected by login; it is not result-page QA.
 
 ### 6.9 Exact Phase 13D approval scope
 
-Status: `IMPLEMENTED_PENDING_PHASE_VALIDATION`.
+Status: `COMPLETE_FOCUSED_AND_AUTHENTICATED_ROUTE_GATE_GREEN`; committed/pushed
+at `98153ac`.
 
-The user gave an explicit implementation GO. The approved implementation is in
-final static review and has not yet entered its one consolidated validation.
-This section remains the acceptance lock and supersedes the earlier allocation
-that deferred all explanation generation and retry work to 13E/13F. Phase 13D
-owns the minimum complete explanation lifecycle needed to make result GETs
-genuinely read-only.
+The user gave an explicit implementation GO. The approved implementation passed
+its consolidated focused gate; the two environment-blocked authenticated routes
+were subsequently closed `2/2` against a disposable fresh V44 schema. This
+section remains the historical acceptance lock and supersedes the earlier
+allocation that deferred all explanation generation and retry work to 13E/13F.
+Phase 13D owns the minimum complete explanation lifecycle needed to make result
+GETs genuinely read-only.
 
 #### 6.9.1 Product and data invariants
 
@@ -998,17 +1022,29 @@ The final runtime model is one path:
   processing/retry/final-failure state, attempt count, next-attempt time and
   bounded error metadata.
 
-The current `question_explanation_cache` data must be migrated into this model,
-not left as a second active cache. Existing rows with a non-null
-`question_version_id` are backfilled to immutable bindings. Legacy rows that
-cannot be tied to a question version are not guessed or served by result GETs.
-The migration must preserve old bound artifacts; it must not delete historical
-result evidence merely to simplify the new schema.
+Historical 13D design required `question_explanation_cache` data to be migrated
+without guessing identity. The migration audit now proves that current
+`V37__question_explanation_artifact_lifecycle.sql` did not meet that contract:
+it ignored the `question_version_id` added by V34, treated incompatible
+question IDs/fingerprints/language as equivalent and then dropped the legacy
+table. V37 must not be treated as a safe representative-upgrade path.
+
+Under the guarded rebaseline, the final schema contains the R/L artifact/task
+model directly and performs no legacy cache backfill. If any retained/deployed
+database obligation exists, the rebaseline stops and a separately reviewed
+forward migration must preserve/reconstruct binding identity without guessing.
+In neither branch may an old result be rebound to a newer live question.
 
 Database uniqueness must enforce one artifact per fingerprint/provider contract,
-one authoritative binding per question-version/language contract and one active
-generation task per missing artifact. JVM-local synchronization is not accepted
-as the primary duplicate-call guard.
+one active compatible binding per question-version/language contract and one
+active generation task per missing artifact. Binding history is append-only:
+superseded rows remain auditable for old attempts and correction history.
+JVM-local synchronization is not accepted as the primary duplicate-call guard.
+
+These `question_explanation_*` tables are Reading/Listening-only. Writing cache
+storage remains `practice_writing_evaluation_cache` and pre-14 must extend its
+identity through the complete versioned `AssessmentPolicyBundle`; the two
+lifecycles must not be described as one shared cache.
 
 #### 6.9.5 Publish and republish flow
 
@@ -1272,6 +1308,20 @@ canonical seed and Manual UAT. The cleanup must happen before seed loading, but
 only after environment/deployment obligations and the Phase 13E detail
 replacement boundary are verified.
 
+> **Current-source supersession:** the paragraph above records the historical
+> Step 6 boundary; it no longer routes every compatibility/correctness item into
+> one post-Phase-14 batch. The current workflow and blueprint split it into
+> `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` after validated 13E-13H and before
+> 14A, then `PRE_PHASE_15_RELEASE_CLOSURE_GATE` after 14F. Only target-stability
+> contracts, binding supersession, Writing cache identity, configuration safety
+> and the guarded Practice rebaseline/fresh Flyway-Hibernate validation move to
+> the first gate. Rebaseline uses a newly named disposable DB, never repair or
+> reuse, and stops on any retained/deployed/canonical obligation. Minimal
+> technical smoke fixtures precede 14A. Final SME/calibration, direct-audio
+> rollout, retained-data cleanup, canonical Vietnamese/Korean UAT seed and
+> Manual UAT remain after 14F. This note is roadmap reconciliation only and does
+> not authorize either gate while Phase 13E is running.
+
 Completing this inventory does not close or validate Phase 13D. It only allows
 the final complete-diff review and the Section 6.9.11
 `READY_FOR_PHASE_VALIDATION` report to begin.
@@ -1291,7 +1341,13 @@ Start by reading these files in order:
 5. The attached audit notes only as supporting evidence. Do not expand scope to
    broad permissions or program/certificate governance.
 
-Continue with this sequence:
+Historical 13D handoff sequence (completed and superseded as the current
+instruction): preserve it as evidence, but do not use it to redirect the active
+phase. The current action is the single consolidated Phase 13E validation:
+`13E-01..05` are `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC` and
+the exact gate is recorded in the 13E live log Section 12.
+
+The completed 13D sequence was:
 
 1. Preserve both the `247/247` focused evidence for `eaf55f8` and the
    `1321/1321` correction-suite evidence committed/pushed in `c3ba3a9`. Do not
@@ -1310,7 +1366,8 @@ Continue with this sequence:
    before running any final check. The user explicitly requested a full suite
    in that final validation.
 6. Do not reopen broad governance/permission scope or mix 13E-13H/Phase 15 debt
-   into 13D. Later slices must consume the 13D artifact lifecycle, not replace it.
+   into the historical 13D implementation. Later slices consume the 13D
+   artifact lifecycle rather than replacing it.
 7. Keep browser/device, responsive, accessibility, real provider and complete
    learner-journey validation in 13H. Run the final post-13D-13G regression
    suite there. Do not describe Phase 13 itself as closed before that gate.
