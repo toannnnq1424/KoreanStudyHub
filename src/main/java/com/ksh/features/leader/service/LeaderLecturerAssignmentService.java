@@ -1,14 +1,14 @@
-package com.ksh.features.head.service;
+package com.ksh.features.leader.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.head.dto.HeadDtos.AssignClassRow;
-import com.ksh.features.head.dto.HeadDtos.AssignView;
-import com.ksh.features.head.dto.HeadDtos.DepartmentSummary;
-import com.ksh.features.head.dto.HeadDtos.LecturerOption;
+import com.ksh.features.leader.dto.LeaderDtos.AssignClassRow;
+import com.ksh.features.leader.dto.LeaderDtos.AssignView;
+import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
+import com.ksh.features.leader.dto.LeaderDtos.LecturerOption;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,18 +23,18 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Lists department classes and reassigns lecturers within the HEAD's department.
+ * Lists department classes and reassigns lecturers within the LEADER's department.
  */
 @Service
-public class HeadLecturerAssignmentService {
+public class LeaderLecturerAssignmentService {
 
-    private static final Set<Role> ELIGIBLE = Set.of(Role.LECTURER, Role.HEAD);
+    private static final Set<Role> ELIGIBLE = Set.of(Role.LECTURER, Role.LEADER);
 
-    private final HeadDepartmentResolver resolver;
+    private final LeaderDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
 
-    public HeadLecturerAssignmentService(HeadDepartmentResolver resolver,
+    public LeaderLecturerAssignmentService(LeaderDepartmentResolver resolver,
                                          ClassRepository classRepository,
                                          UserRepository userRepository) {
         this.resolver = resolver;
@@ -43,8 +43,8 @@ public class HeadLecturerAssignmentService {
     }
 
     @Transactional(readOnly = true)
-    public AssignView load(Long headUserId) {
-        Optional<Department> deptOpt = resolver.resolve(headUserId);
+    public AssignView load(Long leaderUserId) {
+        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
         if (deptOpt.isEmpty()) {
             return new AssignView(null, List.of(), List.of(), true);
         }
@@ -66,15 +66,15 @@ public class HeadLecturerAssignmentService {
     }
 
     /**
-     * Reassigns a class lecturer. Class must belong to the HEAD's department;
-     * new lecturer must be active LECTURER/HEAD in the same department.
+     * Reassigns a class lecturer. Class must belong to the LEADER's department;
+     * new lecturer must be active LECTURER/LEADER in the same department.
      * Does not change {@code department_id}.
      *
      * @return class display name for success toast
      */
     @Transactional
-    public String reassign(Long headUserId, Long classId, Long newLecturerId) {
-        Department dept = resolver.resolve(headUserId)
+    public String reassign(Long leaderUserId, Long classId, Long newLecturerId) {
+        Department dept = resolver.resolve(leaderUserId)
                 .orElseThrow(() -> new AccessDeniedException("Không có bộ môn"));
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lớp"));

@@ -1,12 +1,12 @@
-package com.ksh.features.head.service;
+package com.ksh.features.leader.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.head.dto.HeadDtos.DashboardKpis;
-import com.ksh.features.head.dto.HeadDtos.DashboardView;
-import com.ksh.features.head.dto.HeadDtos.DepartmentSummary;
-import com.ksh.features.head.dto.HeadDtos.RecentClassRow;
+import com.ksh.features.leader.dto.LeaderDtos.DashboardKpis;
+import com.ksh.features.leader.dto.LeaderDtos.DashboardView;
+import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
+import com.ksh.features.leader.dto.LeaderDtos.RecentClassRow;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,18 +20,18 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Aggregates department-scoped KPIs and recent classes for the HEAD dashboard.
+ * Aggregates department-scoped KPIs and recent classes for the LEADER dashboard.
  */
 @Service
-public class HeadDashboardService {
+public class LeaderDashboardService {
 
     private static final int RECENT_LIMIT = 5;
 
-    private final HeadDepartmentResolver resolver;
+    private final LeaderDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final JdbcTemplate jdbc;
 
-    public HeadDashboardService(HeadDepartmentResolver resolver,
+    public LeaderDashboardService(LeaderDepartmentResolver resolver,
                                 ClassRepository classRepository,
                                 JdbcTemplate jdbc) {
         this.resolver = resolver;
@@ -40,8 +40,8 @@ public class HeadDashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardView load(Long headUserId) {
-        Optional<Department> deptOpt = resolver.resolve(headUserId);
+    public DashboardView load(Long leaderUserId) {
+        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
         if (deptOpt.isEmpty()) {
             return new DashboardView(null, new DashboardKpis(0, 0, 0, 0), List.of(), true);
         }
@@ -51,7 +51,7 @@ public class HeadDashboardService {
         long classCount = classRepository.countByDepartmentId(deptId);
         long lecturerCount = countOrZero(
                 "SELECT COUNT(*) FROM users WHERE is_deleted = 0 AND is_active = 1 "
-                        + "AND department_id = ? AND role IN ('LECTURER','HEAD')",
+                        + "AND department_id = ? AND role IN ('LECTURER','LEADER')",
                 deptId);
         long studentCount = countOrZero(
                 "SELECT COUNT(DISTINCT e.user_id) FROM enrollments e "

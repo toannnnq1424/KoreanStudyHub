@@ -1,11 +1,11 @@
-package com.ksh.features.head.service;
+package com.ksh.features.leader.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.head.dto.HeadDtos.DepartmentSummary;
-import com.ksh.features.head.dto.HeadDtos.ReportClassRow;
-import com.ksh.features.head.dto.HeadDtos.ReportView;
+import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
+import com.ksh.features.leader.dto.LeaderDtos.ReportClassRow;
+import com.ksh.features.leader.dto.LeaderDtos.ReportView;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,16 +16,16 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Builds the department class comparison report for HEAD.
+ * Builds the department class comparison report for LEADER.
  */
 @Service
-public class HeadReportService {
+public class LeaderReportService {
 
-    private final HeadDepartmentResolver resolver;
+    private final LeaderDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final JdbcTemplate jdbc;
 
-    public HeadReportService(HeadDepartmentResolver resolver,
+    public LeaderReportService(LeaderDepartmentResolver resolver,
                              ClassRepository classRepository,
                              JdbcTemplate jdbc) {
         this.resolver = resolver;
@@ -34,8 +34,8 @@ public class HeadReportService {
     }
 
     @Transactional(readOnly = true)
-    public ReportView load(Long headUserId) {
-        Optional<Department> deptOpt = resolver.resolve(headUserId);
+    public ReportView load(Long leaderUserId) {
+        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
         if (deptOpt.isEmpty()) {
             return new ReportView(null, List.of(), true);
         }

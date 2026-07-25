@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
-  Fragment: headSidebar(activeTab)
-    activeTab : 'dashboard' | 'assign' | 'report'
+  Fragment: leaderSidebar(activeTab)
+    activeTab : 'dashboard' | 'assign' | 'report' | 'question-bank'
 -->
-<aside th:fragment="headSidebar(activeTab)" class="col">
+<aside th:fragment="leaderSidebar(activeTab)" class="col">
   <div class="side">
     <div class="class-head">
       <div class="class-name">Trưởng bộ môn</div>
-      <div class="class-ma" th:if="${headDepartment != null}"
-           th:text="${headDepartment.code() + ' — ' + headDepartment.name()}">BM</div>
-      <div class="class-ma" th:if="${headDepartment == null}">Chưa gán bộ môn</div>
+      <div class="class-ma" th:if="${leaderDepartment != null}"
+           th:text="${leaderDepartment.code() + ' — ' + leaderDepartment.name()}">BM</div>
+      <div class="class-ma" th:if="${leaderDepartment == null}">Chưa gán bộ môn</div>
     </div>
 
     <div class="side-sep"></div>
@@ -18,21 +18,27 @@
 
     <ul class="side-nav">
       <li>
-        <a th:href="@{/head}"
+        <a th:href="@{/leader}"
            th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
           Dashboard
         </a>
       </li>
       <li>
-        <a th:href="@{/head/assign}"
+        <a th:href="@{/leader/assign}"
            th:classappend="${activeTab == 'assign'} ? 'active' : ''">
           Phân công GV
         </a>
       </li>
       <li>
-        <a th:href="@{/head/report}"
+        <a th:href="@{/leader/report}"
            th:classappend="${activeTab == 'report'} ? 'active' : ''">
           Báo cáo
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/leader/question-bank}"
+           th:classappend="${activeTab == 'question-bank'} ? 'active' : ''">
+          Ngân hàng câu hỏi
         </a>
       </li>
     </ul>

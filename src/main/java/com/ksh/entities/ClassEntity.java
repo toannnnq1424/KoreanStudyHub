@@ -140,7 +140,7 @@ public class ClassEntity {
 
     /**
      * Reassigns the teaching lecturer without changing department ownership.
-     * Used by HEAD lecturer-assignment flows.
+     * Used by LEADER lecturer-assignment flows.
      */
     public void reassignLecturer(Long lecturerId) {
         this.lecturerId = lecturerId;

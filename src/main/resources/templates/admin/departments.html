@@ -17,7 +17,7 @@
   <main class="col">
     <h1 class="detail-title">Bộ môn</h1>
     <p class="detail-sub">Quản lý bộ môn, trạng thái hoạt động và gán trưởng bộ môn.
-      Gán trưởng bộ môn sẽ nâng role người dùng lên HEAD.</p>
+      Gán trưởng bộ môn sẽ nâng role người dùng lên LEADER.</p>
 
     <span id="flash-data"
           th:attr="data-flash-success=${flashSuccess},
@@ -97,8 +97,8 @@
                 <div class="user-email" th:text="${row.code()}">CNTT</div>
               </td>
               <td>
-                <span th:if="${row.headLabel() != null}" th:text="${row.headLabel()}">Head</span>
-                <span th:if="${row.headLabel() == null}" class="muted">Chưa gán</span>
+                <span th:if="${row.leaderLabel() != null}" th:text="${row.leaderLabel()}">Leader</span>
+                <span th:if="${row.leaderLabel() == null}" class="muted">Chưa gán</span>
               </td>
               <td>
                 <span class="status-pill"

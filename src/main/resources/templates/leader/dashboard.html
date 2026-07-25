@@ -5,13 +5,13 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/head-department.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/leader-department.css}">
 </head>
 <body>
-<header th:replace="~{fragments/app-header :: appHeader('head')}"></header>
+<header th:replace="~{fragments/app-header :: appHeader('leader')}"></header>
 
 <div class="class-detail-layout">
-  <aside th:replace="~{fragments/head-sidebar :: headSidebar('dashboard')}"></aside>
+  <aside th:replace="~{fragments/leader-sidebar :: leaderSidebar('dashboard')}"></aside>
 
   <main class="col">
     <span id="flash-data"
@@ -20,30 +20,30 @@
           style="display:none;"></span>
 
     <h1 class="detail-title">Dashboard bộ môn</h1>
-    <p class="detail-sub" th:if="${headDepartment != null}"
-       th:text="'Tổng quan ' + ${headDepartment.name()}">Tổng quan</p>
+    <p class="detail-sub" th:if="${leaderDepartment != null}"
+       th:text="'Tổng quan ' + ${leaderDepartment.name()}">Tổng quan</p>
 
     <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
       Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
     </div>
 
     <th:block th:if="${!emptyDepartment}">
-      <section class="head-kpi-grid">
-        <div class="head-kpi-card">
-          <div class="head-kpi-label">Lớp học</div>
-          <div class="head-kpi-value" th:text="${kpis.classCount()}">0</div>
+      <section class="leader-kpi-grid">
+        <div class="leader-kpi-card">
+          <div class="leader-kpi-label">Lớp học</div>
+          <div class="leader-kpi-value" th:text="${kpis.classCount()}">0</div>
         </div>
-        <div class="head-kpi-card">
-          <div class="head-kpi-label">Giảng viên</div>
-          <div class="head-kpi-value" th:text="${kpis.lecturerCount()}">0</div>
+        <div class="leader-kpi-card">
+          <div class="leader-kpi-label">Giảng viên</div>
+          <div class="leader-kpi-value" th:text="${kpis.lecturerCount()}">0</div>
         </div>
-        <div class="head-kpi-card">
-          <div class="head-kpi-label">Sinh viên (ACTIVE)</div>
-          <div class="head-kpi-value" th:text="${kpis.studentCount()}">0</div>
+        <div class="leader-kpi-card">
+          <div class="leader-kpi-label">Sinh viên (ACTIVE)</div>
+          <div class="leader-kpi-value" th:text="${kpis.studentCount()}">0</div>
         </div>
-        <div class="head-kpi-card">
-          <div class="head-kpi-label">Khoá học</div>
-          <div class="head-kpi-value" th:text="${kpis.courseCount()}">0</div>
+        <div class="leader-kpi-card">
+          <div class="leader-kpi-label">Khoá học</div>
+          <div class="leader-kpi-value" th:text="${kpis.courseCount()}">0</div>
         </div>
       </section>
 
@@ -76,6 +76,6 @@
 </div>
 
 <script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/head-department.js}"></script>
+<script th:src="@{/js/leader-department.js}"></script>
 </body>
 </html>

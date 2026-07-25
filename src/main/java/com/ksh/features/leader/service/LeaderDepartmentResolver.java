@@ -1,4 +1,4 @@
-package com.ksh.features.head.service;
+package com.ksh.features.leader.service;
 
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
@@ -10,33 +10,33 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
 /**
- * Resolves the working department for a HEAD user.
+ * Resolves the working department for a LEADER user.
  *
- * <p>Preference order: department where {@code head_user_id} matches the user,
+ * <p>Preference order: department where {@code leader_user_id} matches the user,
  * otherwise the department referenced by {@code users.department_id} when it
  * exists (and preferably is active).
  */
 @Service
-public class HeadDepartmentResolver {
+public class LeaderDepartmentResolver {
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
 
-    public HeadDepartmentResolver(DepartmentRepository departmentRepository,
+    public LeaderDepartmentResolver(DepartmentRepository departmentRepository,
                                   UserRepository userRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
     }
 
     /**
-     * @param userId current authenticated HEAD user id
+     * @param userId current authenticated LEADER user id
      * @return resolved department, or empty when neither rule matches
      */
     @Transactional(readOnly = true)
     public Optional<Department> resolve(Long userId) {
-        Optional<Department> asHead = departmentRepository.findFirstByHeadUserId(userId);
-        if (asHead.isPresent()) {
-            return asHead;
+        Optional<Department> asLeader = departmentRepository.findFirstByLeaderUserId(userId);
+        if (asLeader.isPresent()) {
+            return asLeader;
         }
         return userRepository.findById(userId)
                 .map(User::getDepartmentId)

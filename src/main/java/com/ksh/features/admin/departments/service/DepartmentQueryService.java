@@ -7,7 +7,7 @@ import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentFilter;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentOption;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentRow;
-import com.ksh.features.admin.departments.dto.DepartmentDtos.HeadCandidate;
+import com.ksh.features.admin.departments.dto.DepartmentDtos.LeaderCandidate;
 import com.ksh.features.admin.departments.repository.DepartmentActivityRepository;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
@@ -33,7 +33,7 @@ import java.util.Set;
 @Service
 public class DepartmentQueryService {
 
-    static final Set<Role> HEAD_ELIGIBLE = Set.of(Role.LECTURER, Role.HEAD);
+    static final Set<Role> LEADER_ELIGIBLE = Set.of(Role.LECTURER, Role.LEADER);
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
@@ -60,18 +60,18 @@ public class DepartmentQueryService {
     public List<DepartmentRow> list(DepartmentFilter filter) {
         DepartmentFilter f = filter == null ? DepartmentFilter.empty() : filter;
         List<Department> departments = departmentRepository.findAllByOrderByNameAsc();
-        Map<Long, String> headNames = loadHeadNames(departments);
+        Map<Long, String> leaderNames = loadLeaderNames(departments);
         List<DepartmentRow> rows = new ArrayList<>(departments.size());
         for (Department d : departments) {
             if (!matchesQuery(d, f.q()) || !matchesStatus(d, f.status())) {
                 continue;
             }
-            String headLabel = d.getHeadUserId() == null
+            String leaderLabel = d.getLeaderUserId() == null
                     ? null
-                    : headNames.getOrDefault(d.getHeadUserId(), "—");
+                    : leaderNames.getOrDefault(d.getLeaderUserId(), "—");
             rows.add(new DepartmentRow(
                     d.getId(), d.getCode(), d.getName(), d.getDescription(),
-                    d.isActive(), d.getHeadUserId(), headLabel, d.getCreatedAt()));
+                    d.isActive(), d.getLeaderUserId(), leaderLabel, d.getCreatedAt()));
         }
         rows.sort(comparatorFor(f.sort()));
         return rows;
@@ -99,14 +99,14 @@ public class DepartmentQueryService {
         }
         return new DepartmentForm(
                 d.getName(), d.getCode(), d.getDescription(),
-                d.isActive(), d.getHeadUserId());
+                d.isActive(), d.getLeaderUserId());
     }
 
-    /** Active LECTURER/HEAD users eligible to become department head. */
+    /** Active LECTURER/LEADER users eligible to become department leader. */
     @Transactional(readOnly = true)
-    public List<HeadCandidate> headCandidates() {
-        return userRepository.findByRoleInAndActiveTrueOrderByFullNameAsc(HEAD_ELIGIBLE).stream()
-                .map(u -> new HeadCandidate(
+    public List<LeaderCandidate> leaderCandidates() {
+        return userRepository.findByRoleInAndActiveTrueOrderByFullNameAsc(LEADER_ELIGIBLE).stream()
+                .map(u -> new LeaderCandidate(
                         u.getId(), u.getFullName(), u.getEmail(), u.getRole().name()))
                 .toList();
     }
@@ -117,10 +117,10 @@ public class DepartmentQueryService {
         return activityRepository.findActivitiesForDepartment(departmentId, pageable);
     }
 
-    /** Batch-loads full names for distinct non-null head user ids. */
-    private Map<Long, String> loadHeadNames(List<Department> departments) {
+    /** Batch-loads full names for distinct non-null leader user ids. */
+    private Map<Long, String> loadLeaderNames(List<Department> departments) {
         List<Long> ids = departments.stream()
-                .map(Department::getHeadUserId)
+                .map(Department::getLeaderUserId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();

@@ -19,7 +19,7 @@ import java.util.Set;
  * Aggregates teaching KPIs and per-class rows for the lecturer dashboard.
  *
  * <p>Authorization mirrors {@code ClassesService#listForUser}: LECTURER sees
- * only owned classes; HEAD/ADMIN see all non-deleted classes. KPI cards are
+ * only owned classes; LEADER/ADMIN see all non-deleted classes. KPI cards are
  * computed over the FULL scoped cohort; the table is searched and paginated
  * afterwards (same pattern as {@code LecturerProgressService}).
  */
@@ -38,7 +38,7 @@ public class LecturerDashboardService {
      * Builds the teaching dashboard for the given caller.
      *
      * @param userId current user id
-     * @param role   current user role (LECTURER/HEAD/ADMIN)
+     * @param role   current user role (LECTURER/LEADER/ADMIN)
      * @param q      free-text search over class name / code (may be blank)
      * @param page   zero-based page index
      * @param size   page size (clamped)

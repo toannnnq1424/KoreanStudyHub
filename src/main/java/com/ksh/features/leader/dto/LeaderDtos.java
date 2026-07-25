@@ -1,15 +1,15 @@
-package com.ksh.features.head.dto;
+package com.ksh.features.leader.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTOs for HEAD department product screens.
+ * DTOs for LEADER department product screens.
  */
-public final class HeadDtos {
+public final class LeaderDtos {
 
-    private HeadDtos() {
+    private LeaderDtos() {
     }
 
     public record DepartmentSummary(Long id, String code, String name) {
@@ -74,6 +74,22 @@ public final class HeadDtos {
     public record ReportView(
             DepartmentSummary department,
             List<ReportClassRow> rows,
+            boolean emptyDepartment
+    ) {
+    }
+
+    public record QuestionBankTestRow(
+            Long testId,
+            String title,
+            String className,
+            String type,
+            String status
+    ) {
+    }
+
+    public record QuestionBankTestsView(
+            DepartmentSummary department,
+            List<QuestionBankTestRow> tests,
             boolean emptyDepartment
     ) {
     }
