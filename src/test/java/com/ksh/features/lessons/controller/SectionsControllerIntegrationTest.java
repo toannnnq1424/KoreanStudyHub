@@ -62,13 +62,13 @@ class SectionsControllerIntegrationTest {
     @Autowired private SectionsService sectionsService;
 
     private User lecturer;
-    private User head;
+    private User leader;
     private ClassEntity clazz;
 
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
+        leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         clazz = saveClass("Lessons IT class", lecturer.getId(), "LESIT");
     }
 
@@ -285,16 +285,16 @@ class SectionsControllerIntegrationTest {
     // ── Cross-owner forbidden ──────────────────────────────────────────
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void head_can_create_section_in_lecturer_class() throws Exception {
-        // HEAD has org-wide editing authority, so this should succeed
+    @WithUserDetails("leader@ksh.edu.vn")
+    void leader_can_create_section_in_lecturer_class() throws Exception {
+        // LEADER has org-wide editing authority, so this should succeed
         // (proves the auth wiring uses isEditableBy, not lecturer-only).
         mockMvc.perform(post("/lecturer/classes/" + clazz.getId() + "/lessons/sections")
                         .with(csrf())
-                        .param("title", "Section by HEAD"))
+                        .param("title", "Section by LEADER"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("flashSuccess"));
-        assertThat(head.getRole()).isEqualTo(Role.HEAD);
+        assertThat(leader.getRole()).isEqualTo(Role.LEADER);
     }
 
     @Test

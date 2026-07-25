@@ -51,7 +51,7 @@ class ClassesServiceTest {
 
     private static final Long LECTURER_ID = 42L;
     private static final Long OTHER_LECTURER_ID = 99L;
-    private static final Long HEAD_ID = 7L;
+    private static final Long LEADER_ID = 7L;
     private static final Long ADMIN_ID = 1L;
 
     private ClassRepository classRepository;
@@ -93,14 +93,14 @@ class ClassesServiceTest {
     }
 
     @Test
-    void list_for_head_returns_all() {
+    void list_for_leader_returns_all() {
         Pageable pageable = PageRequest.of(0, 20);
         when(classRepository.findAllBy(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(
                         List.of(buildClass(1L, "A", LECTURER_ID), buildClass(2L, "B", OTHER_LECTURER_ID)),
                         pageable, 2));
 
-        Page<ClassRow> rows = service.listForUser(HEAD_ID, Role.HEAD, pageable);
+        Page<ClassRow> rows = service.listForUser(LEADER_ID, Role.LEADER, pageable);
 
         assertThat(rows.getContent()).hasSize(2);
         verify(classRepository, never()).findAllByLecturerId(any(), any(Pageable.class));
@@ -268,17 +268,17 @@ class ClassesServiceTest {
     }
 
     @Test
-    void update_by_head_succeeds_for_any_class() {
+    void update_by_leader_succeeds_for_any_class() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClassForm form = new ClassForm("Y", "", null, null, 50);
-        service.update(9L, form, HEAD_ID, Role.HEAD);
+        service.update(9L, form, LEADER_ID, Role.LEADER);
 
         assertThat(entity.getName()).isEqualTo("Y");
         verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
-                any(), any(Map.class), eq(HEAD_ID));
+                any(), any(Map.class), eq(LEADER_ID));
     }
 
     @Test

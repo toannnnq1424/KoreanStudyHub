@@ -207,7 +207,7 @@ public class ClassDetailController {
 
     /**
      * Renders the class settings tab, reusing the edit-class form.
-     * Only the class owner (or HEAD/ADMIN) may access this endpoint.
+     * Only the class owner (or LEADER/ADMIN) may access this endpoint.
      *
      * <p>The settings page hosts two sub-tabs that switch via the
      * {@code ?tab=info|invite} query parameter. Unknown values fall back

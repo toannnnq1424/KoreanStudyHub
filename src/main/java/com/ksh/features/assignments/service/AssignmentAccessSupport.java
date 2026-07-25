@@ -49,7 +49,7 @@ public class AssignmentAccessSupport {
                 .filter(c -> !c.isDeleted())
                 .filter(c -> role == Role.LECTURER
                         ? c.getLecturerId().equals(userId)
-                        : true) // HEAD and ADMIN may access any class
+                        : true) // LEADER and ADMIN may access any class
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
     }
 

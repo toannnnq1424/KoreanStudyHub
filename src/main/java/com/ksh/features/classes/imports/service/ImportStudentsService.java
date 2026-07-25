@@ -41,7 +41,7 @@ import java.util.UUID;
  * reported in {@link ImportResult} without aborting the surrounding transaction.
  *
  * <p>Authorization is delegated to {@link ClassesService#getEditable}: only the
- * lecturer who owns the class (plus HEAD / ADMIN) may import members.
+ * lecturer who owns the class (plus LEADER / ADMIN) may import members.
  */
 @Service
 public class ImportStudentsService {

@@ -68,11 +68,11 @@ class PracticeCollaborationServiceTest {
     }
 
     @Test
-    void ownerCannotGrantCollaborationToHeadOrAdmin() {
+    void ownerCannotGrantCollaborationToLeaderOrAdmin() {
         allowSetOwner(10L, 11L);
 
-        User head = activeUser(Role.HEAD);
-        when(userRepository.findById(22L)).thenReturn(Optional.of(head));
+        User leader = activeUser(Role.LEADER);
+        when(userRepository.findById(22L)).thenReturn(Optional.of(leader));
         assertThrows(IllegalArgumentException.class,
                 () -> service.shareSet(10L, 22L, 11L));
 

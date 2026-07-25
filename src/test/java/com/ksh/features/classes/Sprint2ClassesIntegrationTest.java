@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * create + validation, edit + authz, soft-delete + audit.
  *
  * <p>Seed users tu V5__seed_test_users.sql:
- * lecturer@ksh.edu.vn, head@ksh.edu.vn, admin@ksh.edu.vn, student@ksh.edu.vn.
+ * lecturer@ksh.edu.vn, leader@ksh.edu.vn, admin@ksh.edu.vn, student@ksh.edu.vn.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,16 +54,16 @@ class Sprint2ClassesIntegrationTest {
 
     private User lecturer;
     private User otherLecturer;
-    private User head;
+    private User leader;
     private User admin;
 
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
+        leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         admin = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn").orElseThrow();
-        // We don't have a 2nd LECTURER seeded — simulate "other" via head id only when needed.
-        otherLecturer = head;
+        // We don't have a 2nd LECTURER seeded — simulate "other" via leader id only when needed.
+        otherLecturer = leader;
     }
 
     // ───────────────────── List ─────────────────────
@@ -72,31 +72,31 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("lecturer@ksh.edu.vn")
     void list_lecturer_sees_only_own_classes() throws Exception {
         ClassEntity own = saveClass("Lect-Own", lecturer.getId(), "OWN01");
-        ClassEntity other = saveClass("Head-Own", head.getId(), "HDA01");
+        ClassEntity other = saveClass("Leader-Own", leader.getId(), "HDA01");
 
         mockMvc.perform(get("/lecturer/classes"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Lect-Own")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Head-Own"))));
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Leader-Own"))));
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void list_head_sees_all() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void list_leader_sees_all() throws Exception {
         saveClass("By-Lect", lecturer.getId(), "BYL01");
-        saveClass("By-Head", head.getId(), "BYH01");
+        saveClass("By-Leader", leader.getId(), "BYH01");
 
         mockMvc.perform(get("/lecturer/classes"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("By-Lect")))
-                .andExpect(content().string(containsString("By-Head")));
+                .andExpect(content().string(containsString("By-Leader")));
     }
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void list_admin_sees_all() throws Exception {
         saveClass("Admin-See-1", lecturer.getId(), "ADM01");
-        saveClass("Admin-See-2", head.getId(), "ADM02");
+        saveClass("Admin-See-2", leader.getId(), "ADM02");
 
         mockMvc.perform(get("/lecturer/classes"))
                 .andExpect(status().isOk())
@@ -243,7 +243,7 @@ class Sprint2ClassesIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void edit_by_non_owner_lecturer_returns_403() throws Exception {
-        ClassEntity entity = saveClass("Owned by HEAD", head.getId(), "HDOWN");
+        ClassEntity entity = saveClass("Owned by LEADER", leader.getId(), "HDOWN");
         long activityBefore = activityRepository.count();
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
@@ -251,21 +251,21 @@ class Sprint2ClassesIntegrationTest {
                 .andExpect(status().isForbidden());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
-        assertThat(reloaded.getName()).isEqualTo("Owned by HEAD");
+        assertThat(reloaded.getName()).isEqualTo("Owned by LEADER");
         assertThat(activityRepository.count()).isEqualTo(activityBefore);
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void edit_by_head_succeeds_for_any_class() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void edit_by_leader_succeeds_for_any_class() throws Exception {
         ClassEntity entity = saveClass("Lect class", lecturer.getId(), "LCEDT");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
-                        .param("name", "Head edited"))
+                        .param("name", "Leader edited"))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
-        assertThat(reloaded.getName()).isEqualTo("Head edited");
+        assertThat(reloaded.getName()).isEqualTo("Leader edited");
     }
 
     @Test
@@ -326,7 +326,7 @@ class Sprint2ClassesIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void delete_by_non_owner_lecturer_returns_403() throws Exception {
-        ClassEntity entity = saveClass("Owned head", head.getId(), "HDDEL");
+        ClassEntity entity = saveClass("Owned leader", leader.getId(), "HDDEL");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId() + "/delete").with(csrf()))
                 .andExpect(status().isForbidden());
@@ -400,18 +400,18 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getMaxStudents()).isEqualTo(100);
     }
 
-    // ───────────────────── HEAD creates → lecturer_id = HEAD ──────────────
+    // ───────────────────── LEADER creates → lecturer_id = LEADER ──────────────
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void create_by_head_assigns_head_as_lecturer() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void create_by_leader_assigns_leader_as_lecturer() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
-                        .param("name", "Created by head"))
+                        .param("name", "Created by leader"))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity saved = classRepository.findAllByOrderByCreatedAtDesc().stream()
-                .filter(c -> "Created by head".equals(c.getName())).findFirst().orElseThrow();
-        assertThat(saved.getLecturerId()).isEqualTo(head.getId());
+                .filter(c -> "Created by leader".equals(c.getName())).findFirst().orElseThrow();
+        assertThat(saved.getLecturerId()).isEqualTo(leader.getId());
     }
 
     // ───────────────────── Edit: code immutable + delete-twice 404 ────────
@@ -489,7 +489,7 @@ class Sprint2ClassesIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void detail_non_owner_lecturer_returns_403() throws Exception {
-        ClassEntity c = saveClass("OwnedByHead", head.getId(), "OWNHD");
+        ClassEntity c = saveClass("OwnedByLeader", leader.getId(), "OWNHD");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/board"))
                 .andExpect(status().isForbidden());
     }

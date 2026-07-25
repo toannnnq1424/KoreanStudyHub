@@ -139,7 +139,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("id=\"mode-guided\""));
         assertTrue(workspace.contains("id=\"mode-advanced\""));
         assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
-        assertFalse(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
+        assertFalse(workspace.contains("hasAnyRole('LEADER','ADMIN')"));
         assertFalse(workspace.contains("data.privilegedDetails"));
         assertFalse(workspace.contains("JSON kỹ thuật"));
         assertFalse(workspace.contains("Request JSON"));
@@ -315,8 +315,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(progress.contains("TOPIK II Cấp"));
         assertFalse(progress.contains("TOPIK I Cấp"));
         assertTrue(index.contains("sec:authorize=\"hasRole('LECTURER')\""));
-        assertFalse(index.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
-        assertFalse(sidebar.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+        assertFalse(index.contains("hasAnyRole('LECTURER','LEADER','ADMIN')"));
+        assertFalse(sidebar.contains("hasAnyRole('LECTURER','LEADER','ADMIN')"));
         assertTrue(sidebar.contains("sec:authorize=\"hasRole('STUDENT')\""));
         assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Luyện tập</span>"));
         assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Manage Test Sets</span>"));

@@ -109,7 +109,7 @@ public class InviteCodeService {
      * @return the freshly-active token row
      * @throws EntityNotFoundException             when the class is missing
      * @throws org.springframework.security.access.AccessDeniedException when
-     *         the caller is not the owning lecturer (HEAD/ADMIN bypass)
+     *         the caller is not the owning lecturer (LEADER/ADMIN bypass)
      * @throws IllegalArgumentException            when {@code type} is
      *         neither {@code CODE} nor {@code LINK}
      */

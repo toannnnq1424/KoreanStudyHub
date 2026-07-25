@@ -109,11 +109,11 @@ class StudentLessonsServiceTest {
     }
 
     @Test
-    void head_not_enrolled_can_list() {
+    void leader_not_enrolled_can_list() {
         Lesson pub = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
 
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(clazz.getId(), student.getId(), Role.HEAD);
+                .listClassLessons(clazz.getId(), student.getId(), Role.LEADER);
 
         assertThat(view.classId()).isEqualTo(clazz.getId());
         assertThat(view.sections().get(0).lessons())

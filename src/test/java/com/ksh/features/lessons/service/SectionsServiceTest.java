@@ -51,7 +51,7 @@ class SectionsServiceTest {
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        // The seed data contains a single LECTURER. Use HEAD as a "different
+        // The seed data contains a single LECTURER. Use LEADER as a "different
         // role" proxy for the negative-auth test below; an ad-hoc LECTURER
         // user is created locally so we can also exercise the LECTURER vs
         // LECTURER ownership path.
