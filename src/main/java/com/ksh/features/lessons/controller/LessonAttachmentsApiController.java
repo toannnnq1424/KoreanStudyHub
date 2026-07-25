@@ -50,7 +50,7 @@ import static com.ksh.features.lessons.controller.support.AjaxResponses.notFound
  * <p>Two URL spaces share this controller:
  * <ul>
  *   <li>{@code /lecturer/classes/.../attachments[/{id}]} — upload + delete,
- *       restricted to lecturers/heads/admins by the class-level
+ *       restricted to lecturers/leaders/admins by the class-level
  *       {@code @PreAuthorize}.</li>
  *   <li>{@code /api/lessons/{lessonId}/attachments/{attachmentId}/download}
  *       — accessible to any authenticated user; service-layer auth gates

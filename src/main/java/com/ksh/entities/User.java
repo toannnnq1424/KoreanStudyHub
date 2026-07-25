@@ -221,20 +221,20 @@ public class User {
     }
 
     /**
-     * Promotes this user to HEAD of the given department.
-     * Used by admin department head assignment.
+     * Promotes this user to LEADER of the given department.
+     * Used by admin department leader assignment.
      */
-    public void promoteToHead(Long departmentId) {
-        this.role = Role.HEAD;
+    public void promoteToLeader(Long departmentId) {
+        this.role = Role.LEADER;
         this.departmentId = departmentId;
     }
 
     /**
-     * Demotes a former department head back to LECTURER.
+     * Demotes a former department leader back to LECTURER.
      * Keeps {@code departmentId} so the user remains in their department.
      * Never demotes ADMIN.
      */
-    public void demoteFromHeadToLecturer() {
+    public void demoteFromLeaderToLecturer() {
         if (this.role != Role.ADMIN) {
             this.role = Role.LECTURER;
         }

@@ -483,10 +483,10 @@ class JoinClassServiceTest {
     @Test
     void approve_non_owner_denied() {
         ClassEntity clazz = buildClass();
-        // getEditable allows HEAD, but requireOwner still checks lecturerId.
-        when(classesService.getEditable(CLASS_ID, 999L, Role.HEAD)).thenReturn(clazz);
+        // getEditable allows LEADER, but requireOwner still checks lecturerId.
+        when(classesService.getEditable(CLASS_ID, 999L, Role.LEADER)).thenReturn(clazz);
 
-        assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, 999L, Role.HEAD))
+        assertThatThrownBy(() -> service.approve(CLASS_ID, USER_ID, 999L, Role.LEADER))
                 .isInstanceOf(AccessDeniedException.class);
     }
 

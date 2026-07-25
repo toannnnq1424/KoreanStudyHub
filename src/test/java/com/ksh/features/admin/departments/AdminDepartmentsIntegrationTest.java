@@ -144,7 +144,7 @@ class AdminDepartmentsIntegrationTest {
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void assign_lecturer_promotes_to_head() throws Exception {
+    void assign_lecturer_promotes_to_leader() throws Exception {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         Department dept = departmentRepository.findAll().stream()
                 .filter(d -> "KT".equals(d.getCode()))
@@ -155,78 +155,78 @@ class AdminDepartmentsIntegrationTest {
                         .param("code", dept.getCode())
                         .param("description", dept.getDescription() == null ? "" : dept.getDescription())
                         .param("active", "true")
-                        .param("headUserId", String.valueOf(lecturer.getId())))
+                        .param("leaderUserId", String.valueOf(lecturer.getId())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/admin/departments/*/edit?tab=info"))
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         Department updated = departmentRepository.findById(dept.getId()).orElseThrow();
         User promoted = userRepository.findById(lecturer.getId()).orElseThrow();
-        assertThat(updated.getHeadUserId()).isEqualTo(lecturer.getId());
-        assertThat(promoted.getRole()).isEqualTo(Role.HEAD);
+        assertThat(updated.getLeaderUserId()).isEqualTo(lecturer.getId());
+        assertThat(promoted.getRole()).isEqualTo(Role.LEADER);
         assertThat(promoted.getDepartmentId()).isEqualTo(dept.getId());
     }
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void reject_student_as_head() throws Exception {
+    void reject_student_as_leader() throws Exception {
         User student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
         Department dept = departmentRepository.findAll().stream()
                 .filter(d -> "NN".equals(d.getCode()))
                 .findFirst().orElseThrow();
-        Long previousHead = dept.getHeadUserId();
+        Long previousLeader = dept.getLeaderUserId();
 
         mockMvc.perform(post("/admin/departments/" + dept.getId() + "/edit").with(csrf())
                         .param("name", dept.getName())
                         .param("code", dept.getCode())
                         .param("active", "true")
-                        .param("headUserId", String.valueOf(student.getId())))
+                        .param("leaderUserId", String.valueOf(student.getId())))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/departments-form"))
                 .andExpect(model().attributeExists("flashError"));
 
         Department unchanged = departmentRepository.findById(dept.getId()).orElseThrow();
-        assertThat(unchanged.getHeadUserId()).isEqualTo(previousHead);
+        assertThat(unchanged.getLeaderUserId()).isEqualTo(previousLeader);
     }
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void replace_head_demotes_previous() throws Exception {
+    void replace_leader_demotes_previous() throws Exception {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        User head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
+        User leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         Department dept = departmentRepository.findAll().stream()
                 .filter(d -> "CNTT".equals(d.getCode()))
                 .findFirst().orElseThrow();
 
-        // Ensure head is currently head of CNTT (seed may already set this).
+        // Ensure leader is currently leader of CNTT (seed may already set this).
         mockMvc.perform(post("/admin/departments/" + dept.getId() + "/edit").with(csrf())
                         .param("name", dept.getName())
                         .param("code", dept.getCode())
                         .param("active", "true")
-                        .param("headUserId", String.valueOf(head.getId())))
+                        .param("leaderUserId", String.valueOf(leader.getId())))
                 .andExpect(status().is3xxRedirection());
 
         mockMvc.perform(post("/admin/departments/" + dept.getId() + "/edit").with(csrf())
                         .param("name", dept.getName())
                         .param("code", dept.getCode())
                         .param("active", "true")
-                        .param("headUserId", String.valueOf(lecturer.getId())))
+                        .param("leaderUserId", String.valueOf(lecturer.getId())))
                 .andExpect(status().is3xxRedirection());
 
-        User previous = userRepository.findById(head.getId()).orElseThrow();
+        User previous = userRepository.findById(leader.getId()).orElseThrow();
         User next = userRepository.findById(lecturer.getId()).orElseThrow();
         Department updated = departmentRepository.findById(dept.getId()).orElseThrow();
-        assertThat(updated.getHeadUserId()).isEqualTo(lecturer.getId());
-        assertThat(next.getRole()).isEqualTo(Role.HEAD);
-        // Previous head demoted only if not head of any other dept.
-        if (!departmentRepository.existsByHeadUserId(previous.getId())) {
+        assertThat(updated.getLeaderUserId()).isEqualTo(lecturer.getId());
+        assertThat(next.getRole()).isEqualTo(Role.LEADER);
+        // Previous leader demoted only if not leader of any other dept.
+        if (!departmentRepository.existsByLeaderUserId(previous.getId())) {
             assertThat(previous.getRole()).isEqualTo(Role.LECTURER);
         }
     }
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void unassign_head_demotes_when_no_other_dept() throws Exception {
+    void unassign_leader_demotes_when_no_other_dept() throws Exception {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         Department dept = departmentRepository.findAll().stream()
                 .filter(d -> "CK".equals(d.getCode()))
@@ -236,7 +236,7 @@ class AdminDepartmentsIntegrationTest {
                         .param("name", dept.getName())
                         .param("code", dept.getCode())
                         .param("active", "true")
-                        .param("headUserId", String.valueOf(lecturer.getId())))
+                        .param("leaderUserId", String.valueOf(lecturer.getId())))
                 .andExpect(status().is3xxRedirection());
 
         mockMvc.perform(post("/admin/departments/" + dept.getId() + "/edit").with(csrf())
@@ -247,7 +247,7 @@ class AdminDepartmentsIntegrationTest {
 
         Department updated = departmentRepository.findById(dept.getId()).orElseThrow();
         User demoted = userRepository.findById(lecturer.getId()).orElseThrow();
-        assertThat(updated.getHeadUserId()).isNull();
+        assertThat(updated.getLeaderUserId()).isNull();
         assertThat(demoted.getRole()).isEqualTo(Role.LECTURER);
         assertThat(demoted.getDepartmentId()).isEqualTo(dept.getId());
     }

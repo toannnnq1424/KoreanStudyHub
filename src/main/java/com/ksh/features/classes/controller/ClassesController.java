@@ -29,7 +29,7 @@ import static com.ksh.features.classes.controller.support.ClassDetailModelSuppor
 
 /**
  * Controller for the lecturer class CRUD screens (list, create, edit, delete).
- * Only LECTURER, HEAD, and ADMIN roles may access these endpoints (see {@link Roles}).
+ * Only LECTURER, LEADER, and ADMIN roles may access these endpoints (see {@link Roles}).
  *
  * <p>Exposed endpoints:
  * <ul>
@@ -116,7 +116,7 @@ public class ClassesController {
 
     /**
      * Renders the edit-class form for an existing class.
-     * Only the class owner (or HEAD/ADMIN) may access this endpoint; the service
+     * Only the class owner (or LEADER/ADMIN) may access this endpoint; the service
      * layer enforces the ownership check and throws if unauthorized.
      */
     @GetMapping("/classes/{id}/edit")

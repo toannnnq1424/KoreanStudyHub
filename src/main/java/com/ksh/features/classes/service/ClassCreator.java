@@ -65,7 +65,7 @@ final class ClassCreator {
                     form.description(), form.startDate(), form.endDate(),
                     form.maxStudents());
             entity.setCode(codeGenerator.generate());
-            // Inherit department from lecturer when available so HEAD scope works.
+            // Inherit department from lecturer when available so LEADER scope works.
             userRepository.findById(userId)
                     .map(User::getDepartmentId)
                     .ifPresent(entity::setDepartmentId);

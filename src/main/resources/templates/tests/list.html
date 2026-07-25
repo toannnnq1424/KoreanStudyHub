@@ -17,7 +17,7 @@
   <div class="tst-toolbar">
     <h1 class="tst-page-title">Bài test</h1>
     <div class="tst-toolbar-actions">
-      <a sec:authorize="hasAnyRole('LECTURER','HEAD','ADMIN')"
+      <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
          class="tst-btn tst-btn-primary" th:href="@{/my/tests/practice/new}">Tạo bài luyện tập</a>
     </div>
   </div>

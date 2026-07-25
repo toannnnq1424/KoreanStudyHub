@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Integration test cho {@code /admin/settings/email} — chay context day du
  * + DB that. Cover:
  * <ul>
- *   <li>Auth guards (anonymous, STUDENT, LECTURER, HEAD, ADMIN)</li>
+ *   <li>Auth guards (anonymous, STUDENT, LECTURER, LEADER, ADMIN)</li>
  *   <li>Form render voi masked password</li>
  *   <li>Save valid settings — redirect voi success flash</li>
  *   <li>Save invalid encryption — re-render form voi field error</li>
@@ -97,8 +97,8 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void head_forbidden() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void leader_forbidden() throws Exception {
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isForbidden());
     }

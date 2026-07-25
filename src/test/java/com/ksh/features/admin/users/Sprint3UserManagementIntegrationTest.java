@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code /admin/departments} routing regression.
  *
  * <p>Seed users from {@code V5__seed_test_users.sql}:
- * {@code admin@ksh.edu.vn}, {@code lecturer@ksh.edu.vn}, {@code head@ksh.edu.vn},
+ * {@code admin@ksh.edu.vn}, {@code lecturer@ksh.edu.vn}, {@code leader@ksh.edu.vn},
  * {@code student@ksh.edu.vn} — password {@code "123456"} for all.
  */
 @SpringBootTest
@@ -129,7 +129,7 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void list_sort_by_rolePriority_orders_admin_before_student() throws Exception {
-        // Seed data has: 1 ADMIN, 1 HEAD, 1 LECTURER, students. With rolePriority sort,
+        // Seed data has: 1 ADMIN, 1 LEADER, 1 LECTURER, students. With rolePriority sort,
         // the ADMIN row's position in the rendered HTML must precede the student row.
         String html = mockMvc.perform(get("/admin/users").param("sort", "rolePriority,asc"))
                 .andExpect(status().isOk())
@@ -275,7 +275,7 @@ class Sprint3UserManagementIntegrationTest {
         mockMvc.perform(post("/admin/users/" + lecturer.getId()).with(csrf())
                         .param("email", lecturer.getEmail())
                         .param("fullName", lecturer.getFullName())
-                        .param("role", "HEAD")
+                        .param("role", "LEADER")
                         .param("emailVerified", "true"))
                 .andExpect(status().is3xxRedirection());
 

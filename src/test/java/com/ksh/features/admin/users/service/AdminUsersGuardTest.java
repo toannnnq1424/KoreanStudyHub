@@ -139,7 +139,7 @@ class AdminUsersGuardTest {
         User lastAdmin = userOf(23L, Role.ADMIN, true, false);
         when(userRepository.countActiveAdmins("ADMIN")).thenReturn(1L);
 
-        assertThatThrownBy(() -> guard.requireRoleNotDemotingLastAdmin(lastAdmin, Role.HEAD))
+        assertThatThrownBy(() -> guard.requireRoleNotDemotingLastAdmin(lastAdmin, Role.LEADER))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("vai trò");
     }

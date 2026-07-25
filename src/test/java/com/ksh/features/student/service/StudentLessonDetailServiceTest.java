@@ -151,11 +151,11 @@ class StudentLessonDetailServiceTest {
     }
 
     @Test
-    void head_not_enrolled_can_view_detail() {
+    void leader_not_enrolled_can_view_detail() {
         Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
 
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
-                clazz.getId(), lesson.getId(), student.getId(), Role.HEAD);
+                clazz.getId(), lesson.getId(), student.getId(), Role.LEADER);
 
         assertThat(view.lessonId()).isEqualTo(lesson.getId());
     }

@@ -43,7 +43,7 @@ class ExcelParserTest {
     }
 
     @Test
-    void parse_accepts_aliased_and_diacritic_headers() throws IOException {
+    void parse_accepts_aliased_and_diacritic_leaderers() throws IOException {
         // "E-mail" and "Mã sinh viên" must both resolve to canonical columns.
         MultipartFile file = build(new String[]{"E-mail", "Mã sinh viên", "Full Name", "Phone"}, new String[][]{
                 {"x@ksh.vn", "SV9999", "Xena", "0900000099"}

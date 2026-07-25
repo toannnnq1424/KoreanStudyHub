@@ -420,8 +420,8 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     }
 
     @Test
-    void lecturerHeadAndAdminAreDeniedBeforeServiceCall() throws Exception {
-        for (Role role : List.of(Role.LECTURER, Role.HEAD, Role.ADMIN)) {
+    void lecturerLeaderAndAdminAreDeniedBeforeServiceCall() throws Exception {
+        for (Role role : List.of(Role.LECTURER, Role.LEADER, Role.ADMIN)) {
             mockMvc.perform(get(ROUTE)
                             .with(authentication(formAuthentication(700L + role.ordinal(), role))))
                     .andExpect(status().isForbidden());

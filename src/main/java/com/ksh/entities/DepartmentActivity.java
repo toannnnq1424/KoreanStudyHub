@@ -25,8 +25,8 @@ public class DepartmentActivity {
 
     public static final String TYPE_CREATED = "CREATED";
     public static final String TYPE_UPDATED = "UPDATED";
-    public static final String TYPE_HEAD_ASSIGNED = "HEAD_ASSIGNED";
-    public static final String TYPE_HEAD_CLEARED = "HEAD_CLEARED";
+    public static final String TYPE_LEADER_ASSIGNED = "LEADER_ASSIGNED";
+    public static final String TYPE_LEADER_CLEARED = "LEADER_CLEARED";
     public static final String TYPE_ACTIVATED = "ACTIVATED";
     public static final String TYPE_DEACTIVATED = "DEACTIVATED";
 

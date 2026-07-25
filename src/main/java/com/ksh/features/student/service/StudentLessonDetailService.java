@@ -44,7 +44,7 @@ import static com.ksh.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
  *       lesson MUST be {@link Lesson#STATUS_PUBLISHED} and not
  *       soft-deleted — all resolved by {@link LessonAccessResolver}.</li>
  *   <li>The caller MUST be admitted: an ACTIVE-enrolled student, OR the
- *       owning lecturer, OR an ADMIN/HEAD moderator (bypasses enrollment
+ *       owning lecturer, OR an ADMIN/LEADER moderator (bypasses enrollment
  *       so they can open the lesson's discussion thread to moderate —
  *       design D7, mirroring {@code LessonCommentsService.authorize}
  *       D3). The lesson gates run first, so a moderator gains nothing on
@@ -89,12 +89,12 @@ public class StudentLessonDetailService {
     /**
      * Returns the populated view model for a single PUBLISHED lesson,
      * admitting an ACTIVE-enrolled student, the owning lecturer, or an
-     * ADMIN/HEAD moderator.
+     * ADMIN/LEADER moderator.
      *
      * @param classId  target class id from the URL
      * @param lessonId target lesson id from the URL
      * @param userId   authenticated user id
-     * @param role     the caller's role; ADMIN/HEAD bypass enrollment
+     * @param role     the caller's role; ADMIN/LEADER bypass enrollment
      * @return populated {@link LessonDetailView}; the attachments list is
      *         empty when the lesson has none
      * @throws EntityNotFoundException whenever any gate fails — always
@@ -112,7 +112,7 @@ public class StudentLessonDetailService {
         Section section = resolved.section();
         Lesson lesson = resolved.lesson();
 
-        // Access gate: ADMIN/HEAD bypass enrollment so they can open the
+        // Access gate: ADMIN/LEADER bypass enrollment so they can open the
         // lesson (and its discussion thread) to moderate; the owning lecturer
         // passes too; otherwise an ACTIVE enrollment is required. Any other
         // caller (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.

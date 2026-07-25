@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Write-side department mutations: create/update/toggle and head assignment
+ * Write-side department mutations: create/update/toggle and leader assignment
  * with promote/demote rules. Audit rows go through {@link DepartmentAuditWriter}.
  * Read queries live on {@link DepartmentQueryService}.
  */
@@ -26,8 +26,8 @@ public class DepartmentService {
 
     static final String MSG_NOT_FOUND = "Không tìm thấy bộ môn";
     static final String MSG_CODE_EXISTS = "Mã bộ môn đã tồn tại";
-    static final String MSG_HEAD_NOT_FOUND = "Không tìm thấy người dùng để gán trưởng bộ môn";
-    static final String MSG_HEAD_INELIGIBLE =
+    static final String MSG_LEADER_NOT_FOUND = "Không tìm thấy người dùng để gán trưởng bộ môn";
+    static final String MSG_LEADER_INELIGIBLE =
             "Trưởng bộ môn phải là giảng viên hoặc trưởng bộ môn đang hoạt động";
 
     private final DepartmentRepository departmentRepository;
@@ -58,8 +58,8 @@ public class DepartmentService {
                 "Tạo bộ môn " + saved.getName() + " (" + saved.getCode() + ")",
                 null, actorId);
 
-        if (form.headUserId() != null) {
-            applyHeadAssignment(saved, form.headUserId(), actorId);
+        if (form.leaderUserId() != null) {
+            applyLeaderAssignment(saved, form.leaderUserId(), actorId);
             departmentRepository.save(saved);
         }
         return saved.getName();
@@ -82,7 +82,7 @@ public class DepartmentService {
                 code,
                 StringUtils.blankToNull(form.description()),
                 form.active());
-        applyHeadAssignment(entity, form.headUserId(), actorId);
+        applyLeaderAssignment(entity, form.leaderUserId(), actorId);
         departmentRepository.save(entity);
 
         // Identity/description changes → UPDATED (active handled as dedicated type).
@@ -117,70 +117,70 @@ public class DepartmentService {
     }
 
     /**
-     * Assigns or clears the department head with promote/demote side effects.
+     * Assigns or clears the department leader with promote/demote side effects.
      *
      * @param departmentId target department
-     * @param headUserId   new head, or null to unassign
+     * @param leaderUserId   new leader, or null to unassign
      * @param actorId      admin performing the action (audit)
      */
     @Transactional
-    public void assignHead(Long departmentId, Long headUserId, Long actorId) {
+    public void assignLeader(Long departmentId, Long leaderUserId, Long actorId) {
         Department entity = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
-        applyHeadAssignment(entity, headUserId, actorId);
+        applyLeaderAssignment(entity, leaderUserId, actorId);
         departmentRepository.save(entity);
     }
 
-    private void applyHeadAssignment(Department entity, Long newHeadUserId, Long actorId) {
-        Long oldHeadId = entity.getHeadUserId();
-        if (oldHeadId != null && oldHeadId.equals(newHeadUserId)) {
+    private void applyLeaderAssignment(Department entity, Long newLeaderUserId, Long actorId) {
+        Long oldLeaderId = entity.getLeaderUserId();
+        if (oldLeaderId != null && oldLeaderId.equals(newLeaderUserId)) {
             return;
         }
-        if (oldHeadId == null && newHeadUserId == null) {
+        if (oldLeaderId == null && newLeaderUserId == null) {
             return;
         }
 
-        String newHeadEmail = null;
-        if (newHeadUserId != null) {
-            User candidate = userRepository.findById(newHeadUserId)
-                    .orElseThrow(() -> new DepartmentValidationException(MSG_HEAD_NOT_FOUND));
+        String newLeaderEmail = null;
+        if (newLeaderUserId != null) {
+            User candidate = userRepository.findById(newLeaderUserId)
+                    .orElseThrow(() -> new DepartmentValidationException(MSG_LEADER_NOT_FOUND));
             if (!candidate.isActive() || candidate.isDeleted()
-                    || !DepartmentQueryService.HEAD_ELIGIBLE.contains(candidate.getRole())) {
-                throw new DepartmentValidationException(MSG_HEAD_INELIGIBLE);
+                    || !DepartmentQueryService.LEADER_ELIGIBLE.contains(candidate.getRole())) {
+                throw new DepartmentValidationException(MSG_LEADER_INELIGIBLE);
             }
-            candidate.promoteToHead(entity.getId());
+            candidate.promoteToLeader(entity.getId());
             userRepository.save(candidate);
-            newHeadEmail = candidate.getEmail();
+            newLeaderEmail = candidate.getEmail();
         }
 
-        entity.assignHead(newHeadUserId);
-        // Flush head_user_id before demote check so DB no longer lists the old head.
+        entity.assignLeader(newLeaderUserId);
+        // Flush leader_user_id before demote check so DB no longer lists the old leader.
         departmentRepository.saveAndFlush(entity);
 
-        // Demote previous head only when they head no other department.
-        if (oldHeadId != null && !oldHeadId.equals(newHeadUserId)) {
-            demoteIfNoLongerHead(oldHeadId);
+        // Demote previous leader only when they leader no other department.
+        if (oldLeaderId != null && !oldLeaderId.equals(newLeaderUserId)) {
+            demoteIfNoLongerLeader(oldLeaderId);
         }
 
         if (entity.getId() != null) {
-            if (newHeadUserId == null) {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_HEAD_CLEARED,
+            if (newLeaderUserId == null) {
+                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_CLEARED,
                         "Bỏ gán trưởng bộ môn", null, actorId);
             } else {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_HEAD_ASSIGNED,
-                        "Gán trưởng bộ môn: " + (newHeadEmail != null ? newHeadEmail : newHeadUserId),
+                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_ASSIGNED,
+                        "Gán trưởng bộ môn: " + (newLeaderEmail != null ? newLeaderEmail : newLeaderUserId),
                         null, actorId);
             }
         }
     }
 
-    private void demoteIfNoLongerHead(Long userId) {
-        if (departmentRepository.existsByHeadUserId(userId)) {
+    private void demoteIfNoLongerLeader(Long userId) {
+        if (departmentRepository.existsByLeaderUserId(userId)) {
             return;
         }
         userRepository.findById(userId).ifPresent(user -> {
-            if (user.getRole() == Role.HEAD) {
-                user.demoteFromHeadToLecturer();
+            if (user.getRole() == Role.LEADER) {
+                user.demoteFromLeaderToLecturer();
                 userRepository.save(user);
             }
         });

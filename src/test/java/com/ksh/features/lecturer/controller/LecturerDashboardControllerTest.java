@@ -94,8 +94,8 @@ class LecturerDashboardControllerTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void head_can_open_dashboard() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void leader_can_open_dashboard() throws Exception {
         mockMvc.perform(get("/lecturer/dashboard"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("lecturer/dashboard"));

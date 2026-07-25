@@ -48,7 +48,7 @@ import static com.ksh.common.IConstant.VIDEO_PROVIDER_UPLOAD;
  * Range support so {@code <video controls>} elements can seek.
  *
  * <p>Authorization mirrors the attachment download endpoint: enrolled
- * student + PUBLISHED lesson, or any lecturer/head/admin who owns the
+ * student + PUBLISHED lesson, or any lecturer/leader/admin who owns the
  * class (DRAFT included). On every failure path we return 404 so the
  * existence of the resource is not leaked.
  */
@@ -194,13 +194,13 @@ public class LessonVideoStreamController {
     }
 
     /**
-     * Lecturer/head/admin of the class always passes; an enrolled student
+     * Lecturer/leader/admin of the class always passes; an enrolled student
      * passes only when the lesson is PUBLISHED and the class is still live
      * (not soft-deleted). Any failure returns false so the caller collapses
      * to 404 — existence of the resource is never leaked.
      */
     private boolean canStream(Long classId, Long userId, Role role, Lesson lesson) {
-        if (role == Role.LECTURER || role == Role.HEAD || role == Role.ADMIN) {
+        if (role == Role.LECTURER || role == Role.LEADER || role == Role.ADMIN) {
             try {
                 classesService.getEditable(classId, userId, role);
                 return true;

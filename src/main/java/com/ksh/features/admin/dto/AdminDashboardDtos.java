@@ -26,7 +26,7 @@ public class AdminDashboardDtos {
             return switch (role) {
                 case "STUDENT" -> "#42A5F5";
                 case "LECTURER" -> "#26A69A";
-                case "HEAD" -> "#7E57C2";
+                case "LEADER" -> "#7E57C2";
                 case "ADMIN" -> "#EF5350";
                 default -> "#9AA0AB";
             };
@@ -41,7 +41,7 @@ public class AdminDashboardDtos {
             return switch (role) {
                 case "STUDENT" -> "Sinh viên";
                 case "LECTURER" -> "Giảng viên";
-                case "HEAD" -> "Trưởng bộ môn";
+                case "LEADER" -> "Trưởng bộ môn";
                 case "ADMIN" -> "Quản trị viên";
                 default -> role;
             };
