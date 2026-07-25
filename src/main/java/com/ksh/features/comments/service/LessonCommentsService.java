@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import static com.ksh.common.IConstant.DEFAULT_COMMENT_PAGE_SIZE;
@@ -188,7 +189,7 @@ public class LessonCommentsService {
 
     /**
      * Hides a comment (sets REJECTED) so students no longer see it. Requires the
-     * caller to be a moderator (owning lecturer / ADMIN / HEAD). Idempotent: a
+     * caller to be a moderator (owning lecturer / ADMIN / LEADER). Idempotent: a
      * no-op when already hidden. Writes a {@code comment_moderation} audit row.
      *
      * @throws AccessDeniedException   when the caller is not a moderator (403)
@@ -196,10 +197,7 @@ public class LessonCommentsService {
      */
     @Transactional
     public void hide(Long lessonId, Long commentId, Long userId, Role role) {
-        ClassEntity clazz = authorize(lessonId, userId, role);
-        if (!accessPolicy.isModerator(clazz, userId, role)) {
-            throw new AccessDeniedException(MSG_COMMENT_MODERATE_FORBIDDEN);
-        }
+        assertModerator(lessonId, userId, role);
         Comment comment = loadLiveComment(lessonId, commentId);
         // Idempotent: already hidden → succeed without a duplicate audit row.
         if (Comment.MODERATION_REJECTED.equals(comment.getModerationStatus())) {
@@ -220,10 +218,7 @@ public class LessonCommentsService {
      */
     @Transactional
     public void unhide(Long lessonId, Long commentId, Long userId, Role role) {
-        ClassEntity clazz = authorize(lessonId, userId, role);
-        if (!accessPolicy.isModerator(clazz, userId, role)) {
-            throw new AccessDeniedException(MSG_COMMENT_MODERATE_FORBIDDEN);
-        }
+        assertModerator(lessonId, userId, role);
         Comment comment = loadLiveComment(lessonId, commentId);
         // Idempotent: already visible → succeed without a duplicate audit row.
         if (Comment.MODERATION_APPROVED.equals(comment.getModerationStatus())) {
@@ -235,22 +230,94 @@ public class LessonCommentsService {
                 commentId, userId, CommentModeration.ACTION_APPROVED));
     }
 
+    // ── Bulk moderation (hide / unhide many) ───────────────────────────
+
+    /** Outcome of a bulk moderation action: how many changed vs were skipped. */
+    public record BulkResult(int succeeded, int skipped) {
+    }
+
+    /**
+     * Hides each comment, skipping cross-lesson/deleted ones. Not
+     * {@code @Transactional}: each single {@link #hide} runs in its own tx so one
+     * failing item never rolls back items already committed (partial success).
+     * Callers should {@link #assertModerator} first so a non-moderator fails fast
+     * with 403 rather than receiving a silent {@code BulkResult(0, N)}.
+     */
+    public BulkResult hideAll(Long lessonId, List<Long> commentIds, Long userId, Role role) {
+        int ok = 0;
+        int skip = 0;
+        for (Long id : dedupe(commentIds)) {
+            try {
+                hide(lessonId, id, userId, role);
+                ok++;
+            } catch (RuntimeException ex) {
+                skip++;
+            }
+        }
+        return new BulkResult(ok, skip);
+    }
+
+    /** Bulk unhide; see {@link #hideAll} for the skip/partial-success contract. */
+    public BulkResult unhideAll(Long lessonId, List<Long> commentIds, Long userId, Role role) {
+        int ok = 0;
+        int skip = 0;
+        for (Long id : dedupe(commentIds)) {
+            try {
+                unhide(lessonId, id, userId, role);
+                ok++;
+            } catch (RuntimeException ex) {
+                skip++;
+            }
+        }
+        return new BulkResult(ok, skip);
+    }
+
+    /** Drops nulls and duplicates while preserving submission order. */
+    private static List<Long> dedupe(List<Long> commentIds) {
+        if (commentIds == null || commentIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Long> unique = new LinkedHashSet<>();
+        for (Long id : commentIds) {
+            if (id != null) {
+                unique.add(id);
+            }
+        }
+        return new ArrayList<>(unique);
+    }
+
+    /**
+     * Fails fast when the caller may not moderate this lesson's thread: runs the
+     * shared lesson gates then requires moderator status (owning lecturer /
+     * ADMIN / LEADER). Shared by {@link #hide}/{@link #unhide} and the bulk
+     * endpoints so a non-moderator gets a clear 403 before any per-item work.
+     *
+     * @throws AccessDeniedException   when the caller is not a moderator (403)
+     * @throws EntityNotFoundException when the lesson is not accessible (404)
+     */
+    public void assertModerator(Long lessonId, Long userId, Role role) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
+        if (!accessPolicy.isModerator(clazz, userId, role)) {
+            throw new AccessDeniedException(MSG_COMMENT_MODERATE_FORBIDDEN);
+        }
+    }
+
     // ── Authorization ──────────────────────────────────────────────────
 
-    /** Participant-only access (create/edit/delete): no ADMIN/HEAD bypass. */
+    /** Participant-only access (create/edit/delete): no ADMIN/LEADER bypass. */
     private ClassEntity authorize(Long lessonId, Long userId) {
         return authorize(lessonId, userId, null);
     }
 
     /**
      * Runs the shared lesson gates (live class, section, PUBLISHED) then admits
-     * the caller. ADMIN/HEAD bypass enrollment so they can view and moderate the
+     * the caller. ADMIN/LEADER bypass enrollment so they can view and moderate the
      * thread; otherwise the owning lecturer or an ACTIVE-enrolled student passes.
-     * The lesson gates always run first, so ADMIN/HEAD gain nothing on a deleted
+     * The lesson gates always run first, so ADMIN/LEADER gain nothing on a deleted
      * or unpublished lesson. Returns the live class.
      */
     private ClassEntity authorize(Long lessonId, Long userId, Role role) {
-        // Lesson gates first so ADMIN/HEAD gain nothing on a deleted/unpublished lesson.
+        // Lesson gates first so ADMIN/LEADER gain nothing on a deleted/unpublished lesson.
         ClassEntity clazz = lessonAccessResolver.resolveByLesson(lessonId).clazz();
         accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
         return clazz;
