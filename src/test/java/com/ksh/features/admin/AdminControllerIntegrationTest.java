@@ -56,8 +56,8 @@ class AdminControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void admin_head_forbidden() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void admin_leader_forbidden() throws Exception {
         mockMvc.perform(get("/admin/dashboard"))
                 .andExpect(status().isForbidden());
     }

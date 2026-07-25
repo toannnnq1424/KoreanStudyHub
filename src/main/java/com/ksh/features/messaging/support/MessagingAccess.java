@@ -18,7 +18,7 @@ import java.util.List;
  * check only membership (see design decision D2). The rules:
  *
  * <ul>
- *   <li>Only student ↔ lecturer (LECTURER or HEAD) pairs are allowed.</li>
+ *   <li>Only student ↔ lecturer (LECTURER or LEADER) pairs are allowed.</li>
  *   <li>A student may reach a lecturer who teaches any class the student is
  *       ACTIVE-enrolled in.</li>
  *   <li>A lecturer may reach a student ACTIVE-enrolled in any class they teach.</li>
@@ -77,7 +77,7 @@ public class MessagingAccess {
             if (classIds.isEmpty()) return List.of();
             List<Long> lecturerIds = classRepository.findLecturerIdsForClasses(classIds);
             if (lecturerIds.isEmpty()) return List.of();
-            // Load the lecturer users, then filter to LECTURER/HEAD and the query.
+            // Load the lecturer users, then filter to LECTURER/LEADER and the query.
             return userRepository.findAllById(lecturerIds).stream()
                     .filter(u -> isLecturer(u.getRole()))
                     .filter(u -> matches(u, filter))
@@ -135,9 +135,9 @@ public class MessagingAccess {
         return role == Role.STUDENT;
     }
 
-    /** LECTURER and HEAD both teach classes; HEAD inherits lecturer abilities. */
+    /** LECTURER and LEADER both teach classes; LEADER inherits lecturer abilities. */
     private static boolean isLecturer(Role role) {
-        return role == Role.LECTURER || role == Role.HEAD;
+        return role == Role.LECTURER || role == Role.LEADER;
     }
 
     /** Case-insensitive match of the query against the user's name or email. */

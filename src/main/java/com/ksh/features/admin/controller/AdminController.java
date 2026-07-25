@@ -18,7 +18,7 @@ import static com.ksh.common.IConstant.*;
 /**
  * MVC controller for the system administration panel.
  * Access is restricted to the {@code ADMIN} role only — may be relaxed to include
- * {@code HEAD} in a future sprint once per-department dashboards are available.
+ * {@code LEADER} in a future sprint once per-department dashboards are available.
  *
  * <p>URL pattern: {@code /admin/{tab}} — five sidebar tabs:
  * <ul>

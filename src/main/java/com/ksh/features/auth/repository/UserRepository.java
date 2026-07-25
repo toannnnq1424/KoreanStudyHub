@@ -164,7 +164,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts ASCENDING by role
-     * priority: ADMIN (1) â†’ HEAD (2) â†’ LECTURER (3) â†’ STUDENT (4), then by
+     * priority: ADMIN (1) â†’ LEADER (2) â†’ LECTURER (3) â†’ STUDENT (4), then by
      * {@code created_at} DESC as tie-breaker. Pageable's own sort is ignored
      * for ordering purposes because Spring Data does not bind ORDER BY
      * direction or expressions as parameters.
@@ -193,7 +193,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
                    "ORDER BY CASE u.role " +
-                   "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
+                   "  WHEN 'ADMIN' THEN 1 WHEN 'LEADER' THEN 2 " +
                    "  WHEN 'LECTURER' THEN 3 ELSE 4 END ASC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
                          "WHERE (" +
@@ -215,7 +215,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Variant of {@link #searchUsersForAdmin} that sorts DESCENDING by role
-     * priority: STUDENT â†’ LECTURER â†’ HEAD â†’ ADMIN, then by {@code created_at}
+     * priority: STUDENT â†’ LECTURER â†’ LEADER â†’ ADMIN, then by {@code created_at}
      * DESC as tie-breaker. See {@link #searchUsersForAdminByRolePriorityAsc}.
      */
     @Query(value = "SELECT u.id AS id, " +
@@ -242,7 +242,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "     LOWER(u.full_name) LIKE CONCAT('%', LOWER(:q), '%') OR " +
                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%')) " +
                    "ORDER BY CASE u.role " +
-                   "  WHEN 'ADMIN' THEN 1 WHEN 'HEAD' THEN 2 " +
+                   "  WHEN 'ADMIN' THEN 1 WHEN 'LEADER' THEN 2 " +
                    "  WHEN 'LECTURER' THEN 3 ELSE 4 END DESC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
                          "WHERE (" +
@@ -267,4 +267,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Soft-deleted rows are excluded by the entity {@code @SQLRestriction}.
      */
     List<User> findByRoleInAndActiveTrueOrderByFullNameAsc(Collection<Role> roles);
+
+    /** Active users in the given department and roles, ordered by name. */
+    List<User> findByDepartmentIdAndRoleInAndActiveTrueOrderByFullNameAsc(Long departmentId,
+                                                                          Collection<Role> roles);
 }

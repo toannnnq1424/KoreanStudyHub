@@ -145,9 +145,9 @@ public class AdminUsersWriteService {
                     auditWriter.serialize(rolePayload), actingUserId);
         }
 
-        // Demote warning: if the user was LECTURER or HEAD and is now STUDENT,
+        // Demote warning: if the user was LECTURER or LEADER and is now STUDENT,
         // surface affected classes so the admin can reassign them later.
-        if ((oldRole == Role.LECTURER || oldRole == Role.HEAD)
+        if ((oldRole == Role.LECTURER || oldRole == Role.LEADER)
                 && saved.getRole() == Role.STUDENT) {
             List<ClassEntity> owned = classRepository.findAllByLecturerId(saved.getId());
             if (!owned.isEmpty()) {

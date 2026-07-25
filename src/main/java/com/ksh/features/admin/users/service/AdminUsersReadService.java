@@ -57,7 +57,7 @@ public class AdminUsersReadService {
      * is clamped to {@code [MIN_PAGE_SIZE, MAX_PAGE_SIZE]} and defaults to
      * {@code DEFAULT_PAGE_SIZE}. Sort is resolved per the request's
      * {@code sort} parameter; the special key {@code rolePriority,*} routes
-     * to a dedicated native query that sorts ADMIN → HEAD → LECTURER →
+     * to a dedicated native query that sorts ADMIN → LEADER → LECTURER →
      * STUDENT via a CASE expression. Unrecognised keys fall back to
      * {@code createdAt,desc}.
      */
