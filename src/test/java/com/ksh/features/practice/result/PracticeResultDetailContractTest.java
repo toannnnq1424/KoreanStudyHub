@@ -1,5 +1,6 @@
 package com.ksh.features.practice.result;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticePublishedVersion;
 import com.ksh.entities.PracticeSectionVersion;
@@ -35,6 +36,9 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticFinding;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTarget;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTargetKind;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
+import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
+import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,13 +46,61 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PracticeResultDetailContractTest {
+
+    @Test
+    void detailReusesOverviewIdentityGateBeforeSnapshotOrPresenter() {
+        PracticeAttemptRepository attempts =
+                mock(PracticeAttemptRepository.class);
+        PracticePublishedVersionService versions =
+                mock(PracticePublishedVersionService.class);
+        PracticeResultPresenter overviewPresenter =
+                mock(PracticeResultPresenter.class);
+        PracticeResultDetailPresenter detailPresenter =
+                mock(PracticeResultDetailPresenter.class);
+        PracticeAttempt attempt =
+                new PracticeAttempt(22L, 1L, 10L, "SPEAKING", 20L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markGraded(null, BigDecimal.TEN, "{}", "{}");
+        when(attempts.findByIdAndUserId(11L, 22L))
+                .thenReturn(Optional.of(attempt));
+        when(versions.hasCoherentAttemptIdentity(attempt))
+                .thenReturn(false);
+
+        PracticeResultAssembler overviewAssembler =
+                new PracticeResultAssembler(
+                        attempts,
+                        versions,
+                        new ObjectMapper(),
+                        List.of(overviewPresenter));
+        PracticeResultDetailAssembler detailAssembler =
+                new PracticeResultDetailAssembler(
+                        overviewAssembler,
+                        List.of(detailPresenter));
+
+        assertThatThrownBy(() ->
+                detailAssembler.assemble(11L, 22L, null))
+                .isInstanceOf(
+                        PracticeAttemptStatePolicy
+                                .PracticeResultNotAvailableException.class)
+                .hasMessageContaining("không nhất quán");
+        verify(versions, never()).snapshot(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+        verifyNoInteractions(overviewPresenter, detailPresenter);
+    }
 
     @Test
     void assemblerRequiresExactlyOneDetailPresenterAndReturnsItsTypedKind() {

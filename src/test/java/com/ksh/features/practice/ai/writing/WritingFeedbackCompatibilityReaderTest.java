@@ -20,7 +20,7 @@ class WritingFeedbackCompatibilityReaderTest {
     @Test
     void parsesValidCurrentEntryScoreFields() throws Exception {
         JsonNode node = objectMapper.readTree("""
-                {"raw_score":8.0,"raw_score_max":10.0,"score":7.5,"overall_score":7.5,"task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2"}
+                {"raw_score":8.0,"raw_score_max":10.0,"score":7.5,"overall_score":7.5,"task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2","scoring_contract":"TASK_NATIVE_RUBRIC_V1","policy_bundle_id":"bundle-a"}
                 """);
 
         WritingFeedbackCompatibilityReader.EntryResult result = reader.parseStoredEntry(node);
@@ -30,6 +30,8 @@ class WritingFeedbackCompatibilityReaderTest {
         assertEquals(0, result.value().rawScoreMax().compareTo(BigDecimal.valueOf(10.0)));
         assertEquals("Q51", result.value().taskType());
         assertEquals("KSH_WRITING_EVALUATOR_V2", result.value().engine());
+        assertEquals("TASK_NATIVE_RUBRIC_V1", result.value().scoringContract());
+        assertEquals("bundle-a", result.value().policyBundleId());
     }
 
     @Test

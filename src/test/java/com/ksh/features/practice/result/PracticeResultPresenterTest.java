@@ -36,6 +36,7 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
@@ -51,6 +52,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PracticeResultPresenterTest {
@@ -1888,10 +1892,14 @@ class PracticeResultPresenterTest {
         when(attempts.findByIdAndUserId(1L, 2L)).thenReturn(Optional.of(attempt));
         when(attempt.getStatus()).thenReturn(PracticeAttempt.STATUS_SUBMITTED);
         when(attempt.getSkill()).thenReturn("READING");
+        when(attempt.getSetId()).thenReturn(1L);
+        when(attempt.getTestId()).thenReturn(10L);
+        when(attempt.getSectionId()).thenReturn(20L);
         when(attempt.getPublishedVersionId()).thenReturn(10L);
         when(attempt.getSetVersionId()).thenReturn(11L);
         when(attempt.getTestVersionId()).thenReturn(12L);
         when(attempt.getSectionVersionId()).thenReturn(13L);
+        when(versions.hasCoherentAttemptIdentity(attempt)).thenReturn(true);
         PracticeVersionSnapshot lockedSnapshot = snapshot("READING", List.of());
         when(versions.snapshot(10L, 11L, 12L, 13L))
                 .thenReturn(Optional.of(lockedSnapshot));
@@ -1911,6 +1919,75 @@ class PracticeResultPresenterTest {
         assertThatThrownBy(() -> ambiguous.assemble(1L, 2L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("đúng một result presenter");
+    }
+
+    @Test
+    void overviewRejectsIncoherentIdentityBeforeSnapshotOrPresenter() {
+        PracticeAttemptRepository attempts =
+                mock(PracticeAttemptRepository.class);
+        PracticePublishedVersionService versions =
+                mock(PracticePublishedVersionService.class);
+        PracticeResultPresenter presenter =
+                mock(PracticeResultPresenter.class);
+        PracticeAttempt attempt =
+                new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markSubmitted(BigDecimal.ONE, BigDecimal.TEN, "{}");
+        when(attempts.findByIdAndUserId(77L, 2L))
+                .thenReturn(Optional.of(attempt));
+        when(versions.hasCoherentAttemptIdentity(attempt))
+                .thenReturn(false);
+
+        PracticeResultAssembler assembler = new PracticeResultAssembler(
+                attempts,
+                versions,
+                objectMapper,
+                List.of(presenter));
+
+        assertThatThrownBy(() -> assembler.assemble(77L, 2L))
+                .isInstanceOf(
+                        PracticeAttemptStatePolicy
+                                .PracticeResultNotAvailableException.class)
+                .hasMessageContaining("không nhất quán");
+        verify(versions, never()).snapshot(any(), any(), any(), any());
+        verifyNoInteractions(presenter);
+    }
+
+    @Test
+    void overviewRechecksAttemptSourceIdentityBeforePresenter() {
+        PracticeAttemptRepository attempts =
+                mock(PracticeAttemptRepository.class);
+        PracticePublishedVersionService versions =
+                mock(PracticePublishedVersionService.class);
+        PracticeResultPresenter presenter =
+                mock(PracticeResultPresenter.class);
+        PracticeAttempt attempt =
+                new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
+        attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
+        attempt.markSubmitted(BigDecimal.ONE, BigDecimal.TEN, "{}");
+        when(attempts.findByIdAndUserId(77L, 2L))
+                .thenReturn(Optional.of(attempt));
+        when(versions.hasCoherentAttemptIdentity(attempt))
+                .thenReturn(true);
+        PracticeVersionSnapshot wrongSet =
+                snapshot("READING", List.of());
+        when(wrongSet.setVersion().getSetId()).thenReturn(999L);
+        when(versions.snapshot(100L, 101L, 102L, 103L))
+                .thenReturn(Optional.of(wrongSet));
+
+        PracticeResultAssembler assembler = new PracticeResultAssembler(
+                attempts,
+                versions,
+                objectMapper,
+                List.of(presenter));
+
+        assertThatThrownBy(() -> assembler.assemble(77L, 2L))
+                .isInstanceOf(
+                        PracticeAttemptStatePolicy
+                                .PracticeResultNotAvailableException.class)
+                .hasMessageContaining("không nhất quán");
+        verify(versions).snapshot(100L, 101L, 102L, 103L);
+        verifyNoInteractions(presenter);
     }
 
     private WritingResultPresenter writingPresenter() {
@@ -1965,12 +2042,23 @@ class PracticeResultPresenterTest {
     private static PracticeVersionSnapshot snapshot(
             String skill,
             List<PracticeQuestionVersion> questions) {
+        PracticePublishedVersion published =
+                mock(PracticePublishedVersion.class);
+        when(published.getId()).thenReturn(10L);
+        PracticeSetVersion set = mock(PracticeSetVersion.class);
+        when(set.getId()).thenReturn(11L);
+        when(set.getSetId()).thenReturn(1L);
+        PracticeTestVersion test = mock(PracticeTestVersion.class);
+        when(test.getId()).thenReturn(12L);
+        when(test.getTestId()).thenReturn(10L);
         PracticeSectionVersion section = mock(PracticeSectionVersion.class);
+        when(section.getId()).thenReturn(13L);
+        when(section.getSectionId()).thenReturn(20L);
         when(section.getSkill()).thenReturn(skill);
         return new PracticeVersionSnapshot(
-                mock(PracticePublishedVersion.class),
-                mock(PracticeSetVersion.class),
-                mock(PracticeTestVersion.class),
+                published,
+                set,
+                test,
                 section,
                 List.of(),
                 questions);

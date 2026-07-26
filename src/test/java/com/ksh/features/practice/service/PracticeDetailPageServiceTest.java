@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +37,11 @@ class PracticeDetailPageServiceTest {
     @BeforeEach
     void setUp() {
         service = new PracticeDetailPageService(sectionRepository, attemptRepository);
+        lenient().when(
+                        attemptRepository.findCoherentAttemptIdentityIds(
+                                org.mockito.ArgumentMatchers.anyLong(),
+                                org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(List.of());
     }
 
     @Test
@@ -54,6 +60,8 @@ class PracticeDetailPageServiceTest {
                 2001L, 20L, 201L, "SPEAKING", 90, "2026-07-14T10:00:00");
         when(attemptRepository.findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(1L, 7L))
                 .thenReturn(List.of(completedSpeaking, activeListening, completedReading));
+        when(attemptRepository.findCoherentAttemptIdentityIds(
+                7L, List.of(1L))).thenReturn(List.of(1002L));
 
         List<PracticeSetTestCard> cards = service.buildTestCards(
                 1L,
@@ -100,6 +108,8 @@ class PracticeDetailPageServiceTest {
 
         when(attemptRepository.findByTestIdAndUserIdOrderByCreatedAtDesc(10L, 7L))
                 .thenReturn(List.of(oldest, discarded, active, middle, newest));
+        when(attemptRepository.findCoherentAttemptIdentityIds(
+                7L, List.of(1L))).thenReturn(List.of(1004L));
 
         List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
                 10L, List.of(reading), 7L);
@@ -121,6 +131,51 @@ class PracticeDetailPageServiceTest {
     }
 
     @Test
+    void completedHistoryLinksOnlyCanonicalResultEligibleAttempts() {
+        PracticeSection reading = section(101L, 10L, "READING", 1);
+        PracticeAttempt canonical = completedAttempt(
+                1001L, 10L, 101L, "READING", 9,
+                "2026-07-14T11:00:00");
+        canonical.lockPublishedVersion(11L, 12L, 13L, 14L);
+        PracticeAttempt incompatible = completedAttempt(
+                1002L, 10L, 101L, "READING", 8,
+                "2026-07-14T10:00:00");
+        incompatible.lockPublishedVersion(11L, 12L, 13L, 14L);
+        incompatible.setVersionCompatibilityStatus("STALE");
+        PracticeAttempt incoherent = completedAttempt(
+                1003L, 10L, 101L, "READING", 7,
+                "2026-07-14T09:00:00");
+        incoherent.lockPublishedVersion(21L, 22L, 23L, 24L);
+        PracticeAttempt incomplete = completedAttempt(
+                1004L, 10L, 101L, "READING", 6,
+                "2026-07-14T08:00:00");
+        when(attemptRepository
+                .findByTestIdAndUserIdOrderByCreatedAtDesc(10L, 7L))
+                .thenReturn(List.of(
+                        incomplete, incoherent, incompatible, canonical));
+        when(attemptRepository.findCoherentAttemptIdentityIds(
+                7L, List.of(1L))).thenReturn(List.of(1001L));
+
+        List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
+                10L, List.of(reading), 7L);
+
+        assertThat(cards).singleElement().satisfies(card ->
+                assertThat(card.completedAttempts())
+                        .extracting(
+                                attempt -> attempt.id(),
+                                attempt -> attempt.resultEligible())
+                        .containsExactly(
+                                org.assertj.core.groups.Tuple.tuple(
+                                        1001L, true),
+                                org.assertj.core.groups.Tuple.tuple(
+                                        1002L, false),
+                                org.assertj.core.groups.Tuple.tuple(
+                                        1003L, false),
+                                org.assertj.core.groups.Tuple.tuple(
+                                        1004L, false)));
+    }
+
+    @Test
     void speakingSkillCardNeverLeaksLegacyOrMissingHolisticScores() {
         PracticeSection speaking = section(201L, 20L, "SPEAKING", 1);
         PracticeAttempt legacyNumeric = gradedAttempt(
@@ -134,10 +189,13 @@ class PracticeDetailPageServiceTest {
                 20L, List.of(speaking), 7L);
 
         assertThat(cards).singleElement().satisfies(card -> {
+            assertThat(card.state()).isEqualTo("SCORED");
             assertThat(card.completedAttempts()).extracting(attempt -> attempt.scoreLabel())
                     .containsExactly(
                             "Không có điểm Nói tổng hợp",
                             "Không có điểm Nói tổng hợp");
+            assertThat(card.completedAttempts()).extracting(attempt -> attempt.state())
+                    .containsExactly("SCORED", "SCORED");
             assertThat(card.latestScoreLabel()).isEqualTo("Không có điểm Nói tổng hợp");
             assertThat(card.bestScoreLabel()).isEqualTo("Không có điểm Nói tổng hợp");
             assertThat(card.completedAttempts()).extracting(attempt -> attempt.statusLabel())
@@ -162,9 +220,42 @@ class PracticeDetailPageServiceTest {
         List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
                 20L, List.of(speaking), 7L);
 
-        assertThat(cards).singleElement().satisfies(card ->
-                assertThat(card.completedAttempts()).extracting(attempt -> attempt.statusLabel())
-                        .containsExactly("Chưa thể xử lý phản hồi", "Đang xử lý phản hồi"));
+        assertThat(cards).singleElement().satisfies(card -> {
+            assertThat(card.state()).isEqualTo("FAILED");
+            assertThat(card.completedAttempts())
+                    .extracting(attempt -> attempt.state())
+                    .containsExactly("FAILED", "SCORING");
+            assertThat(card.completedAttempts())
+                    .extracting(attempt -> attempt.statusLabel())
+                    .containsExactly(
+                            "Chưa thể xử lý phản hồi",
+                            "Đang xử lý phản hồi");
+        });
+    }
+
+    @Test
+    void incoherentInProgressAttemptRequiresRestartAndHasNoResumeLink() {
+        PracticeSection reading = section(101L, 10L, "READING", 1);
+        PracticeAttempt incoherent =
+                new PracticeAttempt(7L, 1L, 10L, "READING", 101L);
+        incoherent.lockPublishedVersion(11L, 12L, 13L, 14L);
+        setField(incoherent, "id", 1001L);
+        setField(
+                incoherent,
+                "updatedAt",
+                LocalDateTime.parse("2026-07-14T11:00:00"));
+        when(attemptRepository
+                .findByTestIdAndUserIdOrderByCreatedAtDesc(10L, 7L))
+                .thenReturn(List.of(incoherent));
+
+        List<PracticeSkillAttemptCard> cards = service.buildSkillCards(
+                10L, List.of(reading), 7L);
+
+        assertThat(cards).singleElement().satisfies(card -> {
+            assertThat(card.state()).isEqualTo("STALE");
+            assertThat(card.stateLabel()).isEqualTo("Cần bắt đầu lại");
+            assertThat(card.inProgressAttemptId()).isNull();
+        });
     }
 
     private PracticeSection section(Long id, Long testId, String skill, int displayOrder) {
@@ -201,6 +292,7 @@ class PracticeDetailPageServiceTest {
                                           String skill,
                                           String updatedAt) {
         PracticeAttempt attempt = new PracticeAttempt(7L, 1L, testId, skill, sectionId);
+        attempt.lockPublishedVersion(11L, 12L, 13L, 14L);
         setField(attempt, "id", id);
         setField(attempt, "updatedAt", LocalDateTime.parse(updatedAt));
         return attempt;

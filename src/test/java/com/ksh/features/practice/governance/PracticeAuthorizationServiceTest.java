@@ -80,6 +80,7 @@ class PracticeAuthorizationServiceTest {
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
                 10L, 22L);
         allow(22L, PracticeAction.EDIT);
+        allow(22L, PracticeAction.PUBLISH);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
                 .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
@@ -87,6 +88,8 @@ class PracticeAuthorizationServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> service.requireSet(10L, 22L, PracticeAction.EDIT));
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireSet(10L, 22L, PracticeAction.PUBLISH));
     }
 
     @Test

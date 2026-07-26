@@ -5,13 +5,16 @@ import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository.GlobalResumeProjection;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +36,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +58,17 @@ class PracticeCatalogServiceTest {
     @InjectMocks
     private PracticeCatalogService service;
 
+    @BeforeEach
+    void setUpGlobalResumeDefault() {
+        lenient().when(attemptRepository.findGlobalResumeCandidates(
+                anyLong(), anyList(), any()))
+                .thenReturn(List.of());
+        lenient().when(
+                        attemptRepository.findCoherentAttemptIdentityIds(
+                                anyLong(), anyList()))
+                .thenReturn(List.of());
+    }
+
     @Test
     void loadsOneBoundedBatchWithRealGraphCountsAndProgress() {
         PracticeSet set = set(SET_ID, "Buổi sáng tiếng Hàn", PracticeSet.SKILL_READING);
@@ -66,7 +83,7 @@ class PracticeCatalogServiceTest {
         when(setRepository.findLearnerVisiblePublished(
                 PracticeSet.STATUS_PUBLISHED, PracticeSet.SCOPE_GLOBAL,
                 PracticeSet.SCOPE_CLASS, USER_ID, List.of(-1L), 0L,
-                "buổi sáng", "READING", request))
+                "buổi sáng", "READING", null, request))
                 .thenReturn(new PageImpl<>(List.of(set), request, 25));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -77,7 +94,8 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(readingAttempt, listeningAttempt));
 
         PracticeCatalogBatch batch = service.loadBatch(
-                USER_ID, new PracticeCatalogQuery("  buổi sáng  ", " reading ", null, 0));
+                USER_ID, new PracticeCatalogQuery(
+                        "  buổi sáng  ", " reading ", "ALL", null, 0));
 
         assertThat(batch.items()).hasSize(1);
         assertThat(batch.totalElements()).isEqualTo(25);
@@ -117,7 +135,7 @@ class PracticeCatalogServiceTest {
         when(classRepository.findAllById(List.of(15L))).thenReturn(List.of(learnerClass));
 
         PracticeCatalogBatch batch = service.loadBatch(
-                USER_ID, new PracticeCatalogQuery("", "ALL", 99L, 0));
+                USER_ID, new PracticeCatalogQuery("", "ALL", "Q51", 99L, 0));
 
         assertThat(batch.items()).isEmpty();
         assertThat(batch.totalElements()).isZero();
@@ -126,7 +144,7 @@ class PracticeCatalogServiceTest {
         assertThat(batch.classes()).extracting(option -> option.id()).containsExactly(15L);
         verify(setRepository, never()).findLearnerVisiblePublished(
                 anyString(), anyString(), anyString(), anyLong(), anyList(),
-                anyLong(), anyString(), anyString(), any());
+                anyLong(), anyString(), anyString(), any(), any());
         verify(testRepository, never()).findBySetIdInOrderBySetIdAscDisplayOrderAsc(anyList());
     }
 
@@ -142,7 +160,7 @@ class PracticeCatalogServiceTest {
         when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
         when(setRepository.findLearnerVisiblePublished(
                 anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq(""), eq(request)))
+                eq(0L), eq(""), eq(""), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set), request, 1));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -153,10 +171,11 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(attempt));
 
         PracticeCatalogBatch batch = service.loadBatch(
-                USER_ID, new PracticeCatalogQuery(null, "invalid", null, -4));
+                USER_ID, new PracticeCatalogQuery(null, "invalid", "Q51", null, -4));
 
         assertThat(batch.batch()).isZero();
         assertThat(batch.skill()).isEqualTo("ALL");
+        assertThat(batch.writingTask()).isEqualTo("ALL");
         assertThat(batch.items().get(0).state()).isEqualTo("SUBMITTED");
     }
 
@@ -171,7 +190,7 @@ class PracticeCatalogServiceTest {
         when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
         when(setRepository.findLearnerVisiblePublished(
                 anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq(""), eq(request)))
+                eq(0L), eq(""), eq(""), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set, set), request, 2));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -182,7 +201,7 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of());
 
         PracticeCatalogBatch batch = service.loadBatch(
-                USER_ID, new PracticeCatalogQuery(null, "ALL", null, 0));
+                USER_ID, new PracticeCatalogQuery(null, "ALL", "ALL", null, 0));
 
         assertThat(batch.items()).hasSize(1);
         assertThat(batch.items().get(0).id()).isEqualTo(SET_ID);
@@ -206,7 +225,7 @@ class PracticeCatalogServiceTest {
         when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
         when(setRepository.findLearnerVisiblePublished(
                 anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq("SPEAKING"), eq(request)))
+                eq(0L), eq(""), eq("SPEAKING"), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set), request, 1));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -216,14 +235,185 @@ class PracticeCatalogServiceTest {
                 USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
                 .thenReturn(List.of(graded), List.of(queued), List.of(failed));
 
-        PracticeCatalogQuery query = new PracticeCatalogQuery("", "SPEAKING", null, 0);
+        PracticeCatalogQuery query =
+                new PracticeCatalogQuery("", "SPEAKING", "Q54", null, 0);
         PracticeCatalogBatch gradedBatch = service.loadBatch(USER_ID, query);
         PracticeCatalogBatch queuedBatch = service.loadBatch(USER_ID, query);
         PracticeCatalogBatch failedBatch = service.loadBatch(USER_ID, query);
 
         assertThat(gradedBatch.items().get(0).stateLabel()).isEqualTo("Đã xử lý phản hồi");
+        assertThat(gradedBatch.writingTask()).isEqualTo("ALL");
         assertThat(queuedBatch.items().get(0).stateLabel()).isEqualTo("Đang xử lý phản hồi");
         assertThat(failedBatch.items().get(0).stateLabel()).isEqualTo("Chưa thể xử lý phản hồi");
+    }
+
+    @Test
+    void writingTaskFilterIsNormalizedAndAppliedToAuthorizedSearchAndPaging() {
+        PracticeSet set = set(SET_ID, "Luyện viết 53", PracticeSet.SKILL_WRITING);
+        PracticeTest test = test(TEST_ID, SET_ID);
+        PracticeSection writing = section(31L, SET_ID, TEST_ID, "WRITING", 1);
+        PageRequest request = PageRequest.of(2, PracticeCatalogService.BATCH_SIZE);
+
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "biểu đồ",
+                "WRITING",
+                WritingTaskType.Q53,
+                request))
+                .thenReturn(new PageImpl<>(List.of(set), request, 40));
+        when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(test));
+        when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(writing));
+        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of());
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery(
+                        " biểu đồ ", "writing", "q53", null, 2));
+
+        assertThat(batch.skill()).isEqualTo("WRITING");
+        assertThat(batch.writingTask()).isEqualTo("Q53");
+        assertThat(batch.search()).isEqualTo("biểu đồ");
+        assertThat(batch.batch()).isEqualTo(2);
+        assertThat(batch.hasMore()).isTrue();
+        assertThat(batch.items()).extracting(item -> item.id()).containsExactly(SET_ID);
+    }
+
+    @Test
+    void unknownWritingTaskFailsSafelyToAllWithoutDroppingWritingSkill() {
+        PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "",
+                "WRITING",
+                null,
+                request))
+                .thenReturn(new PageImpl<>(List.of(), request, 0));
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery("", "WRITING", "Q99<script>", null, 0));
+
+        assertThat(batch.skill()).isEqualTo("WRITING");
+        assertThat(batch.writingTask()).isEqualTo("ALL");
+        assertThat(batch.items()).isEmpty();
+    }
+
+    @Test
+    void globalResumeIsIndependentOfCurrentPageSearchAndSkillFilter() {
+        PracticeSet visiblePageSet =
+                set(SET_ID, "Kết quả tìm kiếm", PracticeSet.SKILL_READING);
+        PageRequest request =
+                PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+        GlobalResumeProjection resume = mock(GlobalResumeProjection.class);
+        when(resume.getAttemptId()).thenReturn(901L);
+        when(resume.getSetId()).thenReturn(99L);
+        when(resume.getTestId()).thenReturn(199L);
+        when(resume.getSectionId()).thenReturn(299L);
+        when(resume.getSetTitle()).thenReturn("Bộ đề ngoài trang hiện tại");
+        when(resume.getTestTitle()).thenReturn("Bài Writing đang làm");
+        when(resume.getSkill()).thenReturn("WRITING");
+        when(resume.getActivityAt())
+                .thenReturn(LocalDateTime.parse("2026-07-25T12:00:00"));
+
+        when(learnerAccessService.activeClassIds(USER_ID))
+                .thenReturn(List.of(15L));
+        when(classRepository.findAllById(List.of(15L)))
+                .thenReturn(List.of());
+        when(attemptRepository.findGlobalResumeCandidates(
+                USER_ID, List.of(15L), PageRequest.of(0, 1)))
+                .thenReturn(List.of(resume));
+        when(setRepository.findLearnerVisiblePublished(
+                anyString(), anyString(), anyString(), eq(USER_ID),
+                eq(List.of(15L)), eq(0L), eq("đọc"), eq("READING"),
+                eq(null), eq(request)))
+                .thenReturn(new PageImpl<>(
+                        List.of(visiblePageSet), request, 30));
+        when(testRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of());
+        when(sectionRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of());
+        when(attemptRepository
+                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+                        USER_ID,
+                        List.of(SET_ID),
+                        PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of());
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery(
+                        "đọc", "READING", "ALL", null, 0));
+
+        assertThat(batch.globalResume()).isNotNull();
+        assertThat(batch.globalResume().attemptId()).isEqualTo(901L);
+        assertThat(batch.globalResume().setId()).isEqualTo(99L);
+        assertThat(batch.globalResume().setTitle())
+                .isEqualTo("Bộ đề ngoài trang hiện tại");
+        assertThat(batch.items()).extracting(item -> item.id())
+                .containsExactly(SET_ID);
+    }
+
+    @Test
+    void completeLookingIncoherentAttemptIsStaleAndNeverProducesCardResume() {
+        PracticeSet set =
+                set(SET_ID, "Bộ đề cần bắt đầu lại", PracticeSet.SKILL_READING);
+        PracticeTest test = test(TEST_ID, SET_ID);
+        PracticeSection section =
+                section(31L, SET_ID, TEST_ID, "READING", 1);
+        PracticeAttempt incoherent =
+                new PracticeAttempt(USER_ID, SET_ID, TEST_ID, "READING", 31L);
+        incoherent.lockPublishedVersion(101L, 102L, 103L, 104L);
+        ReflectionTestUtils.setField(incoherent, "id", 401L);
+        PageRequest request =
+                PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+
+        when(learnerAccessService.activeClassIds(USER_ID))
+                .thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                anyString(), anyString(), anyString(), eq(USER_ID),
+                eq(List.of(-1L)), eq(0L), eq(""), eq(""), eq(null),
+                eq(request)))
+                .thenReturn(new PageImpl<>(List.of(set), request, 1));
+        when(testRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(test));
+        when(sectionRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of(section));
+        when(attemptRepository
+                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+                        USER_ID,
+                        List.of(SET_ID),
+                        PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of(incoherent));
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery("", "ALL", "ALL", null, 0));
+
+        assertThat(batch.items()).singleElement().satisfies(card -> {
+            assertThat(card.state()).isEqualTo("STALE");
+            assertThat(card.resumeAttemptId()).isNull();
+        });
+        assertThat(batch.globalResume()).isNull();
     }
 
     private PracticeSet set(long id, String title, String skill) {

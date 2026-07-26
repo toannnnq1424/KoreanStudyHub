@@ -243,6 +243,126 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
+    void selectedRevisionsExposeOnlyServerDerivedReadingListeningRecoveryActions()
+            throws Exception {
+        String revisions = read(
+                "src/main/resources/templates/practice/manage/revisions.html");
+        String controller = read(
+                "src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
+        String restController = read(
+                "src/main/java/com/ksh/features/practice/manage/controller/PracticeExplanationController.java");
+        String query = read(
+                "src/main/java/com/ksh/features/practice/ai/readinglistening/QuestionExplanationRecoveryQueryService.java");
+        String retry = read(
+                "src/main/java/com/ksh/features/practice/ai/readinglistening/QuestionExplanationRetryService.java");
+        String taskRepository = read(
+                "src/main/java/com/ksh/features/practice/repository/QuestionExplanationGenerationTaskRepository.java");
+
+        assertTrue(revisions.contains("selectedSetId != null"));
+        assertTrue(revisions.contains("explanationRecoveryRows"));
+        assertTrue(revisions.contains("row.retryableAction()"));
+        assertTrue(revisions.contains(
+                "/explanations/{questionVersionId}/retry"));
+        assertTrue(revisions.contains("_csrf.parameterName"));
+        assertTrue(revisions.contains("row.state().name() == 'RATE_LIMITED'"));
+        assertTrue(revisions.contains("disabled"));
+        assertTrue(revisions.contains(
+                "row.state().name() == 'FAILED_NON_RETRYABLE'"));
+        assertTrue(revisions.contains("Sửa nội dung và xuất bản lại"));
+        assertTrue(revisions.contains("row.state().name() == 'READY'"));
+        assertTrue(revisions.contains("Không cần thao tác"));
+        assertTrue(revisions.contains("row.state().name() == 'PENDING'"));
+        assertTrue(revisions.contains("Không tạo yêu cầu trùng"));
+        assertFalse(revisions.contains("artifactId"));
+        assertFalse(revisions.contains("taskId"));
+        assertFalse(revisions.contains("provider"));
+
+        assertTrue(controller.contains(
+                "explanationRecoveryQueryService.load("));
+        assertTrue(controller.contains(
+                "explanationRetryService.retryQuestionVersion("));
+        assertTrue(controller.contains(
+                "return \"redirect:/practice/manage/revisions?setId=\" + setId;"));
+        assertTrue(controller.contains(
+                "Không thể xử lý yêu cầu thử lại"));
+
+        assertTrue(restController.contains(
+                "@PreAuthorize(Roles.PREAUTH_LECTURER)"));
+        assertFalse(restController.contains("PREAUTH_LECTURER_OR_ABOVE"));
+        assertTrue(restController.contains("TOO_MANY_REQUESTS"));
+        assertTrue(restController.contains("HttpHeaders.RETRY_AFTER"));
+        assertTrue(restController.contains("HttpStatus.CONFLICT"));
+        assertTrue(restController.contains("ResponseEntity.accepted()"));
+
+        assertTrue(query.indexOf("authorizationService.requireSet(")
+                < query.indexOf("publishedVersionRepository.findAllById("));
+        assertTrue(query.contains(
+                "findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc"));
+        assertTrue(query.contains(
+                "findByQuestionVersionIdInAndExplanationLanguage"));
+        assertTrue(query.contains("artifactRepository.findAllById"));
+        assertTrue(query.contains("taskRepository.findByArtifactIdIn"));
+        assertTrue(query.contains("questionRepository.findAllById(sourceQuestionIds)"));
+        assertTrue(query.contains("sectionRepository.findAllById(sourceSectionIds)"));
+        assertTrue(query.contains("sourceBindingsByQuestion"));
+        assertTrue(query.contains("validTaskSource"));
+        assertTrue(query.contains("RecoveryState state = validBinding"));
+        assertFalse(query.contains("validBinding && validTaskSource"));
+        assertFalse(query.contains("questionRepository.findById("));
+        assertFalse(query.contains("sectionRepository.findById("));
+        assertFalse(query.contains("bindingRepository.findByQuestionVersionIdAnd"));
+        assertFalse(query.contains(".generate("));
+        assertFalse(query.contains("findByIdForUpdate"));
+
+        for (String state : List.of(
+                "READY",
+                "PENDING",
+                "FAILED_RETRYABLE",
+                "RATE_LIMITED",
+                "FAILED_NON_RETRYABLE")) {
+            assertTrue(retry.contains(state), "Missing recovery state " + state);
+        }
+        assertTrue(retry.contains("Duration.ofMinutes(1)"));
+        assertTrue(retry.contains("PracticeAction.PUBLISH"));
+        assertTrue(retry.indexOf("authorizationService.requireGlobal(")
+                < retry.indexOf(
+                        "bindingRepository.findByArtifactIdOrderByIdAsc"));
+        assertTrue(retry.indexOf("authorizationService.requireSet(")
+                < retry.indexOf("findByArtifactIdForUpdate"));
+        int artifactNullGuard = retry.indexOf("if (artifact == null)");
+        int readyGuard = retry.indexOf(
+                "QuestionExplanationArtifact.STATUS_READY.equals",
+                artifactNullGuard);
+        int taskSourceGuard = retry.indexOf(
+                "if (task == null || !validTaskSource)", readyGuard);
+        assertTrue(artifactNullGuard >= 0);
+        assertTrue(readyGuard >= 0);
+        assertTrue(taskSourceGuard >= 0);
+        assertTrue(artifactNullGuard < readyGuard);
+        assertTrue(readyGuard < taskSourceGuard);
+        int persistenceClear = retry.indexOf("entityManager.clear()");
+        int initialSourceCheck = retry.indexOf(
+                "hasValidTaskSource(currentArtifact, currentTask)");
+        int taskLock = retry.indexOf("findByArtifactIdForUpdate");
+        int lockedSourceCheck = retry.indexOf(
+                "hasValidTaskSource(currentArtifact, task)", taskLock);
+        int artifactLock = retry.indexOf("findByIdForUpdate", taskLock);
+        assertTrue(initialSourceCheck >= 0);
+        assertTrue(initialSourceCheck < persistenceClear);
+        assertTrue(persistenceClear >= 0);
+        assertTrue(persistenceClear < taskLock);
+        assertTrue(taskLock < lockedSourceCheck);
+        assertTrue(lockedSourceCheck < artifactLock);
+        assertTrue(retry.contains("validTaskSource("));
+        assertTrue(retry.contains("statusCode.length() != 3"));
+        assertTrue(retry.contains(
+                "character -> character >= '0' && character <= '9'"));
+        assertTrue(retry.contains("status >= 500 && status <= 599"));
+        assertTrue(taskRepository.contains(
+                "findByArtifactIdIn(Collection<Long> artifactIds)"));
+    }
+
+    @Test
     void practiceAuthoringRoutesAreLecturerOnlyAndExposeNoOverridePath()
             throws Exception {
         List<String> controllers = List.of(
