@@ -25,8 +25,7 @@ import com.ksh.features.library.dto.LibraryDtos.LibraryLessonRow;
 import com.ksh.features.library.dto.LibraryDtos.LibraryLessonsPageView;
 import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.features.library.repository.LibraryAssetRepository;
-import com.ksh.features.upload.LessonAttachmentStorageService;
-import com.ksh.features.upload.LessonVideoStorageService;
+import com.ksh.features.storage.ObjectStorage;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +37,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,8 +63,7 @@ class LessonTemplateServiceTest {
     @Autowired private LessonAttachmentRepository attachmentRepository;
     @Autowired private LessonRepository lessonRepository;
     @Autowired private LessonActivityRepository activityRepository;
-    @Autowired private LessonAttachmentStorageService attachmentStorage;
-    @Autowired private LessonVideoStorageService videoStorage;
+    @Autowired private ObjectStorage objectStorage;
 
     private User lecturer;
     private User otherLecturer;
@@ -208,8 +204,7 @@ class LessonTemplateServiceTest {
                 .orElseThrow();
         assertThat(sourcePdf.isLibraryBacked()).isFalse();
         String sourcePath = sourcePdf.getStoredPath();
-        Path sourceAbs = attachmentStorage.resolveAbsolutePath(sourcePath);
-        assertThat(Files.exists(sourceAbs)).isTrue();
+        assertThat(objectStorage.exists(sourcePath)).isTrue();
 
         LessonCloneResult cloned = templateService.cloneLessonToSection(
                 clazz.getId(), section.getId(), src.id(),
@@ -225,7 +220,7 @@ class LessonTemplateServiceTest {
         assertThat(destPdf.getStoredPath()).startsWith("library/");
         assertThat(destPdf.getStoredPath()).isNotEqualTo(sourcePath);
         // Original one-off file still exists (promote copies, does not move).
-        assertThat(Files.exists(sourceAbs)).isTrue();
+        assertThat(objectStorage.exists(sourcePath)).isTrue();
     }
 
     @Test
