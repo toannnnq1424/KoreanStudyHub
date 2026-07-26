@@ -32,13 +32,26 @@ public final class PracticeDtos {
     }
 
     public record PracticeCatalogQuery(String search, String skill,
-                                       Long classId, int batch) {
+                                       String writingTask, Long classId, int batch) {
     }
 
     public record PracticeCatalogSkill(String code, String label) {
     }
 
     public record PracticeCatalogClassOption(Long id, String name) {
+    }
+
+    public record PracticeGlobalResume(
+            Long attemptId,
+            Long setId,
+            Long testId,
+            Long sectionId,
+            String setTitle,
+            String testTitle,
+            String primarySkill,
+            String skillLabel,
+            LocalDateTime activityAt
+    ) {
     }
 
     public record PracticeCatalogCard(
@@ -110,9 +123,11 @@ public final class PracticeDtos {
 
     public record PracticeCatalogBatch(
             List<PracticeCatalogCard> items,
+            PracticeGlobalResume globalResume,
             List<PracticeCatalogClassOption> classes,
             String search,
             String skill,
+            String writingTask,
             Long classId,
             int batch,
             int batchSize,
@@ -121,14 +136,6 @@ public final class PracticeDtos {
     ) {
         public int nextBatch() {
             return batch + 1;
-        }
-
-        public PracticeCatalogCard resumeCard() {
-            if (items == null) return null;
-            return items.stream()
-                    .filter(item -> item.resumeAttemptId() != null)
-                    .findFirst()
-                    .orElse(null);
         }
     }
 
@@ -276,8 +283,10 @@ public final class PracticeDtos {
             int attemptNumber,
             String scoreLabel,
             String status,
+            String state,
             String statusLabel,
             LocalDateTime activityAt,
+            boolean resultEligible,
             boolean initiallyVisible
     ) {
     }
@@ -852,27 +861,24 @@ public final class PracticeDtos {
     ) {
     }
 
-    public record LearningProfileView(List<PracticeResultSummary> recent,
-                                      long readingCount,
-                                      long listeningCount,
-                                      long writingCount,
-                                      long speakingCount,
-                                      BigDecimal averageScore) {
-    }
-
     public record PracticeResultSummary(Long id, String title, String skill,
                                         BigDecimal score, BigDecimal totalPoints,
                                         LocalDateTime submittedAt,
                                         LocalDateTime activityAt,
                                         String status,
+                                        String state,
+                                        boolean resumable,
+                                        boolean resultEligible,
                                         Long setId,
                                         Long testId,
-                                        Long sectionId) {
-        public PracticeResultSummary(Long id, String title, String skill,
-                                     BigDecimal score, BigDecimal totalPoints,
-                                     LocalDateTime submittedAt) {
-            this(id, title, skill, score, totalPoints, submittedAt, submittedAt, null, null, null, null);
-        }
+                                        Long sectionId,
+                                        Long publishedVersionId,
+                                        Long setVersionId,
+                                        Long testVersionId,
+                                        Long sectionVersionId,
+                                        ProgressAvailability identityAvailability,
+                                        ProgressExclusionReason identityReason,
+                                        ProgressNumericFact scoreFact) {
     }
 
     public record PracticePdfImportResult(Long setId, String title, int questionCount) {
@@ -920,57 +926,282 @@ public final class PracticeDtos {
     ) {
     }
 
+    // =========================================================================
+    // Canonical read-only progress contract
+    // =========================================================================
+
+    public enum ProgressAvailability {
+        AVAILABLE,
+        PARTIAL,
+        UNAVAILABLE,
+        NOT_SCORABLE,
+        DEFERRED
+    }
+
+    public enum ProgressExclusionReason {
+        NO_ACTIVITY,
+        FILTER_NO_DATA,
+        CHART_ENHANCEMENT_UNAVAILABLE,
+        NO_ELIGIBLE_SCORE,
+        INCOMPLETE_VERSION_LOCK,
+        LEGACY_UNVERIFIED,
+        MISSING_OR_INVALID_DURATION,
+        DURATION_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY,
+        SCORE_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY,
+        UNSUPPORTED_SCORE_PROFILE,
+        MALFORMED_OBJECTIVE_EVIDENCE,
+        WRITING_SKILL_AGGREGATION_REQUIRES_TASK_COHORT,
+        WRITING_TASK_IDENTITY_MISSING,
+        WRITING_TASK_IDENTITY_MISMATCH,
+        WRITING_SCORE_EVIDENCE_MISSING,
+        WRITING_SCORE_EVIDENCE_MALFORMED,
+        WRITING_EVALUATION_NOT_SCORE_BEARING,
+        WRITING_LEGACY_SCORE_EVIDENCE,
+        WRITING_SCORING_PROFILE_UNSUPPORTED,
+        WRITING_MAXIMUM_MISMATCH,
+        SPEAKING_NUMERIC_AGGREGATION_NOT_SUPPORTED,
+        COMPARISON_SAMPLE_UNAVAILABLE,
+        PAGE_DATA_UNAVAILABLE,
+        SERIALIZATION_UNAVAILABLE
+    }
+
+    public enum ProgressSkillFilter {
+        ALL("Tất cả kỹ năng", "전체 기능"),
+        READING("Đọc", "읽기"),
+        LISTENING("Nghe", "듣기"),
+        WRITING("Viết", "쓰기"),
+        SPEAKING("Nói", "말하기");
+
+        private final String labelVi;
+        private final String labelKo;
+
+        ProgressSkillFilter(String labelVi, String labelKo) {
+            this.labelVi = labelVi;
+            this.labelKo = labelKo;
+        }
+
+        public String labelVi() {
+            return labelVi;
+        }
+
+        public String labelKo() {
+            return labelKo;
+        }
+    }
+
+    public enum ProgressWritingTaskFilter {
+        ALL("Tất cả tác vụ Viết", "쓰기 전체"),
+        Q51("Câu 51", "51번"),
+        Q52("Câu 52", "52번"),
+        Q53("Câu 53", "53번"),
+        Q54("Câu 54", "54번");
+
+        private final String labelVi;
+        private final String labelKo;
+
+        ProgressWritingTaskFilter(String labelVi, String labelKo) {
+            this.labelVi = labelVi;
+            this.labelKo = labelKo;
+        }
+
+        public String labelVi() {
+            return labelVi;
+        }
+
+        public String labelKo() {
+            return labelKo;
+        }
+    }
+
+    public record ProgressFilterOption(
+            String id,
+            String labelVi,
+            String labelKo
+    ) {}
+
+    public record ProgressFilterState(
+            String tab,
+            ProgressSkillFilter skill,
+            ProgressWritingTaskFilter writingTask,
+            String profileId,
+            List<ProgressFilterOption> profileOptions,
+            ProgressAvailability availability,
+            ProgressExclusionReason reason
+    ) {
+        public boolean active() {
+            return skill != ProgressSkillFilter.ALL
+                    || writingTask != ProgressWritingTaskFilter.ALL
+                    || (profileId != null && !"ALL".equals(profileId));
+        }
+
+        public boolean writingFilterActive() {
+            return skill == ProgressSkillFilter.WRITING;
+        }
+
+        public List<ProgressSkillFilter> skillOptions() {
+            return List.of(ProgressSkillFilter.values());
+        }
+
+        public List<ProgressWritingTaskFilter> writingTaskOptions() {
+            return List.of(ProgressWritingTaskFilter.values());
+        }
+    }
+
+    public record ProgressExclusion(
+            ProgressExclusionReason reason,
+            long activityCount
+    ) {}
+
+    public record ProgressCoverage(
+            long activityCount,
+            long eligibleCount,
+            long excludedCount,
+            List<ProgressExclusion> exclusions
+    ) {}
+
+    public record ProgressObservationWindow(
+            String code,
+            String label,
+            boolean bounded,
+            Integer limit,
+            long returnedCount,
+            boolean truncated,
+            LocalDateTime observedFrom,
+            LocalDateTime observedTo,
+            LocalDateTime asOf,
+            LocalDateTime lastObservedAt
+    ) {}
+
+    public record ProgressNumericFact(
+            ProgressAvailability availability,
+            BigDecimal value,
+            BigDecimal numerator,
+            BigDecimal denominator,
+            String unit,
+            String profileId,
+            long sampleSize,
+            long activityCount,
+            ProgressObservationWindow observationWindow,
+            ProgressCoverage coverage
+    ) {
+        public boolean renderableValue() {
+            return value != null
+                    && (availability == ProgressAvailability.AVAILABLE
+                    || availability == ProgressAvailability.PARTIAL);
+        }
+
+        public boolean partialCoverage() {
+            return value != null && availability == ProgressAvailability.PARTIAL;
+        }
+    }
+
+    public record ProgressLevelFact(
+            ProgressAvailability availability,
+            String value,
+            String profileId,
+            ProgressObservationWindow observationWindow,
+            ProgressCoverage coverage
+    ) {}
+
+    public record ProgressAttemptCounts(
+            long total,
+            long completed,
+            long inProgress,
+            long other
+    ) {}
+
+    public record ProgressPageState(
+            ProgressAvailability availability,
+            ProgressExclusionReason reason,
+            String retryHint
+    ) {}
+
+    public record WritingTaskScoreCohort(
+            String cohortId,
+            String taskType,
+            String scoringProfileId,
+            String policyBundleId,
+            BigDecimal maximum,
+            ProgressNumericFact scoreFact
+    ) {}
+
+    public record WritingTaskProgressSeam(
+            String taskType,
+            String label,
+            ProgressAvailability availability,
+            List<WritingTaskScoreCohort> cohorts,
+            ProgressObservationWindow observationWindow,
+            ProgressCoverage coverage
+    ) {}
+
     public record SkillMetric(
             String skill,
             String skillLabel,
             Double normalizedScore,
-            int attemptCount,
-            Double deltaFromLastPeriod
+            long attemptCount,
+            Double deltaFromLastPeriod,
+            ProgressAttemptCounts attemptCounts,
+            ProgressNumericFact scoreFact,
+            ProgressNumericFact deltaFact,
+            ProgressObservationWindow observationWindow,
+            ProgressCoverage coverage
     ) {}
 
     public record HeatmapCell(
             String date,
             int attemptCount,
-            int totalMinutes
+            Long totalMinutes,
+            ProgressCoverage durationCoverage
     ) {}
 
     public record ScoreTrendPoint(
             String date,
             String skill,
-            double normalizedScore,
-            String title
+            Double normalizedScore,
+            String title,
+            Long attemptId,
+            ProgressNumericFact scoreFact
     ) {}
 
     public record PerformanceHighlight(
             String type,
             String label,
             String skillOrType,
-            int attempts,
-            double score,
-            boolean hasData
+            long attempts,
+            Double score,
+            boolean hasData,
+            ProgressNumericFact scoreFact
     ) {}
 
     public record QuestionTypePerf(
             String skill,
             String questionType,
             String questionTypeLabel,
-            int totalAttempts,
-            double averageScore,
-            double bestScore,
-            String lastPracticedAt
+            long totalAttempts,
+            Double averageScore,
+            Double bestScore,
+            String lastPracticedAt,
+            ProgressNumericFact scoreFact
     ) {}
 
     public record LearningProgressOverview(
             String studentName,
             String avatarUrl,
             String currentLevel,
-            int totalAttempts,
-            int totalCompletedTests,
-            int totalPracticeMinutes,
-            double recentAverageScore,
+            long totalAttempts,
+            long totalCompletedTests,
+            Long totalPracticeMinutes,
+            Double recentAverageScore,
             List<SkillMetric> skillMetrics,
             List<HeatmapCell> heatmap,
-            List<PracticeResultSummary> recentHistory
+            List<PracticeResultSummary> recentHistory,
+            ProgressAttemptCounts attemptCounts,
+            ProgressLevelFact levelFact,
+            ProgressNumericFact durationFact,
+            ProgressNumericFact recentScoreFact,
+            ProgressObservationWindow allTimeWindow,
+            ProgressObservationWindow recentDetailWindow,
+            ProgressCoverage coverage
     ) {}
 
     public record PracticeAnalytics(
@@ -978,13 +1209,53 @@ public final class PracticeDtos {
             List<ScoreTrendPoint> scoreTrend,
             List<QuestionTypePerf> questionTypePerf,
             List<PerformanceHighlight> highlights,
-            List<PracticeResultSummary> history
-    ) {}
+            List<PracticeResultSummary> history,
+            List<WritingTaskProgressSeam> writingTaskSeams,
+            ProgressCoverage writingAttemptCoverage,
+            ProgressObservationWindow recentDetailWindow,
+            ProgressPageState state
+    ) {
+        public boolean hasWeeklySkill(String skill) {
+            return skill != null
+                    && weeklySkillMetrics != null
+                    && weeklySkillMetrics.stream()
+                            .anyMatch(metric -> skill.equals(metric.skill()));
+        }
+    }
 
     public record PracticeProgressPageData(
             LearningProgressOverview overview,
-            PracticeAnalytics analytics
-    ) {}
+            PracticeAnalytics analytics,
+            ProgressPageState state
+    ) {
+        public static PracticeProgressPageData unavailable(
+                String studentName,
+                String avatarUrl,
+                ProgressExclusionReason reason
+        ) {
+            ProgressPageState pageState =
+                    new ProgressPageState(ProgressAvailability.UNAVAILABLE, reason, "RELOAD");
+            ProgressCoverage coverage = new ProgressCoverage(
+                    0, 0, 0, List.of(new ProgressExclusion(reason, 0)));
+            ProgressObservationWindow window = new ProgressObservationWindow(
+                    "UNAVAILABLE", "Dữ liệu tiến độ chưa khả dụng", true, 0,
+                    0, false, null, null, null, null);
+            ProgressNumericFact unavailableFact = new ProgressNumericFact(
+                    ProgressAvailability.UNAVAILABLE, null, null, null,
+                    null, null, 0, 0, window, coverage);
+            LearningProgressOverview overview = new LearningProgressOverview(
+                    studentName, avatarUrl, null, 0, 0, null, null,
+                    List.of(), List.of(), List.of(),
+                    new ProgressAttemptCounts(0, 0, 0, 0),
+                    new ProgressLevelFact(
+                            ProgressAvailability.UNAVAILABLE, null, null, window, coverage),
+                    unavailableFact, unavailableFact, window, window, coverage);
+            PracticeAnalytics analytics = new PracticeAnalytics(
+                    List.of(), List.of(), List.of(), List.of(), List.of(),
+                    List.of(), coverage, window, pageState);
+            return new PracticeProgressPageData(overview, analytics, pageState);
+        }
+    }
 
     public record EliminatedOptionExplanation(
             String optionKey,

@@ -44,6 +44,8 @@ public final class PracticeModelAttributes {
     public static final String ANALYTICS = "analytics";
     public static final String OVERVIEW_JSON = "overviewJson";
     public static final String ANALYTICS_JSON = "analyticsJson";
+    public static final String PROGRESS_STATE = "progressState";
+    public static final String PROGRESS_FILTER = "progressFilter";
 
     private PracticeModelAttributes() {
     }

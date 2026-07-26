@@ -9,6 +9,8 @@ public record WritingEvaluationResult(
         BigDecimal overallScore,
         String taskType,
         String engine,
+        String scoringContract,
+        String policyBundleId,
         String evaluationStatus,
         String evaluationSource,
         String evaluationReason,
@@ -22,6 +24,7 @@ public record WritingEvaluationResult(
                                    String taskType,
                                    String engine) {
         this(rawScore, rawScoreMax, score, overallScore, taskType, engine,
+                null, null,
                 "LEGACY_EVALUATED", "LEGACY", "NONE", false, true);
     }
 
