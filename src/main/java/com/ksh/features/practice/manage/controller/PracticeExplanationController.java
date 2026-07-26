@@ -2,7 +2,9 @@ package com.ksh.features.practice.manage.controller;
 
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/practice/manage/explanations")
+@PreAuthorize(Roles.PREAUTH_LECTURER)
 public class PracticeExplanationController {
 
     private final QuestionExplanationRetryService retryService;

@@ -182,3 +182,117 @@
     transition: none;
   }
 }
+
+.pm-explanation-recovery {
+  margin-top: 24px;
+  padding: 28px;
+}
+
+.pm-explanation-recovery__heading {
+  margin-bottom: 20px;
+}
+
+.pm-explanation-recovery__heading span {
+  color: var(--pp-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pm-explanation-recovery__heading h2 {
+  margin: 4px 0 0;
+  color: var(--pp-text);
+  font-size: 1.15rem;
+}
+
+.pm-explanation-recovery__heading p {
+  margin: 7px 0 0;
+  color: var(--pp-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.pm-explanation-recovery__empty {
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: var(--pp-text-muted);
+  background: #f8fafc;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.pm-explanation-recovery__table td {
+  vertical-align: top;
+}
+
+.pm-explanation-recovery__prompt,
+.pm-explanation-recovery__table small {
+  display: block;
+  max-width: 360px;
+  margin-top: 4px;
+  color: var(--pp-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.pm-explanation-recovery__skill,
+.pm-explanation-recovery__state {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pm-explanation-recovery__state.is-ready {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pm-explanation-recovery__state.is-pending,
+.pm-explanation-recovery__state.is-rate_limited {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.pm-explanation-recovery__state.is-failed_retryable {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.pm-explanation-recovery__state.is-failed_non_retryable {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.pm-explanation-recovery__action {
+  text-align: right;
+}
+
+.pm-explanation-recovery__action form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.pm-explanation-recovery__action > span {
+  display: inline-block;
+  max-width: 180px;
+  color: var(--pp-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.pm-explanation-recovery__action button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (max-width: 720px) {
+  .pm-explanation-recovery {
+    padding: 20px;
+  }
+}

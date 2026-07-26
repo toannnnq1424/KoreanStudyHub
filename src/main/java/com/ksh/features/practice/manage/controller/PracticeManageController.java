@@ -1,6 +1,8 @@
 package com.ksh.features.practice.manage.controller;
  
 import com.ksh.entities.PracticeSet;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRecoveryQueryService;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.security.KshUserDetails;
@@ -29,6 +31,8 @@ public class PracticeManageController {
     private final com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository;
     private final com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService;
     private final com.ksh.features.practice.governance.PracticeCollaborationService collaborationService;
+    private final QuestionExplanationRecoveryQueryService explanationRecoveryQueryService;
+    private final QuestionExplanationRetryService explanationRetryService;
  
     public PracticeManageController(PracticeSetRepository setRepository,
                                     PracticeDraftRepository draftRepository,
@@ -38,7 +42,9 @@ public class PracticeManageController {
                                     com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository,
                                     com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository,
                                     com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService,
-                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService) {
+                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService,
+                                    QuestionExplanationRecoveryQueryService explanationRecoveryQueryService,
+                                    QuestionExplanationRetryService explanationRetryService) {
         this.setRepository = setRepository;
         this.draftRepository = draftRepository;
         this.userRepository = userRepository;
@@ -48,6 +54,8 @@ public class PracticeManageController {
         this.collaborationRepository = collaborationRepository;
         this.lifecycleService = lifecycleService;
         this.collaborationService = collaborationService;
+        this.explanationRecoveryQueryService = explanationRecoveryQueryService;
+        this.explanationRetryService = explanationRetryService;
     }
  
     @GetMapping("/sets/{setId}/edit")
@@ -195,7 +203,61 @@ public class PracticeManageController {
         model.addAttribute("currentUserId", user.getId());
         model.addAttribute("selectedSetId", requestedSetId);
         model.addAttribute("selectedSet", selectedSet);
+        List<QuestionExplanationRecoveryQueryService.RecoveryRow> recoveryRows =
+                List.of();
+        boolean explanationRecoveryAuthorized = false;
+        if (requestedSetId != null) {
+            try {
+                recoveryRows = explanationRecoveryQueryService.load(
+                        requestedSetId,
+                        versions.stream()
+                                .map(row -> row.version().getId())
+                                .distinct()
+                                .toList(),
+                        user.getId());
+                explanationRecoveryAuthorized = true;
+            } catch (org.springframework.security.access.AccessDeniedException ignored) {
+                // Revision history stays readable for an authorized viewer, but
+                // explanation recovery requires the stricter PUBLISH boundary.
+            }
+        }
+        model.addAttribute("explanationRecoveryRows", recoveryRows);
+        model.addAttribute(
+                "explanationRecoveryAuthorized", explanationRecoveryAuthorized);
         return "practice/manage/revisions";
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping(
+            "/sets/{setId}/explanations/{questionVersionId}/retry")
+    public String retryQuestionExplanation(
+            @org.springframework.web.bind.annotation.PathVariable Long setId,
+            @org.springframework.web.bind.annotation.PathVariable Long questionVersionId,
+            @AuthenticationPrincipal KshUserDetails user,
+            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
+        try {
+            QuestionExplanationRetryService.RetryResult result =
+                    explanationRetryService.retryQuestionVersion(
+                            setId, questionVersionId, user.getId());
+            if (result.queued()
+                    || "READY".equals(result.status())
+                    || "PENDING".equals(result.status())) {
+                redirectAttributes.addFlashAttribute("success", result.message());
+            } else if ("RATE_LIMITED".equals(result.status())) {
+                redirectAttributes.addFlashAttribute(
+                        "error",
+                        result.message() + " Vui lòng chờ "
+                                + result.retryAfterSeconds() + " giây.");
+            } else {
+                redirectAttributes.addFlashAttribute("error", result.message());
+            }
+        } catch (org.springframework.security.access.AccessDeniedException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    "Không thể xử lý yêu cầu thử lại. Hãy tải lại trang và kiểm tra phiên bản đã chọn.");
+        }
+        return "redirect:/practice/manage/revisions?setId=" + setId;
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/versions/{versionId}/restore")

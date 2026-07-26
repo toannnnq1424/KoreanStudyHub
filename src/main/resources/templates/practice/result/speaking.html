@@ -54,6 +54,25 @@
       <strong>Điều cần biết khi đọc kết quả</strong>
       <p th:text="${result.payload().evidenceNote()}">Ghi chú về phạm vi bằng chứng</p>
     </div>
+
+    <div class="pr-speaking-recovery"
+         th:if="${result.feedback().state() == 'FAILED' or result.feedback().state() == 'UNAVAILABLE'}">
+      <strong>Đánh giá chưa khả dụng · 평가를 제공할 수 없습니다</strong>
+      <p>
+        Lần nộp này được lưu bất biến và không thể đánh giá lại.
+        제출한 시도는 변경되지 않으며 다시 평가할 수 없습니다.
+      </p>
+      <p>
+        “Luyện lại” mở bước chuẩn bị cho một lượt khác; hệ thống không dùng lại lần nộp hoặc
+        bản ghi của lần này. Nếu đã có một lượt khác đang làm dở và còn hợp lệ, KSH có thể
+        tiếp tục lượt đó.
+        다른 유효한 연습이 진행 중이면 그 연습을 이어갈 수 있습니다.
+      </p>
+      <a class="pr-speaking-retry-action"
+         th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
+        Luyện lại · 다시 연습
+      </a>
+    </div>
   </section>
 
   <section class="pr-section" aria-labelledby="speaking-criteria-title">
