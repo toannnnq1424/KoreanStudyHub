@@ -37,8 +37,9 @@ hiện hành dùng dải V25-V37. Final-state single-scope hiện là
 `V34__practice_single_scope_final.sql`.
 
 Update 2026-07-24 migration-chain audit:
-`REBASELINE_GO_WITH_GUARDS` là quyết định kế hoạch sau consolidated Phase 13E
-và trước 14A, không phải hành động hiện tại. `question_explanation_*` chỉ thuộc
+`REBASELINE_GO_WITH_GUARDS` là quyết định kế hoạch sau mandatory
+13C3/13G/13H, khi final pre-14 relational contracts đã freeze và trước 14A;
+không phải hành động hiện tại. `question_explanation_*` chỉ thuộc
 R/L; Writing dùng `practice_writing_evaluation_cache`. V26 và V39 là semantic
 duplicate của exam rich-text widening; V27 bị đặt tên sai nhưng mới là file tạo
 Writing cache; V34 là residue “squashed” cũ; V37 backfill legacy không an toàn
@@ -1415,18 +1416,21 @@ test evidence:
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
-> **Current implementation status (`2026-07-24`):** Phase 13D đã commit/push
-> tại `98153ac`; fresh V44 authenticated Result Detail route gate đạt `2/2`
-> xanh. Phase 13E đã được explicit GO; `13E-01..05` hiện
-> `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`. Complete diff và
-> current-source documents đã reconcile; phase là
-> `READY_FOR_PHASE_VALIDATION`. Chưa chạy validation/test/build/Git trước
-> readiness declaration. Workflow và Phase 13E live log Section 12 khóa một
-> consolidated validation duy nhất.
+> **Current implementation status (`2026-07-26`):** Phase 13E và Phase 13F
+> đều `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` là
+> `IMPLEMENTED_AND_FOCUSED_TESTED`. Exact JDK 17 selector của 13F đạt
+> `331/331`, không failure/error/skip; disposable database mới đạt schema proof
+> `44/44/0/1` và cleanup absence `0`. Overall Phase 13 vẫn mở.
+> `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION` đã khóa thiết kế nhưng chưa
+> triển khai; `13C3-00` là hành động kế tiếp, sau đó là `13C3-01..04` và một
+> consolidated correction validation riêng trước 13G/13H và Phase 14. Exact
+> 13F evidence nằm trong `docs/PRACTICE_PHASE_13F_LIVE_CHANGE_LOG.md`; exact
+> 13C3 contract nằm trong
+> `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`.
 
 Tên phase phải được hiểu rộng hơn "polish". New-type interaction, attempt-state
 semantics, result evidence và progress actionability đều là feature work hợp lệ.
-Giữ route KSH `set -> test -> mode -> attempt -> result -> result/detail`; tài
+Giữ route KSH `set -> test -> skill -> attempt -> result -> result/detail`; tài
 liệu PREP chỉ là capability reference learner-side, không phải mẫu sao chép.
 
 Scope lock mới: Phase 13 chỉ triển khai một KSH practice scope ngầm định sau khi
@@ -1616,10 +1620,14 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 
 ### 13E - Evidence-based result detail
 
-- status hiện tại: `READY_FOR_PHASE_VALIDATION`; explicit GO đã được ghi nhận
-  ngày `2026-07-22`;
-- thực thi tuần tự `13E-00..05`, không test/build/Git giữa slice; toàn Phase 13E
-  là một validation unit sau khi complete diff đã review;
+> **Current-source supersession (`2026-07-24`):** Phase 13E đã
+> `COMPLETE_FOCUSED_GATE_GREEN`; `13E-01..05` là
+> `IMPLEMENTED_AND_FOCUSED_TESTED`, tổng `118/118`. Các trạng thái
+> `IMPLEMENTED_PENDING_PHASE_VALIDATION` bên dưới là ledger implementation lịch
+> sử, không phải current status.
+
+- lịch sử thực thi: tuần tự `13E-00..05`, không test/build/Git giữa slice; toàn
+  Phase 13E là một validation unit sau khi complete diff đã review;
 - `13E-00`: reconcile tài liệu, prerequisite gate và current-screen evidence —
   complete;
 - `13E-01`: typed three-screen envelope/dispatcher và backend display
@@ -1669,6 +1677,12 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 
 ### 13F - Progress/profile aggregation and operational recovery
 
+> **Current-source supersession (`2026-07-26`):** Phase 13F là
+> `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` là
+> `IMPLEMENTED_AND_FOCUSED_TESTED`. Gate evidence: `331/331`, schema
+> `44/44/0/1`, cleanup absence `0`. Các bullet dưới đây mô tả accepted scope,
+> không phải pending implementation.
+
 - skill và Writing task dimensions;
 - score trend/heatmap/attempt history luôn kèm sample size, recency và confidence;
 - partial credit không bị tính như binary sai; legacy rows có handling rõ;
@@ -1695,6 +1709,17 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
 
 ### 13H - Visual and journey gate
 
+- `13H-TOOLCHAIN-01`: make Java 17 the reproducible project/module/Maven
+  importer/Maven runner/Spring Boot runner/CLI toolchain; remove stale tracked
+  IntelliJ Lombok `1.18.36` processor and `ulp` module overrides; add a
+  repository-enforced Java-version guard. The accepted fix for the current
+  `TypeTag.UNKNOWN` failure is toolchain alignment, not an opportunistic JDK 26
+  adoption;
+- `13H-SEC-01`: capture a dated resolved dependency tree/SBOM and official
+  advisory baseline; move from Spring Boot `3.4.4` through one coherent,
+  supported Java-17-compatible BOM at execution time, then assess direct
+  POI/PDFBox/jsoup and other pins separately. Do not fix repeated transitive
+  warnings with uncoordinated Framework/Security/Tomcat overrides;
 - functional E2E cho R/L single choice/fill blank/true-false-not-given,
   Writing Q51-Q54 và Speaking;
 - full-test + skill-specific + resume/retake paths;
@@ -1705,14 +1730,23 @@ Không xóa hoặc coi các mục dưới đây đã hoàn tất trước Phase 
   UAT phải đạt; research screenshots không thay thế gate này;
 - không answer leakage, no provider call trong default automated gate;
 - Speaking UI/flow có trong Phase 13; live Speaking AI/audio production rollout
-  vẫn cần storage/provider/UAT gate riêng.
+  vẫn cần storage/provider/UAT gate riêng;
+- the single consolidated 13H validation must record the canonical JDK,
+  dependency/SBOM baseline, runtime-vs-test classification and closure or
+  governed exception for every exploitable Critical/High finding. Because the
+  dependency change is repo-wide, 13H may include the full suite once.
 
 ### Gate bắt buộc sau validated 13E-13H, trước 14A — `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`
 
 Gate này ổn định identity của target chấm điểm/giải thích/UI trước khi người học
-có thể report target đó. Đây là roadmap amendment; không đổi current action
-Phase 13E và không cho phép khởi động gate trước khi `13E-13H` hoàn tất, có
-consolidated validation được chấp nhận.
+có thể report target đó. Đây là roadmap amendment; không override current
+action là `13C3-00`. Gate không được khởi động trước khi mandatory 13C3 và
+Phase 13G-13H hoàn tất với consolidated validation được chấp nhận.
+
+Pre-14 must verify accepted evidence for `P15-PRE-15` reproducible JDK 17 and
+`P15-PRE-16` dependency-security baseline. It does not reimplement their 13H
+changes. A later release rescan remains mandatory because advisories are
+time-sensitive.
 
 Riêng cửa sổ chuẩn bị rebaseline chỉ mở sau khi consolidated Phase 13E
 validation được chấp nhận; baseline thật chỉ được dựng sau khi contract schema
@@ -1777,8 +1811,9 @@ Mandatory closure trước 14A:
 - `P15-PRE-05` chỉ chốt data disposition, new-write, dual-read/invalidate và
   forward rebind strategy; không destructive migration/reset.
 
-`P15-PRE-10..13` vẫn là implementation của 13F/13H và chỉ được verify như
-prerequisite trước Phase 14, không tái triển khai trong gate. `P15-COMP-01..09`,
+`P15-PRE-10..13` vẫn là implementation của 13H; Phase 13F đã xanh nhưng không
+claim các debt này. Chúng chỉ được verify như prerequisite trước Phase 14,
+không tái triển khai trong gate. `P15-COMP-01..09`,
 `11..12`, `14`, `21` chỉ được kéo lên khi caller/retained-data audit chứng minh
 chúng làm target Phase 14 không ổn định; nếu không, giữ ở release cleanup.
 
@@ -1925,6 +1960,9 @@ mọi feature còn thiếu.
   theo accepted conditional/destructive decisions trong một batch có review;
 - chạy static no-legacy scan, fresh schema rehearsal và representative upgrade
   nếu migration history vẫn phải được hỗ trợ;
+- refresh the PRE-16 resolved dependency tree/SBOM and vulnerability scan after
+  14F; an unowned exploitable Critical/High runtime finding is a release
+  `NO-GO`, not a yellow-warning waiver;
 - chỉ tạo premium canonical seed sau khi cleanup/database gate xanh.
 
 Automated release evidence:
@@ -1932,6 +1970,8 @@ Automated release evidence:
 - full test suite;
 - migration tests từ representative pre-V24 và post-V24 database;
 - security/ownership regression suite;
+- final dated dependency/SBOM rescan with owned mitigation/expiry for every
+  accepted exception;
 - no-provider test profile;
 - serialization compatibility tests;
 - static answer-leak scan cho player/result contracts.
@@ -2148,9 +2188,13 @@ Pre-10 ownership/graph audit
   -> Phase 11 lecturer authoring/import
   -> Phase 12 permissions/materials/profile governance
   -> Phase 13A-13E learner delivery/results + consolidated 13E validation
-  -> guarded Practice rebaseline after final pre-14 schema contract
-  -> Phase 13F-13H progress/recovery/stabilization evidence
+  -> Phase 13F progress/recovery + consolidated validation
+  -> Phase 13C3 Speaking prompt authoring correction + consolidated validation
+  -> Phase 13G-13H responsive/stabilization evidence
   -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
+       [freeze final relational contract
+        -> guarded Practice rebaseline decision/execution when allowed
+        -> fresh Flyway/Hibernate + technical smoke proof]
   -> Phase 14 report/correction workflow
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 UAT/release hardening
@@ -2204,10 +2248,12 @@ Kết quả sáu câu audit:
 Historical next action at this Phase 11 checkpoint (superseded): implement 12R
 from `docs/PRACTICE_SINGLE_SCOPE_REDUCTION_AUDIT.md`; do not continue 12H
 generic governance or open Phase 13 before the single-scope gate. That
-prerequisite has since closed. The current action is defined in Section 11:
-`13E-01..05 = IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`; Phase 13E
-is `READY_FOR_PHASE_VALIDATION` for the one consolidated gate recorded in its
-live log Section 12.
+prerequisite has since closed. Section 11 is current: Phase 13E và Phase 13F
+đều `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` là
+`IMPLEMENTED_AND_FOCUSED_TESTED`. Phase 13F evidence là `331/331`, schema
+`44/44/0/1` và cleanup absence `0`. Thực thi mandatory `13C3-00` tiếp theo,
+sau đó `13C3-01..04` và single consolidated validation riêng trước khi mở
+13G. Không chuyển Speaking prompt work sang Phase 14.
 
 ## Phụ lục A - Historical baseline evidence map tại HEAD 448bdb1
 

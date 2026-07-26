@@ -1,6 +1,6 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-24
+Last updated: 2026-07-26
 
 ## 1. Authority and scope lock
 
@@ -27,12 +27,12 @@ The active product scope is fixed:
   Reading/Listening deterministic scoring plus AI explanation remain intact.
 
 Migration-chain reconciliation on `2026-07-24` returned
-`REBASELINE_GO_WITH_GUARDS`. This is plan-only during active Phase 13E: no SQL,
-database, Flyway or fixture action is authorized here. The earliest execution
-window is after consolidated Phase 13E validation and before 14A, after the
-final pre-14 relational contracts are frozen. It stops if any retained,
-deployed, shared, canonical or upgrade-supported database must preserve the
-current Practice chain.
+`REBASELINE_GO_WITH_GUARDS`. This remains plan-only throughout Phase 13: no
+SQL, database, Flyway or fixture action is authorized here. The earliest
+execution window is the pre-14 gate after consolidated validation of Phase
+13A-13H and before 14A, once the final pre-14 relational contracts are frozen.
+It stops if any retained, deployed, shared, canonical or upgrade-supported
+database must preserve the current Practice chain.
 
 PREP research and the supplied screenshots are capability evidence only. They
 may inform hierarchy, preflight, player, result, progress and state design, but
@@ -48,10 +48,11 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13C skill-native players | `13C2_FULL_SUITE_GREEN_COMMITTED_PUSHED_PHASE_13_OPEN` | Speaking, Writing, adaptive Reading/Listening, structured media, image-aware AI and visual fill-blank authoring are implemented. The correction passed the complete 1321-test suite and was committed/pushed as `c3ba3a9`; Phase 13 is not closed and final browser/device plus post-13D-13G closure validation remains in 13H |
 | 13D result overview and immutable explanation lifecycle | `FULL_SUITE_GREEN_COMMITTED_PUSHED` | JDK 17 compile passed, the consolidated targeted gate passed 311/311 and the requested full suite passed 1642/1642. Implementation is committed as `bcc1467`; migration renumbering is `a089fd1`; main integration on the feature branch is `da350b5`. Browser/device QA remains in 13H |
 | 13D bounded result-overview UX/evidence correction | `COMPLETE_WITH_FOCUSED_AND_AUTHENTICATED_ROUTE_GATE_GREEN` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. The two previously blocked authenticated Result Detail cases subsequently passed `2/2` on a fresh disposable schema migrated V1-V44; the disposable schema was removed and the stale fixture schema was not repaired. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 and the workflow ledger dated 2026-07-22 |
-| 13E result evidence | `READY_FOR_PHASE_VALIDATION` | `13E-00` reconciled the gate; `13E-01..05` implemented the typed three-screen boundary, type-native Objective R/L, four-tab Writing/Speaking Detail and final localization/compatibility reconciliation. Every slice is `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`; the complete diff and current-source documents are reconciled. Run only the one consolidated JDK 17 gate recorded in the 13E live log Section 12. Pre-14 correctness and post-14 academic/audio/destructive closure remain unopened |
-| 13F progress/recovery | `NOT_STARTED` | Real aggregates and operational UX only; no decorative percentages and no replacement explanation pipeline |
+| 13E result evidence | `COMPLETE_FOCUSED_GATE_GREEN` | `13E-01..05` and the typed three-screen boundary passed the one accepted focused gate: `118/118`, zero failures/errors/skips, using a disposable fresh V44 integration schema deleted afterward. No full suite/browser/provider/Git evidence is claimed |
+| 13F progress/recovery | `COMPLETE_FOCUSED_GATE_GREEN` | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted JDK 17 gate passed `331/331` with zero failures/errors/skips; the disposable fresh database proved `44/44/0/1`, and trapped cleanup plus an independent absence query returned `0`. No full-suite, browser/device, live-provider or Git evidence is claimed |
+| 13C3 Speaking prompt authoring correction | `DESIGN_LOCKED_CURRENT_NEXT_ACTION` | Mandatory current action after the green Phase 13F gate and before 13G. Execute `13C3-00`, then `13C3-01..04` and its own consolidated gate. Adds `audio_upload` with original-audio playback plus internal-only STT context, and `manual_text` with text-only or explicit TTS delivery, preview and stale/regenerate. Exact contract is in `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md` |
 | 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
-| 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, focused/full tests and browser journeys before closure |
+| 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, reproducible JDK 17 toolchain (`13H-TOOLCHAIN-01`), dated dependency-security baseline (`13H-SEC-01`), focused/full tests and browser journeys before closure |
 
 The later `13E-03` Writing slice is limited to the typed UI/contract seam:
 preserve three stable scoring criteria, render task-bounded diagnostics as
@@ -62,7 +63,27 @@ registry plus provider schema/prompt/normalizer/rule/cache identity; final SME
 and calibration remain post-14.
 
 After each completed slice, this ledger and the detailed evidence section must
-be updated before starting the next slice.
+be updated before starting the next slice. The required future order is
+`13C3-00..04 -> 13C3 gate -> 13G -> 13H -> pre-14 gate -> Phase 14`.
+
+> **Current-source supersession (`2026-07-26`):** Phase 13E is
+> `COMPLETE_FOCUSED_GATE_GREEN`; Phase 13F is also
+> `COMPLETE_FOCUSED_GATE_GREEN`, and `13F-01..06` are
+> `IMPLEMENTED_AND_FOCUSED_TESTED`. Its one accepted JDK 17 lifecycle passed
+> `331/331` with zero failures/errors/skips. The disposable fresh database
+> proved `44/44/0/1`; trapped cleanup succeeded and the independent schema
+> absence query returned `0`. This is bounded focused-gate evidence only: no
+> full-suite, browser/device, live-provider or Git evidence is claimed. The
+> implementation-time statuses retained in Section 2.1 are historical
+> evidence, not the current action. The mandatory current action is
+> `13C3-00`, followed by `13C3-01..04` and the separate 13C3 gate before 13G.
+> Exact Phase 13F evidence is in its live log Section 24.
+>
+> **Speaking authoring supersession (`2026-07-25`):** the audio-only v1 policy
+> retained in Sections 6.2-6.4 is historical accepted evidence. New-write target
+> policy is the mode-dependent learner-safe v2 contract in the 13C3 live log.
+> Phase 13F is now green. Do not weaken v1 immutable reads; start the separately
+> scoped `13C3-00` next and do not skip directly to 13G.
 
 ### 2.1 Mandatory prerequisites before 13E implementation
 
@@ -370,6 +391,12 @@ attempt-locked version. A new Speaking question must fail publish when prompt
 audio or valid timing/play-limit values are missing. Legacy content may be read
 through a narrow compatibility path, but it must not weaken new authoring.
 
+This paragraph describes the accepted `question-content-v1` contract. It is
+superseded for new writes only by the planned `question-content-v2` modes in
+`docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`.
+Until 13C3 is implemented and validated, current runtime correctly remains
+audio-only; after 13C3, v1 remains dual-read for old immutable versions.
+
 Implementation checkpoint (2026-07-14):
 
 - `QuestionContent.SpeakingDelivery` is the typed canonical object; no timing,
@@ -409,6 +436,11 @@ Implementation checkpoint (2026-07-14):
   errors. The run covers the UI contract, canonical codec/normalizer/validator,
   immutable preview and Excel import. No browser QA, full suite or provider call
   is claimed.
+
+The “no text-only flow” statement above is historical v1 evidence. The user
+later approved the explicit `manual_text` mode, including a text-only branch
+when TTS is off. That replacement is not an Editor-only toggle: 13C3 must update
+validator, publisher/version context, player and evaluator identity together.
 
 ### 6.4 13B/13C Speaking implementation checkpoint
 
@@ -457,6 +489,10 @@ screenshots on 2026-07-15:
   preparation seconds and response seconds, and preview must render the same
   canonical delivery contract the learner player consumes. A text-only Speaking
   authoring path is not acceptable for new published content.
+
+The last sentence is superseded only for v2 new writes by 13C3. The replacement
+still requires preview/publish/player parity and never converts historical v1
+questions into text-only content.
 
 This checkpoint is intentionally not final 13C closure. The implementation was
 interrupted before the final post-cleanup focused rerun and static route audit,
@@ -677,7 +713,7 @@ Audit findings were rechecked against the current source and locked contracts:
 | Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | PRE-10 is 13H implementation that must complete/validate before Phase 14; pre-14 only verifies evidence. Provider/load UAT remains post-14. Do not use mock scoring as timeout fallback. |
 | Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | PRE-11 batches collaborators/users in 13H and is validated before Phase 14; pre-14 does not reimplement it. Performance UAT remains post-14. |
 | Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external work remains possible. PRE-12 adds atomic claim/lease or skip-locked behavior in 13H and is validated before Phase 14; multi-node/R2 UAT stays post-14. |
-| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | PRE-13 adds atomic transition/idempotency and bounded crop semantics in 13F/13H before Phase 14. The pre-14 gate verifies that evidence; provider/load UAT stays post-14. |
+| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | PRE-13 remains owned by 13H before Phase 14. The green Phase 13F gate does not claim this provider/load debt. The pre-14 gate verifies accepted 13H evidence; provider/load UAT stays post-14. |
 | Lecturer receives 403 on learner Speaking playback | **CONFIRMED FUTURE REVIEW DEBT** | Current endpoint is student-only and owner-scoped. Lecturer access must use an explicit reviewer authorization path, not `hasRole('LECTURER')` alone. Complete before manual-grading/reviewer UAT. |
 | Collaborator publish is an authorization bypass | **REJECTED AGAINST LOCKED PRODUCT CONTRACT** | The reduced-scope policy explicitly permits an active lecturer collaborator to edit/publish/restore/material while owner lock is off. Changing this requires a product-policy decision, not a security hotfix. |
 | MCQ breaks above four options | **OUTDATED STATIC FINDING** | Current player iterates dynamic `optionRows()` and has no fixed four-option cap. Responsive browser evidence is still required in 13H. |
@@ -1343,9 +1379,11 @@ Start by reading these files in order:
 
 Historical 13D handoff sequence (completed and superseded as the current
 instruction): preserve it as evidence, but do not use it to redirect the active
-phase. The current action is the single consolidated Phase 13E validation:
-`13E-01..05` are `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC` and
-the exact gate is recorded in the 13E live log Section 12.
+phase. Phase 13E and Phase 13F are `COMPLETE_FOCUSED_GATE_GREEN`;
+`13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted Phase 13F
+evidence is `331/331`, schema proof `44/44/0/1` and cleanup/absence `0`, with
+no full-suite/browser/provider/Git claim. The current action is `13C3-00`,
+then `13C3-01..04` and its own gate before 13G.
 
 The completed 13D sequence was:
 
@@ -1377,7 +1415,11 @@ The completed 13D sequence was:
 Phase 13 cannot be marked complete after visual implementation alone. 13H must
 run a stabilization pass covering dead code, controller-template route wiring,
 learner authorization, answer leakage, UTF-8, responsive/a11y behavior,
-focused/full automated tests and browser journeys. Browser QA is run once at
-that closure gate rather than after every implementation slice. Any deferred provider,
-Cloudflare R2 or production Speaking-media item must be recorded explicitly and
-must not be described as green evidence.
+the canonical JDK 17 toolchain, a dated coherent dependency/SBOM security
+baseline, focused/full automated tests and browser journeys. Browser QA is run
+once at that closure gate rather than after every implementation slice. Any
+deferred provider, Cloudflare R2, production Speaking-media or accepted
+dependency-security exception must be recorded with owner/expiry and must not
+be described as green evidence. The pre-14 gate verifies the accepted
+toolchain/security evidence; post-14/pre-15 reruns the time-sensitive
+dependency scan before Manual UAT.

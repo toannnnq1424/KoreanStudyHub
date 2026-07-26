@@ -10,23 +10,25 @@
 >
 > Vị trí roadmap hiện tại: bounded `PHASE_13D_UX_CORRECTION` đã được
 > commit/push tại `98153ac`; hai authenticated Result Detail route case còn bị
-> chặn trước đó đã xanh `2/2` trên disposable fresh V44 schema. `13E-01..05`
-> hiện `IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`; complete diff và
-> current-source documents đã reconcile, nên Phase 13E là
-> `READY_FOR_PHASE_VALIDATION`. Chưa chạy consolidated
-> validation/test/build/Git trước readiness declaration. Tài liệu này là design
-> authority cho phần runtime/UI được duyệt trong 13E và cho các correctness
-> contract được promote vào `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`, nhưng
-> chỉ sau khi 13E-13H hoàn tất/validated. Nó không tự mở gate đó và vẫn cấm
-> final SME/calibration, direct-audio rollout, destructive migration/reset hay
+> chặn trước đó đã xanh `2/2` trên disposable fresh V44 schema. Phase 13E là
+> `COMPLETE_FOCUSED_GATE_GREEN` với `118/118`. Phase 13F cũng là
+> `COMPLETE_FOCUSED_GATE_GREEN`: `331/331`, schema proof `44/44/0/1` và
+> cleanup/absence `0`; không claim full suite/browser/provider/Git. Phase 13
+> vẫn mở. Hành động bắt buộc hiện tại là `13C3-00`, rồi `13C3-01..04` và gate
+> riêng trước 13G. Tài liệu này là design authority cho phần runtime/UI được
+> duyệt trong 13E và cho các correctness contract được promote vào
+> `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`, nhưng chỉ sau khi
+> 13C3/13G/13H hoàn tất/validated. Nó không tự mở gate đó và vẫn cấm final
+> SME/calibration, direct-audio rollout, destructive migration/reset hay
 > retained-data cleanup trước `PRE_PHASE_15_RELEASE_CLOSURE_GATE` sau 14F.
 >
 > Nguồn chuẩn runtime hiện tại vẫn là code, `CODEX_PRACTICE_WORKFLOW.md` và
 > `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md`.
 >
 > **Migration audit (`2026-07-24`):**
-> `REBASELINE_GO_WITH_GUARDS` là kế hoạch sau consolidated Phase 13E và trước
-> 14A, không phải hành động trong 13E. Rebaseline dừng ngay nếu có bất kỳ
+> `REBASELINE_GO_WITH_GUARDS` chỉ là kế hoạch sau khi mandatory
+> 13C3/13G/13H hoàn tất và final pre-14 relational contracts đã freeze, trước
+> 14A; không phải hành động trong các slice hiện tại. Rebaseline dừng ngay nếu có bất kỳ
 > retained/deployed/shared/canonical/upgrade obligation nào.
 
 > **UX-05 current source:** F06 và handoff UX-03..05 trong
@@ -37,6 +39,29 @@
 > `NOT_SCORABLE` với mọi số null; không cộng `/70`, không aggregate/holistic hay
 > attempt score. Direct-audio vẫn `NO-GO`. Crosswalk design/workflow/debt hiện
 > hành nằm ở Phase 15 inventory Section 4.1.1.
+
+> **PHASE_13C3 Speaking prompt-authoring correction (LOCKED TARGET SOURCE):**
+> mô tả cũ theo đó mọi Speaking prompt đều bắt buộc có audio chỉ còn là lịch sử
+> đối với target new-write v2 và đã bị supersede về mặt kế hoạch. Runtime vẫn
+> giữ audio-only v1 cho đến khi 13C3 được triển khai/validated; Editor target phải
+> hỗ trợ đúng hai input mode:
+>
+> - `audio_upload`: giảng viên tải audio gốc để learner nghe; hệ thống chạy
+>   upload -> STT, nhưng transcript chỉ là context nội bộ giúp evaluator hiểu đề,
+>   tuyệt đối không nằm trong learner payload/surface và không gọi TTS;
+> - `manual_text`: giảng viên nhập text; tùy chọn TTS mặc định không tự gọi API,
+>   chỉ generate khi giảng viên chủ động yêu cầu. Audio AI phải preview được;
+>   sửa text hoặc voice/config sau khi generate làm audio `STALE` và bắt buộc
+>   regenerate hoặc tắt tùy chọn trước publish.
+>
+> Prompt transcript của đề và learner transcription là hai artifact khác nhau,
+> khác owner/provenance/lifecycle: prompt transcript chỉ tạo **question context**;
+> learner transcription mới là evidence text của câu trả lời. Không được dùng
+> prompt transcript làm learner answer, finding evidence hay bằng chứng âm học.
+> Thứ tự gate đã khóa là **13C3-00..04 -> 13C3 gate -> 13G -> 13H -> pre-14
+> correctness gate -> Phase 14**. Implementation inventory,
+> acceptance và live decisions của correction này thuộc
+> `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`.
 
 ## 1. Kết luận điều hành
 
@@ -1100,7 +1125,12 @@ Final SME/calibration vẫn đóng sau 14F ở release-closure gate.
 
 ### 10.1 Task spec bắt buộc
 
-Mỗi Speaking question phải có:
+Khối dưới là **target task/assessment spec**, không phải yêu cầu mọi delivery
+prompt đều phải có audio. Câu “Mỗi Speaking question phải có” trong bản thiết kế
+cũ được giữ lại để truy vết lịch sử nhưng cách hiểu “audio luôn bắt buộc” đã bị
+`PHASE_13C3` supersede: `audio_upload` có audio gốc + transcript nội bộ, còn
+`manual_text` có thể text-only hoặc có audio TTS được tạo chủ động và đang
+đồng bộ. Mỗi Speaking question phải có task spec phù hợp với input mode:
 
 ```json
 {
@@ -1629,13 +1659,11 @@ quốc tế mặc định:
 
 ## 17. Lộ trình triển khai và ranh giới Phase 13E / hai gate
 
-Các lát cắt dưới đây mô tả thứ tự phụ thuộc kỹ thuật. Explicit Phase 13E GO đã
-được ghi nhận; `13E-01..05` là
-`IMPLEMENTED_PENDING_PHASE_VALIDATION / ACCEPT_STATIC`, complete diff đã
-reconcile và Phase 13E là `READY_FOR_PHASE_VALIDATION`. Một validation unit
-duy nhất được khóa tại live log Section 12. Phase 13E sở hữu typed runtime/UI,
+Các lát cắt dưới đây mô tả thứ tự phụ thuộc kỹ thuật. Phase 13E đã
+`COMPLETE_FOCUSED_GATE_GREEN`; `13E-01..05` đã qua một consolidated gate
+`118/118`. Phase 13E sở hữu typed runtime/UI,
 learner-facing Việt/Hàn, ba màn Detail và explanation theo question type. Sau
-khi 13E-13H hoàn tất/validated,
+khi mandatory 13C3/13G/13H hoàn tất/validated,
 `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` khóa score/explanation/construct/
 evidence/UI identity cần cho report target; phần đã được prior slice giải quyết
 đúng chỉ được verify bằng evidence, không triển khai trùng. Sau 14F,
@@ -1643,6 +1671,13 @@ evidence/UI identity cần cho report target; phần đã được prior slice g
 direct-audio Speaking rollout, destructive/environment cleanup, retained-data
 removal, migration/reset rehearsal, premium seed và Manual UAT. Phase 13E không
 được mở quyền cho bất kỳ gate nào trong hai gate này.
+
+Current-source phase order cho phần việc còn lại đã được khóa thành:
+**13C3-00..04 -> 13C3 gate -> 13G -> 13H ->
+`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` -> Phase 14**. `PHASE_13C3`
+không mở direct-audio learner scoring: nó chỉ sửa lecturer authoring/delivery,
+STT context của đề và optional TTS của đề. Chi tiết thực thi thuộc
+`docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`.
 
 ### P0 — Correctness/claim blockers
 

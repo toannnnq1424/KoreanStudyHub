@@ -109,6 +109,27 @@ each small issue, patch or sub-slice.
 - Splitting implementation into several patches or conversations does not
   create extra validation units.
 
+### Commit organization at the phase gate
+
+Locked by user direction on `2026-07-25`. A green phase gate remains the only
+normal commit boundary; this rule does not authorize commits between files,
+issues, patches or slices.
+
+- One phase integration window may create several reviewable commits before one
+  push when a single commit would mix too many files or unrelated concerns.
+- Split commits by coherent responsibility or dependency boundary, for example
+  domain/service contract, presentation, contract tests, migration and
+  documentation. Do not create one commit per file merely to reduce size.
+- Each commit must have a precise message, contain only phase-owned files and
+  remain internally coherent; do not knowingly leave syntax, schema or runtime
+  contracts broken until a later commit.
+- The complete multi-commit series must correspond exactly to the already
+  reviewed and validated phase diff. Creating the series does not trigger
+  another test run per commit.
+- Push the complete series once after all intended commits are created and
+  inspected. Do not turn commit splitting into repeated stage/commit/push
+  cycles during implementation.
+
 While a phase is being implemented, Codex must complete all approved issues in
 sequence, read existing tests only to understand contracts, edit code and
 perform static reasoning over the diff. Codex must keep a deferred validation
@@ -182,9 +203,10 @@ coordinator must, without waiting for repeated user prompts:
 5. integrate slices in dependency order and review the complete phase diff;
 6. announce `READY_FOR_PHASE_VALIDATION`, run the single approved consolidated
    validation, and use grouped correction cycles if necessary;
-7. after the phase gate is green, stage exact owned files, commit and push the
-   approved feature branch automatically, then prompt the next approved phase
-   conversation.
+7. after the phase gate is green, stage exact owned files, create one or more
+   coherent commits under the commit-organization rule above, push the complete
+   series once to the approved feature branch, then prompt the next approved
+   phase conversation.
 
 The coordinator, not every parallel research conversation, owns integration
 pull/push. This prevents several conversations from racing on one branch. A
@@ -252,8 +274,9 @@ The completed migration-chain audit locks these source facts:
 - `V44__practice_seed_listening_check_audio.sql` is a hard-coded local
   development-seed repair, not production schema.
 
-The guarded implementation window is after consolidated Phase 13E validation
-and before 14A, after the pre-14 final relational contracts are frozen. It must
+The guarded implementation window is after mandatory 13C3, 13G and 13H have
+completed and before 14A, after the pre-14 final relational contracts are
+frozen. It must
 start with written evidence that **no retained, deployed, shared, canonical or
 upgrade-supported database** is obliged to preserve the current Practice
 history. If any such obligation exists or cannot be disproved, stop the
@@ -523,6 +546,34 @@ Rules:
 ## Maven and Test Execution Policy
 
 This section is critical.
+
+### Canonical Java toolchain and dependency-security baseline
+
+- Repository baseline is JDK 17. Project SDK, module SDK, Maven importer,
+  Maven runner, Spring Boot run configuration and phase-gate CLI must resolve
+  to the same supported JDK 17 toolchain.
+- A `pom.xml` Java version does not override an IntelliJ compiler process that
+  was launched with another JDK. When IDE metadata and Maven disagree, inspect
+  both before changing dependencies.
+- Current confirmed debt: tracked `.idea/misc.xml` selects `openjdk-26`, while
+  `.idea/compiler.xml` pins Lombok `1.18.36` and stale module `ulp`. This causes
+  javac 26/Lombok initialization failure (`TypeTag.UNKNOWN`). The bounded local
+  fix is to align IntelliJ with installed JDK 17 and remove stale processor
+  overrides; a Lombok/JDK 26 upgrade is a separate platform decision.
+- `13H-TOOLCHAIN-01` must add repository-enforced Java-version evidence and
+  close IDE/Maven/run/CLI drift in the single 13H validation unit.
+- IntelliJ/Mend dependency warnings are security inputs, not proof of Maven XML
+  or compilation failure. Repeated transitive warnings through several
+  starters must be deduplicated by resolved coordinate and classified by
+  runtime/test scope and reachability.
+- `13H-SEC-01` owns one coherent supported Java-17-compatible Spring Boot BOM
+  upgrade/audit plus separate review of direct pins. Do not scatter random
+  Spring Framework, Security, Tomcat or Jackson overrides across small patches.
+  Capture a dated resolved tree/SBOM, official advisories, mitigation/owner and
+  expiry for every accepted exception.
+- The pre-14 gate verifies accepted toolchain/security evidence. After 14F,
+  PRE-16 requires a fresh release rescan before Manual UAT because advisory
+  state is time-sensitive.
 
 ### Default rule for small slices
 
@@ -2480,9 +2531,13 @@ refined on 2026-07-13 by an explicit product-scope reduction:
 - after commit `8c1cee8`, `PHASE_12R_SINGLE_SCOPE_REDUCTION_GATE =
   PRACTICE_CODE_GATE_GREEN_BROWSER_QA_SKIPPED`. Browser/product QA is not
   claimed green for that checkpoint because the user explicitly skipped it;
-- current user direction is **doc-only Phase 13 reduced-scope cleanup**. This
-  is not Phase 13 implementation and does not reopen generic
-  program/certificate governance.
+- historical direction at the Phase 12R checkpoint was **doc-only Phase 13
+  reduced-scope cleanup**. That statement is superseded by the completed
+  Phase 13A-13F implementation gates. Phase 13F is
+  `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
+  `IMPLEMENTED_AND_FOCUSED_TESTED`, and the current next action is mandatory
+  `13C3-00`. None of these gates reopens generic program/certificate
+  governance.
 
 Canonical map after reduce-scope:
 
@@ -2517,6 +2572,9 @@ Status:
 13B_COMPLETE_FOCUSED_GATE_GREEN
 13C2_FULL_SUITE_GREEN_PHASE_13_OPEN
 13E_COMPLETE_FOCUSED_GATE_GREEN_PHASE_13_OPEN
+13F_COMPLETE_FOCUSED_GATE_GREEN_PHASE_13_OPEN
+13F_01_06_IMPLEMENTED_AND_FOCUSED_TESTED
+13C3_DESIGN_LOCKED_NOT_STARTED_CURRENT_NEXT_13C3_00
 
 Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. The reduced learner route contract is
@@ -2649,6 +2707,17 @@ Required Phase 13 slices:
   filters, sample-size/recency/confidence context and deep links to practice.
   Preserve explanation unavailable/retry states, idempotency and rate limits, and no
   provider call caused only by refreshing a page;
+- `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`: Phase 13F validation is
+  complete. The current required action is `13C3-00`, followed by
+  `13C3-01..04` and one consolidated correction validation before 13G.
+  Replace the historical audio-only Speaking authoring invariant with a
+  versioned two-mode contract. `audio_upload` stores
+  and plays the lecturer's original audio and creates an internal-only STT
+  context; `manual_text` supports text-only delivery or an explicitly requested,
+  previewable TTS asset with stale/regenerate semantics. Transcript and provider
+  task state must never enter learner payloads. Exact contract, slices, data/API
+  flow, edge cases and validation policy are locked in
+  `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`;
 - 13G: responsive, accessibility, encoding and performance pass for large
   catalogs. Complete the explicit UTF-8/mojibake regression sweep, replace
   emoji product icons with Lucide/consistent SVG components, and prevent
@@ -2696,14 +2765,15 @@ keep `NOT_STARTED`, `IN_PROGRESS`, `SUBMITTED`, `SCORING`, `SCORED`, `PARTIAL`,
 ### PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE — after validated 13E-13H, before 14A
 
 This is a mandatory roadmap boundary, not the current implementation action.
-It may execute only after `13E-13H` are complete and their consolidated
+It may execute only after `13E-13H` and the intervening mandatory `13C3`
+correction are complete and their consolidated
 validation evidence is accepted. It does not authorize starting database,
 audio, calibration or compatibility work while Phase 13E is running.
 The guarded Practice rebaseline window above may be prepared only after the
 complete Phase 13E validation is accepted; actual baseline construction waits
 until the final pre-14 schema contracts are frozen and all rebaseline guards
-pass. Phase 14 still cannot start until the remaining 13F-13H and pre-14
-evidence is accepted.
+pass. Phase 14 still cannot start until mandatory 13C3, Phase 13G-13H and
+pre-14 evidence are accepted.
 
 Before 14A creates report targets, the following identities and fail-closed
 runtime contracts must be stable:
@@ -2773,11 +2843,18 @@ runtime contracts must be stable:
     question-version, attempt, artifact/binding, Writing bundle/result and media
     identities. “Report an Error” cannot target a mutable live row, an
     unversioned cache entry or a local fixture alias.
+14. `P15-PRE-17`: consume accepted `13C3` evidence for the Speaking prompt
+    source/artifact/task/version-context contract. New writes must use
+    learner-safe `question-content-v2`; uploaded prompt transcripts remain
+    evaluator-only; manual text with TTS off makes zero TTS requests; enabled
+    TTS requires an exact current fingerprint and stale/pending/failed output
+    cannot publish.
 
-`P15-PRE-10..13` remain owned by the already planned Phase 13F/13H work. The
-pre-14 gate verifies their accepted evidence before Phase 14; it does not
-reimplement them. `P15-COMP-01..09`, `11..12`, `14` and `21` move into this
-gate only when a caller scan or retained-data audit proves that the path would
+The green Phase 13F gate supplies bounded progress/recovery evidence only; it
+does not claim `P15-PRE-10..13`. Phase 13H implements and validates those
+operational debts. The pre-14 gate verifies accepted 13H evidence before Phase
+14 and does not reimplement it. `P15-COMP-01..09`, `11..12`, `14` and `21` move into this gate
+only when a caller scan or retained-data audit proves that the path would
 destabilize a Phase 14 target; otherwise they stay in release cleanup.
 
 Phase 12R already dropped the 14 generic governance/legacy tables and recorded
@@ -3176,6 +3253,15 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-22 | Phase 13E-00 Gate, Baseline And Retained-Debt Reconciliation | PHASE_13E_IMPLEMENTATION_IN_PROGRESS_13E_00 | PHASE_13E_IMPLEMENTATION_IN_PROGRESS_13E_01 | working tree | `98153ac` | Documentation/static reconciliation only after the prerequisite route gate: current KSH Result/Detail screenshots were preserved, the repeated Speaking Detail capture was replaced by one viewport, all 46 supplied PREP Detail images were re-audited and current instructions were aligned. No production code, compile/build/test/lint, provider call, database mutation or Git mutation ran. | Phase 13E owns the bounded runtime/UI subsets of PRE-03/PRE-06/PRE-14: exactly three typed screens, backend Vietnamese/Korean descriptors, Writing score-vs-diagnostic hierarchy, evidence-honest Speaking IA and type-native R/L explanation runtime. Pre-Phase-15 retains v2/data disposition, lecturer-reference migration, legacy cleanup, SME/calibration/coverage proof and direct-audio Speaking. | Execute `13E-01` as one isolated implementation unit; do not run validation or Git actions until all `13E-01..05` work and static reconciliation are complete. |
 | 2026-07-24 | Phase 13E Typed Result Detail Static Closure | PHASE_13E_IMPLEMENTATION_IN_PROGRESS_13E_01 | READY_FOR_PHASE_VALIDATION | working tree | `98153ac` | `13E-01..05` implementation and independent static acceptance are complete. The complete Result Detail diff and all current-source documents were reconciled. One final P2 leak of raw Objective TFNG/provenance and Writing feedback-state codes was replaced with backend-owned Vietnamese/Korean display labels. No test, compile, build, lint, browser, provider, database, migration, Docker, `git diff --check` or Git mutation ran before this readiness declaration. | Active Result Detail dispatch is exactly Objective R/L, Writing or Speaking; R/L owns three typed variants; Writing trusts only current task-native evaluation markers and exposes no local 1–9 UI; Speaking is selected-question scoped and transcript-only acoustic rows remain `NOT_SCORABLE`; canonical JavaScript parses no provider JSON. Legacy raw-JSON screens are verified-dead bounded cleanup debt, not source of truth. | Run exactly one consolidated Phase 13E gate in this order: `git diff --check`, one JDK 17 compile, then the focused selector recorded in `docs/PRACTICE_PHASE_13E_LIVE_CHANGE_LOG.md` Section 12. Do not start Phase 14/15 or run per-slice validation. |
 | 2026-07-24 | Phase 13E Consolidated Validation | READY_FOR_PHASE_VALIDATION | COMPLETE_FOCUSED_GATE_GREEN | working tree | `98153ac` | Final `git diff --check` passed; JDK 17 compile passed for 595 production sources; the exact focused selector passed `118/118` (`109` unit/static plus `9` integration), with zero failures, errors or skips. The configured V44 database was proven stale before assertions because `tests.media_type` is absent; it was not repaired or reused. A newly named disposable database migrated V1-V44 with `44` successful and `0` failed Flyway rows, passed Hibernate validation and was deleted after the gate. No full suite, browser QA, standalone startup, Docker, live provider/API call or Git mutation ran. | Grouped validation corrections added two missing collection imports, made pending/failed/unavailable Writing feedback fail closed as feedback-unavailable before strict score-contract identity, and aligned one stale integration assertion with the accepted rule that local-band/mock material remains `LEGACY_UNVERIFIED` and invisible. No pre-14 or `P15-COMP` debt was implemented. | Phase 13E is `COMPLETE_FOCUSED_GATE_GREEN`; `13E-01..05` are `IMPLEMENTED_AND_FOCUSED_TESTED`. Keep overall Phase 13 open and wait for an explicit next Phase 13 slice instruction. Do not start Phase 14, Phase 15 or the pre-14 correctness gate from this validation task. |
+| 2026-07-24 | Phase 13F Gate and Scope Preparation | 13E_COMPLETE_FOCUSED_GATE_GREEN | PREPARATION_COMPLETE_WAITING_IMPLEMENTATION_GO | N/A | user-reported `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Documentation/read-only source and test audit only. No production/test/SQL mutation, validation, build, startup, browser/provider/DB action or Git operation. | Locked real all-time versus bounded-recent aggregation, skill/Writing-task identity, source-fact sample/recency/coverage, partial-credit/legacy handling, real deep links and existing-command recovery. `13F-01` is independent of the retry choice. Writing 1-9, text-simulated Speaking and generic Detail cleanup remain pre-14; PRE-10..13 and broad stabilization are routed to 13H; direct audio remains post-14/pre-15. | Do not auto-approve the containing phase. Resolve the one Speaking retry question in `docs/PRACTICE_PHASE_13F_LIVE_CHANGE_LOG.md` Section 8, then grant implementation GO and dispatch the exact `13F-01` prompt if approved. |
+| 2026-07-25 | Phase 13F-01 Real Progress Aggregation | PREPARATION_COMPLETE_WAITING_IMPLEMENTATION_GO | IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Implementation/test-contract/static-diff work only. One independent audit accepted; another found a same-skill/same-timestamp browser trend overwrite. The concentrated event-slot fix and static contract were coordinator-accepted; the rejecting auditor's rerun stopped on agent quota, which is recorded without inventing a verdict. No test, compile, build, lint, app, DB, browser, provider, `git diff --check` or Git mutation ran. | Added one canonical all-time versus bounded-recent progress owner, typed availability/window/coverage/exclusion facts, coherent immutable Objective identity, honest nullable duration, numberless Speaking aggregates, deferred Writing task seams, typed failure presentation and safe fallback serialization. Repeated same-skill/timestamp trend points now remain distinct. IntelliJ JDK26/Lombok drift and dependency warnings were separately diagnosed and routed to PRE-15/16 in 13H. | Start the separate `13F-02` implementation task; complete all remaining approved 13F slices, reconcile the full phase diff, then announce one `READY_FOR_PHASE_VALIDATION` unit. Do not start Phase 14/15. |
+| 2026-07-25 | Phase 13C3 Speaking Prompt Authoring Design Lock | NOT_PLANNED | DESIGN_LOCKED_NOT_STARTED | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Documentation and read-only source audit only; no production/test/SQL change, test/build, provider, browser, database or Git action. | Added a mandatory correction after Phase 13F validation and before 13G: Lecturer Editor supports `audio_upload` with original-audio playback plus internal-only STT context, and `manual_text` with optional explicit TTS, preview and stale/regenerate. The contract includes learner-safe v2 delivery, durable owner-scoped artifacts/tasks, immutable evaluator-only version context, idempotent fingerprints and mode-dependent publish rules. | Finish current Phase 13F first. Then execute `13C3-00..04` as separate implementation tasks and one consolidated correction validation. Phase 14 remains blocked through 13G, 13H and the pre-14 gate. |
+| 2026-07-26 | Phase 13F-03 Progress Presentation, Filters And Deep Links | 13F_02_IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Implementation/test-contract/static review only. One correctness audit found that valid non-null Objective `PARTIAL` facts were hidden by exact-`AVAILABLE` presentation checks. One concentrated DTO/template/JS/test fix retained canonical percentage, earned/possible and coverage facts; both independent re-audits returned `ACCEPT_STATIC`. No validation or Git action ran. | Added normalized Progress skill/task/cohort filters, honest semantic table/chart fallbacks, six explicit page/filter/enhancement states, bilingual source facts and real Q51-Q54 catalog deep links while keeping Writing cohorts separate and Speaking numberless. | Start the separate `13F-04` task for shared attempt-state policy, global authorized resume and invalid re-evaluation rejection before media/provider work. Keep all validation/Git deferred to the whole Phase 13F gate. |
+| 2026-07-26 | Phase 13F-04 Attempt State, Global Resume And Fail-closed Result Gate | 13F_03_IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Implementation/test-contract/static review only. The first state audit rejected mutable player fallback and divergent result eligibility. One focused fix removed live delivery fallback, made player/result access require compatible coherent immutable identity and aligned progress/test-detail links. A final contract-only P2 added explicit no-snapshot/no-live-set assertions. Both independent final re-audits returned `ACCEPT_STATIC`. No validation or Git action ran. | Added one shared attempt-state policy, authorized global resume outside catalog filters, fail-closed direct player/result access, and early full/per-question re-evaluation rejection before provider/media/mutation. Speaking remains submit-only and no retry/re-evaluate capability was opened. | Start the separate `13F-05` task for honest Speaking retry UX and lecturer Reading/Listening failed-explanation recovery through the existing 13D service. Keep validation/Git deferred to the whole Phase 13F gate. |
+| 2026-07-26 | Phase 13F-05 Speaking Submit-only And Lecturer R/L Recovery | 13F_04_IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Implementation/test-contract/static review only. Two grouped correction cycles closed authorization/source/category/role/copy findings, READY artifacts whose completed tasks were removed by retention, and stale persistence-context state before pessimistic retry locks. Final independent correctness and scope/side-effect re-audits both returned `ACCEPT_STATIC`. No test, compile/build, browser/provider/DB, `git diff --check` or Git action ran. | Speaking Result remains submit-only with an honest canonical practice CTA. Exact Lecturer recovery is bounded to coherent Vietnamese objective R/L artifacts, safe retry categories and cooldown; GET is batched/read-only; READY is task-retention independent; concurrent retry rechecks fresh locked task/artifact state and can queue/increment only once. | Start the separate `13F-06` reconciliation/pre-gate task. It must reconcile the complete Phase 13F diff, remove only concretely dead superseded paths, record the exact selector and report `READY_FOR_PHASE_VALIDATION` without validating. |
+| 2026-07-26 | Phase 13F-06 Reconciliation Static-audit Correction | 13F_05_IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | READY_FOR_STATIC_REAUDIT_13F_06 | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | The initial 13F-06 static audits returned one `ACCEPT` and two `REJECT` verdicts. During the single grouped correction pass the slice was `IMPLEMENTED_PENDING_STATIC_REAUDIT`; the pass fixed the invalid progress DTO template accessor, strengthened its static contract, reconciled every current-status pointer, replaced the stale-schema candidate gate with a newly named disposable Phase13F database lifecycle, narrowed `PracticeIntegrationTest` to existing Phase13F methods and added an explicit read-only untracked whitespace/final-newline allowlist. No validation, database action, `git diff --check` or Git mutation ran. | The whole Phase 13F diff remains unvalidated. No production path was removed: the locked progress/global-resume/repository/result surfaces remain retained for their documented call sites or explicit scope decision. | Run the final 13F-06 static re-audit. Only if it accepts, promote the candidate handoff to `READY_FOR_PHASE_VALIDATION` and execute the ordered lifecycle recorded in the 13F live log Section 23. Do not start 13C3/13G/13H, pre-14, Phase 14 or Phase 15. |
+| 2026-07-26 | Phase 13F-06 Final Static Acceptance And Gate Readiness | READY_FOR_STATIC_REAUDIT_13F_06 | READY_FOR_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Final correctness and scope/side-effect re-audits accepted. Validation-readiness first rejected separate DB/test/cleanup blocks; one docs-only trapped-wrapper correction preserved gate exit status and guaranteed cleanup attempts, then its final re-audit returned `ACCEPT_STATIC_13F_06`. No validation, database action, `git diff --check` or Git mutation ran before this readiness declaration. | All `13F-01..06` work is reconciled. The gate is method-filtered, uses JDK 17 and a newly named disposable V44 database, includes tracked plus allowlisted-untracked whitespace checks, and cannot reuse the stale configured schema. | Execute exactly one consolidated Phase 13F lifecycle from the live log Section 23.5. Do not start 13C3 or later work until the gate result is recorded. |
+| 2026-07-26 | Phase 13F Consolidated Validation | READY_FOR_PHASE_VALIDATION | COMPLETE_FOCUSED_GATE_GREEN | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | The final grouped correction lifecycle passed `git diff --check`, the explicit untracked allowlist check, JDK 17 compile and `331/331` selected tests with zero failures/errors/skips. The disposable database passed schema proof `44/44/0/1`, trapped cleanup and independent absence proof `0`. Earlier failures and their analyze-all/fix/rerun cycles are recorded in the 13F live log Section 24. | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. No full suite, browser/device QA, standalone startup, Docker or live provider/API call is claimed. | Keep Phase 13 open. Start mandatory `13C3-00`, then complete `13C3-01..04` and the separate consolidated 13C3 gate before 13G. |
 
 ## Current Required Next Action
 
@@ -3228,11 +3314,17 @@ disposable database was deleted after validation. Section 13 of
 `docs/PRACTICE_PHASE_13E_LIVE_CHANGE_LOG.md` is the exact command, correction
 and environment ledger.
 
-Current required action: keep Phase 13 overall open and wait for an explicit
-instruction for the next Phase 13 slice. Do not start Phase 14, Phase 15, the
-pre-14 correctness gate or any `P15-COMP` debt from this validation result.
-Do not rerun a second Phase 13E validation unit without a new code change or an
-explicit user request.
+Current required action:
+Phase 13F is `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
+`IMPLEMENTED_AND_FOCUSED_TESTED`. The exact JDK 17 selector passed `331/331`
+with zero failures, errors or skips. The newly named disposable database
+produced schema proof `44/44/0/1`, and cleanup plus the independent absence
+query returned `0`; the configured stale database was not reused.
+
+Keep Phase 13 open. Start mandatory `13C3-00` next, then execute
+`13C3-01..04` and its one consolidated correction validation before 13G/13H.
+Do not start Phase 14, Phase 15, the pre-14 correctness gate or any
+`P15-COMP` debt. `P15-PRE-15/16` remain routed to 13H.
 
 The historical local UI runtime used schema `ksh_phase13e_result_ui` at Flyway
 V38; the same migration is V44 on integrated main.
@@ -3255,9 +3347,12 @@ Phase 11 is `CLOSED_WITH_ACCEPTED_DEBT`; Phase 12R is
 has its focused/non-DB gate plus the formerly blocked authenticated route cases
 green on a disposable V44 schema. Phase 13E is
 `COMPLETE_FOCUSED_GATE_GREEN`; 13E-01..05 are
-`IMPLEMENTED_AND_FOCUSED_TESTED`, and overall Phase 13 remains open. Live
-Speaking AI rollout remains NO-GO because the evaluator does not yet receive
-learner audio.
+`IMPLEMENTED_AND_FOCUSED_TESTED`. Phase 13F is
+`COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
+`IMPLEMENTED_AND_FOCUSED_TESTED`. Mandatory 13C3 remains
+`DESIGN_LOCKED_NOT_STARTED`, `13C3-00` is next and overall Phase 13 remains
+open. Live Speaking AI rollout remains NO-GO because the evaluator does not yet
+receive learner audio.
 React modernization remains
 future-only after Phase 16. Do not perform broad UI/React modernization.
 
