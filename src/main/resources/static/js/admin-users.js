@@ -17,13 +17,9 @@
 (function () {
   'use strict';
 
-  // ── Flash drain → toast + modal re-open ──────────────────────────
+  // Flash toasts are drained once by notifications.js (app-header).
+  // Keep #flash-data only for lock/reset modal re-open attrs below.
   var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
-    if (flashData.dataset.flashSuccess) window.KshToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError)   window.KshToast.error(flashData.dataset.flashError);
-    if (flashData.dataset.flashWarning) window.KshToast.warning(flashData.dataset.flashWarning);
-  }
 
   // ── Confirmation prompts (simple POST submissions) ──────────────
   // Each action maps to: confirmation message, target hidden-form prefix,
@@ -269,4 +265,25 @@
       openResetModal(resetReopenId);
     }
   }
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Permission tab — checkbox toggles submit their own row form.
+   The desired post-click state travels in the hidden "granted" field rendered
+   server-side, so the checkbox itself is only a trigger; it is disabled right
+   away to stop a double submit while the page navigates.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  document.addEventListener('change', function (ev) {
+    var box = ev.target;
+    if (!box || box.dataset.action !== 'toggle-permission') return;
+
+    var form = box.closest('.uperm-form');
+    if (!form) return;
+
+    box.disabled = true;
+    form.requestSubmit();
+  });
 })();

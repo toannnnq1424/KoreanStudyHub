@@ -6,14 +6,8 @@
 (function () {
   'use strict';
 
-  // ── Flash → toast on page load (shared pattern) ────────────────────
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
-    var ok = flashData.dataset.flashSuccess;
-    var err = flashData.dataset.flashError;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-  }
+  // Flash toasts are drained once by notifications.js (app-header, defer).
+  // Do not drain here — a second pass caused duplicate toasts on admin pages.
 
   // ── Donut chart for users-by-role ─────────────────────────────────
   // Reads data-labels|data-values|data-colors from #roleChart canvas.

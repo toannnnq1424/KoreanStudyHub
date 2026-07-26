@@ -19,7 +19,7 @@ Flyway database migrations.
 - Patterns:
   - `/login`, `/register`, `/forgot-password`, `/reset-password`, `/css/**`, `/js/**`, `/images/**`, `/uploads/**` — public
   - `/admin/**` — ROLE_ADMIN only
-  - `/lecturer/**` — ROLE_LECTURER, ROLE_HEAD, ROLE_ADMIN
+  - `/lecturer/**` — ROLE_LECTURER, ROLE_LEADER, ROLE_ADMIN
   - `/student/**` — authenticated
   - Everything else — authenticated
 - CSRF: enabled (Spring default)

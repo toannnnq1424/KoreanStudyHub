@@ -1,5 +1,5 @@
 -- =============================================================================
--- ULP — V29__department_activities.sql
+-- KSH — V41__department_activities.sql
 -- Audit log table for administrative mutations on departments.
 -- Mirrors user_activities (V10):
 --   - department_id ON DELETE CASCADE

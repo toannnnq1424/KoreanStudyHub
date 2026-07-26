@@ -3,7 +3,6 @@ package com.ksh.features.admin.settings.controller;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.TestResult;
 import com.ksh.features.admin.settings.service.EmailSettingsService;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -34,7 +33,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin/settings/email")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_system.smtp')")
 public class EmailSettingsController {
 
     // ── Paths ─────────────────────────────────────────────────────

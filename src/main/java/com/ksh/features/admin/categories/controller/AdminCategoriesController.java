@@ -3,7 +3,6 @@ package com.ksh.features.admin.categories.controller;
 import com.ksh.features.admin.categories.dto.CategoryDtos.CategoryForm;
 import com.ksh.features.admin.categories.service.CategoryService;
 import com.ksh.features.admin.categories.service.CategoryValidationException;
-import com.ksh.security.Roles;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -29,7 +28,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin/categories")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_category.manage')")
 public class AdminCategoriesController {
 
     private static final String REDIRECT_BASE = "redirect:/admin/categories";

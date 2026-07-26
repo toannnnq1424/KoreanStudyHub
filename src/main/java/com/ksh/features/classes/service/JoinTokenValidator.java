@@ -95,11 +95,16 @@ final class JoinTokenValidator {
         return clazz;
     }
 
-    /** Enforces {@code max_students} for the given class before inserting / reviving. */
+    /**
+     * Enforces {@code max_students} while holding the shared class-row lock.
+     * The locking count observes the latest committed enrollment rows even
+     * under MySQL's default REPEATABLE READ isolation.
+     */
     void enforceCapacity(ClassEntity clazz) {
         Integer cap = clazz.getMaxStudents();
         if (cap == null) return;
-        long active = enrollmentRepository.countActiveByClassId(clazz.getId());
+        classRepository.findByIdForUpdate(clazz.getId());
+        long active = enrollmentRepository.countActiveByClassIdForUpdate(clazz.getId());
         if (active >= cap) {
             throw new InviteCodeValidationException(InviteRejectionReason.CLASS_FULL);
         }

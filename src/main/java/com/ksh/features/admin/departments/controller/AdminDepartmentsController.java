@@ -5,7 +5,6 @@ import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.service.DepartmentQueryService;
 import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.departments.service.DepartmentValidationException;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -32,7 +31,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping(URL_ADMIN_DEPARTMENTS)
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_department.manage')")
 public class AdminDepartmentsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_ADMIN_DEPARTMENTS;

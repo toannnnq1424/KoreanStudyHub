@@ -69,7 +69,7 @@ class QuestionBankImportParserTest {
     }
 
     @Test
-    void parse_rejects_missing_required_leaderers() throws IOException {
+    void parse_rejects_missing_required_headers() throws IOException {
         MultipartFile file = build(new String[][]{
                 {"Danh mục", "Nội dung câu hỏi", "Đáp án A", "Đáp án đúng"},
                 {"Giải tích 1", "Câu 1", "A", "A"}

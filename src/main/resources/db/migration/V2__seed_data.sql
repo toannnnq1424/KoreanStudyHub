@@ -1,6 +1,6 @@
 -- =============================================================================
 -- ksh — V2__seed_data.sql
--- Seed data cho University Learning Platform
+-- Seed data cho Korean Study Hub
 -- Chạy sau V1__init_schema.sql
 -- Sprint 0 — Foundation
 -- =============================================================================

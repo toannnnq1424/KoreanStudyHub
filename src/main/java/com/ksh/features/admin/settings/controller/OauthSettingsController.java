@@ -2,7 +2,6 @@ package com.ksh.features.admin.settings.controller;
 
 import com.ksh.features.admin.settings.dto.OauthSettingsDtos.OauthSettingsForm;
 import com.ksh.features.admin.settings.service.OauthSettingsService;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,7 +33,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin/settings/oauth")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_system.oauth')")
 public class OauthSettingsController {
 
     // ── Paths ─────────────────────────────────────────────────────
