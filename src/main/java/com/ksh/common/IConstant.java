@@ -208,9 +208,26 @@ public interface IConstant {
     String ATTR_PENDING_ROWS    = "pendingRows";
 
     // Cross-controller admin-settings session guard
-    // (used by EmailSettingsController + OauthSettingsController).
+    // (used by EmailSettingsController + OauthSettingsController + StorageSettingsController).
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
+
+    // ───────── Object storage (Cloudflare R2) ─────────────────────────
+    String STORAGE_PROVIDER_LOCAL = "local";
+    String STORAGE_PROVIDER_R2    = "r2";
+
+    String MSG_STORAGE_SETTINGS_SAVED =
+            "Đã lưu cấu hình lưu trữ.";
+    String MSG_STORAGE_R2_NOT_CONFIGURED =
+            "Cloudflare R2 chưa được cấu hình đầy đủ. Vui lòng kiểm tra Cài đặt > Lưu trữ.";
+    String MSG_STORAGE_PROVIDER_INVALID =
+            "Nhà cung cấp lưu trữ không hợp lệ (chọn local hoặc r2).";
+    String MSG_STORAGE_R2_FIELDS_REQUIRED =
+            "Khi chọn R2, Access Key, Secret, Bucket và Endpoint là bắt buộc.";
+    String MSG_STORAGE_UPLOAD_FAILED =
+            "Không lưu được tệp lên kho lưu trữ. Vui lòng thử lại.";
+    String MSG_STORAGE_R2_CONNECT_FAILED =
+            "Không kết nối được tới Cloudflare R2";
 
     // ───────── Lesson status discriminators ─────────────────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";
@@ -673,4 +690,51 @@ public interface IConstant {
             "Bài giảng chưa đủ nội dung để lưu mẫu (thiếu PDF/video/nội dung)";
     String MSG_TEMPLATE_PROMOTE_FAILED =
             "Không thể đưa tệp đính kèm vào kho học liệu";
+
+    // Admin permission management.
+    String URL_ADMIN_PERMISSIONS           = "/admin/permissions";
+    String URL_ADMIN_PERMISSIONS_OVERRIDES = URL_ADMIN_PERMISSIONS + "/overrides";
+
+    String VIEW_ADMIN_PERMISSIONS_ROLES     = "admin/permissions-roles";
+    String VIEW_ADMIN_PERMISSIONS_OVERRIDES = "admin/permissions-overrides";
+
+    String TAB_PERMISSIONS = "permissions";
+
+    String ATTR_PERMISSION_MATRIX    = "matrix";
+    String ATTR_PERMISSION_OVERRIDES = "overrides";
+    String ATTR_PERMISSION_CATALOG   = "permissionCatalog";
+    String ATTR_OVERRIDE_USERS       = "overrideUsers";
+    String ATTR_FLASH_REASON_ERROR   = "flashReasonError";
+    String ATTR_OVERRIDE_FORM        = "overrideForm";
+
+    String MSG_PERMISSION_ATTACHED  = "Đã cấp quyền cho vai trò";
+    String MSG_PERMISSION_DETACHED  = "Đã gỡ quyền khỏi vai trò";
+    String MSG_OVERRIDE_SAVED       = "Đã lưu ngoại lệ quyền";
+    String MSG_OVERRIDE_DEACTIVATED = "Đã huỷ ngoại lệ quyền";
+    String MSG_PERMISSION_NOT_FOUND = "Không tìm thấy quyền";
+
+    // Admin AI provider settings.
+    String URL_SETTINGS_AI  = "/admin/settings/ai";
+    String VIEW_SETTINGS_AI = "admin/settings-ai";
+
+    String ATTR_AI_PROVIDERS    = "providers";
+    String ATTR_AI_ALL_DISABLED = "allDisabled";
+
+    String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";
+    String MSG_AI_PROVIDER_UPDATED   = "Đã cập nhật AI provider";
+    String MSG_AI_PROVIDER_DELETED   = "Đã xoá AI provider";
+    String MSG_AI_PROVIDER_ENABLED   = "Đã bật AI provider";
+    String MSG_AI_PROVIDER_DISABLED  = "Đã tắt AI provider";
+    String MSG_AI_PROVIDER_NOT_FOUND = "Không tìm thấy AI provider";
+    String MSG_AI_NAME_DUPLICATE     = "Tên provider đã tồn tại";
+    String MSG_AI_KEY_REQUIRED       = "API key là bắt buộc khi thêm provider mới";
+
+    // ───────── AI request logs ───────────────────────────────────────
+    String URL_SETTINGS_AI_LOGS  = "/admin/settings/ai/logs";
+    String VIEW_SETTINGS_AI_LOGS = "admin/settings-ai-logs";
+
+    String ATTR_AI_LOGS_PAGE      = "page";
+    String ATTR_AI_LOGS_FILTER    = "filter";
+    String ATTR_AI_LOGS_TOTALS    = "totals";
+    String ATTR_AI_LOGS_PROVIDERS = "providerNames";
 }
