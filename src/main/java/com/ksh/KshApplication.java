@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Entry point for the KSH (University Learning Platform) Spring Boot application.
+ * Entry point for the Korean Study Hub Spring Boot application.
  *
  * <p>This class bootstraps the Spring application context, triggers Flyway schema
  * migrations, and starts the embedded web server. All auto-configuration is

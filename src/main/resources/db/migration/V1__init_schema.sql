@@ -1,6 +1,6 @@
 -- =============================================================================
 -- ksh — V1__init_schema.sql
--- Khởi tạo toàn bộ schema cho University Learning Platform
+-- Khởi tạo toàn bộ schema cho Korean Study Hub
 -- MySQL 8.0 · utf8mb4 · InnoDB
 -- Sprint 0 — Foundation
 -- =============================================================================
@@ -656,7 +656,7 @@ CREATE TABLE feature_permissions (
 -- =============================================================================
 
 INSERT INTO system_settings (setting_key, setting_value, setting_group, description) VALUES
-                                                                                         ('site.name', 'University Learning Platform', 'GENERAL', 'Tên hệ thống'),
+                                                                                         ('site.name', 'Korean Study Hub', 'GENERAL', 'Tên hệ thống'),
                                                                                          ('site.description', 'Nền tảng học tập trực tuyến', 'GENERAL', 'Mô tả hệ thống'),
                                                                                          ('site.logo_url', '/images/logo.png', 'GENERAL', 'Đường dẫn logo'),
                                                                                          ('site.contact_email', 'contact@ksh.edu.vn', 'GENERAL', 'Email liên hệ'),
