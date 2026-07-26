@@ -1,175 +1,142 @@
 /**
- * KSH Korean Study Hub
- * Practice Progress Analytics Page JS
+ * KSH Practice progress progressive enhancement.
+ * Canonical values, arithmetic, cohorts, coverage and trend events are owned by
+ * the server DTO. This file only enhances those facts with optional visuals.
  */
+(() => {
+  'use strict';
 
-document.addEventListener('DOMContentLoaded', () => {
-  initTabs();
-  renderHeatmap();
-  switchSkillAccordion('READING');
-  scheduleChartLoading();
-});
-
-function scheduleChartLoading() {
-  const loadWhenIdle = () => {
-    const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 0));
-    schedule(loadChartLibrary, { timeout: 1500 });
-  };
-  if (document.readyState === 'complete') loadWhenIdle();
-  else window.addEventListener('load', loadWhenIdle, { once: true });
-}
-
-function loadChartLibrary() {
-  if (typeof window.Chart !== 'undefined') {
-    renderOverviewCharts();
-    renderAnalyticsCharts();
-    return;
-  }
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
-  script.async = true;
-  script.onload = () => {
-    renderOverviewCharts();
-    renderAnalyticsCharts();
-  };
-  script.onerror = renderChartFallbacks;
-  document.head.appendChild(script);
-}
-
-function renderChartFallbacks() {
-  document.querySelectorAll('.pp-chart-container').forEach(container => {
-    if (container.querySelector('.pp-chart-fallback')) return;
-    const message = document.createElement('p');
-    message.className = 'pp-chart-fallback';
-    message.textContent = 'Biểu đồ chưa tải được. Dữ liệu chi tiết vẫn có trong các bảng bên dưới.';
-    container.appendChild(message);
+  const SKILL_LABELS_VI = Object.freeze({
+    READING: 'Đọc',
+    LISTENING: 'Nghe',
+    WRITING: 'Viết',
+    SPEAKING: 'Nói'
   });
-}
 
-// ── TAB SWITCHING & SYNC ──
-function initTabs() {
-  // Sync tab active state from template variable or URL query param
-  const urlParams = new URLSearchParams(window.location.search);
-  const activeTab = urlParams.get('tab') || CURRENT_TAB || 'overview';
-  switchTab(activeTab, false);
-}
+  document.addEventListener('DOMContentLoaded', () => {
+    enhanceHeatmap();
+    scheduleChartLoading();
+  });
 
-function switchTab(tabId, updateUrl = true) {
-  // Hide all panels
-  document.querySelectorAll('.pp-tab-panel').forEach(p => p.classList.remove('active'));
-  // Deactivate all tab buttons
-  document.querySelectorAll('.pp-tab-btn').forEach(b => b.classList.remove('active'));
-
-  // Show selected panel and active button
-  const selectedPanel = document.getElementById(`tab-${tabId}`);
-  const selectedBtn = document.getElementById(`btn-${tabId}`);
-
-  if (selectedPanel && selectedBtn) {
-    selectedPanel.classList.add('active');
-    selectedBtn.classList.add('active');
-  }
-
-  // Update query param without reload
-  if (updateUrl) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', tabId);
-    window.history.pushState({}, '', url.toString());
-  }
-}
-
-// ── CALENDAR HEATMAP GENERATOR ──
-function renderHeatmap() {
-  const gridContainer = document.getElementById('heatmap-grid');
-  if (!gridContainer || !OVERVIEW_DATA.heatmap) return;
-
-  const cells = OVERVIEW_DATA.heatmap;
-  const tooltip = document.getElementById('heatmap-tooltip');
-
-  gridContainer.innerHTML = '';
-
-  cells.forEach(cell => {
-    const dayElement = document.createElement('div');
-    dayElement.className = 'pp-heatmap-day';
-
-    // Map intensity level
-    let lvl = 0;
-    if (cell.attemptCount > 0) {
-      if (cell.totalMinutes > 60) lvl = 3;
-      else if (cell.totalMinutes >= 15) lvl = 2;
-      else lvl = 1;
+  function enhanceHeatmap() {
+    const shell = document.querySelector('[data-chart-shell="heatmap"]');
+    if (!shell) return;
+    try {
+      if (renderHeatmap()) shell.dataset.chartEnhanced = 'true';
+    } catch (error) {
+      markChartFailure(
+        shell,
+        'Không thể dựng lịch trực quan từ dữ kiện hiện tại · 현재 사실로 시각 캘린더를 만들 수 없습니다.'
+      );
     }
-    dayElement.classList.add(`lvl-${lvl}`);
+  }
 
-    // Parse date for clean tooltip display
-    const dateParts = cell.date.split('-');
-    const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : cell.date;
+  function scheduleChartLoading() {
+    if (!document.querySelector('canvas[id^="chart-"]')) return;
+    const loadWhenIdle = () => {
+      const schedule = window.requestIdleCallback
+        || ((callback) => window.setTimeout(callback, 0));
+      schedule(loadChartLibrary, { timeout: 1500 });
+    };
+    if (document.readyState === 'complete') loadWhenIdle();
+    else window.addEventListener('load', loadWhenIdle, { once: true });
+  }
 
-    // Tooltip event handlers
-    dayElement.addEventListener('mouseenter', (e) => {
-      let msg = `Không có hoạt động vào ngày ${displayDate}`;
-      if (cell.attemptCount > 0) {
-        msg = `${cell.attemptCount} lượt luyện, ${cell.totalMinutes} phút học vào ngày ${displayDate}`;
-      }
-      tooltip.innerText = msg;
-      tooltip.style.display = 'block';
+  function loadChartLibrary() {
+    if (typeof window.Chart !== 'undefined') {
+      renderAllCharts();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
+    script.async = true;
+    script.onload = renderAllCharts;
+    script.onerror = () => markAllChartFailures(
+      'Không tải được thư viện biểu đồ · 차트 라이브러리를 불러오지 못했습니다.'
+    );
+    document.head.appendChild(script);
+  }
 
-      // Position tooltip
-      const rect = dayElement.getBoundingClientRect();
-      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  function renderAllCharts() {
+    enhanceChart('radar', renderRadar);
+    enhanceChart('distribution', renderDistribution);
+    enhanceChart('trend', renderTrend);
+  }
 
-      tooltip.style.left = `${rect.left + scrollLeft - tooltip.offsetWidth / 2 + 6}px`;
-      tooltip.style.top = `${rect.top + scrollTop - tooltip.offsetHeight - 8}px`;
+  function enhanceChart(name, renderer) {
+    const shell = document.querySelector(`[data-chart-shell="${name}"]`);
+    if (!shell) return;
+    try {
+      const rendered = renderer(shell);
+      if (!rendered) return;
+      shell.dataset.chartEnhanced = 'true';
+    } catch (error) {
+      markChartFailure(
+        shell,
+        'Không thể dựng biểu đồ từ dữ kiện hiện tại · 현재 사실로 차트를 만들 수 없습니다.'
+      );
+    }
+  }
+
+  function markAllChartFailures(message) {
+    document.querySelectorAll('[data-chart-shell]').forEach((shell) => {
+      if (shell.querySelector('canvas')) markChartFailure(shell, message);
     });
+  }
 
-    dayElement.addEventListener('mouseleave', () => {
-      tooltip.style.display = 'none';
-    });
+  function markChartFailure(shell, message) {
+    const canvas = shell.querySelector('canvas');
+    if (canvas) {
+      canvas.hidden = true;
+      canvas.setAttribute('aria-hidden', 'true');
+    }
+    const visual = shell.querySelector('[data-chart-visual]');
+    if (visual) visual.hidden = true;
+    const status = shell.querySelector('[data-chart-failure]');
+    if (status) {
+      status.hidden = false;
+      const messageTarget = status.querySelector('[data-chart-failure-message]');
+      const failureCopy = `CHART_ENHANCEMENT_UNAVAILABLE — ${message} `
+        + 'Bảng chuẩn vẫn dùng được · 표는 계속 사용할 수 있습니다.';
+      if (messageTarget) messageTarget.textContent = failureCopy;
+    }
+    shell.dataset.chartState = 'CHART_ENHANCEMENT_UNAVAILABLE';
+  }
 
-    gridContainer.appendChild(dayElement);
-  });
-}
+  function revealCanvas(canvas, label) {
+    canvas.hidden = false;
+    canvas.removeAttribute('aria-hidden');
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', label);
+  }
 
-// ── CHART GENERATION ──
-let radarChartInstance = null;
-let donutChartInstance = null;
-let lineChartInstance = null;
-const SKILL_LABELS_VI = Object.freeze({
-  READING: 'Đọc',
-  LISTENING: 'Nghe',
-  WRITING: 'Viết',
-  SPEAKING: 'Nói'
-});
+  function renderableNumericFact(fact) {
+    return fact
+      && (fact.availability === 'AVAILABLE' || fact.availability === 'PARTIAL')
+      && fact.value !== null
+      && Number.isFinite(Number(fact.value));
+  }
 
-function skillLabelVi(skill) {
-  return SKILL_LABELS_VI[skill] || 'Kỹ năng';
-}
+  function renderRadar(shell) {
+    const canvas = shell.querySelector('#chart-radar-skills');
+    const metrics = Array.isArray(OVERVIEW_DATA.skillMetrics)
+      ? OVERVIEW_DATA.skillMetrics.filter((metric) =>
+        (metric.skill === 'READING' || metric.skill === 'LISTENING')
+        && renderableNumericFact(metric.scoreFact))
+      : [];
+    if (!canvas || metrics.length === 0) return false;
 
-function renderOverviewCharts() {
-  // 1. Radar Chart: Skills score
-  const radarCanvas = document.getElementById('chart-radar-skills');
-  if (radarCanvas && OVERVIEW_DATA.skillMetrics) {
-    const scoredMetrics = OVERVIEW_DATA.skillMetrics.filter(m => m.skill !== 'SPEAKING');
-    const labels = scoredMetrics.map(m => skillLabelVi(m.skill));
-    const dataPoints = scoredMetrics.map(m => m.normalizedScore);
-
-    const ctx = radarCanvas.getContext('2d');
-    if (radarChartInstance) radarChartInstance.destroy();
-
-    radarChartInstance = new Chart(ctx, {
+    new window.Chart(canvas.getContext('2d'), {
       type: 'radar',
       data: {
-        labels: labels,
+        labels: metrics.map((metric) => SKILL_LABELS_VI[metric.skill]),
         datasets: [{
-          label: 'Điểm trung bình kỹ năng',
-          data: dataPoints,
-          backgroundColor: 'rgba(59, 130, 246, 0.15)',
-          borderColor: 'rgba(59, 130, 246, 0.8)',
+          label: 'Điểm đủ điều kiện',
+          data: metrics.map((metric) => Number(metric.scoreFact.value)),
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          borderColor: 'rgba(37, 99, 235, 0.9)',
           borderWidth: 2,
-          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-          pointBorderColor: '#fff',
-          pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: 'rgba(59, 130, 246, 1)'
+          pointBackgroundColor: 'rgba(37, 99, 235, 1)'
         }]
       },
       options: {
@@ -177,45 +144,33 @@ function renderOverviewCharts() {
         maintainAspectRatio: false,
         scales: {
           r: {
-            angleLines: { display: true, color: '#f1f5f9' },
-            grid: { color: '#f1f5f9' },
             suggestedMin: 0,
             suggestedMax: 100,
-            ticks: {
-              stepSize: 20,
-              backdropColor: 'transparent',
-              color: '#94a3b8',
-              font: { size: 9 }
-            },
-            pointLabels: {
-              color: '#334155',
-              font: { size: 12, weight: 'bold' }
-            }
+            ticks: { display: false },
+            pointLabels: { color: '#334155', font: { weight: '600' } }
           }
         },
-        plugins: {
-          legend: { display: false }
-        }
+        plugins: { legend: { display: false } }
       }
     });
+    revealCanvas(canvas, 'Biểu đồ điểm Đọc và Nghe đủ điều kiện');
+    return true;
   }
 
-  // 2. Donut Chart: Attempts distribution
-  const donutCanvas = document.getElementById('chart-donut-distribution');
-  if (donutCanvas && OVERVIEW_DATA.skillMetrics) {
-    const labels = OVERVIEW_DATA.skillMetrics.map(m => skillLabelVi(m.skill));
-    const counts = OVERVIEW_DATA.skillMetrics.map(m => m.attemptCount);
-    const totalCount = counts.reduce((a, b) => a + b, 0);
+  function renderDistribution(shell) {
+    const canvas = shell.querySelector('#chart-donut-distribution');
+    const metrics = Array.isArray(OVERVIEW_DATA.skillMetrics)
+      ? OVERVIEW_DATA.skillMetrics.filter((metric) =>
+        metric.attemptCounts && Number(metric.attemptCounts.total) > 0)
+      : [];
+    if (!canvas || metrics.length === 0) return false;
 
-    const ctx = donutCanvas.getContext('2d');
-    if (donutChartInstance) donutChartInstance.destroy();
-
-    donutChartInstance = new Chart(ctx, {
+    new window.Chart(canvas.getContext('2d'), {
       type: 'doughnut',
       data: {
-        labels: labels,
+        labels: metrics.map((metric) => SKILL_LABELS_VI[metric.skill] || 'Kỹ năng'),
         datasets: [{
-          data: counts,
+          data: metrics.map((metric) => Number(metric.attemptCounts.total)),
           backgroundColor: [
             'rgba(59, 130, 246, 0.75)',
             'rgba(168, 85, 247, 0.75)',
@@ -223,205 +178,156 @@ function renderOverviewCharts() {
             'rgba(249, 115, 22, 0.75)'
           ],
           borderColor: '#ffffff',
-          borderWidth: 2,
-          hoverOffset: 4
+          borderWidth: 2
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '65%',
         plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              boxWidth: 12,
-              padding: 16,
-              color: '#475569',
-              font: { size: 11, weight: 'bold' }
-            }
-          },
+          legend: { position: 'bottom' },
           tooltip: {
             callbacks: {
-              label: function(context) {
-                const value = context.raw || 0;
-                const pct = totalCount === 0 ? 0 : Math.round((value / totalCount) * 100);
-                return ` ${context.label}: ${value} lượt (${pct}%)`;
-              }
-            }
-          }
-        },
-        cutout: '65%'
-      }
-    });
-  }
-}
-
-function renderAnalyticsCharts() {
-  const lineCanvas = document.getElementById('chart-score-trend');
-  if (lineCanvas && ANALYTICS_DATA.scoreTrend) {
-    const trend = ANALYTICS_DATA.scoreTrend;
-
-    // Group score trends by skill
-    const datasetMap = {
-      'READING': { label: 'Đọc', data: [], borderColor: 'rgba(59, 130, 246, 0.85)', backgroundColor: 'rgba(59, 130, 246, 0.05)' },
-      'LISTENING': { label: 'Nghe', data: [], borderColor: 'rgba(168, 85, 247, 0.85)', backgroundColor: 'rgba(168, 85, 247, 0.05)' },
-      'WRITING': { label: 'Viết', data: [], borderColor: 'rgba(16, 185, 129, 0.85)', backgroundColor: 'rgba(16, 185, 129, 0.05)' }
-    };
-
-    const uniqueDates = [];
-    const pointsMap = {};
-
-    trend.forEach(pt => {
-      if (!uniqueDates.includes(pt.date)) {
-        uniqueDates.push(pt.date);
-      }
-      if (!pointsMap[pt.date]) {
-        pointsMap[pt.date] = {};
-      }
-      pointsMap[pt.date][pt.skill] = { score: pt.normalizedScore, title: pt.title };
-    });
-
-    // Sort unique dates chronologically
-    uniqueDates.sort();
-
-    // Map scores to date points
-    uniqueDates.forEach(date => {
-      Object.keys(datasetMap).forEach(skill => {
-        const item = pointsMap[date][skill];
-        datasetMap[skill].data.push(item ? item.score : null); // null allows disconnected line points or missing values
-      });
-    });
-
-    const datasets = Object.keys(datasetMap).map(skill => {
-      const ds = datasetMap[skill];
-      return {
-        skill: skill,
-        label: ds.label,
-        data: ds.data,
-        borderColor: ds.borderColor,
-        backgroundColor: ds.backgroundColor,
-        borderWidth: 2.5,
-        tension: 0.25,
-        spanGaps: true, // Connect lines across nulls
-        pointRadius: 4,
-        pointBackgroundColor: ds.borderColor,
-        pointBorderColor: '#fff',
-        pointHoverRadius: 6
-      };
-    });
-
-    const ctx = lineCanvas.getContext('2d');
-    if (lineChartInstance) lineChartInstance.destroy();
-
-    lineChartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: uniqueDates.map(d => d.split(' ')[0]), // Date only for ticks
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: '#64748b', font: { size: 10 } }
-          },
-          y: {
-            suggestedMin: 0,
-            suggestedMax: 100,
-            grid: { color: '#f1f5f9' },
-            ticks: { color: '#64748b', font: { size: 10 } }
-          }
-        },
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { boxWidth: 10, font: { size: 11, weight: 'bold' }, color: '#475569' }
-          },
-          tooltip: {
-            callbacks: {
-              title: function(context) {
-                const index = context[0].dataIndex;
-                return `Ngày nộp: ${uniqueDates[index]}`;
-              },
-              label: function(context) {
-                const val = context.raw;
-                if (val === null) return null;
-                const index = context.dataIndex;
-                const date = uniqueDates[index];
-                const skillKey = context.dataset.skill;
-                const info = pointsMap[date][skillKey];
-                const title = info && info.title ? ` (${info.title})` : '';
-                return ` ${context.dataset.label}: ${val}%${title}`;
+              label(context) {
+                return ` ${context.label}: ${context.raw} hoạt động`;
               }
             }
           }
         }
       }
     });
-  }
-}
-
-// ── ACCORDION SELECT SWITCH ──
-function switchSkillAccordion(skill) {
-  // Active classes for accordion tabs
-  document.querySelectorAll('.pp-accordion-tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.skill === skill) {
-      btn.classList.add('active');
-    }
-  });
-
-  const body = document.getElementById('question-type-table-body');
-  if (!body) return;
-
-  body.innerHTML = '';
-
-  if (!ANALYTICS_DATA.questionTypePerf) {
-    renderEmptyTable(body, skill);
-    return;
+    revealCanvas(canvas, 'Biểu đồ số hoạt động theo kỹ năng');
+    return true;
   }
 
-  const filtered = ANALYTICS_DATA.questionTypePerf.filter(p => p.skill === skill);
+  function buildScoreTrendEventSlots(trend) {
+    const eventSlots = [];
+    const eventSlotsByKey = new Map();
+    const occurrenceByDateAndSkill = new Map();
 
-  if (filtered.length === 0) {
-    renderEmptyTable(body, skill);
-    return;
+    trend
+      .map((point, sourceIndex) => ({ point, sourceIndex }))
+      .sort((left, right) => {
+        const dateOrder = String(left.point.date).localeCompare(String(right.point.date));
+        return dateOrder !== 0 ? dateOrder : left.sourceIndex - right.sourceIndex;
+      })
+      .forEach(({ point }) => {
+        const occurrenceKey = `${point.date}::${point.skill}`;
+        const occurrence = occurrenceByDateAndSkill.get(occurrenceKey) || 0;
+        occurrenceByDateAndSkill.set(occurrenceKey, occurrence + 1);
+
+        const eventKey = `${point.date}::${occurrence}`;
+        let slot = eventSlotsByKey.get(eventKey);
+        if (!slot) {
+          slot = { key: eventKey, date: point.date, pointsBySkill: {} };
+          eventSlotsByKey.set(eventKey, slot);
+          eventSlots.push(slot);
+        }
+        slot.pointsBySkill[point.skill] = {
+          score: Number(point.scoreFact.value),
+          title: point.title
+        };
+      });
+    return eventSlots;
   }
 
-  filtered.forEach(row => {
-    const tr = document.createElement('tr');
-    const typeCell = tr.insertCell();
-    const typeName = document.createElement('strong');
-    typeName.textContent = row.questionTypeLabel || 'Dạng câu hỏi';
-    typeCell.appendChild(typeName);
+  function renderTrend(shell) {
+    const canvas = shell.querySelector('#chart-score-trend');
+    const trend = Array.isArray(ANALYTICS_DATA.scoreTrend)
+      ? ANALYTICS_DATA.scoreTrend.filter((point) =>
+        (point.skill === 'READING' || point.skill === 'LISTENING')
+        && renderableNumericFact(point.scoreFact))
+      : [];
+    if (!canvas || trend.length === 0) return false;
 
-    tr.insertCell().textContent = `${row.totalAttempts} lượt câu`;
-    const averageCell = tr.insertCell();
-    averageCell.className = 'pp-table-badge';
-    averageCell.textContent = `${row.averageScore}%`;
-    const bestCell = tr.insertCell();
-    bestCell.style.fontWeight = '600';
-    bestCell.style.color = '#334155';
-    bestCell.textContent = `${row.bestScore}%`;
-    const lastCell = tr.insertCell();
-    lastCell.style.color = '#64748b';
-    lastCell.style.fontSize = '0.82rem';
-    lastCell.textContent = row.lastPracticedAt || '--';
-    body.appendChild(tr);
-  });
-}
+    const slots = buildScoreTrendEventSlots(trend);
+    const styles = {
+      READING: { label: 'Đọc', color: 'rgba(37, 99, 235, 0.9)' },
+      LISTENING: { label: 'Nghe', color: 'rgba(126, 34, 206, 0.9)' }
+    };
+    const datasets = Object.entries(styles).map(([skill, style]) => ({
+      skill,
+      label: style.label,
+      data: slots.map((slot) => slot.pointsBySkill[skill]?.score ?? null),
+      borderColor: style.color,
+      backgroundColor: style.color,
+      borderWidth: 2,
+      spanGaps: true,
+      tension: 0.2
+    }));
 
-function renderEmptyTable(container, skill) {
-  const message = skill === 'SPEAKING'
-    ? 'Chưa có điểm Nói tổng hợp.'
-    : 'Chưa có lượt đề nào ghi lại chi tiết cho kỹ năng này.';
-  container.innerHTML = `
-    <tr>
-      <td colspan="5" style="text-align:center; color:#94a3b8; padding:32px;">
-        ${message}
-      </td>
-    </tr>
-  `;
-}
+    new window.Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: slots.map((slot) => slot.date),
+        datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { suggestedMin: 0, suggestedMax: 100 },
+          x: { ticks: { maxRotation: 30, minRotation: 0 } }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const slot = slots[context.dataIndex];
+                const evidence = slot.pointsBySkill[context.dataset.skill];
+                if (!evidence) return null;
+                const title = evidence.title ? ` · ${evidence.title}` : '';
+                return ` ${context.dataset.label}: ${evidence.score}%${title}`;
+              }
+            }
+          }
+        }
+      }
+    });
+    revealCanvas(canvas, 'Biểu đồ xu hướng điểm Đọc và Nghe đủ điều kiện');
+    return true;
+  }
+
+  function renderHeatmap() {
+    const grid = document.getElementById('heatmap-grid');
+    const tooltip = document.getElementById('heatmap-tooltip');
+    const cells = Array.isArray(OVERVIEW_DATA.heatmap) ? OVERVIEW_DATA.heatmap : [];
+    if (!grid || !tooltip || cells.length === 0) return false;
+
+    cells.forEach((cell) => {
+      const day = document.createElement('div');
+      day.className = 'pp-heatmap-day';
+      const activities = Number(cell.attemptCount) || 0;
+      day.classList.add(activities === 0 ? 'lvl-0'
+        : activities === 1 ? 'lvl-1'
+          : activities <= 3 ? 'lvl-2' : 'lvl-3');
+      day.tabIndex = 0;
+      day.setAttribute('role', 'img');
+      const duration = cell.totalMinutes === null
+        ? 'thời lượng chưa khả dụng'
+        : `${cell.totalMinutes} phút hợp lệ`;
+      const label = `${cell.date}: ${activities} hoạt động, ${duration}`;
+      day.setAttribute('aria-label', label);
+
+      const show = () => {
+        tooltip.textContent = label;
+        tooltip.style.display = 'block';
+        const rect = day.getBoundingClientRect();
+        tooltip.style.left = `${rect.left + window.scrollX}px`;
+        tooltip.style.top = `${rect.top + window.scrollY - 42}px`;
+      };
+      const hide = () => {
+        tooltip.style.display = 'none';
+      };
+      day.addEventListener('mouseenter', show);
+      day.addEventListener('focus', show);
+      day.addEventListener('mouseleave', hide);
+      day.addEventListener('blur', hide);
+      grid.appendChild(day);
+    });
+    const visual = grid.closest('[data-chart-visual]');
+    if (visual) visual.hidden = false;
+    return true;
+  }
+})();

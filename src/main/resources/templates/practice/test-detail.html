@@ -166,10 +166,14 @@
                   <span th:text="${attempt.activityAt() != null ? #temporals.format(attempt.activityAt(), 'HH:mm dd/MM/yyyy') : attempt.statusLabel()}">10:00 14/07/2026</span>
                 </div>
                 <span class="pd-attempt-status" th:text="${attempt.statusLabel()}">Đã nộp</span>
-                <a th:href="@{/practice/attempts/{attemptId}/result(attemptId=${attempt.id()})}">
+                <a th:if="${attempt.resultEligible()}"
+                   th:href="@{/practice/attempts/{attemptId}/result(attemptId=${attempt.id()})}">
                   Xem chi tiết
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
                 </a>
+                <span th:unless="${attempt.resultEligible()}">
+                  Kết quả lịch sử này không còn snapshot tương thích để mở.
+                </span>
               </div>
 
               <button class="pd-attempt-toggle" type="button" th:if="${card.hiddenAttemptCount() > 0}" data-attempt-toggle aria-expanded="false">
