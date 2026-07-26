@@ -3,7 +3,6 @@ package com.ksh.features.admin.users.controller;
 import com.ksh.features.admin.users.dto.LockForm;
 import com.ksh.features.admin.users.dto.ResetPasswordForm;
 import com.ksh.features.admin.users.service.AdminUsersLifecycleService;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,7 +34,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_user.edit')")
 public class AdminUsersLifecycleController {
 
     // ── Paths ─────────────────────────────────────────────────────
@@ -64,6 +63,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Activates a deactivated user account. */
+    @PreAuthorize("hasAuthority('PERM_user.activate_deactivate')")
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id,
                            @AuthenticationPrincipal KshUserDetails user,
@@ -74,6 +74,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Deactivates an active user account (login blocked). */
+    @PreAuthorize("hasAuthority('PERM_user.activate_deactivate')")
     @PostMapping("/{id}/deactivate")
     public String deactivate(@PathVariable Long id,
                              @AuthenticationPrincipal KshUserDetails user,
@@ -84,6 +85,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Locks a user account with a reason; re-opens the modal on validation failure. */
+    @PreAuthorize("hasAuthority('PERM_user.lock_unlock')")
     @PostMapping("/{id}/lock")
     public String lock(@PathVariable Long id,
                        @Valid @ModelAttribute("lockForm") LockForm lockForm,
@@ -102,6 +104,7 @@ public class AdminUsersLifecycleController {
     }
 
     /** Unlocks a locked user account. */
+    @PreAuthorize("hasAuthority('PERM_user.lock_unlock')")
     @PostMapping("/{id}/unlock")
     public String unlock(@PathVariable Long id,
                          @AuthenticationPrincipal KshUserDetails user,

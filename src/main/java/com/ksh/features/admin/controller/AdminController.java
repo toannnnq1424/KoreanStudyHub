@@ -4,7 +4,6 @@ import com.ksh.features.admin.dto.AdminDashboardDtos.DashboardStats;
 import com.ksh.features.admin.dto.AdminDashboardDtos.RecentClass;
 import com.ksh.features.admin.dto.AdminDashboardDtos.UserRoleCount;
 import com.ksh.features.admin.service.AdminDashboardService;
-import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -35,7 +34,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_dashboard.system')")
 public class AdminController {
 
     // ── Paths ─────────────────────────────────────────────────────
