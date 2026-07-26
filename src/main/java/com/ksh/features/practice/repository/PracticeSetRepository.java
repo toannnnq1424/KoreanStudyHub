@@ -1,6 +1,7 @@
 package com.ksh.features.practice.repository;
 
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.WritingTaskType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -40,6 +41,14 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
                         where section.setId = s.id and section.skill = :skill
                     )
                   )
+              and (
+                    :writingTask is null
+                    or exists (
+                        select question.id from PracticeQuestion question
+                        where question.setId = s.id
+                          and question.writingTaskType = :writingTask
+                    )
+                  )
             order by s.createdAt desc, s.id desc
             """,
             countQuery = """
@@ -64,6 +73,14 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
                         where section.setId = s.id and section.skill = :skill
                     )
                   )
+              and (
+                    :writingTask is null
+                    or exists (
+                        select question.id from PracticeQuestion question
+                        where question.setId = s.id
+                          and question.writingTaskType = :writingTask
+                    )
+                  )
             """)
     Page<PracticeSet> findLearnerVisiblePublished(
             @Param("status") String status,
@@ -74,6 +91,7 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
             @Param("selectedClassId") Long selectedClassId,
             @Param("search") String search,
             @Param("skill") String skill,
+            @Param("writingTask") WritingTaskType writingTask,
             Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -33,6 +32,8 @@ public class PracticeDetailPageService {
 
     private static final int INITIAL_ATTEMPT_LIMIT = 2;
     private static final String SPEAKING_SCORE_UNAVAILABLE = "Không có điểm Nói tổng hợp";
+    private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
+            PracticeAttemptStatePolicy.INSTANCE;
 
     private final PracticeSectionRepository sectionRepository;
     private final PracticeAttemptRepository attemptRepository;
@@ -58,9 +59,14 @@ public class PracticeDetailPageService {
                         PracticeSection::getTestId,
                         LinkedHashMap::new,
                         Collectors.toList()));
-        Map<Long, List<PracticeAttempt>> attemptsBySection = attemptRepository
-                .findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(setId, userId).stream()
-                .filter(this::isActiveAttempt)
+        List<PracticeAttempt> attempts = attemptRepository
+                .findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(
+                        setId, userId);
+        Set<Long> coherentAttemptIds = Set.copyOf(
+                attemptRepository.findCoherentAttemptIdentityIds(
+                        userId, List.of(setId)));
+        Map<Long, List<PracticeAttempt>> attemptsBySection = attempts.stream()
+                .filter(ATTEMPT_STATE::isActive)
                 .filter(attempt -> attempt.getTestId() != null && testIds.contains(attempt.getTestId()))
                 .filter(attempt -> attempt.getSectionId() != null)
                 .collect(Collectors.groupingBy(
@@ -71,7 +77,8 @@ public class PracticeDetailPageService {
         return tests.stream()
                 .map(test -> toTestCard(test,
                         sectionsByTest.getOrDefault(test.id(), List.of()),
-                        attemptsBySection))
+                        attemptsBySection,
+                        coherentAttemptIds))
                 .toList();
     }
 
@@ -80,11 +87,21 @@ public class PracticeDetailPageService {
                                                           Long userId) {
         if (sections == null || sections.isEmpty()) return List.of();
 
+        List<Long> setIds = sections.stream()
+                .map(PracticeSection::getSetId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Set<Long> coherentAttemptIds = setIds.isEmpty()
+                ? Set.of()
+                : Set.copyOf(
+                        attemptRepository.findCoherentAttemptIdentityIds(
+                                userId, setIds));
         Map<Long, List<PracticeAttempt>> attemptsBySection = attemptRepository
                 .findByTestIdAndUserIdOrderByCreatedAtDesc(testId, userId).stream()
-                .filter(this::isActiveAttempt)
+                .filter(ATTEMPT_STATE::isActive)
                 .filter(attempt -> attempt.getSectionId() != null)
-                .sorted(attemptComparator())
+                .sorted(ATTEMPT_STATE.newestActivityFirst())
                 .collect(Collectors.groupingBy(
                         PracticeAttempt::getSectionId,
                         LinkedHashMap::new,
@@ -93,7 +110,9 @@ public class PracticeDetailPageService {
         return sections.stream()
                 .map(section -> toSkillCard(
                         section,
-                        attemptsBySection.getOrDefault(section.getId(), List.of())))
+                        attemptsBySection.getOrDefault(
+                                section.getId(), List.of()),
+                        coherentAttemptIds))
                 .toList();
     }
 
@@ -111,7 +130,8 @@ public class PracticeDetailPageService {
 
     private PracticeSetTestCard toTestCard(PracticeTestRow test,
                                            List<PracticeSection> sections,
-                                           Map<Long, List<PracticeAttempt>> attemptsBySection) {
+                                           Map<Long, List<PracticeAttempt>> attemptsBySection,
+                                           Set<Long> coherentAttemptIds) {
         List<PracticeCatalogSkill> skills = sections.stream()
                 .map(section -> new PracticeCatalogSkill(
                         normalizeSkill(section.getSkill()),
@@ -126,19 +146,37 @@ public class PracticeDetailPageService {
 
         int completedSkillCount = 0;
         PracticeAttempt newestInProgress = null;
+        PracticeAttempt newestStale = null;
         for (PracticeSection section : sections) {
             List<PracticeAttempt> sectionAttempts = attemptsBySection
                     .getOrDefault(section.getId(), List.of());
-            if (sectionAttempts.stream().anyMatch(this::isCompletedAttempt)) {
+            if (sectionAttempts.stream().anyMatch(ATTEMPT_STATE::isCompleted)) {
                 completedSkillCount++;
             }
             PracticeAttempt inProgress = sectionAttempts.stream()
-                    .filter(this::isInProgressAttempt)
-                    .min(attemptComparator())
+                    .filter(attempt ->
+                            isCanonicalResumable(
+                                    attempt, coherentAttemptIds))
+                    .min(ATTEMPT_STATE.newestActivityFirst())
                     .orElse(null);
             if (inProgress != null && (newestInProgress == null
-                    || attemptComparator().compare(inProgress, newestInProgress) < 0)) {
+                    || ATTEMPT_STATE.newestActivityFirst()
+                    .compare(inProgress, newestInProgress) < 0)) {
                 newestInProgress = inProgress;
+            }
+            PracticeAttempt stale = sectionAttempts.stream()
+                    .filter(attempt ->
+                            ATTEMPT_STATE.isStaleOrRestartRequired(
+                                    attempt,
+                                    hasCoherentIdentity(
+                                            attempt,
+                                            coherentAttemptIds)))
+                    .min(ATTEMPT_STATE.newestActivityFirst())
+                    .orElse(null);
+            if (stale != null && (newestStale == null
+                    || ATTEMPT_STATE.newestActivityFirst()
+                    .compare(stale, newestStale) < 0)) {
+                newestStale = stale;
             }
         }
 
@@ -148,6 +186,9 @@ public class PracticeDetailPageService {
         if (newestInProgress != null) {
             state = "IN_PROGRESS";
             stateLabel = "Đang làm";
+        } else if (newestStale != null) {
+            state = "STALE";
+            stateLabel = "Cần bắt đầu lại";
         } else if (totalSkillCount > 0 && completedSkillCount == totalSkillCount) {
             state = "COMPLETED";
             stateLabel = "Đã hoàn thành";
@@ -184,44 +225,73 @@ public class PracticeDetailPageService {
     }
 
     private PracticeSkillAttemptCard toSkillCard(PracticeSection section,
-                                                 List<PracticeAttempt> sectionAttempts) {
+                                                 List<PracticeAttempt> sectionAttempts,
+                                                 Set<Long> coherentAttemptIds) {
         boolean speaking = "SPEAKING".equals(normalizeSkill(section.getSkill()));
         PracticeAttempt inProgress = sectionAttempts.stream()
-                .filter(this::isInProgressAttempt)
+                .filter(attempt ->
+                        isCanonicalResumable(
+                                attempt, coherentAttemptIds))
+                .findFirst()
+                .orElse(null);
+        PracticeAttempt stale = sectionAttempts.stream()
+                .filter(attempt ->
+                        ATTEMPT_STATE.isStaleOrRestartRequired(
+                                attempt,
+                                hasCoherentIdentity(
+                                        attempt,
+                                        coherentAttemptIds)))
                 .findFirst()
                 .orElse(null);
         List<PracticeAttempt> completed = sectionAttempts.stream()
-                .filter(this::isCompletedAttempt)
-                .sorted(attemptComparator())
+                .filter(ATTEMPT_STATE::isCompleted)
+                .sorted(ATTEMPT_STATE.newestActivityFirst())
                 .toList();
 
         List<PracticeAttemptCard> attemptCards = new ArrayList<>();
         for (int index = 0; index < completed.size(); index++) {
             PracticeAttempt attempt = completed.get(index);
+            boolean coherentVersionIdentity =
+                    hasCoherentIdentity(attempt, coherentAttemptIds);
+            PracticeAttemptStatePolicy.Presentation presentation =
+                    ATTEMPT_STATE.presentation(
+                            attempt, coherentVersionIdentity);
             attemptCards.add(new PracticeAttemptCard(
                     attempt.getId(),
                     completed.size() - index,
                     formatScore(attempt, speaking),
                     attempt.getStatus(),
-                    attemptStatusLabel(attempt),
-                    activityAt(attempt),
+                    presentation.code(),
+                    presentation.label(),
+                    PracticeAttemptStatePolicy.activityAt(attempt),
+                    ATTEMPT_STATE.isResultEligible(
+                            attempt, coherentVersionIdentity),
                     index < INITIAL_ATTEMPT_LIMIT));
         }
 
+        PracticeAttempt latest =
+                completed.isEmpty() ? null : completed.get(0);
         String state;
         String stateLabel;
         if (inProgress != null) {
             state = "IN_PROGRESS";
             stateLabel = "Đang làm";
-        } else if (!completed.isEmpty()) {
-            state = "COMPLETED";
-            stateLabel = "Đã có kết quả";
+        } else if (stale != null) {
+            state = "STALE";
+            stateLabel = "Cần bắt đầu lại";
+        } else if (latest != null) {
+            PracticeAttemptStatePolicy.Presentation presentation =
+                    ATTEMPT_STATE.presentation(
+                            latest,
+                            hasCoherentIdentity(
+                                    latest, coherentAttemptIds));
+            state = presentation.code();
+            stateLabel = presentation.label();
         } else {
             state = "NOT_STARTED";
             stateLabel = "Chưa bắt đầu";
         }
 
-        PracticeAttempt latest = completed.isEmpty() ? null : completed.get(0);
         PracticeAttempt best = speaking ? null : completed.stream()
                 .filter(attempt -> normalizedScore(attempt) != null)
                 .max(Comparator.comparing(this::normalizedScore))
@@ -244,46 +314,22 @@ public class PracticeDetailPageService {
                         : best == null ? "Chưa có" : formatScore(best, false));
     }
 
-    private boolean isActiveAttempt(PracticeAttempt attempt) {
-        return attempt != null && !PracticeAttempt.STATUS_DISCARDED.equals(attempt.getStatus());
+    private boolean isCanonicalResumable(
+            PracticeAttempt attempt,
+            Set<Long> coherentAttemptIds
+    ) {
+        return ATTEMPT_STATE.isCanonicalResumable(
+                attempt,
+                hasCoherentIdentity(attempt, coherentAttemptIds));
     }
 
-    private boolean isInProgressAttempt(PracticeAttempt attempt) {
-        return PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus());
-    }
-
-    private boolean isCompletedAttempt(PracticeAttempt attempt) {
-        return PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
-                || PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus());
-    }
-
-    private Comparator<PracticeAttempt> attemptComparator() {
-        return Comparator
-                .comparing(this::activityAt, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(PracticeAttempt::getId,
-                        Comparator.nullsLast(Comparator.reverseOrder()));
-    }
-
-    private LocalDateTime activityAt(PracticeAttempt attempt) {
-        if (attempt.getSubmittedAt() != null) return attempt.getSubmittedAt();
-        if (attempt.getUpdatedAt() != null) return attempt.getUpdatedAt();
-        return attempt.getCreatedAt();
-    }
-
-    private String attemptStatusLabel(PracticeAttempt attempt) {
-        if (PracticeAttempt.ANALYSIS_QUEUED.equals(attempt.getAnalysisStatus())
-                || PracticeAttempt.ANALYSIS_PROCESSING.equals(attempt.getAnalysisStatus())) {
-            return isSpeakingAttempt(attempt) ? "Đang xử lý phản hồi" : "Đang chấm AI";
-        }
-        if (PracticeAttempt.ANALYSIS_FAILED.equals(attempt.getAnalysisStatus())) {
-            return isSpeakingAttempt(attempt)
-                    ? "Chưa thể xử lý phản hồi"
-                    : "Chấm AI chưa hoàn tất";
-        }
-        if (PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
-            return isSpeakingAttempt(attempt) ? "Đã xử lý phản hồi" : "Đã chấm";
-        }
-        return "Đã nộp";
+    private boolean hasCoherentIdentity(
+            PracticeAttempt attempt,
+            Set<Long> coherentAttemptIds
+    ) {
+        return attempt != null
+                && attempt.getId() != null
+                && coherentAttemptIds.contains(attempt.getId());
     }
 
     private String formatScore(PracticeAttempt attempt, boolean speakingSection) {

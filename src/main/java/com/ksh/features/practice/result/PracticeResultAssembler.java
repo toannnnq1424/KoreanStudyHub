@@ -8,6 +8,7 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultAttemptIdentity;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.ResultState;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,9 +21,13 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class PracticeResultAssembler {
+
+    private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
+            PracticeAttemptStatePolicy.INSTANCE;
 
     private final PracticeAttemptRepository attemptRepository;
     private final PracticePublishedVersionService publishedVersionService;
@@ -48,16 +53,26 @@ public class PracticeResultAssembler {
     PracticeResultContext loadContext(Long attemptId, Long userId) {
         PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Kết quả không tồn tại"));
-        requireResultState(attempt);
+        if (!ATTEMPT_STATE.isActive(attempt)) {
+            throw new EntityNotFoundException("Kết quả không tồn tại");
+        }
+        ATTEMPT_STATE.requireCanonicalResultStructure(attempt);
+        ATTEMPT_STATE.requireCoherentResultIdentity(
+                publishedVersionService.hasCoherentAttemptIdentity(attempt));
         PracticeVersionSnapshot snapshot = publishedVersionService.snapshot(
                         attempt.getPublishedVersionId(),
                         attempt.getSetVersionId(),
                         attempt.getTestVersionId(),
                         attempt.getSectionVersionId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Bài làm không có immutable snapshot hợp lệ để hiển thị kết quả."));
-        if (!attempt.getSkill().equals(snapshot.sectionVersion().getSkill())) {
-            throw new IllegalStateException("Kỹ năng của bài làm không khớp immutable snapshot.");
+                .orElseThrow(() ->
+                        new PracticeAttemptStatePolicy
+                                .PracticeResultNotAvailableException(
+                                PracticeAttemptStatePolicy.ResultEligibility
+                                        .INCONSISTENT_VERSION_IDENTITY,
+                                "Bài làm không có immutable snapshot hợp lệ "
+                                        + "để hiển thị kết quả."));
+        if (!attemptMatchesSnapshot(attempt, snapshot)) {
+            ATTEMPT_STATE.requireCoherentResultIdentity(false);
         }
 
         ResultScoreSummary score = scoreSummary(attempt);
@@ -160,14 +175,23 @@ public class PracticeResultAssembler {
                 : new ResultState("GRADED", "Đã chấm");
     }
 
-    private static void requireResultState(PracticeAttempt attempt) {
-        if (PracticeAttempt.STATUS_DISCARDED.equals(attempt.getStatus())) {
-            throw new EntityNotFoundException("Kết quả không tồn tại");
-        }
-        if (!PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
-                && !PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
-            throw new IllegalStateException("Kết quả chỉ khả dụng sau khi bài làm đã được nộp.");
-        }
+    private static boolean attemptMatchesSnapshot(
+            PracticeAttempt attempt,
+            PracticeVersionSnapshot snapshot
+    ) {
+        return Objects.equals(
+                        attempt.getSetId(),
+                        snapshot.setVersion().getSetId())
+                && Objects.equals(
+                        attempt.getTestId(),
+                        snapshot.testVersion().getTestId())
+                && Objects.equals(
+                        attempt.getSectionId(),
+                        snapshot.sectionVersion().getSectionId())
+                && snapshot.sectionVersion().getSkill() != null
+                && attempt.getSkill() != null
+                && snapshot.sectionVersion().getSkill()
+                        .equalsIgnoreCase(attempt.getSkill());
     }
 
     private static Long elapsedSeconds(PracticeAttempt attempt) {
