@@ -56,7 +56,7 @@ class DbConfiguredMailSenderTest {
     }
 
     @Test
-    void from_leaderer_uses_display_name_when_from_name_is_set() throws Exception {
+    void from_header_uses_display_name_when_from_name_is_set() throws Exception {
         MimeMessage message = buildTestMessage(Map.of(
                 "smtp.host", "smtp.example.com",
                 "smtp.port", "587",
@@ -76,7 +76,7 @@ class DbConfiguredMailSenderTest {
     }
 
     @Test
-    void from_leaderer_uses_bare_email_when_from_name_is_blank() throws Exception {
+    void from_header_uses_bare_email_when_from_name_is_blank() throws Exception {
         MimeMessage message = buildTestMessage(Map.of(
                 "smtp.host", "smtp.example.com",
                 "smtp.port", "587",

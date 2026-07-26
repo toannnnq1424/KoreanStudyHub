@@ -29,7 +29,7 @@ class FlashcardImportParserTest {
     private final FlashcardImportParser parser = new FlashcardImportParser();
 
     @Test
-    void valid_two_column_file_skips_leaderer_and_maps_sides() throws IOException {
+    void valid_two_column_file_skips_header_and_maps_sides() throws IOException {
         MultipartFile file = xlsx(new String[][]{
                 {"Mặt trước", "Mặt sau"},   // header — skipped
                 {"apple", "quả táo"},
