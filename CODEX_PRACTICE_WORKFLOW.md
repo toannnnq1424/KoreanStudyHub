@@ -3469,6 +3469,16 @@ fresh independent audits run only on that pushed snapshot before 13G.
 Do not start Phase 14, Phase 15, the pre-14 correctness gate or any
 `P15-COMP` debt. `P15-PRE-15/16` remain routed to 13H.
 
+The six Phase 13F commits ending at remote SHA `fec64db` are already present on
+`origin/feature/practice-reduce-scope`; do not recreate or squash them. After
+the current 13C3 integrated validation, push and exact-SHA audits are green,
+create and merge the bounded PR without force-push. Then refresh local `main`
+from `origin/main`, create a new phase branch from that updated tip, and fork a
+new Codex task for the next phase. Its handoff must carry the current boundary,
+validation/debt/roadmap memory and require rereading the authoritative Practice
+Markdown files before any implementation; the merged feature branch is not a
+base for unrelated follow-up work.
+
 Future sequence after the current action is accepted: create a coherent
 multi-commit 13C3 series and push it; complete 13G, run its one consolidated
 stabilization/validation, create coherent commits and push; complete 13H, run

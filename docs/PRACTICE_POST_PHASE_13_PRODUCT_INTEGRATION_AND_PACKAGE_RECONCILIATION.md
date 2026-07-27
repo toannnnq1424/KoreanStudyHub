@@ -56,6 +56,13 @@ Phase 13C3 validation -> granular commits -> one push -> post-push audits
 This phase cannot start merely because 13C3 is green. All remaining Phase 13
 work must be validated, committed and pushed first.
 
+Each completed phase PR is integrated before the following phase starts. Once
+a PR is validated, independently audited and merged, refresh from the full
+`origin/main` tip and create the next phase branch from that exact tip. The
+coordinator must also fork a new Codex task with a written handoff containing
+the active contracts, deferred debts, validation evidence and mandatory
+read-first Markdown list; it must not rely on conversational memory alone.
+
 ## 3. Mandatory read-first authority
 
 The coordinator and audit agents must read before proposing movement:
