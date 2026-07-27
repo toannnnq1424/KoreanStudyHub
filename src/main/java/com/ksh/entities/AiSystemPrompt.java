@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 
 /**
  * JPA entity mapping the {@code ai_system_prompts} table
- * (see {@code V40__ai_system_prompts.sql}).
+ * (see {@code V54__ai_system_prompts.sql}).
  *
  * <p>Each row is one named, reusable system prompt an admin maintains in the
  * catalog. Screens that call AI select a prompt by {@link #name}; unlike
