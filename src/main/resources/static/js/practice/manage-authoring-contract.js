@@ -2,6 +2,7 @@
   'use strict';
 
   const CONTENT_SCHEMA = 'question-content-v1';
+  const SPEAKING_CONTENT_SCHEMA = 'question-content-v2';
   const ANSWER_SCHEMA = 'answer-spec-v1';
   const SECTION_DELIVERY_SCHEMA = 'practice-section-delivery-v1';
 
@@ -55,10 +56,26 @@
     q.audioUrl = q.audioUrl || canonicalContent.audioReference || '';
     const delivery = canonicalContent.speakingDelivery;
     if (delivery && typeof delivery === 'object') {
-      q.speakingPromptAudioUrl = delivery.promptAudioReference || q.speakingPromptAudioUrl || q.audioUrl || '';
-      q.speakingPromptPlayLimit = positiveInteger(delivery.promptPlayLimit, 1);
+      const hasPromptAudioReference = Object.prototype.hasOwnProperty.call(
+        delivery, 'promptAudioReference');
+      q.speakingPromptAudioUrl = hasPromptAudioReference
+        ? (delivery.promptAudioReference || '')
+        : (q.speakingPromptAudioUrl || q.audioUrl || '');
+      const hasPromptPlayLimit = Object.prototype.hasOwnProperty.call(
+        delivery, 'promptPlayLimit');
+      q.speakingPromptPlayLimit = hasPromptPlayLimit
+        && delivery.promptPlayLimit == null
+        ? 0
+        : positiveInteger(delivery.promptPlayLimit, 1);
       q.prepTimeSeconds = nonNegativeInteger(delivery.preparationSeconds, 30);
       q.respTimeSeconds = positiveInteger(delivery.responseSeconds, 60);
+      if (!q.speakingPromptAuthoring || typeof q.speakingPromptAuthoring !== 'object') {
+        q.speakingPromptAuthoring = {
+          inputType: delivery.inputType || 'audio_upload',
+          ttsEnabled: delivery.inputType === 'manual_text'
+            && delivery.audioOrigin === 'ai_tts'
+        };
+      }
     }
 
     if (q.questionType === 'FILL_BLANK' && (!Array.isArray(q.fillBlanks) || q.fillBlanks.length === 0)) {
@@ -177,18 +194,37 @@
       ? (q.audioUrl || null)
       : (previousContent.audioReference || null);
     if (type === 'SPEAKING') {
-      const promptAudioReference = q.speakingPromptAudioUrl
-        || previousDelivery.promptAudioReference
-        || q.audioUrl
-        || null;
+      const authoring = q.speakingPromptAuthoring
+        && typeof q.speakingPromptAuthoring === 'object'
+        ? q.speakingPromptAuthoring
+        : {};
+      const inputType = authoring.inputType === 'manual_text'
+        ? 'manual_text'
+        : 'audio_upload';
+      const ttsEnabled = inputType === 'manual_text'
+        && authoring.ttsEnabled === true;
+      const promptAudioReference = Object.prototype.hasOwnProperty.call(
+        q, 'speakingPromptAudioUrl')
+        ? (q.speakingPromptAudioUrl || null)
+        : (previousDelivery.promptAudioReference || q.audioUrl || null);
+      content.schemaVersion = SPEAKING_CONTENT_SCHEMA;
       content.speakingDelivery = {
+        inputType,
+        deliveryMode: inputType === 'audio_upload'
+          ? 'audio_only'
+          : (ttsEnabled ? 'text_and_audio' : 'text_only'),
         promptAudioReference,
-        promptPlayLimit: positiveInteger(q.speakingPromptPlayLimit || previousDelivery.promptPlayLimit, 1),
+        audioOrigin: inputType === 'audio_upload'
+          ? 'teacher_upload'
+          : (ttsEnabled ? 'ai_tts' : 'none'),
+        promptPlayLimit: inputType === 'manual_text' && !ttsEnabled
+          ? null
+          : positiveInteger(q.speakingPromptPlayLimit || previousDelivery.promptPlayLimit, 1),
         preparationSeconds: nonNegativeInteger(q.prepTimeSeconds ?? previousDelivery.preparationSeconds, 30),
         responseSeconds: positiveInteger(q.respTimeSeconds || previousDelivery.responseSeconds, 60)
       };
       q.speakingPromptAudioUrl = promptAudioReference || '';
-      q.speakingPromptPlayLimit = content.speakingDelivery.promptPlayLimit;
+      q.speakingPromptPlayLimit = content.speakingDelivery.promptPlayLimit || 0;
       q.prepTimeSeconds = content.speakingDelivery.preparationSeconds;
       q.respTimeSeconds = content.speakingDelivery.responseSeconds;
     }

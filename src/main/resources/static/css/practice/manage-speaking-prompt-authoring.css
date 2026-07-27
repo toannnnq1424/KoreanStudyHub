@@ -1,0 +1,351 @@
+.sp-authoring {
+  --sp-blue: #315efb;
+  --sp-ink: #172033;
+  --sp-muted: #667085;
+  --sp-border: #dbe3f0;
+  color: var(--sp-ink);
+}
+
+.sp-authoring__intro {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.sp-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border: 1px solid var(--sp-border);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.sp-segmented__button {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #475467;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sp-segmented__button.is-active {
+  background: #fff;
+  color: var(--sp-blue);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 12%);
+}
+
+.sp-segmented__button:focus-visible,
+.sp-dropzone:focus-visible,
+.sp-context summary:focus-visible {
+  outline: 3px solid rgb(49 94 251 / 25%);
+  outline-offset: 2px;
+}
+
+.sp-branch {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--sp-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.sp-branch[hidden],
+.sp-context[hidden],
+.sp-audio-preview[hidden],
+.sp-review-callout[hidden],
+.sp-tts-controls[hidden],
+.sp-upload-progress[hidden] {
+  display: none !important;
+}
+
+.sp-branch__heading,
+.sp-audio-preview__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sp-branch__heading {
+  margin-bottom: 14px;
+}
+
+.sp-branch__heading h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.sp-branch__heading p {
+  margin: 0;
+  color: var(--sp-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.sp-state-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #475467;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.sp-state-chip.is-ready {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.sp-state-chip.is-stale {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.sp-state-chip.is-review {
+  background: #fff4e5;
+  color: #9a3412;
+}
+
+.sp-state-chip.is-error {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.sp-dropzone {
+  display: grid;
+  width: 100%;
+  min-height: 132px;
+  place-items: center;
+  gap: 5px;
+  padding: 18px;
+  border: 1.5px dashed #9db0cf;
+  border-radius: 11px;
+  background: #f8fbff;
+  color: #475467;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sp-dropzone:hover,
+.sp-dropzone.is-dragging {
+  border-color: var(--sp-blue);
+  background: #f0f5ff;
+  color: var(--sp-blue);
+}
+
+.sp-dropzone strong {
+  font-size: 0.84rem;
+}
+
+.sp-dropzone span {
+  color: var(--sp-muted);
+  font-size: 0.74rem;
+}
+
+.sp-upload-progress {
+  width: 100%;
+  height: 8px;
+  margin-top: 10px;
+  accent-color: var(--sp-blue);
+}
+
+.sp-upload-status {
+  margin-top: 9px;
+  color: var(--sp-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.sp-upload-status[data-kind="error"] {
+  color: #b42318;
+}
+
+.sp-required-copy,
+.sp-review-callout {
+  margin: 12px 0;
+  padding: 11px 12px;
+  border-radius: 9px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.sp-required-copy {
+  border-left: 3px solid #60a5fa;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.sp-review-callout {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 650;
+}
+
+.sp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sp-danger {
+  color: #b42318 !important;
+}
+
+.sp-context {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.sp-context summary {
+  color: #344054;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sp-context > label:not(.sp-confirm-row) {
+  display: block;
+  margin: 14px 0 6px;
+  color: #475467;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.sp-confirm-row,
+.sp-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.sp-confirm-row {
+  margin: 10px 0;
+}
+
+.sp-toggle-row {
+  margin: 14px 0;
+  padding: 11px 12px;
+  border: 1px solid var(--sp-border);
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.sp-text-only-copy {
+  margin: -6px 0 12px;
+  color: var(--sp-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.sp-text-only-copy[hidden] {
+  display: none !important;
+}
+
+.sp-manual-text {
+  min-height: 138px;
+  font-family: "Noto Sans KR", "Be Vietnam Pro", sans-serif;
+  line-height: 1.65;
+}
+
+.sp-tts-controls {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  gap: 10px;
+}
+
+.sp-tts-controls label {
+  color: #475467;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sp-tts-controls .form-input {
+  margin-top: 5px;
+}
+
+.sp-audio-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--sp-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.sp-audio-preview audio {
+  width: 100%;
+}
+
+.sp-audio-preview__heading strong {
+  color: #344054;
+  font-size: 0.78rem;
+}
+
+.sp-audio-preview__filename,
+.sp-audio-preview__duration {
+  overflow: hidden;
+  color: var(--sp-muted);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-audio-preview__duration {
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-shared-controls {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sp-border);
+}
+
+.sp-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 760px) {
+  .sp-segmented,
+  .sp-tts-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .sp-branch__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
