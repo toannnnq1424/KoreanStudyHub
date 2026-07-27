@@ -3,6 +3,9 @@ package com.ksh.features.practice.ai.speaking;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -230,6 +233,119 @@ class SpeakingEvaluationReusePolicyTest {
         assertThat(identity.toString()).doesNotContain("저는 학생입니다");
     }
 
+    @Test
+    void immutableQuestionVersionContextIdentityControlsReuse() {
+        SpeakingEvaluationResult stored = withPromptContext(
+                result(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        SpeakingEvaluationSource.PROVIDER,
+                        true,
+                        false,
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        "speaking-eval-v1",
+                        "speaking-rubric-v1",
+                        "speaking-schema-v1",
+                        "저는 학생입니다."),
+                101L,
+                "a".repeat(64),
+                "speaking-prompt-version-context-v1");
+        SpeakingEvaluationIdentity exact = SpeakingEvaluationIdentity.audio(
+                1L, 2L, 101L, "a".repeat(64),
+                "speaking-prompt-version-context-v1",
+                12L, 3L, "gpt-4o-mini-transcribe",
+                "models/gemini-2.5-flash",
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
+
+        assertThat(policy.decide(stored, exact, true).reuse()).isTrue();
+        assertThat(policy.decide(
+                stored,
+                SpeakingEvaluationIdentity.audio(
+                        1L, 2L, 202L, "a".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L, 3L, "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION),
+                true).reuse()).isFalse();
+        assertThat(policy.decide(
+                stored,
+                SpeakingEvaluationIdentity.audio(
+                        1L, 2L, 101L, "b".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L, 3L, "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION),
+                true).reuse()).isFalse();
+    }
+
+    @Test
+    void configuredDefaultPromptIdentityIsCurrentAndReusable()
+            throws Exception {
+        String applicationProperties = Files.readString(
+                Path.of("src/main/resources/application.properties"));
+        SpeakingEvaluatorProperties defaults =
+                new SpeakingEvaluatorProperties(
+                        false,
+                        "openai-compatible",
+                        "https://example.invalid",
+                        "",
+                        "models/gemini-2.5-flash",
+                        Duration.ofSeconds(30),
+                        0,
+                        "",
+                        "",
+                        "");
+
+        assertThat(applicationProperties).contains(
+                "PRACTICE_SPEAKING_EVALUATOR_PROMPT_VERSION:"
+                        + SpeakingPromptRules.PROMPT_VERSION + "}");
+        assertThat(defaults.promptVersion())
+                .isEqualTo(SpeakingPromptRules.PROMPT_VERSION);
+
+        SpeakingEvaluationResult stored = withPromptContext(
+                result(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        SpeakingEvaluationSource.PROVIDER,
+                        true,
+                        false,
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        defaults.model(),
+                        defaults.promptVersion(),
+                        defaults.rubricVersion(),
+                        defaults.schemaVersion(),
+                        "저는 학생입니다."),
+                101L,
+                "a".repeat(64),
+                "speaking-prompt-version-context-v1");
+        SpeakingEvaluationIdentity identity =
+                SpeakingEvaluationIdentity.audio(
+                        1L,
+                        2L,
+                        101L,
+                        "a".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        defaults.model(),
+                        defaults.promptVersion(),
+                        defaults.rubricVersion(),
+                        defaults.schemaVersion());
+
+        assertThat(stored.currentEvidenceContract()).isTrue();
+        assertThat(policy.decide(stored, identity, true).reuse()).isTrue();
+    }
+
     private SpeakingEvaluationResult result(
             SpeakingEvaluationStatus status,
             SpeakingEvaluationSource source,
@@ -332,6 +448,60 @@ class SpeakingEvaluationReusePolicyTest {
                 currentPromptVersion(promptVersion),
                 currentRubricVersion(rubricVersion),
                 currentSchemaVersion(schemaVersion));
+    }
+
+    private SpeakingEvaluationResult withPromptContext(
+            SpeakingEvaluationResult result,
+            Long questionVersionId,
+            String fingerprint,
+            String contractIdentity) {
+        return new SpeakingEvaluationResult(
+                result.evaluationStatus(),
+                result.scoreAvailable(),
+                result.source(),
+                result.model(),
+                result.transcriptionModel(),
+                result.promptVersion(),
+                result.rubricVersion(),
+                result.schemaVersion(),
+                result.evaluatorCapability(),
+                result.evidenceMode(),
+                result.evidenceContractVersion(),
+                result.contractTrust(),
+                questionVersionId,
+                fingerprint,
+                contractIdentity,
+                result.audioMediaId(),
+                result.mediaVersion(),
+                result.transcript(),
+                result.normalizedTranscript(),
+                result.actuallyHeardTranscript(),
+                result.interpretedIntent(),
+                result.intentConfidence(),
+                result.transcriptConfidence(),
+                result.listenerBurden(),
+                result.overallScore(),
+                result.levelLabel(),
+                result.overallSummary(),
+                result.taskAchievementSummary(),
+                result.majorStrengths(),
+                result.majorNeedsImprovement(),
+                result.actionPlan(),
+                result.criterionFeedback(),
+                result.transcriptAnnotations(),
+                result.strengths(),
+                result.needsImprovement(),
+                result.confidenceNotes(),
+                result.rubricScores(),
+                result.findings(),
+                result.evidence(),
+                result.recommendations(),
+                result.upgradedAnswer(),
+                result.sampleAnswer(),
+                result.pronunciationAdvisory(),
+                result.fluencyObservations(),
+                result.errorCategory(),
+                result.retryable());
     }
 
     private String currentPromptVersion(String value) {

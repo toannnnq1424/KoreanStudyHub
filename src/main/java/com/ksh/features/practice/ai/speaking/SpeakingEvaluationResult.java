@@ -16,6 +16,9 @@ public record SpeakingEvaluationResult(
         SpeakingEvidenceMode evidenceMode,
         String evidenceContractVersion,
         SpeakingContractTrust contractTrust,
+        Long questionVersionId,
+        String promptContextFingerprint,
+        String promptContextContractIdentity,
         Long audioMediaId,
         Long mediaVersion,
         String transcript,
@@ -170,6 +173,71 @@ public record SpeakingEvaluationResult(
     }
 
     /**
+     * Compatibility constructor for the pre-13C3-03 current-capability
+     * envelope. A result without immutable question-context identity is
+     * readable but cannot match a new reuse identity.
+     */
+    public SpeakingEvaluationResult(
+            SpeakingEvaluationStatus evaluationStatus,
+            boolean scoreAvailable,
+            SpeakingEvaluationSource source,
+            String model,
+            String transcriptionModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion,
+            SpeakingEvaluatorCapability evaluatorCapability,
+            SpeakingEvidenceMode evidenceMode,
+            String evidenceContractVersion,
+            SpeakingContractTrust contractTrust,
+            Long audioMediaId,
+            Long mediaVersion,
+            String transcript,
+            String normalizedTranscript,
+            String actuallyHeardTranscript,
+            String interpretedIntent,
+            BigDecimal intentConfidence,
+            BigDecimal transcriptConfidence,
+            String listenerBurden,
+            BigDecimal overallScore,
+            String levelLabel,
+            String overallSummary,
+            String taskAchievementSummary,
+            List<String> majorStrengths,
+            List<String> majorNeedsImprovement,
+            List<ActionPlanItem> actionPlan,
+            List<CriterionFeedback> criterionFeedback,
+            List<TranscriptAnnotation> transcriptAnnotations,
+            List<FeedbackItem> strengths,
+            List<FeedbackItem> needsImprovement,
+            String confidenceNotes,
+            List<RubricScore> rubricScores,
+            List<Finding> findings,
+            List<Evidence> evidence,
+            List<String> recommendations,
+            String upgradedAnswer,
+            String sampleAnswer,
+            List<String> pronunciationAdvisory,
+            List<String> fluencyObservations,
+            String errorCategory,
+            boolean retryable
+    ) {
+        this(evaluationStatus, scoreAvailable, source, model, transcriptionModel,
+                promptVersion, rubricVersion, schemaVersion,
+                evaluatorCapability, evidenceMode, evidenceContractVersion,
+                contractTrust, null, null, null,
+                audioMediaId, mediaVersion, transcript, normalizedTranscript,
+                actuallyHeardTranscript, interpretedIntent, intentConfidence,
+                transcriptConfidence, listenerBurden, overallScore, levelLabel,
+                overallSummary, taskAchievementSummary, majorStrengths,
+                majorNeedsImprovement, actionPlan, criterionFeedback,
+                transcriptAnnotations, strengths, needsImprovement, confidenceNotes,
+                rubricScores, findings, evidence, recommendations, upgradedAnswer,
+                sampleAnswer, pronunciationAdvisory, fluencyObservations,
+                errorCategory, retryable);
+    }
+
+    /**
      * Compatibility constructor for callers compiled against the pre-capability
      * result envelope. New persistence uses the canonical constructor fields.
      */
@@ -220,6 +288,7 @@ public record SpeakingEvaluationResult(
                 SpeakingEvidenceMode.UNKNOWN,
                 null,
                 SpeakingContractTrust.LEGACY_UNVERIFIED,
+                null, null, null,
                 audioMediaId, mediaVersion, transcript, normalizedTranscript,
                 actuallyHeardTranscript, interpretedIntent, intentConfidence,
                 transcriptConfidence, listenerBurden, overallScore, levelLabel,

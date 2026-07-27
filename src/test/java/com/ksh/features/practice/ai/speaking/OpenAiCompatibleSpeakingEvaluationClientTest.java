@@ -178,7 +178,10 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
     ) {
         SpeakingEvaluationRequest base = SpeakingEvaluationPromptBuilderTest.request(false);
         return new SpeakingEvaluationRequest(
-                base.attemptId(), base.questionId(), base.questionText(), base.targetLevel(),
+                base.attemptId(), base.questionId(), base.questionVersionId(),
+                base.promptContext(), base.promptContextFingerprint(),
+                base.promptContextContractIdentity(),
+                base.questionText(), base.targetLevel(),
                 base.expectedAnswerGuidance(), base.imageEvidence(), base.audioMediaId(),
                 base.mediaVersion(), base.mimeType(), base.byteSize(), base.durationMs(),
                 base.transcriptionProvider(), base.transcriptionModel(), base.language(),

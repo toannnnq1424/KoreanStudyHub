@@ -3,7 +3,8 @@ package com.ksh.features.practice.ai.speaking;
 import java.util.stream.Collectors;
 
 public final class SpeakingPromptRules {
-    public static final String PROMPT_VERSION = "speaking-eval-v3-transcript-language-only";
+    public static final String PROMPT_VERSION =
+            "speaking-eval-v4-immutable-context-transcript-language-only";
     public static final String RUBRIC_VERSION = "speaking-rubric-v2-transcript-language-profile";
     public static final String SCHEMA_VERSION = "speaking-schema-v2-partial-language-profile";
     public static final String EVIDENCE_CONTRACT_VERSION =
@@ -45,7 +46,14 @@ public final class SpeakingPromptRules {
                 This evaluator receives no learner audio, audio stream, audio URL, acoustic measurements, or aligned timestamps.
                 Do not score or diagnose Fluency, Pronunciation, Delivery, intelligibility, rhythm, intonation, linking, or acoustic listener burden.
                 Do not use few-shot calibration samples or invented sample datasets for scoring.
-                When a governed question image is attached, read it as authoritative task context together with question_text.
+                prompt_context is immutable lecturer task context only. Use it
+                to understand what the learner was asked to do.
+                Never copy prompt_context into transcription, learner answer,
+                actually_heard_transcript, evidence, pronunciation/fluency
+                evidence, or any learner claim. Never treat it as something
+                the learner said.
+                transcription is the only learner-answer authority.
+                When a governed question image is attached, read it as authoritative task context together with prompt_context.
                 Do not claim visual details that are not visible in the attached image.
                 Do not output markdown outside JSON.
                 """;
@@ -70,7 +78,9 @@ public final class SpeakingPromptRules {
                 The allowed_rubric provides each criterion and its max_score.
                 Always use the supplied max_score and do not assume fixed weights.
                 Do not create new primary criteria. Do not change weights.
-                Use only the transcript, prompt, and transcript-grounded deterministic signals.
+                Use prompt_context only to understand task relevance. Use only
+                transcription and transcript-grounded deterministic signals as
+                learner evidence.
                 AUDIO_METADATA is provenance only and is never evidence for a score or diagnostic claim.
                 Do not use a 10-point band. Do not use 9.0 / 7.5 / 5.0 band labels.
                 Do not return an official TOPIK score, external band score, or separate total outside the schema.
@@ -90,7 +100,9 @@ public final class SpeakingPromptRules {
                 AUDIO_METADATA is not an allowed grounding source for this evaluator.
                 TEXT_SPAN evidence must be an exact substring of actually_heard_transcript and not empty.
                 WHOLE_ANSWER evidence must be an empty string.
-                TASK_METADATA is not accepted by the current evidence output contract. Task metadata may inform Content evaluation but must not create a highlight/finding.
+                TASK_METADATA and prompt_context are not accepted by the
+                current evidence output contract. They may inform Content task
+                relevance but must not create a learner highlight/finding.
                 Provider startOffset/endOffset are not authoritative and may be null; backend derives offsets from the exact transcript span.
                 Do not create findings without safe evidence.
                 Scan the transcript from beginning to end and group repeated issue types reasonably.

@@ -9,6 +9,7 @@ import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscription
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContextService;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 
 class SpeakingEvaluationApplicationServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -66,6 +69,10 @@ class SpeakingEvaluationApplicationServiceTest {
         assertThat(evaluation.result().overallScore()).isNull();
         assertThat(evaluation.result().profileAvailable()).isTrue();
         assertThat(evaluation.result().transcriptConfidence()).isEqualByComparingTo("0.82");
+        assertThat(evaluation.result().promptContextFingerprint()).isNotBlank();
+        assertThat(evaluation.result().promptContextContractIdentity())
+                .isEqualTo(SpeakingPromptEvaluationContextService
+                        .LEGACY_CONTRACT_IDENTITY);
         assertThat(fixture.transcriptionCalls.get()).isEqualTo(1);
         assertThat(fixture.evaluationClient.calls()).isEqualTo(1);
     }
@@ -142,6 +149,43 @@ class SpeakingEvaluationApplicationServiceTest {
     }
 
     @Test
+    void v2EvaluatorKeepsImmutablePromptContextSeparateFromLearnerTranscript() {
+        Fixture fixture = fixture(
+                true,
+                true,
+                false,
+                List.of(row(12L, 3L, "audio/webm")));
+        SpeakingEvaluationApplicationService.EvaluationInput input =
+                new SpeakingEvaluationApplicationService.EvaluationInput(
+                        77L,
+                        10L,
+                        11L,
+                        101L,
+                        "question-content-v2",
+                        "",
+                        null,
+                        null,
+                        null,
+                        "",
+                        null);
+
+        SpeakingEvaluationApplicationService.Evaluation evaluation =
+                fixture.service.evaluateQuestion(input);
+
+        assertThat(fixture.evaluationClient.lastRequest()
+                .promptContext()).isEqualTo("질문을 듣고 대답하세요.");
+        assertThat(fixture.evaluationClient.lastRequest()
+                .actuallyHeardTranscript()).isEqualTo("저는 학생입니다.");
+        assertThat(fixture.evaluationClient.lastRequest()
+                .promptContext()).isNotEqualTo(
+                        fixture.evaluationClient.lastRequest()
+                                .actuallyHeardTranscript());
+        assertThat(evaluation.result().questionVersionId()).isEqualTo(101L);
+        assertThat(evaluation.result().promptContextFingerprint())
+                .isEqualTo("c".repeat(64));
+    }
+
+    @Test
     void dtoToStringDoesNotExposeTranscriptOrUserIdentity() {
         SpeakingEvaluationApplicationService.EvaluationInput input = input(null, "저는 학생입니다.");
 
@@ -209,8 +253,32 @@ class SpeakingEvaluationApplicationServiceTest {
                 new SpeakingEvaluationReusePolicy(),
                 transcriptionProperties,
                 evaluatorProperties,
+                null,
+                promptContextService(),
                 textFallbackEnabled);
         return new Fixture(service, transcriptionClient, evaluationClient, transcriptionCalls);
+    }
+
+    private SpeakingPromptEvaluationContextService promptContextService() {
+        SpeakingPromptEvaluationContextService service =
+                mock(SpeakingPromptEvaluationContextService.class);
+        when(service.resolve(
+                any(), any(), anyString())).thenAnswer(invocation -> {
+            Long questionVersionId = invocation.getArgument(0);
+            String schema = invocation.getArgument(1);
+            String prompt = invocation.getArgument(2);
+            if ("question-content-v2".equals(schema)) {
+                return new SpeakingPromptEvaluationContextService
+                        .EvaluatorContext(
+                                questionVersionId,
+                                "질문을 듣고 대답하세요.",
+                                "c".repeat(64),
+                                "speaking-prompt-version-context-v1");
+            }
+            return SpeakingPromptEvaluationContextService.legacy(
+                    questionVersionId, prompt);
+        });
+        return service;
     }
 
     private List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> concat(
@@ -274,6 +342,9 @@ class SpeakingEvaluationApplicationServiceTest {
             Long mediaVersion,
             String transcript
     ) {
+        SpeakingPromptEvaluationContextService.EvaluatorContext context =
+                SpeakingPromptEvaluationContextService.legacy(
+                        null, "자기소개를 하세요.");
         return new SpeakingEvaluationResult(
                 status,
                 scoreAvailable,
@@ -287,6 +358,9 @@ class SpeakingEvaluationApplicationServiceTest {
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
                 SpeakingContractTrust.CURRENT_VERIFIED,
+                context.questionVersionId(),
+                context.promptContextFingerprint(),
+                context.promptContextContractIdentity(),
                 mediaId,
                 mediaVersion,
                 transcript,
@@ -365,10 +439,12 @@ class SpeakingEvaluationApplicationServiceTest {
     private class FakeEvaluationClient implements SpeakingEvaluationClient {
         private int calls;
         private SpeakingEvaluationProviderResult nextResult;
+        private SpeakingEvaluationRequest lastRequest;
 
         @Override
         public SpeakingEvaluationProviderResult evaluate(SpeakingEvaluationRequest request) {
             calls++;
+            lastRequest = request;
             if (nextResult != null) {
                 return nextResult;
             }
@@ -382,6 +458,10 @@ class SpeakingEvaluationApplicationServiceTest {
 
         int calls() {
             return calls;
+        }
+
+        SpeakingEvaluationRequest lastRequest() {
+            return lastRequest;
         }
     }
 }

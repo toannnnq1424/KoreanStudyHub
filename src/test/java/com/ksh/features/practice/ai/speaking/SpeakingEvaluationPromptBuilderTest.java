@@ -19,8 +19,18 @@ class SpeakingEvaluationPromptBuilderTest {
         String payload = builder.userPayload(request(false));
         JsonNode root = objectMapper.readTree(payload);
 
-        assertThat(root.path("task").path("question_text").asText()).isEqualTo("자기소개를 하세요.");
+        assertThat(root.path("task").has("question_text")).isFalse();
+        assertThat(root.path("task").path("question_version_id").asLong())
+                .isEqualTo(101L);
         assertThat(root.path("task").path("target_level").asText()).isEqualTo("TOPIK II");
+        assertThat(root.path("prompt_context").path("authority").asText())
+                .isEqualTo("IMMUTABLE_LECTURER_QUESTION_VERSION_CONTEXT");
+        assertThat(root.path("prompt_context").path("text").asText())
+                .isEqualTo("자기소개를 하세요.");
+        assertThat(root.path("prompt_context").path("learner_evidence").asBoolean())
+                .isFalse();
+        assertThat(root.path("transcription").path("authority").asText())
+                .isEqualTo("LEARNER_MEDIA_TRANSCRIPTION_PIPELINE");
         assertThat(root.path("transcription").path("transcript").asText()).isEqualTo("저는 학생 이에요");
         assertThat(root.path("transcription").path("normalized_transcript").asText()).isEqualTo("저는 학생이에요.");
         assertThat(root.path("transcription").path("actually_heard_transcript").asText()).isEqualTo("저는 학생이에요.");
@@ -116,6 +126,10 @@ class SpeakingEvaluationPromptBuilderTest {
         return new SpeakingEvaluationRequest(
                 10L,
                 11L,
+                101L,
+                "자기소개를 하세요.",
+                "f".repeat(64),
+                "speaking-prompt-version-context-v1",
                 "자기소개를 하세요.",
                 "TOPIK II",
                 "Say who you are and what you study.",

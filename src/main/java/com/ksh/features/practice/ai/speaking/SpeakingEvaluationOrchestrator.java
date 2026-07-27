@@ -54,6 +54,10 @@ public class SpeakingEvaluationOrchestrator {
         return new SpeakingEvaluationRequest(
                 input.attemptId(),
                 input.questionId(),
+                input.questionVersionId(),
+                input.promptContext(),
+                input.promptContextFingerprint(),
+                input.promptContextContractIdentity(),
                 input.questionText(),
                 input.targetLevel(),
                 input.expectedAnswerGuidance(),
@@ -100,6 +104,11 @@ public class SpeakingEvaluationOrchestrator {
         putAuthoritative(copy, "evaluator_capability", request.evaluatorCapability().name());
         putAuthoritative(copy, "evidence_mode", request.evidenceMode().name());
         putAuthoritative(copy, "evidence_contract_version", request.evidenceContractVersion());
+        putAuthoritative(copy, "question_version_id", request.questionVersionId());
+        putAuthoritative(copy, "prompt_context_fingerprint",
+                request.promptContextFingerprint());
+        putAuthoritative(copy, "prompt_context_contract_identity",
+                request.promptContextContractIdentity());
         SpeakingEvaluationStatus authoritativeStatus;
         if (request.textFallback()) {
             authoritativeStatus = SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED;
@@ -167,6 +176,10 @@ public class SpeakingEvaluationOrchestrator {
     public record Input(
             Long attemptId,
             Long questionId,
+            Long questionVersionId,
+            String promptContext,
+            String promptContextFingerprint,
+            String promptContextContractIdentity,
             String questionText,
             String targetLevel,
             String expectedAnswerGuidance,
@@ -193,7 +206,8 @@ public class SpeakingEvaluationOrchestrator {
                 SpeakingTranscriptionResult transcriptionResult,
                 String textFallbackAnswer
         ) {
-            this(attemptId, questionId, questionText, targetLevel, expectedAnswerGuidance,
+            this(attemptId, questionId, null, questionText, null, null,
+                    questionText, targetLevel, expectedAnswerGuidance,
                     audioMediaId, mediaVersion, mimeType, byteSize, durationMs,
                     null, transcriptionResult, textFallbackAnswer);
         }
@@ -203,6 +217,12 @@ public class SpeakingEvaluationOrchestrator {
             return "SpeakingEvaluationOrchestrator.Input{"
                     + "attemptId=" + attemptId
                     + ", questionId=" + questionId
+                    + ", questionVersionId=" + questionVersionId
+                    + ", promptContextPresent="
+                    + (promptContext != null && !promptContext.isBlank())
+                    + ", promptContextFingerprintPresent="
+                    + (promptContextFingerprint != null
+                    && !promptContextFingerprint.isBlank())
                     + ", questionTextPresent=" + (questionText != null && !questionText.isBlank())
                     + ", targetLevelPresent=" + (targetLevel != null && !targetLevel.isBlank())
                     + ", expectedAnswerGuidancePresent=" + (expectedAnswerGuidance != null && !expectedAnswerGuidance.isBlank())

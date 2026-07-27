@@ -27,7 +27,7 @@ public class SpeakingEvaluatorProperties {
             @Value("${app.practice.speaking-evaluator.model:${openai.evaluator-model:models/gemini-2.5-flash}}") String model,
             @Value("${app.practice.speaking-evaluator.timeout:30s}") Duration timeout,
             @Value("${app.practice.speaking-evaluator.max-retries:2}") int maxRetries,
-            @Value("${app.practice.speaking-evaluator.prompt-version:speaking-eval-v3-transcript-language-only}") String promptVersion,
+            @Value("${app.practice.speaking-evaluator.prompt-version:speaking-eval-v4-immutable-context-transcript-language-only}") String promptVersion,
             @Value("${app.practice.speaking-evaluator.rubric-version:speaking-rubric-v2-transcript-language-profile}") String rubricVersion,
             @Value("${app.practice.speaking-evaluator.schema-version:speaking-schema-v2-partial-language-profile}") String schemaVersion
     ) {

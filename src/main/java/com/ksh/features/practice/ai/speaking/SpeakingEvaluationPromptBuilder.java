@@ -37,9 +37,18 @@ public class SpeakingEvaluationPromptBuilder {
         payload.put("task", map(
                 "attempt_id", request.attemptId(),
                 "question_id", request.questionId(),
-                "question_text", safeText(request.questionText()),
-                "target_level", safeText(request.targetLevel()),
-                "expected_answer_guidance", safeText(request.expectedAnswerGuidance())));
+                "question_version_id", request.questionVersionId(),
+                "target_level", safeText(request.targetLevel())));
+        payload.put("prompt_context", map(
+                "authority", "IMMUTABLE_LECTURER_QUESTION_VERSION_CONTEXT",
+                "text", safeText(request.promptContext()),
+                "fingerprint", safeText(request.promptContextFingerprint()),
+                "contract_identity",
+                safeText(request.promptContextContractIdentity()),
+                "role", "TASK_UNDERSTANDING_ONLY",
+                "learner_answer", false,
+                "learner_evidence", false,
+                "acoustic_evidence", false));
         payload.put("question_image", request.imageEvidence() == null
                 ? Map.of("available", false)
                 : map(
@@ -59,6 +68,7 @@ public class SpeakingEvaluationPromptBuilder {
                         .map(SpeakingRubricCriterion::id)
                         .toList()));
         payload.put("transcription", map(
+                "authority", "LEARNER_MEDIA_TRANSCRIPTION_PIPELINE",
                 "provider", safeText(request.transcriptionProvider()),
                 "model", safeText(request.transcriptionModel()),
                 "language", safeText(request.language()),
@@ -70,6 +80,11 @@ public class SpeakingEvaluationPromptBuilder {
                 "prompt_version", request.promptVersion(),
                 "rubric_version", request.rubricVersion(),
                 "schema_version", request.schemaVersion(),
+                "question_version_id", request.questionVersionId(),
+                "prompt_context_fingerprint",
+                request.promptContextFingerprint(),
+                "prompt_context_contract_identity",
+                request.promptContextContractIdentity(),
                 "evidence_contract_version", request.evidenceContractVersion()));
         payload.put("allowed_evidence_sources", Arrays.stream(SpeakingEvidenceSource.values())
                 .filter(SpeakingEvidenceSource::transcriptLanguageGrounding)

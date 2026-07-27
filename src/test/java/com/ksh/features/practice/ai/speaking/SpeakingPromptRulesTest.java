@@ -20,7 +20,7 @@ class SpeakingPromptRulesTest {
                 .contains("exact phoneme-level")
                 .contains("Evidence source values must be only: TRANSCRIPT.")
                 .contains("AUDIO_METADATA is not an allowed grounding source")
-                .contains("TASK_METADATA is not accepted by the current evidence output contract")
+                .contains("TASK_METADATA and prompt_context are not accepted by the")
                 .contains("interpreted_intent=null and intent_confidence=null")
                 .contains("S_CONTENT_TASK_FULFILLMENT")
                 .contains("S_GRAMMAR_SENTENCE_CONTROL")
