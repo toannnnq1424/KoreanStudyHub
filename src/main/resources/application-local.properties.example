@@ -44,3 +44,26 @@ OPENAI_API_KEY=your-gemini-api-key-here
 OPENAI_EVALUATOR_MODEL=models/gemini-2.5-flash
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+
+# ===== Lecturer Speaking prompt authoring (13C3; opt-in, provider-neutral) =====
+# This is NOT the learner-response transcription configuration.
+# Keep both operations disabled until a 13C3 adapter is configured and accepted.
+#PRACTICE_PROMPT_AI_WORKER_ENABLED=false
+#PRACTICE_PROMPT_AI_LEASE_DURATION=3m
+#PRACTICE_PROMPT_STT_ENABLED=false
+#PRACTICE_PROMPT_STT_PROVIDER=openai
+#PRACTICE_PROMPT_STT_BASE_URL=https://api.openai.com/v1
+#PRACTICE_PROMPT_STT_API_KEY=your-stt-key
+#PRACTICE_PROMPT_STT_MODEL=your-stt-model
+#PRACTICE_PROMPT_TTS_ENABLED=false
+#PRACTICE_PROMPT_TTS_PROVIDER=openai
+#PRACTICE_PROMPT_TTS_BASE_URL=https://api.openai.com/v1
+#PRACTICE_PROMPT_TTS_API_KEY=your-tts-key
+#PRACTICE_PROMPT_TTS_MODEL=your-tts-model
+#PRACTICE_PROMPT_TTS_VOICE=default
+# Cleanup performs no provider call. It only reconciles unreferenced private
+# staging/artifacts after the local retention window.
+#PRACTICE_PROMPT_ORPHAN_RETENTION=P30D
+#PRACTICE_PROMPT_CLEANUP_WORKER_ENABLED=true
+#PRACTICE_PROMPT_CLEANUP_INITIAL_DELAY=PT2M
+#PRACTICE_PROMPT_CLEANUP_FIXED_DELAY=PT15M
