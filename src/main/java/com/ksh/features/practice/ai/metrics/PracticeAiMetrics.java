@@ -128,7 +128,9 @@ public class PracticeAiMetrics {
         WRITING("writing"),
         RL_EXPLANATION("rl_explanation"),
         SPEAKING_TRANSCRIPTION("speaking_transcription"),
-        SPEAKING_EVALUATION("speaking_evaluation");
+        SPEAKING_EVALUATION("speaking_evaluation"),
+        SPEAKING_PROMPT_STT("speaking_prompt_stt"),
+        SPEAKING_PROMPT_TTS("speaking_prompt_tts");
 
         private final String tag;
 
