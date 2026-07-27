@@ -42,6 +42,9 @@ public class PracticeAssetLifecycleTask {
     @Column(name = "next_attempt_at")
     private LocalDateTime nextAttemptAt;
 
+    @Column(name = "claim_token", length = 64)
+    private String claimToken;
+
     @Column(name = "last_error", length = 1000)
     private String lastError;
 
@@ -64,15 +67,35 @@ public class PracticeAssetLifecycleTask {
         this.nextAttemptAt = LocalDateTime.now();
     }
 
-    public void markRunning() { this.status = "RUNNING"; }
+    public void markRunning(String claimToken, LocalDateTime leaseExpiresAt) {
+        if (claimToken == null || claimToken.isBlank()) {
+            throw new IllegalArgumentException("Lifecycle claim token is required.");
+        }
+        this.status = "RUNNING";
+        this.claimToken = claimToken;
+        this.nextAttemptAt = leaseExpiresAt;
+    }
     public void markCompleted() {
         this.status = "COMPLETED";
         this.lastError = null;
+        this.claimToken = null;
+        this.nextAttemptAt = null;
+    }
+    public void markDeferred(String reason, LocalDateTime nextAttemptAt) {
+        if (nextAttemptAt == null) {
+            throw new IllegalArgumentException(
+                    "Lifecycle deferred retry time is required.");
+        }
+        this.status = "PENDING";
+        this.lastError = truncate(reason);
+        this.claimToken = null;
+        this.nextAttemptAt = nextAttemptAt;
     }
     public void markRetry(String error, LocalDateTime nextAttemptAt, int maxAttempts) {
         this.attemptCount = this.attemptCount == null ? 1 : this.attemptCount + 1;
         this.lastError = truncate(error);
         this.nextAttemptAt = nextAttemptAt;
+        this.claimToken = null;
         this.status = this.attemptCount >= maxAttempts ? "FAILED" : "PENDING";
     }
 
@@ -89,6 +112,7 @@ public class PracticeAssetLifecycleTask {
     public String getStatus() { return status; }
     public Integer getAttemptCount() { return attemptCount; }
     public LocalDateTime getNextAttemptAt() { return nextAttemptAt; }
+    public String getClaimToken() { return claimToken; }
     public String getLastError() { return lastError; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
