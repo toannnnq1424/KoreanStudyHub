@@ -32,6 +32,32 @@ When sources conflict, classify as:
 - BACKWARD_COMPATIBILITY_CONSTRAINT
 - PHASE_DEPENDENCY
 
+## Roadmap execution-order amendment — 2026-07-27
+
+The user has deferred the canonical Phase 14 `Report an Error & Content
+Review` capability until **after Phase 15 Manual UAT**. Phase 14 keeps its
+historical ID and detailed `14A-14F` contract, but its current status is
+`DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`; the phase number is no longer
+the remaining execution order.
+
+Authoritative remaining sequence:
+
+```text
+13C3 -> 13G -> 13H -> comprehensive /practice audit/cleanup
+  -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
+  -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
+  -> Phase 15 Manual UAT & Release Hardening
+  -> deferred Phase 14 Report an Error & Content Review (14A-14F)
+  -> Phase 16 only after a separate product GO
+```
+
+This order change does not waive, shrink or postpone any accepted Pre-14 or
+Pre-15 implementation/debt item. The first Manual-UAT/release verdict must
+explicitly exclude Report an Error. When the deferred capability is later
+implemented it receives its own consolidated validation and `14F` gate before
+that feature is released. Full rationale and supersession rules are in
+`docs/PRACTICE_PHASE_14_POST_MANUAL_UAT_ROADMAP_AMENDMENT.md`.
+
 ## Phase Documentation Ledger Rule
 
 From this point forward, every practice phase and every approved sub-slice
@@ -120,6 +146,13 @@ issues, patches or slices.
 - Split commits by coherent responsibility or dependency boundary, for example
   domain/service contract, presentation, contract tests, migration and
   documentation. Do not create one commit per file merely to reduce size.
+- Phase 13F retrospective: six local commits were logically valid but too
+  coarse for the volume of code. For a similarly broad phase, prefer separate
+  coherent commits for contract/codec, schema, core persistence/lifecycle,
+  integration or presentation, tests, and documentation/gate evidence. A
+  practical `8-12` commit range may be used as a review heuristic for a phase of
+  comparable breadth, but it is not a quota and must not create artificial or
+  broken commits.
 - Each commit must have a precise message, contain only phase-owned files and
   remain internally coherent; do not knowingly leave syntax, schema or runtime
   contracts broken until a later commit.
@@ -129,6 +162,13 @@ issues, patches or slices.
 - Push the complete series once after all intended commits are created and
   inspected. Do not turn commit splitting into repeated stage/commit/push
   cycles during implementation.
+- Finish that multi-commit series and its single push before opening the next
+  phase. Do not accumulate validated 13C3, 13G, 13H, post-13H audit/cleanup
+  corrections and Phase 14 work into one later cross-phase commit batch.
+- User-locked override for the remaining Phase 13 sequence: 13C3, 13G and 13H
+  are three separate mandatory stabilization/validation/commit/push units.
+  Each must finish its coherent multi-commit series and one push before the next
+  phase opens, even when a smaller diff might otherwise use one commit.
 
 While a phase is being implemented, Codex must complete all approved issues in
 sequence, read existing tests only to understand contracts, edit code and
@@ -275,8 +315,10 @@ The completed migration-chain audit locks these source facts:
   development-seed repair, not production schema.
 
 The guarded implementation window is after mandatory 13C3, 13G and 13H have
-completed and before 14A, after the pre-14 final relational contracts are
-frozen. It must
+completed, been validated and committed/pushed, and after the comprehensive
+`/practice` audit/cleanup program has been accepted, validated and
+committed/pushed. It remains before 14A, after the pre-14 final relational
+contracts are frozen. It must
 start with written evidence that **no retained, deployed, shared, canonical or
 upgrade-supported database** is obliged to preserve the current Practice
 history. If any such obligation exists or cannot be disproved, stop the
@@ -309,10 +351,10 @@ evidence until disposition is approved. Create a newly named disposable
 database; keep `validate-on-migrate=true` and Flyway clean disabled by default;
 permit clean only in an explicit allowlisted disposable profile. Prove a fresh
 Flyway migration plus Hibernate schema validation against that new database.
-Before Phase 14, load only the minimal deterministic technical smoke fixtures
-needed to prove immutable R/L/W/S identities and Report-an-Error targets.
-Canonical Vietnamese/Korean, SME-reviewed R/L/W/S UAT content is loaded only
-after 14F and the release-closure gate.
+During Pre-14, load only the minimal deterministic technical smoke fixtures
+needed to prove immutable R/L/W/S identities and future Report-an-Error targets.
+Canonical Vietnamese/Korean, SME-reviewed R/L/W/S UAT content is loaded in
+Pre-15/Phase 15 before Manual UAT; it no longer waits for 14F.
 
 ### Mandatory documentation discovery and debt audit
 
@@ -351,7 +393,7 @@ ownership.
 ### Phase 13 UX forward-compatibility for the two future gates
 
 Phase 13 UI/UX must prepare stable presentation seams for the approved backend
-corrections routed to pre-14 or post-14 release closure. This does not authorize
+corrections routed to pre-14 or Pre-15 release closure. This does not authorize
 Phase 13 to fabricate future data, silently implement either gate's debt or
 claim a capability that the backend does not yet possess. It requires:
 
@@ -555,23 +597,54 @@ This section is critical.
 - A `pom.xml` Java version does not override an IntelliJ compiler process that
   was launched with another JDK. When IDE metadata and Maven disagree, inspect
   both before changing dependencies.
-- Current confirmed debt: tracked `.idea/misc.xml` selects `openjdk-26`, while
-  `.idea/compiler.xml` pins Lombok `1.18.36` and stale module `ulp`. This causes
-  javac 26/Lombok initialization failure (`TypeTag.UNKNOWN`). The bounded local
-  fix is to align IntelliJ with installed JDK 17 and remove stale processor
-  overrides; a Lombok/JDK 26 upgrade is a separate platform decision.
-- `13H-TOOLCHAIN-01` must add repository-enforced Java-version evidence and
-  close IDE/Maven/run/CLI drift in the single 13H validation unit.
+- Historical workstation finding (`2026-07-25`): ignored local IntelliJ state
+  selected `openjdk-26`, pinned Lombok `1.18.36` in a custom compiler profile
+  and still named stale module `ulp`. Those `.idea` files are excluded by
+  `.gitignore`; they were never portable repository configuration. The local
+  javac 26/Lombok mismatch explains the observed `TypeTag.UNKNOWN` failure.
+- Pulled-forward pre-14 candidate (`2026-07-27`), status
+  `IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION`: the working tree adds
+  `.java-version` `17`, `maven.compiler.release=17` and Maven Enforcer
+  `[17,18)`. The current BOM supplies Lombok `1.18.46`. On this workstation the
+  project/module SDK, Maven importer, Maven runner and `KshApplication` module
+  JRE now resolve to Homebrew JDK `17.0.19`. A forced IntelliJ Maven reload
+  imported the resolved graph after the earlier missing-JAR noise. Under the
+  user-authorized mid-phase diagnostic exception, Maven production compile,
+  Maven test compile and the IntelliJ build subsequently completed with zero
+  errors. This is toolchain/build evidence only and is not the owning
+  consolidated phase validation.
+- `P15-PRE-15` / `13H-TOOLCHAIN-01` remains open until the one owning
+  consolidated validation proves clean import, CLI/IDE agreement, Enforcer
+  rejection outside JDK 17 and absence of the initializer failure. Local
+  ignored `.idea` state must not be staged as the solution.
 - IntelliJ/Mend dependency warnings are security inputs, not proof of Maven XML
   or compilation failure. Repeated transitive warnings through several
   starters must be deduplicated by resolved coordinate and classified by
   runtime/test scope and reachability.
-- `13H-SEC-01` owns one coherent supported Java-17-compatible Spring Boot BOM
-  upgrade/audit plus separate review of direct pins. Do not scatter random
-  Spring Framework, Security, Tomcat or Jackson overrides across small patches.
-  Capture a dated resolved tree/SBOM, official advisories, mitigation/owner and
-  expiry for every accepted exception.
-- The pre-14 gate verifies accepted toolchain/security evidence. After 14F,
+- Pulled-forward `P15-PRE-16` / `13H-SEC-01` candidate, status
+  `IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION_AND_PRODUCTION_SUPPORT_DECISION`,
+  moves the parent from Spring
+  Boot `3.4.4` to the coherent Java-17-compatible `3.5.16` BOM, updates direct
+  POI/jsoup/PDFBox pins and uses the BOM's named override properties for
+  Commons Lang `3.20.0`, Logback `1.5.38` and Tomcat `10.1.57`. The Commons
+  Lang bridge is specifically above the fixed boundary for CVE-2025-48924.
+  It also keeps Commons Codec at `1.20.0`, the API/dependency level declared
+  by POI `5.5.1`, instead of allowing the Boot BOM to downgrade it to `1.18.0`.
+  Do not scatter arbitrary Spring Framework, Security or Jackson overrides.
+- A focused JDK-17 `dependency:resolve` completed on `2026-07-27` and resolved
+  the application/test graph, including Spring Data Commons `3.5.13`,
+  Hibernate `6.6.53.Final` and Commons Codec `1.20.0`. This supersedes the
+  earlier automatic-import missing-JAR noise. The same diagnostic cycle
+  compiled `644` production and `233` test sources with Maven, and IntelliJ
+  finished with `Errors: 0`; no test method, application startup, migration,
+  provider call or security scan is claimed.
+- Spring Boot `3.5.16` is a bounded final-OSS bridge, not proof that the
+  production support-lifecycle decision is closed. Before this candidate can
+  pass, the owning validation must resolve the tree, capture a dated SBOM and
+  advisory/reachability report, regression-check the direct parsers/sanitizer,
+  and record the supported-line or commercial-support decision plus
+  mitigation/owner/expiry for every accepted exception.
+- The pre-14 gate verifies accepted toolchain/security evidence. In Pre-15,
   PRE-16 requires a fresh release rescan before Manual UAT because advisory
   state is time-sensitive.
 
@@ -2535,9 +2608,10 @@ refined on 2026-07-13 by an explicit product-scope reduction:
   reduced-scope cleanup**. That statement is superseded by the completed
   Phase 13A-13F implementation gates. Phase 13F is
   `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
-  `IMPLEMENTED_AND_FOCUSED_TESTED`, and the current next action is mandatory
-  `13C3-00`. None of these gates reopens generic program/certificate
-  governance.
+  `IMPLEMENTED_AND_FOCUSED_TESTED`; `13C3-00..04` are
+  `IMPLEMENTED_STATIC_ACCEPTED`. The current action is only the separate
+  consolidated 13C3 validation. None of these gates reopens generic
+  program/certificate governance.
 
 Canonical map after reduce-scope:
 
@@ -2574,7 +2648,7 @@ Status:
 13E_COMPLETE_FOCUSED_GATE_GREEN_PHASE_13_OPEN
 13F_COMPLETE_FOCUSED_GATE_GREEN_PHASE_13_OPEN
 13F_01_06_IMPLEMENTED_AND_FOCUSED_TESTED
-13C3_DESIGN_LOCKED_NOT_STARTED_CURRENT_NEXT_13C3_00
+13C3_CORRECTION_BATCH_IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT
 
 Phase 13 is learner-delivery feature work plus UX stabilization, not visual
 polish alone. The reduced learner route contract is
@@ -2708,15 +2782,19 @@ Required Phase 13 slices:
   Preserve explanation unavailable/retry states, idempotency and rate limits, and no
   provider call caused only by refreshing a page;
 - `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`: Phase 13F validation is
-  complete. The current required action is `13C3-00`, followed by
-  `13C3-01..04` and one consolidated correction validation before 13G.
+  complete. `13C3-00..04` are `IMPLEMENTED_STATIC_ACCEPTED`; execute only the
+  separate consolidated correction validation, coherent commit series and one
+  push before 13G.
   Replace the historical audio-only Speaking authoring invariant with a
   versioned two-mode contract. `audio_upload` stores
   and plays the lecturer's original audio and creates an internal-only STT
-  context; `manual_text` supports text-only delivery or an explicitly requested,
-  previewable TTS asset with stale/regenerate semantics. Transcript and provider
-  task state must never enter learner payloads. Exact contract, slices, data/API
-  flow, edge cases and validation policy are locked in
+  context; Excel remains upload-only and ends at exact private staging, while
+  a separate ID-free Editor click reauthorizes/verifies/binds that audio before
+  enqueueing STT and never calls TTS. `manual_text` supports text-only delivery
+  or an explicitly requested, previewable TTS asset with stale/regenerate
+  semantics. Transcript and provider task state must never enter learner
+  payloads. Exact contract, slices, data/API flow, edge cases and validation
+  policy are locked in
   `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md`;
 - 13G: responsive, accessibility, encoding and performance pass for large
   catalogs. Complete the explicit UTF-8/mojibake regression sweep, replace
@@ -2737,9 +2815,15 @@ but do not run test/compile/build/lint, stage, commit or push merely because the
 slice ended. The coordinator integrates all slices in the approved phase or
 correction program, reconciles the complete diff and documentation, declares
 `READY_FOR_PHASE_VALIDATION`, runs one consolidated validation unit, then
-stages exactly the owned files and performs one commit/push. Browser/device QA
+stages exactly the owned files, creates multiple coherent reviewable commits
+when the phase breadth warrants it, and pushes that phase series once before
+opening the next phase. Browser/device QA
 and any expressly deferred full regression still remain routed to 13H unless
 the approved validation plan says otherwise.
+
+For 13C3, 13G and 13H specifically, the multiple-coherent-commit boundary and
+one push are mandatory after each green validation; the three units may not be
+collapsed into one later Git batch.
 
 Active 13C2 validation override (user direction, 2026-07-15): individual issues
 are implementation units, but all approved 13C2 work is one validation unit.
@@ -2762,18 +2846,27 @@ Result states must not collapse distinct conditions. At minimum render
 keep `NOT_STARTED`, `IN_PROGRESS`, `SUBMITTED`, `SCORING`, `SCORED`, `PARTIAL`,
 `FAILED` and `STALE` semantics consistent across library, player and result.
 
-### PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE — after validated 13E-13H, before 14A
+### PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE — after separately validated and pushed 13C3, 13G and 13H plus the practice-wide audit/cleanup, before Pre-15 and Manual UAT
 
 This is a mandatory roadmap boundary, not the current implementation action.
-It may execute only after `13E-13H` and the intervening mandatory `13C3`
-correction are complete and their consolidated
-validation evidence is accepted. It does not authorize starting database,
-audio, calibration or compatibility work while Phase 13E is running.
+It is an inspection and acceptance checkpoint, not a feature phase or
+implementation bucket. It may execute only after `13E-13H` and the intervening
+mandatory `13C3` correction are complete, separately validated,
+committed/pushed, and after the comprehensive `/practice` audit/cleanup
+program has been accepted, validated, committed and pushed. The numbered
+contracts below must already be implemented or evidenced before entry. If the
+gate finds a blocker, leave the gate, correct it as one grouped audit/cleanup
+batch, validate/commit/push that batch, then re-enter the gate. It does not
+authorize starting database, audio, calibration or compatibility work while
+Phase 13 is still open.
 The guarded Practice rebaseline window above may be prepared only after the
 complete Phase 13E validation is accepted; actual baseline construction waits
 until the final pre-14 schema contracts are frozen and all rebaseline guards
 pass. Phase 14 still cannot start until mandatory 13C3, Phase 13G-13H and
-pre-14 evidence are accepted.
+pre-14 evidence are accepted, but it is no longer the next step or an initial
+release blocker. A green gate now hands off to
+`PRE_PHASE_15_RELEASE_CLOSURE_GATE` and Phase 15 Manual UAT; deferred Phase 14
+consumes the same accepted evidence later.
 
 Before 14A creates report targets, the following identities and fail-closed
 runtime contracts must be stable:
@@ -2837,7 +2930,7 @@ runtime contracts must be stable:
     separate skill-native contract.
 12. Close datasource/Flyway configuration safety, run fresh Flyway plus
     Hibernate validation on the new disposable schema and load only minimal
-    technical R/L/W/S smoke fixtures before 14A. Do not load canonical SME UAT
+   technical R/L/W/S smoke fixtures during Pre-14. Do not load canonical SME UAT
     content here.
 13. Phase 14 report targets must expose stable immutable set/test/section/group/
     question-version, attempt, artifact/binding, Writing bundle/result and media
@@ -2852,8 +2945,9 @@ runtime contracts must be stable:
 
 The green Phase 13F gate supplies bounded progress/recovery evidence only; it
 does not claim `P15-PRE-10..13`. Phase 13H implements and validates those
-operational debts. The pre-14 gate verifies accepted 13H evidence before Phase
-14 and does not reimplement it. `P15-COMP-01..09`, `11..12`, `14` and `21` move into this gate
+operational debts. The pre-14 gate verifies accepted 13H evidence before
+Pre-15/Manual UAT and before deferred Phase 14; it does not reimplement it.
+`P15-COMP-01..09`, `11..12`, `14` and `21` move into this gate
 only when a caller scan or retained-data audit proves that the path would
 destabilize a Phase 14 target; otherwise they stay in release cleanup.
 
@@ -2865,14 +2959,21 @@ The rebaseline is allowed only under the no-obligation stop guard and only on a
 newly named disposable database; it never authorizes Flyway repair or reuse of
 an old schema.
 
-### Phase 14 — Report an Error & Content Review Workflow
+### Phase 14 — Report an Error & Content Review Workflow (deferred until after Manual UAT)
 
 Status:
-NOT_STARTED
+DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING
 
 Phase 14 remains the canonical 14A-14F learner-visible “Report an Error &
 Content Review” loop. It is not renumbered and is not reduced to a report modal
 or only a backend ticket table:
+
+Execution-order supersession: this work package starts only after Phase 15
+Manual UAT and the initial release GO/NO-GO for a scope that explicitly excludes
+Report an Error. Its historical number and detailed contracts remain stable;
+they do not make Phase 14 a prerequisite of Pre-15 or Phase 15. When opened
+later, `14F` validates the separate feature release and does not retroactively
+rewrite earlier Manual-UAT evidence.
 
 - 14A adds report entry points from player, question review and result detail.
   The server auto-attaches set/test/section/group/question identity,
@@ -2906,10 +3007,11 @@ The learner UI must never expose internal moderation notes and must never imply
 that a report changed a score until review is complete and the applicable
 corrected version or score decision has actually been published.
 
-### PRE_PHASE_15_RELEASE_CLOSURE_GATE — after 14F, before Phase 15
+### PRE_PHASE_15_RELEASE_CLOSURE_GATE — after the Pre-14 gate, before Phase 15
 
-This second gate executes only after the canonical 14A-14F review loop passes.
-It consumes, but does not reopen, accepted pre-14 correctness evidence. Phase
+This release-closure gate no longer waits for the deferred canonical 14A-14F
+review loop. It consumes, but does not reopen, accepted pre-14 correctness
+evidence. Its implementation and acceptance scope remain mandatory and Phase
 15 remains `NO-GO` until it closes:
 
 1. final `P15-PRE-07` Korean-SME sign-off, representative calibration,
@@ -2924,7 +3026,9 @@ It consumes, but does not reopen, accepted pre-14 correctness evidence. Phase
 4. remaining compatibility rows, including conditional pre-14 candidates that
    caller/retained-data evidence did not promote;
 5. deterministic premium seed construction; and
-6. browser/device/provider/load/security/manual UAT and final GO/NO-GO evidence.
+6. an approved browser/device/provider/load/security/manual-UAT plan,
+   environment and fixture manifest. Phase 15 executes that matrix and records
+   the initial release GO/NO-GO evidence.
 
 Applied migration immutability remains the rule for every retained/deployed
 chain and for all non-Practice migrations. The sole exception is the
@@ -2936,6 +3040,11 @@ identified disposable UAT environment and never permits Flyway repair.
 
 Status:
 NOT_STARTED
+
+Phase 15 follows the accepted Pre-14 and Pre-15 gates directly; it does not
+wait for deferred Phase 14. Its release evidence must state that Report an
+Error is outside the tested/released scope. After Phase 15 closes, Phase 14 may
+be opened as a separate later capability with its own `14A-14F` gate.
 
 Manual UAT data contract (locked 2026-07-11):
 
@@ -3262,6 +3371,30 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-26 | Phase 13F-06 Reconciliation Static-audit Correction | 13F_05_IMPLEMENTED_STATIC_ACCEPTED_PENDING_PHASE_VALIDATION | READY_FOR_STATIC_REAUDIT_13F_06 | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | The initial 13F-06 static audits returned one `ACCEPT` and two `REJECT` verdicts. During the single grouped correction pass the slice was `IMPLEMENTED_PENDING_STATIC_REAUDIT`; the pass fixed the invalid progress DTO template accessor, strengthened its static contract, reconciled every current-status pointer, replaced the stale-schema candidate gate with a newly named disposable Phase13F database lifecycle, narrowed `PracticeIntegrationTest` to existing Phase13F methods and added an explicit read-only untracked whitespace/final-newline allowlist. No validation, database action, `git diff --check` or Git mutation ran. | The whole Phase 13F diff remains unvalidated. No production path was removed: the locked progress/global-resume/repository/result surfaces remain retained for their documented call sites or explicit scope decision. | Run the final 13F-06 static re-audit. Only if it accepts, promote the candidate handoff to `READY_FOR_PHASE_VALIDATION` and execute the ordered lifecycle recorded in the 13F live log Section 23. Do not start 13C3/13G/13H, pre-14, Phase 14 or Phase 15. |
 | 2026-07-26 | Phase 13F-06 Final Static Acceptance And Gate Readiness | READY_FOR_STATIC_REAUDIT_13F_06 | READY_FOR_PHASE_VALIDATION | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | Final correctness and scope/side-effect re-audits accepted. Validation-readiness first rejected separate DB/test/cleanup blocks; one docs-only trapped-wrapper correction preserved gate exit status and guaranteed cleanup attempts, then its final re-audit returned `ACCEPT_STATIC_13F_06`. No validation, database action, `git diff --check` or Git mutation ran before this readiness declaration. | All `13F-01..06` work is reconciled. The gate is method-filtered, uses JDK 17 and a newly named disposable V44 database, includes tracked plus allowlisted-untracked whitespace checks, and cannot reuse the stale configured schema. | Execute exactly one consolidated Phase 13F lifecycle from the live log Section 23.5. Do not start 13C3 or later work until the gate result is recorded. |
 | 2026-07-26 | Phase 13F Consolidated Validation | READY_FOR_PHASE_VALIDATION | COMPLETE_FOCUSED_GATE_GREEN | working tree | `93d87fd1f8dd93c93db592c3cf89bf352af23687` | The final grouped correction lifecycle passed `git diff --check`, the explicit untracked allowlist check, JDK 17 compile and `331/331` selected tests with zero failures/errors/skips. The disposable database passed schema proof `44/44/0/1`, trapped cleanup and independent absence proof `0`. Earlier failures and their analyze-all/fix/rerun cycles are recorded in the 13F live log Section 24. | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. No full suite, browser/device QA, standalone startup, Docker or live provider/API call is claimed. | Keep Phase 13 open. Start mandatory `13C3-00`, then complete `13C3-01..04` and the separate consolidated 13C3 gate before 13G. |
+| 2026-07-26 | Phase 13C3-00 Speaking Prompt Contract And Forward Foundation | DESIGN_LOCKED_NOT_STARTED | IMPLEMENTED_PENDING_STATIC_AUDIT | working tree | `fec64db` | Static read/edit/specification work only. Added dual-read v1/v2 learner-safe contract identities, additive unexecuted V45 source/artifact/transcript-revision/task/version-context schema, provider-neutral disabled-by-default STT/TTS ports and bounded configuration, plus unrun contract specifications. No test, compile/build/lint, startup, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | Existing v1 writers and published rows remain exact and are not rewritten. V2 permits only upload/audio-only/teacher-upload, manual/text-only/none and manual/text+audio/AI-TTS. Prompt transcript/context is internal lecturer/evaluator data and cannot become learner answer, learner transcription or acoustic evidence. No later persistence worker, Editor/API, publish/player/evaluator or provider adapter is claimed. | Complete the bounded read-only correctness/scope audits and one concentrated static correction if required. Then hand off `13C3-01`; keep whole-correction validation deferred until `13C3-00..04` are reconciled. |
+| 2026-07-26 | Phase 13C3-00 Static Acceptance | IMPLEMENTED_PENDING_STATIC_AUDIT | IMPLEMENTED_STATIC_ACCEPTED | working tree | `fec64db` | Initial independent audits rejected bounded JSON/schema/configuration issues. One concentrated correction made identities/unknown fields fail closed, aligned bounds and sentinels, verified exact media plus NFC text hashes, retained inactive/history rows without blocking mode switches, bound owner/operation/asset identities and closed SQL `NULL`/cascade gaps. Fresh correctness and scope/security audits both returned `ACCEPT_STATIC`. No test, compile/build/lint, startup, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | This is static acceptance of `13C3-00` only. Phase 13C3 validation remains `NOT_STARTED`; no later persistence worker, Editor/API, publisher/player/evaluator integration or provider adapter is claimed. | Start `13C3-01`. Implement lecturer-owned persistence/adapters/fingerprints/leases/retry/stale reconciliation and the minimal source-local cancel/supersede seam against the accepted V45 foundation. Draft-deletion, retention and orphan cleanup wiring remains `13C3-04`. Keep validation deferred through `13C3-04`. |
+| 2026-07-26 | Phase 13C3-01 Lecturer-owned Persistence And Provider Orchestration Static Acceptance | IMPLEMENTED_PENDING_STATIC_AUDIT | IMPLEMENTED_STATIC_ACCEPTED | working tree | `fec64db` | Static read/edit/specification work only. Coordinator review drove one concentrated correction of exact V45 STT asset composites, source-safe shared-artifact fan-out, reusable outcome immutability, exact TTS attachment identity, one-row/one-call retry semantics, lock order, fail-fast operational gates, shared LecturerAsset/OpenAI/ffprobe primitives and 13C3-02/04 deferrals. The first final audits then found historical-source draft charging and global-default TTS snapshot rejection; one focused correction fixed both. Fresh concurrency/schema and scope/privacy/provider audits returned `ACCEPT_STATIC`. No test, compile/build/lint, startup, Docker, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | Added lecturer-owned source/artifact/transcript/task/version-context JPA mappings, exact owner/draft/client/source-revision authorization, owner-scoped STT/TTS fingerprints, idempotent task/artifact reuse, short claim/lease transactions, visible successor retries, stale-result rejection and disabled-by-default provider-neutral adapters. Reusable artifacts change only on verified READY; source-local cancel/failure/supersede cannot corrupt another source. No Editor/API polling facade or draft cleanup wiring is claimed. Phase 13C3 validation remains `NOT_STARTED`. | Start `13C3-02` Editor/API only. Keep publish/player/evaluator work in `13C3-03`, cleanup/reconciliation in `13C3-04`, and all validation deferred through the consolidated 13C3 gate. |
+| 2026-07-26 | Phase 13C3-02 Speaking Prompt Editor/API Static Acceptance | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_STATIC_ACCEPTED | working tree | `fec64db` | Static read/edit/specification work only. Six grouped correction cycles closed provider/retry/upload, competing-writer, lifecycle/order/teardown, partial-GET/draft-lock, mandatory-token/public-copy, dirty-navigation, post-storage binding and in-flight transcript-edit races. Fresh independent API/auth/revision/idempotency/side-effect/transaction and UI/state/privacy/accessibility/scope audits both returned `ACCEPT_STATIC` on frozen snapshot `10a9c8ea687ac469d70e043d0207b99d7ab99c770ae407dc3bada852c0c689fb`, with no blocker, edit or reused verdict. No test, compile/build/lint, startup, Docker, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | Added lecturer-authorized PUT/upload/GET/retry/TTS/unlink APIs, opaque lecturer media projection, unbound verified upload staging plus locked exact question binding, exact-ready TTS reuse, stale identity projection, autosave authority merge/draft-version synchronization, two-mode Thymeleaf UI, real upload progress, provenance, durable Vietnamese states, editor lifecycle flush, monotonic revision-first async state application, exact locked whole-draft/source mutation expectations, complete node teardown, text-only play-limit suppression and learner-safe contract mirroring. A failed/stale bind may leave only an unbound private asset for `13C3-04`; publisher/player/evaluator and physical cleanup remain untouched. | Start only `13C3-03`. Keep `PHASE_13C3_VALIDATION = NOT_STARTED`; `13C3-04` and the one consolidated correction gate remain later. |
+| 2026-07-26 | Phase 13C3-03 Speaking Publication, Immutable Context, Learner Player And Evaluator Identity Candidate | IMPLEMENTED_STATIC_ACCEPTED_13C3_02 | IMPLEMENTED_PENDING_STATIC_REAUDIT | working tree | `455b546d085e9114d8c582f182a163391a4a25c75240c2925f6e68c3cdfeb4f4` | Static read/edit/specification work only. The first frozen snapshot `d1644da67b184900a285c67c9a9dee8f0f82e81884775405568ab9fc9deefc21` was rejected by both required audits. One grouped correction aligned reusable-artifact provenance versus current locked source identity, manual context rows with the accepted V45 shapes, explicit-v2 fail-closed preview/player behavior and text-only audio-subtree reset. On corrected snapshot `704f68eb3989132d744e2f9c82b79d788d2459aa696f5e56d971ffb3151e655d`, the backend audit accepted but the other audit rejected the remaining v3 default/v4 prompt-identity mismatch. After that bounded correction, snapshot `af3ad33cee080c366e52463d7e801089e583c654e0200691e3d8f029592e9458` again passed the backend audit but the other audit found a decorative audio tile still visible in text-only preview. The next bounded correction derives the whole tile from the shared presenter playback step and adds a focused static UI specification. No test, compile/build/lint, startup, Docker, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | Historical published v1 delivery remains exact dual-read. Evaluator prompt context and learner transcription remain separate authorities; context is not learner or acoustic evidence, transcript-only acoustic rows remain `NOT_SCORABLE`, and direct-audio rollout remains `NO-GO`. Excel, cleanup/retention/reconciliation, V45 execution and validation remain deferred to `13C3-04`/the consolidated gate. | Obtain fresh acceptance from both required independent read-only audits on the new exact snapshot. Apply grouped corrections, refreeze and rerun both if either rejects. |
+
+| Date | Phase/Slice | Previous Status | New Status | Commit | Parent | Evidence | Decision | Next Action |
+|---|---|---|---|---|---|---|---|---|
+| 2026-07-26 | Phase 13C3-03 Speaking Publication, Immutable Context, Learner Player And Evaluator Identity Static Acceptance | IMPLEMENTED_PENDING_STATIC_REAUDIT | IMPLEMENTED_STATIC_ACCEPTED | working tree | `455b546d085e9114d8c582f182a163391a4a25c75240c2925f6e68c3cdfeb4f4` | Both fresh independent audits re-read the exact final implementation/specification snapshot. The validator/publisher/transaction/immutability/v1-v2/context audit returned `ACCEPT_STATIC`; the player/evaluator/privacy/reuse/scope audit returned `ACCEPT_STATIC`. Neither edited the snapshot or reused an earlier verdict. No test, compile/build/lint, startup, Docker, database/Flyway, provider/API, browser, `git diff --check` or Git mutation ran. | New Speaking publications fail closed to learner-safe v2, persist one same-transaction immutable context and promote only the exact active asset. Preview/player use the shared three-branch presenter; malformed explicit v2 never downgrades, historical v1 remains exact dual-read, learner payloads remain private-context-free, and evaluator reuse binds exact version/context/contract identity while transcript-only acoustic rows remain `NOT_SCORABLE`. | Start only `13C3-04`. Keep `PHASE_13C3_VALIDATION = NOT_STARTED`; Excel, cleanup/retention/reconciliation, V45 execution and the one consolidated correction gate remain later. |
+| 2026-07-26 | Phase 13C3-04 Excel, Lifecycle, Compatibility And Gate Handoff Candidate | IMPLEMENTED_STATIC_ACCEPTED_13C3_03 | IMPLEMENTED_PENDING_FINAL_STATIC_AUDIT | working tree | exact snapshot frozen separately for the two required audits | Static read/edit/specification work only. Reconciled modern Excel to upload-only v2 with verified owner-private audio and no AI calls; added exact source/task/material teardown, detachable composite task/source identity, bounded staging/artifact retention, centralized immutable-reference safety, post-transaction physical deletion, copied-client reset, malformed-v2 fail-close, focused unrun specifications and current architecture/validation inventory. V45 remains unexecuted. | Historical v1 rows/attempts are unchanged; malformed explicit v2 cannot downgrade; shared owner artifacts/tasks and immutable versions survive source-local cleanup; transcript/context remains learner-private; transcript-only acoustic rows remain `NOT_SCORABLE` and live audio-grounded Speaking AI remains `NO-GO`. | Freeze one exact implementation/specification snapshot and obtain both independent fresh read-only audit verdicts. If either rejects, correct as one batch, refreeze and rerun both. Validation remains `NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 First Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_AUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `c767ed12bd300dc6bacd4ab559866e30a4f962e9288131c87a88a5fcd59e64a3` rejected snapshot | Both required independent auditors reread the same frozen snapshot from scratch and returned `REJECT_STATIC`. One grouped static-only correction added exact linked-draft/upload-reference Excel authorization and locked replacement teardown, Speaking-only staging retention, source/unlink asset handoff, durable cleanup claim tokens, post-transaction duplicate-object cleanup, case-sensitive workbook fail-close, accurate diagrams and the complete combined selector. No prohibited validation or Git action ran. | V45 remains unexecuted and changes only for the two proven blockers: nullable composite task/source detach and the lifecycle claim token added to the applied-V34 table. Historical v1, immutable attempts/contexts/assets, learner privacy and `NOT_SCORABLE`/`NO-GO` dispositions remain unchanged. | Freeze a new exact snapshot and rerun both required independent audits from scratch. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Second Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `9a854c2db17dfc39dc08c306258492008a8312308710607a9930c033f19bb36a` rejected snapshot | Both required independent auditors reread the same second snapshot from scratch and returned `REJECT_STATIC`. One grouped static-only correction serialized storage-key cleanup with asset registration and added a final pre-I/O recheck, tore down same-client sources whose mode/original asset no longer matches linked Excel, added the explicit ID-free Editor adoption path for exact Excel staging, corrected the changed-test ledger and updated current architecture/handoff inventory. Focused specifications were authored but not run. | Excel itself still creates no source/artifact/task/transcript/provider/TTS state; only the separate authorized Editor action may verify/bind and enqueue STT. V45 remains unexecuted and adds only the proven cleanup claim/index and nullable task/source corrections. Historical v1, immutable attempts/contexts/assets, learner privacy and `NOT_SCORABLE`/`NO-GO` dispositions remain unchanged. | Freeze a new exact snapshot and rerun both required independent audits from scratch. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Third Frozen Audit Recovery And Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `2d6cb5a9639883e6b66c018efa547cc9d505db4fedd8ba72c11338ec026b0d06` rejected lifecycle snapshot; recovered pre-correction digest `54a62fe2ca148838df845839716a764c7f2dc4464fea7c5d3b70b6225f3446cf` | The lifecycle audit rejected retained-asset logical mutation and missing row locks; the paired whole verdict was lost when the recovery thread ended with `systemError`. Because the recovered digest differed, a new bounded whole-13C3 read-only audit was performed and rejected the same lifecycle defect plus unsupported legacy-Excel wording/proof, omitted shared-path regression selectors and stale status text. One grouped static correction makes owner/session logical deletion row-locked and retained-state preserving, makes late lifecycle retention no-mutation, adds real legacy workbook/four-field v1 specifications and completes the exact selector/ledger. No prohibited validation or Git action ran. | Current v2 Excel remains upload-only and creates no AI state; historically exported `practice-excel-v1` workbooks remain on the exact legacy reader, while v1 Speaking without per-question verified audio fails closed and immutable four-field question-content-v1 stays exact dual-read. Material/source/artifact/version-context retention cannot logically archive/delete an asset. V45 remains unexecuted and unchanged by this correction. | Freeze a new exact non-excluded snapshot and run both required independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Fourth Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `9d2f3db290e8ed3f647a130992c560a96a7aef203b96eb035842224345371ba7` rejected snapshot | Both fresh auditors confirmed the same 139-path digest and returned `REJECT_STATIC`. One grouped static correction makes publication lock all parent assets before immutable reference insert and reject deleted state, gives every physical allocation a fresh non-reusable namespace, persists generated output immediately as bounded private `TEMPORARY / AI_TTS`, retires only prior exact-question original/generated bindings through an after-commit centralized recheck, and aligns the stale ownership specification. No prohibited validation or Git action ran. | An old or lease-reclaimed worker cannot target a later allocation; restart leaves durable orphan evidence; publication cannot resurrect a logically deleted asset; replacement cannot leak another question's binding or permanently retain superseded private audio. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Fifth Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `24dd6708515734bf9df7ee00ef0507d1d099b2c8b7c203a2177b699a522225ea` rejected snapshot | Both fresh auditors independently confirmed the same 140-path digest and returned `REJECT_STATIC`. One grouped static correction guards all structural add/duplicate paths with the pre-mutation Speaking flush, centralizes generic asset PATCH behind exact owner/row-lock/retained-state proof, makes both PDF-import copy/attach routes reject source/material/v2 identity before mutation or deletion, updates focused specifications and replaces shorthand with a literal whole-diff necessity ledger. No prohibited validation or Git action ran. | Dirty Speaking state cannot be overtaken by structural copy/autosave; retained assets cannot be mutated by ID; import flow cannot clone client/audio authority or directly delete a source-bearing draft. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Sixth Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `46de24fdd612cb882c280d703f9f9d4ed406e02e9173acceb075d3c7df8f71e4` rejected snapshot | The fresh Excel/lifecycle/schema audit returned `ACCEPT_STATIC`; the fresh independent whole-13C3 audit returned `REJECT_STATIC` on one PDF-import identity blocker. One bounded static correction now rejects the session-linked temporary source draft as its own attach target immediately after session-owner authorization and before any draft load, parse, reference probe, mutation, save, delete or session mutation. A focused no-side-effect specification was added. No prohibited validation or Git action ran. | A pristine temporary import draft can attach only to a distinct authorized target; self-attach cannot delete the target or leave the session pointing at a deleted identity. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Seventh Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `1d47020698db9f39bd9d8c3f53a9d93d41ebd528f4dac222e1ede2715a45defb` rejected snapshot | The fresh whole-13C3 audit returned `ACCEPT_STATIC`; the fresh Excel/lifecycle/schema audit returned `REJECT_STATIC` on one shared-physical-key blocker. One grouped static correction now makes asset-specific claim and final confirmation lock every exact storage-key asset row, recheck every sibling reference/state and fail closed without asset mutation or physical I/O. Focused claim-time, late pre-I/O, active-sibling and executor no-I/O specifications were added. No prohibited validation or Git action ran. | A candidate asset ID cannot authorize deletion of bytes still needed by a historical/content-addressed sibling row sharing its non-unique storage key. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Eighth Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `49cf65bb084c22b089e2320c59628be6d6e16390f0e50613b790936eb78acba4` rejected snapshot | The fresh whole-13C3 audit returned `ACCEPT_STATIC`; the fresh Excel/lifecycle/schema audit returned `REJECT_STATIC` because safe shared-key rejection terminally completed the candidate task and could strand old bytes after a sibling later moved to a fresh key. One grouped static correction distinguishes terminal invalid identity from temporary retention: the same task stays pending on an hourly recheck without consuming storage-error attempts, and focused specs prove blocked→sibling-promoted→eligible→completed cleanup. No prohibited validation or Git action ran. | All-row reference safety no longer sacrifices cleanup liveness; retained siblings block I/O, while later release of the old key reactivates the surviving exact candidate task. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Ninth Frozen Audit Correction | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | `f4ce01bebfee96a07bb02d98b2753801b2010e435f60002e23b2359f3d98fc87` rejected snapshot | The fresh whole-13C3 audit returned `ACCEPT_STATIC`; the fresh Excel/lifecycle/schema audit returned `REJECT_STATIC` because recurring permanently retained low-ID deferrals could fill every fixed-size worker batch and starve newer eligible cleanup. One bounded static correction orders due work by `nextAttemptAt` then stable ID, matching the current V34 index, and adds a focused query fairness contract. No prohibited validation or Git action ran. | Durable retained-key deferral remains safe without monopolizing the queue: already-due cleanup sorts ahead of tasks deferred into the future. V45 remains unexecuted and unchanged. | Freeze a new exact non-excluded snapshot and rerun both independent final audits from scratch on that same digest. `PHASE_13C3_VALIDATION = NOT_STARTED`. |
+| 2026-07-26 | Phase 13C3-04 Final Static Acceptance | IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | IMPLEMENTED_STATIC_ACCEPTED | working tree | `71f401bbc5d9941da6c52606ce14de4badeb93dae314870192bc36c6f881e57a` audited implementation/specification snapshot | Both required independent auditors recomputed and reread the same 143-path snapshot from scratch. The Excel/lifecycle/reference/authorization/concurrency/schema audit and the whole-13C3 compatibility/privacy/scope/file-necessity/docs/readiness audit both returned `ACCEPT_STATIC`; neither edited, validated or reused an earlier verdict. No prohibited validation or Git action ran. | `13C3-00..04` are now static-accepted. Historical v1 remains exact; explicit malformed v2 fails closed; Excel is upload-only/no-AI; immutable/private reference safety, source-local isolation, shared-key safety/liveness/fairness, learner privacy and `NOT_SCORABLE`/`NO-GO` dispositions remain intact. V45 remains unexecuted. | Run only the separate consolidated Phase 13C3 validation. Keep `PHASE_13C3_VALIDATION = NOT_STARTED` until then; do not start 13G/13H, pre-14, Phase 14, Phase 15 or P15-COMP work. |
+| 2026-07-27 | Phase 13C3 Post-Acceptance Readiness Re-audit Correction | IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION | CORRECTION_BATCH_IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | working tree | corrected 144-path snapshot must be frozen after documentation reconciliation | Two fresh required audits rejected the later working tree; usage-limited auditors were not counted as passes. One grouped static-only correction adds purpose/retention to STT/TTS fingerprints, separates private authoring identity from published-byte identity, closes the five-format browser media policy, maps public failures to safe Vietnamese and adds the low-confidence/provider/verifier acceptance matrix. The new verifier specification raises the exact 13C3 ledger from 143 to 144 paths. No phase validation or Git mutation ran. | The 2026-07-26 acceptance remains evidence only for its old digest. Pre-14 JDK/dependency, Writing fail-closed/cache and dead-resource sidecars are explicitly not 13C3 evidence and cannot be included in its gate. | Freeze the exact corrected 144-path 13C3 snapshot, rerun both independent audits on the same digest, and restore `READY_FOR_PHASE_VALIDATION` only if both return fresh acceptance. |
+| 2026-07-27 | Phase 13C3 Validation Worktree Union | CORRECTION_BATCH_IMPLEMENTED_PENDING_FINAL_STATIC_REAUDIT | UNION_SNAPSHOT_READY_FOR_PHASE_VALIDATION | working tree | exact 163-path union digest is frozen immediately before isolated synchronization | The frozen validation worktree contributed twelve Vietnamese/responsive UI resources plus seven supporting privacy/contract paths. The coordinator merged them with the newer 144-path correction, retained the closed five-format Speaking picker, linked private image assets server-side before draft mutation, awaited Speaking deactivation, fail-closed raw uploads and added no-store private material delivery. The focused selector grows from 50 to 53 classes. No validation or Git action is claimed. | Thirteen unrelated JDK/dependency, Writing/cache, later-phase ledger and dead-resource sidecars stay outside 13C3. Two pre-union audit retries confirmed the 144-path digest but failed before verdict and are not passes. | Per the latest user-locked order, synchronize this exact union, run one consolidated 13C3 validation, split into coherent commits and push once; only then run two fresh independent post-push audits. |
+| 2026-07-27 | Phase 14 Post-Manual-UAT Roadmap Deferral | PHASE_14_NOT_STARTED_BEFORE_PHASE_15 | DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING | documentation-only roadmap sidecar after the frozen 13C3 validation digest | User deprioritized Report an Error. Phase 14 retains its stable label and complete 14A-14F contract but moves after Phase 15 Manual UAT. Pre-14 and Pre-15 implementation, cleanup, assessment, schema, security, calibration, seed and release-readiness obligations remain mandatory and unchanged. No production/test/schema/Git action is claimed. | The initial Manual-UAT/release scope must explicitly exclude Report an Error. Deferred Phase 14 later gets its own consolidated validation and 14F feature-release gate. | Complete the active 13C3 validation on its already frozen digest; preserve this newer roadmap amendment when reconciling evidence, then continue the user-locked Phase 13 sequence. |
+| 2026-07-27 | Phase 13C3 Consolidated Validation And Gap Closure | UNION_SNAPSHOT_READY_FOR_PHASE_VALIDATION | CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH | working tree; validated isolated snapshot digest `d4063b1a2b77b3cdaa97534bd6be5ad02aaf61480a95e390f85aab4aa99485be` over 167 paths | JDK 17 `git diff --check` and clean production compile passed; the exact 53-class selector passed 497/497. A final evidence audit found two newly added authorization/material service tests had only been compiled, so one bounded three-class gap-closure selector passed 31/31. Fresh V1-V45 Flyway/Hibernate/authenticated Practice proof passed `45/45/0`, asserted five Speaking tables, 28 NO ACTION FKs and required lifecycle/storage identities, then dropped the disposable schema with absence `0`. Browser QA is `NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`; live STT/TTS is `NOT_RUN_NOT_APPROVED`. | The four validation-discovered authorization/material paths raise the exact ledger from 163 to 167. The validated code/UI/test delta was reconciled byte-for-byte while newer roadmap/JDK/CVE/Writing/dead-resource sidecars remain separate. The project-wide and Practice-specific AI/storage implementations both remain present and operational but separate; no current consumer redirection or commonization is authorized. | Create granular 13C3 commits and push once; only then run two fresh independent post-push audits on the pushed snapshot before 13G. |
 
 ## Current Required Next Action
 
@@ -3302,7 +3435,8 @@ KSH assessment contract. KSH labels/order/parent mapping/availability come from
 a Korean task-native backend policy and validator-accepted evidence. This
 bounded Phase-13D policy does not claim exhaustive coverage of Korean;
 the pre-14 half of `P15-PRE-14` owns the versioned W/S construct and typed R/L
-contract, while post-14 PRE-07 owns final calibration and SME proof.
+contract, while Pre-15 PRE-07 owns final calibration and SME proof before
+Manual UAT.
 
 Phase 13E passed its consolidated gate on `2026-07-24`.
 `13E-01..05` are `IMPLEMENTED_AND_FOCUSED_TESTED`; the exact JDK 17 selector
@@ -3321,10 +3455,46 @@ with zero failures, errors or skips. The newly named disposable database
 produced schema proof `44/44/0/1`, and cleanup plus the independent absence
 query returned `0`; the configured stale database was not reused.
 
-Keep Phase 13 open. Start mandatory `13C3-00` next, then execute
-`13C3-01..04` and its one consolidated correction validation before 13G/13H.
+Keep Phase 13 open. The 143-path static acceptance, corrected 144-path
+candidate and 163-path pre-validation union remain historical evidence for
+their exact snapshots. The final isolated validation tree has 167 paths after
+the authorization/material transaction correction. `git diff --check`, JDK 17
+compilation, 497/497 focused tests, the bounded 31/31 gap closure and fresh
+V1-V45 Flyway/Hibernate/authenticated Practice proof are green.
+`PHASE_13C3_VALIDATION = GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13` and
+`PHASE_13C3_IMPLEMENTATION = CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`.
+Browser QA is explicitly deferred and live STT/TTS was not approved. The
+current required action is the granular commit series and one push; the two
+fresh independent audits run only on that pushed snapshot before 13G.
 Do not start Phase 14, Phase 15, the pre-14 correctness gate or any
 `P15-COMP` debt. `P15-PRE-15/16` remain routed to 13H.
+
+Future sequence after the current action is accepted: create a coherent
+multi-commit 13C3 series and push it; complete 13G, run its one consolidated
+stabilization/validation, create coherent commits and push; complete 13H, run
+its one consolidated stabilization/validation, create coherent commits and
+push, including end-of-Phase-13 browser/device closure. Then execute
+`POST_PHASE_13_PRACTICE_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION`: a
+multi-subagent audit of the currently separate Practice and non-Practice
+AI/storage organizations followed only by explicitly approved,
+compatibility-first adapter/package slices. This phase must not assume common
+ownership or bulk-move Practice AI/storage. Until that phase approves a slice,
+both implementations must remain present and operational, their consumers and
+configuration authorities must not be redirected into one another, and
+neither may be treated as dead branch residue. This coexistence decision is
+temporary rather than a permanent ban on later reconciliation. Its contract is
+`docs/PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION.md`.
+After that phase is validated/committed/pushed, execute the separate
+multi-subagent whole-`/practice`
+audit/cleanup contract in
+`docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md`,
+validate it once and commit/push it. Only afterward may
+`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` return its integrated GO/NO-GO.
+When green, continue to `PRE_PHASE_15_RELEASE_CLOSURE_GATE`, then Phase 15
+Manual UAT/release for a scope that excludes Report an Error, and only then the
+deferred Phase 14 14A-14F work package. The pre-14 gate is a decision
+checkpoint, not a feature phase and not the first dead-code/schema discovery
+pass.
 
 The historical local UI runtime used schema `ksh_phase13e_result_ui` at Flyway
 V38; the same migration is V44 on integrated main.
@@ -3349,10 +3519,14 @@ green on a disposable V44 schema. Phase 13E is
 `COMPLETE_FOCUSED_GATE_GREEN`; 13E-01..05 are
 `IMPLEMENTED_AND_FOCUSED_TESTED`. Phase 13F is
 `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
-`IMPLEMENTED_AND_FOCUSED_TESTED`. Mandatory 13C3 remains
-`DESIGN_LOCKED_NOT_STARTED`, `13C3-00` is next and overall Phase 13 remains
-open. Live Speaking AI rollout remains NO-GO because the evaluator does not yet
-receive learner audio.
+`IMPLEMENTED_AND_FOCUSED_TESTED`. Mandatory 13C3 implementation is
+`CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`: the prior 143/144/163-path
+snapshots are historical for their exact digests, while the final 167-path
+validation and its bounded gap closure are green. The two fresh audits remain
+scheduled after the granular commit series and one push, and overall Phase 13
+remains open. Live Speaking AI
+rollout remains NO-GO because
+the evaluator does not yet receive learner audio.
 React modernization remains
 future-only after Phase 16. Do not perform broad UI/React modernization.
 
@@ -3420,7 +3594,7 @@ Codex must answer internally:
 12. Am I about to mark a phase closed without commit/review/test evidence?
 13. Am I confusing the bounded Phase 13E runtime/UI subsets explicitly approved
     in `13E-00..05` with authorization to start the post-13H pre-14 correctness
-    gate or the post-14 calibration/audio/destructive release-closure gate?
+    gate or the Pre-15 calibration/audio/destructive release-closure gate?
 14. If Phase 14 or Phase 15 entry is actually being requested, has the matching
     named gate and its current-file/data/academic evidence passed first?
 15. Is this read-only audit/coordination, or a restricted code/browser/Git

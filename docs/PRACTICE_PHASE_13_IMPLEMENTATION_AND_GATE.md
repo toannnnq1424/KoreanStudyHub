@@ -2,6 +2,13 @@
 
 Last updated: 2026-07-26
 
+Roadmap-order amendment (`2026-07-27`): Phase 14 keeps its full `14A-14F`
+contract but is now `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. The
+authoritative handoff after Phase 13 is Pre-14 -> Pre-15 -> Phase 15 Manual
+UAT/release -> deferred Phase 14. Every Pre-14/Pre-15 obligation remains in
+scope before Manual UAT; only the Report an Error feature moves. See
+`PRACTICE_PHASE_14_POST_MANUAL_UAT_ROADMAP_AMENDMENT.md`.
+
 ## 1. Authority and scope lock
 
 This document is the implementation checkpoint for Phase 13. It supplements,
@@ -29,8 +36,10 @@ The active product scope is fixed:
 Migration-chain reconciliation on `2026-07-24` returned
 `REBASELINE_GO_WITH_GUARDS`. This remains plan-only throughout Phase 13: no
 SQL, database, Flyway or fixture action is authorized here. The earliest
-execution window is the pre-14 gate after consolidated validation of Phase
-13A-13H and before 14A, once the final pre-14 relational contracts are frozen.
+execution window is the pre-14 gate after consolidated validation and
+commit/push of Phase 13A-13H, and after the comprehensive `/practice`
+audit/cleanup is accepted, validated, committed and pushed. It remains before
+14A, once the final pre-14 relational contracts are frozen.
 It stops if any retained, deployed, shared, canonical or upgrade-supported
 database must preserve the current Practice chain.
 
@@ -50,21 +59,31 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13D bounded result-overview UX/evidence correction | `COMPLETE_WITH_FOCUSED_AND_AUTHENTICATED_ROUTE_GATE_GREEN` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. The two previously blocked authenticated Result Detail cases subsequently passed `2/2` on a fresh disposable schema migrated V1-V44; the disposable schema was removed and the stale fixture schema was not repaired. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 and the workflow ledger dated 2026-07-22 |
 | 13E result evidence | `COMPLETE_FOCUSED_GATE_GREEN` | `13E-01..05` and the typed three-screen boundary passed the one accepted focused gate: `118/118`, zero failures/errors/skips, using a disposable fresh V44 integration schema deleted afterward. No full suite/browser/provider/Git evidence is claimed |
 | 13F progress/recovery | `COMPLETE_FOCUSED_GATE_GREEN` | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted JDK 17 gate passed `331/331` with zero failures/errors/skips; the disposable fresh database proved `44/44/0/1`, and trapped cleanup plus an independent absence query returned `0`. No full-suite, browser/device, live-provider or Git evidence is claimed |
-| 13C3 Speaking prompt authoring correction | `DESIGN_LOCKED_CURRENT_NEXT_ACTION` | Mandatory current action after the green Phase 13F gate and before 13G. Execute `13C3-00`, then `13C3-01..04` and its own consolidated gate. Adds `audio_upload` with original-audio playback plus internal-only STT context, and `manual_text` with text-only or explicit TTS delivery, preview and stale/regenerate. Exact contract is in `docs/PRACTICE_PHASE_13C3_SPEAKING_PROMPT_AUTHORING_LIVE_CHANGE_LOG.md` |
+| 13C3 Speaking prompt authoring correction | `CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH` | The final 167-path isolated snapshot supersedes the 163-path pre-validation union after four authorization/material transaction paths were corrected. JDK 17 compile, the 53-class 497/497 selector, one bounded 31/31 gap closure and fresh V1-V45 Flyway/Hibernate/authenticated Practice proof are green. Browser QA is `NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`; live STT/TTS is `NOT_RUN_NOT_APPROVED`. Historical v1 is unchanged; transcript-only acoustic rows remain `NOT_SCORABLE` and live audio-grounded Speaking AI remains `NO-GO`. Create granular commits and push once, then run two fresh independent audits on the pushed snapshot before 13G. Exact evidence and deferrals are in the 13C3 live log Section 14.18. |
 | 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
 | 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, reproducible JDK 17 toolchain (`13H-TOOLCHAIN-01`), dated dependency-security baseline (`13H-SEC-01`), focused/full tests and browser journeys before closure |
+| Post-Phase-13 product/package reconciliation | `NOT_STARTED` | After 13H and end-of-Phase-13 browser/device closure, multiple subagents map the currently separate Practice and non-Practice AI/storage organizations. Until then both implementations stay present, operational and separate, with no consumer redirection or commonization. Only explicitly approved compatibility-first adapters or package slices may later be implemented; no bulk common/Admin/global merge. Validate/commit/push before comprehensive cleanup. See `docs/PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION.md`. |
+| Pre-14 comprehensive `/practice` audit and dead-surface cleanup | `NOT_STARTED` | Mandatory multi-subagent reconciliation of all Practice Markdown, scoring/explanation contracts, live code/routes/presentation, persistence/migrations/seed and retained-data obligations. Evidence-backed cleanup must finish and be validated/committed/pushed before the pre-14 GO/NO-GO gate. See `docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md` |
 
 The later `13E-03` Writing slice is limited to the typed UI/contract seam:
 preserve three stable scoring criteria, render task-bounded diagnostics as
 non-additive evidence and state that coverage is not exhaustive. It does not
 complete the expanded Korean registry or academic proof.
-`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` later owns the Writing/Speaking
-registry plus provider schema/prompt/normalizer/rule/cache identity; final SME
-and calibration remain post-14.
+The post-13H comprehensive `/practice` audit/cleanup program owns any required
+Writing/Speaking registry plus provider
+schema/prompt/normalizer/rule/cache-identity remediation. The
+`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` only verifies its accepted,
+validated, committed and pushed evidence; final SME and calibration remain
+Pre-15 obligations before Manual UAT.
 
 After each completed slice, this ledger and the detailed evidence section must
 be updated before starting the next slice. The required future order is
-`13C3-00..04 -> 13C3 gate -> 13G -> 13H -> pre-14 gate -> Phase 14`.
+`13C3-00..04 -> 13C3 gate -> coherent commits/push -> post-push audits -> 13G
+gate -> coherent commits/push -> 13H gate -> coherent commits/push ->
+end-of-Phase-13 browser closure -> post-Phase-13 product/package reconciliation
+-> its gate/commits/push -> comprehensive /practice audit/cleanup -> its
+gate/commits/push -> pre-14 GO/NO-GO gate -> pre-15
+release-closure gate -> Phase 15 Manual UAT/release -> deferred Phase 14`.
 
 > **Current-source supersession (`2026-07-26`):** Phase 13E is
 > `COMPLETE_FOCUSED_GATE_GREEN`; Phase 13F is also
@@ -75,15 +94,25 @@ be updated before starting the next slice. The required future order is
 > absence query returned `0`. This is bounded focused-gate evidence only: no
 > full-suite, browser/device, live-provider or Git evidence is claimed. The
 > implementation-time statuses retained in Section 2.1 are historical
-> evidence, not the current action. The mandatory current action is
-> `13C3-00`, followed by `13C3-01..04` and the separate 13C3 gate before 13G.
+> evidence, not the current action.
+> `PHASE_13C3_IMPLEMENTATION = CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`
+> and `PHASE_13C3_VALIDATION =
+> GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13`. The exact final 167-path
+> snapshot includes the Vietnamese/responsive corrections and the four-path
+> authorization/material transaction correction. Compile, 497/497, bounded
+> 31/31 gap closure and fresh V1-V45 proof are green. Create its coherent commit
+> series plus one push; run two fresh independent audits on that pushed
+> snapshot before 13G.
 > Exact Phase 13F evidence is in its live log Section 24.
 >
 > **Speaking authoring supersession (`2026-07-25`):** the audio-only v1 policy
 > retained in Sections 6.2-6.4 is historical accepted evidence. New-write target
 > policy is the mode-dependent learner-safe v2 contract in the 13C3 live log.
-> Phase 13F is now green. Do not weaken v1 immutable reads; start the separately
-> scoped `13C3-00` next and do not skip directly to 13G.
+> Phase 13F is now green. `13C3-00..03` preserve v1 immutable reads and add the
+> lecturer-owned orchestration plus Editor/API boundary and are static-accepted;
+> that implementation-time statement is now superseded by the 2026-07-27
+> 167-path consolidated green evidence above. Only the coherent commit
+> series/one push and two post-push audits remain before 13G.
 
 ### 2.1 Mandatory prerequisites before 13E implementation
 
@@ -708,12 +737,12 @@ Audit findings were rechecked against the current source and locked contracts:
 | --- | --- | --- |
 | Speaking pronunciation/fluency is evaluated without evaluator access to learner audio | **CONFIRMED, LIVE ROLLOUT BLOCKER** | Current flow is audio -> transcription -> evaluator. The evaluator receives transcript, media metadata and optional question image, but no audio bytes/URL. Pronunciation, intonation, hesitation and pacing are therefore not audio-grounded. Keep live Speaking AI `NO-GO`; before provider rollout/Phase 15 either add authorized provider-specific audio input and calibrate it with real recordings, or mark/exclude audio-only criteria instead of presenting them as measured scores. |
 | `textFallbackAnswer` is swallowed | **OUTDATED / NOT REPRODUCED** | `SpeakingEvaluationApplicationService.evaluateTextFallback` builds a fallback transcription and passes both it and the fallback answer into the orchestrator. The remaining rule is that a text fallback cannot produce audio-grounded pronunciation/fluency claims. |
-| Speaking transcription query filters legacy ungrouped questions | **CONFIRMED COMPATIBILITY DEBT** | The current implicit join still requires `q.groupId`. New canonical content is grouped. `P15-COMP-21` moves pre-14 only if caller/retained-data evidence proves this path affects a reportable target; otherwise resolve it in post-14 release cleanup before live provider UAT. |
-| Writing catch blocks contain unreachable mock fallback | **CONFIRMED DEAD CODE; PROPOSED MOCK BEHAVIOR REJECTED** | The always-true branch makes the later mock call unreachable. Current tests intentionally require `EVALUATION_UNAVAILABLE` and no mock score when a provider/key fails. Remove it in 13H; pre-14 COMP-20 verifies accepted evidence or removes any remaining dead dependency without duplicating correct 13H work. |
-| Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | PRE-10 is 13H implementation that must complete/validate before Phase 14; pre-14 only verifies evidence. Provider/load UAT remains post-14. Do not use mock scoring as timeout fallback. |
-| Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | PRE-11 batches collaborators/users in 13H and is validated before Phase 14; pre-14 does not reimplement it. Performance UAT remains post-14. |
-| Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external work remains possible. PRE-12 adds atomic claim/lease or skip-locked behavior in 13H and is validated before Phase 14; multi-node/R2 UAT stays post-14. |
-| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | PRE-13 remains owned by 13H before Phase 14. The green Phase 13F gate does not claim this provider/load debt. The pre-14 gate verifies accepted 13H evidence; provider/load UAT stays post-14. |
+| Speaking transcription query filters legacy ungrouped questions | **CONFIRMED COMPATIBILITY DEBT** | The current implicit join still requires `q.groupId`. New canonical content is grouped. `P15-COMP-21` moves pre-14 only if caller/retained-data evidence proves this path affects a reportable target; otherwise resolve it in Pre-15 release cleanup before live provider UAT. |
+| Writing catch blocks contain unreachable mock fallback | **CONFIRMED DEAD CODE; PROPOSED MOCK BEHAVIOR REJECTED** | The always-true branch makes the later mock call unreachable. Current tests intentionally require `EVALUATION_UNAVAILABLE` and no mock score when a provider/key fails. Remove it in 13H; otherwise the post-13H comprehensive audit/cleanup program removes any remaining dead dependency without duplicating correct 13H work, and the pre-14 gate only verifies integrated evidence. |
+| Writing `RestClient` has no explicit connect/read timeout | **CONFIRMED RESILIENCE DEBT** | PRE-10 is 13H implementation that must complete/validate before Pre-15/Manual UAT; pre-14 only verifies evidence. Provider/load UAT remains Phase 15 work after Pre-15. Do not use mock scoring as timeout fallback. |
+| Lecturer dashboard performs per-set/per-user lookups | **CONFIRMED N+1 DEBT** | PRE-11 batches collaborators/users in 13H and is validated before Pre-15/Manual UAT; pre-14 does not reimplement it. Performance UAT remains Phase 15 work after Pre-15. |
+| Cleanup worker can claim the same task on multiple nodes | **CONFIRMED WITH NUANCE** | Local deletion is idempotent and optimistic version checks bound stale status writes, but duplicate external work remains possible. PRE-12 adds atomic claim/lease or skip-locked behavior in 13H and is validated before Pre-15/Manual UAT; multi-node/R2 UAT stays in Phase 15. |
+| PDF AI generate double-submit and synchronous crop | **CONFIRMED** | PRE-13 remains owned by 13H before Pre-15/Manual UAT. The green Phase 13F gate does not claim this provider/load debt. The pre-14 gate verifies accepted 13H evidence; provider/load UAT stays in Phase 15. |
 | Lecturer receives 403 on learner Speaking playback | **CONFIRMED FUTURE REVIEW DEBT** | Current endpoint is student-only and owner-scoped. Lecturer access must use an explicit reviewer authorization path, not `hasRole('LECTURER')` alone. Complete before manual-grading/reviewer UAT. |
 | Collaborator publish is an authorization bypass | **REJECTED AGAINST LOCKED PRODUCT CONTRACT** | The reduced-scope policy explicitly permits an active lecturer collaborator to edit/publish/restore/material while owner lock is off. Changing this requires a product-policy decision, not a security hotfix. |
 | MCQ breaks above four options | **OUTDATED STATIC FINDING** | Current player iterates dynamic `optionRows()` and has no fixed four-option cap. Responsive browser evidence is still required in 13H. |
@@ -1346,17 +1375,21 @@ replacement boundary are verified.
 
 > **Current-source supersession:** the paragraph above records the historical
 > Step 6 boundary; it no longer routes every compatibility/correctness item into
-> one post-Phase-14 batch. The current workflow and blueprint split it into
-> `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` after validated 13E-13H and before
-> 14A, then `PRE_PHASE_15_RELEASE_CLOSURE_GATE` after 14F. Only target-stability
-> contracts, binding supersession, Writing cache identity, configuration safety
-> and the guarded Practice rebaseline/fresh Flyway-Hibernate validation move to
-> the first gate. Rebaseline uses a newly named disposable DB, never repair or
-> reuse, and stops on any retained/deployed/canonical obligation. Minimal
-> technical smoke fixtures precede 14A. Final SME/calibration, direct-audio
-> rollout, retained-data cleanup, canonical Vietnamese/Korean UAT seed and
-> Manual UAT remain after 14F. This note is roadmap reconciliation only and does
-> not authorize either gate while Phase 13E is running.
+> one post-Phase-14 batch. After separately validated and pushed 13C3, 13G and
+> 13H, the comprehensive `/practice` audit/cleanup program implements any
+> evidence-approved target-stability, binding, Writing-cache, configuration and
+> guarded rebaseline corrections. It must itself be accepted, validated,
+> committed and pushed. `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` then verifies
+> that integrated state and returns GO/NO-GO; it is not the implementation
+> bucket. `PRE_PHASE_15_RELEASE_CLOSURE_GATE` follows Pre-14 directly and must
+> close before Phase 15 Manual UAT; it no longer waits for 14F.
+> Rebaseline uses a newly named disposable DB, never repair or reuse, and stops
+> on any retained/deployed/canonical obligation. Minimal technical smoke
+> fixtures precede Pre-15. Final SME/calibration, direct-audio rollout,
+> retained-data cleanup and canonical Vietnamese/Korean UAT seed close in
+> Pre-15; Phase 15 then executes Manual UAT. Deferred Phase 14 follows that
+> release verdict. This note is roadmap reconciliation only and does not
+> authorize future work while Phase 13 is open.
 
 Completing this inventory does not close or validate Phase 13D. It only allows
 the final complete-diff review and the Section 6.9.11
@@ -1382,8 +1415,10 @@ instruction): preserve it as evidence, but do not use it to redirect the active
 phase. Phase 13E and Phase 13F are `COMPLETE_FOCUSED_GATE_GREEN`;
 `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted Phase 13F
 evidence is `331/331`, schema proof `44/44/0/1` and cleanup/absence `0`, with
-no full-suite/browser/provider/Git claim. The current action is `13C3-00`,
-then `13C3-01..04` and its own gate before 13G.
+no full-suite/browser/provider/Git claim. `13C3-00..04` are
+`IMPLEMENTED_STATIC_ACCEPTED`; `PHASE_13C3_IMPLEMENTATION` is
+`READY_FOR_PHASE_VALIDATION` and validation is `NOT_STARTED`. Execute only its
+separate consolidated gate before 13G.
 
 The completed 13D sequence was:
 
@@ -1421,5 +1456,14 @@ once at that closure gate rather than after every implementation slice. Any
 deferred provider, Cloudflare R2, production Speaking-media or accepted
 dependency-security exception must be recorded with owner/expiry and must not
 be described as green evidence. The pre-14 gate verifies the accepted
-toolchain/security evidence; post-14/pre-15 reruns the time-sensitive
-dependency scan before Manual UAT.
+toolchain/security evidence; Pre-15 reruns the time-sensitive dependency scan
+before Manual UAT.
+
+Accepted 13H evidence does not replace the later whole-`/practice`
+production-shape audit. After 13H is validated, committed and pushed, the
+separate program in
+`docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md`
+must reconcile every relevant Markdown authority, Korean assessment contract,
+route/code/presentation dependency and persistence object with multiple
+independent subagents. Only its evidence-backed cleanup, consolidated
+validation, coherent commits and push may hand off to the pre-14 GO/NO-GO gate.

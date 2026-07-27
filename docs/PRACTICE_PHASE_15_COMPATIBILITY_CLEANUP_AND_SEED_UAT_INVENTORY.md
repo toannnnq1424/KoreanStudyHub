@@ -2,7 +2,12 @@
 
 > Status: `REBASELINE_GO_WITH_GUARDS`; Phase 13E:
 > `COMPLETE_FOCUSED_GATE_GREEN`; Phase 13F:
-> `COMPLETE_FOCUSED_GATE_GREEN`; current mandatory action: `13C3-00`
+> `COMPLETE_FOCUSED_GATE_GREEN`; `13C3-00..04`:
+> `IMPLEMENTED_AND_VALIDATED`;
+> `PHASE_13C3_IMPLEMENTATION =
+> CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`;
+> `PHASE_13C3_VALIDATION =
+> GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13`
 >
 > Recorded: `2026-07-22` (research started on `2026-07-20`; supersedes the inventory-only boundary recorded on
 > `2026-07-16`)
@@ -13,6 +18,13 @@
 >
 > Speaking prompt-authoring amendment: `2026-07-25`
 >
+> Roadmap-order amendment: `2026-07-27`. Phase 14 keeps the stable `14A-14F`
+> contract but is `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. Current
+> execution order is Pre-14 -> Pre-15 -> Phase 15 Manual UAT/release -> deferred
+> Phase 14. This amendment changes scheduling only: every Pre-14 and Pre-15 debt
+> below remains mandatory before Manual UAT. See
+> `PRACTICE_PHASE_14_POST_MANUAL_UAT_ROADMAP_AMENDMENT.md`.
+>
 > Current roadmap position: the bounded Phase 13D result-overview UX correction
 > is committed/pushed at `98153ac`; its two previously blocked authenticated
 > Result Detail route cases passed `2/2` on a disposable fresh V44 schema.
@@ -22,17 +34,30 @@
 > `IMPLEMENTED_AND_FOCUSED_TESTED`. Its accepted JDK 17 gate passed `331/331`
 > with zero failures/errors/skips, the fresh disposable schema proved
 > `44/44/0/1`, and cleanup plus the independent absence query returned `0`.
-> No full-suite/browser/provider/Git evidence is claimed. The current mandatory
-> action is `13C3-00`, then `13C3-01..04` and the separate 13C3 gate.
+> No full-suite/browser/provider/Git evidence is claimed for Phase 13F. Phase
+> 13C3's final isolated 167-path snapshot passed JDK 17 compile, 497/497, the
+> bounded 31/31 authorization/material gap closure and fresh V1-V45 proof.
+> Browser QA is deferred to the end of Phase 13 and live STT/TTS was not
+> approved. The current mandatory action is granular 13C3 commits and one push;
+> two fresh independent audits run only on that pushed snapshot.
+> Current 13C3-04 lifecycle source also locks every historical asset row sharing
+> an exact storage key at asset-delete claim and final confirmation; any sibling
+> state/reference that still needs the bytes stops physical I/O without
+> mutating the sibling and leaves the exact candidate task pending for bounded
+> recheck after that key is released. Due selection is `nextAttemptAt` then ID,
+> so permanently retained tasks cannot starve newer eligible cleanup.
 > This document routes future work into two named gates; it does not authorize
 > compatibility deletion, database mutation, audio scoring rollout, SME
 > sign-off or calibration work during the current 13C3 implementation.
 >
 > Future owners: guarded Practice rebaseline only after mandatory
-> 13C3/13G/13H completion and final pre-14 schema contracts are frozen, before
-> 14A;
-> `PRE_PHASE_15_RELEASE_CLOSURE_GATE` after 14F owns canonical UAT seed/manual
-> release evidence.
+> 13C3/13G/13H validation plus commit/push, after the post-Phase-13
+> product/package reconciliation and comprehensive `/practice`
+> audit/cleanup program is accepted/validated/committed/pushed, and after final
+> pre-14 schema contracts are frozen, before Pre-15 and Manual UAT;
+> `PRE_PHASE_15_RELEASE_CLOSURE_GATE` follows Pre-14 and owns canonical UAT
+> seed/release preparation before Phase 15 executes Manual UAT. Deferred Phase
+> 14 starts only after that initial release verdict.
 
 ## 1. Purpose and current Phase 13E boundary
 
@@ -42,20 +67,23 @@ This document now has three future-facing jobs:
    fixtures and documentation that must be resolved together;
 2. route target-stability and assessment correctness work into the mandatory
    pre-14 gate; and
-3. keep final academic, destructive/environment, seed and Manual UAT closure in
-   the post-14/pre-15 gate.
+3. keep final academic, destructive/environment and seed preparation in the
+   Pre-15 gate, then execute Manual UAT in Phase 15 before deferred Phase 14.
 
 Phase 13E is `COMPLETE_FOCUSED_GATE_GREEN`; `13E-01..05` are implemented and
 focused-tested. Phase 13F is `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are
 `IMPLEMENTED_AND_FOCUSED_TESTED`, backed by `331/331`, schema proof
-`44/44/0/1` and cleanup/absence `0`. The current action is `13C3-00`, not
+`44/44/0/1` and cleanup/absence `0`. The prior exact 143/144/163-path 13C3
+snapshots are historical evidence only. The final 167-path isolated snapshot,
+including the four-path authorization/material transaction correction, is
+`CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`, not
 implementation of this inventory. Phase 13E implemented the
 explicitly promoted runtime/UI portions of `P15-PRE-03`, `P15-PRE-06` and
 `P15-PRE-14`; the future pre-14 gate audits that evidence and closes only the
 promoted correctness contracts without redoing accepted work merely to touch
 an old filename.
-Final academic calibration, direct audio, destructive data/environment work,
-seed and UAT remain post-14.
+Final academic calibration, direct audio, destructive data/environment work
+and seed remain Pre-15 work before Phase 15 Manual UAT.
 
 Phase 15 is for release hardening, deterministic seed loading and Manual UAT.
 It is not the phase in which KSH first discovers that a score has no supporting
@@ -70,29 +98,47 @@ dependency window opens.
 
 The required order is:
 
-1. execute `13C3-00`, then `13C3-01..04` and validate the mandatory
-   `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`;
-2. finish `13G-13H`,
+1. after static acceptance of `13C3-00..04`, validate the
+   mandatory
+   `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`, then create its coherent
+   multi-commit series and push it before opening 13G;
+2. finish 13G, run its one consolidated validation, create its coherent
+   multi-commit series and push it before opening 13H;
+3. finish 13H, run its one consolidated validation, create its coherent
+   multi-commit series and push it,
    including
    PRE-10..13 plus the reproducible-toolchain/security-baseline items
    PRE-15/16 where assigned, without opportunistic inventory cleanup;
-3. execute `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` and stabilize every
+4. after end-of-Phase-13 browser/device closure, execute the audit-first
+   `POST_PHASE_13_PRACTICE_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION`.
+   Map the currently separate Practice and non-Practice AI/storage facilities;
+   implement only explicitly approved compatibility-first slices, never a bulk
+   common/Admin/global merge; validate, commit and push that phase;
+5. execute the mandatory multi-subagent comprehensive `/practice` audit and
+   evidence-backed dead/duplicate route, code and schema cleanup defined in
+   `docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md`;
+   validate that complete program once, create coherent commits and push it;
+6. execute `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` and decide GO/NO-GO for
+   every
    scoring/explanation/UI identity that Phase 14 can report, including binding
    supersession, Writing cache identity and configuration safety;
-4. only after mandatory 13C3/13G/13H completion and after final pre-14
+7. only after mandatory 13C3/13G/13H, product/package reconciliation and
+   comprehensive-audit completion, and
+   after final pre-14
    relational contracts are frozen, execute the guarded Practice rebaseline
    on a new disposable DB if and only if no
    retained/deployed/shared/canonical/upgrade obligation exists;
-5. prove fresh Flyway/Hibernate validation and minimal technical R/L/W/S smoke
-   identities; then execute the unchanged canonical Phase 14A-14F “Report an Error & Content
-   Review” loop;
-6. execute `PRE_PHASE_15_RELEASE_CLOSURE_GATE`: final SME/calibration and the
+8. prove fresh Flyway/Hibernate validation and minimal technical R/L/W/S smoke
+   identities;
+9. execute `PRE_PHASE_15_RELEASE_CLOSURE_GATE`: final SME/calibration and the
    chosen disabled/direct-audio branch;
-7. confirm environment and retention obligations, then resolve
+10. confirm environment and retention obligations, then resolve
    destructive/remaining compatibility decisions;
-8. create the deterministic premium UAT seed only after cleanup is green; and
-9. run browser/device/provider/load/security/manual UAT before the Phase 15
-   release verdict.
+11. create the deterministic premium UAT seed only after cleanup is green; and
+12. run browser/device/provider/load/security/manual UAT and record the Phase
+   15 release verdict, explicitly excluding Report an Error; and
+13. only after that verdict, execute the unchanged canonical Phase 14A-14F
+   “Report an Error & Content Review” loop under its own validation/14F gate.
 
 ## 2. Safety assumptions
 
@@ -147,12 +193,23 @@ contracts:
 The following work was designed before Phase 13E opened. The user has since
 promoted the bounded runtime/UI subset of `P15-PRE-03`, `P15-PRE-06` and
 `P15-PRE-14` into the approved Phase 13E program. The old rule that routed the
-entire register to one gate after Phase 14 is superseded as follows.
+entire register to one gate after Phase 14 is superseded. Pre-14 remains the
+correctness gate; Pre-15 now follows it directly and must close before Phase 15
+Manual UAT. Phase 14 is executed later.
 
 #### `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`
 
 Execution window: only after `13E-13H` are complete with accepted consolidated
-validation, and before 14A. It stabilizes the reportable target identity:
+validation and each completed phase has been committed/pushed, and after the
+separate comprehensive `/practice` audit/cleanup program is accepted,
+validated, committed and pushed. It runs before 14A and decides whether the
+reportable target identity is production-ready:
+
+Every implementation/remediation item in this subsection belongs to its named
+earlier phase or to the post-13H comprehensive audit/cleanup program. The gate
+only inspects the already integrated and pushed evidence. A blocker discovered
+here sends work back to one grouped cleanup/validation/commit/push cycle before
+the gate is re-entered.
 
 - mandatory `P15-PRE-02`, `04`, `09` and the runtime/contract portion of
   `P15-PRE-14`;
@@ -195,24 +252,27 @@ applicability instead of becoming a new score row.
 Current strict Writing provider schema still omits `subtype`, `impact`,
 `frequency` and `confidence` even though the normalizer reads/interprets part
 of that data. This is mandatory pre-14 runtime debt. `13E-03` builds only the
-typed UI/contract seam and honest non-exhaustive copy; pre-14 completes the
-Writing and Speaking registry, provider schema/prompt, normalizer, bounded rule
-engine and cache/`AssessmentPolicyBundle` identity.
+typed UI/contract seam and honest non-exhaustive copy. The post-13H
+comprehensive audit/cleanup program implements the approved Writing and
+Speaking registry, provider schema/prompt, normalizer, bounded rule engine and
+cache/`AssessmentPolicyBundle` identity corrections; the pre-14 gate only
+verifies that accepted, validated and pushed evidence.
 
 `P15-PRE-10..13` and `P15-PRE-15..16` remain assigned to 13H;
 `P15-PRE-17` is assigned to the mandatory 13C3 correction. The green Phase 13F
 gate supplies bounded progress/recovery evidence but does not claim these open
-operational debts. Their accepted evidence is a prerequisite before Phase 14, not work
-reimplemented inside this gate. PRE-16 additionally requires a fresh release
-rescan after 14F because advisories are time-sensitive. `P15-COMP-01..09`,
+operational debts. Their accepted evidence is a prerequisite before Pre-15,
+Manual UAT and the later Phase 14, not work reimplemented inside this gate.
+PRE-16 additionally requires a fresh release rescan in Pre-15 because
+advisories are time-sensitive. `P15-COMP-01..09`,
 `11..12`, `14`, `21` are conditional: promote only
 when caller or retained-data evidence proves that the path destabilizes a
 Phase 14 target; otherwise leave them for release cleanup.
 
 #### `PRE_PHASE_15_RELEASE_CLOSURE_GATE`
 
-Execution window: after the unchanged canonical 14A-14F “Report an Error &
-Content Review” loop and before Phase 15. It owns:
+Execution window: immediately after the accepted Pre-14 gate and before Phase
+15 Manual UAT. It does not wait for deferred Phase 14. It owns:
 
 - final `P15-PRE-07` Korean-SME sign-off and calibration;
 - `P15-PRE-01` branch A disable proof, or branch B direct-audio rollout only
@@ -220,8 +280,9 @@ Content Review” loop and before Phase 15. It owns:
 - destructive/environment/schema work in `P15-COMP-13/15/17/22`, retained-data
   removal or approved disposable-UAT reset that remains after consuming the
   pre-14 baseline evidence;
-- remaining compatibility decisions, premium seed, and
-  browser/device/provider/load/security/manual UAT.
+- remaining compatibility decisions and premium seed preparation. Phase 15
+  then owns browser/device/provider/load/security/manual UAT and the initial
+  release verdict.
 
 Phase 12R already removed all 14 generic governance/legacy tables and recorded
 green fresh proof with `removed_tables_remaining=0`; neither gate opens a
@@ -247,25 +308,25 @@ capability deliberately kept disabled.
 
 | ID | Historical severity / current route | Current source truth | Required decision/change at assigned gate | Exit proof |
 | --- | --- | --- | --- | --- |
-| `P15-PRE-01` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER`; transcript-only guard `IMPLEMENTED_AND_PHASE_13D_FOCUSED_GATE_GREEN` | Phase 13D UX-03..05 use `TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION` / `TRANSCRIPT_ONLY`: `SpeakingEvaluationResult`, `SpeakingEvaluationNormalizer`, `SpeakingScorePolicy`, `PracticeService`, `SpeakingResultPresenter` and `speaking.html` keep only four native numeric language rows, make both acoustic rows null/`NOT_SCORABLE`, expose no `/70` subtotal, aggregate, holistic or attempt score and fail legacy/reserved envelopes closed. A trusted score-bearing typed envelope requires exactly all six rows; authoritative `TRANSCRIPTION_LOW_CONFIDENCE` keeps current transcript provenance with an empty rubric profile and no number. `OpenAiCompatibleSpeakingEvaluationClient` still sends only transcript plus optional question image; `AUDIO_DIRECT_FULL_RESERVED` is a disabled seam, not a capability. | Preserve the validated transcript-only, low-confidence and evidence guards. After 14F choose exactly one branch: (A) keep full/audio-grounded Speaking disabled with proof; or (B) after PRE-08 policy approval, implement a dark separately named evaluator/API that demonstrably consumes authorized learner audio, then pass PRE-07 calibration/readiness before rollout. Configuration flags alone cannot authorize branch B. | Branch A closes as `DISABLED_BY_POLICY_WITH_PROOF`: no request sends audio to the scorer, readiness stays blocker-red and every surface exposes only the transcript profile plus null acoustic rows. Branch B closes as `IMPLEMENTED_AND_ACCEPTED`: captured request proves authorized audio reached the scorer and PRE-07/PRE-08 evidence is green. Both branches must preserve no-claim tests for low-confidence/current, legacy/reserved/malformed payloads. |
+| `P15-PRE-01` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER`; transcript-only guard `IMPLEMENTED_AND_PHASE_13D_FOCUSED_GATE_GREEN` | Phase 13D UX-03..05 use `TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION` / `TRANSCRIPT_ONLY`: `SpeakingEvaluationResult`, `SpeakingEvaluationNormalizer`, `SpeakingScorePolicy`, `PracticeService`, `SpeakingResultPresenter` and `speaking.html` keep only four native numeric language rows, make both acoustic rows null/`NOT_SCORABLE`, expose no `/70` subtotal, aggregate, holistic or attempt score and fail legacy/reserved envelopes closed. A trusted score-bearing typed envelope requires exactly all six rows; authoritative `TRANSCRIPTION_LOW_CONFIDENCE` keeps current transcript provenance with an empty rubric profile and no number. `OpenAiCompatibleSpeakingEvaluationClient` still sends only transcript plus optional question image; `AUDIO_DIRECT_FULL_RESERVED` is a disabled seam, not a capability. | Preserve the validated transcript-only, low-confidence and evidence guards. In Pre-15 choose exactly one branch: (A) keep full/audio-grounded Speaking disabled with proof; or (B) after PRE-08 policy approval, implement a dark separately named evaluator/API that demonstrably consumes authorized learner audio, then pass PRE-07 calibration/readiness before rollout. Configuration flags alone cannot authorize branch B. | Branch A closes as `DISABLED_BY_POLICY_WITH_PROOF`: no request sends audio to the scorer, readiness stays blocker-red and every surface exposes only the transcript profile plus null acoustic rows. Branch B closes as `IMPLEMENTED_AND_ACCEPTED`: captured request proves authorized audio reached the scorer and PRE-07/PRE-08 evidence is green. Both branches must preserve no-claim tests for low-confidence/current, legacy/reserved/malformed payloads. |
 | `P15-PRE-02` | `PRE_PHASE_14_BLOCKER` | Writing has useful task-native rubrics and strict evidence spans, but the scoring profile is unnamed: Q53 is `12/9/9`, Q54 is `20/15/15`; prompt text also mixes conditional authoritative-task rules with unconditional Q54 “three questions” requirements. `TASK_METADATA` exists but provider findings using it are rejected. Character warnings describe deductions that the backend does not deterministically apply, and there is no governed performance-descriptor plus finding-impact/score-consistency model. | Before 14A choose and version one explicit profile. `KSH_INTERNAL_BALANCED` may retain justified internal weights but must never be presented as official TOPIK. `TOPIK_ALIGNED` must use the public official task criteria and weights recorded in the design source. Add versioned performance descriptors and score/finding consistency/impact invariants; remove prompt contradictions, make task requirements/data authoritative only when supplied, implement deterministic length/format policy, and either support validated `TASK_METADATA` or remove claims that require it. This contract closure is not final SME/calibration acceptance. | Contract fixtures for Q51-Q54 and GENERAL produce stable criterion totals, evidence, descriptors and labels. Major findings and criterion levels satisfy measurable consistency rules; every displayed score names its profile and maximum. No prompt says a structured requirement is optional in one paragraph and mandatory in another. |
-| `P15-PRE-03` | `PHASE_13E_RUNTIME_PREREQUISITE`; contract/data closure feeds pre-14 | Reading/Listening still use one MCQ-shaped response schema (`meaningVi`, one `evidenceQuote`, `correctReasonVi`, `eliminatedOptions`) for all three constructs. Type-specific behavior mainly changes through prompt prose; image evidence is not yet bound to an asset/region. | Phase 13E owns the versioned discriminated provider/read/display contract and renderer for `SINGLE_CHOICE`, `FILL_BLANK` and `TRUE_FALSE_NOT_GIVEN`, including backend-owned Vietnamese labels and honest unavailable states. Pre-14 verifies the typed contract, bound evidence authority and explicit v2 `KEEP`/`DUAL_READ`/`MIGRATE`/`REGENERATE`/`DELETE_UAT_ONLY` decision; final Korean-SME/calibration acceptance remains post-14. | Phase 13E proof rejects cross-type shapes and renders type-native fixtures without provider HTML. Pre-14 proof additionally covers text/visual/no-evidence cases and one explicit v2 disposition/rebind decision. Final academic corpus/calibration proof belongs to release closure. |
+| `P15-PRE-03` | `PHASE_13E_RUNTIME_PREREQUISITE`; contract/data closure feeds pre-14 | Reading/Listening still use one MCQ-shaped response schema (`meaningVi`, one `evidenceQuote`, `correctReasonVi`, `eliminatedOptions`) for all three constructs. Type-specific behavior mainly changes through prompt prose; image evidence is not yet bound to an asset/region. | Phase 13E owns the versioned discriminated provider/read/display contract and renderer for `SINGLE_CHOICE`, `FILL_BLANK` and `TRUE_FALSE_NOT_GIVEN`, including backend-owned Vietnamese labels and honest unavailable states. Pre-14 verifies the typed contract, bound evidence authority and explicit v2 `KEEP`/`DUAL_READ`/`MIGRATE`/`REGENERATE`/`DELETE_UAT_ONLY` decision; final Korean-SME/calibration acceptance remains in Pre-15 before Manual UAT. | Phase 13E proof rejects cross-type shapes and renders type-native fixtures without provider HTML. Pre-14 proof additionally covers text/visual/no-evidence cases and one explicit v2 disposition/rebind decision. Final academic corpus/calibration proof belongs to release closure. |
 | `P15-PRE-04` | `PRE_PHASE_14_BLOCKER` | Writing and Speaking rule engines contain short substring/list rules. Such rules cannot represent the historical and current diversity of Korean and may create lexical false positives (for example matching `랑` inside a larger lexical item). | Before 14A reclassify deterministic rules as narrow signals, use token/boundary-aware matching where deterministic detection is retained, attach task/register/evidence scope, deduplicate overlaps and prohibit a rule hit from directly manufacturing a score. The rubric/model evaluates open Korean expression; code validates contracts and high-confidence invariants. | Counterexample tests cover lexical containment, acceptable colloquial/contextual use, spacing, Unicode normalization and repeated signals. Rule-only output cannot reduce an unrelated criterion without evidence. |
-| `P15-PRE-05` | `PRE_14_DATA_DECISION_AND_GUARDED_REBASELINE; RETAINED_DATA_CLOSURE_PRE_15` | Compatibility JSON and database history are being used as a reason to postpone correctness decisions. Writing cache/result and attempt AI feedback are versioned/flexible JSON, while R/L artifact rebinding has a real relational constraint. The current local database is evidence, not a master/canonical database. | Before 14A record per-payload `KEEP`/`DUAL_READ`/`MIGRATE`/`REGENERATE`/`DELETE_UAT_ONLY`, enforce new-write/dual-read or invalidation and implement append-only active/superseded binding history. After consolidated Phase 13E and final schema freeze, rebaseline only when written evidence proves no retained/deployed/shared/canonical/upgrade obligation; otherwise stop and use forward-only. After 14F, release closure handles retained-data removal and canonical-UAT reset. | Pre-14 proof includes the written payload decision, binding/cache identity behavior, no-obligation decision, fresh Flyway/Hibernate validation and technical smoke identity. Post-14 proof records retained-data/UAT disposition. No correctness blocker is deferred merely with “database còn dữ liệu”. |
+| `P15-PRE-05` | `PRE_14_DATA_DECISION_AND_GUARDED_REBASELINE; RETAINED_DATA_CLOSURE_PRE_15` | Compatibility JSON and database history are being used as a reason to postpone correctness decisions. Writing cache/result and attempt AI feedback are versioned/flexible JSON, while R/L artifact rebinding has a real relational constraint. The current local database is evidence, not a master/canonical database. | During Pre-14 record per-payload `KEEP`/`DUAL_READ`/`MIGRATE`/`REGENERATE`/`DELETE_UAT_ONLY`, enforce new-write/dual-read or invalidation and implement append-only active/superseded binding history. After consolidated Phase 13E and final schema freeze, rebaseline only when written evidence proves no retained/deployed/shared/canonical/upgrade obligation; otherwise stop and use forward-only. Pre-15 release closure handles retained-data removal and canonical-UAT reset before Manual UAT. | Pre-14 proof includes the written payload decision, binding/cache identity behavior, no-obligation decision, fresh Flyway/Hibernate validation and technical smoke identity. Pre-15 proof records retained-data/UAT disposition. No correctness blocker is deferred merely with “database còn dữ liệu”. |
 | `P15-PRE-06` | `PHASE_13E_REPLACEMENT + PRE_PHASE_14_REFERENCE/LEGACY_PROOF` | Current detail is split between legacy `result-detail.html` and `rl-result-detail.html`; Writing/Speaking still share a generic browser-side JSON parser and evaluator sample tab. Phase 13D supplied only bounded safety guards. Lecturer `essaySample`/`speakingSample` is not yet proven to round-trip into canonical immutable published content. | Phase 13E owns exactly three typed skill-native screen contracts. Before 14A, lecturer reference must prove immutable round-trip or remain hidden/unreportable with debt; after consolidated 13E validation, COMP-10 removes only the verified-dead generic detail cluster. | Phase 13E proves one-of-three dispatch, type-native rendering, four W/S tabs and evidence honesty. Pre-14 proof verifies lecturer-reference visibility policy and one canonical report-entry screen context with no parallel parser. |
-| `P15-PRE-07` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER` | `AiCalibrationReadinessPolicy` can pass with five fixtures per skill and broad percentage ranges; teacher review is only a warning. `AiCalibrationFixture` has no task/response/evidence mode, criterion/audio diversity, rater/adjudication/agreement or provider/bundle digest. `SpeakingProviderRolloutReadiness` correctly blocks the current transcript evaluator but has no teacher-reviewed acoustic validity evidence. | After 14F, Academic SME + backend/readiness calibrate every released Writing/Speaking/R/L-AI policy bundle with a versioned Korean corpus, annotation guide, multiple raters/adjudication, task/criterion/evidence diversity and repeat/provider-drift checks. If PRE-01 branch B supplies direct audio, add representative audio/device/accent/environment coverage; branch A must not pretend to have acoustic calibration. | Released bundles close as `IMPLEMENTED_AND_ACCEPTED` only when required dimensions/digests and Section 15 agreement/error/fairness/repeatability thresholds are green. Branch A closes acoustic scope as `NOT_APPLICABLE_WITH_PROOF` while readiness remains blocker-red. |
-| `P15-PRE-08` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER_FOR_DIRECT_AUDIO`; report-attachment privacy is a separate pre-14 contract | `PracticeSpeakingMedia`, `PracticeSpeakingMediaService`, cleanup tasks, transcription resolver and owner playback provide technical lifecycle/access controls, but not an explicit consent/purpose/provider-disclosure contract, provider non-retention proof, withdrawal semantics or approved evaluator retention schedule. The playback controller is student-only/owner-scoped, so reviewer access is also not an authorized product boundary. | Security/Privacy + Backend define policy before any PRE-01 branch-B audio transfer. If direct audio stays disabled, prove scorer requests cannot include audio and document the existing recording/transcription/playback boundary. If enabled after 14F, additionally approve evaluator provider/purpose/region, non-training/retention terms, withdrawal semantics, deletion SLA, audit fields and explicit reviewer grants. | Branch A closes as `DISABLED_BY_POLICY_WITH_PROOF` for evaluator transfer. Branch B requires consent/withdrawal and owner/reviewer authorization tests, provider non-retention evidence and privacy-safe audit. The Phase 14 screenshot/audio attachment policy is closed independently before 14B. |
+| `P15-PRE-07` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER` | `AiCalibrationReadinessPolicy` can pass with five fixtures per skill and broad percentage ranges; teacher review is only a warning. `AiCalibrationFixture` has no task/response/evidence mode, criterion/audio diversity, rater/adjudication/agreement or provider/bundle digest. `SpeakingProviderRolloutReadiness` correctly blocks the current transcript evaluator but has no teacher-reviewed acoustic validity evidence. | In Pre-15, Academic SME + backend/readiness calibrate every released Writing/Speaking/R/L-AI policy bundle with a versioned Korean corpus, annotation guide, multiple raters/adjudication, task/criterion/evidence diversity and repeat/provider-drift checks. If PRE-01 branch B supplies direct audio, add representative audio/device/accent/environment coverage; branch A must not pretend to have acoustic calibration. | Released bundles close as `IMPLEMENTED_AND_ACCEPTED` only when required dimensions/digests and Section 15 agreement/error/fairness/repeatability thresholds are green. Branch A closes acoustic scope as `NOT_APPLICABLE_WITH_PROOF` while readiness remains blocker-red. |
+| `P15-PRE-08` | `PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER_FOR_DIRECT_AUDIO`; report-attachment privacy is a separate pre-14 contract | `PracticeSpeakingMedia`, `PracticeSpeakingMediaService`, cleanup tasks, transcription resolver and owner playback provide technical lifecycle/access controls, but not an explicit consent/purpose/provider-disclosure contract, provider non-retention proof, withdrawal semantics or approved evaluator retention schedule. The playback controller is student-only/owner-scoped, so reviewer access is also not an authorized product boundary. | Security/Privacy + Backend define policy before any PRE-01 branch-B audio transfer. If direct audio stays disabled, prove scorer requests cannot include audio and document the existing recording/transcription/playback boundary. If enabled in Pre-15, additionally approve evaluator provider/purpose/region, non-training/retention terms, withdrawal semantics, deletion SLA, audit fields and explicit reviewer grants. | Branch A closes as `DISABLED_BY_POLICY_WITH_PROOF` for evaluator transfer. Branch B requires consent/withdrawal and owner/reviewer authorization tests, provider non-retention evidence and privacy-safe audit. The deferred Phase 14 screenshot/audio attachment policy is still closed independently before 14B. |
 | `P15-PRE-09` | `PRE_PHASE_14_BLOCKER` | Writing/Speaking policy identity is split across task resolver/spec assumptions, `WritingScoringPolicy`, rubric/taxonomy, prompt/schema constants, normalizers, cache/reuse keys and calibration fixtures. `WritingEvaluationCacheService` identity includes prompt/rubric/schema/model inputs but not one canonical task-spec + scoring-profile + descriptor + taxonomy + evidence-policy + evidence-validator version + ASR confidence/availability policy + calibration-set bundle. | Before 14A introduce one immutable `AssessmentPolicyBundle` identity used by request construction, cache/reuse, provider provenance, normalizer and persisted result. Evidence-validator behavior, ASR threshold/policy and score-availability semantics are versioned inputs; incompatible old JSON follows the pre-14 portion of PRE-05. Final calibration-set acceptance is bound later without changing the stable identity model. | Mutating each identity component, validator version, ASR threshold or availability rule causes cache/reuse miss and prevents stale reinterpretation; persisted/current result proves exact bundle match; source scan finds no independent fallback version that can authorize a score. |
-| `P15-PRE-10` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | `WritingEvaluationClient` builds its production `RestClient` without a request factory or explicit connect/read timeout; `OpenAiProperties` has no timeout field, while Speaking and R/L provider paths already expose bounded timeout configuration. | Owner: 13H/provider operational hardening. Complete and validate it in 13H; the pre-14 gate only verifies accepted evidence and does not reimplement it. Provider/load UAT remains post-14. | Source/config scan shows the Writing client applies bounded connect/read timeouts; focused timeout/retry tests return `EVALUATION_UNAVAILABLE` with no fake score; provider/load UAT later records bounded latency. |
+| `P15-PRE-10` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14; IMPLEMENTED_PENDING_OWNING_VALIDATION` | The pulled-forward sidecar adds bounded `openai.connect-timeout` / `openai.read-timeout` properties and wires a `SimpleClientHttpRequestFactory` into the production Writing `RestClient`. Maven source/test compilation is green, but no timeout test method or provider/load UAT has run. | Owner: 13H/provider operational hardening. Validate it once in the owning unit; the pre-14 gate only verifies accepted evidence and does not reimplement it. Provider/load UAT remains Phase 15 work after Pre-15. | Source/config scan shows the Writing client applies bounded connect/read timeouts; focused timeout/retry tests return `EVALUATION_UNAVAILABLE` with no fake score; provider/load UAT later records bounded latency. |
 | `P15-PRE-11` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | `PracticeManageController` loads collaborators per set and users per grant (`findBySetIdAndRevokedAtIsNull`, then `userRepository.findById`), preserving authorization but producing N+1 queries. | Owner: 13H/performance hardening. Complete and validate it in 13H; the pre-14 gate only verifies evidence. | Query-count fixture over multiple sets/collaborators is bounded independent of row count, and authorization regression proves no additional set/user visibility. |
-| `P15-PRE-12` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | `PracticeSpeakingMediaCleanupTaskRepository.findDueTaskIds` selects due IDs without an atomic claim/lease; optimistic completion limits stale status writes but two nodes may perform duplicate external deletion/work. | Owner: 13H/operational storage hardening. Complete and validate it in 13H; the pre-14 gate only verifies evidence, while multi-node/R2 UAT remains post-14. | Concurrent-worker test proves one active claimant per task/lease; retry and expired-claim recovery are deterministic; storage logs show no duplicate non-idempotent operation. |
-| `P15-PRE-13` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | Practice PDF AI generation still lacks a durable atomic double-submit/idempotency boundary, and `PracticePdfCropService.cropRegion` renders/crops synchronously in the request path. | Owner: 13H/provider-load hardening. Phase 13F is green but does not claim this debt. Complete and validate it in 13H; the pre-14 gate only verifies evidence, while provider/load UAT remains post-14. | Concurrent-submit fixture produces one generation; crop workload has bounded request latency/resource evidence and durable failure/retry state; no duplicate provider charge or orphan crop is observed. |
-| `P15-PRE-14` | `SPLIT_ROUTE — VERSIONED_RUNTIME_CONTRACT_PRE_14; FINAL_SME_CALIBRATION_PRE_15`; learner-surface subset `IN_PROGRESS_PHASE_13E` | Speaking instructions/labels still contain English; Writing mixes Vietnamese with internal English; W/S diagnostics are broad and R/L lacks typed learning lenses. Current Writing finding categories/IDs and the 16 bounded Speaking transcript subcriteria/examples cannot truthfully represent all historical or contemporary Korean. | Phase 13E owns backend-controlled Vietnamese/Korean learner labels, separation of score criterion/diagnostic/filter chip, a bounded registry subset, typed R/L learning lenses and evidence-honest no-claim copy; 13E-03 is only the Writing UI/contract seam under three stable scoring criteria. Before 14A, expand/version the construct/subcriterion contract for both Writing and Speaking, audit Q51/Q52/Q53/Q54/GENERAL applicability, evidence authority, descriptor/impact and parent score mapping, complete the strict provider schema/prompt/normalizer/bounded-rule/cache identity, keep stable IDs ASCII, and bind typed R/L explanation plus bundle identity. Adding enums is not academic proof. After 14F, close Korean-SME sign-off, golden/adversarial corpus, calibration, fairness and repeatability. | Phase 13E source/render snapshots show no raw English learner label or unsupported evidence/acoustic claim. Pre-14 proof covers the versioned task × construct × evidence × descriptor/parent contract and explicit no-exhaustive-Korean claim. Pre-15 proof separately records SME/calibrated supported-domain acceptance. |
-| `P15-PRE-15` | `PHASE_13H_REPRODUCIBLE_TOOLCHAIN_PREREQUISITE_BEFORE_PHASE_14` | `pom.xml` declares Java 17, while tracked IntelliJ metadata selects `openjdk-26`, pins Lombok `1.18.36` as an annotation processor and still names stale module `ulp`. IntelliJ therefore invokes javac 26 against a Lombok generation that supports only through JDK 23 and fails with `ExceptionInInitializerError` / `TypeTag.UNKNOWN`. Accepted phase gates already use installed Homebrew JDK 17. | Owner: 13H/toolchain hardening. Make JDK 17 canonical for project/module, Maven importer/runner, Spring Boot run configuration and CLI; remove stale IDE processor/module overrides and add a repository-enforced Java-version guard. Do not treat “upgrade Lombok until accidental JDK 26 works” as the default fix. Pre-14 verifies accepted evidence. | A clean import and the one 13H validation run use the same JDK 17; IntelliJ no longer reports the Lombok initializer error; Maven Enforcer/toolchain evidence rejects an unsupported JDK; no stale `ulp` processor entry remains. |
-| `P15-PRE-16` | `PHASE_13H_DEPENDENCY_SECURITY_BASELINE_PREREQUISITE_BEFORE_PHASE_14; RELEASE_RESCAN_PRE_15` | The parent is Spring Boot `3.4.4`; IntelliJ/Mend reports repeated direct/transitive advisories through Spring Framework/Security, Tomcat, Thymeleaf, Logback, Jackson, Nimbus and test libraries. Direct pins such as POI `5.2.5`, PDFBox `3.0.3` and jsoup `1.18.3` also require review. Repeated warnings through multiple starters are not 57 independent XML/compile errors, but they cannot be ignored for production. | Owner: 13H/platform-security hardening. At execution time capture the resolved tree/SBOM and current official advisories, move through one supported Java-17-compatible Spring Boot BOM rather than random transitive overrides, then assess direct pins separately. Classify runtime/test scope and reachability; record any bounded exception. Pre-14 verifies the baseline; post-14/pre-15 reruns the scan because advisories change. | Dated dependency tree/SBOM and scan are attached; the BOM is coherent; no exploitable Critical/High dependency is shipped in the runtime path without an owner, mitigation and expiry; direct parsers/sanitizers have focused regression coverage; the broad 13H change passes one consolidated gate. A fresh release rescan is green or produces an explicit NO-GO/exception before Manual UAT. |
-| `P15-PRE-17` | `PHASE_13C3_PREREQUISITE_BEFORE_PHASE_14` | Current `question-content-v1`, Editor, validator and learner player require prompt audio for every new Speaking question; there is no lecturer-prompt STT lifecycle, no TTS port, no text-only branch and no evaluator-only immutable prompt-context identity. Learner-answer STT is a different authorization/domain boundary and cannot safely stand in for lecturer authoring. | Owner: `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`; current next action is `13C3-00`, followed by `13C3-01..04` and its own gate before 13G. Implement `audio_upload` using the original lecturer audio plus internal-only STT context, and `manual_text` using text-only delivery or explicit previewable TTS with stale/regenerate. Add learner-safe `question-content-v2`, owner-scoped durable artifacts/tasks/fingerprints, immutable evaluator-only version context, mode-dependent publish/player behavior and v1 dual-read. | Accepted 13C3 gate proves the transcript never reaches learner payloads, text-only makes zero TTS requests, uploaded audio never invokes TTS, same fingerprints dedupe provider charges, late results cannot overwrite newer revisions, stale/pending/failed required artifacts block publish, old v1 attempts remain immutable, and authorized Editor/player/browser plus cost-bounded provider evidence are green before Phase 14. |
+| `P15-PRE-12` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | `PracticeSpeakingMediaCleanupTaskRepository.findDueTaskIds` selects due IDs without an atomic claim/lease; optimistic completion limits stale status writes but two nodes may perform duplicate external deletion/work. | Owner: 13H/operational storage hardening. Complete and validate it in 13H; the pre-14 gate only verifies evidence, while multi-node/R2 UAT remains Phase 15 work after Pre-15. | Concurrent-worker test proves one active claimant per task/lease; retry and expired-claim recovery are deterministic; storage logs show no duplicate non-idempotent operation. |
+| `P15-PRE-13` | `PHASE_13H_PREREQUISITE_BEFORE_PHASE_14` | Practice PDF AI generation still lacks a durable atomic double-submit/idempotency boundary, and `PracticePdfCropService.cropRegion` renders/crops synchronously in the request path. | Owner: 13H/provider-load hardening. Phase 13F is green but does not claim this debt. Complete and validate it in 13H; the pre-14 gate only verifies evidence, while provider/load UAT remains Phase 15 work after Pre-15. | Concurrent-submit fixture produces one generation; crop workload has bounded request latency/resource evidence and durable failure/retry state; no duplicate provider charge or orphan crop is observed. |
+| `P15-PRE-14` | `SPLIT_ROUTE — VERSIONED_RUNTIME_CONTRACT_PRE_14; FINAL_SME_CALIBRATION_PRE_15`; learner-surface subset `IN_PROGRESS_PHASE_13E` | Speaking instructions/labels still contain English; Writing mixes Vietnamese with internal English; W/S diagnostics are broad and R/L lacks typed learning lenses. Current Writing finding categories/IDs and the 16 bounded Speaking transcript subcriteria/examples cannot truthfully represent all historical or contemporary Korean. | Phase 13E owns backend-controlled Vietnamese/Korean learner labels, separation of score criterion/diagnostic/filter chip, a bounded registry subset, typed R/L learning lenses and evidence-honest no-claim copy; 13E-03 is only the Writing UI/contract seam under three stable scoring criteria. During Pre-14, expand/version the construct/subcriterion contract for both Writing and Speaking, audit Q51/Q52/Q53/Q54/GENERAL applicability, evidence authority, descriptor/impact and parent score mapping, complete the strict provider schema/prompt/normalizer/bounded-rule/cache identity, keep stable IDs ASCII, and bind typed R/L explanation plus bundle identity. Adding enums is not academic proof. In Pre-15, close Korean-SME sign-off, golden/adversarial corpus, calibration, fairness and repeatability. | Phase 13E source/render snapshots show no raw English learner label or unsupported evidence/acoustic claim. Pre-14 proof covers the versioned task × construct × evidence × descriptor/parent contract and explicit no-exhaustive-Korean claim. Pre-15 proof separately records SME/calibrated supported-domain acceptance. |
+| `P15-PRE-15` | `PHASE_13H_REPRODUCIBLE_TOOLCHAIN_PREREQUISITE_BEFORE_PHASE_14; IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION` | Historical workstation-local `.idea` state (ignored by Git) selected `openjdk-26`, pinned Lombok `1.18.36` and named stale module `ulp`, causing the observed javac 26/Lombok `ExceptionInInitializerError` / `TypeTag.UNKNOWN`. The pulled-forward working-tree candidate adds `.java-version` `17`, compiler release `17`, Maven Enforcer `[17,18)` and BOM-managed Lombok `1.18.46`. This workstation's project/module SDK, Maven importer/runner and `KshApplication` module JRE resolve to Homebrew JDK `17.0.19`. A user-authorized diagnostic reload plus Maven production/test compilation and IntelliJ build completed with zero errors; no test method or startup ran. | Owner remains 13H/toolchain hardening or its explicitly grouped pre-14 predecessor. Preserve the repository guard and local JDK-17 alignment; never stage ignored `.idea` files as the portable fix. Close this only in the owning consolidated validation, including clean import and CLI/IDE agreement; the diagnostic build is evidence, not phase closure. | The one owning validation uses the same JDK 17 for clean import, compile/test gate and run configuration; Enforcer rejects outside `[17,18)`; IntelliJ no longer reports the Lombok initializer error; no stale local `ulp` processor profile is active. Current status is candidate evidence, not green. |
+| `P15-PRE-16` | `PHASE_13H_DEPENDENCY_SECURITY_BASELINE_PREREQUISITE_BEFORE_PHASE_14; IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION_AND_SUPPORT_DECISION; RELEASE_RESCAN_PRE_15` | The working-tree candidate moves Spring Boot `3.4.4` to the coherent Java-17-compatible `3.5.16` BOM, updates POI `5.2.5→5.5.1`, PDFBox `3.0.3→3.0.8` and jsoup `1.18.3→1.22.2`, and uses named BOM overrides for Commons Lang `3.20.0`, Logback `1.5.38` and Tomcat `10.1.57`. Commons Lang is above the fixed boundary for CVE-2025-48924. Commons Codec is held at POI 5.5.1's declared `1.20.0` level instead of Boot's older `1.18.0`. A focused JDK-17 `dependency:resolve` resolved the graph; Maven then compiled `644` production and `233` test sources, and IntelliJ finished with zero errors. No test method, application startup, migration or security scan is claimed. Spring Boot `3.5.16` is a bounded final-OSS bridge, not a closed production-support decision. | Owner remains 13H/platform-security hardening or its explicitly grouped pre-14 predecessor. In the owning consolidated validation capture the resolved tree, attach dated SBOM/advisory/reachability evidence, regression-check direct parsers/sanitizer and record the supported Spring Boot line or commercial-support choice. Do not add arbitrary Spring Framework/Security/Jackson overrides. Pre-14 verifies the accepted baseline; Pre-15 reruns the time-sensitive scan immediately before Manual UAT. | Dated resolved tree/SBOM and scan are attached; the BOM is coherent; direct parser/sanitizer regression is green; no exploitable runtime Critical/High remains without owner, mitigation and expiry; the production support-lifecycle decision is explicit. A fresh release rescan is green or produces an explicit NO-GO/exception before Manual UAT. |
+| `P15-PRE-17` | `PHASE_13C3_PREREQUISITE_BEFORE_PHASE_14`; `CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`; `BROWSER_DEFERRED_END_PHASE_13`; `LIVE_STT_TTS_NOT_APPROVED` | The prior 143/144/163-path snapshots are historical for their exact digests. The final 167-path isolated snapshot includes the Vietnamese/responsive/private-material union plus the four-path authorization/material transaction correction. JDK 17 compile, the 53-class 497/497 selector, bounded 31/31 gap closure and fresh V1-V45 Flyway/Hibernate/authenticated Practice proof are green. Excel still ends at exact private staging; only a separate ID-free Editor action may verify/bind and enqueue STT, never TTS. Learner-answer STT remains a different authorization/domain boundary and cannot safely stand in for lecturer authoring. Browser QA is explicitly deferred; diagnostic browser activity is not gate evidence. | Owner: `PHASE_13C3_SPEAKING_PROMPT_AUTHORING_CORRECTION`; create granular commits and push the validated series once before 13G, then run the two fresh independent audits only on that pushed snapshot. Pre-14 JDK/dependency, Writing/cache and dead-resource sidecars are not 13C3 evidence. Keep both the project-wide and Practice-specific AI/storage implementations present, operational and separate for now: no current redirection or commonization. A later common/Admin/global reconciliation belongs only to the audit-first post-Phase-13 phase and must be approved slice by slice. | The accepted validation plus two fresh post-push static acceptances prove the transcript never reaches learner payloads, text-only makes zero TTS requests, uploaded audio never invokes TTS, every purpose/retention drift misses reuse, published-byte reupload yields a private logical identity, late results cannot overwrite newer revisions, stale/pending/failed required artifacts block publish and old v1 attempts remain immutable. Authorized end-of-Phase-13 Editor/player/browser evidence and separately approved cost-bounded provider evidence remain required before Pre-15/Manual UAT; neither is falsely claimed here. |
 
-Audit source anchors recorded on `2026-07-25`:
+Audit source anchors refreshed on `2026-07-27`:
 
 - [Lombok changelog](https://projectlombok.org/changelog): `1.18.36` adds JDK
   23 support; JDK 26 support begins at `1.18.46`.
@@ -276,8 +337,23 @@ Audit source anchors recorded on `2026-07-25`:
 - [Spring Boot 3.4.13 release notice](https://spring.io/blog/2025/12/18/spring-boot-3-4-13-available-now/):
   `3.4.x` has reached end of open-source support.
 - [Spring Boot 3.5 system requirements](https://docs.spring.io/spring-boot/3.5/system-requirements.html):
-  the supported 3.5 line uses Java 17 as its minimum. The exact target BOM must
-  still be selected from current official evidence when 13H executes.
+  the 3.5 line uses Java 17 as its minimum.
+- [Spring Boot 3.5.16 release notice](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now/):
+  the working-tree BOM is the bounded final open-source 3.5 bridge; supported
+  production-line or commercial-support approval remains separate.
+- [Spring Boot dependency coordinates](https://docs.spring.io/spring-boot/3.5/appendix/dependency-versions/coordinates.html)
+  and [override properties](https://docs.spring.io/spring-boot/3.5/appendix/dependency-versions/properties.html):
+  security bridges use documented BOM properties rather than duplicate direct
+  dependencies.
+- [CVE-2025-48924](https://nvd.nist.gov/vuln/detail/CVE-2025-48924)
+  and [Commons Lang changes](https://commons.apache.org/proper/commons-lang/changes.html):
+  affected versions are below `3.18.0`; the candidate uses `3.20.0`.
+- [Apache POI 5.5.1 changes](https://poi.apache.org/changes.html):
+  POI `5.5.1` upgrades Commons Codec to `1.20.0`; the repository override keeps
+  that declared dependency level instead of Boot `3.5.16`'s older management.
+- [Commons Codec changes](https://commons.apache.org/proper/commons-codec/changes.html):
+  `1.20.0` is a Java-8-or-later maintenance release and remains compatible
+  with the repository's enforced JDK 17.
 
 #### 4.1.1 Design / workflow / inventory production-decision crosswalk
 
@@ -294,14 +370,14 @@ an accepted silent debt.
 | Current Speaking is transcript-only; four native language rows may be numeric, acoustic rows are null/`NOT_SCORABLE`, and no subtotal/holistic/attempt score exists. | `ALIGNED`; Phase 13D focused gate and fresh-route gate green | `P15-PRE-01`; compatibility `P15-COMP-03/04/12/19` | Preserve the committed Phase 13D contract during Phase 13E. Historical “six criteria/holistic” ledger rows are superseded, not rewritten. | `SpeakingEvaluationResult`, `SpeakingEvaluationNormalizer`, `SpeakingEvaluationOrchestrator`, `SpeakingScorePolicy`, `SpeakingFeedbackCompatibilityReader`, `SpeakingResultPresenter`, `PracticeDtos`, `PracticeService`, `result/speaking.html`, bounded `result-detail.html` | Current/low-confidence/legacy/reserved/malformed fixtures expose no unsupported acoustic number, `/70`, level or holistic score; only current validated transcript rows contribute coverage. Low-confidence remains current provenance with no profile. |
 | Future full Speaking requires authorized direct audio, academic calibration, privacy/retention and rollout readiness. | `MISSING` capability; correctly `NO-GO` | Staged path: PRE-08 policy -> PRE-01 dark capability -> PRE-07 calibration/readiness -> rollout; PRE-12 is operational coordination, not a predecessor cycle | No Phase 15 Manual UAT/full rollout until branch-B blockers are green. Branch A may enter UAT only with full/audio scoring disabled and fail-closed proof; UX-05 does not implement direct audio. | `OpenAiCompatibleSpeakingEvaluationClient`, `SpeakingEvaluatorCapability`, `SpeakingProviderRolloutReadiness`, `AiCalibrationReadinessPolicy`, media/playback/cleanup services | Branch B: captured request proves authorized learner audio reached the scorer; calibration/privacy/readiness pass. Branch A: no request can carry audio and readiness remains blocker-red while transcript-only UI is honest. |
 | Writing new scoring remains task-native (`Q51/Q52 /10`, `Q53 /30`, `Q54 /50`, `GENERAL /100`); diagnostics are non-additive; local band 1–9 is compatibility only. | `PARTIAL` | `P15-PRE-02/09`; retire band path in `P15-COMP-18` | Current UX stays KSH-practice-labelled; profile/bundle and removal from canonical new-write/runtime/UI must finish before 14A. Any retained read-only adapter gets an explicit expiry; destructive history disposition waits for release closure. | `WritingScoringPolicy`, `WritingScoringRubric`, `WritingEvaluationNormalizer`, `WritingScoreMatrix`, `WritingResultPresenter`, `result/writing.html` | Canonical prompt/provider/new-write/UI scan has no 1–9 inference or band label; task maxima unchanged. Retained/migrated history additionally needs a bounded expiring read adapter. |
-| R/L explanations are discriminated by canonical question type, and a new artifact version must use an explicit relational supersession/rebind decision. | `PARTIAL`; typed runtime/renderer `COMPLETE_FOCUSED_GATE_GREEN_13E_02` | `P15-PRE-03/05`; `P15-COMP-10/16`; Phase 13E renderer | Phase 13E owns the typed current runtime/detail contract. Pre-14 owns v2 disposition and append-only active/superseded binding history, either inside the guarded rebaseline after the no-obligation proof or through a separately reviewed forward migration when that guard stops. Final SME/calibration and canonical UAT seed remain post-14F. | `ReadingListeningExplanationClient`, `QuestionExplanationReadService`, `QuestionVersionExplanationBindingRepository`, Phase 13E objective-detail files | Cross-type schemas are rejected; MCQ/fill/TFNG fixtures render their own evidence; exactly one active compatible binding resolves while prior history is auditable. |
+| R/L explanations are discriminated by canonical question type, and a new artifact version must use an explicit relational supersession/rebind decision. | `PARTIAL`; typed runtime/renderer `COMPLETE_FOCUSED_GATE_GREEN_13E_02` | `P15-PRE-03/05`; `P15-COMP-10/16`; Phase 13E renderer | Phase 13E owns the typed current runtime/detail contract. Pre-14 owns v2 disposition and append-only active/superseded binding history, either inside the guarded rebaseline after the no-obligation proof or through a separately reviewed forward migration when that guard stops. Final SME/calibration and canonical UAT seed remain Pre-15 work before Manual UAT. | `ReadingListeningExplanationClient`, `QuestionExplanationReadService`, `QuestionVersionExplanationBindingRepository`, Phase 13E objective-detail files | Cross-type schemas are rejected; MCQ/fill/TFNG fixtures render their own evidence; exactly one active compatible binding resolves while prior history is auditable. |
 | Rule engines are bounded deterministic signals and cannot manufacture score or acoustic evidence. | `ALIGNED` as design boundary; hardening open | `P15-PRE-04`, bundle identity `P15-PRE-09` | Preserve fail-closed UX now; counterexample hardening is a pre-14 blocker. | `WritingRuleEngine`, `SpeakingRuleEngine`, prompt builders and normalizers | Boundary/Unicode/context counterexamples pass; duplicate signals collapse; rule-only output cannot alter an unrelated criterion or create audio claims. |
-| Assessment field language and Korean construct coverage are explicit and task-bounded across W/S/R/L. | Learner-surface/runtime subset `COMPLETE_FOCUSED_GATE_GREEN`; final calibrated acceptance correctly not claimed | `P15-PRE-14`, drawing contract artifacts from PRE-02/03/04/09, UI proof from PRE-06 and later academic proof from PRE-07 | Phase 13E supplies the bounded typed presentation. Before 14A, version the expanded Writing/Speaking construct/evidence/descriptor/parent contract and typed R/L identity without claiming all Korean. After 14F, close SME/calibration. Stable machine IDs remain ASCII. | `SpeakingPromptRules`, `SpeakingEvaluationPromptBuilder`, `SpeakingRubricCriterion`, `SpeakingFeedbackViewMapper`, `WritingPromptRules`, `WritingRubricCriterion`, `ReadingListeningExplanationClient`, normalizers and typed detail DTOs | Pre-14 proof covers task applicability—including Writing Q51/Q52/Q53/Q54/GENERAL—evidence authority, descriptor and parent mapping; adding enums is insufficient. Pre-15 proof adds Korean-SME and calibrated supported-domain acceptance. |
+| Assessment field language and Korean construct coverage are explicit and task-bounded across W/S/R/L. | Learner-surface/runtime subset `COMPLETE_FOCUSED_GATE_GREEN`; final calibrated acceptance correctly not claimed | `P15-PRE-14`, drawing contract artifacts from PRE-02/03/04/09, UI proof from PRE-06 and later academic proof from PRE-07 | Phase 13E supplies the bounded typed presentation. During Pre-14, version the expanded Writing/Speaking construct/evidence/descriptor/parent contract and typed R/L identity without claiming all Korean. During Pre-15, close SME/calibration. Stable machine IDs remain ASCII. | `SpeakingPromptRules`, `SpeakingEvaluationPromptBuilder`, `SpeakingRubricCriterion`, `SpeakingFeedbackViewMapper`, `WritingPromptRules`, `WritingRubricCriterion`, `ReadingListeningExplanationClient`, normalizers and typed detail DTOs | Pre-14 proof covers task applicability—including Writing Q51/Q52/Q53/Q54/GENERAL—evidence authority, descriptor and parent mapping; adding enums is insufficient. Pre-15 proof adds Korean-SME and calibrated supported-domain acceptance. |
 | Result Detail is exactly three screens (Objective R/L, Writing, Speaking); W/S each have four AI-feedback tabs and lecturer reference is separate. | Replacement `COMPLETE_FOCUSED_GATE_GREEN`; design/inventory aligned | `P15-PRE-06`; Phase 13E; cleanup `P15-COMP-10` | Phase 13E implements the replacement. After consolidated validation, pre-14 removes only verified-dead generic paths and either proves lecturer-reference immutable round-trip or keeps it hidden/unreportable with debt. | Legacy `result-detail.html`/`rl-result-detail.html`, `PracticeController`, `PracticePublisherService`, Phase 13E typed DTO/presenters/templates | Exactly one of three screen kinds renders; W/S have four feedback tabs; any visible lecturer reference round-trips outside AI JSON; old generic parser symbols have no references after cleanup. |
-| Prompt/rubric/schema/task/profile/evidence identity invalidates cache/reuse and prevents stale reinterpretation. | `PARTIAL` | `P15-PRE-09` with JSON decision `P15-PRE-05`; calibration digest binds at release closure | Pre-14 owns bundle identity and version bumps; post-14 calibration acceptance binds the approved corpus/digest without stale reinterpretation. | `WritingEvaluationCacheService`, `SpeakingEvaluationReusePolicy`, prompt rules/builders, normalizers, persisted evaluation envelopes | Mutating every bundle component misses cache/reuse; stored results require exact identity; old payload follows named dual-read/migrate/delete decision. |
-| Database/migration/seed/UAT reset is environment-evidence-driven, never an opportunistic Phase 13E deletion. | `REBASELINE_GO_WITH_GUARDS`; execution future | `P15-PRE-05`; `P15-COMP-13/15/16/17/18/19/22`; `P15-KEEP-01/05` | Phase 13E performs no mutation. Pre-14 may rebaseline only after no-obligation proof, final schema freeze and fresh disposable validation. Canonical SME UAT seed loads only after 14F. | V25-V44 audit, attempt/feedback JSON, explanation bindings, smoke/UAT manifests | Stop on any retained/deployed/canonical obligation; otherwise fresh Flyway/Hibernate plus technical smoke proof. No repair/reused DB, no content seed in baseline and no “master DB” claim. |
-| Java toolchain and dependency-security state are reproducible, coherent and release-rescanned. | `MISSING`; local JDK 17 exists but tracked IDE metadata and dependency baseline are not aligned | `P15-PRE-15/16`; 13H implementation, pre-14 evidence verification, pre-15 rescan | Preserve the accepted Phase 13F JDK 17 gate evidence. In 13H align and enforce the toolchain, then upgrade/audit dependencies as one platform-security slice. Re-scan after 14F before Manual UAT. | `pom.xml`, `.idea/misc.xml`, `.idea/compiler.xml`, Maven toolchain/enforcer config, resolved dependency tree/SBOM and security report | IDE/Maven/run/CLI agree on JDK 17; no Lombok initializer failure; dependency BOM is coherent; runtime Critical/High findings are fixed or governed; final dated rescan is attached. |
-| Historical workflow/gate/design statements remain audit history but cannot override current source truth. | `ALIGNED` after supersession notes | `P15-COMP-14` | Phase 13E and Phase 13F are `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`, with `331/331`, schema proof `44/44/0/1` and cleanup/absence `0`. The mandatory current action is `13C3-00`. Historical ledger rows stay unchanged. | `CODEX_PRACTICE_WORKFLOW.md`, Phase 13 gate/blueprint, design, Phase 13E/13F live logs | Current instruction sections identify `13C3-00` without reopening or downgrading accepted Phase 13E/13F evidence; archival rows remain dated/superseded. |
+| Prompt/rubric/schema/task/profile/evidence identity invalidates cache/reuse and prevents stale reinterpretation. | `PARTIAL` | `P15-PRE-09` with JSON decision `P15-PRE-05`; calibration digest binds at release closure | Pre-14 owns bundle identity and version bumps; Pre-15 calibration acceptance binds the approved corpus/digest without stale reinterpretation. | `WritingEvaluationCacheService`, `SpeakingEvaluationReusePolicy`, prompt rules/builders, normalizers, persisted evaluation envelopes | Mutating every bundle component misses cache/reuse; stored results require exact identity; old payload follows named dual-read/migrate/delete decision. |
+| Database/migration/seed/UAT reset is environment-evidence-driven, never an opportunistic Phase 13E deletion. | `REBASELINE_GO_WITH_GUARDS`; execution future | `P15-PRE-05`; `P15-COMP-13/15/16/17/18/19/22`; `P15-KEEP-01/05` | Phase 13E performs no mutation. Pre-14 may rebaseline only after no-obligation proof, final schema freeze and fresh disposable validation. Canonical SME UAT seed loads in Pre-15/Phase 15 before Manual UAT. | V25-V44 audit, attempt/feedback JSON, explanation bindings, smoke/UAT manifests | Stop on any retained/deployed/canonical obligation; otherwise fresh Flyway/Hibernate plus technical smoke proof. No repair/reused DB, no content seed in baseline and no “master DB” claim. |
+| Java toolchain and dependency-security state are reproducible, coherent and release-rescanned. | `IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION_AND_SUPPORT_DECISION`; local IDE is aligned but no green dependency gate is claimed | `P15-PRE-15/16`; pulled-forward candidate, 13H/pre-14 evidence acceptance, pre-15 rescan | Preserve Phase 13F evidence. Validate `.java-version`, compiler release/enforcer and the Boot `3.5.16` plus named security-bridge/direct-pin candidate as one owning unit. Decide the supported production line/commercial support before GO; re-scan in Pre-15 immediately before Manual UAT. | `pom.xml`, `.java-version`, ignored local IntelliJ settings, resolved dependency tree/SBOM and security report | IDE/Maven/run/CLI agree on JDK 17; no initializer failure; dependency resolution and direct-parser regression pass; BOM and support lifecycle are governed; runtime Critical/High findings are fixed or accepted with owner/expiry; final dated rescan is attached. |
+| Historical workflow/gate/design statements remain audit history but cannot override current source truth. | `ALIGNED` after supersession notes | `P15-COMP-14` | Phase 13E and Phase 13F are `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`, with `331/331`, schema proof `44/44/0/1` and cleanup/absence `0`. The prior 143-path 13C3 acceptance and failed pre-union 144-path audit attempts are historical for their exact digests; the 163-path union is ready for one consolidated validation, and the two fresh audits are scheduled after green validation/commit/push. Historical ledger rows stay unchanged. | `CODEX_PRACTICE_WORKFLOW.md`, Phase 13 gate/blueprint, design, Phase 13E/13F/13C3 live logs | Current instruction sections identify the exact union validation before coherent commits/push and the two post-push audits, without reopening or downgrading accepted Phase 13E/13F evidence; archival rows remain dated/superseded. |
 
 #### 4.1.2 Two-gate owner / staged execution ledger
 
@@ -313,22 +389,22 @@ accept rollout -> remove compatibility paths.
 
 | ID | Accountable owner | Implementation predecessor | Closure / coordinated item | Current execution status |
 | --- | --- | --- | --- | --- |
-| `P15-PRE-01` | Backend + Academic SME | Branch A disabled: none. Branch B direct audio: PRE-08 policy approval before any evaluator transfer | Post-14 branch B feeds PRE-07 calibration/readiness; COMP-19 producer removal is pre-14, retained-row destruction is release closure | Transcript guard green; full Speaking `NO-GO`; release-closure decision pending |
+| `P15-PRE-01` | Backend + Academic SME | Branch A disabled: none. Branch B direct audio: PRE-08 policy approval before any evaluator transfer | Pre-15 branch B feeds PRE-07 calibration/readiness; COMP-19 producer removal is pre-14, retained-row destruction is release closure | Transcript guard green; full Speaking `NO-GO`; release-closure decision pending |
 | `P15-PRE-02` | Academic contract owner + Writing backend | None; first choose/version the scored construct/profile/descriptors | Feeds PRE-05/09 and pre-14 COMP-18 canonical-path removal; final academic acceptance is PRE-07 later | `NOT_STARTED — PRE_PHASE_14_BLOCKER` |
-| `P15-PRE-03` | R/L explanation backend + Phase 13E | Phase 13E defines the discriminated runtime schema | Feeds PRE-05/06 and pre-14 COMP-16 supersession; final SME/calibration is post-14 | Runtime subset in Phase 13E; pre-14 v2/data proof pending |
+| `P15-PRE-03` | R/L explanation backend + Phase 13E | Phase 13E defines the discriminated runtime schema | Feeds PRE-05/06 and pre-14 COMP-16 supersession; final SME/calibration is Pre-15 | Runtime subset in Phase 13E; pre-14 v2/data proof pending |
 | `P15-PRE-04` | Assessment contract + rule-engine backend | None; define bounded-signal policy and counterexamples | Feeds PRE-09 bundle identity | `NOT_STARTED — PRE_PHASE_14_BLOCKER` |
-| `P15-PRE-05` | Data/compatibility owner | PRE-02/03 contract decisions plus mandatory 13C3/13G/13H completion | Pre-14 data/new-write/dual-read/rebind, no-obligation proof and guarded final-state baseline feed PRE-09/COMP-16; retained-data/UAT reset stays post-14 | `REBASELINE_GO_WITH_GUARDS — PLAN_ONLY; NO CURRENT_SLICE_ACTION` |
+| `P15-PRE-05` | Data/compatibility owner | PRE-02/03 contract decisions plus mandatory 13C3/13G/13H completion | Pre-14 data/new-write/dual-read/rebind, no-obligation proof and guarded final-state baseline feed PRE-09/COMP-16; retained-data/UAT reset closes in Pre-15 | `REBASELINE_GO_WITH_GUARDS — PLAN_ONLY; NO CURRENT_SLICE_ACTION` |
 | `P15-PRE-06` | Phase 13E result-detail owner | Phase 13E typed R/L/display contract; pre-14 cleanup follows named data decisions | COMP-10 legacy detail removal follows consolidated validated replacement | Replacement in Phase 13E; compatibility/reference proof remains open |
-| `P15-PRE-07` | Academic SME + backend/readiness | Released bundle/capability exists in dark/shadow form; branch-B acoustic calibration follows PRE-01 | Post-14 rollout acceptance; branch-A acoustic scope may close `NOT_APPLICABLE_WITH_PROOF` | `NOT_STARTED — PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER` |
-| `P15-PRE-08` | Security/Privacy + Backend | None; policy precedes any PRE-01 branch-B transfer | Direct-audio closure after 14F; Phase 14 report-attachment privacy is a separate pre-14 contract | `NOT_STARTED — DIRECT AUDIO NO_GO` |
+| `P15-PRE-07` | Academic SME + backend/readiness | Released bundle/capability exists in dark/shadow form; branch-B acoustic calibration follows PRE-01 | Pre-15 rollout acceptance; branch-A acoustic scope may close `NOT_APPLICABLE_WITH_PROOF` | `NOT_STARTED — PRE_PHASE_15_RELEASE_CLOSURE_BLOCKER` |
+| `P15-PRE-08` | Security/Privacy + Backend | None; policy precedes any PRE-01 branch-B transfer | Direct-audio closure in Pre-15; deferred Phase 14 report-attachment privacy is a separate contract closed before 14B | `NOT_STARTED — DIRECT AUDIO NO_GO` |
 | `P15-PRE-09` | Assessment-contract backend | PRE-02/03/04 artifacts and PRE-05 data decision | Feeds cache/reuse/result identity and the stable Phase 14 report target | `NOT_STARTED — PRE_PHASE_14_BLOCKER` |
 | `P15-PRE-10` | 13H/provider operations | None | Implement/validate in 13H; later provider UAT closure | `PHASE_13H_PREREQUISITE; NOT_REIMPLEMENTED_BY_PRE_14_GATE` |
 | `P15-PRE-11` | 13H/performance | None | Implement/validate in 13H; later performance UAT closure | `PHASE_13H_PREREQUISITE; NOT_REIMPLEMENTED_BY_PRE_14_GATE` |
 | `P15-PRE-12` | 13H/storage operations | None | Implement/validate in 13H; later operational UAT evidence | `PHASE_13H_PREREQUISITE; NOT_REIMPLEMENTED_BY_PRE_14_GATE` |
 | `P15-PRE-13` | 13H PDF/provider operations | None | Implement/validate in 13H; later provider/load UAT | `PHASE_13H_PREREQUISITE; PHASE_13F_GREEN_DOES_NOT_CLAIM_IT` |
-| `P15-PRE-14` | Assessment-contract backend, then Korean Academic SME | Phase 13E supplies bounded typed UI/runtime artifacts; PRE-02/03/04/09 complete the governed contract | Pre-14 closes expanded W/S + typed R/L identity; PRE-07 closes final SME/calibration post-14 | Runtime subset in Phase 13E; pre-14 contract and post-14 academic proof both pending |
-| `P15-PRE-15` | 13H/toolchain owner | None; use the already installed JDK 17 baseline | Align/enforce IDE, Maven and runtime in 13H; pre-14 verifies evidence | `PHASE_13H_PREREQUISITE; INTELLIJ_JDK26_LOMBOK_MISMATCH_CONFIRMED` |
-| `P15-PRE-16` | 13H/platform-security owner | PRE-15 reproducible toolchain before broad dependency validation | Implement dated BOM/direct-dependency audit in 13H; pre-14 verifies; pre-15 runs a fresh release scan | `PHASE_13H_PREREQUISITE_AND_PRE_15_RESCAN; NOT_STARTED` |
+| `P15-PRE-14` | Assessment-contract backend, then Korean Academic SME | Phase 13E supplies bounded typed UI/runtime artifacts; PRE-02/03/04/09 complete the governed contract | Pre-14 closes expanded W/S + typed R/L identity; PRE-07 closes final SME/calibration in Pre-15 | Runtime subset in Phase 13E; pre-14 contract and Pre-15 academic proof both pending |
+| `P15-PRE-15` | 13H/toolchain owner | None; candidate uses installed JDK 17 | Pulled-forward implementation candidate; close only in one owning consolidated validation, then pre-14 verifies | `IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION` |
+| `P15-PRE-16` | 13H/platform-security owner | PRE-15 candidate toolchain; supported-line decision still required | Pulled-forward BOM/direct-dependency candidate; resolve/audit in one owning validation; pre-14 verifies; pre-15 rescans | `IMPLEMENTED_PENDING_CONSOLIDATED_VALIDATION_AND_SUPPORT_DECISION` |
 
 #### 4.1.3 Guarded Practice rebaseline decision
 
@@ -345,11 +421,14 @@ files” and not “repair the local database”:
   drops the old cache; and
 - V44 is a hard-coded local seed repair, not production schema.
 
-Implementation is after mandatory 13C3/13G/13H completion, after the final
-pre-14 relational contracts are frozen and before 14A. First pull/reconcile the
-inventory and prove no retained, deployed, shared, canonical or
-upgrade-supported database obligation. Any positive or unknown obligation is a
-hard stop: preserve bytes/checksums and design forward migration instead.
+Implementation is after mandatory 13C3/13G/13H validation plus commit/push and
+inside the separately approved comprehensive `/practice` audit/cleanup
+program, after the final pre-14 relational contracts are frozen and before
+14A. First pull/reconcile the inventory and prove no retained, deployed,
+shared, canonical or upgrade-supported database obligation. Any positive or
+unknown obligation is a hard stop: preserve bytes/checksums and design forward
+migration instead. The pre-14 gate verifies the resulting integrated evidence;
+it does not construct the baseline.
 
 When the guard is green, preserve non-Practice V38-V43 exactly and choose the
 next free version at implementation time. `V44__practice_baseline.sql` is only
@@ -365,9 +444,10 @@ or reuse an existing schema. Keep validate-on-migrate enabled and clean disabled
 except for an explicit disposable-profile allowlist. Exit requires fresh
 Flyway and Hibernate validation plus minimal technical R/L/W/S smoke fixtures
 with stable report-target identity. The canonical Vietnamese/Korean SME-reviewed
-UAT seed remains after 14F. Global non-Practice demo seed debt stays separate.
+UAT seed remains a Pre-15/Phase 15 artifact loaded before Manual UAT. Global
+non-Practice demo seed debt stays separate.
 
-### 4.2 Post-14 Speaking evidence and score target locked at design level
+### 4.2 Pre-15 Speaking evidence and score target locked at design level
 
 This subsection locks the future direct-audio evidence boundary for
 `PRE_PHASE_15_RELEASE_CLOSURE_GATE`.
@@ -393,7 +473,8 @@ not pronunciation accuracy.
 
 This is the current production change set, based on source review on
 `2026-07-20`. Pre-14 changes only the target-stability responsibilities routed
-in 4.1; direct-audio/calibration/destructive work remains post-14. It is
+in 4.1; direct-audio/calibration/destructive work remains Pre-15 work before
+Manual UAT. It is
 intentionally separated from the compatibility-removal set in Section 6. A
 later audit may split a class, but it may not silently drop a responsibility.
 
@@ -403,7 +484,7 @@ later audit may split a class, but it may not silently drop a responsibility.
 > authorized direct-audio capability and PRE-07/08/09 evidence. Nothing in this
 > historical change map authorizes a current subtotal or holistic score.
 > PRE-09 contract identity is now pre-14; direct-audio and PRE-07/08 academic/
-> privacy rollout evidence remain post-14.
+> privacy rollout evidence remain Pre-15 requirements before Manual UAT.
 
 #### A. Speaking correctness — mandatory production change set
 
@@ -682,6 +763,11 @@ reference remains a sibling panel.
 
 `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` is `NO-GO` until:
 
+- 13C3, 13G and 13H each have separately accepted consolidated validation
+  evidence, a coherent commit series and a successful push;
+- the comprehensive `/practice` authority/assessment/code/route/schema audit
+  has reconciled all findings, and every approved correction has been
+  validated, coherently committed and pushed;
 - PRE-02/04/09 and the runtime-contract half of PRE-14 have accepted contract
   evidence; PRE-10..13 have accepted 13H evidence rather than duplicate work;
 - canonical new writes/runtime/UI have no Writing 1-9, Speaking word-count fake
@@ -716,10 +802,13 @@ reference remains a sibling panel.
   scorer-consumed audio, dark evaluation and acoustic calibration;
 - destructive/environment/schema and retained-data decisions in
   COMP-15/22 are closed after consuming the pre-14 baseline evidence;
-- approved disposable-UAT reset evidence is recorded without repair/reuse;
-- remaining compatibility cleanup and premium seed are complete; and
-- browser/device/provider/load/security/manual UAT records final capability-
-  specific GO/NO-GO.
+- approved disposable-UAT reset evidence is recorded without repair/reuse; and
+- remaining compatibility cleanup and premium seed preparation are complete.
+
+After that gate closes, Phase 15 remains `NO-GO` until its
+browser/device/provider/load/security/manual-UAT matrix records the final
+capability-specific verdict for the initial scope, explicitly excluding Report
+an Error.
 
 ## 5. Classification
 
@@ -734,7 +823,7 @@ reference remains a sibling panel.
 Routing overlay: `P15-COMP-10/16/18/19/20` are mandatory pre-14 under the
 conditions in Section 4.1. `P15-COMP-01..09`, `11..12`, `14`, `21` are
 conditional pre-14 only with caller/retained-data evidence; otherwise they stay
-post-14. `P15-COMP-13/15/17/22` are destructive/environment release closure.
+in Pre-15. `P15-COMP-13/15/17/22` are destructive/environment release closure.
 
 | ID | Status | Current evidence | Assigned gate action | Acceptance proof |
 | --- | --- | --- | --- | --- |
@@ -748,25 +837,25 @@ post-14. `P15-COMP-13/15/17/22` are destructive/environment release closure.
 | `P15-COMP-08` | `REVIEW_REQUIRED` | `QuestionTypeResolver`, editor/player JavaScript and templates still accept aliases such as `MCQ`, `MCQ_SINGLE`, `TFNG` and `GAP_FILL`. | Normalize/reset imported fixture data, then shrink runtime authoring/player aliases while preserving only any explicitly supported import boundary. | Persisted live/version question types are canonical; runtime templates do not branch on removed aliases. |
 | `P15-COMP-09` | `REVIEW_REQUIRED` | `PracticeAssessmentExcelService` accepts `practice-excel-v1`; `PracticeAssessmentExcelV2Codec` and draft adapters still emit/read legacy `options`, `answerKey` and answer aliases beside canonical content/spec fields. | Decide the supported import window, remove v1/runtime duplicate fields together, and version the final template contract. | One documented Excel schema round-trips canonical fields without duplicate legacy answer sources. |
 | `P15-COMP-10` | `MANDATORY_PRE_14_AFTER_CONSOLIDATED_13E_VALIDATION` | Active detail routes still use `PracticeService.getResult`, `getReadingListeningResult`, `PracticeResultView`, `ReadingListeningResultView`, `result-detail.html` and `rl-result-detail.html`. | Do not remove during implementation slices. Only after consolidated Phase 13E validation proves exactly three canonical evidence-detail screens, delete the verified-dead old route/DTO/service/template/parser cluster in one pre-14 patch. | `/attempts/{id}/result/detail` dispatches to exactly one of three typed screen contracts; old generic DTO/template/parser symbols have no references, leaving one canonical Phase 14 entry context. |
-| `P15-COMP-11` | `REMOVE_CANDIDATE_CONFIRMED` | `src/main/resources/static/js/practice.js` is not loaded by a template/controller. `PracticeResultWordingTest` reads it directly, so tests currently preserve an otherwise dead asset. | Remove the asset and tests that exist only to inspect it, after a final resource-reference scan. | No template/resource/controller reference exists before deletion; current result assets cover required wording/behavior. |
+| `P15-COMP-11` | `IMPLEMENTED_PENDING_OWNING_VALIDATION` | The pulled-forward cleanup deletes unreferenced `src/main/resources/static/js/practice.js` and removes the two asset-only preservation checks from `PracticeResultWordingTest`. A current-source scan found no template/controller/runtime loader; active Result/Detail behavior remains in the skill-native assets. | Validate `PracticeResultWordingTest` and repeat the exact runtime reference scan once in the owning grouped unit; do not restore the dead generic parser/editor/player bundle merely to satisfy an obsolete test. | No template/resource/controller reference exists before deletion; current result assets cover required wording/behavior. |
 | `P15-COMP-12` | `REVIEW_REQUIRED` | Tests still deliberately create historical Writing fill-blank, Speaking ESSAY/mixed feedback, ungrouped questions, no-version attempts, old routes and legacy import aliases. | Classify each fixture as current regression, migration fixture or obsolete test-data compatibility. Delete obsolete fixtures with the production branch they pin. | Test names and fixtures describe only canonical runtime or an explicitly retained migration boundary. |
 | `P15-COMP-13` | `PRE_14_REBASELINE_GO_WITH_GUARDS` | Practice V25-V37 is not a coherent final-state chain: V26 duplicates non-Practice V39 semantics, V27 creates the Writing cache under an R/L name, V34 is stale squashed residue and V37 performs an unsafe legacy cache backfill/drop. | After consolidated Phase 13E and final pre-14 schema freeze, prove no retained/deployed/shared/canonical/upgrade obligation. If green, create one schema-only final-state Practice baseline after preserved V38-V43 at the next free version; if unknown/false, stop and preserve checksums/forward-only. | Written no-obligation or stop verdict; preserved V38-V43 checksums; no repair/reused schema; fresh Flyway/Hibernate and technical R/L/W/S smoke identity proof. |
 | `P15-COMP-14` | `REVIEW_REQUIRED` | Current and historical docs still mention retired `rl-result.html`, `QuestionExplanationCache`, lazy explanation generation and other superseded paths. Historical phase evidence may be intentionally archival. | Separate current contracts from historical records. Correct current specs/runbooks and preserve historical evidence with explicit superseded labels. | Current specs match source; archival docs are clearly dated and are not used as implementation instructions. |
 | `P15-COMP-15` | `REVIEW_REQUIRED` | Local database fixtures and ad-hoc attempts such as `687`/`688` were created for UI investigation and do not form a coherent product seed. | Inventory IDs needed only for debugging, export evidence if required, then reset the dedicated local/UAT database before premium seed loading. | UAT starts from a documented clean database and deterministic seed manifest, not ad-hoc rows. |
 | `P15-COMP-16` | `MANDATORY_PRE_14_APPEND_ONLY_BINDING_HISTORY` | Explanation artifact JSON is versionable, but `question_version_explanation_bindings` is unique on `(question_version_id, explanation_language)` and the repository currently binds only if absent. A bound READY v2 artifact therefore has no normal supersession path for v3. | Before 14A implement append-only active/superseded binding history so 14D can correct an explanation without mutating an artifact. Include it in the guarded schema-only baseline only when the no-obligation proof passes; otherwise preserve applied checksums and deliver it through a separately reviewed forward migration. | A version resolves exactly one active compatible artifact while prior bindings remain auditable; stale-schema tests cannot reuse v2 as v3. |
-| `P15-COMP-17` | `PRE_14_BASELINE_EXCLUDE_LOCAL_REPAIR` | `V44__practice_seed_listening_check_audio.sql` is a hard-coded local development seed repair, not production schema. | Exclude it from the guarded schema-only baseline. At implementation time use `V44__practice_baseline.sql` only if V44 is genuinely free; otherwise choose the next free version. Keep the listening asset/data in a technical fixture manifest, not Flyway schema. | Baseline contains no content seed/local IDs; technical smoke loader is separate and canonical SME UAT seed remains post-14F. |
+| `P15-COMP-17` | `PRE_14_BASELINE_EXCLUDE_LOCAL_REPAIR` | `V44__practice_seed_listening_check_audio.sql` is a hard-coded local development seed repair, not production schema. | Exclude it from the guarded schema-only baseline. At implementation time use `V44__practice_baseline.sql` only if V44 is genuinely free; otherwise choose the next free version. Keep the listening asset/data in a technical fixture manifest, not Flyway schema. | Baseline contains no content seed/local IDs; technical smoke loader is separate and canonical SME UAT seed is loaded in Pre-15/Phase 15 before Manual UAT. |
 | `P15-COMP-18` | `MANDATORY_PRE_14 — RETIRE_WRITING_LOCAL_1_9` | `WritingScoreMatrix` still owns `bands()`, `clampAndRound()`, `toHundredPointScale()` and `bandLabel()`. `WritingEvaluationNormalizer` retains `LEGACY_BAND_V1`, `band_label` and band fallbacks; `WritingScoringPolicy` infers legacy semantics when score `<=9`; `WritingMockEvaluatorService` and `PracticeService` still call the matrix. Focused `WritingScoreMatrixTest`, `WritingEvaluationNormalizerTest`, `WritingScoringPolicyTest`, `WritingTaskNativeScoringTest` and integration fixtures preserve the path. New canonical scoring is Q51/Q52 `/10`, Q53 `/30`, Q54 `/50`, GENERAL `/100`. | After PRE-02/09, remove 1-9 from canonical prompt/provider/new-write/runtime/UI before 14A. If retained history proves a need, isolate only an expiring read-only adapter at the compatibility boundary with owner/removal date; destructive migrate/reset of history waits for release closure. | Canonical production scan has no new-write/runtime/UI `WritingScoreMatrix`, `LEGACY_BAND_V1`, `band_label`, score-`<=9` inference or 1-9 label; failures remain non-score-bearing and task-native maxima unchanged. Any history-only adapter is labelled, read-only and expiring. |
 | `P15-COMP-19` | `MANDATORY_PRE_14 — REMOVE_SPEAKING_TEXT_SIMULATED_SCORE`; consumer guards `IMPLEMENTED_AND_PHASE_13D_FOCUSED_GATE_GREEN` | `PracticeService.mockSpeakingFeedback` and three legacy submit/re-evaluate/fallback call sites fabricate `3/5.5/7` from word count, convert it with `WritingScoreMatrix`, emit `text_simulated_mock` / `practice_speaking_mock`, `S_FLUENCY` and `sample_answer`, then can mark an attempt graded. `SpeakingFeedbackCompatibilityReaderTest` retains a mock fixture. Phase 13D now guards current consumers: `PracticeDetailPageService`/test detail show no latest/best number; `PracticeService` excludes Speaking from progress average/trend/type/highlight metrics and nulls score history; `progress.html` and result detail show explicit no-holistic-score copy instead of `0%`. | Preserve consumer guards and remove all canonical producer paths before 14A; unavailable evaluation persists an explicit non-score-bearing result. If old rows are retained, read them only as legacy/unverified with expiry; destructive retained-row cleanup waits for release closure. | Exact source/config/fixture scan has no `mockSpeakingFeedback`, `text_simulated_mock`, `practice_speaking_mock` or word-count Speaking score in canonical runtime; provider-disabled tests assert null score/unavailable; retained historical numbers never re-enter progress/history/latest/best. |
-| `P15-COMP-20` | `MANDATORY_PRE_14 — REMOVE_UNREACHABLE_WRITING_MOCK_FALLBACK` | `WritingEvaluationClient` catch blocks test `if (ex != null)` and return fail-closed unavailable, making later `fallbackToMock(...)` branches unreachable while retaining `WritingMockEvaluatorService` as misleading runtime dependency. | 13H may deliver the removal. The pre-14 gate verifies accepted evidence or removes the remaining dead dependency; it does not duplicate correct 13H work. Provider failures remain fail closed. | Static source scan finds no unreachable mock fallback; missing key, HTTP, timeout and unexpected failures remain `EVALUATION_UNAVAILABLE` with null score; no mock provider result is cached/persisted as current. |
+| `P15-COMP-20` | `MANDATORY_PRE_14; IMPLEMENTED_PENDING_OWNING_VALIDATION` | The pulled-forward Writing sidecar removes `WritingMockEvaluatorService` from `WritingEvaluationClient`, deletes `fallbackToMock(...)` and the unreachable branches, and keeps missing-key/HTTP/transport/unexpected paths fail closed. Cache rehydration now also requires current provider provenance, task/scoring contract, the exact unique task-native rubric IDs/names/maxima and internally consistent criterion sum, raw maximum, percentage, score and overall score; legacy/mock/partial/inconsistent JSON is deleted rather than returned before the missing-key guard. The standalone compatibility mock class remains only for the separate `P15-COMP-18` local-1–9 retirement decision and is no longer a client dependency. | Validate timeout/retry/fail-closed and strict cache acceptance once in the owning 13H or grouped pre-14 unit; then the pre-14 gate verifies accepted integrated evidence. Do not include this sidecar in 13C3 evidence and do not describe the compatibility class as a production fallback. | Static source scan finds no unreachable mock fallback; missing key, HTTP, timeout and unexpected failures remain `EVALUATION_UNAVAILABLE` with null score; no mock/legacy/partial or rubric-inconsistent provider result is accepted from cache or persisted as current. |
 | `P15-COMP-21` | `REVIEW_REQUIRED — SPEAKING_UNGROUPED_TRANSCRIPTION_DECISION` | `PracticeSpeakingMediaRepository.findAuthorizedTranscriptionCandidates` joins `PracticeQuestionGroup g` and requires `g.id = q.groupId`. Canonical Speaking is grouped, but a retained ungrouped legacy attempt cannot reach transcription even though other result/player fallbacks may still read it. | Owner: Phase 15 compatibility with P15-COMP-06, before any live Speaking provider UAT. Prove no retained attempt needs transcription and remove the broader ungrouped compatibility, or add one explicitly bounded migration path; do not weaken owner/attempt/question/media authorization. | Persisted live/version scan is fully grouped or a migration proof exists; canonical transcription authorization tests remain owner- and immutable-question-bound; no unexplained ungrouped fallback is exercised in Manual UAT. |
-| `P15-COMP-22` | `READ_ONLY_LOCAL_EVIDENCE; ROUTE_GATE_GREEN` | `ksh_phase13e_result_ui` reports V44 but lacks `tests.media_type`; it is collided local evidence, not a master/canonical DB. The fresh disposable V1→V44 route gate passed `2/2` and was removed. | Never repair/reuse the collided schema. Preserve it read-only until its export/discard decision; create a newly named disposable baseline/smoke DB and later a separately approved UAT DB. | No “master DB” claim; old schema untouched; pre-14 fresh baseline proof and post-14 UAT reset are separately recorded. |
+| `P15-COMP-22` | `READ_ONLY_LOCAL_EVIDENCE; ROUTE_GATE_GREEN` | `ksh_phase13e_result_ui` reports V44 but lacks `tests.media_type`; it is collided local evidence, not a master/canonical DB. The fresh disposable V1→V44 route gate passed `2/2` and was removed. | Never repair/reuse the collided schema. Preserve it read-only until its export/discard decision; create a newly named disposable baseline/smoke DB and later a separately approved UAT DB. | No “master DB” claim; old schema untouched; pre-14 fresh baseline proof and Pre-15/Phase 15 UAT reset are separately recorded. |
 
 ### 6.1 Compatibility decision / dependency / UAT ledger
 
 Every row must be resolved by its assigned gate; this ledger assigns an owner
 and prevents a generic “legacy cleanup” ticket from hiding different data
-decisions. A conditional row remains post-14 unless caller/retained-data
-evidence promotes it.
+decisions. A conditional row remains in Pre-15 unless caller/retained-data
+evidence promotes it into Pre-14.
 
 | ID | Owner / dependency | Required resolution and evidence |
 | --- | --- | --- |
@@ -785,13 +874,13 @@ evidence promotes it.
 | `P15-COMP-13` | Pre-14 database owner; no-obligation proof | Guarded schema-only Practice baseline or hard stop/forward-only; preserve V38-V43; fresh Flyway/Hibernate smoke evidence |
 | `P15-COMP-14` | Documentation owner; current-source crosswalk | Correct current docs, add supersession labels to history; source/doc scan proof |
 | `P15-COMP-15` | UAT environment owner; PRE-05 | Export required evidence then approved clean reset; deterministic seed proof |
-| `P15-COMP-16` | Pre-14 R/L artifact owner; PRE-03/05 | Forward supersession/rebind with auditable prior artifact; approved UAT reset is post-14 only |
+| `P15-COMP-16` | Pre-14 R/L artifact owner; PRE-03/05 | Forward supersession/rebind with auditable prior artifact; approved UAT reset is Pre-15/Phase 15 only |
 | `P15-COMP-17` | Pre-14 migration/fixture owner | Exclude V44 local seed repair; choose next free baseline version at implementation time; keep fixtures separate |
-| `P15-COMP-18` | Pre-14 Writing canonical-path owner; PRE-02/09 | No canonical new-write/runtime/UI 1–9 path; history-only read adapter requires proof and expiry; destructive disposition post-14 |
-| `P15-COMP-19` | Pre-14 Speaking producer owner; PRE-01/05 | Remove simulated score producer; provider-disabled null-score proof; destructive retained-row action post-14 |
+| `P15-COMP-18` | Pre-14 Writing canonical-path owner; PRE-02/09 | No canonical new-write/runtime/UI 1–9 path; history-only read adapter requires proof and expiry; destructive disposition in Pre-15 |
+| `P15-COMP-19` | Pre-14 Speaking producer owner; PRE-01/05 | Remove simulated score producer; provider-disabled null-score proof; destructive retained-row action in Pre-15 |
 | `P15-COMP-20` | 13H or pre-14 dead-code owner; COMP-18 | Accept prior 13H evidence or remove remaining unreachable fallback; fail-closed provider error tests |
 | `P15-COMP-21` | Speaking data/provider owner; COMP-06 | Group/reset/migrate retained rows without weakening authorization; provider-UAT proof |
-| `P15-COMP-22` | Database/release owner; COMP-13/15/17 | Keep collided DB read-only evidence, never repair/reuse; separate pre-14 technical-smoke DB from post-14 UAT DB |
+| `P15-COMP-22` | Database/release owner; COMP-13/15/17 | Keep collided DB read-only evidence, never repair/reuse; separate pre-14 technical-smoke DB from Pre-15/Phase 15 UAT DB |
 
 ## 7. Architecture that must remain
 
@@ -806,7 +895,15 @@ evidence promotes it.
 
 ## 8. `PRE_PHASE_15_RELEASE_CLOSURE_GATE` cleanup program
 
-After 14F, release closure executes the remaining work as one reviewable cleanup
+This mandatory pre-Manual-UAT program is distinct from the post-13H comprehensive `/practice`
+audit/cleanup. The earlier audit may remove only evidence-proven production
+dead/duplicate surfaces and implement correctness prerequisites for release and
+the later Phase 14.
+It must not pull retained-data destruction, premium canonical seed loading,
+provider/load Manual UAT or release-environment cleanup forward from this
+section.
+
+Immediately after Pre-14, release closure executes the remaining work as one reviewable cleanup
 program, not as isolated deletions discovered during Manual UAT. It consumes
 accepted pre-14 evidence and does not reopen those correctness contracts:
 
@@ -831,8 +928,10 @@ accepted pre-14 evidence and does not reopen those correctness contracts:
    the resolved tree/SBOM and advisories, and stop on an unowned exploitable
    Critical/High runtime finding.
 8. **Premium seed creation**: load only after the cleanup gate is green.
-9. **Manual UAT**: run role, browser, device, media, immutable-result and AI
-   journeys against the premium seed; capture screenshots and GO/NO-GO evidence.
+9. **Phase 15 Manual-UAT handoff**: after the Pre-15 gate closes, run role,
+   browser, device, media, immutable-result and AI journeys against the premium
+   seed; capture screenshots and the initial GO/NO-GO evidence. That matrix
+   excludes Report an Error.
 
 ## 9. Premium canonical seed checklist
 
@@ -882,4 +981,5 @@ Phase 15 cannot declare the cleanup/seed step complete until:
 
 - `docs/PRACTICE_PHASE_13_IMPLEMENTATION_AND_GATE.md`, Sections 6.9 and 6.9.12
 - `CODEX_PRACTICE_WORKFLOW.md`, current Phase 13E action and both named gates
-- `PRACTICE_PHASE_10_16_EXECUTION_BLUEPRINT.md`, pre-14 -> 14A-14F -> pre-15 order
+- `PRACTICE_PHASE_10_16_EXECUTION_BLUEPRINT.md`, Pre-14 -> Pre-15 -> Phase 15
+  Manual UAT/release -> deferred Phase 14 14A-14F order
