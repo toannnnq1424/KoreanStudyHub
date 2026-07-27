@@ -1,9 +1,11 @@
 package com.ksh.features.practice.assessment;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -12,7 +14,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AssessmentContractCodecTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     private final AssessmentContractCodec codec = new AssessmentContractCodec(
             objectMapper, new QuestionTypeResolver());
 
@@ -121,6 +124,123 @@ class AssessmentContractCodecTest {
     }
 
     @Test
+    void speakingV2RoundTripsOnlyTheThreeLockedLearnerSafeModeCombinations() {
+        QuestionContent uploadedAudio = speakingV2(
+                QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD,
+                QuestionContent.SpeakingDeliveryMode.AUDIO_ONLY,
+                "/practice/materials/7/content",
+                QuestionContent.SpeakingAudioOrigin.TEACHER_UPLOAD);
+        QuestionContent manualText = speakingV2(
+                QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                QuestionContent.SpeakingDeliveryMode.TEXT_ONLY,
+                null,
+                QuestionContent.SpeakingAudioOrigin.NONE);
+        QuestionContent manualTextWithTts = speakingV2(
+                QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                QuestionContent.SpeakingDeliveryMode.TEXT_AND_AUDIO,
+                "/practice/materials/8/content",
+                QuestionContent.SpeakingAudioOrigin.AI_TTS);
+
+        for (QuestionContent content : List.of(uploadedAudio, manualText, manualTextWithTts)) {
+            String json = codec.writeQuestionContent(content, CanonicalQuestionType.SPEAKING);
+
+            assertThat(codec.readQuestionContent(json, CanonicalQuestionType.SPEAKING))
+                    .isEqualTo(content);
+            assertThat(json).contains("\"schemaVersion\":\"question-content-v2\"");
+            assertThat(json).doesNotContain(
+                    "transcript", "task", "fingerprint", "confidence",
+                    "provider", "learnerAnswer", "acoustic");
+        }
+    }
+
+    @Test
+    void speakingV2RejectsCrossModeAudioAndOriginCombinations() {
+        QuestionContent invalid = speakingV2(
+                QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD,
+                QuestionContent.SpeakingDeliveryMode.TEXT_AND_AUDIO,
+                "/practice/materials/7/content",
+                QuestionContent.SpeakingAudioOrigin.AI_TTS);
+
+        assertThatThrownBy(() -> codec.writeQuestionContent(
+                invalid, CanonicalQuestionType.SPEAKING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("mode combination");
+        assertThatThrownBy(() -> codec.writeQuestionContent(
+                QuestionContent.speakingV2(null), CanonicalQuestionType.SPEAKING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("v2 speaking delivery");
+        assertThatThrownBy(() -> codec.writeQuestionContent(
+                speakingV2(
+                        QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                        QuestionContent.SpeakingDeliveryMode.TEXT_ONLY,
+                        null,
+                        QuestionContent.SpeakingAudioOrigin.NONE),
+                CanonicalQuestionType.ESSAY))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only valid for SPEAKING");
+    }
+
+    @Test
+    void speakingContentRejectsUnknownInternalFieldsWithBootStyleMapper() {
+        String internalMetadata = """
+                {
+                  "schemaVersion":"question-content-v2",
+                  "speakingDelivery":{
+                    "inputType":"audio_upload",
+                    "deliveryMode":"audio_only",
+                    "promptAudioReference":"/practice/materials/7/content",
+                    "audioOrigin":"teacher_upload",
+                    "promptPlayLimit":1,
+                    "preparationSeconds":30,
+                    "responseSeconds":60,
+                    "transcript":"internal prompt context"
+                  }
+                }
+                """;
+
+        assertThatThrownBy(() -> codec.readQuestionContent(
+                internalMetadata, CanonicalQuestionType.SPEAKING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported speaking delivery field: transcript");
+    }
+
+    @Test
+    void speakingV2ModeCodesAreExactLowercaseIdentities() {
+        String uppercaseIdentity = """
+                {
+                  "schemaVersion":"question-content-v2",
+                  "speakingDelivery":{
+                    "inputType":"AUDIO_UPLOAD",
+                    "deliveryMode":"audio_only",
+                    "promptAudioReference":"/practice/materials/7/content",
+                    "audioOrigin":"teacher_upload",
+                    "promptPlayLimit":1,
+                    "preparationSeconds":30,
+                    "responseSeconds":60
+                  }
+                }
+                """;
+
+        assertThatThrownBy(() -> codec.readQuestionContent(
+                uppercaseIdentity, CanonicalQuestionType.SPEAKING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid question content JSON");
+    }
+
+    @Test
+    void v1SpeakingShapeRemainsExactAndCannotBeSilentlyUpgraded() {
+        QuestionContent legacy = contentFor(CanonicalQuestionType.SPEAKING);
+
+        String json = codec.writeQuestionContent(legacy, CanonicalQuestionType.SPEAKING);
+
+        assertThat(json)
+                .contains("\"schemaVersion\":\"question-content-v1\"")
+                .doesNotContain("inputType", "deliveryMode", "audioOrigin");
+        assertThat(codec.readQuestionContent(json, CanonicalQuestionType.SPEAKING))
+                .isEqualTo(legacy);
+    }
+
+    @Test
     void playerPayloadSerializationCannotLeakAnswerSpec() throws Exception {
         PlayerQuestionPayload payload = new PlayerQuestionPayload(
                 PlayerQuestionPayload.SCHEMA_VERSION,
@@ -134,7 +254,30 @@ class AssessmentContractCodecTest {
 
         assertThat(json)
                 .contains("question-content-v1", "opt_1")
-                .doesNotContain("answerSpec", "correctOptionIds", "correctValue", "profileCode");
+                .doesNotContain(
+                        "answerSpec", "correctOptionIds", "correctValue", "profileCode",
+                        "transcript", "task", "fingerprint", "confidence",
+                        "provider", "acousticEvidence");
+    }
+
+    @Test
+    void learnerSafeRecordShapesCannotAcquireInternalAuthoringMetadata() {
+        List<String> forbiddenFragments = List.of(
+                "transcript", "task", "fingerprint", "confidence",
+                "provider", "artifact", "acoustic");
+
+        for (Class<?> learnerSafeType : List.of(
+                QuestionContent.class,
+                QuestionContent.SpeakingDelivery.class,
+                PlayerQuestionPayload.class)) {
+            List<String> componentNames = Arrays.stream(learnerSafeType.getRecordComponents())
+                    .map(component -> component.getName().toLowerCase())
+                    .toList();
+            for (String forbidden : forbiddenFragments) {
+                assertThat(componentNames)
+                        .noneMatch(name -> name.contains(forbidden));
+            }
+        }
     }
 
     @Test
@@ -196,5 +339,21 @@ class AssessmentContractCodecTest {
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
                     List.of(), ScoringPolicyCode.PROFILE_BASED);
         };
+    }
+
+    private static QuestionContent speakingV2(
+            QuestionContent.SpeakingPromptInputType inputType,
+            QuestionContent.SpeakingDeliveryMode deliveryMode,
+            String promptAudioReference,
+            QuestionContent.SpeakingAudioOrigin audioOrigin) {
+        return QuestionContent.speakingV2(new QuestionContent.SpeakingDelivery(
+                inputType,
+                deliveryMode,
+                promptAudioReference,
+                audioOrigin,
+                deliveryMode == QuestionContent.SpeakingDeliveryMode.TEXT_ONLY
+                        ? null : 1,
+                30,
+                60));
     }
 }
