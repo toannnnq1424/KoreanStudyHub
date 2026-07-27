@@ -8,7 +8,6 @@ import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.PracticePdfPageExtraction;
 import com.ksh.features.practice.manage.service.*;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
-import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
@@ -39,7 +38,6 @@ public class PracticePdfImportApiController {
     private final PracticePdfRegionService regionService;
     private final PracticePdfPageExtractionService pageExtractionService;
     private final LecturerAssetService assetService;
-    private final LecturerAssetRepository assetRepository;
     private final PracticePdfPayloadPreviewService payloadPreviewService;
     private final PracticePdfAiPayloadBuilder payloadBuilder;
     private final PracticePdfAiOrchestrator aiOrchestrator;
@@ -52,7 +50,6 @@ public class PracticePdfImportApiController {
                                           PracticePdfRegionService regionService,
                                           PracticePdfPageExtractionService pageExtractionService,
                                           LecturerAssetService assetService,
-                                          LecturerAssetRepository assetRepository,
                                           PracticePdfPayloadPreviewService payloadPreviewService,
                                           PracticePdfAiPayloadBuilder payloadBuilder,
                                           PracticePdfAiOrchestrator aiOrchestrator,
@@ -64,7 +61,6 @@ public class PracticePdfImportApiController {
         this.regionService = regionService;
         this.pageExtractionService = pageExtractionService;
         this.assetService = assetService;
-        this.assetRepository = assetRepository;
         this.payloadPreviewService = payloadPreviewService;
         this.payloadBuilder = payloadBuilder;
         this.aiOrchestrator = aiOrchestrator;
@@ -284,24 +280,15 @@ public class PracticePdfImportApiController {
     public ResponseEntity<AssetView> updateAsset(@PathVariable Long assetId,
                                                  @RequestBody UpdateAssetRequest req,
                                                  @AuthenticationPrincipal KshUserDetails user) {
-        LecturerAsset asset = assetRepository.findById(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
-        if (!asset.getOwnerLecturerId().equals(user.getId())) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không sở hữu asset này.");
-        }
-        if (req.title() != null) asset.setTitle(req.title());
-        if (req.tagsJson() != null) asset.setTagsJson(req.tagsJson());
-        if (req.assetType() != null) asset.setAssetType(req.assetType());
-        if (req.lecturerNote() != null) asset.setLecturerNote(req.lecturerNote());
-        if (req.status() != null) {
-            if (!"TEMPORARY".equalsIgnoreCase(req.status())) {
-                throw new IllegalArgumentException(
-                        "Chỉ endpoint promote-asset được phép chuyển asset sang ACTIVE.");
-            }
-            asset.setStatus("TEMPORARY");
-        }
-        asset.setUpdatedAt(LocalDateTime.now());
-        return ResponseEntity.ok(AssetView.from(assetRepository.save(asset)));
+        LecturerAsset asset = assetService.updateAssetMetadata(
+                assetId,
+                user.getId(),
+                req.title(),
+                req.tagsJson(),
+                req.assetType(),
+                req.lecturerNote(),
+                req.status());
+        return ResponseEntity.ok(AssetView.from(asset));
     }
 
     @DeleteMapping("/assets/{assetId}")

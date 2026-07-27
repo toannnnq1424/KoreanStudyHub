@@ -129,6 +129,10 @@ final class PracticeAssessmentExcelV2Codec {
         write(sheet, 8, null, "Tệp cục bộ", "Đường dẫn trên máy giáo viên cần được tải lên lại; hệ thống không đọc trực tiếp ổ đĩa cá nhân.");
         write(sheet, 9, null, "Writing",
                 "Phần Writing phải có đúng Q51, Q52, Q53 và Q54; tất cả dùng ESSAY với điểm cố định 10, 10, 30, 50.");
+        write(sheet, 10, null, "Speaking",
+                "Excel chỉ hỗ trợ audio do giảng viên tải lên (audio_upload + audio_only + teacher_upload). "
+                        + "Excel không bật hoặc gọi TTS. Nhập văn bản và TTS tùy chọn chỉ thực hiện trong Editor; "
+                        + "sau khi nhập, hãy mở từng câu Speaking trong Editor để xác minh, liên kết audio và tạo bản chép lời trước khi xuất bản.");
         sheet.setColumnWidth(0, 24 * 256);
         sheet.setColumnWidth(1, 105 * 256);
         sheet.createFreezePane(0, 2);
@@ -337,10 +341,12 @@ final class PracticeAssessmentExcelV2Codec {
         if (hasFatal(issues)) return emptyPreview(issues);
 
         Map<String, String> setInfo = readSetInfo(workbook.getSheet("01_THONG_TIN_SET"), issues);
-        String schemaVersion = setInfo.getOrDefault("schema_version", PracticeAssessmentExcelService.SCHEMA_VERSION);
-        if (!PracticeAssessmentExcelService.SCHEMA_VERSION.equalsIgnoreCase(schemaVersion)) {
+        String schemaVersion = setInfo.getOrDefault("schema_version", "");
+        if (!PracticeAssessmentExcelService.SCHEMA_VERSION.equals(schemaVersion)) {
             issues.add(issue("BLOCKING", "SCHEMA_VERSION_UNSUPPORTED", "01_THONG_TIN_SET", 3,
-                    "schema_version", "Phiên bản file Excel không được hỗ trợ.", null));
+                    "schema_version",
+                    "Phiên bản file Excel không được hỗ trợ; không được đổi chữ hoa/thường của practice-excel-v2.",
+                    null));
         }
         Map<String, V2Material> materials = readMaterials(workbook.getSheet("02_TAI_NGUYEN"), issues);
         List<V2QuestionRow> rows = new ArrayList<>();
@@ -881,13 +887,18 @@ final class PracticeAssessmentExcelV2Codec {
 
         QuestionContent.SpeakingDelivery speakingDelivery = row.type() == CanonicalQuestionType.SPEAKING
                 ? new QuestionContent.SpeakingDelivery(
+                        QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD,
+                        QuestionContent.SpeakingDeliveryMode.AUDIO_ONLY,
                         row.questionAudio(),
+                        QuestionContent.SpeakingAudioOrigin.TEACHER_UPLOAD,
                         row.promptPlayLimit() == null ? 1 : row.promptPlayLimit(),
                         row.preparationSeconds() == null ? 30 : row.preparationSeconds(),
                         row.responseSeconds() == null ? 60 : row.responseSeconds())
                 : null;
         QuestionContent content = new QuestionContent(
-                QuestionContent.SCHEMA_VERSION,
+                speakingDelivery == null
+                        ? QuestionContent.SCHEMA_VERSION
+                        : QuestionContent.SCHEMA_VERSION_V2,
                 contentOptions,
                 contentBlanks,
                 row.questionImage(),
