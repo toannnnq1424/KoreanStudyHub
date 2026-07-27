@@ -141,12 +141,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
+                        // Raw upload routing is fail-closed. Generated public
+                        // and legacy paths are lowercase; every other spelling
+                        // or namespace must use an authorized controller.
                         .requestMatchers(
-                                "/uploads/practice-audio/**",
-                                "/uploads/practice-images/**",
-                                "/uploads/lecturer-assets/**"
-                        ).denyAll()
-                        .requestMatchers("/uploads/**").permitAll()
+                                "/uploads/avatars/**",
+                                "/uploads/exams/**",
+                                "/uploads/questions/**",
+                                "/uploads/options/**"
+                        ).permitAll()
+                        .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)

@@ -5,7 +5,6 @@ import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -100,12 +99,7 @@ public class PracticeMaterialAccessService {
     }
 
     private boolean canReadDraftTarget(Long draftId, Long actorId) {
-        try {
-            authorizationService.requireDraft(draftId, actorId, PracticeAction.READ);
-            return true;
-        } catch (EntityNotFoundException | AccessDeniedException exception) {
-            return false;
-        }
+        return authorizationService.canReadDraft(draftId, actorId);
     }
 
     private boolean canReadPublished(Long assetId, Long actorId) {
@@ -140,12 +134,7 @@ public class PracticeMaterialAccessService {
     }
 
     private boolean canReadSetTarget(Long setId, Long actorId) {
-        try {
-            authorizationService.requireSet(setId, actorId, PracticeAction.READ);
-            return true;
-        } catch (EntityNotFoundException | AccessDeniedException ignored) {
-            return false;
-        }
+        return authorizationService.canReadSet(setId, actorId);
     }
 
     private MaterialContent content(LecturerAsset asset) throws IOException {

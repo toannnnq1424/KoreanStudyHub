@@ -5,7 +5,6 @@ import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticePublishedVersion;
 import com.ksh.entities.PracticeSet;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -88,8 +87,7 @@ class PracticeMaterialAccessServiceTest {
                 PracticeMaterialReference.draft(1L, 20L, "GROUP_AUDIO");
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
-        when(authorizationService.requireDraft(20L, 22L, PracticeAction.READ))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
+        when(authorizationService.canReadDraft(20L, 22L)).thenReturn(true);
         when(storageService.load("private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
@@ -110,8 +108,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ))
-                .thenThrow(new AccessDeniedException("learner"));
+        when(authorizationService.canReadSet(44L, 99L)).thenReturn(false);
         when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
                 .thenReturn(Optional.of(currentVersion));
@@ -135,8 +132,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 99L, PracticeAction.READ))
-                .thenThrow(new AccessDeniedException("learner"));
+        when(authorizationService.canReadSet(44L, 99L)).thenReturn(false);
         when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
                 .thenReturn(Optional.of(currentVersion));
@@ -157,8 +153,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
-        when(authorizationService.requireSet(44L, 22L, PracticeAction.READ))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
+        when(authorizationService.canReadSet(44L, 22L)).thenReturn(true);
         when(storageService.load("private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
@@ -220,8 +215,7 @@ class PracticeMaterialAccessServiceTest {
                 PracticeMaterialReference.draft(1L, 20L, "GROUP_AUDIO");
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
-        when(authorizationService.requireDraft(20L, 99L, PracticeAction.READ))
-                .thenThrow(new AccessDeniedException("denied"));
+        when(authorizationService.canReadDraft(20L, 99L)).thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
         verify(storageService, never()).load(anyString());

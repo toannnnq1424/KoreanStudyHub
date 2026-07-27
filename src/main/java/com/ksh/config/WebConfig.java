@@ -14,8 +14,9 @@ import java.nio.file.Paths;
  * <p>Files are stored on the local disk under the directory configured by
  * {@code app.upload.dir} (defaults to {@code uploads} relative to the working directory).
  * The resource handler only maps URL paths to disk. {@code SecurityConfig}
- * separately permits public avatar paths and denies private practice namespaces;
- * private practice material is delivered by an authorized controller.
+ * separately allowlists lowercase public/legacy namespaces and denies every
+ * other raw upload path; private practice material is delivered by an
+ * authorized controller.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {

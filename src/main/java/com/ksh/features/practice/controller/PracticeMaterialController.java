@@ -2,6 +2,7 @@ package com.ksh.features.practice.controller;
 
 import com.ksh.features.practice.manage.service.PracticeMaterialAccessService;
 import com.ksh.security.AuthenticatedUserIdResolver;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,11 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/practice/materials")
 @PreAuthorize("isAuthenticated()")
 public class PracticeMaterialController {
+
+    private static final CacheControl NO_STORE = CacheControl
+            .noStore()
+            .cachePrivate()
+            .mustRevalidate();
 
     private final PracticeMaterialAccessService accessService;
     private final AuthenticatedUserIdResolver userIdResolver;
@@ -72,8 +78,10 @@ public class PracticeMaterialController {
         return ResponseEntity.status(status)
                 .contentType(MediaType.parseMediaType(content.mimeType()))
                 .contentLength(contentLength)
+                .cacheControl(NO_STORE)
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=300")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header(HttpHeaders.EXPIRES, "0")
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header("X-Content-Type-Options", "nosniff");
     }
