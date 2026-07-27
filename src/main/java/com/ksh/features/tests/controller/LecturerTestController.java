@@ -9,7 +9,9 @@ import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ksh.features.tests.dto.LecturerTestDtos.SaveResult;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
 import com.ksh.features.tests.service.ExamMonitorService;
+import com.ksh.features.tests.service.ExamQuestionBankPickerService;
 import com.ksh.features.tests.service.LecturerExamService;
+import com.ksh.features.storage.StorageNotConfiguredException;
 import com.ksh.features.upload.ExamImageStorageService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
@@ -34,11 +36,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
 import static com.ksh.common.IConstant.ATTR_ACTIVE_DETAIL_TAB;
 import static com.ksh.common.IConstant.ATTR_EXAMS_PAGE;
+import static com.ksh.common.IConstant.ATTR_EXAM_BANK_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_EXAM_FORM;
 import static com.ksh.common.IConstant.ATTR_LED_CLASSES;
 import static com.ksh.common.IConstant.ATTR_MODE;
@@ -51,6 +55,8 @@ import static com.ksh.common.IConstant.ATTR_TEST_ACTIVITIES_PAGE;
 import static com.ksh.common.IConstant.BASE_LECTURER_TESTS;
 import static com.ksh.common.IConstant.MODE_CREATE;
 import static com.ksh.common.IConstant.MODE_EDIT;
+import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ksh.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ksh.common.IConstant.TAB_HISTORY;
 import static com.ksh.common.IConstant.TAB_INFO;
 import static com.ksh.common.IConstant.TAB_MONITOR;
@@ -88,17 +94,20 @@ public class LecturerTestController {
     private final ClassesService classesService;
     private final ClassDetailModelSupport classDetailSupport;
     private final ExamImageStorageService examImageStorage;
+    private final ExamQuestionBankPickerService questionBankPickerService;
 
     public LecturerTestController(LecturerExamService examService,
                                   ExamMonitorService monitorService,
                                   ClassesService classesService,
                                   ClassDetailModelSupport classDetailSupport,
-                                  ExamImageStorageService examImageStorage) {
+                                  ExamImageStorageService examImageStorage,
+                                  ExamQuestionBankPickerService questionBankPickerService) {
         this.examService = examService;
         this.monitorService = monitorService;
         this.classesService = classesService;
         this.classDetailSupport = classDetailSupport;
         this.examImageStorage = examImageStorage;
+        this.questionBankPickerService = questionBankPickerService;
     }
 
     /** Lists exams the lecturer owns (SSR numbered pager). */
@@ -115,6 +124,7 @@ public class LecturerTestController {
     public String newForm(@AuthenticationPrincipal KshUserDetails user, Model model) {
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(user.getId()));
+        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         return VIEW_TEST_LECTURER_FORM;
     }
@@ -151,6 +161,8 @@ public class LecturerTestController {
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(userId));
+        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES,
+                questionBankPickerService.categoriesFor(userId, user.getRole(), id));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
@@ -213,6 +225,11 @@ public class LecturerTestController {
             return ResponseEntity.ok(AjaxResult.success(Map.of("url", url)));
         } catch (IllegalArgumentException ex) {
             return badRequest(ex.getMessage());
+        } catch (StorageNotConfiguredException ex) {
+            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
+        } catch (IOException ex) {
+            log.error("Failed to upload exam image", ex);
+            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
         } catch (Exception ex) {
             log.error("Failed to upload exam image", ex);
             return internalError();

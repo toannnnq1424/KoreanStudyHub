@@ -132,11 +132,11 @@ Existing `users` table columns `is_active` and `role` are sufficient.
 
 ## KSH-4.4 — Story: Department Management [Sprint 5 — Planned]
 
-> As an ADMIN or HEAD, I want to create and manage academic departments
+> As an ADMIN or LEADER, I want to create and manage academic departments
 > so that lecturers and classes can be grouped by department.
 
 **Status:** Planned
 
-- Table: `departments` — `id`, `name`, `code`, `head_user_id`, `created_at`
+- Table: `departments` — `id`, `name`, `code`, `leader_user_id`, `created_at`
 - Table: `user_departments` — `user_id`, `department_id`
 - Migration: `V11__departments.sql` (planned)

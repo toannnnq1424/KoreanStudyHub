@@ -165,13 +165,14 @@ The current live-source scan found no production Java/package identity named
 `Ulp*`. Existing documentation mentions stale ignored IntelliJ module state as
 historical diagnostic evidence and should not be blindly rewritten.
 
-`V23__seed_demo_assignments.sql` still contains `@ulp.edu.vn` seed identities,
-which may make demo assignment binding a no-op against current KSH seed users.
-Because it is an applied migration, the audit must choose a forward migration,
-an allowed final rebaseline correction or explicit removal of obsolete demo
-seed; it must not edit V23 in place. A provenance-only `ULP` comment in V41 has
-no runtime meaning. Ignored `.idea` references such as `UlpApplication` or an
-`ulp` module are local IDE debt and must never be staged.
+The pre-integration feature snapshot contained `@ulp.edu.vn` seed identities in
+V23 and a provenance-only `ULP` comment in V41. The integrated `main` snapshot
+already carries KSH identities/text there and V53 standardizes the site name,
+so those findings remain historical audit evidence rather than current-source
+defects. Any retained database with old checksums still follows the explicit
+forward/rebaseline decision; do not use Flyway repair as a shortcut. Ignored
+`.idea` references such as `UlpApplication` or an `ulp` module are local IDE
+debt and must never be staged.
 
 ## 8. Validation, commits and exit criteria
 

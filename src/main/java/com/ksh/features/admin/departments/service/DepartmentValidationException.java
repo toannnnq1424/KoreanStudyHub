@@ -2,7 +2,7 @@ package com.ksh.features.admin.departments.service;
 
 /**
  * Domain exception for department business-rule breaches (duplicate code,
- * ineligible head, missing row). Message is Vietnamese UI text for toasts.
+ * ineligible leader, missing row). Message is Vietnamese UI text for toasts.
  */
 public class DepartmentValidationException extends RuntimeException {
 

@@ -19,9 +19,9 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
     boolean existsByCodeAndIdNot(String code, Long id);
 
-    Optional<Department> findFirstByHeadUserId(Long headUserId);
+    Optional<Department> findFirstByLeaderUserId(Long leaderUserId);
 
-    boolean existsByHeadUserId(Long headUserId);
+    boolean existsByLeaderUserId(Long leaderUserId);
 
-    long countByHeadUserId(Long headUserId);
+    long countByLeaderUserId(Long leaderUserId);
 }

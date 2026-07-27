@@ -57,7 +57,7 @@ public class LecturerAssignmentController {
     private ClassEntity loadClass(Long classId, Long userId, com.ksh.security.Role role) {
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        // Ownership check: ADMIN and HEAD may view any class; LECTURER only their own.
+        // Ownership check: ADMIN and LEADER may view any class; LECTURER only their own.
         if (role == com.ksh.security.Role.LECTURER && !userId.equals(clazz.getLecturerId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }

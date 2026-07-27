@@ -2,9 +2,9 @@ package com.ksh.security;
 
 /**
  * The four system roles of KSH, matching the CHECK constraint on the {@code users.role} column:
- * {@code CHECK (role IN ('STUDENT','LECTURER','HEAD','ADMIN'))}.
+ * {@code CHECK (role IN ('STUDENT','LECTURER','LEADER','ADMIN'))}.
  *
- * <p>Business hierarchy: {@code HEAD} inherits all permissions of {@code LECTURER}.
+ * <p>Business hierarchy: {@code LEADER} inherits all permissions of {@code LECTURER}.
  * Spring Security authority strings of the form {@code "ROLE_<name>"} are produced by
  * {@link #authority()}; SpEL constants in {@link Roles} are used inside
  * {@code @PreAuthorize} expressions to avoid repeating string literals across the codebase.
@@ -12,7 +12,7 @@ package com.ksh.security;
 public enum Role {
     STUDENT,
     LECTURER,
-    HEAD,
+    LEADER,
     ADMIN;
 
     /** Spring Security authority string (e.g. "ROLE_LECTURER"). */

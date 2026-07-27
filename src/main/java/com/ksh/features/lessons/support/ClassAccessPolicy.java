@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  * lesson detail, comments). Centralizes the "who may view/moderate a class's
  * lesson thread" rule so callers no longer repeat it inline.
  *
- * <p>The rule: ADMIN/HEAD bypass enrollment (they moderate any class), the
+ * <p>The rule: ADMIN/LEADER bypass enrollment (they moderate any class), the
  * owning lecturer passes, and otherwise an ACTIVE enrollment is required. Any
  * other caller collapses to a single {@link EntityNotFoundException} with the
  * canonical message so class existence is never leaked.
@@ -32,25 +32,25 @@ public class ClassAccessPolicy {
         this.enrollmentRepository = enrollmentRepository;
     }
 
-    /** ADMIN and HEAD are privileged moderators across every class. */
+    /** ADMIN and LEADER are privileged moderators across every class. */
     public boolean isPrivileged(Role role) {
-        return role == Role.ADMIN || role == Role.HEAD;
+        return role == Role.ADMIN || role == Role.LEADER;
     }
 
-    /** A moderator is the owning lecturer or any ADMIN/HEAD. */
+    /** A moderator is the owning lecturer or any ADMIN/LEADER. */
     public boolean isModerator(ClassEntity clazz, Long userId, Role role) {
         return clazz.getLecturerId().equals(userId) || isPrivileged(role);
     }
 
     /**
      * Admits the caller to the given live class or throws a no-leak 404.
-     * ADMIN/HEAD bypass enrollment so they can moderate the thread, the owning
+     * ADMIN/LEADER bypass enrollment so they can moderate the thread, the owning
      * lecturer passes, otherwise an ACTIVE enrollment is required.
      *
      * @throws EntityNotFoundException when no rule admits the caller
      */
     public void requireModeratorOrEnrolled(ClassEntity clazz, Long userId, Role role) {
-        // ADMIN/HEAD may open any live class to moderate its lesson thread.
+        // ADMIN/LEADER may open any live class to moderate its lesson thread.
         if (isPrivileged(role)) {
             return;
         }

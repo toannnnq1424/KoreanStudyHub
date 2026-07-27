@@ -244,13 +244,15 @@ class PracticePhase11AuthoringUiContractTest {
                 "@{/practice}", "@{/practice/progress}", "@{/practice/manage}",
                 "@{/practice/manage/revisions}", "@{/practice/manage/materials}",
                 "@{/lecturer/dashboard}", "@{/lecturer/classes}", "@{/lecturer/library}",
-                "@{/head}", "@{/admin/dashboard}")) {
+                "@{/lecturer/question-bank}", "@{/leader}", "@{/admin/dashboard}")) {
             assertTrue(compactNavigation.contains(route),
                     "Compact navigation is missing route " + route);
         }
         assertTrue(compactNavigation.contains("hasRole('STUDENT')"));
         assertTrue(compactNavigation.contains("hasRole('LECTURER')"));
-        assertTrue(compactNavigation.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+        assertTrue(compactNavigation.contains("hasAnyRole('LECTURER','LEADER','ADMIN')"));
+        assertFalse(compactNavigation.contains("'HEAD'"));
+        assertFalse(compactNavigation.contains("@{/head}"));
 
         assertTrue(wideRules.contains(".user-chip .name"));
         assertTrue(wideRules.contains("display: none"));
@@ -268,6 +270,9 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(practiceCss.contains(".pi-body > .header .nav-practice-dropdown"));
         assertTrue(header.contains("class=\"user-chip\""));
         assertTrue(header.contains("aria-label=\"Mở menu tài khoản\""));
+        assertTrue(header.contains("<form th:action=\"@{/logout}\" method=\"post\">"));
+        assertTrue(header.contains("th:name=\"${_csrf.parameterName}\""));
+        assertTrue(header.contains("th:value=\"${_csrf.token}\""));
     }
 
     @Test
@@ -459,7 +464,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(wizard.contains(">Test và phần kỹ năng<"));
         assertFalse(wizard.contains("|Test ${section.testNo}"));
         assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
-        assertFalse(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
+        assertFalse(workspace.contains("hasAnyRole('LEADER','ADMIN')"));
         assertFalse(workspace.contains("data.privilegedDetails"));
         assertFalse(workspace.contains("JSON kỹ thuật"));
         assertFalse(workspace.contains("Request JSON"));
@@ -772,8 +777,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(progress.contains("TOPIK II Cấp"));
         assertFalse(progress.contains("TOPIK I Cấp"));
         assertTrue(index.contains("sec:authorize=\"hasRole('LECTURER')\""));
-        assertFalse(index.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
-        assertFalse(sidebar.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+        assertFalse(index.contains("hasAnyRole('LECTURER','LEADER','ADMIN')"));
+        assertFalse(sidebar.contains("hasAnyRole('LECTURER','LEADER','ADMIN')"));
         assertTrue(sidebar.contains("sec:authorize=\"hasRole('STUDENT')\""));
         assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Luyện tập</span>"));
         assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Quản lý bộ đề</span>"));
@@ -875,8 +880,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(publicAllowlist >= 0 && publicAllowlist < denyAllFallback);
         String publicRules = security.substring(publicAllowlist, denyAllFallback);
         assertTrue(publicRules.contains("\"/uploads/exams/**\""));
-        assertTrue(publicRules.contains("\"/uploads/questions/**\""));
-        assertTrue(publicRules.contains("\"/uploads/options/**\""));
+        assertFalse(publicRules.contains("\"/uploads/questions/**\""));
+        assertFalse(publicRules.contains("\"/uploads/options/**\""));
         assertTrue(publicRules.contains(").permitAll()"));
         assertFalse(security.contains(
                 ".requestMatchers(\"/uploads/**\").permitAll()"));

@@ -1,5 +1,6 @@
 package com.ksh.features.admin.settings;
 
+import com.ksh.config.CacheConfig;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos;
 import com.ksh.entities.SystemSetting;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Integration test cho {@code /admin/settings/email} — chay context day du
  * + DB that. Cover:
  * <ul>
- *   <li>Auth guards (anonymous, STUDENT, LECTURER, HEAD, ADMIN)</li>
+ *   <li>Auth guards (anonymous, STUDENT, LECTURER, LEADER, ADMIN)</li>
  *   <li>Form render voi masked password</li>
  *   <li>Save valid settings — redirect voi success flash</li>
  *   <li>Save invalid encryption — re-render form voi field error</li>
@@ -50,11 +53,15 @@ class EmailSettingsControllerIntegrationTest {
     @Autowired
     private SystemSettingsRepository repository;
 
+    @Autowired
+    private CacheManager cacheManager;
+
     /** Backup gia tri toan bo group SMTP de restore sau moi test. */
     private Map<String, String> backupSmtpRows;
 
     @BeforeEach
     void setUp() {
+        evictSmtpCache();
         backupSmtpRows = new java.util.HashMap<>();
         for (SystemSetting s : repository.findBySettingGroup("SMTP")) {
             backupSmtpRows.put(s.getSettingKey(), s.getSettingValue());
@@ -70,6 +77,7 @@ class EmailSettingsControllerIntegrationTest {
                 repository.save(s);
             });
         }
+        evictSmtpCache();
     }
 
     // ─────────────────── Auth guards ───────────────────
@@ -97,8 +105,8 @@ class EmailSettingsControllerIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void head_forbidden() throws Exception {
+    @WithUserDetails("leader@ksh.edu.vn")
+    void leader_forbidden() throws Exception {
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isForbidden());
     }
@@ -109,10 +117,7 @@ class EmailSettingsControllerIntegrationTest {
     @WithUserDetails("admin@ksh.edu.vn")
     void admin_form_renders_with_masked_password() throws Exception {
         // Set a known password so test khong phu thuoc vao seed
-        repository.findBySettingKey("smtp.password").ifPresent(s -> {
-            s.setSettingValue("real-secret-do-not-leak");
-            repository.save(s);
-        });
+        updateSettingDirectly("smtp.password", "real-secret-do-not-leak");
 
         mockMvc.perform(get("/admin/settings/email"))
                 .andExpect(status().isOk())
@@ -174,10 +179,7 @@ class EmailSettingsControllerIntegrationTest {
     @WithUserDetails("admin@ksh.edu.vn")
     void save_empty_password_preserves_existing_value() throws Exception {
         // Set up known password
-        repository.findBySettingKey("smtp.password").ifPresent(s -> {
-            s.setSettingValue("keep-this-secret");
-            repository.save(s);
-        });
+        updateSettingDirectly("smtp.password", "keep-this-secret");
 
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -199,10 +201,7 @@ class EmailSettingsControllerIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void save_masked_placeholder_also_preserves_password() throws Exception {
-        repository.findBySettingKey("smtp.password").ifPresent(s -> {
-            s.setSettingValue("keep-this-secret-too");
-            repository.save(s);
-        });
+        updateSettingDirectly("smtp.password", "keep-this-secret-too");
 
         mockMvc.perform(post("/admin/settings/email")
                         .with(csrf())
@@ -375,10 +374,7 @@ class EmailSettingsControllerIntegrationTest {
     @WithUserDetails("admin@ksh.edu.vn")
     void test_send_empty_host_returns_specific_error() throws Exception {
         // Force smtp.host empty
-        repository.findBySettingKey("smtp.host").ifPresent(s -> {
-            s.setSettingValue("");
-            repository.save(s);
-        });
+        updateSettingDirectly("smtp.host", "");
 
         mockMvc.perform(post("/admin/settings/email/test")
                         .with(csrf())
@@ -386,5 +382,20 @@ class EmailSettingsControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(false))
                 .andExpect(jsonPath("$.error").value("SMTP host is not configured"));
+    }
+
+    private void updateSettingDirectly(String key, String value) {
+        repository.findBySettingKey(key).ifPresent(setting -> {
+            setting.setSettingValue(value);
+            repository.save(setting);
+        });
+        evictSmtpCache();
+    }
+
+    private void evictSmtpCache() {
+        Cache cache = cacheManager.getCache(CacheConfig.CACHE_SETTINGS_GROUP);
+        if (cache != null) {
+            cache.evict("SMTP");
+        }
     }
 }

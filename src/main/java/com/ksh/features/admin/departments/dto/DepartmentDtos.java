@@ -27,7 +27,7 @@ public final class DepartmentDtos {
     /**
      * List-row projection for the departments table.
      *
-     * @param headLabel display name of the assigned head, or null when unassigned
+     * @param leaderLabel display name of the assigned leader, or null when unassigned
      */
     public record DepartmentRow(
             Long id,
@@ -35,14 +35,14 @@ public final class DepartmentDtos {
             String name,
             String description,
             boolean active,
-            Long headUserId,
-            String headLabel,
+            Long leaderUserId,
+            String leaderLabel,
             LocalDateTime createdAt
     ) {
     }
 
     /**
-     * Create/edit form. Head assignment is a separate action on the list/form.
+     * Create/edit form. Leader assignment is a separate action on the list/form.
      */
     public record DepartmentForm(
             @NotBlank(message = "Tên bộ môn không được để trống")
@@ -58,15 +58,15 @@ public final class DepartmentDtos {
 
             boolean active,
 
-            Long headUserId
+            Long leaderUserId
     ) {
         public static DepartmentForm empty() {
             return new DepartmentForm(null, null, null, true, null);
         }
     }
 
-    /** Dropdown option for head candidate picker. */
-    public record HeadCandidate(Long id, String fullName, String email, String role) {
+    /** Dropdown option for leader candidate picker. */
+    public record LeaderCandidate(Long id, String fullName, String email, String role) {
     }
 
     /** Lightweight option for admin user-form department dropdown. */

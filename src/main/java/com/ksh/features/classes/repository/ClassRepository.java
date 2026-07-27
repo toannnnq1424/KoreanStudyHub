@@ -60,7 +60,7 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     Page<ClassEntity> findAllByLecturerId(Long lecturerId, Pageable pageable);
 
     /**
-     * Paginated variant of the all-non-deleted query used by HEAD / ADMIN
+     * Paginated variant of the all-non-deleted query used by LEADER / ADMIN
      * viewing the lecturer class list. The {@code @SQLRestriction} on
      * {@link ClassEntity} keeps soft-deleted rows out of the result.
      *

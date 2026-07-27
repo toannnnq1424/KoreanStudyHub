@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
  * One fail-closed answer for logical and physical lecturer-asset retention.
  * Cleanup callers must already hold the exact asset row lock in their active
  * transaction. Material references cover normal draft/published content; the
- * V45 repositories cover mutable prompt state, reusable AI evidence and
+ * V54 repositories cover mutable prompt state, reusable AI evidence and
  * immutable published context.
  */
 @Service

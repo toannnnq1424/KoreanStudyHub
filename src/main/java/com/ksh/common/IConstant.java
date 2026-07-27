@@ -50,6 +50,9 @@ public interface IConstant {
     String PATH_LIBRARY      = "/library";
     String URL_LIBRARY       = BASE_LECTURER + PATH_LIBRARY;
     String URL_LIBRARY_API   = URL_LIBRARY + "/api";
+    String PATH_LIBRARY_TARGETS = "/targets";
+    String URL_LIBRARY_TARGETS  = URL_LIBRARY + PATH_LIBRARY_TARGETS;
+    String URL_LIBRARY_TARGET_CLASSES = URL_LIBRARY_TARGETS + "/classes";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
@@ -107,6 +110,16 @@ public interface IConstant {
     String ATTR_LIBRARY_TOTAL_COUNT    = "libraryTotalCount";
     String ATTR_LIBRARY_DOCUMENT_COUNT = "libraryDocumentCount";
     String ATTR_LIBRARY_VIDEO_COUNT    = "libraryVideoCount";
+    String ATTR_LIBRARY_TEMPLATE_COUNT = "libraryTemplateCount";
+    String ATTR_LIBRARY_TAB            = "libraryTab";
+    String ATTR_LIBRARY_CLASS_ID       = "libraryClassId";
+    String ATTR_LIBRARY_CLASS_OPTIONS  = "libraryClassOptions";
+
+    /** Library sidebar rail for lesson templates (not a file kind). */
+    String LIBRARY_TAB_TEMPLATES = "TEMPLATES";
+
+    /** Default section title auto-created when cloning into an empty class. */
+    String DEFAULT_SECTION_TITLE = "Chương 1";
 
     // Additional cross-cutting model attribute keys (used by ≥2 controllers).
     String ATTR_USER          = "user";
@@ -195,9 +208,26 @@ public interface IConstant {
     String ATTR_PENDING_ROWS    = "pendingRows";
 
     // Cross-controller admin-settings session guard
-    // (used by EmailSettingsController + OauthSettingsController).
+    // (used by EmailSettingsController + OauthSettingsController + StorageSettingsController).
     String MSG_OAUTH_SESSION_UNSUPPORTED =
             "Phiên đăng nhập của bạn không hỗ trợ thao tác này. Vui lòng đăng nhập lại bằng email và mật khẩu.";
+
+    // ───────── Object storage (Cloudflare R2) ─────────────────────────
+    String STORAGE_PROVIDER_LOCAL = "local";
+    String STORAGE_PROVIDER_R2    = "r2";
+
+    String MSG_STORAGE_SETTINGS_SAVED =
+            "Đã lưu cấu hình lưu trữ.";
+    String MSG_STORAGE_R2_NOT_CONFIGURED =
+            "Cloudflare R2 chưa được cấu hình đầy đủ. Vui lòng kiểm tra Cài đặt > Lưu trữ.";
+    String MSG_STORAGE_PROVIDER_INVALID =
+            "Nhà cung cấp lưu trữ không hợp lệ (chọn local hoặc r2).";
+    String MSG_STORAGE_R2_FIELDS_REQUIRED =
+            "Khi chọn R2, Access Key, Secret, Bucket và Endpoint là bắt buộc.";
+    String MSG_STORAGE_UPLOAD_FAILED =
+            "Không lưu được tệp lên kho lưu trữ. Vui lòng thử lại.";
+    String MSG_STORAGE_R2_CONNECT_FAILED =
+            "Không kết nối được tới Cloudflare R2";
 
     // ───────── Lesson status discriminators ─────────────────────────
     String LESSON_STATUS_DRAFT     = "DRAFT";
@@ -268,6 +298,8 @@ public interface IConstant {
     String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
     // Moderator hide/unhide (KSH-11.7).
     String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
+    // Comment bulk moderation (KSH-11.7).
+    String MSG_COMMENT_BULK_EMPTY = "Vui lòng chọn ít nhất một bình luận";
 
     // ───────── Flashcards (KSH-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
@@ -340,6 +372,7 @@ public interface IConstant {
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
+    String ATTR_EXAM_BANK_CATEGORIES = "examBankCategories";
 
     // Readiness band labels (Vietnamese UI text).
     String BAND_NOT_READY = "Chưa sẵn sàng";
@@ -473,6 +506,9 @@ public interface IConstant {
     // Personal file library — SSR / picker page size.
     int DEFAULT_LIBRARY_PAGE_SIZE = 12;
     int MAX_LIBRARY_PAGE_SIZE = 50;
+    // Library attach wizard — editable class target page size.
+    int DEFAULT_LIBRARY_TARGET_PAGE_SIZE = 12;
+    int MAX_LIBRARY_TARGET_PAGE_SIZE = 50;
 
     // Lesson comments — root comments per "load more" page (default + upper bound).
     // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
@@ -509,14 +545,14 @@ public interface IConstant {
     String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
     String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
 
-    // ───────── Admin departments + HEAD shell ────────────────────────
+    // ───────── Admin departments + LEADER shell ────────────────────────
     String URL_ADMIN_DEPARTMENTS = "/admin/departments";
     String VIEW_ADMIN_DEPARTMENTS      = "admin/departments";
     String VIEW_ADMIN_DEPARTMENTS_FORM = "admin/departments-form";
     String TAB_DEPARTMENTS = "departments";
 
     String ATTR_DEPARTMENTS     = "departments";
-    String ATTR_HEAD_CANDIDATES = "headCandidates";
+    String ATTR_LEADER_CANDIDATES = "leaderCandidates";
     // Shared key "activitiesPage" — same string as users edit history tab.
     String ATTR_ACTIVITIES_PAGE = "activitiesPage";
 
@@ -526,23 +562,99 @@ public interface IConstant {
     String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
     String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
 
-    // HEAD product area.
-    String BASE_HEAD              = "/head";
-    String URL_HEAD_DASHBOARD     = BASE_HEAD;
-    String URL_HEAD_ASSIGN        = BASE_HEAD + "/assign";
-    String URL_HEAD_REPORT        = BASE_HEAD + "/report";
-    String VIEW_HEAD_DASHBOARD    = "head/dashboard";
-    String VIEW_HEAD_ASSIGN       = "head/assign";
-    String VIEW_HEAD_REPORT       = "head/report";
-    String ATTR_HEAD_DEPARTMENT   = "headDepartment";
-    String ATTR_HEAD_KPIS         = "kpis";
-    String ATTR_HEAD_RECENT       = "recentClasses";
-    String ATTR_HEAD_CLASS_ROWS   = "classRows";
-    String ATTR_HEAD_LECTURERS    = "lecturers";
-    String ATTR_HEAD_REPORT_ROWS  = "reportRows";
-    String ATTR_HEAD_EMPTY        = "emptyDepartment";
-    String MSG_HEAD_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
-    String MSG_HEAD_REASSIGN_FAIL = "Không thể phân công giảng viên";
+    // LEADER product area.
+    String BASE_LEADER              = "/leader";
+    String URL_LEADER_DASHBOARD     = BASE_LEADER;
+    String URL_LEADER_ASSIGN        = BASE_LEADER + "/assign";
+    String URL_LEADER_REPORT        = BASE_LEADER + "/report";
+    String URL_LEADER_QUESTION_BANK = BASE_LEADER + "/question-bank/review";
+    String VIEW_LEADER_DASHBOARD    = "leader/dashboard";
+    String VIEW_LEADER_ASSIGN       = "leader/assign";
+    String VIEW_LEADER_REPORT       = "leader/report";
+    String VIEW_LEADER_QUESTION_BANK = "questionbank/review";
+    String VIEW_LEADER_QB_TESTS      = "leader/question-bank-tests";
+    String ATTR_LEADER_QB_TESTS      = "qbTests";
+    String ATTR_LEADER_DEPARTMENT   = "leaderDepartment";
+    String ATTR_LEADER_KPIS         = "kpis";
+    String ATTR_LEADER_RECENT       = "recentClasses";
+    String ATTR_LEADER_CLASS_ROWS   = "classRows";
+    String ATTR_LEADER_LECTURERS    = "lecturers";
+    String ATTR_LEADER_REPORT_ROWS  = "reportRows";
+    String ATTR_LEADER_EMPTY        = "emptyDepartment";
+    String ATTR_QB_ITEMS          = "items";
+    String ATTR_QB_CATEGORIES     = "categories";
+    String ATTR_QB_CATEGORY_OPTIONS = "categoryOptions";
+    String ATTR_QB_CATEGORY_FORM  = "categoryForm";
+    String ATTR_QB_SELECTED_STATUS = "selectedStatus";
+    String ATTR_QB_SELECTED_CATEGORY_ID = "selectedCategoryId";
+    String ATTR_QB_QUERY          = "query";
+    String ATTR_QB_EMPTY_DEPARTMENT = "emptyDepartment";
+    String ATTR_QB_EDIT_CATEGORY_ID = "editCategoryId";
+    String ATTR_QB_DETAIL         = "detail";
+    String MSG_LEADER_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
+    String MSG_LEADER_REASSIGN_FAIL = "Không thể phân công giảng viên";
+    String MSG_QB_DRAFT_SAVED     = "Đã lưu câu hỏi nháp";
+    String MSG_QB_SUBMITTED       = "Đã gửi câu hỏi lên hàng chờ duyệt";
+    String MSG_QB_UPDATED         = "Đã cập nhật câu hỏi";
+    String MSG_QB_RESUBMITTED     = "Đã cập nhật và gửi lại hàng chờ duyệt";
+    String MSG_QB_CATEGORY_CREATED = "Đã tạo danh mục câu hỏi";
+    String MSG_QB_CATEGORY_UPDATED = "Đã cập nhật danh mục câu hỏi";
+    String MSG_QB_CATEGORY_TOGGLED = "Đã đổi trạng thái danh mục";
+    String MSG_QB_CATEGORY_DELETED = "Đã xoá danh mục câu hỏi";
+    String MSG_QB_APPROVED        = "Đã duyệt câu hỏi";
+    String MSG_QB_REJECTED        = "Đã trả lại câu hỏi cho giảng viên";
+    String MSG_QB_ARCHIVED        = "Đã lưu trữ câu hỏi";
+    String MSG_QB_UNARCHIVED      = "Đã bỏ lưu trữ câu hỏi";
+
+    // ───────── Shared department question bank (department-scoped) ────
+    // Route prefixes / canonical URLs.
+    String BASE_LECTURER_QUESTION_BANK = BASE_LECTURER + "/question-bank";
+    String URL_LECTURER_QUESTION_BANK  = BASE_LECTURER_QUESTION_BANK;
+    String BASE_LEADER_QUESTION_BANK     = BASE_LEADER + "/question-bank";
+    String URL_LEADER_QUESTION_BANK_MANAGE = BASE_LEADER_QUESTION_BANK;
+
+    // View names.
+    String VIEW_QB_LIST   = "questionbank/list";
+    String VIEW_QB_DETAIL = "questionbank/detail";
+    String VIEW_QB_FORM   = "questionbank/form";
+    String VIEW_QB_MANAGE = "questionbank/manage";
+
+    // Model attribute keys (department-scoped screens).
+    String ATTR_QB_CONTRIBUTORS         = "contributors";
+    String ATTR_QB_SELECTED_CONTRIBUTOR_ID = "selectedContributorId";
+
+    // LEADER management screen 2-tab layout (server-side ?tab= routing).
+    String ATTR_QB_ACTIVE_TAB           = "qbActiveTab";
+    String TAB_QB_QUESTIONS             = "questions";
+    String TAB_QB_CATEGORIES            = "categories";
+    String ATTR_QB_HAS_ACTIVE_FILTER    = "hasActiveFilter";
+    String ATTR_QB_STATUS_COUNTS        = "statusCounts";
+
+    // Inbox review UX (question table + detail panel) on the questions tab.
+    String PARAM_QB_SELECTED            = "selected";
+    String ATTR_QB_SELECTED_ITEM        = "selectedItem";
+    String ATTR_QB_SELECTED_ITEM_ID     = "selectedItemId";
+
+    // LEADER master-detail redesign: category master → question detail + bulk.
+    String VIEW_QB_CATEGORY_DETAIL     = "questionbank/category-detail";
+    String ATTR_QB_CATEGORY_DETAIL     = "categoryDetail";
+    String ATTR_QB_CATEGORY_ID         = "categoryId";
+    String PARAM_QB_ITEM_IDS           = "itemIds";
+    String MSG_QB_BULK_EMPTY           = "Vui lòng chọn ít nhất một câu hỏi";
+    String MSG_QB_BULK_APPROVED_PREFIX = "Đã duyệt ";
+    String MSG_QB_BULK_REJECTED_PREFIX = "Đã trả lại ";
+    String MSG_QB_BULK_ARCHIVED_PREFIX = "Đã lưu trữ ";
+    String MSG_QB_BULK_UNARCHIVED_PREFIX = "Đã bỏ lưu trữ ";
+    String MSG_QB_BULK_SUFFIX_ITEMS    = " câu";
+    String MSG_QB_BULK_SKIPPED_PREFIX  = ", bỏ qua ";
+    String MSG_QB_BULK_SKIPPED_SUFFIX  = " câu không hợp lệ";
+
+    // Insert-from-bank into test authoring (Vietnamese UI text).
+    String MSG_QB_INSERTED_PREFIX = "Đã chèn ";
+    String MSG_QB_INSERTED_SUFFIX = " câu hỏi đã duyệt vào bài test";
+    String MSG_QB_INSERT_LOCKED   =
+            "Bài test đã có bài nộp nên không thể thêm câu hỏi mới từ ngân hàng";
+    String MSG_QB_INSERT_EMPTY    = "Vui lòng chọn ít nhất một câu hỏi đã duyệt để chèn";
 
     // ───────── Personal file library (Vietnamese UI text) ────────────
     String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";
@@ -558,4 +670,71 @@ public interface IConstant {
     String MSG_LIBRARY_BOUND_PDF       = "Đã gắn PDF từ kho học liệu";
     String MSG_LIBRARY_BOUND_VIDEO     = "Đã gắn video từ kho học liệu";
     String MSG_LIBRARY_BOUND_ATTACHMENT = "Đã gắn tệp từ kho học liệu";
+    String MSG_LIBRARY_ATTACHED_TO_CLASS = "Đã gắn học liệu vào bài giảng";
+    String MSG_LIBRARY_ATTACH_FAILED     = "Không gắn được học liệu vào bài giảng";
+    String MSG_LIBRARY_ATTACH_REPLACE_PDF =
+            "Bài giảng đã có PDF chính. Thay thế bằng tệp từ kho?";
+    String MSG_LIBRARY_ATTACH_REPLACE_VIDEO =
+            "Bài giảng đã có video tải lên. Thay thế bằng video từ kho?";
+
+    // ───────── Lesson templates (Vietnamese UI text) ─────────────────
+    String MSG_TEMPLATE_SAVED          = "Đã lưu bài giảng vào kho mẫu";
+    String MSG_TEMPLATE_RENAMED        = "Đã đổi tên mẫu bài giảng";
+    String MSG_TEMPLATE_DELETED        = "Đã xoá mẫu bài giảng";
+    String MSG_TEMPLATE_NOT_FOUND      = "Không tìm thấy mẫu bài giảng";
+    String MSG_TEMPLATE_TITLE_BLANK    = "Tên mẫu không được để trống";
+    String MSG_TEMPLATE_CLONE_OK       = "Đã clone bài giảng sang lớp (bản nháp)";
+    String MSG_TEMPLATE_CLONE_FAILED   = "Không clone được bài giảng";
+    String MSG_TEMPLATE_SAVE_FAILED    = "Không lưu được mẫu bài giảng";
+    String MSG_TEMPLATE_BODY_INCOMPLETE =
+            "Bài giảng chưa đủ nội dung để lưu mẫu (thiếu PDF/video/nội dung)";
+    String MSG_TEMPLATE_PROMOTE_FAILED =
+            "Không thể đưa tệp đính kèm vào kho học liệu";
+
+    // Admin permission management.
+    String URL_ADMIN_PERMISSIONS           = "/admin/permissions";
+    String URL_ADMIN_PERMISSIONS_OVERRIDES = URL_ADMIN_PERMISSIONS + "/overrides";
+
+    String VIEW_ADMIN_PERMISSIONS_ROLES     = "admin/permissions-roles";
+    String VIEW_ADMIN_PERMISSIONS_OVERRIDES = "admin/permissions-overrides";
+
+    String TAB_PERMISSIONS = "permissions";
+
+    String ATTR_PERMISSION_MATRIX    = "matrix";
+    String ATTR_PERMISSION_OVERRIDES = "overrides";
+    String ATTR_PERMISSION_CATALOG   = "permissionCatalog";
+    String ATTR_OVERRIDE_USERS       = "overrideUsers";
+    String ATTR_FLASH_REASON_ERROR   = "flashReasonError";
+    String ATTR_OVERRIDE_FORM        = "overrideForm";
+
+    String MSG_PERMISSION_ATTACHED  = "Đã cấp quyền cho vai trò";
+    String MSG_PERMISSION_DETACHED  = "Đã gỡ quyền khỏi vai trò";
+    String MSG_OVERRIDE_SAVED       = "Đã lưu ngoại lệ quyền";
+    String MSG_OVERRIDE_DEACTIVATED = "Đã huỷ ngoại lệ quyền";
+    String MSG_PERMISSION_NOT_FOUND = "Không tìm thấy quyền";
+
+    // Admin AI provider settings.
+    String URL_SETTINGS_AI  = "/admin/settings/ai";
+    String VIEW_SETTINGS_AI = "admin/settings-ai";
+
+    String ATTR_AI_PROVIDERS    = "providers";
+    String ATTR_AI_ALL_DISABLED = "allDisabled";
+
+    String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";
+    String MSG_AI_PROVIDER_UPDATED   = "Đã cập nhật AI provider";
+    String MSG_AI_PROVIDER_DELETED   = "Đã xoá AI provider";
+    String MSG_AI_PROVIDER_ENABLED   = "Đã bật AI provider";
+    String MSG_AI_PROVIDER_DISABLED  = "Đã tắt AI provider";
+    String MSG_AI_PROVIDER_NOT_FOUND = "Không tìm thấy AI provider";
+    String MSG_AI_NAME_DUPLICATE     = "Tên provider đã tồn tại";
+    String MSG_AI_KEY_REQUIRED       = "API key là bắt buộc khi thêm provider mới";
+
+    // ───────── AI request logs ───────────────────────────────────────
+    String URL_SETTINGS_AI_LOGS  = "/admin/settings/ai/logs";
+    String VIEW_SETTINGS_AI_LOGS = "admin/settings-ai-logs";
+
+    String ATTR_AI_LOGS_PAGE      = "page";
+    String ATTR_AI_LOGS_FILTER    = "filter";
+    String ATTR_AI_LOGS_TOTALS    = "totals";
+    String ATTR_AI_LOGS_PROVIDERS = "providerNames";
 }

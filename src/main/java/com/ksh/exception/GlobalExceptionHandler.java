@@ -1,11 +1,14 @@
 package com.ksh.exception;
 
+import com.ksh.features.lessons.dto.SectionDtos.AjaxResult;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.storage.StorageNotConfiguredException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
@@ -14,6 +17,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+
+import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
 
 /**
  * Global exception handler for all Spring MVC controllers.
@@ -111,6 +116,36 @@ public class GlobalExceptionHandler {
         // attempting to render an error page only creates a second write error.
         log.debug("Client disconnected while streaming [{}]: {}",
                 request.getRequestURI(), ex.getMessage());
+    }
+
+    /**
+     * Returns a bounded 400 response when object storage is selected but its
+     * required R2 settings are incomplete.
+     */
+    @ExceptionHandler(StorageNotConfiguredException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Object handleStorageNotConfigured(StorageNotConfiguredException ex,
+                                             HttpServletRequest request,
+                                             Model model) {
+        String message = ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? ex.getMessage()
+                : MSG_STORAGE_R2_NOT_CONFIGURED;
+        log.warn("Storage not configured at [{}]: {}", request.getRequestURI(), message);
+        if (wantsJson(request)) {
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(AjaxResult.failure(message));
+        }
+        model.addAttribute("message", message);
+        return "error";
+    }
+
+    private static boolean wantsJson(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains(MediaType.APPLICATION_JSON_VALUE)) {
+            return true;
+        }
+        return "XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"));
     }
 
     /**

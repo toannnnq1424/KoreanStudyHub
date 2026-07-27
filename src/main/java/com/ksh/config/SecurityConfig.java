@@ -116,9 +116,9 @@ public class SecurityConfig {
      *
      * <p>Authorization rules:</p>
      * <ul>
-     *   <li>Static resources and upload paths are publicly accessible.</li>
+     *   <li>Static resources plus the controller-backed avatar/exam upload namespaces are public.</li>
      *   <li>{@code /login}, {@code /forgot-password}, and {@code /reset-password} are public.</li>
-     *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code HEAD}, or {@code ADMIN} role.</li>
+     *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code LEADER}, or {@code ADMIN} role.</li>
      *   <li>{@code /admin/**} requires the {@code ADMIN} role.</li>
      *   <li>All other requests require an authenticated user.</li>
      * </ul>
@@ -141,22 +141,20 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
-                        // Raw upload routing is fail-closed. Generated public
-                        // and legacy paths are lowercase; every other spelling
-                        // or namespace must use an authorized controller.
+                        // Raw upload routing is fail-closed. Only the two
+                        // controller-backed public namespaces are allowed;
+                        // Practice material must use its authorized controller.
                         .requestMatchers(
                                 "/uploads/avatars/**",
-                                "/uploads/exams/**",
-                                "/uploads/questions/**",
-                                "/uploads/options/**"
+                                "/uploads/exams/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
                         .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
-                        .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.HEAD, Roles.ADMIN)
-                        .requestMatchers("/head/**").hasRole(Roles.HEAD)
+                        .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
+                        .requestMatchers("/leader/**").hasRole(Roles.LEADER)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         // WebSocket STOMP handshake rides the HTTP session; require auth.
                         .requestMatchers("/ws/**").authenticated()

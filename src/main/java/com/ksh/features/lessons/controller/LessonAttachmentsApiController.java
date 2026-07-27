@@ -4,12 +4,15 @@ import com.ksh.features.lessons.dto.LessonDtos.LessonAttachmentRow;
 import com.ksh.features.lessons.dto.SectionDtos.AjaxResult;
 import com.ksh.features.lessons.service.LessonAttachmentsService;
 import com.ksh.features.lessons.service.LessonAttachmentsService.DownloadHandle;
+import com.ksh.features.storage.ObjectStorage;
+import com.ksh.features.storage.StorageNotConfiguredException;
+import com.ksh.features.storage.StoredObject;
+import com.ksh.features.storage.StoredObjectResource;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -29,12 +32,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 
 import static com.ksh.common.IConstant.MSG_ATTACHMENT_TOO_LARGE;
+import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
+import static com.ksh.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.internalError;
@@ -50,7 +52,7 @@ import static com.ksh.features.lessons.controller.support.AjaxResponses.notFound
  * <p>Two URL spaces share this controller:
  * <ul>
  *   <li>{@code /lecturer/classes/.../attachments[/{id}]} — upload + delete,
- *       restricted to lecturers/heads/admins by the class-level
+ *       restricted to lecturers/leaders/admins by the class-level
  *       {@code @PreAuthorize}.</li>
  *   <li>{@code /api/lessons/{lessonId}/attachments/{attachmentId}/download}
  *       — accessible to any authenticated user; service-layer auth gates
@@ -63,9 +65,12 @@ public class LessonAttachmentsApiController {
     private static final Logger log = LoggerFactory.getLogger(LessonAttachmentsApiController.class);
 
     private final LessonAttachmentsService attachmentsService;
+    private final ObjectStorage objectStorage;
 
-    public LessonAttachmentsApiController(LessonAttachmentsService attachmentsService) {
+    public LessonAttachmentsApiController(LessonAttachmentsService attachmentsService,
+                                          ObjectStorage objectStorage) {
         this.attachmentsService = attachmentsService;
+        this.objectStorage = objectStorage;
     }
 
     @PostMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments",
@@ -84,13 +89,15 @@ public class LessonAttachmentsApiController {
             return badRequest(ex.getMessage());
         } catch (MaxUploadSizeExceededException ex) {
             return badRequest(MSG_ATTACHMENT_TOO_LARGE);
+        } catch (StorageNotConfiguredException ex) {
+            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
         } catch (AccessDeniedException ex) {
             return forbidden();
         } catch (EntityNotFoundException ex) {
             return notFound(ex.getMessage());
         } catch (IOException ex) {
             log.error("Failed to write attachment for lesson {}", lessonId, ex);
-            return internalError();
+            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
         } catch (RuntimeException ex) {
             log.error("Unexpected error uploading attachment to lesson {}", lessonId, ex);
             return internalError();
@@ -157,14 +164,15 @@ public class LessonAttachmentsApiController {
         } catch (EntityNotFoundException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        InputStream in;
+        StoredObject obj;
         try {
-            in = Files.newInputStream(handle.absolutePath());
-        } catch (NoSuchFileException ex) {
-            log.warn("Attachment row {} points at missing file {}", attachmentId, handle.absolutePath());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            if (!objectStorage.exists(handle.storageKey())) {
+                log.warn("Attachment row {} points at missing object {}", attachmentId, handle.storageKey());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            obj = objectStorage.open(handle.storageKey());
         } catch (IOException ex) {
-            log.error("Failed to read attachment file {}", handle.absolutePath(), ex);
+            log.error("Failed to read attachment object {}", handle.storageKey(), ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
         ContentDisposition disposition = ContentDisposition.attachment()
@@ -173,8 +181,12 @@ public class LessonAttachmentsApiController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDisposition(disposition);
         headers.setContentType(parseMime(handle.mimeType()));
-        headers.setContentLength(handle.sizeBytes());
-        return new ResponseEntity<>(new InputStreamResource(in), headers, HttpStatus.OK);
+        long length = obj.contentLength() >= 0 ? obj.contentLength() : handle.sizeBytes();
+        if (length >= 0) {
+            headers.setContentLength(length);
+        }
+        return new ResponseEntity<>(new StoredObjectResource(obj, handle.storageKey()),
+                headers, HttpStatus.OK);
     }
 
     private static String safeFilename(String name) {

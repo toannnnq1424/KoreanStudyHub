@@ -5,7 +5,6 @@ import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.service.DepartmentQueryService;
 import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.departments.service.DepartmentValidationException;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -28,11 +27,11 @@ import static com.ksh.common.IConstant.*;
 
 /**
  * MVC controller for {@code /admin/departments} — ADMIN-only department CRUD
- * and head assignment.
+ * and leader assignment.
  */
 @Controller
 @RequestMapping(URL_ADMIN_DEPARTMENTS)
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_department.manage')")
 public class AdminDepartmentsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_ADMIN_DEPARTMENTS;
@@ -156,7 +155,7 @@ public class AdminDepartmentsController {
     private void populateFormModel(Model model, String mode, Long targetId, String detailTab) {
         model.addAttribute(ATTR_MODE, mode);
         model.addAttribute(ATTR_TARGET_ID, targetId);
-        model.addAttribute(ATTR_HEAD_CANDIDATES, queryService.headCandidates());
+        model.addAttribute(ATTR_LEADER_CANDIDATES, queryService.leaderCandidates());
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_DEPARTMENTS);
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, detailTab);
     }

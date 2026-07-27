@@ -72,7 +72,7 @@ class ClassRepositoryTest {
     @Test
     void find_by_lecturer_id_filters_to_owner() {
         Long lec1 = lookupUserId("lecturer@ksh.edu.vn");
-        Long lec2 = lookupUserId("head@ksh.edu.vn"); // HEAD also seeded
+        Long lec2 = lookupUserId("leader@ksh.edu.vn"); // LEADER also seeded
 
         long before = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lec1).size();
 

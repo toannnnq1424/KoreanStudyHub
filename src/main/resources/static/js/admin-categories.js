@@ -7,12 +7,8 @@
 (function () {
   'use strict';
 
-  // ── Flash drain → toast ──────────────────────────────────────────
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
-    if (flashData.dataset.flashSuccess) window.KshToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError)   window.KshToast.error(flashData.dataset.flashError);
-  }
+  // Flash toasts are drained once by notifications.js (app-header).
+  // Do not drain here — a second pass causes duplicate toasts.
 
   // ── Delete confirmation modal ────────────────────────────────────
   var confirmModal = document.getElementById('confirmModal');

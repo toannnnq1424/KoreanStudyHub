@@ -101,17 +101,17 @@
             </div>
 
             <div class="form-row span-3">
-              <label for="headSelect">Trưởng bộ môn</label>
-              <select id="headSelect" th:field="*{headUserId}">
+              <label for="leaderSelect">Trưởng bộ môn</label>
+              <select id="leaderSelect" th:field="*{leaderUserId}">
                 <option value="">— Chưa gán —</option>
-                <option th:each="c : ${headCandidates}"
+                <option th:each="c : ${leaderCandidates}"
                         th:value="${c.id()}"
                         th:text="${c.fullName() + ' (' + c.email() + ') — ' + c.role()}">
                   Candidate
                 </option>
               </select>
               <p class="field-help">Chỉ giảng viên / trưởng bộ môn đang hoạt động.
-                Gán sẽ nâng role lên HEAD; bỏ gán sẽ hạ role về LECTURER nếu không còn làm trưởng bộ môn nào.</p>
+                Gán sẽ nâng role lên LEADER; bỏ gán sẽ hạ role về LECTURER nếu không còn làm trưởng bộ môn nào.</p>
             </div>
 
             <div class="form-row span-3">

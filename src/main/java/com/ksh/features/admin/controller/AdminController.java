@@ -4,7 +4,6 @@ import com.ksh.features.admin.dto.AdminDashboardDtos.DashboardStats;
 import com.ksh.features.admin.dto.AdminDashboardDtos.RecentClass;
 import com.ksh.features.admin.dto.AdminDashboardDtos.UserRoleCount;
 import com.ksh.features.admin.service.AdminDashboardService;
-import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,7 +17,7 @@ import static com.ksh.common.IConstant.*;
 /**
  * MVC controller for the system administration panel.
  * Access is restricted to the {@code ADMIN} role only — may be relaxed to include
- * {@code HEAD} in a future sprint once per-department dashboards are available.
+ * {@code LEADER} in a future sprint once per-department dashboards are available.
  *
  * <p>URL pattern: {@code /admin/{tab}} — five sidebar tabs:
  * <ul>
@@ -35,7 +34,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_dashboard.system')")
 public class AdminController {
 
     // ── Paths ─────────────────────────────────────────────────────

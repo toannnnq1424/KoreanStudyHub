@@ -117,6 +117,16 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     long countActiveByClassId(@Param("classId") Long classId);
 
     /**
+     * Capacity-check count that bypasses MySQL's REPEATABLE READ snapshot.
+     * The class row is locked first by the caller; this locking read then sees
+     * enrollments committed by the transaction that previously held the lock.
+     */
+    @Query(value = "SELECT COUNT(*) FROM enrollments "
+            + "WHERE class_id = :classId AND status = 'ACTIVE' FOR SHARE",
+            nativeQuery = true)
+    long countActiveByClassIdForUpdate(@Param("classId") Long classId);
+
+    /**
      * Returns the distinct class ids the given user is ACTIVE-enrolled in. Used
      * by messaging's recipient gate to resolve a student's set of classes before
      * mapping them to the lecturers that teach them.

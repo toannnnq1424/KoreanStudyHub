@@ -1,19 +1,19 @@
 -- =============================================================================
--- ULP — V23__seed_demo_assignments.sql
+-- KSH — V23__seed_demo_assignments.sql
 -- Seeds demo assignments for classes that were seeded in earlier migrations.
 --
 -- This migration is DATA-ONLY (no DDL). The assignments, assignment_submissions,
 -- and assignment_feedback tables already exist from V1__init_schema.sql.
 --
 -- Strategy: Use existence-safe INSERT IGNORE to avoid duplicates if run twice.
--- The lecturer@ulp.edu.vn user is referenced via subquery so the ID stays
+-- The lecturer@ksh.edu.vn user is referenced via subquery so the ID stays
 -- stable even if auto-increment differs across environments.
 -- =============================================================================
 
 -- We rely on V8 fake-student + V5 test-user seeds. Pull the lecturer ID once
 -- into a variable so all inserts reference the same user without hardcoding.
-SET @lecturer_id = (SELECT id FROM users WHERE email = 'lecturer@ulp.edu.vn' LIMIT 1);
-SET @student_id  = (SELECT id FROM users WHERE email = 'student@ulp.edu.vn'  LIMIT 1);
+SET @lecturer_id = (SELECT id FROM users WHERE email = 'lecturer@ksh.edu.vn' LIMIT 1);
+SET @student_id  = (SELECT id FROM users WHERE email = 'student@ksh.edu.vn'  LIMIT 1);
 
 -- Pick the first class that belongs to the lecturer (created in V2 / V8 seeds).
 -- If no class exists yet the INSERTs below will simply have a NULL class_id and

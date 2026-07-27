@@ -52,7 +52,7 @@ class ClassRepositoryPaginationTest {
             classRepository.saveAndFlush(newClass(
                     "PG-Own-" + i, randomCode(), lecturerId));
         }
-        Long noiseLecturer = lookupUserId("head@ksh.edu.vn");
+        Long noiseLecturer = lookupUserId("leader@ksh.edu.vn");
         classRepository.saveAndFlush(newClass("PG-Noise", randomCode(), noiseLecturer));
 
         // Page 0 of size 20 â†’ 20 rows; page 1 of size 20 â†’ 5 rows.
@@ -99,11 +99,11 @@ class ClassRepositoryPaginationTest {
     }
 
     @Test
-    void find_all_by_paginates_across_all_lecturers_for_head_admin() {
+    void find_all_by_paginates_across_all_lecturers_for_leader_admin() {
         Long lec1 = lookupUserId("lecturer@ksh.edu.vn");
-        Long lec2 = lookupUserId("head@ksh.edu.vn");
+        Long lec2 = lookupUserId("leader@ksh.edu.vn");
 
-        // Inject a small mixed set so HEAD/ADMIN view sees both lecturers.
+        // Inject a small mixed set so LEADER/ADMIN view sees both lecturers.
         classRepository.saveAndFlush(newClass("PG-All-A", randomCode(), lec1));
         classRepository.saveAndFlush(newClass("PG-All-B", randomCode(), lec2));
 
@@ -111,7 +111,7 @@ class ClassRepositoryPaginationTest {
                 PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "createdAt")));
 
         assertThat(page.getContent()).isNotEmpty();
-        // The two we just inserted are visible somewhere in the head/admin view.
+        // The two we just inserted are visible somewhere in the leader/admin view.
         assertThat(page.getContent())
                 .extracting(ClassEntity::getName)
                 .contains("PG-All-A", "PG-All-B");

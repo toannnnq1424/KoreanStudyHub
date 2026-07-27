@@ -117,8 +117,8 @@ class PracticeAuthorizationServiceTest {
     }
 
     @Test
-    void studentHeadAndAdminCannotAuthorEvenWithDirectPermission() {
-        for (Role role : new Role[]{Role.STUDENT, Role.HEAD, Role.ADMIN}) {
+    void studentLeaderAndAdminCannotAuthorEvenWithDirectPermission() {
+        for (Role role : new Role[]{Role.STUDENT, Role.LEADER, Role.ADMIN}) {
             Long actorId = 100L + role.ordinal();
             allowPermissionOnly(actorId, PracticeAction.CREATE);
             User actor = activeUser(role);

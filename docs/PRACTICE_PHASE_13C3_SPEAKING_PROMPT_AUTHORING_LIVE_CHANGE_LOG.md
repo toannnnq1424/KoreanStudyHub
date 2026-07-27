@@ -2471,3 +2471,93 @@ Current handoff:
 - `CURRENT_REQUIRED_ACTION = GRANULAR_COMMITS_ONE_PUSH_THEN_TWO_POST_PUSH_AUDITS`;
 - overall Phase 13 remains open; 13G must not start before the push and the two
   required post-push read-only audits.
+
+### 14.19 Latest-main integration reconciliation (validation pending)
+
+The V1-V45 proof in Section 14.18 remains valid historical evidence for the
+isolated pre-integration snapshot only. Before the requested single push, the
+coordinator created fifteen granular local commits, confirmed the six Phase
+13F commits were already present on `origin/feature/practice-reduce-scope`, and
+merged `origin/main` at `1e7cf38` without rebase or force-push.
+
+Main already owns Flyway V45-V53. The unexecuted Practice foundation migration
+is therefore renamed forward to
+`V54__practice_speaking_prompt_authoring_foundation.sql`; no applied main
+migration is overwritten or repaired. The integrated gate must prove both a
+fresh V1-V54 path and an upgrade starting from the current main maximum before
+the merge is allowed to reach the PR.
+
+Semantic reconciliation preserves all of the following:
+
+- the responsive Vietnamese Practice navigation while adopting canonical
+  `LEADER`, `/leader`, the lecturer question-bank route and logout CSRF;
+- exact-`LECTURER` Practice authoring authorization;
+- main's controller-backed public uploads for avatars/exams only, followed by
+  fail-closed denial of every other raw `/uploads/**` path;
+- authenticated/no-store Practice material delivery at
+  `/practice/materials/{assetId}/content` without a broad disk handler; and
+- both the project-wide AI/storage/Admin implementation and the
+  Practice-specific AI/storage implementation, present and operational but
+  separate. Neither consumer/configuration family is redirected into the
+  other, and neither is treated as branch residue.
+
+Legacy `/uploads/questions/**` and `/uploads/options/**` strings remain parser
+or sanitization fixtures, not public serving contracts. There is no active
+producer or local object directory for those namespaces. A later retained-data
+inventory may authorize a narrowly scoped Practice migration/bridge only if it
+proves real rows and bytes; this integration does not reopen a global public
+route.
+
+Current integration status is
+`MAIN_MERGED_RESOLUTION_READY_FOR_CONSOLIDATED_VALIDATION`. No integrated
+compile, test, Flyway/Hibernate, browser or provider result is claimed by this
+section. The next action is one consolidated integration validation, followed
+by the merge commit and one normal push only if that gate is green.
+
+### 14.20 Latest-main consolidated validation evidence
+
+This section supersedes only the pending validation status in Section 14.19.
+The isolated pre-main evidence in Section 14.18 remains historical evidence
+for that earlier snapshot.
+
+The integration gate ran against `origin/main` at `1e7cf38` plus the complete
+Phase 13C3 candidate, including the preserved Phase 13F ancestry. Failures from
+the first two integration cycles were fully inventoried before each grouped
+correction. The final cycle completed successfully on JDK `17.0.19` with:
+
+- `git diff --check` against `origin/feature/practice-reduce-scope`: green;
+- clean production compilation: 734 source files, green;
+- full Maven suite: 254 suites / 2,341 tests / 0 failures / 0 errors /
+  0 skipped;
+- fresh disposable schema: Flyway `V1-V54` = `54/54/0`, with exactly one
+  `practice_speaking_prompt_sources` table;
+- upgrade rehearsal before the Practice migration: `V1-V53` = `53/53/0`,
+  with no Speaking prompt source table;
+- forward upgrade rehearsal: `V1-V54` = `54/54/0`, with exactly one Speaking
+  prompt source table;
+- targeted integrated contracts
+  (`PracticeIntegrationTest#testModeView`,
+  `PracticePhase11AuthoringUiContractTest`, and
+  `SpeakingPromptAuthoringFoundationMigrationTest`): 19 tests / 0 failures /
+  0 errors / 0 skipped; and
+- validation wrapper exit code `0`; both disposable databases were dropped
+  and the cleanup absence assertion passed.
+
+The grouped corrections were test/environment isolation only: bounded Hikari
+pool settings, canonical media feature-gate clamps that neutralize a local
+developer opt-in, current immutable Speaking prompt-version fixtures,
+independent SMTP/question-bank fixtures, and current immutable-result/progress
+test contracts. Production AI/storage ownership, provider behavior, security
+and immutable mutation guards were not weakened.
+
+`BROWSER_QA` remains `NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`.
+`LIVE_STT_TTS` and live Speaking provider evaluation remain
+`NOT_RUN_NOT_APPROVED`; controlled TEST-NET timeout specifications are not
+provider smoke evidence.
+
+Current handoff:
+
+- `PHASE_13C3_MAIN_INTEGRATION_VALIDATION = GREEN`;
+- `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_MERGE_COMMIT_AND_PUSH`;
+- `CURRENT_REQUIRED_ACTION = MERGE_COMMIT_ONE_PUSH_THEN_TWO_FRESH_POST_PUSH_AUDITS`;
+- the earlier usage-failed audits remain non-passes and cannot be reused.

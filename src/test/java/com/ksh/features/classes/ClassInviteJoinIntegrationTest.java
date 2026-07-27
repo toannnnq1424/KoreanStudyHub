@@ -67,13 +67,13 @@ class ClassInviteJoinIntegrationTest {
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
-    private User head;
+    private User leader;
     private User student;
 
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
+        leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
     }
 
@@ -128,9 +128,9 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void regenerate_by_head_on_other_lecturers_class_succeeds() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "HeadRegen");
+    @WithUserDetails("leader@ksh.edu.vn")
+    void regenerate_by_leader_on_other_lecturers_class_succeeds() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "LeaderRegen");
 
         mockMvc.perform(post("/lecturer/classes/" + c.getId() + "/invite/regenerate")
                         .with(csrf()).param("type", "LINK"))
@@ -620,7 +620,7 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
+    @WithUserDetails("leader@ksh.edu.vn")
     void non_owner_cannot_approve() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "NonOwnerApprove");
         em.createNativeQuery(

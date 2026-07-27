@@ -9,7 +9,6 @@ import com.ksh.features.admin.users.service.AdminUsersReadService;
 import com.ksh.features.admin.users.service.AdminUsersWriteService;
 import com.ksh.features.admin.users.service.EmailAlreadyUsedException;
 import com.ksh.security.Role;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import com.ksh.utils.StringUtils;
 import jakarta.validation.Valid;
@@ -43,10 +42,16 @@ import static com.ksh.features.admin.users.controller.AdminUsersFormSupport.VIEW
  *
  * <p>CSRF protection is provided by Spring Security for every POST.
  * Validation errors render inline on the form templates.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate. {@code user.view} is the entry permission for the screen; it
+ * belongs to the USER_MANAGE group, which the permission guard refuses to detach from
+ * ADMIN so the account-management screens can never be locked away from every admin.
  */
 @Controller
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('" + Roles.ADMIN + "')")
+@PreAuthorize("hasAuthority('PERM_user.view')")
 public class AdminUsersController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_BASE;

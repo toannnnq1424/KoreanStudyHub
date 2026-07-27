@@ -32,7 +32,7 @@ import java.util.Objects;
  * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
  *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
- *   <li>HEAD and ADMIN can view all classes and edit/delete any class.</li>
+ *   <li>LEADER and ADMIN can view all classes and edit/delete any class.</li>
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
@@ -76,7 +76,7 @@ public class ClassesService {
     /**
      * Returns the page of classes visible to the current user.
      * LECTURER → only their own classes.
-     * HEAD/ADMIN → all classes that have not been soft-deleted.
+     * LEADER/ADMIN → all classes that have not been soft-deleted.
      *
      * <p>The gradient assigned to each {@link ClassRow} is derived from the row's
      * position within the CURRENT page (0-based), not the global ranking. Different
@@ -129,7 +129,7 @@ public class ClassesService {
     /**
      * Loads a class for the detail view (members, board, ...). Applies the
      * same authorization as {@link #getEditable}: LECTURER may only access
-     * their own classes; HEAD and ADMIN may access any class. The viewable
+     * their own classes; LEADER and ADMIN may access any class. The viewable
      * and editable code paths are kept separate so a future sprint can
      * relax the read-side rule (for example, allowing students enrolled in
      * a class to read the board) without touching the edit-side rule.
@@ -192,12 +192,12 @@ public class ClassesService {
 
     /**
      * Returns whether the caller is authorised to edit the given class.
-     * HEAD and ADMIN may edit any class; LECTURER may only edit classes they own.
+     * LEADER and ADMIN may edit any class; LECTURER may only edit classes they own.
      */
     public boolean isEditableBy(ClassEntity clazz, Long userId, Role role) {
         if (role == null) return false;
         return role == Role.ADMIN
-                || role == Role.HEAD
+                || role == Role.LEADER
                 || (role == Role.LECTURER && clazz.getLecturerId().equals(userId));
     }
 

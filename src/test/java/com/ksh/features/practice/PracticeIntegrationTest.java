@@ -1493,18 +1493,43 @@ class PracticeIntegrationTest {
         practiceSet.setSkill("MIXED");
         setRepository.saveAndFlush(practiceSet);
 
-        PracticeAttempt readingAttempt = new PracticeAttempt(
-                student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
-        readingAttempt.markGraded(BigDecimal.valueOf(8), BigDecimal.TEN, "{}", "{}");
-        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+        PracticeQuestionGroup readingGroup = new PracticeQuestionGroup(
+                practiceSet.getId(), "Phần Đọc", 1, 1,
+                "Đọc văn bản", null, null, 1);
+        readingGroup.setSectionId(defaultSection.getId());
+        readingGroup = groupRepository.saveAndFlush(readingGroup);
+        question.setGroupId(readingGroup.getId());
+        questionRepository.saveAndFlush(question);
 
         PracticeSection writingSection = new PracticeSection(
                 practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
         writingSection.setTestId(defaultTest.getId());
         writingSection = sectionRepository.saveAndFlush(writingSection);
 
-        PracticeAttempt writingAttempt = new PracticeAttempt(
-                student.getId(), practiceSet.getId(), defaultTest.getId(), "WRITING", writingSection.getId());
+        PracticeQuestionGroup writingGroup = new PracticeQuestionGroup(
+                practiceSet.getId(), "Phần Viết", 53, 53,
+                "Viết đoạn văn", null, null, 2);
+        writingGroup.setSectionId(writingSection.getId());
+        writingGroup = groupRepository.saveAndFlush(writingGroup);
+
+        PracticeQuestion writingQuestion = new PracticeQuestion(
+                practiceSet.getId(), 53, "ESSAY", "Viết một đoạn văn ngắn.",
+                "[]", "", "Yêu cầu viết đoạn văn.", BigDecimal.TEN, 2);
+        writingQuestion.setWritingTaskType(WritingTaskType.Q53);
+        writingQuestion.setGroupId(writingGroup.getId());
+        questionRepository.saveAndFlush(writingQuestion);
+
+        publishVersion(practiceSet.getId());
+
+        Long readingAttemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), defaultSection.getId(), student.getId());
+        PracticeAttempt readingAttempt = attemptRepository.findById(readingAttemptId).orElseThrow();
+        readingAttempt.markGraded(BigDecimal.valueOf(8), BigDecimal.TEN, "{}", "{}");
+        readingAttempt = attemptRepository.saveAndFlush(readingAttempt);
+
+        Long writingAttemptId = practiceService.startAttempt(
+                practiceSet.getId(), defaultTest.getId(), writingSection.getId(), student.getId());
+        PracticeAttempt writingAttempt = attemptRepository.findById(writingAttemptId).orElseThrow();
         writingAttempt.markGraded(BigDecimal.valueOf(7), BigDecimal.TEN, "{}", "{}");
         writingAttempt = attemptRepository.saveAndFlush(writingAttempt);
 
@@ -1731,8 +1756,8 @@ class PracticeIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("head@ksh.edu.vn")
-    void headCannotQueueExplanationRecoveryThroughSsrOrRest()
+    @WithUserDetails("leader@ksh.edu.vn")
+    void leaderCannotQueueExplanationRecoveryThroughSsrOrRest()
             throws Exception {
         assertCurrentUserCannotQueueExplanationRecovery();
     }
@@ -2456,7 +2481,7 @@ class PracticeIntegrationTest {
     }
 
     @Test
-    void readingResultRemainsIdenticalWhenRestoreIsBlocked() {
+    void readingVersionLockedResultRemainsIdenticalWhenLiveGraphIsRestored() {
         Long attemptId = practiceService.startAttempt(
                 practiceSet.getId(),
                 defaultTest.getId(),
@@ -2469,42 +2494,43 @@ class PracticeIntegrationTest {
         attempt = attemptRepository.saveAndFlush(attempt);
         var before = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
         List<Long> idsBefore = questionIds(practiceSet.getId());
-        var log = createRestoreLog(practiceSet.getId(), "Unsafe reading restore");
+        var log = createRestoreLog(practiceSet.getId(), "Versioned reading restore");
 
-        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
-                () -> revisionService.restoreRevision(log.getId(), lecturer.getId()));
+        revisionService.restoreRevision(log.getId(), lecturer.getId());
 
         var after = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
         assertEquals(before, after);
         assertEquals(question.getId(), after.groups().get(0).questions().get(0).questionId());
         assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
-        assertThat(questionIds(practiceSet.getId())).containsExactlyElementsOf(idsBefore);
+        assertThat(questionIds(practiceSet.getId())).isNotEqualTo(idsBefore);
     }
 
     @Test
-    void listeningResultRemainsIdenticalWhenRepublishIsBlocked() {
+    void listeningVersionLockedResultRemainsIdenticalWhenLiveGraphIsRepublished() {
         ListeningAttemptFixture fixture = createListeningAttemptFixture("Listening history guard");
         var before = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
-        com.ksh.entities.PracticeDraft draft = createRepublishDraft(fixture.setId(), "Unsafe listening republish");
+        com.ksh.entities.PracticeDraft draft = createRepublishDraft(
+                fixture.setId(), "Versioned listening republish");
+        int versionCountBefore = publishedVersionRepository
+                .findBySetIdOrderByVersionNumberDesc(fixture.setId()).size();
 
-        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
-                () -> publisherService.publish(draft.getId(), lecturer.getId()));
+        assertEquals(fixture.setId(), publisherService.publish(draft.getId(), lecturer.getId()));
 
         var after = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
         assertEquals(before, after);
         assertEquals(fixture.questionId(), after.groups().get(0).questions().get(0).questionId());
         assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
-        assertTrue(questionRepository.existsById(fixture.questionId()));
+        assertThat(publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(fixture.setId()))
+                .hasSize(versionCountBefore + 1);
     }
 
     @Test
-    void writingResultRemainsIdenticalWhenRestoreIsBlocked() {
+    void writingVersionLockedResultRemainsIdenticalWhenLiveGraphIsRestored() {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Writing history guard", true);
         var before = practiceService.getResult(fixture.attemptId(), student.getId());
-        var log = createRestoreLog(fixture.setId(), "Unsafe writing restore");
+        var log = createRestoreLog(fixture.setId(), "Versioned writing restore");
 
-        assertThrows(PublishedPracticeGraphMutationBlockedException.class,
-                () -> revisionService.restoreRevision(log.getId(), lecturer.getId()));
+        revisionService.restoreRevision(log.getId(), lecturer.getId());
 
         var after = practiceService.getResult(fixture.attemptId(), student.getId());
         assertEquals(before, after);
@@ -2512,7 +2538,10 @@ class PracticeIntegrationTest {
         assertEquals(fixture.prompt(), after.questionFeedbacks().get(0).prompt());
         assertEquals("Existing answer", after.questionFeedbacks().get(0).learnerAnswer());
         assertEquals(fixture.oldFeedbackJson(), after.aiFeedbackJson());
-        assertTrue(questionRepository.existsById(fixture.questionId()));
+        assertThat(questionRepository.findBySetIdOrderByDisplayOrderAsc(fixture.setId()))
+                .singleElement()
+                .extracting(PracticeQuestion::getPrompt)
+                .isEqualTo("Restored prompt");
     }
 
     @Test
@@ -2959,7 +2988,8 @@ class PracticeIntegrationTest {
                 IllegalStateException.class,
                 () -> practiceService.getSpeakingPlayerDelivery(fixture.attemptId(), student.getId()));
         assertThat(invalidDelivery)
-                .hasMessageContaining("Speaking question is missing immutable prompt audio");
+                .hasMessageContaining("Speaking question has invalid immutable delivery")
+                .hasRootCauseMessage("Câu Speaking v1 thiếu audio đề bài bất biến.");
 
         mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/speaking-check"))
                 .andExpect(status().is3xxRedirection())
@@ -3077,7 +3107,7 @@ class PracticeIntegrationTest {
         Long attemptId = readingAttempt.getId();
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> resultDetailAssembler.assemble(attemptId, student.getId(), null));
-        assertThat(error.getMessage()).contains("immutable snapshot");
+        assertThat(error.getMessage()).contains("khóa phiên bản bất biến đầy đủ");
     }
 
     @Test
@@ -3962,6 +3992,7 @@ class PracticeIntegrationTest {
 
     private void deleteWritingAttemptFixture(WritingAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        attemptRepository.flush();
         deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);

@@ -136,7 +136,7 @@ public class JoinClassService {
      * Class owner approves a PENDING enrollment → ACTIVE, increments invite
      * use_count when present, notifies the student.
      *
-     * @throws AccessDeniedException when caller is not the class owner (and not HEAD/ADMIN)
+     * @throws AccessDeniedException when caller is not the class owner (and not LEADER/ADMIN)
      * @throws IllegalStateException when not PENDING, class full, or invite max_uses exhausted
      */
     @Transactional
@@ -205,11 +205,11 @@ public class JoinClassService {
 
     // ──────────────────── internal ────────────────────
 
-    /** Owner-only gate: LECTURER must own the class; HEAD/ADMIN pass via getEditable. */
+    /** Owner-only gate: LECTURER must own the class; LEADER/ADMIN pass via getEditable. */
     private ClassEntity requireOwner(Long classId, Long actorId, Role actorRole) {
-        // getEditable enforces LECTURER ownership and HEAD/ADMIN privilege.
+        // getEditable enforces LECTURER ownership and LEADER/ADMIN privilege.
         ClassEntity clazz = classesService.getEditable(classId, actorId, actorRole);
-        // Spec: approve/reject is class owner only — deny HEAD/ADMIN non-owners.
+        // Spec: approve/reject is class owner only — deny LEADER/ADMIN non-owners.
         if (!clazz.getLecturerId().equals(actorId)) {
             throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được duyệt yêu cầu");
         }

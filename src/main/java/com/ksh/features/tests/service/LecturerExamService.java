@@ -3,6 +3,8 @@ package com.ksh.features.tests.service;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.TestActivity;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
+import com.ksh.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
 import com.ksh.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
@@ -17,6 +19,7 @@ import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.common.HtmlSanitizer;
 import com.ksh.features.tests.support.ExamFormValidator;
 import com.ksh.features.tests.support.TestAccessResolver;
+import com.ksh.security.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -24,12 +27,15 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.ksh.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
+import static com.ksh.common.IConstant.MSG_QB_INSERT_EMPTY;
+import static com.ksh.common.IConstant.MSG_QB_INSERT_LOCKED;
 
 /**
  * Lecturer exam authoring: list owned exams, create/edit with a full question-set
@@ -47,6 +53,7 @@ public class LecturerExamService {
     private final TestActivityWriter activityWriter;
     private final TakeViewBuilder takeViewBuilder;
     private final ExamQuestionBankWriter questionBankWriter;
+    private final ExamQuestionBankPickerService questionBankPicker;
 
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
@@ -54,7 +61,8 @@ public class LecturerExamService {
                                TestAccessResolver accessResolver,
                                TestActivityWriter activityWriter,
                                TakeViewBuilder takeViewBuilder,
-                               ExamQuestionBankWriter questionBankWriter) {
+                               ExamQuestionBankWriter questionBankWriter,
+                               ExamQuestionBankPickerService questionBankPicker) {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
         this.classRepository = classRepository;
@@ -62,6 +70,7 @@ public class LecturerExamService {
         this.activityWriter = activityWriter;
         this.takeViewBuilder = takeViewBuilder;
         this.questionBankWriter = questionBankWriter;
+        this.questionBankPicker = questionBankPicker;
     }
 
     /** One page of exams the lecturer owns (created or leads the class). */
@@ -77,7 +86,7 @@ public class LecturerExamService {
      * One page of exams belonging to a single class. Class-level authorization
      * is the caller's responsibility: {@code ClassDetailController} gates the
      * tests tab with {@code classesService.getViewable(...)} (LECTURER-owns /
-     * HEAD / ADMIN), mirroring every other class-detail tab. This method trusts
+     * LEADER / ADMIN), mirroring every other class-detail tab. This method trusts
      * that gate and only queries.
      */
     @Transactional(readOnly = true)
@@ -124,7 +133,8 @@ public class LecturerExamService {
                 test.getClassId(), test.getType(), test.getStatus(), test.getTimeMode(),
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
-                test.getMediaType(), test.getMediaUrl(), qForms);
+                test.getMediaType(), test.getMediaUrl(), qForms,
+                questionBankWriter.hasStudentResponses(testId));
     }
 
     /**
@@ -167,6 +177,48 @@ public class LecturerExamService {
 
         recordSaveActivity(saved, userId, creating, previousStatus);
         return saved.getId();
+    }
+
+    /**
+     * Inserts approved shared-bank questions into an owned test as exam-owned
+     * snapshot rows. The bank content/options are copied (not live-linked) via
+     * {@link ExamQuestionBankPickerService}, so later bank edits never mutate the
+     * inserted questions. Rejected when student responses already exist (locked
+     * shape). Returns the number of questions actually inserted.
+     */
+    @Transactional
+    public int insertFromBank(Long userId, Role role, Long testId, List<Long> itemIds) {
+        Test test = accessResolver.requireManageable(testId, userId);
+        if (itemIds == null || itemIds.isEmpty()) {
+            throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
+        }
+        // Appending questions changes the bank shape, which is unsafe once graded.
+        if (questionBankWriter.hasStudentResponses(testId)) {
+            throw new IllegalArgumentException(MSG_QB_INSERT_LOCKED);
+        }
+        List<BankItemSnapshot> snapshots =
+                questionBankPicker.approvedSnapshotsByIds(userId, role, testId, itemIds);
+        if (snapshots.isEmpty()) {
+            throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
+        }
+        List<QuestionForm> questions = new ArrayList<>();
+        for (BankItemSnapshot snapshot : snapshots) {
+            List<OptionForm> options = new ArrayList<>();
+            for (BankOptionSnapshot option : snapshot.options()) {
+                options.add(new OptionForm(null, option.content(), option.correct()));
+            }
+            questions.add(new QuestionForm(null, snapshot.questionType(), snapshot.content(),
+                    snapshot.explanation(), BigDecimal.ONE, options));
+        }
+        int inserted = questionBankWriter.appendQuestions(testId, questions);
+
+        int total = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId).size();
+        test.setTotalQuestions(total);
+        testRepository.save(test);
+        activityWriter.write(test.getId(), TestActivity.TYPE_UPDATED,
+                "Chèn " + inserted + " câu hỏi từ ngân hàng vào bài test \"" + test.getTitle() + "\"",
+                null, userId);
+        return inserted;
     }
 
     /**

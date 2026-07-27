@@ -9,14 +9,15 @@ import com.ksh.entities.Section;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.lessons.dto.LessonDtos.LessonAttachmentRow;
+import com.ksh.features.lessons.dto.LessonDtos.LessonForm;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
 import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.features.library.service.LibraryService;
+import com.ksh.features.storage.ObjectStorage;
+import com.ksh.features.storage.StorageKeys;
 import com.ksh.features.upload.LessonAttachmentStorageService;
 import com.ksh.features.upload.LessonAttachmentStorageService.StoredAttachment;
-import com.ksh.features.upload.LibraryStorageService;
-import com.ksh.features.upload.UploadFileHelper;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,11 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.ksh.common.IConstant.CONTENT_TYPE_PDF;
 import static com.ksh.common.IConstant.LESSON_STATUS_PUBLISHED;
 import static com.ksh.common.IConstant.MSG_ATTACHMENT_NOT_FOUND;
 import static com.ksh.common.IConstant.MSG_FORBIDDEN_FOR_CLASS;
@@ -57,33 +58,36 @@ public class LessonAttachmentsService {
     private final LessonRepository lessonRepository;
     private final SectionRepository sectionRepository;
     private final LessonAttachmentStorageService storage;
-    private final LibraryStorageService libraryStorage;
+    private final ObjectStorage objectStorage;
     private final LibraryService libraryService;
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
     private final LessonActivityWriter activityWriter;
+    private final LessonContentTypeSwitcher contentTypeSwitcher;
 
     public LessonAttachmentsService(LessonAttachmentRepository attachmentRepository,
                                     LessonRepository lessonRepository,
                                     SectionRepository sectionRepository,
                                     LessonAttachmentStorageService storage,
-                                    LibraryStorageService libraryStorage,
+                                    ObjectStorage objectStorage,
                                     LibraryService libraryService,
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
                                     EnrollmentRepository enrollmentRepository,
-                                    LessonActivityWriter activityWriter) {
+                                    LessonActivityWriter activityWriter,
+                                    LessonContentTypeSwitcher contentTypeSwitcher) {
         this.attachmentRepository = attachmentRepository;
         this.lessonRepository = lessonRepository;
         this.sectionRepository = sectionRepository;
         this.storage = storage;
-        this.libraryStorage = libraryStorage;
+        this.objectStorage = objectStorage;
         this.libraryService = libraryService;
         this.classesService = classesService;
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
         this.activityWriter = activityWriter;
+        this.contentTypeSwitcher = contentTypeSwitcher;
     }
 
     /** Lists attachments of a lesson — used to preload the edit page. */
@@ -162,7 +166,8 @@ public class LessonAttachmentsService {
 
     /**
      * Binds an owned DOCUMENT library asset (PDF MIME) as the lesson main PDF
-     * without copying disk bytes.
+     * without copying disk bytes, then switches the lesson content type to PDF
+     * so student views render the PDF body (wizard path has no form save).
      */
     @Transactional
     public LessonAttachmentRow bindPdfFromLibrary(Long classId, Long sectionId, Long lessonId,
@@ -181,15 +186,24 @@ public class LessonAttachmentsService {
                 lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
                 asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
+        // Required data must exist before type switch validates PDF shape.
         lesson.setPdfAttachmentId(saved.getId());
         lessonRepository.saveAndFlush(lesson);
 
         if (previousMainId != null && !previousMainId.equals(saved.getId())) {
             attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
         }
+        // Standalone bind (wizard) never hits lesson-form save — flip type here.
+        contentTypeSwitcher.applyTo(lesson, typeSwitchForm(lesson, CONTENT_TYPE_PDF));
         activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
                 "Gắn PDF từ kho: " + saved.getOriginalFilename(), userId);
         return toRow(saved);
+    }
+
+    /** Minimal form carrying only the target content type for type-switch. */
+    private static LessonForm typeSwitchForm(Lesson lesson, String contentType) {
+        return new LessonForm(lesson.getTitle(), lesson.getStatus(), null,
+                contentType, lesson.getVideoUrl(), lesson.getVideoProvider());
     }
 
     /**
@@ -268,7 +282,7 @@ public class LessonAttachmentsService {
 
     /**
      * Authorizes a download request and returns the resolved file handle.
-     * Lecturers/heads/admins of the owning class always pass; an enrolled
+     * Lecturers/leaders/admins of the owning class always pass; an enrolled
      * student passes only when the parent lesson is {@code PUBLISHED}.
      */
     @Transactional(readOnly = true)
@@ -284,21 +298,22 @@ public class LessonAttachmentsService {
                 : isEnrolledStudentForPublishedLesson(classId, userId, lesson);
         if (!allowed) throw new AccessDeniedException(MSG_FORBIDDEN_FOR_CLASS);
 
-        // Dual-root: library-backed attachments resolve under uploads/library.
-        Path absolute = resolveAttachmentPath(att);
-        return new DownloadHandle(absolute, att.getOriginalFilename(),
+        // storageKey is the relative object key (lessons/... or library/...).
+        String key = StorageKeys.requireSafeKey(att.getStoredPath());
+        return new DownloadHandle(key, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
     }
 
     /**
-     * Picks library vs lesson storage from the attachment FK / path prefix.
+     * True when the attachment blob exists in object storage.
      * Shared with public-view so both entry points stay consistent.
      */
-    Path resolveAttachmentPath(LessonAttachment att) {
-        if (att.isLibraryBacked() || UploadFileHelper.isLibraryStoredPath(att.getStoredPath())) {
-            return libraryStorage.resolveAbsolutePath(att.getStoredPath());
+    boolean attachmentExists(LessonAttachment att) {
+        try {
+            return objectStorage.exists(StorageKeys.requireSafeKey(att.getStoredPath()));
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
-        return storage.resolveAbsolutePath(att.getStoredPath());
     }
 
     // ── Internal helpers ───────────────────────────────────────────────
@@ -331,7 +346,7 @@ public class LessonAttachmentsService {
     }
 
     private static boolean isLecturerOrAbove(Role role) {
-        return role == Role.LECTURER || role == Role.HEAD || role == Role.ADMIN;
+        return role == Role.LECTURER || role == Role.LEADER || role == Role.ADMIN;
     }
 
     private static List<LessonAttachmentRow> mapRows(List<LessonAttachment> rows) {
@@ -347,7 +362,7 @@ public class LessonAttachmentsService {
     }
 
     /** Tuple returned by {@link #download} so the controller can stream the file. */
-    public record DownloadHandle(Path absolutePath, String originalFilename,
+    public record DownloadHandle(String storageKey, String originalFilename,
                                  String mimeType, long sizeBytes) {
     }
 }

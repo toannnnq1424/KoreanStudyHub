@@ -57,7 +57,7 @@ public class LecturerDashboardController {
     }
 
     /**
-     * Renders the teaching dashboard for the authenticated lecturer / head / admin.
+     * Renders the teaching dashboard for the authenticated lecturer / leader / admin.
      * KPI cards ignore search/page; the class table is filtered and paginated.
      */
     @GetMapping("/dashboard")

@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
 /**
  * JPA entity mapping the {@code departments} table.
  *
- * <p>Head assignment is stored as a scalar {@code headUserId} (not a
+ * <p>Leader assignment is stored as a scalar {@code leaderUserId} (not a
  * {@code @ManyToOne}) to keep the entity simple and avoid lazy-loading loops.
- * Role promote/demote for the head lives in the department service.
+ * Role promote/demote for the leader lives in the department service.
  */
 @Entity
 @Table(name = "departments")
@@ -35,8 +35,8 @@ public class Department {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "head_user_id")
-    private Long headUserId;
+    @Column(name = "leader_user_id")
+    private Long leaderUserId;
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
@@ -86,9 +86,9 @@ public class Department {
         this.active = active;
     }
 
-    /** Sets or clears the department head user id. */
-    public void assignHead(Long headUserId) {
-        this.headUserId = headUserId;
+    /** Sets or clears the department leader user id. */
+    public void assignLeader(Long leaderUserId) {
+        this.leaderUserId = leaderUserId;
     }
 
     /** Flips the active flag and returns the new state. */
@@ -113,8 +113,8 @@ public class Department {
         return description;
     }
 
-    public Long getHeadUserId() {
-        return headUserId;
+    public Long getLeaderUserId() {
+        return leaderUserId;
     }
 
     public boolean isActive() {
