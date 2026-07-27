@@ -29,6 +29,7 @@
 .pc-main {
   color: var(--pc-ink);
   background: #fff;
+  min-width: 0;
 }
 
 .pc-layout {
@@ -36,6 +37,7 @@
   grid-template-columns: minmax(0, 1fr) 286px;
   gap: 22px;
   width: min(1500px, calc(100% - 40px));
+  min-width: 0;
   margin: 0 auto;
   padding: 28px 0 64px;
 }
@@ -1021,7 +1023,6 @@
 
 @media (max-width: 760px) {
   .pc-main {
-    margin-left: 0;
     padding-bottom: 72px;
   }
 

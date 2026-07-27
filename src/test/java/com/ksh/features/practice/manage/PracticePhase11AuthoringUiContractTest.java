@@ -15,7 +15,11 @@ class PracticePhase11AuthoringUiContractTest {
     void manualEditorLoadsCanonicalModulesAndCoversEveryMvpQuestionType() throws Exception {
         String editor = read("src/main/resources/templates/practice/manage/editor.html");
         String contract = read("src/main/resources/static/js/practice/manage-authoring-contract.js");
+        String speakingAuthoring = read(
+                "src/main/resources/static/js/practice/manage-speaking-prompt-authoring.js");
         String preview = read("src/main/resources/static/js/practice/manage-draft-preview.js");
+        String editorCss = read(
+                "src/main/resources/static/css/practice/manage-editor.css");
 
         assertTrue(editor.contains("/js/practice/manage-authoring-contract.js"));
         assertTrue(editor.contains("/js/practice/manage-draft-preview.js"));
@@ -65,12 +69,13 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("id=\"q-speak-play-limit\""));
         assertTrue(editor.contains("function uploadSpeakingPromptAudio(file)"));
         assertTrue(editor.contains("function updateSpeakingPromptAudioPreview(url)"));
-        assertTrue(editor.contains("question.speakingPromptAudioUrl = data.url"));
-        assertTrue(editor.contains("Player Speaking sẽ tự phát audio này"));
+        assertTrue(speakingAuthoring.contains("question.speakingPromptAudioUrl = currentAudio"));
+        assertTrue(editor.contains("Học viên nghe tệp âm thanh gốc này."));
         assertTrue(contract.contains("content.speakingDelivery"));
-        assertTrue(preview.contains("speakingDelivery.promptAudioReference"));
-        assertTrue(preview.contains("speakingDelivery.preparationSeconds"));
-        assertTrue(preview.contains("speakingDelivery.responseSeconds"));
+        assertTrue(preview.contains("const speakingPresentation = question.speakingPresentation"));
+        assertTrue(preview.contains("speakingPresentation.preparationSeconds"));
+        assertTrue(preview.contains("speakingPresentation.responseSeconds"));
+        assertFalse(preview.contains("speakingDelivery.promptAudioReference"));
         assertTrue(preview.contains("section.listeningCheckAudioReference"));
         assertTrue(editor.contains("function isCurrentEditorTarget(type, target)"));
         assertTrue(editor.contains("const target = type === 'group'"));
@@ -78,6 +83,296 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("const optionId = question && question.options[idx] && question.options[idx].id"));
         assertTrue(editor.contains("isCurrentTarget = () => true"));
         assertTrue(editor.contains("if (isCurrentEditorTarget('question', question)) renderOptionRows(question)"));
+        assertTrue(editor.contains("async function readEditorJsonResponse(response, fallbackMessage)"));
+        assertTrue(editor.contains("contentType.includes('application/json')"));
+        assertTrue(editor.contains("Phiên đăng nhập đã hết hạn."));
+        assertTrue(editor.contains("X-Requested-With"));
+        assertTrue(editor.contains("editorJsonFetch(`/practice/manage/drafts/${DRAFT_ID}/upload-image`"));
+        assertTrue(editor.contains("editorJsonFetch(`/practice/manage/drafts/${DRAFT_ID}/upload-audio`"));
+        assertTrue(editor.contains(
+                "const payload = await editorJsonFetch(\n"
+                        + "        `/practice/manage/drafts/${DRAFT_ID}/preview`"));
+        assertTrue(editor.contains("const assets = await editorJsonFetch(url"));
+        assertTrue(editor.contains("async function linkEditorImageAsset(assetId)"));
+        assertTrue(editor.contains(
+                "`/practice/manage/drafts/${DRAFT_ID}/assets`"));
+        assertFalse(editor.contains("const payload = await response.json();"));
+        assertTrue(editor.contains("function requireEditorUploadPayload(payload)"));
+        assertTrue(editor.contains(
+                "url.match(/^\\/practice\\/materials\\/([1-9]\\d*)\\/content$/)"));
+        assertTrue(editor.contains("Number.isSafeInteger(assetId)"));
+        assertTrue(editor.contains("String(assetId) !== match[1]"));
+        assertTrue(editor.contains("if (terminalStatus) autosaveBlocked = true"));
+        assertTrue(editor.contains("if (draftDirty && !autosaveBlocked"));
+        assertTrue(editor.contains(
+                "aria-label=\"Kiểm tra chất lượng đề — di chuột hoặc dùng nút Kiểm tra để mở\""));
+        assertTrue(editor.contains(
+                "aria-label=\"Cấu trúc đề — di chuột hoặc dùng nút menu để mở rộng\""));
+        assertTrue(editor.contains("class=\"toolbar-title-block\""));
+        assertTrue(editor.contains("class=\"toolbar-actions-scroll\""));
+        assertTrue(editor.contains("class=\"toolbar-action-label\""));
+        assertTrue(editor.contains("class=\"validation-handle\""));
+        assertTrue(editor.contains("id=\"validation-panel-trigger\""));
+        assertTrue(editor.contains("onclick=\"toggleValidationPanel(event)\""));
+        assertTrue(editor.contains("class=\"validation-close\""));
+        assertTrue(editor.contains("id=\"structure-panel-trigger\""));
+        assertTrue(editor.contains("onclick=\"toggleStructurePanel(event)\""));
+        assertTrue(editor.contains(
+                "class=\"tree-row-content\" role=\"button\" tabindex=\"0\""));
+        assertTrue(editor.contains("onpointerdown=\"setStructurePanelOpen(true); this.focus()\""));
+        assertTrue(editor.contains("onkeydown=\"handleTreeRowKey("));
+        assertTrue(editor.contains("class=\"q-summary-prompt\""));
+        assertFalse(editor.contains("width: 450px"));
+        assertTrue(editor.contains("class=\"opt-card-grid\""));
+        assertTrue(editor.contains(
+                "id=\"asset-library-drawer\" class=\"asset-library-drawer\""));
+        assertTrue(editor.contains("id=\"editor-validation-panel\""));
+        assertTrue(editor.contains("aria-controls=\"editor-validation-panel\""));
+        assertFalse(editor.contains(
+                "<aside class=\"panel-validation\" tabindex=\"0\""));
+        assertTrue(editor.contains("role=\"status\""));
+        assertTrue(editor.contains("aria-live=\"polite\""));
+        assertTrue(editorCss.contains("--editor-toolbar-height: 72px"));
+        assertTrue(editorCss.contains("--editor-validation-handle: 18px"));
+        assertTrue(editorCss.contains(
+                "height: calc(100dvh - var(--editor-toolbar-height))"));
+        assertTrue(editorCss.contains("width: clamp(252px, 20vw, 280px)"));
+        assertTrue(editorCss.contains("grid-template-rows: 62px 54px"));
+        assertTrue(editorCss.contains(".toolbar-actions-scroll"));
+        assertTrue(editorCss.contains("gap: 0"));
+        assertTrue(editorCss.contains("overflow-x: auto"));
+        assertTrue(editorCss.contains("@media (max-width: 900px)"));
+        assertTrue(editorCss.contains("@media (max-width: 620px)"));
+        assertTrue(editorCss.contains(".panel-structure.is-expanded > .tree-wrapper"));
+        assertTrue(editorCss.contains("width: 72px"));
+        assertTrue(editorCss.contains("calc(100vw - 72px)"));
+        assertTrue(editorCss.contains("width: min(300px, calc(100vw - 72px))"));
+        assertTrue(editorCss.contains(".tree-meta-text"));
+        assertTrue(editorCss.contains("text-overflow: ellipsis"));
+        assertTrue(editorCss.contains(
+                ".panel-structure:not(:hover):not(.is-expanded) .tree-text-title"));
+        assertTrue(editorCss.contains(".tree-row.active .tree-actions"));
+        assertTrue(editorCss.contains("transform: translateX(100%)"));
+        assertTrue(editorCss.contains(".validation-handle"));
+        assertTrue(editorCss.contains(".validation-handle:focus-visible"));
+        assertTrue(editorCss.contains("pointer-events: none"));
+        assertTrue(editorCss.contains(".panel-validation.is-open"));
+        assertTrue(editorCss.contains(".asset-library-drawer.is-open"));
+        assertTrue(editorCss.contains("top: var(--editor-toolbar-height)"));
+        assertTrue(editorCss.contains("width: min(350px, 100vw)"));
+        assertTrue(editorCss.contains(".opt-card-grid"));
+        assertTrue(editorCss.contains("grid-template-columns: auto auto auto minmax(0, 1fr) auto auto"));
+    }
+
+    @Test
+    void responsiveEditorKeepsTitleAndStructureReadableWithoutChangingValidationOverlay()
+            throws Exception {
+        String editorCss = read(
+                "src/main/resources/static/css/practice/manage-editor.css");
+        String breadcrumbRule = between(
+                editorCss, ".breadcrumb-text {", ".draft-title-input {");
+        String titleRule = between(
+                editorCss, ".draft-title-input {", ".draft-title-input:focus {");
+        String structureRule = between(
+                editorCss, ".panel-structure {", ".panel-header {");
+        String treeMetaRule = between(
+                editorCss, ".tree-meta-text {", "/* circular badge for question numbers */");
+        String mediumRules = between(
+                editorCss, "@media (max-width: 900px) {", "@media (max-width: 620px) {");
+        String mobileRules = between(
+                editorCss, "@media (max-width: 620px) {", "@media (prefers-reduced-motion: reduce) {");
+        String validationRule = between(
+                editorCss, ".panel-validation {", ".validation-handle {");
+
+        assertTrue(breadcrumbRule.contains("white-space: nowrap"));
+        assertTrue(breadcrumbRule.contains("text-overflow: ellipsis"));
+        assertTrue(titleRule.contains("display: block"));
+        assertTrue(titleRule.contains("width: 100%"));
+        assertTrue(titleRule.contains("min-width: 0"));
+        assertTrue(structureRule.contains("width: clamp(252px, 20vw, 280px)"));
+        assertFalse(editorCss.contains("clamp(190px, 15vw, 232px)"));
+        assertFalse(editorCss.contains("clamp(150px, 32vw, 190px)"));
+        assertTrue(editorCss.contains("margin-left: 10px"));
+        assertTrue(editorCss.contains("margin-left: 14px"));
+        assertTrue(editorCss.contains("margin-left: 18px"));
+        assertTrue(treeMetaRule.contains("white-space: nowrap"));
+        assertTrue(treeMetaRule.contains("overflow: hidden"));
+        assertTrue(treeMetaRule.contains("text-overflow: ellipsis"));
+
+        assertTrue(mediumRules.contains(".breadcrumb-text"));
+        assertTrue(mediumRules.contains("display: none"));
+        assertTrue(mediumRules.contains(".draft-title-input"));
+        assertTrue(mediumRules.contains("width: 100%"));
+        assertTrue(mobileRules.contains("width: 72px"));
+        assertTrue(mobileRules.contains(
+                "width: min(300px, calc(100vw - 72px))"));
+        assertTrue(mobileRules.contains(".panel-structure.is-expanded > .tree-wrapper"));
+
+        assertTrue(validationRule.contains("position: fixed"));
+        assertTrue(validationRule.contains("transform: translateX(100%)"));
+        assertTrue(validationRule.contains("pointer-events: none"));
+        assertTrue(editorCss.contains(
+                ".panel-validation:hover,\n.panel-validation.is-open"));
+        assertTrue(editorCss.contains(".validation-handle:focus-visible"));
+    }
+
+    @Test
+    void constrainedAppHeaderUsesCompleteCompactNavigationInsteadOfPracticeOnly()
+            throws Exception {
+        String header = read("src/main/resources/templates/fragments/app-header.html");
+        String appShellCss = read("src/main/resources/static/css/app-shell.css");
+        String practiceCss = read("src/main/resources/static/css/practice-index.css");
+        String compactNavigation = between(
+                header, "<div class=\"dropdown nav-compact-dropdown\">", "</nav>");
+        String wideRules = between(
+                appShellCss, "@media (max-width: 1440px) {", "@media (max-width: 1280px) {");
+        String compactRules = between(
+                appShellCss, "@media (max-width: 1280px) {", "@media (max-width: 720px) {");
+        String phoneRules = between(
+                appShellCss, "@media (max-width: 560px) {", "@media (max-width: 420px) {");
+
+        assertTrue(header.contains("<nav class=\"nav\" aria-label=\"Điều hướng chính\">"));
+        assertTrue(compactNavigation.contains("class=\"nav-compact-trigger\""));
+        assertTrue(compactNavigation.contains("data-toggle=\"dropdown\""));
+        assertTrue(compactNavigation.contains("aria-haspopup=\"menu\""));
+        assertTrue(compactNavigation.contains("aria-expanded=\"false\""));
+        assertTrue(compactNavigation.contains("aria-controls=\"app-compact-navigation-menu\""));
+        assertTrue(compactNavigation.contains("role=\"menu\""));
+        assertTrue(compactNavigation.contains("aria-label=\"Các khu vực của KSH\""));
+        for (String route : List.of(
+                "@{/}", "@{/profile}", "@{/my/classes}", "@{/my/flashcards}",
+                "@{/practice}", "@{/practice/progress}", "@{/practice/manage}",
+                "@{/practice/manage/revisions}", "@{/practice/manage/materials}",
+                "@{/lecturer/dashboard}", "@{/lecturer/classes}", "@{/lecturer/library}",
+                "@{/head}", "@{/admin/dashboard}")) {
+            assertTrue(compactNavigation.contains(route),
+                    "Compact navigation is missing route " + route);
+        }
+        assertTrue(compactNavigation.contains("hasRole('STUDENT')"));
+        assertTrue(compactNavigation.contains("hasRole('LECTURER')"));
+        assertTrue(compactNavigation.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
+
+        assertTrue(wideRules.contains(".user-chip .name"));
+        assertTrue(wideRules.contains("display: none"));
+        assertTrue(compactRules.contains(".nav > a"));
+        assertTrue(compactRules.contains(".nav > .nav-practice-dropdown"));
+        assertTrue(compactRules.contains(".nav > .nav-compact-dropdown"));
+        assertTrue(compactRules.contains("display: block"));
+        assertFalse(appShellCss.contains(".nav { display: none; }"));
+        assertTrue(phoneRules.contains(".nav-compact-menu"));
+        assertTrue(phoneRules.contains("position: fixed"));
+        assertTrue(phoneRules.contains("left: 12px"));
+        assertTrue(phoneRules.contains("right: 12px"));
+
+        assertFalse(practiceCss.contains(".pi-body > .header .nav > a"));
+        assertFalse(practiceCss.contains(".pi-body > .header .nav-practice-dropdown"));
+        assertTrue(header.contains("class=\"user-chip\""));
+        assertTrue(header.contains("aria-label=\"Mở menu tài khoản\""));
+    }
+
+    @Test
+    void ordinaryUploadPayloadIsValidatedBeforeEditorStateMutation() throws Exception {
+        String editor = read("src/main/resources/templates/practice/manage/editor.html");
+        String imageUpload = between(
+                editor,
+                "function uploadImageFile(file, type)",
+                "function updateImagePreview(url, type)");
+        String audioUpload = between(
+                editor,
+                "function uploadDraftAudio(file, statusElementId, onUploaded, isCurrentTarget = () => true)",
+                "function uploadAudioFile(file)");
+        String optionUpload = between(
+                editor,
+                "function uploadOptionImage(file, idx)",
+                "function removeOptionImage(idx)");
+
+        assertTrue(imageUpload.contains(
+                "const upload = requireEditorUploadPayload(data)"));
+        assertTrue(imageUpload.indexOf("requireEditorUploadPayload(data)")
+                < imageUpload.indexOf("setGroupImageUrl(target, upload.url)"));
+        assertTrue(audioUpload.contains(
+                "const upload = requireEditorUploadPayload(data)"));
+        assertTrue(audioUpload.indexOf("requireEditorUploadPayload(data)")
+                < audioUpload.indexOf("onUploaded(upload)"));
+        assertTrue(optionUpload.contains(
+                "const upload = requireEditorUploadPayload(data)"));
+        assertTrue(optionUpload.indexOf("requireEditorUploadPayload(data)")
+                < optionUpload.indexOf("option.imageReference = upload.url"));
+
+        String imagePreview = between(
+                editor,
+                "function updateImagePreview(url, type)",
+                "function removeImage(type)");
+        String audioPreview = between(
+                editor,
+                "function updateAudioPreview(url)",
+                "function updateSpeakingPromptAudioPreview(url)");
+        String assetList = between(
+                editor,
+                "function renderAssetsList(assets)",
+                "async function insertAssetUrlToSelectedField(assetId, url)");
+        String assetInsert = between(
+                editor,
+                "async function insertAssetUrlToSelectedField(assetId, url)",
+                "async function deleteLibraryAsset(id)");
+        String assetDrop = between(
+                editor,
+                "function setupDropzoneEvents(dropzone, uploadFn)",
+                "function handleAudioSelect(input)");
+        String assetApply = between(
+                editor,
+                "async function attachAndApplyEditorImage(",
+                "function performAutosave()");
+        assertTrue(editor.contains("function isPrivatePracticeMaterialUrl(value)"));
+        assertTrue(editor.contains(
+                "/^\\/practice\\/materials\\/[1-9]\\d*\\/content$/.test(value)"));
+        assertTrue(editor.contains(
+                "function privatePracticeMaterialAssetId(value)"));
+        assertTrue(editor.contains(
+                "if (isPrivatePracticeMaterialUrl(droppedUrl))"));
+        assertTrue(imagePreview.contains(
+                "if (!isPrivatePracticeMaterialUrl(url))"));
+        assertTrue(imagePreview.contains("container.replaceChildren()"));
+        assertTrue(imagePreview.contains("image.src = url"));
+        assertTrue(imagePreview.contains("reference.textContent = url"));
+        assertFalse(imagePreview.contains("innerHTML"));
+        assertTrue(audioPreview.contains(
+                "if (!isPrivatePracticeMaterialUrl(url))"));
+        assertTrue(audioPreview.contains("container.replaceChildren()"));
+        assertTrue(audioPreview.contains("download.href = url"));
+        assertTrue(audioPreview.contains("audio.src = url"));
+        assertFalse(audioPreview.contains("innerHTML"));
+        assertTrue(assetList.contains("if (!Array.isArray(assets))"));
+        assertTrue(assetList.contains("Number.isSafeInteger(assetId)"));
+        assertTrue(assetList.contains("assetId <= 0"));
+        assertTrue(assetList.contains(
+                "fileUrl: `/practice/materials/${assetId}/content`"));
+        assertTrue(assetList.contains("title.textContent"));
+        assertTrue(assetList.contains("addEventListener("));
+        assertFalse(assetList.contains("innerHTML"));
+        assertFalse(assetList.contains("onclick="));
+        assertTrue(assetInsert.contains(
+                "url !== expectedUrl"));
+        assertTrue(assetInsert.contains(
+                "!isPrivatePracticeMaterialUrl(url)"));
+        assertTrue(assetInsert.indexOf(
+                "await attachAndApplyEditorImage(")
+                < assetInsert.indexOf(
+                        "alert(\"Đã gắn ảnh vào bản nháp thành công!\")"));
+        assertTrue(assetInsert.contains("catch (error)"));
+        assertFalse(assetInsert.contains("imgInput.value = url"));
+        assertTrue(assetDrop.indexOf(
+                "await attachAndApplyEditorImage(")
+                < assetDrop.indexOf(
+                        "error && error.message"));
+        assertTrue(assetApply.indexOf("await linkEditorImageAsset(assetId)")
+                < assetApply.indexOf("setGroupImageUrl(target, url)"));
+        assertTrue(assetApply.indexOf("await linkEditorImageAsset(assetId)")
+                < assetApply.indexOf("target.imageUrl = url"));
+        assertTrue(assetApply.contains(
+                "if (!isCurrentEditorTarget(targetType, target))"));
+        assertFalse(editor.contains("e.target.value = fileUrl"));
+        assertTrue(editor.contains("error.textContent = e && e.message"));
     }
 
     @Test
@@ -138,6 +433,31 @@ class PracticePhase11AuthoringUiContractTest {
 
         assertTrue(workspace.contains("id=\"mode-guided\""));
         assertTrue(workspace.contains("id=\"mode-advanced\""));
+        assertTrue(workspace.contains("Không gian nhập PDF | KSH"));
+        assertTrue(workspace.contains("Xem trước ảnh cắt"));
+        assertTrue(workspace.contains("<option value=\"SPEAKING\">Nói</option>"));
+        assertTrue(workspace.contains("Nhà cung cấp: chưa gọi"));
+        assertTrue(workspace.contains(
+                "`Nhà cung cấp: ${opts.provider || 'điểm cuối OpenAI/Gemini'}`"));
+        assertTrue(workspace.contains("Mã yêu cầu: -"));
+        assertTrue(workspace.contains(
+                "`Mã yêu cầu: ${opts.requestId || lastAiRequestId}`"));
+        assertTrue(workspace.contains("Đã cắt ảnh"));
+        assertTrue(workspace.contains("Ảnh cắt từ PDF"));
+        assertTrue(workspace.contains("Đích nhập: Bài kiểm tra"));
+        assertFalse(workspace.contains("PDF Import Workspace"));
+        assertFalse(workspace.contains("Crop Preview"));
+        assertFalse(workspace.contains("Provider: chưa gọi"));
+        assertFalse(workspace.contains("Request ID: -"));
+        assertFalse(workspace.contains("Đã crop"));
+        assertFalse(workspace.contains("Khi crop một vùng IMAGE_ASSET"));
+        assertFalse(workspace.contains("`Test ${"));
+        assertTrue(wizard.contains("Không gian giảng viên"));
+        assertTrue(wizard.contains("Bài kiểm tra và phần kỹ năng"));
+        assertTrue(wizard.contains("|Bài kiểm tra ${section.testNo}"));
+        assertFalse(wizard.contains("Lecturer Workspace"));
+        assertFalse(wizard.contains(">Test và phần kỹ năng<"));
+        assertFalse(wizard.contains("|Test ${section.testNo}"));
         assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
         assertFalse(workspace.contains("hasAnyRole('HEAD','ADMIN')"));
         assertFalse(workspace.contains("data.privilegedDetails"));
@@ -148,7 +468,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("Cách AI đọc tài liệu"));
         assertTrue(workspace.contains("function openLearnerPreview()"));
         assertTrue(workspace.contains("id=\"tool-draw\""));
-        assertTrue(workspace.contains("title=\"Khoanh vùng để crop ảnh (D)\""));
+        assertTrue(workspace.contains("title=\"Khoanh vùng để cắt ảnh (D)\""));
         assertFalse(workspace.contains("advanced-only\" id=\"tool-draw\""));
         assertTrue(workspace.contains("{ s: 'select', d: 'draw', h: 'pan' }"));
         assertTrue(workspace.contains("input, textarea, select, [contenteditable=\"true\"]"));
@@ -176,6 +496,20 @@ class PracticePhase11AuthoringUiContractTest {
 
         assertTrue(excel.contains("/practice/manage/excel/template"));
         assertTrue(excel.contains("/practice/manage/excel/${action}"));
+        assertTrue(excel.contains("Không gian giảng viên"));
+        assertTrue(excel.contains("Tệp XLSX"));
+        assertTrue(excel.contains("Với câu Nói"));
+        assertTrue(excel.contains("Âm thanh câu hỏi"));
+        assertTrue(excel.contains("Tải tệp mẫu"));
+        assertTrue(excel.contains("Ảnh/âm thanh đi kèm"));
+        assertTrue(excel.contains("Xem trước Excel"));
+        assertTrue(excel.contains("Bài kiểm tra / Phần"));
+        assertTrue(excel.contains("Chọn tệp khác"));
+        assertTrue(excel.contains("`Bài kiểm tra ${"));
+        assertFalse(excel.contains("Lecturer workspace"));
+        assertFalse(excel.contains("Excel preview"));
+        assertFalse(excel.contains("Test / Section"));
+        assertFalse(excel.contains("`Test ${"));
         assertTrue(excel.contains("id=\"excel-preview-modal\""));
         assertTrue(excel.contains("id=\"preview-rows\""));
         assertTrue(excel.contains("id=\"excel-compact-preview\""));
@@ -202,7 +536,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("URL.createObjectURL"));
         assertTrue(excel.contains("uploadPendingMedia"));
         assertFalse(dashboard.contains("@{/practice/manage/excel}"));
-        assertTrue(dashboard.contains("Excel import is available inside each skill section."));
+        assertTrue(dashboard.contains(
+                "Bạn có thể nhập Excel trong từng phần kỹ năng."));
     }
 
     @Test
@@ -230,7 +565,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(revisions.contains("xuất bản 10 lần tạo v1-v10"));
         assertTrue(revisions.contains("khôi phục v3 sẽ tạo v11"));
         assertTrue(revisions.contains("Autosave bản nháp không tự tạo published revision"));
-        assertTrue(dashboard.contains("KSH Practice"));
+        assertTrue(dashboard.contains("Luyện tập KSH"));
         assertFalse(dashboard.contains("Program / Kịch bản"));
         assertFalse(dashboard.contains("assessmentProgramCode"));
         assertFalse(dashboard.contains("examTemplateCode"));
@@ -428,6 +763,7 @@ class PracticePhase11AuthoringUiContractTest {
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
         String manageController = read("src/main/java/com/ksh/features/practice/manage/controller/PracticeManageController.java");
         String practiceCss = read("src/main/resources/static/css/practice-index.css");
+        String appShellCss = read("src/main/resources/static/css/app-shell.css");
         String manageDashboardCss = read("src/main/resources/static/css/practice/manage-dashboard.css");
 
         assertTrue(index.contains("Kho luyện tập | KSH"));
@@ -440,22 +776,29 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(sidebar.contains("hasAnyRole('LECTURER','HEAD','ADMIN')"));
         assertTrue(sidebar.contains("sec:authorize=\"hasRole('STUDENT')\""));
         assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Luyện tập</span>"));
-        assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Manage Test Sets</span>"));
+        assertTrue(sidebar.contains("<span class=\"pi-nav-text\">Quản lý bộ đề</span>"));
         assertFalse(sidebar.contains("<span class=\"pi-nav-text\">Kho đề</span>"));
 
         assertTrue(header.contains("class=\"dropdown nav-practice-dropdown\""));
         assertTrue(header.contains("class=\"nav-practice-link\" th:href=\"@{/practice}\">Luyện tập</a>"));
         assertTrue(header.contains("sec:authorize=\"hasRole('STUDENT')\" th:href=\"@{/practice/progress}\""));
         assertTrue(header.contains("sec:authorize=\"hasRole('LECTURER')\" th:href=\"@{/practice/manage}\""));
+        assertTrue(header.contains("aria-label=\"Mở menu tài khoản\""));
+        assertTrue(header.contains("aria-haspopup=\"menu\""));
 
         assertTrue(roles.contains("PREAUTH_STUDENT = \"hasRole('STUDENT')\""));
         assertTrue(security.contains(".requestMatchers(\"/practice/progress\", \"/practice/profile\").hasRole(Roles.STUDENT)"));
         assertTrue(controller.contains("@GetMapping(PracticeRoutes.PROGRESS)\n    @PreAuthorize(Roles.PREAUTH_STUDENT)"));
         assertTrue(index.contains("class=\"pc-side-section\" sec:authorize=\"hasRole('STUDENT')\""));
 
-        assertTrue(dashboard.contains("Manage Test Sets"));
-        assertTrue(dashboard.contains("My Test Sets"));
-        assertTrue(dashboard.contains("Other Lecturers' Test Sets"));
+        assertTrue(dashboard.contains("Quản lý bộ đề"));
+        assertTrue(dashboard.contains("Bộ đề của tôi"));
+        assertTrue(dashboard.contains("Bộ đề của giảng viên khác"));
+        assertTrue(dashboard.contains("Không gian giảng viên"));
+        assertTrue(dashboard.contains("Xem trước"));
+        assertFalse(dashboard.contains("Manage Test Sets"));
+        assertFalse(dashboard.contains(">Preview<"));
+        assertFalse(dashboard.contains("Shared with me"));
         assertFalse(dashboard.contains("Học liệu của tôi"));
         assertTrue(dashboard.contains("preview=true"));
         assertTrue(dashboard.contains("preview=1"));
@@ -467,6 +810,9 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(dashboard.contains("pm-action-btn--danger"));
         assertTrue(manageDashboardCss.contains(".pm-action-btn:focus-visible"));
         assertTrue(manageDashboardCss.contains(".pm-action-collaboration[open]"));
+        assertTrue(manageDashboardCss.contains(".pm-dashboard-heading"));
+        assertTrue(manageDashboardCss.contains(".pm-dashboard-stats"));
+        assertTrue(manageDashboardCss.contains("@media (max-width: 680px)"));
         assertTrue(manageController.contains("@RequestParam(value = \"preview\", defaultValue = \"false\") boolean preview"));
         assertTrue(manageController.contains("return preview ? editorUrl + \"?preview=1\" : editorUrl;"));
 
@@ -474,6 +820,23 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(practiceCss.contains(".pi-body > .header"));
         assertTrue(practiceCss.contains(".pi-sidebar:hover ~ .pi-main-wrapper"));
         assertTrue(practiceCss.contains("margin-left: 260px;"));
+        assertTrue(practiceCss.contains("@media (min-width: 761px)"));
+        assertTrue(practiceCss.contains("@media (max-width: 760px)"));
+        assertFalse(practiceCss.contains(
+                "@media (min-width: 721px) and (max-width: 1280px)"));
+        assertFalse(practiceCss.contains(".pi-body > .header .nav > a"));
+        assertFalse(practiceCss.contains(".pi-body > .header .nav-practice-dropdown"));
+        assertTrue(practiceCss.contains("height: 68px"));
+        assertTrue(practiceCss.contains("flex-direction: row"));
+        assertTrue(practiceCss.contains(".pi-sidebar:hover .pi-nav-text"));
+        assertTrue(practiceCss.contains("opacity: 1"));
+        assertTrue(appShellCss.contains("white-space: nowrap"));
+        assertTrue(appShellCss.contains(".user-chip .name"));
+        assertTrue(appShellCss.contains(".user-chip .avatar::first-letter"));
+        assertTrue(appShellCss.contains("font-size: 0"));
+        assertTrue(appShellCss.contains("@media (max-width: 1440px)"));
+        assertTrue(appShellCss.contains("@media (max-width: 1280px)"));
+        assertTrue(appShellCss.contains("@media (max-width: 560px)"));
     }
 
     @Test
@@ -506,20 +869,35 @@ class PracticePhase11AuthoringUiContractTest {
         String materialController = read(
                 "src/main/java/com/ksh/features/practice/controller/PracticeMaterialController.java");
 
-        int privateRule = security.indexOf("/uploads/practice-audio/**");
-        int publicRule = security.indexOf(".requestMatchers(\"/uploads/**\").permitAll()");
-        assertTrue(privateRule >= 0 && privateRule < publicRule);
-        assertTrue(security.contains("/uploads/practice-images/**"));
-        assertTrue(security.contains("/uploads/lecturer-assets/**"));
-        assertTrue(security.substring(privateRule, publicRule).contains(".denyAll()"));
+        int publicAllowlist = security.indexOf("\"/uploads/avatars/**\"");
+        int denyAllFallback =
+                security.indexOf(".requestMatchers(\"/uploads/**\").denyAll()");
+        assertTrue(publicAllowlist >= 0 && publicAllowlist < denyAllFallback);
+        String publicRules = security.substring(publicAllowlist, denyAllFallback);
+        assertTrue(publicRules.contains("\"/uploads/exams/**\""));
+        assertTrue(publicRules.contains("\"/uploads/questions/**\""));
+        assertTrue(publicRules.contains("\"/uploads/options/**\""));
+        assertTrue(publicRules.contains(").permitAll()"));
+        assertFalse(security.contains(
+                ".requestMatchers(\"/uploads/**\").permitAll()"));
         assertTrue(draftController.contains("/practice/materials/"));
         assertFalse(draftController.contains("\"url\", \"/uploads/"));
         assertTrue(materialController.contains("PracticeMaterialAccessService"));
         assertTrue(materialController.contains("@PreAuthorize(\"isAuthenticated()\")"));
+        assertTrue(materialController.contains(".noStore()"));
+        assertTrue(materialController.contains(".mustRevalidate()"));
     }
 
     private static boolean containsEmojiStyleIcon(String content) {
         return content.codePoints().anyMatch(codePoint -> codePoint >= 0x1F300 && codePoint <= 0x1FAFF);
+    }
+
+    private static String between(String source, String start, String end) {
+        int startIndex = source.indexOf(start);
+        int endIndex = source.indexOf(end, startIndex);
+        assertTrue(startIndex >= 0, "Missing start marker: " + start);
+        assertTrue(endIndex > startIndex, "Missing end marker: " + end);
+        return source.substring(startIndex, endIndex);
     }
 
     private static String read(String path) throws Exception {

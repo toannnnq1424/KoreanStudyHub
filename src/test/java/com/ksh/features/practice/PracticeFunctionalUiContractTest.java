@@ -110,7 +110,7 @@ class PracticeFunctionalUiContractTest {
                 "gain.connect(context.destination)",
                 "stream.getTracks().forEach",
                 "blob.size > 0",
-                "Dịch vụ lưu bản ghi Speaking đang tắt");
+                "Dịch vụ lưu bản ghi phần Nói đang tắt");
         assertThat(preflightJs).doesNotContain("fetch(\"http", "fetch('http");
         assertThat(preflightCss).contains(".spc-page", ".spc-panel", ".spc-meter", ".spc-mascot");
     }
@@ -148,7 +148,7 @@ class PracticeFunctionalUiContractTest {
                 "listening-check-audio-area",
                 "handleListeningCheckAudioSelect",
                 "syncSectionContract(section)",
-                "Audio thử loa trước phần Nghe");
+                "Âm thanh thử loa trước phần Nghe");
     }
 
     @Test
@@ -166,6 +166,9 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("fragments/catalog-cards.html"));
         String catalogJs = Files.readString(PRACTICE_CATALOG_JS);
         String catalogCss = Files.readString(PRACTICE_CATALOG_CSS);
+        String mainRule = catalogCss.substring(
+                catalogCss.indexOf(".pc-main {"),
+                catalogCss.indexOf(".pc-layout {"));
 
         assertThat(template).contains("catalog.totalElements()");
         assertThat(template).contains(
@@ -204,6 +207,16 @@ class PracticeFunctionalUiContractTest {
         assertThat(catalogCss).contains("pc-skill-mixed");
         assertThat(catalogCss).contains("pc-card-skill-icons");
         assertThat(catalogCss).contains("grid-template-columns: repeat(4, minmax(0, 1fr))");
+        assertThat(catalogCss).contains(
+                "@media (max-width: 1180px)",
+                "grid-template-columns: repeat(3, minmax(0, 1fr))",
+                "@media (max-width: 760px)",
+                "grid-template-columns: repeat(2, minmax(0, 1fr))",
+                "@media (max-width: 560px)",
+                "grid-template-columns: minmax(0, 1fr)");
+        assertThat(mainRule)
+                .contains("min-width: 0")
+                .doesNotContain("width: 100%", "margin-left");
         assertThat(catalogJs).contains("IntersectionObserver");
         assertThat(catalogJs).contains("params.set('batch'");
         assertThat(catalogJs).contains("new URLSearchParams(window.location.search)");

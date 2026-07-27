@@ -11,6 +11,7 @@
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center;
   padding: 0 28px; gap: 32px;
+  min-width: 0;
 }
 .header-logo { display: flex; align-items: center; gap: 8px; flex: none; }
 .logo-mark {
@@ -23,12 +24,14 @@
 .logo-text span { color: var(--primary); }
 
 /* ── Nav ───────────────────────────────────────────────────────────── */
-.nav { display: flex; align-items: center; gap: 4px; flex: 1; }
+.nav { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
 .nav > a,
 .nav-practice-trigger {
   padding: 9px 14px; border-radius: 7px;
   font-weight: 600; font-size: 14px; color: var(--muted);
   transition: .15s; position: relative;
+  flex: none;
+  white-space: nowrap;
 }
 .nav > a:hover,
 .nav-practice-trigger:hover { background: var(--bg-soft); color: var(--fg); }
@@ -44,7 +47,7 @@
   display: flex; align-items: center; gap: 2px;
   padding-right: 7px;
 }
-.nav-practice-link { color: inherit; }
+.nav-practice-link { color: inherit; white-space: nowrap; }
 .nav-practice-toggle {
   display: grid; place-items: center;
   width: 24px; height: 24px; border-radius: 5px;
@@ -60,6 +63,43 @@
   font-weight: 500; font-size: 13.5px; color: var(--fg);
 }
 .nav-practice-menu .menu-item:hover { background: var(--bg-soft); }
+.nav-compact-dropdown {
+  display: none;
+  position: relative;
+}
+.nav-compact-trigger {
+  height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-compact-trigger:hover,
+.nav-compact-trigger:focus-visible {
+  background: var(--bg-soft);
+  border-color: var(--primary);
+  outline: none;
+}
+.nav-compact-trigger svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.nav-compact-menu {
+  width: min(280px, calc(100vw - 24px));
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+}
 
 /* ── Header right section ──────────────────────────────────────────── */
 .header-right { display: flex; align-items: center; gap: 14px; flex: none; }
@@ -77,8 +117,24 @@
   display: flex; align-items: center; gap: 9px;
   padding: 5px 8px 5px 5px; border-radius: 30px; transition: .15s;
 }
+.user-chip .avatar {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  line-height: 36px;
+  font-size: 0;
+}
+.user-chip .avatar::first-letter { font-size: 13px; }
 .user-chip:hover { background: var(--bg-soft); }
-.user-chip .name { font-weight: 600; font-size: 14px; }
+.user-chip .name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 14px;
+}
 .user-chip .caret { color: var(--muted-2); }
 
 /* ── Page content area ─────────────────────────────────────────────── */
@@ -229,12 +285,95 @@
 .notif-panel-footer:hover { background: var(--bg-soft, #f8fafc); }
 
 /* ── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 1440px) {
+  .header {
+    padding-inline: 20px;
+    gap: 16px;
+  }
+
+  .nav > a,
+  .nav-practice-trigger {
+    padding-inline: 10px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .header-msg {
+    margin-right: 0;
+  }
+
+  .user-chip .name {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .nav > a,
+  .nav > .nav-practice-dropdown {
+    display: none;
+  }
+
+  .nav > .nav-compact-dropdown {
+    display: block;
+    flex: none;
+  }
+}
+
 @media (max-width: 720px) {
-  .nav { display: none; }
-  .header { padding: 0 16px; }
+  .header {
+    padding: 0 16px;
+    gap: 10px;
+  }
   .app-page { padding: 20px 16px 40px; }
   .header-notif .notif-panel {
     width: min(360px, calc(100vw - 16px));
     right: -8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .header {
+    padding-inline: 10px;
+    gap: 8px;
+  }
+
+  .logo-text,
+  .user-chip .name {
+    display: none;
+  }
+
+  .header-right {
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .header-msg {
+    margin-right: 0;
+  }
+
+  .user-chip {
+    gap: 4px;
+    padding-right: 4px;
+  }
+
+  .nav .nav-compact-menu {
+    position: fixed;
+    top: 61px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav-compact-trigger {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .nav-compact-label {
+    display: none;
   }
 }
