@@ -74,12 +74,12 @@
     startButton.disabled = !(readyLocally && uploadEnabled);
     setServiceNotice(uploadEnabled
       ? ""
-      : "Dịch vụ lưu bản ghi Speaking đang tắt nên chưa thể bắt đầu bài thật.");
+      : "Dịch vụ lưu bản ghi phần Nói đang tắt nên chưa thể bắt đầu bài thật.");
     if (!readyLocally) return;
     setStatus(uploadEnabled ? "Thiết bị sẵn sàng" : "Micro đã sẵn sàng", "ready");
     message.textContent = uploadEnabled
-      ? "Bạn có thể bắt đầu. Phần Speaking sẽ tự phát đề, đếm giờ và lưu từng câu."
-      : "Bạn đã kiểm tra xong micro. Hãy bật dịch vụ lưu bản ghi để vào phần Speaking.";
+      ? "Bạn có thể bắt đầu. Phần Nói sẽ tự phát đề, đếm giờ và lưu từng câu."
+      : "Bạn đã kiểm tra xong micro. Hãy bật dịch vụ lưu bản ghi để vào phần Nói.";
   }
 
   function stopStream() {
@@ -249,7 +249,7 @@
   } else if (!uploadEnabled) {
     setStatus("Có thể kiểm tra micro", "");
     deviceName.textContent = "Chưa cấp quyền micro";
-    setServiceNotice("Dịch vụ lưu bản ghi Speaking đang tắt nên chưa thể bắt đầu bài thật.");
+    setServiceNotice("Dịch vụ lưu bản ghi phần Nói đang tắt nên chưa thể bắt đầu bài thật.");
     message.textContent = "Bạn vẫn có thể phát âm thử và ghi âm mẫu trên thiết bị này.";
   } else {
     setStatus("Sẵn sàng kiểm tra", "");

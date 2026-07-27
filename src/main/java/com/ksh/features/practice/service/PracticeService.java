@@ -3,6 +3,7 @@ package com.ksh.features.practice.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroupVersion;
 import com.ksh.entities.PracticeQuestionVersion;
@@ -35,6 +36,8 @@ import com.ksh.features.practice.assessment.AssessmentScoringEngine;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.SpeakingPromptDelivery;
+import com.ksh.features.practice.assessment.SpeakingPromptDeliveryPresenter;
 import com.ksh.features.practice.assessment.PracticeSectionDelivery;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
@@ -107,6 +110,9 @@ public class PracticeService {
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
             Pattern.compile("^/practice/materials/[1-9][0-9]*/content$");
+    private static final Pattern EXPLICIT_QUESTION_CONTENT_V2_PATTERN =
+            Pattern.compile(
+                    "\"schemaVersion\"\\s*:\\s*\"question-content-v2\"");
     private static final String BUILT_IN_LISTENING_CHECK_AUDIO_REFERENCE =
             "/audio/practice/listening-speaker-check.wav";
     private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
@@ -133,6 +139,9 @@ public class PracticeService {
     private final QuestionTypeResolver questionTypeResolver;
     private final AssessmentContractCodec assessmentContractCodec;
     private final AssessmentScoringEngine assessmentScoringEngine;
+    private final SpeakingPromptDeliveryPresenter
+            speakingPromptDeliveryPresenter =
+            new SpeakingPromptDeliveryPresenter();
     private final TransactionTemplate readTransactionTemplate;
     private final TransactionTemplate nonTransactionalTemplate;
     private final TransactionTemplate writeTransactionTemplate;
@@ -1330,14 +1339,38 @@ public class PracticeService {
         PracticeQuestionGroupVersion group = groupsById.get(question.getGroupVersionId());
         QuestionContent content = legacyCompatibleSpeakingContent(question);
         QuestionContent.SpeakingDelivery delivery = content.speakingDelivery();
-        String promptAudioReference = firstNonBlank(
-                safeInternalMaterialReference(delivery == null ? null : delivery.promptAudioReference()),
-                firstNonBlank(
-                        safeInternalMaterialReference(content.audioReference()),
-                        safeInternalMaterialReference(group == null ? null : group.getAudioUrl())));
-        if (isBlank(promptAudioReference)) {
+        String promptAudioReference =
+                safeInternalMaterialReference(
+                        delivery == null ? null
+                                : delivery.promptAudioReference());
+        String legacyAudioFallback = firstNonBlank(
+                safeInternalMaterialReference(content.audioReference()),
+                safeInternalMaterialReference(
+                        group == null ? null : group.getAudioUrl()));
+        QuestionContent learnerSafeContent = new QuestionContent(
+                content.schemaVersion(),
+                content.options(),
+                content.blanks(),
+                safeInternalMaterialReference(content.imageReference()),
+                safeInternalMaterialReference(content.audioReference()),
+                delivery == null ? null : new QuestionContent.SpeakingDelivery(
+                        delivery.inputType(),
+                        delivery.deliveryMode(),
+                        blankToNull(promptAudioReference),
+                        delivery.audioOrigin(),
+                        delivery.promptPlayLimit(),
+                        delivery.preparationSeconds(),
+                        delivery.responseSeconds()));
+        String immutablePrompt = stripMarkdownImages(question.getPrompt());
+        SpeakingPromptDelivery promptDelivery;
+        try {
+            promptDelivery = speakingPromptDeliveryPresenter.present(
+                    learnerSafeContent, immutablePrompt, legacyAudioFallback);
+        } catch (IllegalArgumentException exception) {
             throw new IllegalStateException(
-                    "Speaking question is missing immutable prompt audio: " + question.getQuestionId());
+                    "Speaking question has invalid immutable delivery: "
+                            + question.getQuestionId(),
+                    exception);
         }
         String imageReference = firstNonBlank(
                 safeInternalMaterialReference(content.imageReference()),
@@ -1350,13 +1383,9 @@ public class PracticeService {
                 question.getQuestionNo(),
                 group == null || group.getGroupLabel() == null || group.getGroupLabel().isBlank()
                         ? "Phần nói" : group.getGroupLabel(),
-                stripMarkdownImages(question.getPrompt()),
                 question.getPoints(),
                 blankToNull(imageReference),
-                promptAudioReference,
-                delivery == null || delivery.promptPlayLimit() == null ? 1 : delivery.promptPlayLimit(),
-                delivery == null || delivery.preparationSeconds() == null ? 30 : delivery.preparationSeconds(),
-                delivery == null || delivery.responseSeconds() == null ? 60 : delivery.responseSeconds());
+                promptDelivery);
     }
 
     private QuestionContent legacyCompatibleSpeakingContent(PracticeQuestionVersion question) {
@@ -1365,12 +1394,35 @@ public class PracticeService {
             try {
                 return assessmentContractCodec.readQuestionContent(json, CanonicalQuestionType.SPEAKING);
             } catch (IllegalArgumentException exception) {
+                if (explicitQuestionContentV2(json)) {
+                    throw new IllegalStateException(
+                            "Speaking question has invalid immutable question-content-v2: "
+                                    + question.getQuestionId(),
+                            exception);
+                }
                 log.warn("[PracticeService] Invalid canonical Speaking content questionId={} versionId={} reason={}",
                         question.getQuestionId(), question.getId(), exception.getMessage());
             }
         }
         return assessmentContractCodec.adaptLegacyContent(
                 question.getOptionsJson(), PracticeQuestion.TYPE_SPEAKING);
+    }
+
+    private boolean explicitQuestionContentV2(String json) {
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            return node != null
+                    && node.isObject()
+                    && QuestionContent.SCHEMA_VERSION_V2.equals(
+                    node.path("schemaVersion").asText());
+        } catch (Exception ignored) {
+            /*
+             * Syntax damage must not turn an explicitly declared v2 row into
+             * historical v1 fallback. This narrow declaration check is used
+             * only after JSON parsing failed.
+             */
+            return EXPLICIT_QUESTION_CONTENT_V2_PATTERN.matcher(json).find();
+        }
     }
 
     private static String firstMarkdownImageReference(String value) {
@@ -1441,14 +1493,34 @@ public class PracticeService {
             Long questionId,
             Integer questionNo,
             String groupLabel,
-            String prompt,
             BigDecimal points,
             String imageReference,
-            String promptAudioReference,
-            Integer promptPlayLimit,
-            Integer preparationSeconds,
-            Integer responseSeconds
+            SpeakingPromptDelivery delivery
     ) {
+        @JsonIgnore
+        public String prompt() {
+            return delivery == null ? null : delivery.promptText();
+        }
+
+        @JsonIgnore
+        public String promptAudioReference() {
+            return delivery == null ? null : delivery.promptAudioReference();
+        }
+
+        @JsonIgnore
+        public Integer promptPlayLimit() {
+            return delivery == null ? null : delivery.promptPlayLimit();
+        }
+
+        @JsonIgnore
+        public Integer preparationSeconds() {
+            return delivery == null ? null : delivery.preparationSeconds();
+        }
+
+        @JsonIgnore
+        public Integer responseSeconds() {
+            return delivery == null ? null : delivery.responseSeconds();
+        }
     }
 
     private PracticeQuestionRow toQuestionRow(PracticeQuestionVersion question) {
@@ -2998,6 +3070,8 @@ public class PracticeService {
                                         snapshot.userId(),
                                         snapshot.attemptId(),
                                         q.questionId(),
+                                        q.questionVersionId(),
+                                        speakingQuestionContentSchemaVersion(q),
                                         q.prompt(),
                                         null,
                                         q.answerKey(),
@@ -3026,6 +3100,17 @@ public class PracticeService {
                 ? toWritingAttemptPercentage(earnedPoints, total)
                 : null;
         return new SpeakingGradingResult(score, total, snapshot.answersToPersistJson(), feedbackJson);
+    }
+
+    private String speakingQuestionContentSchemaVersion(
+            QuestionSnapshot question) {
+        if (question == null || isBlank(question.questionContentJson())) {
+            return QuestionContent.SCHEMA_VERSION_V1;
+        }
+        return assessmentContractCodec.readQuestionContent(
+                        question.questionContentJson(),
+                        CanonicalQuestionType.SPEAKING)
+                .schemaVersion();
     }
 
     private Map<Long, SpeakingEvaluationResult> storedSpeakingResults(String aiFeedbackJson) {

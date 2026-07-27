@@ -86,6 +86,12 @@ public class PracticePublishedVersionService {
 
     @Transactional
     public PracticePublishedVersion createPublishedVersion(Long setId, Long publishedBy) {
+        return createPublishedVersionDetailed(setId, publishedBy).publishedVersion();
+    }
+
+    @Transactional
+    public PublishedVersionCreation createPublishedVersionDetailed(
+            Long setId, Long publishedBy) {
         PracticeSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Practice set not found."));
         List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -100,6 +106,7 @@ public class PracticePublishedVersionService {
                         contentHash(setId), publishedBy));
 
         PracticeSetVersion setVersion = setVersionRepository.save(new PracticeSetVersion(publishedVersion.getId(), set));
+        Map<Long, Long> questionVersionIdByQuestionId = new LinkedHashMap<>();
         for (PracticeTest test : tests) {
             PracticeTestVersion testVersion = testVersionRepository.save(
                     new PracticeTestVersion(publishedVersion.getId(), setVersion.getId(), test));
@@ -125,15 +132,27 @@ public class PracticePublishedVersionService {
                         .sorted(Comparator.comparing(PracticeQuestion::getDisplayOrder, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(PracticeQuestion::getQuestionNo, Comparator.nullsLast(Integer::compareTo)))
                         .toList()) {
-                    questionVersionRepository.save(new PracticeQuestionVersion(
+                    PracticeQuestionVersion savedQuestionVersion =
+                            questionVersionRepository.save(new PracticeQuestionVersion(
                             publishedVersion.getId(),
                             sectionVersion.getId(),
                             question.getGroupId() == null ? null : groupVersionIds.get(question.getGroupId()),
                             question));
+                    if (questionVersionIdByQuestionId.put(
+                            question.getId(), savedQuestionVersion.getId()) != null) {
+                        throw new IllegalStateException(
+                                "A live question was snapshotted more than once.");
+                    }
                 }
             }
         }
-        return publishedVersion;
+        return new PublishedVersionCreation(
+                publishedVersion, Map.copyOf(questionVersionIdByQuestionId));
+    }
+
+    public record PublishedVersionCreation(
+            PracticePublishedVersion publishedVersion,
+            Map<Long, Long> questionVersionIdByQuestionId) {
     }
 
     private void validateUngroupedQuestionScope(Long setId, List<PracticeTest> tests,

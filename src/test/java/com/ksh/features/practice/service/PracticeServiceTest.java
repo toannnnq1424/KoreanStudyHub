@@ -472,7 +472,7 @@ class PracticeServiceTest {
     }
 
     @Test
-    void speakingPlayerRejectsMissingImmutablePromptAudioWithoutNullPointerFailure() {
+    void speakingPlayerRejectsMalformedExplicitV2EvenWithLegacyGroupAudio() {
         PracticePublishedVersionService versionService = mock(PracticePublishedVersionService.class);
         practiceService.setPublishedVersionServiceForTests(versionService);
 
@@ -493,6 +493,8 @@ class PracticeServiceTest {
 
         PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
         when(groupVersion.getId()).thenReturn(700L);
+        when(groupVersion.getAudioUrl())
+                .thenReturn("/practice/materials/5/content");
         PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
         when(questionVersion.getId()).thenReturn(800L);
         when(questionVersion.getGroupVersionId()).thenReturn(700L);
@@ -500,7 +502,16 @@ class PracticeServiceTest {
         when(questionVersion.getQuestionNo()).thenReturn(1);
         when(questionVersion.getQuestionType()).thenReturn(PracticeQuestion.TYPE_SPEAKING);
         when(questionVersion.getQuestionContentJson()).thenReturn("""
-                {"schemaVersion":"question-content-v1"}
+                {"schemaVersion":"question-content-v2",
+                 "speakingDelivery":{
+                   "inputType":"manual_text",
+                   "deliveryMode":"text_only",
+                   "promptAudioReference":"/practice/materials/9/content",
+                   "audioOrigin":"none",
+                   "promptPlayLimit":1,
+                   "preparationSeconds":30,
+                   "responseSeconds":60
+                 }}
                 """);
         when(questionVersion.getDisplayOrder()).thenReturn(0);
 
@@ -513,7 +524,16 @@ class PracticeServiceTest {
                 IllegalStateException.class,
                 () -> practiceService.getSpeakingPlayerDelivery(77L, 2L));
 
-        assertTrue(exception.getMessage().contains("missing immutable prompt audio"));
+        assertTrue(exception.getMessage().contains(
+                "invalid immutable question-content-v2"));
+
+        when(questionVersion.getQuestionContentJson()).thenReturn(
+                "{\"schemaVersion\":\"question-content-v2\",");
+        IllegalStateException syntaxDamaged = assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.getSpeakingPlayerDelivery(77L, 2L));
+        assertTrue(syntaxDamaged.getMessage().contains(
+                "invalid immutable question-content-v2"));
     }
 
     @Test

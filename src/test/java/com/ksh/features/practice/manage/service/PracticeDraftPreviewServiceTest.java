@@ -5,9 +5,11 @@ import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.SpeakingPromptDelivery;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PracticeDraftPreviewServiceTest {
@@ -40,6 +42,71 @@ class PracticeDraftPreviewServiceTest {
         assertFalse(serialized.contains("evil.example"));
         assertFalse(serialized.contains("answerSpec"));
         assertFalse(serialized.contains("correctOptionIds"));
+    }
+
+    @Test
+    void speakingPreviewUsesBackendPresentationForAllThreeV2Branches()
+            throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        QuestionTypeResolver resolver = new QuestionTypeResolver();
+        AssessmentContractCodec codec =
+                new AssessmentContractCodec(objectMapper, resolver);
+        AssessmentAuthoringCatalogService catalog =
+                new AssessmentAuthoringCatalogService(
+                        new PracticeContentRules());
+        PracticeDraftContractService contract =
+                new PracticeDraftContractService(
+                        objectMapper, catalog, resolver, codec);
+        PracticeDraftPreviewService service =
+                new PracticeDraftPreviewService(
+                        contract, codec, resolver, objectMapper);
+
+        var questions = service.preview(speakingV2Draft())
+                .sections().get(0)
+                .groups().get(0)
+                .questions();
+
+        assertTrue(questions.get(0).speakingPresentation()
+                .steps().contains(
+                        SpeakingPromptDelivery.Step.PROMPT_PLAYBACK));
+        assertTrue(questions.get(0).speakingPresentation()
+                .promptText() == null);
+        assertTrue(questions.get(1).speakingPresentation()
+                .promptVisibleBeforePlayback());
+        assertTrue(questions.get(1).speakingPresentation()
+                .steps().get(0)
+                == SpeakingPromptDelivery.Step.PROMPT_PLAYBACK);
+        assertTrue(questions.get(2).speakingPresentation()
+                .promptPlayLimit() == null);
+        assertTrue(questions.get(2).speakingPresentation()
+                .steps().equals(java.util.List.of(
+                        SpeakingPromptDelivery.Step.PREPARATION,
+                        SpeakingPromptDelivery.Step.RECORDING)));
+    }
+
+    @Test
+    void invalidExplicitV2PreviewNeverDowngradesToLegacyAudio()
+            throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        QuestionTypeResolver resolver = new QuestionTypeResolver();
+        AssessmentContractCodec codec =
+                new AssessmentContractCodec(objectMapper, resolver);
+        PracticeDraftContractService contract =
+                new PracticeDraftContractService(
+                        objectMapper,
+                        new AssessmentAuthoringCatalogService(
+                                new PracticeContentRules()),
+                        resolver,
+                        codec);
+        PracticeDraftPreviewService service =
+                new PracticeDraftPreviewService(
+                        contract, codec, resolver, objectMapper);
+
+        IllegalArgumentException rejection = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.preview(invalidSpeakingV2Draft()));
+
+        assertTrue(rejection.getMessage().contains("Speaking v2"));
     }
 
     private static String draftJson() {
@@ -80,6 +147,113 @@ class PracticeDraftPreviewServiceTest {
                             {"id":"opt_1","text":"A","imageReference":"/uploads/options/a.png"},
                             {"id":"opt_2","text":"B","imageReference":"javascript:alert(1)"}
                           ]
+                        }
+                      }]
+                    }]
+                  }]
+                }
+                """;
+    }
+
+    private static String speakingV2Draft() {
+        return """
+                {
+                  "document":{
+                    "title":"Speaking",
+                    "examTemplateCode":"CUSTOM_FLEXIBLE"
+                  },
+                  "sections":[{
+                    "skill":"SPEAKING",
+                    "groups":[{
+                      "label":"Nói",
+                      "questions":[
+                        {
+                          "clientId":"audio",
+                          "questionType":"SPEAKING",
+                          "prompt":"SECRET_LECTURER_TRANSCRIPT",
+                          "points":1,
+                          "questionContent":{
+                            "schemaVersion":"question-content-v2",
+                            "speakingDelivery":{
+                              "inputType":"audio_upload",
+                              "deliveryMode":"audio_only",
+                              "promptAudioReference":"/practice/manage/drafts/10/questions/audio/speaking-prompt/media/original",
+                              "audioOrigin":"teacher_upload",
+                              "promptPlayLimit":1,
+                              "preparationSeconds":30,
+                              "responseSeconds":60
+                            }
+                          }
+                        },
+                        {
+                          "clientId":"tts",
+                          "questionType":"SPEAKING",
+                          "prompt":"자기소개를 하세요.",
+                          "points":1,
+                          "questionContent":{
+                            "schemaVersion":"question-content-v2",
+                            "speakingDelivery":{
+                              "inputType":"manual_text",
+                              "deliveryMode":"text_and_audio",
+                              "promptAudioReference":"/practice/manage/drafts/10/questions/tts/speaking-prompt/media/generated",
+                              "audioOrigin":"ai_tts",
+                              "promptPlayLimit":2,
+                              "preparationSeconds":20,
+                              "responseSeconds":50
+                            }
+                          }
+                        },
+                        {
+                          "clientId":"text",
+                          "questionType":"SPEAKING",
+                          "prompt":"주말에 무엇을 합니까?",
+                          "points":1,
+                          "questionContent":{
+                            "schemaVersion":"question-content-v2",
+                            "speakingDelivery":{
+                              "inputType":"manual_text",
+                              "deliveryMode":"text_only",
+                              "audioOrigin":"none",
+                              "preparationSeconds":10,
+                              "responseSeconds":40
+                            }
+                          }
+                        }
+                      ]
+                    }]
+                  }]
+                }
+                """;
+    }
+
+    private static String invalidSpeakingV2Draft() {
+        return """
+                {
+                  "document":{
+                    "title":"Speaking",
+                    "examTemplateCode":"CUSTOM_FLEXIBLE"
+                  },
+                  "sections":[{
+                    "skill":"SPEAKING",
+                    "groups":[{
+                      "label":"Nói",
+                      "audioUrl":"/practice/materials/99/content",
+                      "questions":[{
+                        "clientId":"invalid-v2",
+                        "questionType":"SPEAKING",
+                        "prompt":"질문입니다.",
+                        "points":1,
+                        "questionContent":{
+                          "schemaVersion":"question-content-v2",
+                          "speakingDelivery":{
+                            "inputType":"manual_text",
+                            "deliveryMode":"text_only",
+                            "promptAudioReference":"/practice/materials/99/content",
+                            "audioOrigin":"none",
+                            "promptPlayLimit":1,
+                            "preparationSeconds":30,
+                            "responseSeconds":60
+                          }
                         }
                       }]
                     }]

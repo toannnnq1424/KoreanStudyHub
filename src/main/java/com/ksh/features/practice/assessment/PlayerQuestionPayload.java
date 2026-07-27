@@ -2,7 +2,11 @@ package com.ksh.features.practice.assessment;
 
 import java.math.BigDecimal;
 
-/** Learner delivery boundary. Correct answers and profile internals are intentionally absent. */
+/**
+ * Learner delivery boundary. Correct answers, prompt transcripts, task state,
+ * fingerprints, confidence, provider metadata and acoustic internals are
+ * intentionally absent.
+ */
 public record PlayerQuestionPayload(
         String schemaVersion,
         Long questionId,

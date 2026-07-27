@@ -7,6 +7,9 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.PlayerQuestionPayload;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.SpeakingPromptDelivery;
+import com.ksh.features.practice.assessment.SpeakingPromptDeliveryPresenter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,15 +26,28 @@ public class PracticeDraftPreviewService {
     private final AssessmentContractCodec contractCodec;
     private final QuestionTypeResolver questionTypeResolver;
     private final ObjectMapper objectMapper;
+    private final SpeakingPromptDeliveryPresenter speakingPresenter;
 
     public PracticeDraftPreviewService(PracticeDraftContractService draftContractService,
                                        AssessmentContractCodec contractCodec,
                                        QuestionTypeResolver questionTypeResolver,
                                        ObjectMapper objectMapper) {
+        this(draftContractService, contractCodec, questionTypeResolver,
+                objectMapper, new SpeakingPromptDeliveryPresenter());
+    }
+
+    @Autowired
+    public PracticeDraftPreviewService(
+            PracticeDraftContractService draftContractService,
+            AssessmentContractCodec contractCodec,
+            QuestionTypeResolver questionTypeResolver,
+            ObjectMapper objectMapper,
+            SpeakingPromptDeliveryPresenter speakingPresenter) {
         this.draftContractService = draftContractService;
         this.contractCodec = contractCodec;
         this.questionTypeResolver = questionTypeResolver;
         this.objectMapper = objectMapper;
+        this.speakingPresenter = speakingPresenter;
     }
 
     public DraftDeliveryPreview preview(String draftJson) {
@@ -50,12 +66,22 @@ public class PracticeDraftPreviewService {
                         CanonicalQuestionType type = questionTypeResolver.resolve(
                                 question.path("questionType").asText());
                         QuestionContent content = deliveryContent(question, type);
+                        SpeakingPromptDelivery speakingPresentation =
+                                type == CanonicalQuestionType.SPEAKING
+                                        ? speakingPresenter.present(
+                                        content,
+                                        question.path("prompt").asText(""),
+                                        safeMediaReference(firstNonBlank(
+                                                content.audioReference(),
+                                                group.path("audioUrl").asText(null))))
+                                        : null;
                         questions.add(new PreviewQuestion(
                                 PlayerQuestionPayload.SCHEMA_VERSION,
                                 question.path("questionNo").asInt(questions.size() + 1),
                                 type,
                                 question.path("prompt").asText(""),
                                 content,
+                                speakingPresentation,
                                 positivePoints(question.path("points")),
                                 nonNegativeInt(question.path("prepTimeSeconds")),
                                 nonNegativeInt(question.path("respTimeSeconds"))
@@ -106,6 +132,14 @@ public class PracticeDraftPreviewService {
                         question.path("options").toString(), type.name());
             }
         } catch (IllegalArgumentException exception) {
+            JsonNode typedContent = question.path("questionContent");
+            if (typedContent.isObject()
+                    && QuestionContent.SCHEMA_VERSION_V2.equals(
+                    typedContent.path("schemaVersion").asText())) {
+                throw new IllegalArgumentException(
+                        "Không thể xem trước câu Speaking v2 có hợp đồng giao đề không hợp lệ.",
+                        exception);
+            }
             content = QuestionContent.empty();
         }
         return safeDeliveryContent(withQuestionMediaFallbacks(content, question));
@@ -142,7 +176,10 @@ public class PracticeDraftPreviewService {
         QuestionContent.SpeakingDelivery speakingDelivery = content.speakingDelivery() == null
                 ? null
                 : new QuestionContent.SpeakingDelivery(
+                        content.speakingDelivery().inputType(),
+                        content.speakingDelivery().deliveryMode(),
                         safeMediaReference(content.speakingDelivery().promptAudioReference()),
+                        content.speakingDelivery().audioOrigin(),
                         content.speakingDelivery().promptPlayLimit(),
                         content.speakingDelivery().preparationSeconds(),
                         content.speakingDelivery().responseSeconds());
@@ -203,6 +240,7 @@ public class PracticeDraftPreviewService {
                                   CanonicalQuestionType questionType,
                                   String prompt,
                                   QuestionContent content,
+                                  SpeakingPromptDelivery speakingPresentation,
                                   BigDecimal points,
                                   int prepTimeSeconds,
                                   int respTimeSeconds) {

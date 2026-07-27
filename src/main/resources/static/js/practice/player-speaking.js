@@ -81,6 +81,53 @@
     action.hidden = true;
   }
 
+  function uploadErrorMessage(payload, status) {
+    var code = payload && typeof payload.code === "string"
+      ? payload.code
+      : "";
+    if (code === "AUTHENTICATION_REQUIRED" || status === 401) {
+      return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trước khi tải bản ghi.";
+    }
+    if (code === "NOT_FOUND" || status === 404) {
+      return "Không tìm thấy lượt làm hoặc câu hỏi cần lưu bản ghi.";
+    }
+    if (code === "CONFLICT" || status === 409) {
+      return "Không thể thay đổi bản ghi ở trạng thái hiện tại.";
+    }
+    if (code === "TOO_LARGE" || status === 413) {
+      return "Tệp âm thanh vượt quá dung lượng cho phép.";
+    }
+    if (code === "TOO_LONG") {
+      return "Bản ghi dài hơn thời lượng cho phép.";
+    }
+    if ([
+      "UNSUPPORTED_TYPE",
+      "INVALID_CONTAINER",
+      "UNSUPPORTED_CODEC",
+      "MULTIPLE_AUDIO_STREAMS",
+      "NON_AUDIO_STREAM_PRESENT"
+    ].includes(code) || status === 415) {
+      return "Định dạng âm thanh không được hỗ trợ.";
+    }
+    if (code === "EMPTY") {
+      return "Bản ghi âm đang trống. Hãy ghi lại câu này.";
+    }
+    if (code === "CORRUPT_MEDIA" || code === "PROBE_OUTPUT_TOO_LARGE") {
+      return "Bản ghi âm không thể xử lý. Hãy ghi lại câu này.";
+    }
+    if ([
+      "PROBE_UNAVAILABLE",
+      "PROBE_TIMEOUT",
+      "STORAGE_FAILURE"
+    ].includes(code) || status >= 500) {
+      return "Dịch vụ lưu âm thanh đang tạm thời gián đoạn. Hãy thử lại.";
+    }
+    if (code === "INVALID_MULTIPART" || code === "REQUEST_BODY_UNAVAILABLE") {
+      return "Bản ghi gửi lên không hợp lệ. Hãy ghi lại câu này.";
+    }
+    return "KSH chưa thể lưu bản ghi. Bản ghi vẫn còn trên trình duyệt để thử lại.";
+  }
+
   function clearCountdown() {
     if (countdownTimer) window.clearInterval(countdownTimer);
     countdownTimer = null;
@@ -107,6 +154,10 @@
     promptAudio.removeAttribute("src");
     promptAudio.load();
     promptAudioState.classList.remove("is-playing");
+    promptAudioState.hidden = true;
+    promptAudioState.setAttribute("aria-hidden", "true");
+    promptAudio.hidden = true;
+    promptAudio.setAttribute("aria-hidden", "true");
   }
 
   function preferredMimeType() {
@@ -166,10 +217,15 @@
     });
   }
 
-  function playPrompt(question, token) {
+  function playPrompt(promptDelivery, token) {
     resetAudio();
     return new Promise(function (resolve, reject) {
-      var total = Math.max(1, Number(question.promptPlayLimit) || 1);
+      var total = Number(promptDelivery.promptPlayLimit);
+      if (!Number.isInteger(total) || total < 1
+          || !promptDelivery.promptAudioReference) {
+        reject(new Error("Dữ liệu phát đề Nói cố định không hợp lệ."));
+        return;
+      }
       var completed = 0;
       var settled = false;
       var cleanup = function () {
@@ -210,20 +266,24 @@
         });
       };
       var onAudioError = function () {
-        fail(new Error("Không thể tải audio đề Speaking."));
+        fail(new Error("Không thể tải âm thanh đề Nói."));
       };
 
-      promptAudio.src = question.promptAudioReference;
+      promptAudio.src = promptDelivery.promptAudioReference;
       promptAudio.addEventListener("ended", onEnded);
       promptAudio.addEventListener("error", onAudioError);
       promptAudioCleanup = cleanup;
+      promptAudioState.hidden = false;
+      promptAudioState.removeAttribute("aria-hidden");
+      promptAudio.hidden = false;
+      promptAudio.removeAttribute("aria-hidden");
       promptAudioState.classList.add("is-playing");
       playCount.textContent = "Lần phát 1 / " + total;
       setState("Đang phát đề bài", NaN);
-      message.textContent = "Hãy nghe kỹ. Audio sẽ tự phát đúng số lần giáo viên đã cấu hình.";
+      message.textContent = "Hãy nghe kỹ. Âm thanh sẽ tự phát đúng số lần giáo viên đã cấu hình.";
       promptAudio.play().catch(function () {
         promptAudioState.classList.remove("is-playing");
-        message.textContent = "Trình duyệt đang chặn tự phát audio.";
+        message.textContent = "Trình duyệt đang chặn tự phát âm thanh.";
         showAction("Phát đề bài", function () {
           hideAction();
           promptAudioState.classList.add("is-playing");
@@ -233,7 +293,7 @@
     });
   }
 
-  async function beginRecording(question, token) {
+  async function beginRecording(promptDelivery, token) {
     stopMicrophone();
     mediaChunks = [];
     recordedBlob = null;
@@ -263,7 +323,7 @@
       startMeter(mediaStream);
       setConnection("Đang ghi âm", "ready");
       message.textContent = "Hãy trả lời rõ ràng. Hệ thống sẽ tự dừng khi hết thời gian.";
-      await countdown(question.responseSeconds, "Thời gian trả lời còn lại", token);
+      await countdown(promptDelivery.responseSeconds, "Thời gian trả lời còn lại", token);
       if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
       await stopped;
       if (!recordedBlob || recordedBlob.size === 0) {
@@ -279,23 +339,57 @@
     if (!recordedBlob) throw new Error("Không có bản ghi để tải lên.");
     setState("Đang lưu câu trả lời", NaN);
     setConnection("Đang tải lên", "");
-    message.textContent = "Không đóng trang trong khi KSH đang lưu audio.";
+    message.textContent = "Không đóng trang trong khi KSH đang lưu âm thanh.";
     hideAction();
     setError("");
     var body = new FormData();
     body.append("file", recordedBlob, "speaking-answer." + fileExtension(recordedBlob.type));
-    var response = await fetch(
-      "/practice/attempts/" + attemptId + "/questions/" + question.questionId + "/speaking-media",
-      {
-        method: "POST",
-        credentials: "same-origin",
-        headers: csrfToken ? { [csrfHeader]: csrfToken } : {},
-        body: body
+    var headers = {
+      "Accept": "application/json",
+      "X-Requested-With": "XMLHttpRequest"
+    };
+    if (csrfToken) headers[csrfHeader] = csrfToken;
+    var response;
+    try {
+      response = await fetch(
+        "/practice/attempts/" + attemptId + "/questions/" + question.questionId + "/speaking-media",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: headers,
+          body: body
+        }
+      );
+    } catch (caught) {
+      throw new Error(
+        "Không thể kết nối tới máy chủ. Bản ghi vẫn còn trên trình duyệt để thử lại.");
+    }
+    var contentType = String(
+      response.headers.get("content-type") || "").toLowerCase();
+    var payload = null;
+    if (contentType.includes("application/json")) {
+      try {
+        payload = await response.json();
+      } catch (ignored) {
+        payload = null;
       }
-    );
-    var payload = await response.json().catch(function () { return {}; });
-    if (!response.ok || payload.status !== "READY" || payload.active !== true) {
-      throw new Error(payload.message || "KSH chưa thể lưu bản ghi. Bản ghi vẫn còn trên trình duyệt để thử lại.");
+    }
+    var loginRedirect = response.redirected
+      && response.url
+      && new URL(response.url, window.location.origin).pathname === "/login";
+    if (loginRedirect || response.status === 401) {
+      throw new Error(
+        "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trước khi tải bản ghi.");
+    }
+    if (response.status === 403) {
+      throw new Error("Bạn không còn quyền tải bản ghi cho lượt làm này.");
+    }
+    if (!response.ok
+        || !payload
+        || payload.status !== "READY"
+        || payload.active !== true) {
+      throw new Error(
+        uploadErrorMessage(payload, response.status));
     }
     if (token !== runToken) return;
     setConnection("Đã lưu", "ready");
@@ -309,12 +403,22 @@
     var token = runToken;
     currentIndex = index;
     currentQuestion = questions[index];
+    var promptDelivery = currentQuestion && currentQuestion.delivery;
+    var deliverySteps = Array.isArray(promptDelivery && promptDelivery.steps)
+      ? promptDelivery.steps
+      : [];
+    if (!promptDelivery || deliverySteps.length === 0) {
+      setConnection("Dữ liệu không hợp lệ", "error");
+      setError("Câu Nói thiếu dữ liệu giao đề cố định.");
+      return;
+    }
     clearCountdown();
     stopMicrophone();
+    resetAudio();
     hideAction();
     setError("");
-    promptCard.hidden = true;
-    promptText.textContent = currentQuestion.prompt || "";
+    promptCard.hidden = !promptDelivery.promptVisibleBeforePlayback;
+    promptText.textContent = promptDelivery.promptText || "";
     if (currentQuestion.imageReference && promptMedia && promptImage) {
       promptImage.src = currentQuestion.imageReference;
       promptMedia.hidden = false;
@@ -327,14 +431,28 @@
     setConnection("Đang thực hiện", "ready");
 
     try {
-      await playPrompt(currentQuestion, token);
-      if (token !== runToken) return;
-      promptCard.hidden = false;
-      promptAudioState.classList.remove("is-playing");
-      await countdown(currentQuestion.preparationSeconds, "Thời gian chuẩn bị còn lại", token);
-      if (token !== runToken) return;
-      await beginRecording(currentQuestion, token);
-      if (token !== runToken) return;
+      for (var stepIndex = 0; stepIndex < deliverySteps.length; stepIndex += 1) {
+        var step = deliverySteps[stepIndex];
+        if (step === "PROMPT_PLAYBACK") {
+          await playPrompt(promptDelivery, token);
+          if (token !== runToken) return;
+          promptCard.hidden = !promptDelivery.promptVisibleAfterPlayback;
+          promptAudioState.classList.remove("is-playing");
+        } else if (step === "PREPARATION") {
+          promptCard.hidden = !promptDelivery.promptVisibleAfterPlayback;
+          await countdown(
+            promptDelivery.preparationSeconds,
+            "Thời gian chuẩn bị còn lại",
+            token
+          );
+          if (token !== runToken) return;
+        } else if (step === "RECORDING") {
+          await beginRecording(promptDelivery, token);
+          if (token !== runToken) return;
+        } else {
+          throw new Error("Bước giao đề Nói cố định không được hỗ trợ.");
+        }
+      }
       await uploadRecording(currentQuestion, token);
       if (token !== runToken) return;
       window.setTimeout(function () {
@@ -350,7 +468,7 @@
       resetAudio();
       setConnection("Cần xử lý", "error");
       setState("Tạm dừng", NaN);
-      setError(caught && caught.message ? caught.message : "Không thể tiếp tục phần Speaking.");
+      setError(caught && caught.message ? caught.message : "Không thể tiếp tục phần Nói.");
       if (recordedBlob) {
         var retryUpload = function () {
           hideAction();
@@ -377,7 +495,7 @@
     resetAudio();
     setConnection("Đang nộp bài", "ready");
     setState("Đã hoàn thành tất cả câu", NaN);
-    message.textContent = "KSH đang khóa bản ghi và tạo kết quả Speaking.";
+    message.textContent = "KSH đang khóa bản ghi và tạo kết quả phần Nói.";
     hideAction();
     allowNavigation = true;
     submitForm.requestSubmit();
@@ -425,12 +543,12 @@
 
   if (!delivery || questions.length === 0) {
     setConnection("Dữ liệu không hợp lệ", "error");
-    setError("Phần Speaking chưa có câu hỏi immutable hợp lệ.");
+    setError("Phần Nói chưa có câu hỏi cố định hợp lệ.");
     return;
   }
   if (!uploadEnabled || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     setConnection("Thiết bị không hỗ trợ", "error");
-    setError("Trình duyệt hoặc dịch vụ lưu audio chưa sẵn sàng cho phần Speaking.");
+    setError("Trình duyệt hoặc dịch vụ lưu âm thanh chưa sẵn sàng cho phần Nói.");
     return;
   }
 

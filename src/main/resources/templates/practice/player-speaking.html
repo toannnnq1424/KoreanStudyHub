@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Phòng luyện Speaking | KSH', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Phòng luyện Nói | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice/player-speaking.css}">
 </head>
 <body class="spp-body">
@@ -12,7 +12,7 @@
   <script id="spp-delivery" type="application/json" th:utext="${speakingDeliveryJson}"></script>
 
   <header class="spp-header">
-    <button class="spp-icon-button" type="button" data-exit aria-label="Thoát phần Speaking">
+    <button class="spp-icon-button" type="button" data-exit aria-label="Thoát phần Nói">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
     </button>
     <div class="spp-heading">
@@ -23,7 +23,7 @@
   </header>
 
   <section class="spp-stage" aria-live="polite">
-    <div class="spp-prompt-audio" data-prompt-audio-state>
+    <div class="spp-prompt-audio" data-prompt-audio-state hidden aria-hidden="true">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
       <span data-play-count>Đang phát đề</span>
     </div>
@@ -31,7 +31,7 @@
     <article class="spp-prompt" data-prompt-card hidden>
       <p data-prompt-text></p>
       <figure class="spp-prompt-media" data-prompt-media hidden>
-        <img data-prompt-image alt="Ảnh minh họa câu hỏi Speaking">
+        <img data-prompt-image alt="Ảnh minh họa câu hỏi Nói">
       </figure>
     </article>
 
@@ -48,7 +48,7 @@
   </section>
 
   <img class="spp-mascot" th:src="@{/images/baekho/baekho_master_64.png}"
-       alt="Bạch Hổ đồng hành trong phần Speaking">
+       alt="Bạch Hổ đồng hành trong phần Nói">
 
   <form class="spp-submit-form" method="post"
         th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}" hidden>
@@ -62,8 +62,8 @@
       <div class="spp-dialog-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.7 2.4 17.4A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.6L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
       </div>
-      <h2>Thoát sẽ hủy lượt Speaking</h2>
-      <p>Phần Speaking không lưu để làm tiếp. Các bản ghi của lượt này sẽ bị hủy.</p>
+      <h2>Thoát sẽ hủy lượt làm phần Nói</h2>
+      <p>Phần Nói không lưu để làm tiếp. Các bản ghi của lượt này sẽ bị hủy.</p>
       <div class="spp-dialog-actions">
         <button class="spp-dialog-continue" value="cancel">Tiếp tục làm bài</button>
         <button class="spp-dialog-exit" type="button" data-confirm-exit>Thoát và hủy lượt</button>
@@ -71,7 +71,7 @@
     </form>
   </dialog>
 
-  <audio data-prompt-audio preload="auto"></audio>
+  <audio data-prompt-audio preload="auto" hidden aria-hidden="true"></audio>
 </main>
 <script defer th:src="@{/js/practice/player-speaking.js}"></script>
 </body>

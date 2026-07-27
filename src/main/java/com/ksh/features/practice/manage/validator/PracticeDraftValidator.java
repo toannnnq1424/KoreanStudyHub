@@ -616,28 +616,99 @@ public class PracticeDraftValidator {
                                           int gIdx,
                                           int qIdx) {
         if (!"SPEAKING".equalsIgnoreCase(skill) || type != CanonicalQuestionType.SPEAKING) return;
-        JsonNode delivery = question.path("questionContent").path("speakingDelivery");
+        JsonNode content = question.path("questionContent");
+        JsonNode delivery = content.path("speakingDelivery");
         if (!delivery.isObject()) {
             messages.add(new ValidationMsg("BLOCKING", "SPEAKING_DELIVERY_REQUIRED",
-                    "Câu Speaking phải có cấu hình audio, thời gian chuẩn bị và thời gian trả lời.",
+                    "Câu Speaking phải có cấu hình giao đề, thời gian chuẩn bị và thời gian trả lời.",
                     sIdx, gIdx, qIdx));
             return;
         }
-        String promptAudioReference = delivery.path("promptAudioReference").asText("").trim();
-        if (!promptAudioReference.matches("^/practice/materials/[1-9][0-9]*/content$")) {
-            messages.add(new ValidationMsg("BLOCKING", "SPEAKING_PROMPT_AUDIO_REQUIRED",
-                    "Câu Speaking phải có audio đề bài đã tải lên KSH để tự phát khi bắt đầu câu.",
-                    sIdx, gIdx, qIdx));
-        }
-        validateIntegerRange(messages, delivery, "promptPlayLimit", 1, 10,
-                "SPEAKING_PLAY_LIMIT_INVALID", "Số lần phát audio Speaking phải từ 1 đến 10.",
-                sIdx, gIdx, qIdx);
         validateIntegerRange(messages, delivery, "preparationSeconds", 0, 600,
                 "SPEAKING_PREPARATION_INVALID", "Thời gian chuẩn bị Speaking phải từ 0 đến 600 giây.",
                 sIdx, gIdx, qIdx);
         validateIntegerRange(messages, delivery, "responseSeconds", 1, 1800,
                 "SPEAKING_RESPONSE_INVALID", "Thời gian trả lời Speaking phải từ 1 đến 1800 giây.",
                 sIdx, gIdx, qIdx);
+
+        String schemaVersion = content.path("schemaVersion").asText(
+                QuestionContent.SCHEMA_VERSION_V1);
+        String promptAudioReference =
+                delivery.path("promptAudioReference").asText("").trim();
+        if (QuestionContent.SCHEMA_VERSION_V1.equals(schemaVersion)) {
+            if (!promptAudioReference.matches(
+                    "^/practice/materials/[1-9][0-9]*/content$")) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "SPEAKING_PROMPT_AUDIO_REQUIRED",
+                        "Câu Speaking v1 phải giữ tham chiếu audio đề bài đã xuất bản.",
+                        sIdx, gIdx, qIdx));
+            }
+            validateIntegerRange(messages, delivery, "promptPlayLimit", 1, 10,
+                    "SPEAKING_PLAY_LIMIT_INVALID",
+                    "Số lần phát audio Speaking phải từ 1 đến 10.",
+                    sIdx, gIdx, qIdx);
+            return;
+        }
+
+        String inputType = delivery.path("inputType").asText("");
+        String deliveryMode = delivery.path("deliveryMode").asText("");
+        String audioOrigin = delivery.path("audioOrigin").asText("");
+        boolean upload = "audio_upload".equals(inputType)
+                && "audio_only".equals(deliveryMode)
+                && "teacher_upload".equals(audioOrigin);
+        boolean textOnly = "manual_text".equals(inputType)
+                && "text_only".equals(deliveryMode)
+                && "none".equals(audioOrigin);
+        boolean textAndAudio = "manual_text".equals(inputType)
+                && "text_and_audio".equals(deliveryMode)
+                && "ai_tts".equals(audioOrigin);
+        if (!QuestionContent.SCHEMA_VERSION_V2.equals(schemaVersion)
+                || (!upload && !textOnly && !textAndAudio)) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "SPEAKING_MODE_COMBINATION_INVALID",
+                    "Nguồn đề, cách giao đề và nguồn audio Speaking không đồng nhất.",
+                    sIdx, gIdx, qIdx));
+            return;
+        }
+        if (textOnly) {
+            if (!promptAudioReference.isBlank()
+                    || delivery.hasNonNull("promptPlayLimit")) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "SPEAKING_TEXT_ONLY_AUDIO_FORBIDDEN",
+                        "Câu chỉ dùng văn bản không được có audio hoặc giới hạn phát.",
+                        sIdx, gIdx, qIdx));
+            }
+        } else {
+            if (promptAudioReference.isBlank()) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "SPEAKING_PROMPT_AUDIO_REQUIRED",
+                        "Chế độ Speaking có audio phải tham chiếu đúng audio đang hoạt động.",
+                        sIdx, gIdx, qIdx));
+            }
+            validateIntegerRange(messages, delivery, "promptPlayLimit", 1, 10,
+                    "SPEAKING_PLAY_LIMIT_INVALID",
+                    "Số lần phát audio Speaking phải từ 1 đến 10.",
+                    sIdx, gIdx, qIdx);
+        }
+        if ((textOnly || textAndAudio)
+                && !containsKorean(question.path("prompt").asText(""))) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "SPEAKING_MANUAL_PROMPT_KOREAN_REQUIRED",
+                    "Đề Speaking nhập tay phải có nội dung tiếng Hàn không để trống.",
+                    sIdx, gIdx, qIdx));
+        }
+    }
+
+    private static boolean containsKorean(String value) {
+        return value != null && value.codePoints().anyMatch(codePoint ->
+                (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
+                        || (codePoint >= 0x1100 && codePoint <= 0x11FF)
+                        || (codePoint >= 0x3130 && codePoint <= 0x318F));
     }
 
     private static void validateIntegerRange(List<ValidationMsg> messages,
