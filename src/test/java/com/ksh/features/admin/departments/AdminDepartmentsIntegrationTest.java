@@ -78,6 +78,8 @@ class AdminDepartmentsIntegrationTest {
                 .andExpect(model().attribute("activeDetailTab", "info"))
                 .andExpect(content().string(containsString("Thông tin chung")))
                 .andExpect(content().string(containsString("Lịch sử cập nhật")))
+                .andExpect(content().string(containsString("id=\"tabPanel\"")))
+                .andExpect(content().string(containsString("/js/detail-tabs.js")))
                 .andExpect(content().string(containsString("dept-status-toggle")));
 
         mockMvc.perform(get("/admin/departments/" + dept.getId() + "/edit")
