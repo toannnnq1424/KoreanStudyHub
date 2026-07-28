@@ -10,7 +10,7 @@
 
 | Field | Value |
 |---|---|
-| Audit status | Local implementation complete; full automated suite green; manual UAT and PR/merge pending |
+| Audit status | Local implementation complete; full automated suite green; PR #29 open, manual UAT and required approval pending |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Working branch observed | `codex/ulp-ksh-integration-hardening` |
 | ULP reference | `https://github.com/dikhamchua/ulp/tree/32d394c5f6d0818955455bc01f20633b66d594b5` |
@@ -1002,8 +1002,8 @@ hash exists and its focused verification is attached.
 | C18 | Mail outbox transaction and retry state machine | MAIL-ARCH-001 | [x] | `70b95e09` | Focused + full suite green |  |
 | C19 | Mail outbox delivery worker and scheduler isolation | MAIL-ARCH-001 | [x] | `4b67e4ce` | Processor/scheduler + full suite green |  |
 | C20 | Notification/outbox atomic integration | MAIL-001, MAIL-ARCH-001 | [x] | `18768865` | 3 DB integration + full suite green |  |
-| C21 | Final evidence, branding, and handoff record | BRAND-001, CONST-001 | [ ] |  | Static diff/report review |  |
-| C22 | PR URL/head handoff record | SCOPE-001 | [ ] |  | PR creation evidence |  |
+| C21 | Final evidence, branding, and handoff record | BRAND-001, CONST-001 | [x] | `47f7ffea` | Static diff/report review | #29 |
+| C22 | PR URL/head handoff record | SCOPE-001 | [x] | PR-head documentation commit | PR #29 created as HiuHi32 | #29 |
 
 If implementation reality requires a split or combination, update this table
 before committing. Do not mix unrelated issue IDs merely to reach a target
@@ -1015,10 +1015,10 @@ commit count.
 |---|---|
 | Branch | `codex/ulp-ksh-integration-hardening` |
 | Base | `main` |
-| PR URL |  |
-| Draft/ready |  |
-| Head SHA reviewed |  |
-| CI run |  |
+| PR URL | `https://github.com/toannnnq1424/KoreanStudyHub/pull/29` |
+| Draft/ready | Ready; GitHub reports required approval pending |
+| Head SHA reviewed | `47f7ffea98ed3e2b703268a945c78fbe13c3f7a0` (code/evidence head before this documentation-only C22) |
+| CI run | GitHub reports 0 configured checks; local full-suite evidence is Gate C |
 | Security reviewer |  |
 | Migration reviewer |  |
 | Practice freeze reviewer |  |
@@ -1028,15 +1028,15 @@ commit count.
 
 ### Required PR summary checklist
 
-- [ ] Enumerates accepted ULP behavior, not just copied filenames.
-- [ ] Enumerates rejected ULP behavior and KSH safeguards retained.
-- [ ] Links every commit to stable issue IDs.
+- [x] Enumerates accepted ULP behavior, not just copied filenames.
+- [x] Enumerates rejected ULP behavior and KSH safeguards retained.
+- [x] Links every commit to stable issue IDs.
 - [ ] Includes migration upgrade and empty-schema evidence.
-- [ ] Includes Practice freeze evidence.
+- [x] Includes Practice freeze evidence.
 - [ ] Includes browser evidence for first-click submit, single toast, tabs, AI
   generation, and outbox recovery.
-- [ ] Calls out at-least-once email duplicate risk and operational recovery.
-- [ ] Contains no claim that an unchecked item is complete.
+- [x] Calls out at-least-once email duplicate risk and operational recovery.
+- [x] Contains no claim that an unchecked item is complete.
 
 ## 13. Newly discovered issues
 
