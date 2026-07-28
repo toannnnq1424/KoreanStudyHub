@@ -91,6 +91,8 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | TEST-CONC-001 | High | Concurrent submit/heartbeat requests can both mutate one test attempt | [x] | [x] |
 | ASSIGN-CONC-001 | High | Concurrent assignment submit/grade can reopen graded work or race first insert | [x] | [x] |
 | AUTH-RESET-001 | High | Password-reset bearer tokens were stored/logged in reusable form and consumed without a lock | [x] | [x] |
+| IMPORT-REPLAY-001 | High | Concurrent confirmation could consume one import preview twice | [x] | [x] |
+| AUTH-RESET-002 | High | Forgot-password requests were unthrottled and terminal tokens had no retention | [x] | [x] |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1479,10 +1481,58 @@ unrelated discovery inside another commit.
   `PasswordRecoveryControllerSecurityTest` passed 6/6.
 - Scope: no Practice, migration, or developer-password change.
 - Follow-up:
-  - [ ] Add bounded forgot-password throttling and terminal-token retention in
-    a separate operational change.
+  - [x] Add bounded forgot-password throttling and terminal-token retention;
+    tracked under `AUTH-RESET-002`.
 - Owner: Codex root
 - Commit: `902e8ea2`
+- PR:
+
+### IMPORT-REPLAY-001 — concurrent confirmation could replay an import session
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Affected workflows: class-student Excel import and Question Bank Excel import.
+- Original risk: both services read a JVM session and removed it only after DB
+  writes, allowing two concurrent confirm requests to process the same preview.
+- Remediation:
+  - [x] Atomically claim an owned, unexpired session with
+    `ConcurrentHashMap.computeIfPresent`.
+  - [x] Wrong-owner claims leave the session intact.
+  - [x] Validation/explicit-confirmation early exits restore the session.
+  - [x] Transaction `afterCompletion` restores a claim after rollback; a
+    committed transaction leaves it consumed.
+  - [x] Expired sessions are never restored.
+- Verification: `ImportSessionAtomicClaimTest` passed 3/3, covering both stores,
+  concurrent exactly-one claim, restoration, and wrong-owner behavior.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `a1317a94`
+- PR:
+
+### AUTH-RESET-002 — reset-request abuse and token retention were unbounded
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Original risk: a caller could generate unlimited reset emails and valid
+  tokens; terminal rows accumulated indefinitely.
+- Remediation:
+  - [x] Apply a neutral process-local limit of three requests per 15 minutes to
+    both normalized email and servlet remote address.
+  - [x] Store only hashed limiter keys, prune expired windows, and cap the
+    access-ordered map at 10,000 keys.
+  - [x] Do not trust proxy headers without an explicit trusted-proxy policy.
+  - [x] Invalidate prior unused tokens transactionally before issuing a new one.
+  - [x] Run hourly retention with a default 500-row batch, hard cap 1,000, and
+    seven-day cutoff for expired/used rows.
+  - [x] Keep throttled responses enumeration-neutral with no user lookup, DB
+    write, email, token log, or PII metric.
+- Verification: `PasswordRecoveryServiceSecurityTest`,
+  `PasswordRecoveryControllerSecurityTest`,
+  `PasswordResetRequestThrottleTest`, and
+  `PasswordResetTokenRetentionTest` passed in one focused database-free run.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `379c1923`
 - PR:
 
 ### New issue template
