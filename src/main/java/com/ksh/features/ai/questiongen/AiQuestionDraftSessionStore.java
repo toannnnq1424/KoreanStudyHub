@@ -39,9 +39,6 @@ public class AiQuestionDraftSessionStore {
     @Transactional
     public Preview save(Long actorId, Long testId, List<DraftQuestion> questions) {
         LocalDateTime now = now();
-        // Opportunistic bounded cleanup keeps request latency predictable and avoids
-        // adding a scheduler to Practice's shared scheduling infrastructure.
-        repository.deleteExpiredBatch(now);
         String id = UUID.randomUUID().toString();
         AiQuestionDraftSessionEntity entity = new AiQuestionDraftSessionEntity(
                 id, actorId, testId, writeQuestions(questions), now,
