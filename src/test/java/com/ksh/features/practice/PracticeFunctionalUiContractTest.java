@@ -189,7 +189,8 @@ class PracticeFunctionalUiContractTest {
                 "writingTask='Q54'",
                 "Câu 51 · 51번",
                 "Câu 54 · 54번");
-        assertThat(template).contains("data-endpoint=@{/practice/catalog}");
+        assertThat(template).doesNotContain(
+                "data-endpoint=@{/practice/catalog}");
         assertThat(cards).contains("card.testCount()");
         assertThat(cards).contains("card.completedTests()");
         assertThat(cards).contains("card.coverSkill()");
@@ -217,9 +218,19 @@ class PracticeFunctionalUiContractTest {
         assertThat(mainRule)
                 .contains("min-width: 0")
                 .doesNotContain("width: 100%", "margin-left");
-        assertThat(catalogJs).contains("IntersectionObserver");
-        assertThat(catalogJs).contains("params.set('batch'");
-        assertThat(catalogJs).contains("new URLSearchParams(window.location.search)");
+        assertThat(catalogJs).doesNotContain(
+                "IntersectionObserver",
+                "params.set('batch'",
+                "grid.appendChild");
+        assertThat(template).contains(
+                "pc-pagination",
+                "catalog.previousBatch()",
+                "catalog.nextBatch()",
+                "rel=\"prev\"",
+                "rel=\"next\"");
+        assertThat(template).doesNotContain(
+                "pc-catalog-loader",
+                "Bật JavaScript để tự động tải thêm");
         assertThat(catalogJs).contains("card.dataset.skillCycle");
         assertThat(catalogJs).contains("window.setInterval");
         assertThat(catalogJs).contains("}, 2000)");
@@ -797,6 +808,104 @@ class PracticeFunctionalUiContractTest {
         assertThat(progressJs).doesNotContain(
                 "const uniqueDates = [];",
                 "pointsMap[pt.date][pt.skill] =");
+    }
+
+    @Test
+    void phase13gStaticAccessibilityResponsiveAndMotionContractsArePresent()
+            throws IOException {
+        String player = Files.readString(
+                PRACTICE_TEMPLATES.resolve("player.html"));
+        String playerWriting = Files.readString(
+                PRACTICE_TEMPLATES.resolve("player-writing.html"));
+        String playerJs = Files.readString(EXAM_PLAYER_JS);
+        String editor = Files.readString(
+                PRACTICE_TEMPLATES.resolve("manage/editor.html"));
+        String editorCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice/manage-editor.css"));
+        String importWorkspace = Files.readString(
+                PRACTICE_TEMPLATES.resolve("manage/import-workspace.html"));
+        String importWizard = Files.readString(
+                PRACTICE_TEMPLATES.resolve("manage/import-wizard.html"));
+        String excel = Files.readString(
+                PRACTICE_TEMPLATES.resolve("manage/excel-import.html"));
+        String detailObjective = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-objective.html"));
+        String detailCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-detail.css"));
+
+        assertThat(player).contains(
+                "data-timer-announcement",
+                "aria-live=\"off\"",
+                "aria-controls=\"exam-notes-drawer\"",
+                "aria-expanded=\"false\"",
+                "aria-hidden=\"true\" inert");
+        assertThat(playerWriting).contains(
+                "th:for=\"'writing-answer-'",
+                "th:id=\"'writing-count-'",
+                "aria-describedby");
+        assertThat(playerJs).contains(
+                "notesDrawer.removeAttribute('inert')",
+                "notesDrawer.setAttribute('inert', '')",
+                "event.key === 'Escape'",
+                "prefers-reduced-motion: reduce");
+        assertThat(editor).contains(
+                "activateUploadZone(event",
+                "role=\"dialog\"",
+                "aria-modal=\"true\"",
+                "trapEditorSurfaceFocus",
+                "aria-pressed=\"true\"",
+                "role=\"status\" aria-live=\"polite\"");
+        assertThat(editorCss).contains(
+                ".audio-upload-box:focus-visible",
+                "@media (prefers-reduced-motion: reduce)")
+                .doesNotContain("color: transparent !important");
+        assertThat(importWorkspace).contains(
+                "createKeyboardRegion()",
+                "openFocusOverlay(",
+                "closeFocusOverlay(",
+                "aria-modal=\"true\"",
+                "role=\"tabpanel\"",
+                "id=\"ai-status-update\" role=\"status\"",
+                "aria-live=\"polite\" aria-atomic=\"true\"",
+                "function announceAiStatusUpdate(message)",
+                "id=\"ai-status-announcement\" role=\"alert\"",
+                "function announceAiStatus(message)",
+                "announceAiStatusUpdate(\n"
+                        + "      'Phân tích AI đã bắt đầu.",
+                "announceAiStatusUpdate(\n"
+                        + "        'Phân tích AI đã hoàn tất.",
+                "announceAiStatus(`Phân tích AI thất bại.",
+                "openAiStatusPopover({ focus: true })",
+                "const workspaceReducedMotion = window.matchMedia(",
+                "'(prefers-reduced-motion: reduce)'",
+                "behavior: workspaceReducedMotion.matches ? 'auto' : 'smooth'")
+                .doesNotContain(
+                        "box.scrollIntoView({ behavior: 'smooth'");
+        assertThat(importWizard).contains(
+                "background: #3B57D4; color: #fff;",
+                "font-weight:700; color:#3B57D4; text-decoration:none;",
+                "background:rgba(79,110,247,0.1); color:#3B57D4;",
+                "background:rgba(217,144,0,0.1); color:#8A5700;",
+                "background:rgba(34,160,107,0.1); color:#087A4F;")
+                .doesNotContain(
+                        "background: #4F6EF7; color: #fff;",
+                        "font-weight:700; color:#4F6EF7; text-decoration:none;",
+                        "background:rgba(79,110,247,0.1); color:#4F6EF7;",
+                        "background:rgba(217,144,0,0.1); color:#D99000;",
+                        "background:rgba(34,160,107,0.1); color:#22A06B;");
+        assertThat(excel).contains(
+                "aria-live=\"assertive\" tabindex=\"-1\"",
+                "scope=\"col\"",
+                "ArrowLeft",
+                "aria-pressed",
+                "prefers-reduced-motion:reduce");
+        assertThat(detailObjective).contains(
+                "data-label=\"Phương án\"",
+                "data-label=\"Câu trả lời\"",
+                "data-label=\"Ràng buộc\"");
+        assertThat(detailCss).contains(
+                "overflow-wrap: anywhere",
+                "@media (prefers-reduced-motion: reduce)");
     }
 
     @Test

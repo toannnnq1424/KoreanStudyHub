@@ -5,10 +5,11 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
 </head>
 <body class="prd-body">
-<header class="prd-header">
+<header class="prd-header prd-boundary-header">
   <a class="prd-back-btn"
      th:href="@{/practice/attempts/{id}/result(id=${resultDetail.identity().attemptId()})}">
-    <span aria-hidden="true">&larr;</span> Quay lại kết quả
+    <svg th:replace="~{practice/fragments/icons :: chevronLeft}"></svg>
+    Quay lại kết quả
   </a>
   <strong>Chi tiết kết quả <span th:text="${resultDetail.identity().skillLabel()}">Đọc</span></strong>
   <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
@@ -156,19 +157,20 @@
             <tbody>
             <tr th:each="option : ${question.options()}"
                 th:classappend="${option.correct()} ? 'is-correct' : (${option.learnerSelected()} ? 'is-incorrect' : '')">
-              <th scope="row">
+              <th scope="row" data-label="Phương án">
                 <span th:text="${option.visibleLabel()}">A</span>
                 <span lang="ko" th:text="${option.text()}">선택지</span>
                 <img th:if="${!option.imageReference().isBlank()}"
                      th:src="${option.imageReference()}"
                      th:alt="${'Hình ảnh của phương án ' + option.visibleLabel()}">
               </th>
-              <td>
+              <td data-label="Trạng thái">
                 <span th:if="${option.learnerSelected()}">Người học đã chọn</span>
                 <span th:if="${option.correct()}">Đáp án đúng</span>
                 <span th:if="${!option.learnerSelected() and !option.correct()}">Không chọn</span>
               </td>
-              <td th:text="${option.rationaleVi()}">Lý do</td>
+              <td data-label="Giải thích"
+                  th:text="${option.rationaleVi()}">Lý do</td>
             </tr>
             </tbody>
           </table>
@@ -189,14 +191,15 @@
             <tbody>
             <tr th:each="blank : ${question.blanks()}"
                 th:classappend="${blank.correct()} ? 'is-correct' : 'is-incorrect'">
-              <th scope="row">
+              <th scope="row" data-label="Ô trống / ngữ cảnh">
                 <strong th:text="${blank.blankId()}">blank_1</strong>
                 <span lang="ko" th:text="${blank.contextKo()}">문맥</span>
               </th>
-              <td th:text="${blank.learnerValue().isBlank() ? 'Chưa trả lời' : blank.learnerValue()}">
+              <td data-label="Câu trả lời"
+                  th:text="${blank.learnerValue().isBlank() ? 'Chưa trả lời' : blank.learnerValue()}">
                 도시
               </td>
-              <td>
+              <td data-label="Giá trị chấp nhận">
                 <ul>
                   <li th:each="accepted : ${blank.acceptedValues()}"
                       lang="ko"
@@ -204,7 +207,7 @@
                 </ul>
                 <small th:text="${blank.normalizationPolicy()}">Quy tắc chuẩn hóa</small>
               </td>
-              <td>
+              <td data-label="Ràng buộc">
                 <p th:if="${!blank.contextExplanationVi().isBlank()}"
                    th:text="${blank.contextExplanationVi()}">Ngữ cảnh</p>
                 <p th:if="${!blank.semanticConstraintVi().isBlank()}"

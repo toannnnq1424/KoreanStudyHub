@@ -23,8 +23,13 @@
     </div>
     <div class="exam-top-actions">
       <span class="exam-progress"><strong data-progress-done>0</strong>/<span th:text="${view.totalQuestions()}">2</span></span>
-      <span class="exam-timer" th:attr="data-room-timer=${activeSectionDuration}">60:00</span>
-      <button type="button" class="exam-icon-button" data-note-toggle aria-label="Mở ghi chú" title="Ghi chú">
+      <span class="exam-timer" th:attr="data-room-timer=${activeSectionDuration}"
+            aria-live="off">60:00</span>
+      <span class="sr-only" data-timer-announcement role="status"
+            aria-live="polite" aria-atomic="true"></span>
+      <button type="button" class="exam-icon-button" data-note-toggle
+              aria-label="Mở ghi chú" title="Ghi chú"
+              aria-controls="exam-notes-drawer" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
         <span class="exam-note-count" data-note-count hidden>0</span>
       </button>
@@ -58,7 +63,15 @@
           </figure>
           <div class="exam-audio compact" data-exam-audio
                th:if="${q.audioReference() != null and !#strings.isEmpty(q.audioReference())}">
-            <button type="button" class="exam-audio-button" data-audio-toggle aria-label="Phát âm thanh câu hỏi">▶</button>
+            <button type="button" class="exam-audio-button" data-audio-toggle
+                    aria-label="Phát âm thanh câu hỏi">
+              <svg data-audio-icon-play aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m7 4 13 8-13 8z"/>
+              </svg>
+              <svg data-audio-icon-pause aria-hidden="true" viewBox="0 0 24 24" hidden>
+                <path d="M9 5v14M15 5v14"/>
+              </svg>
+            </button>
             <div class="exam-audio-track"><strong>Audio câu hỏi</strong><input type="range" min="0" max="1000" value="0" data-audio-range aria-label="Vị trí phát âm thanh"></div>
             <time data-audio-time>00:00 / 00:00</time>
             <audio th:src="${q.audioReference()}" preload="metadata" data-audio-source></audio>
@@ -89,14 +102,22 @@
             </label>
           </div>
           <div class="writing-editor" th:if="${q.questionType() == 'ESSAY'}">
-            <textarea th:name="'answer_' + ${q.id()}" data-writing-answer
+            <label class="sr-only" th:for="'writing-answer-' + ${q.id()}"
+                   th:text="'Bài viết tiếng Hàn cho câu ' + ${q.questionNo()}">Bài viết tiếng Hàn</label>
+            <textarea th:id="'writing-answer-' + ${q.id()}"
+                      th:name="'answer_' + ${q.id()}" data-writing-answer
+                      th:attr="aria-describedby='writing-count-' + ${q.id()}"
                       placeholder="Nhập bài viết tiếng Hàn" spellcheck="false"></textarea>
-            <span data-answer-count>0 ký tự</span>
+            <span data-answer-count th:id="'writing-count-' + ${q.id()}">0 ký tự</span>
           </div>
           <div class="writing-short-answer" th:unless="${q.questionType() == 'ESSAY'}">
-            <textarea th:name="'answer_' + ${q.id()}" data-writing-answer
+            <label class="sr-only" th:for="'writing-answer-' + ${q.id()}"
+                   th:text="'Câu trả lời tiếng Hàn cho câu ' + ${q.questionNo()}">Câu trả lời tiếng Hàn</label>
+            <textarea th:id="'writing-answer-' + ${q.id()}"
+                      th:name="'answer_' + ${q.id()}" data-writing-answer
+                      th:attr="aria-describedby='writing-count-' + ${q.id()}"
                       placeholder="Nhập câu trả lời tiếng Hàn" spellcheck="false"></textarea>
-            <span data-answer-count>0 ký tự</span>
+            <span data-answer-count th:id="'writing-count-' + ${q.id()}">0 ký tự</span>
           </div>
         </section>
       </article>
@@ -110,25 +131,35 @@
               th:text="${g.groupLabel() != null and !#strings.isEmpty(g.groupLabel()) ? g.groupLabel() : 'Task ' + (gStat.index + 1)}">Task 1</button>
     </nav>
     <div class="exam-bottom-actions">
-      <button type="button" class="exam-nav-button" data-group-prev aria-label="Task trước">←</button>
-      <button type="button" class="exam-nav-button" data-group-next aria-label="Task tiếp theo">→</button>
+      <button type="button" class="exam-nav-button" data-group-prev aria-label="Task trước">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <button type="button" class="exam-nav-button" data-group-next aria-label="Task tiếp theo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
       <button type="submit" class="exam-bottom-submit">Nộp bài</button>
     </div>
   </footer>
 
-  <aside class="exam-notes-drawer" data-notes-drawer aria-hidden="true">
-    <header><h2>Ghi chú</h2><button type="button" data-note-close aria-label="Đóng ghi chú">×</button></header>
+  <aside class="exam-notes-drawer" id="exam-notes-drawer" data-notes-drawer
+         role="dialog" aria-modal="true" aria-labelledby="exam-notes-title"
+         aria-hidden="true" inert>
+    <header><h2 id="exam-notes-title">Ghi chú</h2><button type="button" data-note-close aria-label="Đóng ghi chú">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
+    </button></header>
     <div class="exam-notes-list" data-notes-list></div>
     <p class="exam-notes-empty" data-notes-empty>Chưa có ghi chú.</p>
   </aside>
-  <div class="exam-drawer-backdrop" data-note-backdrop></div>
+  <div class="exam-drawer-backdrop" data-note-backdrop aria-hidden="true"></div>
 
   <div class="exam-selection-tools" data-selection-tools hidden>
     <button type="button" data-selection-highlight><span class="green-swatch"></span>Highlight</button>
     <button type="button" data-selection-note><span class="yellow-swatch"></span>Note</button>
     <div class="exam-note-composer" data-note-composer hidden>
       <input type="text" data-note-input maxlength="300" placeholder="Nhập ghi chú">
-      <button type="button" data-note-save aria-label="Lưu ghi chú">✓</button>
+      <button type="button" data-note-save aria-label="Lưu ghi chú">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>
+      </button>
     </div>
   </div>
 </form>
