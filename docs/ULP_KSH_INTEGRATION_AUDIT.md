@@ -111,6 +111,18 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | SECTION-DELETE-STATE-001 | Medium | Deleting the selected section leaves its lesson pane and client selection stale | [x] | [ ] |
 | PUBLIC-VIEW-TOKEN-001 | Medium | Public attachment bearer tokens remain reusable plaintext database values | [x] | [ ] Token lifecycle redesign required |
 | MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] | [ ] Product policy required |
+| LEADER-SCOPE-001 | Critical | Legacy class policies treat every LEADER as a global ADMIN across departments | [x] | [x] Focused verification |
+| STORAGE-TX-001 | Critical | DB rollback cannot compensate object-storage writes/deletes performed inside the transaction | [x] | [x] Focused verification |
+| CLASS-CODE-RETRY-001 | High | Class/invite collision retries continue inside a transaction poisoned by `saveAndFlush` | [x] | [ ] |
+| PUBLIC-VIEW-CONC-001 | High | Concurrent public-token creation can leave multiple live rows and break Optional lookup | [x] | [ ] |
+| LIBRARY-BIND-DELETE-001 | High | Library deletion can race a lesson bind and delete a newly referenced blob | [x] | [ ] |
+| COMMENT-BULK-TX-001 | High | Bulk moderation self-invocation bypasses the advertised per-item transaction boundary | [x] | [ ] |
+| COMMENT-MUTATION-CONC-001 | Medium | Concurrent comment mutations can duplicate audits or overwrite state | [x] | [ ] |
+| QB-IMPORT-STALE-002 | High | A stale Question Bank preview can replace the current workbook session | [x] | [ ] |
+| PROGRESS-STALE-001 | Medium | Delayed progress detail can render student A beneath student B's selection | [x] | [ ] |
+| LIBRARY-PICKER-STALE-001 | Medium | A closed library request can populate a later picker with the wrong asset kind | [x] | [ ] |
+| CLONE-WIZARD-STALE-001 | Medium | Delayed section results can mismatch the clone wizard's selected class | [x] | [ ] |
+| TEST-MONITOR-STALE-001 | Medium | Overlapping monitor polls can roll the live test UI backward | [x] | [ ] |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1788,6 +1800,180 @@ unrelated discovery inside another commit.
   open/send checks membership only.
 - Decision required: [ ] Retain deliberate D2 persistence, or revoke messaging
   when the class relationship or role becomes invalid.
+
+### Post-PR34 audit findings
+
+#### LEADER-SCOPE-001 — legacy policies grant LEADER global cross-department access
+
+- Severity: Critical
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Root cause: `ClassesService.isEditableBy`, `AssignmentAccessSupport`, and
+  `ClassAccessPolicy` treat every `LEADER` like a global `ADMIN`; they do not
+  compare the class department with the leader's resolved department.
+- Confirmed impact:
+  - [x] Update/delete/reorder class, section, lesson, content, and invite data
+    in another department.
+  - [x] Download unpublished private lesson attachments from another department.
+  - [x] List foreign classes/invite codes and view student name, email, phone,
+    enrollment, and lesson-progress data.
+  - [x] Create/publish/close assignments, read submissions, and grade students
+    in another department.
+  - [x] View hidden comments and moderate a foreign department's lesson thread.
+- Architecture evidence: leader dashboard, lecturer reassignment, and Question
+  Bank already resolve and enforce a department; older class tests instead pin
+  the obsolete “leader can access any class” behavior.
+- Remediation checklist:
+  - [ ] Introduce one department-aware class access policy shared by all modules.
+  - [ ] Keep `ADMIN` global, lecturer owner-scoped, and leader department-scoped.
+  - [ ] Add cross-department denial tests before changing legacy positive tests.
+
+#### STORAGE-TX-001 — object storage is mutated inside rollback-capable DB transactions
+
+- Severity: Critical
+- Status: [x] Finding confirmed; [x] design approved; [x] remediated; [x] focused verification
+- Evidence paths: `LibraryService`, `LessonAttachmentsService`,
+  `LessonContentTypeSwitcher`, `LessonsService`, and
+  `LessonContentApiController`.
+- Risk:
+  - a failed DB save/activity/constraint after `store` leaves an orphan blob;
+  - a DB rollback after `delete` restores a row that points to an already
+    deleted object;
+  - replacement can delete working media before the new reference commits.
+- Remediation checklist:
+  - [ ] Compensate newly stored objects on transaction rollback.
+  - [ ] Defer destructive object deletion until after DB commit.
+  - [ ] Cover upload, replacement, attachment/lesson deletion, and library delete.
+  - [ ] Test with a fake object store and forced late repository/activity failure.
+
+#### CLASS-CODE-RETRY-001 — collision retry runs in a rollback-only transaction
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Evidence: `ClassCreator.create()` and `InviteCodeService.insertWithRetry()`
+  catch `DataIntegrityViolationException` from `saveAndFlush()` and continue in
+  the same transaction/persistence context.
+- Risk: Hibernate may already mark the transaction rollback-only, so a later
+  unique generated code still ends in rollback or `UnexpectedRollbackException`.
+- Remediation checklist:
+  - [ ] Retry the whole transaction boundary, or use an atomic insert strategy.
+  - [ ] Test collision-then-success for class creation, default invites, and
+    invite regeneration against a real isolated database.
+
+#### PUBLIC-VIEW-CONC-001 — public token get-or-create is not concurrency-safe
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Evidence: `PublicViewTokenService.createPublicViewUrl()` performs an unlocked
+  live-token lookup followed by insert; the schema has no unique attachment
+  constraint and the repository returns `Optional`.
+- Risk: concurrent calls can create multiple live rows; subsequent Optional
+  queries can fail with an incorrect-result-size exception until expiry.
+- Additional defect: `resolve()` is `readOnly` but attempts to delete an expired
+  token.
+- Remediation checklist:
+  - [ ] Lock the stable attachment row before live-token lookup/insert.
+  - [ ] Make duplicate-row recovery deterministic.
+  - [ ] Move access-time expiry deletion to a write transaction.
+
+#### LIBRARY-BIND-DELETE-001 — library deletion races lesson binding
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] compile verification
+- Evidence: library delete performs count-references then soft-delete/blob
+  delete, while attachment/PDF/video bind can concurrently read the still-live
+  asset and add a reference.
+- Risk: both requests can succeed, leaving a live lesson reference to a deleted
+  asset whose object no longer exists.
+- Remediation checklist:
+  - [ ] Use one pessimistic library-asset lock order for bind and delete.
+  - [ ] Combine with the after-commit storage lifecycle from `STORAGE-TX-001`.
+
+#### COMMENT-BULK-TX-001 — bulk moderation bypasses per-item transactions
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Evidence: `hideAll()`/`unhideAll()` call the same bean's transactional
+  `hide()`/`unhide()` methods directly. Spring proxy transaction advice does not
+  apply to self-invocation.
+- Risk: comment state and moderation audit writes are not atomic per item,
+  despite the documented contract; a late audit failure can leave an unaudited
+  state change.
+- Remediation checklist:
+  - [ ] Move single-item moderation to a separate transactional bean or explicit
+    `REQUIRES_NEW` transaction template.
+  - [ ] Force the audit insert to fail and prove the comment transition rolls back.
+
+#### COMMENT-MUTATION-CONC-001 — comment mutations use unlocked stale state
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: concurrent hide calls can write duplicate transition audits; hide,
+  unhide, edit, and delete can overwrite one another based on stale state.
+- Remediation checklist:
+  - [ ] Lock the owner-scoped comment row for every mutation.
+  - [ ] Audit only a real state transition and verify concurrent idempotence.
+
+#### QB-IMPORT-STALE-002 — old Question Bank preview can replace the current session
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] syntax verification
+- Evidence: `question-bank-import.js` has no abort/request generation; every
+  upload completion overwrites global preview rows and `sessionId`.
+- Reproduction: start A, reset/select B, resolve B then A; Confirm submits A's
+  session while the interaction is expected to represent B.
+- Remediation checklist:
+  - [ ] Apply the generation/AbortController pattern from `IMPORT-STALE-001`.
+  - [ ] Prove only the latest preview can render or enable Confirm.
+
+#### PROGRESS-STALE-001 — progress detail response can mismatch the selected student
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] syntax verification
+- Evidence: `class-progress.js` renders every delayed `loadStudent()` response
+  while title/selection use newer global state.
+- Remediation: [ ] Invalidate pending loads on selection/close and render only
+  the current student generation.
+
+#### LIBRARY-PICKER-STALE-001 — an old picker request can cross modal generations
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] syntax verification
+- Evidence: `library-picker.js` reuses global modal state; `close()` clears only
+  the callback, while old GET callbacks can populate a later open with another
+  asset kind and its new callback.
+- Remediation: [ ] Bind results to open generation, kind, query, and page; abort
+  or ignore all older callbacks.
+
+#### CLONE-WIZARD-STALE-001 — section results can belong to the previous class
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] syntax verification
+- Evidence: `lesson-clone-wizard.js` reads class id when starting the request
+  but renders unconditionally after Back/select/Next state changes.
+- Risk: Finish sends current class B with stale section A and the server rejects
+  the workflow.
+- Remediation: [ ] Invalidate section loads when class selection changes and
+  render only a response bound to the current class.
+
+#### TEST-MONITOR-STALE-001 — overlapping polls can roll monitor state backward
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] syntax verification
+- Evidence: `test-monitor.js` uses `setInterval` without an in-flight or request
+  generation guard; every response overwrites counts and rows.
+- Remediation: [ ] Serialize polls or discard any response older than the last
+  applied request; invalidate outstanding work on teardown.
+
+### Phase 4 focused verification (2026-07-29)
+
+- [x] `mvn.cmd -q -DskipTests compile`
+- [x] Focused unit tests: class/leader policy, invite preflight, attachment
+  authorization, comment moderation, and storage transaction lifecycle.
+- [x] Public-view attachment-lock/duplicate-token unit tests.
+- [x] `node --check` for all five stale-response JavaScript fixes.
+- [x] `git diff --check`
+- [x] No `practice` source, configuration, schema, or test path changed.
+- [ ] Database-backed concurrency/integration tests remain deferred by request.
 
 ### New issue template
 
