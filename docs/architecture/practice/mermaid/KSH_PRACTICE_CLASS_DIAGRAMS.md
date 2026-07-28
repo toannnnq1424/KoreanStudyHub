@@ -1,6 +1,12 @@
 # KSH Practice Mermaid Class Diagrams
 
-Status: `13C3_04_IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION`
+Status: `PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN`
+
+Current-source overlay (`2026-07-28`): both exact-SHA audits accepted
+`420a9a9`; PR #26 merged into `main` as `65328e9`. Phase 13G is
+`COMPLETE_FOCUSED_GATE_GREEN` after `82/82`, fresh V56 proof
+`56/56/0/1/7` and cleanup absence `0`. Phase 13H and browser/device journeys
+remain deferred to a separate task/end-of-Phase-13.
 
 Each fenced block is a standalone Mermaid diagram. Copy only the code inside one block into Mermaid Live Editor.
 The four reader-facing areas preserve the ten internal module codes used by code, Draw.io and Jira.

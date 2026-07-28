@@ -54,6 +54,17 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
         LocalDateTime getActivityAt();
     }
 
+    interface CatalogCompletedSectionProjection {
+        Long getSetId();
+        Long getSectionId();
+    }
+
+    interface CatalogAttemptStateProjection {
+        Long getAttemptId();
+        Long getSetId();
+        Integer getStatePriority();
+    }
+
     Optional<PracticeAttempt> findByIdAndUserId(Long id, Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -308,19 +319,110 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
             @Param("discardedStatus") String discardedStatus,
             Pageable pageable);
 
-    @Query("""
-            select a
-            from PracticeAttempt a
-            where a.userId = :userId
-              and a.skill = 'WRITING'
-              and a.status <> :discardedStatus
-            """)
+    @Query(value = """
+            SELECT a.*
+            FROM practice_attempts a
+            WHERE a.user_id = :userId
+              AND a.skill = 'WRITING'
+              AND a.status <> :discardedStatus
+            ORDER BY a.activity_at DESC, a.id DESC
+            """, nativeQuery = true)
     List<PracticeAttempt> findProgressWritingAttempts(
             @Param("userId") Long userId,
-            @Param("discardedStatus") String discardedStatus);
+            @Param("discardedStatus") String discardedStatus,
+            Pageable pageable);
 
-    List<PracticeAttempt> findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-            Long userId, List<Long> setIds, String status);
+    /**
+     * Completed-section evidence for the current catalog page. Passing only
+     * current-page section ids bounds the result cardinality to that page
+     * regardless of the learner's retained attempt history.
+     */
+    @Query(value = """
+            SELECT DISTINCT
+                a.set_id AS setId,
+                a.section_id AS sectionId
+            FROM practice_attempts a
+            WHERE a.user_id = :userId
+              AND a.section_id IN (:sectionIds)
+              AND a.status IN ('SUBMITTED', 'GRADED')
+            """, nativeQuery = true)
+    List<CatalogCompletedSectionProjection> findCatalogCompletedSections(
+            @Param("userId") Long userId,
+            @Param("sectionIds") List<Long> sectionIds);
+
+    /**
+     * One lifecycle candidate per current-page set. Priority preserves the
+     * catalog contract: canonical resumable first, then restart-required
+     * in-progress, then the newest terminal/other non-discarded attempt.
+     * The windowed projection returns at most one id for each requested set.
+     */
+    @Query(value = """
+            WITH catalog_candidates AS (
+                SELECT
+                    a.id AS attempt_id,
+                    a.set_id,
+                    CASE
+                        WHEN a.status = 'IN_PROGRESS'
+                         AND ppv.id IS NOT NULL
+                         AND psv.id IS NOT NULL
+                         AND ptv.id IS NOT NULL
+                         AND pscv.id IS NOT NULL
+                         AND (
+                             a.version_compatibility_status IS NULL
+                             OR TRIM(a.version_compatibility_status) = ''
+                             OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                         )
+                        THEN 0
+                        WHEN a.status = 'IN_PROGRESS' THEN 1
+                        ELSE 2
+                    END AS state_priority,
+                    a.activity_at
+                FROM practice_attempts a
+                LEFT JOIN practice_published_versions ppv
+                  ON ppv.id = a.published_version_id
+                 AND ppv.set_id = a.set_id
+                LEFT JOIN practice_set_versions psv
+                  ON psv.id = a.set_version_id
+                 AND psv.published_version_id = ppv.id
+                 AND psv.set_id = a.set_id
+                LEFT JOIN practice_test_versions ptv
+                  ON ptv.id = a.test_version_id
+                 AND ptv.published_version_id = ppv.id
+                 AND ptv.set_version_id = psv.id
+                 AND ptv.test_id = a.test_id
+                LEFT JOIN practice_section_versions pscv
+                  ON pscv.id = a.section_version_id
+                 AND pscv.published_version_id = ppv.id
+                 AND pscv.test_version_id = ptv.id
+                 AND pscv.section_id = a.section_id
+                 AND pscv.skill = a.skill
+                WHERE a.user_id = :userId
+                  AND a.set_id IN (:setIds)
+                  AND a.status <> :discardedStatus
+            ),
+            catalog_ranked AS (
+                SELECT
+                    candidate.*,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY candidate.set_id
+                        ORDER BY
+                            candidate.state_priority ASC,
+                            candidate.activity_at DESC,
+                            candidate.attempt_id DESC
+                    ) AS candidate_row
+                FROM catalog_candidates candidate
+            )
+            SELECT
+                ranked.attempt_id AS attemptId,
+                ranked.set_id AS setId,
+                ranked.state_priority AS statePriority
+            FROM catalog_ranked ranked
+            WHERE ranked.candidate_row = 1
+            """, nativeQuery = true)
+    List<CatalogAttemptStateProjection> findCatalogAttemptStateCandidates(
+            @Param("userId") Long userId,
+            @Param("setIds") List<Long> setIds,
+            @Param("discardedStatus") String discardedStatus);
 
     /**
      * Bounded set-page/catalog identity batch for both resume and result-link

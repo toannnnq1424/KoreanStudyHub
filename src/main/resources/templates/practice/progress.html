@@ -190,6 +190,7 @@
           <nav class="pp-tabs" aria-label="Khu vực tiến độ">
             <a class="pp-tab-btn"
                th:classappend="${progressFilter.tab() == 'overview'} ? ' active'"
+               th:attr="aria-current=${progressFilter.tab() == 'overview'} ? 'page' : null"
                th:href="@{/practice/progress(tab='overview',
                                              skill=${progressFilter.skill().name()},
                                              writingTask=${progressFilter.writingTask().name()},
@@ -198,6 +199,7 @@
             </a>
             <a class="pp-tab-btn"
                th:classappend="${progressFilter.tab() == 'test-practice'} ? ' active'"
+               th:attr="aria-current=${progressFilter.tab() == 'test-practice'} ? 'page' : null"
                th:href="@{/practice/progress(tab='test-practice',
                                              skill=${progressFilter.skill().name()},
                                              writingTask=${progressFilter.writingTask().name()},
@@ -245,11 +247,11 @@
                   <div class="pp-chart-fallback" data-chart-fallback>
                     <table class="pp-table">
                       <caption>Bảng thay thế biểu đồ điểm Đọc/Nghe</caption>
-                      <thead><tr><th>Kỹ năng</th><th>Điểm</th><th>Điểm đạt / có thể đạt</th><th>Mẫu / hoạt động</th><th>Độ phủ</th></tr></thead>
+                      <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / hoạt động</th><th scope="col">Độ phủ</th></tr></thead>
                       <tbody>
                       <tr th:each="metric : ${overview.skillMetrics()}"
                           th:if="${metric.skill() == 'READING' || metric.skill() == 'LISTENING'}">
-                        <th th:text="${metric.skillLabel()}">Đọc</th>
+                        <th scope="row" th:text="${metric.skillLabel()}">Đọc</th>
                         <td th:text="${metric.scoreFact().renderableValue()
                                      ? metric.scoreFact().value() + '%' : 'Chưa khả dụng'}">80%</td>
                         <td th:text="${metric.scoreFact().numerator() != null
@@ -294,10 +296,10 @@
                   <div class="pp-chart-fallback" data-chart-fallback>
                     <table class="pp-table">
                       <caption>Bảng thay thế biểu đồ hoạt động theo kỹ năng</caption>
-                      <thead><tr><th>Kỹ năng</th><th>Hoạt động</th><th>Hoàn thành</th><th>Đang làm</th></tr></thead>
+                      <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Hoạt động</th><th scope="col">Hoàn thành</th><th scope="col">Đang làm</th></tr></thead>
                       <tbody>
                       <tr th:each="metric : ${overview.skillMetrics()}">
-                        <th th:text="${metric.skillLabel()}">Kỹ năng</th>
+                        <th scope="row" th:text="${metric.skillLabel()}">Kỹ năng</th>
                         <td th:text="${metric.attemptCounts().total()}">0</td>
                         <td th:text="${metric.attemptCounts().completed()}">0</td>
                         <td th:text="${metric.attemptCounts().inProgress()}">0</td>
@@ -328,10 +330,10 @@
               <div class="pp-chart-fallback" data-chart-fallback>
                 <table class="pp-table">
                   <caption>Bảng thay thế lịch hoạt động, từ nguồn gần đây bị giới hạn</caption>
-                  <thead><tr><th>Ngày</th><th>Số hoạt động</th><th>Thời lượng hợp lệ</th><th>Độ phủ thời lượng</th></tr></thead>
+                  <thead><tr><th scope="col">Ngày</th><th scope="col">Số hoạt động</th><th scope="col">Thời lượng hợp lệ</th><th scope="col">Độ phủ thời lượng</th></tr></thead>
                   <tbody>
                   <tr th:each="cell : ${overview.heatmap()}">
-                    <th th:text="${cell.date()}">2026-07-25</th>
+                    <th scope="row" th:text="${cell.date()}">2026-07-25</th>
                     <td th:text="${cell.attemptCount()}">0</td>
                     <td th:text="${cell.totalMinutes() == null ? 'Chưa khả dụng' : cell.totalMinutes() + ' phút'}">Chưa khả dụng</td>
                     <td>
@@ -417,10 +419,10 @@
                 <div class="pp-chart-fallback" data-chart-fallback>
                   <table class="pp-table">
                     <caption>Bảng thay thế biểu đồ xu hướng</caption>
-                    <thead><tr><th>Thời điểm</th><th>Kỹ năng</th><th>Bài luyện</th><th>Điểm</th><th>Điểm đạt / có thể đạt</th><th>Mẫu / độ phủ</th></tr></thead>
+                    <thead><tr><th scope="col">Thời điểm</th><th scope="col">Kỹ năng</th><th scope="col">Bài luyện</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / độ phủ</th></tr></thead>
                     <tbody>
                     <tr th:each="point : ${analytics.scoreTrend()}">
-                      <th th:text="${point.date()}">2026-07-25</th>
+                      <th scope="row" th:text="${point.date()}">2026-07-25</th>
                       <td th:text="${point.skill() == 'READING' ? 'Đọc' : 'Nghe'}">Đọc</td>
                       <td th:text="${point.title()}">Bài luyện</td>
                       <td th:text="${point.scoreFact().renderableValue()
@@ -494,7 +496,7 @@
             <section class="pp-fact-section" th:if="${!#lists.isEmpty(analytics.writingTaskSeams())}">
               <header class="pp-chart-header">
                 <h2>Điểm Viết theo tác vụ và nhóm có thể so sánh · 쓰기 문항별 비교 그룹</h2>
-                <p>Q51-Q54, hồ sơ/gói chính sách và mức tối đa khác nhau luôn ở các nhóm riêng; đây không phải “điểm trung bình kỹ năng Viết”.</p>
+                <p>Q51-Q54, hồ sơ/gói chính sách và mức tối đa khác nhau luôn ở các nhóm riêng; đây không phải “điểm trung bình kỹ năng Viết”. Nguồn chi tiết dùng tối đa 500 hoạt động Viết gần nhất và luôn báo rõ khi đã cắt bớt lịch sử.</p>
               </header>
               <div class="pp-writing-grid">
                 <article class="pp-writing-task-card" th:each="task : ${analytics.writingTaskSeams()}">
@@ -593,10 +595,10 @@
               <div class="pp-table-wrapper">
                 <table class="pp-table">
                   <caption>Dữ kiện theo dạng câu hỏi từ nguồn gần đây</caption>
-                  <thead><tr><th>Kỹ năng / dạng</th><th>Hoạt động</th><th>Điểm trung bình</th><th>Điểm tốt nhất</th><th>Gần nhất</th><th>Độ phủ</th></tr></thead>
+                  <thead><tr><th scope="col">Kỹ năng / dạng</th><th scope="col">Hoạt động</th><th scope="col">Điểm trung bình</th><th scope="col">Điểm tốt nhất</th><th scope="col">Gần nhất</th><th scope="col">Độ phủ</th></tr></thead>
                   <tbody>
                   <tr th:each="row : ${analytics.questionTypePerf()}">
-                    <th th:text="${(row.skill() == 'READING' ? 'Đọc' : 'Nghe')
+                    <th scope="row" th:text="${(row.skill() == 'READING' ? 'Đọc' : 'Nghe')
                                  + ' · ' + row.questionTypeLabel()}">Đọc</th>
                     <td th:text="${row.totalAttempts()}">0</td>
                     <td th:text="${row.scoreFact().renderableValue()

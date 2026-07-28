@@ -6,8 +6,9 @@
     <a sec:authorize="hasRole('STUDENT')"
        th:href="@{/practice}"
        class="pi-nav-item"
-       th:classappend="${activeItem == 'library'} ? 'active'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+       th:classappend="${activeItem == 'library'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'library'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
       </svg>
@@ -18,16 +19,19 @@
     <a sec:authorize="hasRole('STUDENT')"
        th:href="@{/practice/progress}"
        class="pi-nav-item"
-       th:classappend="${activeItem == 'progress'} ? 'active'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+       th:classappend="${activeItem == 'progress'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'progress'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
       </svg>
       <span class="pi-nav-text">Tiến độ</span>
     </a>
     
     <!-- Quản lý đề (Chỉ dành cho Giảng viên) -->
-    <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage}" class="pi-nav-item" th:classappend="${activeItem == 'manage'} ? 'active'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage}" class="pi-nav-item"
+       th:classappend="${activeItem == 'manage'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'manage'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M12 20h9"/>
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
       </svg>
@@ -35,8 +39,10 @@
     </a>
     
     <!-- Lịch sử sửa đổi (Chỉ dành cho Giảng viên) -->
-    <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage/revisions}" class="pi-nav-item" th:classappend="${activeItem == 'revisions'} ? 'active'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage/revisions}" class="pi-nav-item"
+       th:classappend="${activeItem == 'revisions'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'revisions'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <circle cx="12" cy="12" r="10"/>
         <polyline points="12 6 12 12 16 14"/>
       </svg>
@@ -46,8 +52,9 @@
     <a sec:authorize="hasRole('LECTURER')"
        th:href="@{/practice/manage/materials}"
        class="pi-nav-item"
-       th:classappend="${activeItem == 'materials'} ? 'active'">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+       th:classappend="${activeItem == 'materials'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'materials'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <circle cx="8.5" cy="8.5" r="1.5"/>
         <path d="M21 15l-5-5L5 21"/>

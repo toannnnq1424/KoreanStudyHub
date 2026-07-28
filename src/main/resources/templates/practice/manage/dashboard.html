@@ -19,8 +19,10 @@
     <div class="pp-content-container">
 
       <!-- Alert notifications -->
-      <div th:if="${success}" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${success}"></div>
-      <div th:if="${error}" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${error}"></div>
+      <div th:if="${success}" role="status" aria-live="polite"
+           style="background: rgba(8, 122, 79, 0.12); color: #087A4F; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${success}"></div>
+      <div th:if="${error}" role="alert" aria-live="assertive"
+           style="background: rgba(180, 35, 62, 0.12); color: #B4233E; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${error}"></div>
 
       <!-- Header -->
       <div class="pm-dashboard-heading">
@@ -84,12 +86,13 @@
         
         <div class="pp-table-wrapper">
           <table class="pp-table">
+            <caption class="pi-sr-only">Các bản nháp đang biên soạn</caption>
             <thead>
               <tr>
-                <th>Tên bản nháp</th>
-                <th>Phạm vi</th>
-                <th>Cập nhật gần nhất</th>
-                <th>Hành động</th>
+                <th scope="col">Tên bản nháp</th>
+                <th scope="col">Phạm vi</th>
+                <th scope="col">Cập nhật gần nhất</th>
+                <th scope="col">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -131,14 +134,15 @@
 
         <div th:unless="${#lists.isEmpty(sets)}" class="pp-table-wrapper">
           <table class="pp-table">
+            <caption class="pi-sr-only">Các bộ đề do tôi sở hữu</caption>
             <thead>
               <tr>
-                <th>Tên bộ luyện tập</th>
-                <th>Phạm vi</th>
-                <th>Kỹ năng</th>
-                <th>Người tạo</th>
-                <th>Trạng thái</th>
-                <th>Hành động</th>
+                <th scope="col">Tên bộ luyện tập</th>
+                <th scope="col">Phạm vi</th>
+                <th scope="col">Kỹ năng</th>
+                <th scope="col">Người tạo</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -160,7 +164,7 @@
                   <span style="font-size:0.85rem; color:var(--pp-text); font-weight:600;" th:text="${authorsMap.get(item.createdBy) != null ? authorsMap.get(item.createdBy) : 'Hệ thống'}">Giáo viên A</span>
                 </td>
                 <td>
-                  <span style="padding:4px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); color:#10b981; font-size:0.78rem; font-weight:600;"
+                  <span style="padding:4px 8px; border-radius:6px; background:rgba(8, 122, 79, 0.1); color:#087a4f; font-size:0.78rem; font-weight:600;"
                         th:text="${item.status == 'PUBLISHED' ? 'Đã xuất bản' : (item.status == 'ARCHIVED' ? 'Đã lưu trữ' : 'Chưa xác định')}">Đã xuất bản</span>
                   <span th:if="${item.ownerLocked}" style="margin-left:6px; padding:4px 8px; border-radius:6px; background:#fff7ed; color:#c2410c; font-size:0.75rem; font-weight:600;">Đã khóa</span>
                 </td>
@@ -213,7 +217,8 @@
         </div>
         <div th:unless="${#lists.isEmpty(sharedSets)}" class="pp-table-wrapper">
           <table class="pp-table">
-            <thead><tr><th>Bộ đề</th><th>Chủ sở hữu</th><th>Quyền truy cập</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
+            <caption class="pi-sr-only">Các bộ đề giảng viên khác chia sẻ với tôi</caption>
+            <thead><tr><th scope="col">Bộ đề</th><th scope="col">Chủ sở hữu</th><th scope="col">Quyền truy cập</th><th scope="col">Trạng thái</th><th scope="col">Hành động</th></tr></thead>
             <tbody>
               <tr th:each="item : ${sharedSets}">
                 <td th:text="${item.title}">Bộ đề</td>

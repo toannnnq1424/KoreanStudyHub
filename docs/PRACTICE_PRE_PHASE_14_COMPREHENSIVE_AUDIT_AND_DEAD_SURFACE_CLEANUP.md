@@ -1,6 +1,6 @@
 # Practice Pre-14 Comprehensive Audit And Dead-Surface Cleanup
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 Roadmap-order amendment (`2026-07-27`): this program and the Pre-14 gate stay
 exactly where they are. Their immediate handoff is now Pre-15 -> Phase 15
@@ -8,9 +8,12 @@ Manual UAT/release; Phase 14 14A-14F is deferred until after that verdict.
 
 > Status: `PLANNED_MANDATORY_BEFORE_PRE_PHASE_14_GATE`
 >
-> This is a future execution contract. Phase 13C3 validation is green but still
-> awaits commits/push/post-push audits; this program remains closed until all
-> Phase 13 work and the post-Phase-13 product/package reconciliation close.
+> This is a future execution contract. Phase 13C3 is
+> `CLOSED_VERIFIED_MERGED` at main merge SHA `65328e9`; Phase 13G is
+> `COMPLETE_FOCUSED_GATE_GREEN` with `82/82`, fresh V56 proof
+> `56/56/0/1/7` and cleanup absence `0`. Phase 13H requires a separate task.
+> This program remains closed until all Phase 13 work and the post-Phase-13
+> product/package reconciliation close.
 
 ## 1. Position in the roadmap
 

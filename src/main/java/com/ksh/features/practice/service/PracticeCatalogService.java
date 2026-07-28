@@ -15,6 +15,8 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogSkill;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeGlobalResume;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository.CatalogAttemptStateProjection;
+import com.ksh.features.practice.repository.PracticeAttemptRepository.CatalogCompletedSectionProjection;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeTestRepository;
@@ -83,26 +85,31 @@ public class PracticeCatalogService {
         }
         long selectedClassId = query.classId() == null ? 0L : query.classId();
 
-        Page<PracticeSet> setPage = setRepository.findLearnerVisiblePublished(
-                PracticeSet.STATUS_PUBLISHED,
-                PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
+        int effectiveBatch = query.batch();
+        Page<PracticeSet> setPage = findVisibleSetPage(
                 userId,
                 queryClassIds,
                 selectedClassId,
-                query.search(),
-                "ALL".equals(query.skill()) ? "" : query.skill(),
-                "ALL".equals(query.writingTask())
-                        ? null
-                        : WritingTaskType.valueOf(query.writingTask()),
-                PageRequest.of(query.batch(), BATCH_SIZE));
+                query,
+                effectiveBatch);
+        if (setPage.isEmpty() && setPage.getTotalElements() > 0 && effectiveBatch > 0) {
+            effectiveBatch = Math.max(0, setPage.getTotalPages() - 1);
+            setPage = findVisibleSetPage(
+                    userId,
+                    queryClassIds,
+                    selectedClassId,
+                    query,
+                    effectiveBatch);
+        } else if (setPage.isEmpty() && setPage.getTotalElements() == 0) {
+            effectiveBatch = 0;
+        }
 
         if (setPage.isEmpty()) {
             return new PracticeCatalogBatch(
                     List.of(), globalResume, classOptions, query.search(), query.skill(),
                     query.writingTask(),
                     selectedClassId == 0 ? null : selectedClassId,
-                    query.batch(), BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
+                    effectiveBatch, BATCH_SIZE, setPage.getTotalElements(), false);
         }
 
         List<PracticeSet> sets = setPage.getContent().stream()
@@ -118,16 +125,61 @@ public class PracticeCatalogService {
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds);
         List<PracticeSection> sections = sectionRepository
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(setIds);
-        List<PracticeAttempt> attempts = attemptRepository
-                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+        List<Long> sectionIds = sections.stream()
+                .map(PracticeSection::getId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        List<CatalogCompletedSectionProjection> completedSectionRows =
+                sectionIds.isEmpty()
+                        ? List.of()
+                        : attemptRepository.findCatalogCompletedSections(
+                                userId, sectionIds);
+        Map<Long, Set<Long>> completedSectionIdsBySet =
+                completedSectionRows.stream()
+                        .filter(row -> row.getSetId() != null
+                                && row.getSectionId() != null)
+                        .collect(Collectors.groupingBy(
+                                CatalogCompletedSectionProjection::getSetId,
+                                LinkedHashMap::new,
+                                Collectors.mapping(
+                                        CatalogCompletedSectionProjection::getSectionId,
+                                        Collectors.toCollection(LinkedHashSet::new))));
+
+        List<CatalogAttemptStateProjection> stateRows =
+                attemptRepository.findCatalogAttemptStateCandidates(
                         userId, setIds, PracticeAttempt.STATUS_DISCARDED);
-        Set<Long> coherentAttemptIds = Set.copyOf(
-                attemptRepository.findCoherentAttemptIdentityIds(
-                        userId, setIds));
+        List<Long> stateAttemptIds = stateRows.stream()
+                .map(CatalogAttemptStateProjection::getAttemptId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Long, PracticeAttempt> stateAttemptsById =
+                (stateAttemptIds.isEmpty()
+                        ? List.<PracticeAttempt>of()
+                        : attemptRepository.findAllById(stateAttemptIds))
+                        .stream()
+                        .filter(attempt -> attempt.getId() != null)
+                        .collect(Collectors.toMap(
+                                PracticeAttempt::getId,
+                                Function.identity(),
+                                (left, right) -> left,
+                                LinkedHashMap::new));
+        Map<Long, CatalogStateCandidate> stateBySet = new LinkedHashMap<>();
+        for (CatalogAttemptStateProjection row : stateRows) {
+            if (row.getSetId() == null || row.getAttemptId() == null) continue;
+            PracticeAttempt attempt = stateAttemptsById.get(row.getAttemptId());
+            if (attempt == null) continue;
+            int priority = row.getStatePriority() == null
+                    ? 2
+                    : row.getStatePriority();
+            stateBySet.putIfAbsent(
+                    row.getSetId(),
+                    new CatalogStateCandidate(attempt, priority));
+        }
 
         Map<Long, List<PracticeTest>> testsBySet = groupBy(tests, PracticeTest::getSetId);
         Map<Long, List<PracticeSection>> sectionsBySet = groupBy(sections, PracticeSection::getSetId);
-        Map<Long, List<PracticeAttempt>> attemptsBySet = groupBy(attempts, PracticeAttempt::getSetId);
         Map<Long, String> classNames = classOptions.stream()
                 .collect(Collectors.toMap(PracticeCatalogClassOption::id,
                         PracticeCatalogClassOption::name));
@@ -137,28 +189,51 @@ public class PracticeCatalogService {
                         set,
                         testsBySet.getOrDefault(set.getId(), List.of()),
                         sectionsBySet.getOrDefault(set.getId(), List.of()),
-                        attemptsBySet.getOrDefault(set.getId(), List.of()),
+                        completedSectionIdsBySet.getOrDefault(
+                                set.getId(), Set.of()),
                         classNames,
-                        coherentAttemptIds))
+                        stateBySet.get(set.getId())))
                 .toList();
 
         return new PracticeCatalogBatch(
                 cards, globalResume, classOptions, query.search(), query.skill(), query.writingTask(),
                 selectedClassId == 0 ? null : selectedClassId,
-                query.batch(), BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
+                effectiveBatch, BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
+    }
+
+    private Page<PracticeSet> findVisibleSetPage(
+            Long userId,
+            List<Long> queryClassIds,
+            long selectedClassId,
+            PracticeCatalogQuery query,
+            int batch
+    ) {
+        return setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                userId,
+                queryClassIds,
+                selectedClassId,
+                query.search(),
+                "ALL".equals(query.skill()) ? "" : query.skill(),
+                "ALL".equals(query.writingTask())
+                        ? null
+                        : WritingTaskType.valueOf(query.writingTask()),
+                PageRequest.of(batch, BATCH_SIZE));
     }
 
     private PracticeCatalogCard toCard(PracticeSet set,
                                        List<PracticeTest> tests,
                                        List<PracticeSection> sections,
-                                       List<PracticeAttempt> attempts,
+                                       Set<Long> completedSectionIds,
                                        Map<Long, String> classNames,
-                                       Set<Long> coherentAttemptIds) {
+                                       CatalogStateCandidate stateCandidate) {
         List<PracticeCatalogSkill> skills = deriveSkills(set, sections);
         String primarySkill = skills.isEmpty() ? "READING" : skills.get(0).code();
-        int completedTests = completedTestCount(tests, sections, attempts);
-        AttemptState state =
-                resolveState(attempts, coherentAttemptIds);
+        int completedTests = completedTestCount(
+                tests, sections, completedSectionIds);
+        AttemptState state = resolveState(stateCandidate);
         String visibility = PracticeSet.SCOPE_CLASS.equals(set.getScope())
                 ? classNames.getOrDefault(set.getClassId(), "Lớp học")
                 : "Công khai trong KSH";
@@ -188,12 +263,7 @@ public class PracticeCatalogService {
 
     private int completedTestCount(List<PracticeTest> tests,
                                    List<PracticeSection> sections,
-                                   List<PracticeAttempt> attempts) {
-        Set<Long> completedSectionIds = attempts.stream()
-                .filter(ATTEMPT_STATE::isCompleted)
-                .map(PracticeAttempt::getSectionId)
-                .filter(id -> id != null)
-                .collect(Collectors.toSet());
+                                   Set<Long> completedSectionIds) {
         Map<Long, List<PracticeSection>> sectionsByTest = groupBy(
                 sections.stream().filter(section -> section.getTestId() != null).toList(),
                 PracticeSection::getTestId);
@@ -209,38 +279,15 @@ public class PracticeCatalogService {
         return completed;
     }
 
-    private AttemptState resolveState(
-            List<PracticeAttempt> attempts,
-            Set<Long> coherentAttemptIds
-    ) {
-        PracticeAttempt resumable =
-                ATTEMPT_STATE.newestCanonicalResumable(
-                        attempts,
-                        attempt -> attempt.getId() != null
-                                && coherentAttemptIds.contains(
-                                attempt.getId()));
-        if (resumable != null) {
-            return new AttemptState("IN_PROGRESS", "Đang làm", resumable.getId());
-        }
-
-        PracticeAttempt stale = attempts.stream()
-                .filter(attempt ->
-                        ATTEMPT_STATE.isStaleOrRestartRequired(
-                                attempt,
-                                attempt.getId() != null
-                                        && coherentAttemptIds.contains(
-                                        attempt.getId())))
-                .min(ATTEMPT_STATE.newestActivityFirst())
-                .orElse(null);
-        if (stale != null) {
-            return new AttemptState("STALE", "Cần bắt đầu lại", null);
-        }
-        PracticeAttempt latest = ATTEMPT_STATE.newest(attempts);
-        if (latest == null) {
+    private AttemptState resolveState(CatalogStateCandidate candidate) {
+        if (candidate == null || candidate.attempt() == null) {
             return new AttemptState("NOT_STARTED", "Chưa bắt đầu", null);
         }
         PracticeAttemptStatePolicy.Presentation presentation =
-                ATTEMPT_STATE.presentation(latest, true);
+                ATTEMPT_STATE.presentation(
+                        candidate.attempt(),
+                        candidate.statePriority() == 0
+                                || candidate.statePriority() >= 2);
         return new AttemptState(
                 presentation.code(),
                 presentation.label(),
@@ -313,5 +360,11 @@ public class PracticeCatalogService {
     }
 
     private record AttemptState(String code, String label, Long resumeAttemptId) {
+    }
+
+    private record CatalogStateCandidate(
+            PracticeAttempt attempt,
+            int statePriority
+    ) {
     }
 }

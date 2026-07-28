@@ -137,12 +137,14 @@ public class PracticeController {
                         @RequestParam(value = "writingTask", defaultValue = "ALL")
                         String writingTask,
                         @RequestParam(value = "classId", required = false) Long classId,
+                        @RequestParam(value = "batch", defaultValue = "0") int batch,
                         Model model) {
         model.addAttribute(
                 PracticeModelAttributes.CATALOG,
                 catalogService.loadBatch(
                         user.getId(),
-                        new PracticeCatalogQuery(search, skill, writingTask, classId, 0)));
+                        new PracticeCatalogQuery(
+                                search, skill, writingTask, classId, batch)));
         return PracticeViews.INDEX;
     }
 

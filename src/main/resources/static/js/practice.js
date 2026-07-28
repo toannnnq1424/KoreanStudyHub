@@ -576,6 +576,37 @@
       activeGroup = groups[0];
     }
 
+    const renderGroupNavigationButton = (button, direction, targetGroup) => {
+      const isPrevious = direction === 'previous';
+      const label = targetGroup
+        ? `${isPrevious ? 'Nhóm trước' : 'Nhóm sau'} (${targetGroup})`
+        : (isPrevious ? 'Nhóm trước' : 'Nhóm sau');
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+      icon.setAttribute('aria-hidden', 'true');
+      icon.setAttribute('focusable', 'false');
+      icon.setAttribute('width', '20');
+      icon.setAttribute('height', '20');
+      icon.setAttribute('viewBox', '0 0 24 24');
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      icon.setAttribute('stroke-width', '2.5');
+      icon.setAttribute('stroke-linecap', 'round');
+      icon.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute(
+        'd',
+        isPrevious ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6'
+      );
+      icon.appendChild(path);
+
+      const text = document.createTextNode(label);
+      button.replaceChildren(
+        ...(isPrevious ? [icon, document.createTextNode(' '), text] : [text, document.createTextNode(' '), icon])
+      );
+      button.setAttribute('aria-label', label);
+    };
+
     const showGroup = (groupLabel) => {
       if (!groupLabel) return;
       activeGroup = groupLabel;
@@ -602,12 +633,12 @@
       if (prevBtn) {
         prevBtn.disabled = currentIndex === 0;
         const prevGroup = groups[currentIndex - 1];
-        prevBtn.textContent = prevGroup ? `← Nhóm trước (${prevGroup})` : `← Nhóm trước`;
+        renderGroupNavigationButton(prevBtn, 'previous', prevGroup);
       }
       if (nextBtn) {
         nextBtn.disabled = currentIndex === groups.length - 1;
         const nextGroup = groups[currentIndex + 1];
-        nextBtn.textContent = nextGroup ? `Nhóm sau (${nextGroup}) →` : `Nhóm sau →`;
+        renderGroupNavigationButton(nextBtn, 'next', nextGroup);
       }
     };
 

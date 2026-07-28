@@ -14,6 +14,18 @@
   --editor-validation-handle: 18px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body.pi-body {
   background-color: var(--pp-bg);
   color: var(--pp-text);
@@ -520,7 +532,7 @@ input, select, textarea, button {
 .tree-meta-text {
   font-size: 12px;
   font-weight: 400;
-  color: #94A3B8;
+  color: #64748B;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -701,6 +713,9 @@ input, select, textarea, button {
   flex: 1;
   text-align: center;
   padding: 10px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--pp-text-muted);
@@ -713,6 +728,11 @@ input, select, textarea, button {
   background: #ffffff;
   color: var(--pp-text);
   box-shadow: var(--shadow-sm);
+}
+.segmented-tab:focus-visible,
+.audio-upload-box:focus-visible {
+  outline: 3px solid rgba(49, 94, 251, 0.28);
+  outline-offset: 2px;
 }
 
 /* Forms */
@@ -1263,6 +1283,17 @@ select.form-input {
   pointer-events: none;
 }
 
+.validation-panel-surface {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.validation-panel-surface[hidden] {
+  display: none;
+}
+
 .validation-handle {
   position: absolute;
   left: calc(-1 * var(--editor-validation-handle));
@@ -1293,6 +1324,12 @@ select.form-input {
   transform: translateX(0);
   box-shadow: -18px 0 42px rgba(15, 23, 42, 0.18);
   pointer-events: auto;
+}
+
+.panel-validation:hover:not(.is-open) {
+  transform: translateX(100%);
+  box-shadow: -12px 0 28px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
 }
 
 .validation-header {
@@ -2201,20 +2238,25 @@ select.form-input {
   }
 
   .autosave-badge {
-    width: 14px;
-    max-width: 14px;
-    height: 14px;
-    padding: 0;
-    border-radius: 50%;
+    width: auto;
+    max-width: 104px;
+    height: auto;
+    padding: 3px 6px;
+    border-radius: 9999px;
     overflow: hidden;
-    color: transparent !important;
-    font-size: 0;
+    text-overflow: ellipsis;
+    font-size: 0.62rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .panel-validation,
-  .asset-library-drawer {
+  .asset-library-drawer,
+  .autosave-badge,
+  .segmented-tab,
+  .audio-upload-box,
+  .asset-card,
+  .preview-grp-tab {
     transition: none;
   }
 }

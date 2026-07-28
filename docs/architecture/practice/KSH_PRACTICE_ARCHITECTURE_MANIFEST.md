@@ -1,6 +1,19 @@
 # KSH Practice Architecture Artifact Manifest
 
-Status: `13C3_04_IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION`
+Status: `PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN`
+
+Current-source overlay (`2026-07-28`): both final audits accepted exact SHA
+`420a9a9`; PR #26 merged as `65328e9`. Phase 13G's 52/52 image inventory and
+static implementation are complete. The first re-audits rejected bounded
+attempt-history, activity-order, out-of-range pagination and import
+accessibility gaps. The final corrected 56-path snapshot received three fresh
+`ACCEPT_STATIC` verdicts. Its first consolidated validation run passed
+diff-check/production compile and all five selected integration cases, but the
+focused selector exposed one stale icon assertion and four nested-Mockito
+test-helper errors. After one grouped test-only correction, the permitted
+exact rerun passed `82/82`; fresh V56 proof was `56/56/0/1/7` and cleanup
+absence was `0`. Generated architecture artifacts are not regenerated during
+this phase.
 
 The repository-owned Markdown/Mermaid inventory includes the 13C3 prompt
 authoring and cleanup boundary. Generated DOCX/Drawio artifacts are not

@@ -1,5 +1,15 @@
 # Practice Phase 15 Compatibility Cleanup And Seed UAT Inventory
 
+> Current-source overlay (`2026-07-28`): Phase 13C3 is
+> `CLOSED_VERIFIED_MERGED`. Both final independent audits accepted exact SHA
+> `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merged as
+> `65328e9fae5201be2f154c90739bcb78f1034e4d`. Phase 13G is
+> `COMPLETE_FOCUSED_GATE_GREEN`: its exact rerun passed `82/82`, fresh V56
+> proof returned `56/56/0/1/7` and cleanup absence was `0`. Its branch
+> publication is the terminal task-local step; Phase 13H requires a separate
+> task. Historical pending 13C3 statuses below remain audit history and are
+> not current instructions.
+
 > Status: `REBASELINE_GO_WITH_GUARDS`; Phase 13E:
 > `COMPLETE_FOCUSED_GATE_GREEN`; Phase 13F:
 > `COMPLETE_FOCUSED_GATE_GREEN`; `13C3-00..04`:
@@ -38,8 +48,10 @@
 > 13C3's final isolated 167-path snapshot passed JDK 17 compile, 497/497, the
 > bounded 31/31 authorization/material gap closure and fresh V1-V45 proof.
 > Browser QA is deferred to the end of Phase 13 and live STT/TTS was not
-> approved. The current mandatory action is granular 13C3 commits and one push;
-> two fresh independent audits run only on that pushed snapshot.
+> approved. That historical mandatory action is closed. Phase 13G has now
+> completed its focused gate; only its coherent commit series and one branch
+> push remain in the current task, after which work stops until the separate
+> Phase 13H task.
 > Current 13C3-04 lifecycle source also locks every historical asset row sharing
 > an exact storage key at asset-delete claim and final confirmation; any sibling
 > state/reference that still needs the bytes stops physical I/O without

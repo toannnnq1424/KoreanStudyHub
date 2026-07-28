@@ -1428,6 +1428,18 @@ test evidence:
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
+> **Current implementation status (`2026-07-28`):** Phase 13C3 đã
+> `CLOSED_VERIFIED_MERGED`. Hai audit độc lập cuối cùng đều `ACCEPT` exact SHA
+> `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merge vào `main` bằng
+> merge commit `65328e9fae5201be2f154c90739bcb78f1034e4d`. Phase 13G hiện là
+> `COMPLETE_FOCUSED_GATE_GREEN`: corrected 56-path snapshot có ba
+> `ACCEPT_STATIC`; exact consolidated rerun đạt `82/82`, fresh V56 proof
+> `56/56/0/1/7` và cleanup absence `0`. Action còn lại trong task này chỉ là
+> tách nhiều commit logic, push branch đúng một lần rồi dừng. Phase 13H và
+> browser/device/visual journey phải ở task riêng. Mọi current-status note cũ
+> bên dưới còn yêu cầu commit/push/audit 13C3 là lịch sử và không được chạy
+> lại.
+
 > **Current implementation status (`2026-07-27`):** Phase 13E và Phase 13F
 > đều `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` là
 > `IMPLEMENTED_AND_FOCUSED_TESTED`. Exact JDK 17 selector của 13F đạt
@@ -2334,6 +2346,9 @@ GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13`. Final 167-path snapshot đã
 đạt compile, 497/497, bounded gap closure 31/31 và fresh V1-V45 proof. Bước kế
 tiếp chỉ là granular commits, một push và hai audit độc lập mới trên snapshot
 đã push trước khi mở 13G.
+Current-source supersession (`2026-07-28`): các hành động 13C3 đó đã hoàn tất;
+hai audit cuối chấp nhận exact SHA `420a9a9`, PR #26 đã merge thành
+`65328e9`, và 13G là unit đang mở.
 13G và 13H cũng phải kết thúc bằng một validation, chuỗi commit mạch lạc và một
 push riêng. Sau 13H và browser/device closure phải chạy phase audit-first tại
 `docs/PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION.md`;

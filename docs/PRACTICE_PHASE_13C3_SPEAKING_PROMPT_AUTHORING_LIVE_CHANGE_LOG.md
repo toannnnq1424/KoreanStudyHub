@@ -1,6 +1,6 @@
 # Practice Phase 13C3 Speaking Prompt Authoring Correction
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 > **Post-validation roadmap supersession (`2026-07-27`, documentation-only):**
 > the final isolated validation snapshot contains 167 non-excluded paths. It
@@ -13,8 +13,10 @@ Last updated: 2026-07-27
 ## 1. Gate status and execution order
 
 - `PHASE_13C3_DESIGN = LOCKED`
-- `PHASE_13C3_IMPLEMENTATION = CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH`
+- `PHASE_13C3_IMPLEMENTATION = CLOSED_VERIFIED_MERGED`
 - `PHASE_13C3_VALIDATION = GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13`
+- `PHASE_13C3_EXACT_SHA_AUDITS = ACCEPTED_AT_420A9A9`
+- `PHASE_13C3_PR = MERGED_AS_65328E9`
 - `13C3-00 = IMPLEMENTED_AND_VALIDATED`
 - `13C3-01 = IMPLEMENTED_AND_VALIDATED`
 - `13C3-02 = IMPLEMENTED_AND_VALIDATED`
@@ -23,7 +25,7 @@ Last updated: 2026-07-27
 - `PHASE_13F_PREREQUISITE = COMPLETE_FOCUSED_GATE_GREEN`
 - `BROWSER_QA = NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`
 - `LIVE_STT_TTS = NOT_RUN_NOT_APPROVED`
-- `CURRENT_REQUIRED_ACTION = GRANULAR_COMMITS_ONE_PUSH_THEN_TWO_POST_PUSH_AUDITS`
+- `CURRENT_REQUIRED_ACTION = PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN_THEN_SEPARATE_13H`
 - `PHASE_14 = DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`
 
 This correction is mandatory before Pre-15/Manual UAT and the later Phase 14,
@@ -2743,3 +2745,31 @@ Current handoff:
 - `CURRENT_REQUIRED_ACTION = COMMIT_PUSH_DOC_CORRECTION_THEN_RERUN_BOTH_AUDITS`;
 - the architecture acceptance and scope rejection above remain verdicts for
   exact SHA `93eaefa` only and cannot authorize the corrected SHA.
+
+### 14.25 Corrected exact-SHA acceptance and PR merge closure
+
+The documentation correction was committed and pushed at exact SHA
+`420a9a905cd202116158802eeaff799aab29e4b5`. Both required fresh independent
+read-only audits reran against that corrected remote SHA and returned
+`ACCEPT`. Those final verdicts supersede the exact-`93eaefa` scope rejection
+only; they do not rewrite the historical validation or audit record above.
+
+PR [#26](https://github.com/toannnnq1424/KoreanStudyHub/pull/26) was then
+merged into `main` by merge commit
+`65328e9fae5201be2f154c90739bcb78f1034e4d`. The merge preserves the six
+separate Phase 13F commits and the complete Phase 13C3 commit ancestry; no
+squash or history rewrite is recorded.
+
+Closure:
+
+- `PHASE_13C3_IMPLEMENTATION = CLOSED_VERIFIED_MERGED`;
+- `PHASE_13C3_EXACT_SHA_AUDITS = ACCEPTED_AT_420A9A9`;
+- `PHASE_13C3_PR = MERGED_AS_65328E9`;
+- `BROWSER_QA = NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`;
+- `LIVE_STT_TTS = NOT_RUN_NOT_APPROVED`; and
+- `CURRENT_REQUIRED_ACTION = PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN_THEN_SEPARATE_13H`.
+
+Phase 13G subsequently completed its focused gate; its branch publication is a
+terminal transport step, not new 13C3 evidence. This closure still does not
+open 13H in the same task, browser/device journeys, provider smoke, Pre-14,
+Pre-15, Phase 15, deferred Phase 14 or compatibility cleanup.

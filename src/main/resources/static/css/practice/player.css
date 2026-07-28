@@ -400,6 +400,8 @@ body.exam-shell {
 }
 
 .exam-audio-button {
+  display: inline-grid;
+  place-items: center;
   width: 40px;
   height: 40px;
   padding: 0 0 1px 2px;
@@ -408,6 +410,18 @@ body.exam-shell {
   background: var(--exam-blue);
   color: #fff;
   cursor: pointer;
+}
+
+.exam-audio-button svg,
+.exam-notes-drawer header button svg,
+.exam-note-composer button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .exam-audio-track {
@@ -794,12 +808,13 @@ body.exam-shell {
 }
 
 .exam-notes-drawer header button {
+  display: inline-grid;
+  place-items: center;
   width: 36px;
   height: 36px;
   border: 0;
   background: transparent;
   color: var(--exam-muted);
-  font-size: 25px;
   cursor: pointer;
 }
 
@@ -1055,5 +1070,11 @@ mark.exam-note-yellow {
 
   .exam-bottom-submit {
     padding-inline: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-notes-drawer {
+    transition: none;
   }
 }

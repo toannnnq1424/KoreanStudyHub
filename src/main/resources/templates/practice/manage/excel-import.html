@@ -39,7 +39,8 @@
         nhập văn bản và TTS tùy chọn chỉ có trong trình biên soạn. Sau khi nhập, hãy mở từng câu Nói
         trong Editor để xác minh, liên kết audio và tạo bản chép lời trước khi xuất bản.
       </div>
-      <div id="page-error" class="excel-page-error" role="alert" hidden></div>
+      <div id="page-error" class="excel-page-error" role="alert"
+           aria-live="assertive" tabindex="-1" hidden></div>
 
       <div class="excel-form-actions">
         <button id="preview-button" type="button" class="btn-action btn-pri">Xem trước dữ liệu</button>
@@ -55,7 +56,13 @@
         <div class="editor-eyebrow">Xem trước Excel</div>
         <h2 id="excel-preview-title">Kiểm tra dữ liệu trước khi nhập</h2>
       </div>
-      <button id="close-preview" class="excel-icon-button" type="button" aria-label="Đóng">&times;</button>
+      <button id="close-preview" class="excel-icon-button" type="button"
+              aria-label="Đóng bản xem trước">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </header>
 
     <div class="excel-preview-body">
@@ -82,19 +89,21 @@
         </div>
       </div>
 
-      <div id="preview-import-notice" class="excel-import-notice"></div>
-      <div id="global-issue-list" class="excel-global-issues" hidden></div>
+      <div id="preview-import-notice" class="excel-import-notice"
+           role="status" aria-live="polite"></div>
+      <div id="global-issue-list" class="excel-global-issues"
+           role="alert" aria-live="assertive" tabindex="-1" hidden></div>
 
       <div class="excel-preview-toolbar">
         <div id="preview-filters" class="excel-filter-tabs" role="tablist" aria-label="Lọc trạng thái dòng">
-          <button type="button" class="is-active" data-filter="ALL" role="tab" aria-selected="true">Tất cả</button>
-          <button type="button" data-filter="ERROR" role="tab" aria-selected="false">Bị loại</button>
-          <button type="button" data-filter="WARNING" role="tab" aria-selected="false">Cảnh báo</button>
-          <button type="button" data-filter="VALID" role="tab" aria-selected="false">Hợp lệ</button>
+          <button type="button" class="is-active" data-filter="ALL" role="tab" aria-selected="true" tabindex="0">Tất cả</button>
+          <button type="button" data-filter="ERROR" role="tab" aria-selected="false" tabindex="-1">Bị loại</button>
+          <button type="button" data-filter="WARNING" role="tab" aria-selected="false" tabindex="-1">Cảnh báo</button>
+          <button type="button" data-filter="VALID" role="tab" aria-selected="false" tabindex="-1">Hợp lệ</button>
         </div>
         <div id="preview-view-switch" class="excel-view-switch" role="group" aria-label="Cách xem dữ liệu">
-          <button type="button" class="is-active" data-view="STRUCTURE">Cấu trúc dễ kiểm tra</button>
-          <button type="button" data-view="DETAIL">Bảng chi tiết</button>
+          <button type="button" class="is-active" data-view="STRUCTURE" aria-pressed="true">Cấu trúc dễ kiểm tra</button>
+          <button type="button" data-view="DETAIL" aria-pressed="false">Bảng chi tiết</button>
         </div>
       </div>
 
@@ -102,28 +111,29 @@
 
       <div id="excel-detail-preview" class="excel-table-wrap" hidden>
         <table class="excel-preview-table">
+          <caption class="excel-sr-only">Chi tiết các dòng dữ liệu đọc từ tệp Excel</caption>
           <thead>
           <tr>
-            <th>Sheet / Dòng</th>
-            <th>Trạng thái</th>
-            <th>Bài kiểm tra / Phần</th>
-            <th>Nhóm / Hướng dẫn</th>
-            <th>Nhóm / Bài đọc</th>
-            <th>Nhóm / Transcript</th>
-            <th>Nhóm / Tài nguyên</th>
-            <th>Nhóm / Câu</th>
-            <th>Câu / Tài nguyên</th>
-            <th>Câu / Nội dung đề</th>
-            <th>Câu / Ghi chú GV</th>
-            <th>Dạng / Đáp án</th>
-            <th>Phương án A</th>
-            <th>Phương án B</th>
-            <th>Phương án C</th>
-            <th>Phương án D</th>
-            <th>Phương án E</th>
-            <th>Phương án F</th>
-            <th>Phương án G</th>
-            <th>Phương án H</th>
+            <th scope="col">Sheet / Dòng</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Bài kiểm tra / Phần</th>
+            <th scope="col">Nhóm / Hướng dẫn</th>
+            <th scope="col">Nhóm / Bài đọc</th>
+            <th scope="col">Nhóm / Transcript</th>
+            <th scope="col">Nhóm / Tài nguyên</th>
+            <th scope="col">Nhóm / Câu</th>
+            <th scope="col">Câu / Tài nguyên</th>
+            <th scope="col">Câu / Nội dung đề</th>
+            <th scope="col">Câu / Ghi chú GV</th>
+            <th scope="col">Dạng / Đáp án</th>
+            <th scope="col">Phương án A</th>
+            <th scope="col">Phương án B</th>
+            <th scope="col">Phương án C</th>
+            <th scope="col">Phương án D</th>
+            <th scope="col">Phương án E</th>
+            <th scope="col">Phương án F</th>
+            <th scope="col">Phương án G</th>
+            <th scope="col">Phương án H</th>
           </tr>
           </thead>
           <tbody id="preview-rows"></tbody>
@@ -143,6 +153,7 @@
 </dialog>
 
 <style>
+  .excel-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   .excel-import-page{min-height:100vh;background:#f7f8fc;padding:32px 20px}
   .excel-import-shell{max-width:980px;margin:0 auto}
   .excel-import-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}
@@ -158,7 +169,7 @@
   .excel-preview-dialog{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(100vh - 32px);background:#fff}
   .excel-preview-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid #e3e7ef}
   .excel-preview-header h2{margin:3px 0 0;font-size:1.25rem;letter-spacing:0}
-  .excel-icon-button{width:36px;height:36px;border:0;background:transparent;color:#5f6b7a;font-size:1.75rem;line-height:1;cursor:pointer;border-radius:6px}
+  .excel-icon-button{width:36px;height:36px;border:0;background:transparent;color:#5f6b7a;display:inline-flex;align-items:center;justify-content:center;line-height:1;cursor:pointer;border-radius:6px}
   .excel-icon-button:hover,.excel-icon-button:focus-visible{background:#f1f3f7;color:#172033;outline:2px solid transparent}
   .excel-preview-body{min-height:0;overflow:auto;padding:22px 24px}
   .excel-preview-context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
@@ -210,6 +221,9 @@
     .excel-preview-header,.excel-preview-body,.excel-preview-footer{padding-left:16px;padding-right:16px}
     .excel-preview-context{grid-template-columns:1fr}.excel-preview-toolbar{align-items:stretch;flex-direction:column}.excel-filter-tabs,.excel-view-switch{overflow:auto}.excel-compact-question{grid-template-columns:1fr}.excel-question-options,.excel-question-messages{grid-column:1}.excel-shared-content{grid-template-columns:1fr}
   }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+  }
 </style>
 
 <script th:inline="javascript">
@@ -228,6 +242,7 @@
   let activeFilter = 'ALL';
   let activeView = 'STRUCTURE';
   let pendingMediaByRef = new Map();
+  let previewReturnFocus = null;
   const mediaObjectUrls = new Map();
 
   function resetPreview() {
@@ -640,7 +655,11 @@
     activeView = 'STRUCTURE';
     syncPreviewControls();
     renderAllPreviewViews();
-    document.querySelector(`[data-row-key="${CSS.escape(String(rowKey))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelector(`[data-row-key="${CSS.escape(String(rowKey))}"]`)?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center'
+    });
   }
 
   function syncPreviewControls() {
@@ -648,9 +667,13 @@
       const selected = item.dataset.filter === activeFilter;
       item.classList.toggle('is-active', selected);
       item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
     });
-    document.querySelectorAll('#preview-view-switch button').forEach(item =>
-      item.classList.toggle('is-active', item.dataset.view === activeView));
+    document.querySelectorAll('#preview-view-switch button').forEach(item => {
+      const selected = item.dataset.view === activeView;
+      item.classList.toggle('is-active', selected);
+      item.setAttribute('aria-pressed', String(selected));
+    });
     document.getElementById('excel-compact-preview').hidden = activeView !== 'STRUCTURE';
     document.getElementById('excel-detail-preview').hidden = activeView !== 'DETAIL';
   }
@@ -793,7 +816,11 @@
     confirmImportButton.textContent = result.canImport
       ? `Nhập ${result.importableQuestionCount} câu`
       : 'Không có dòng hợp lệ';
-    if (!previewModal.open) previewModal.showModal();
+    if (!previewModal.open) {
+      previewReturnFocus = document.activeElement;
+      previewModal.showModal();
+      document.getElementById('close-preview').focus();
+    }
   }
 
   async function uploadMediaFile(file, kind) {
@@ -837,6 +864,7 @@
     } catch (error) {
       pageError.textContent = error.message;
       pageError.hidden = false;
+      pageError.focus();
     } finally {
       setLoading(previewButton, false, 'Đang kiểm tra...');
     }
@@ -850,8 +878,29 @@
       const selected = item === button;
       item.classList.toggle('is-active', selected);
       item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
     });
     renderAllPreviewViews();
+  });
+
+  document.getElementById('preview-filters').addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = Array.from(
+      document.querySelectorAll('#preview-filters button[role="tab"]'));
+    const currentIndex = tabs.indexOf(event.target);
+    if (currentIndex < 0) return;
+    event.preventDefault();
+    let targetIndex = currentIndex;
+    if (event.key === 'Home') targetIndex = 0;
+    if (event.key === 'End') targetIndex = tabs.length - 1;
+    if (event.key === 'ArrowLeft') {
+      targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    }
+    if (event.key === 'ArrowRight') {
+      targetIndex = (currentIndex + 1) % tabs.length;
+    }
+    tabs[targetIndex].focus();
+    tabs[targetIndex].click();
   });
 
   document.getElementById('preview-view-switch').addEventListener('click', event => {
@@ -877,10 +926,18 @@
       const globalIssueList = document.getElementById('global-issue-list');
       globalIssueList.textContent = error.message;
       globalIssueList.hidden = false;
+      globalIssueList.focus();
     }
   });
 
   document.getElementById('close-preview').addEventListener('click', () => previewModal.close());
+  previewModal.addEventListener('close', () => {
+    if (previewReturnFocus instanceof HTMLElement
+        && document.contains(previewReturnFocus)) {
+      previewReturnFocus.focus();
+    }
+    previewReturnFocus = null;
+  });
   document.getElementById('choose-other-file').addEventListener('click', () => {
     previewModal.close();
     fileInput.click();

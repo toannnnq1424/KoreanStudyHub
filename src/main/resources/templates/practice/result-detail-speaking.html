@@ -5,10 +5,11 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
 </head>
 <body class="prd-body">
-<header class="prd-header">
+<header class="prd-header prd-boundary-header">
   <a class="prd-back-btn"
      th:href="@{/practice/attempts/{id}/result(id=${resultDetail.identity().attemptId()})}">
-    <span aria-hidden="true">&larr;</span> Quay lại kết quả
+    <svg th:replace="~{practice/fragments/icons :: chevronLeft}"></svg>
+    Quay lại kết quả
   </a>
   <strong>Chi tiết kết quả Nói</strong>
   <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>

@@ -5,7 +5,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body import-wizard-page">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
 
 <div class="pi-container">
@@ -14,7 +14,7 @@
   <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('manage')}"></aside>
 
   <!-- ═══ MAIN CONTENT ═══ -->
-  <main class="pi-main-wrapper" style="background: #F6F8FC; min-height: calc(100vh - 60px); padding: 32px;">
+  <main class="pi-main-wrapper import-main" style="background: #F6F8FC; min-height: calc(100vh - 60px); padding: 32px;">
     <div class="pp-content-container" style="max-width: 1200px; margin: 0 auto;">
       
       <!-- CSRF tokens for AJAX -->
@@ -22,7 +22,7 @@
       <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 
       <!-- Header Section -->
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+      <div class="import-page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
         <div>
           <span style="font-size:0.75rem; font-weight:700; color:#687389; text-transform:uppercase; letter-spacing:0.05em;">Không gian giảng viên</span>
           <h1 style="font-size:1.8rem; font-weight:800; color:#172033; margin:4px 0 0 0;">Nhập đề thi từ PDF</h1>
@@ -36,10 +36,10 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 7fr 5fr; gap: 32px;">
+      <div class="import-content-grid" style="display: grid; grid-template-columns: 7fr 5fr; gap: 32px;">
         
         <!-- Cột trái: Form Upload & Cấu hình -->
-        <div style="background: #ffffff; border: 1px solid #E5EAF2; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <div class="import-card" style="background: #ffffff; border: 1px solid #E5EAF2; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
           <h2 style="font-size:1.2rem; font-weight:700; color:#172033; margin:0 0 24px 0; border-bottom: 1px solid #E5EAF2; padding-bottom:12px;">Thông tin tài liệu</h2>
 
           <form id="import-upload-form" onsubmit="handleImportSubmit(event)">
@@ -57,7 +57,8 @@
                           th:text="|Bài kiểm tra ${section.testNo} · ${section.lessonCode} · ${section.title}|">Bài kiểm tra 1 · R1 · Phần Đọc</option>
                 </select>
               </div>
-              <div th:unless="${pdfImportContext != null}" style="display:grid; grid-template-columns:120px 1fr; gap:12px;">
+              <div class="import-target-grid" th:unless="${pdfImportContext != null}"
+                   style="display:grid; grid-template-columns:120px 1fr; gap:12px;">
                 <div>
                   <label for="target-test-no" style="display:block; font-size:0.82rem; font-weight:600; color:#344054; margin-bottom:7px;">Bài kiểm tra</label>
                   <input id="target-test-no" type="number" value="1" min="1" class="form-select" oninput="updateDestinationSummary()"
@@ -79,7 +80,7 @@
             </div>
 
             <!-- Page range constraints -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div class="import-page-range" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
               <div>
                 <label for="startPage" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Trang bắt đầu</label>
                 <input type="number" id="startPage" name="startPage" value="1" min="1" style="width:100%; padding:12px; border-radius:8px; border:1px solid #E5EAF2; background:#F8FAFD; box-sizing:border-box; font-size:0.9rem;" required>
@@ -105,16 +106,22 @@
 
             <!-- Upload PDF file Area -->
             <div style="margin-bottom: 32px;">
-              <label style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Tải tệp PDF đề thi lên</label>
-              <div id="dropzone" style="border: 2px dashed #4F6EF7; padding: 40px; border-radius: 12px; background: rgba(79,110,247,0.01); cursor: pointer; text-align:center; transition: all 0.2s;" onclick="document.getElementById('file-input').click()">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4F6EF7" stroke-width="2" style="margin-bottom:12px; opacity:0.8;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <div style="font-size:0.9rem; font-weight:700; color:#172033; margin-bottom:4px;" id="dropzone-text">Chọn tệp PDF hoặc kéo thả tại đây</div>
-                <div style="font-size:0.75rem; color:#687389;">Dung lượng tối đa: 20MB. Chỉ hỗ trợ định dạng PDF.</div>
-                <input type="file" id="file-input" name="file" accept="application/pdf" style="display:none;" onchange="handleFileSelect(event)">
-              </div>
+              <label for="file-input" style="display:block; font-size:0.8rem; font-weight:700; color:#687389; text-transform:uppercase; margin-bottom:8px;">Tải tệp PDF đề thi lên</label>
+              <input type="file" id="file-input" name="file"
+                     accept="application/pdf" class="import-visually-hidden"
+                     tabindex="-1" aria-hidden="true"
+                     aria-describedby="dropzone-help" onchange="handleFileSelect(event)">
+              <button type="button" id="dropzone" class="import-dropzone"
+                      aria-controls="file-input" aria-labelledby="dropzone-text"
+                      aria-describedby="dropzone-help"
+                      onclick="document.getElementById('file-input').click()">
+                <svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4F6EF7" stroke-width="2" style="margin-bottom:12px; opacity:0.8;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span style="display:block; font-size:0.9rem; font-weight:700; color:#172033; margin-bottom:4px;" id="dropzone-text">Chọn tệp PDF hoặc kéo thả tại đây</span>
+                <span id="dropzone-help" style="display:block; font-size:0.75rem; color:#687389;">Dung lượng tối đa: 20MB. Chỉ hỗ trợ định dạng PDF.</span>
+              </button>
             </div>
 
-            <button type="submit" id="submit-btn" style="width: 100%; background: #4F6EF7; color: #fff; padding: 14px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: background 0.2s; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <button type="submit" id="submit-btn" style="width: 100%; background: #3B57D4; color: #fff; padding: 14px; border-radius: 10px; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; transition: background 0.2s; display:flex; align-items:center; justify-content:center; gap:8px;">
               <span>Bắt đầu kiểm tra PDF</span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </button>
@@ -158,7 +165,7 @@
                 </div>
                 <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
                   <span style="font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;" 
-                        th:styleappend="${s.status == 'UPLOADED' ? 'background:rgba(79,110,247,0.1); color:#4F6EF7;' : (s.status == 'ANNOTATING' ? 'background:rgba(217,144,0,0.1); color:#D99000;' : (s.status == 'AI_COMPLETED' || s.status == 'REVIEWING' ? 'background:rgba(34,160,107,0.1); color:#22A06B;' : 'background:#e2e8f0; color:#475569;'))}">
+                        th:styleappend="${s.status == 'UPLOADED' ? 'background:rgba(79,110,247,0.1); color:#3B57D4;' : (s.status == 'ANNOTATING' ? 'background:rgba(217,144,0,0.1); color:#8A5700;' : (s.status == 'AI_COMPLETED' || s.status == 'REVIEWING' ? 'background:rgba(34,160,107,0.1); color:#087A4F;' : 'background:#e2e8f0; color:#475569;'))}">
                     <th:block th:switch="${s.status}">
                       <span th:case="'UPLOADED'">Đã tải PDF</span>
                       <span th:case="'ANNOTATING'">Đang đánh dấu</span>
@@ -171,7 +178,11 @@
                     </th:block>
                   </span>
                   
-                  <a th:href="@{/practice/manage/import-sessions/{id}/workspace(id=${s.id})}" style="font-size:0.8rem; font-weight:700; color:#4F6EF7; text-decoration:none;">Tiếp tục →</a>
+                  <a th:href="@{/practice/manage/import-sessions/{id}/workspace(id=${s.id})}"
+                     style="display:inline-flex; align-items:center; gap:4px; font-size:0.8rem; font-weight:700; color:#3B57D4; text-decoration:none;">
+                    Tiếp tục
+                    <svg th:replace="~{practice/fragments/icons :: chevronRight}"></svg>
+                  </a>
                 </div>
               </div>
             </div>
@@ -186,21 +197,114 @@
 </div>
 
 <!-- Full Screen Loading Spinner Overlay -->
-<div class="spinner-overlay" id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif;">
+<div class="spinner-overlay" id="loading-overlay" role="status"
+     aria-live="polite" aria-atomic="true" aria-hidden="true" hidden inert
+     style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; font-family: 'Inter', sans-serif;">
   <div style="width: 48px; height: 48px; border: 4px solid rgba(79,110,247,0.1); border-top-color: #4F6EF7; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
   <h3 style="margin:0 0 6px 0; color:#172033; font-weight:700;">Đang khởi tạo không gian nhập PDF...</h3>
   <p style="margin:0; font-size:0.82rem; color:#687389;">Hệ thống đang tải lên tệp tin và bóc tách cấu trúc trang PDF.</p>
 </div>
 
 <style>
+  .import-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .import-dropzone {
+    box-sizing: border-box;
+    width: 100%;
+    border: 2px dashed #4F6EF7;
+    padding: 40px;
+    border-radius: 12px;
+    background: rgba(79,110,247,0.01);
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s, border-color 0.2s;
+    font: inherit;
+  }
+  .import-content-grid > * {
+    min-width: 0;
+  }
+  .import-dropzone:focus-visible {
+    outline: 3px solid rgba(79,110,247,0.35);
+    outline-offset: 3px;
+  }
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+  @media (max-width: 768px) {
+    .import-main {
+      padding: 16px !important;
+    }
+    .import-page-header {
+      align-items: flex-start !important;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .import-content-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+      gap: 20px !important;
+    }
+    .import-card {
+      min-width: 0;
+      padding: 20px !important;
+    }
+  }
+  @media (max-width: 480px) {
+    .import-page-range,
+    .import-target-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .import-dropzone {
+      padding: 28px 16px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .import-wizard-page *,
+    .import-wizard-page *::before,
+    .import-wizard-page *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+    .spinner-overlay > div:first-child {
+      animation: none !important;
+    }
   }
 </style>
 
 <script th:inline="javascript">
   const LINKED_IMPORT_CONTEXT = /*[[${pdfImportContext}]]*/ null;
   let selectedFile = null;
+
+  function setImportLoading(loading) {
+    const overlay = document.getElementById('loading-overlay');
+    const form = document.getElementById('import-upload-form');
+    const submitButton = document.getElementById('submit-btn');
+    if (loading) {
+      overlay.hidden = false;
+      overlay.removeAttribute('inert');
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.style.display = 'flex';
+      form.setAttribute('aria-busy', 'true');
+      submitButton.disabled = true;
+      return;
+    }
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('inert', '');
+    overlay.hidden = true;
+    form.removeAttribute('aria-busy');
+    submitButton.disabled = false;
+  }
 
   function skillLabel(skill) {
     return { READING: 'Phần Đọc', LISTENING: 'Phần Nghe', WRITING: 'Phần Viết', SPEAKING: 'Phần Nói' }[skill] || skill;
@@ -316,7 +420,7 @@
     }
 
     // Show Loading
-    document.getElementById('loading-overlay').style.display = 'flex';
+    setImportLoading(true);
 
     // Retrieve CSRF
     const token = document.querySelector('meta[name="_csrf"]').content;
@@ -355,7 +459,7 @@
       window.location.href = `/practice/manage/import-sessions/${session.id}/workspace`;
     } catch (err) {
       alert("Lỗi: " + err.message);
-      document.getElementById('loading-overlay').style.display = 'none';
+      setImportLoading(false);
     }
   }
 </script>

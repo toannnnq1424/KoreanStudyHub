@@ -10,6 +10,8 @@ import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.repository.PracticeAttemptRepository.CatalogAttemptStateProjection;
+import com.ksh.features.practice.repository.PracticeAttemptRepository.CatalogCompletedSectionProjection;
 import com.ksh.features.practice.repository.PracticeAttemptRepository.GlobalResumeProjection;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -28,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,6 +42,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,9 +67,13 @@ class PracticeCatalogServiceTest {
         lenient().when(attemptRepository.findGlobalResumeCandidates(
                 anyLong(), anyList(), any()))
                 .thenReturn(List.of());
-        lenient().when(
-                        attemptRepository.findCoherentAttemptIdentityIds(
-                                anyLong(), anyList()))
+        lenient().when(attemptRepository.findCatalogCompletedSections(
+                        anyLong(), anyList()))
+                .thenReturn(List.of());
+        lenient().when(attemptRepository.findCatalogAttemptStateCandidates(
+                        anyLong(), anyList(), anyString()))
+                .thenReturn(List.of());
+        lenient().when(attemptRepository.findAllById(anyList()))
                 .thenReturn(List.of());
     }
 
@@ -75,7 +83,6 @@ class PracticeCatalogServiceTest {
         PracticeTest test = test(TEST_ID, SET_ID);
         PracticeSection listening = section(31L, SET_ID, TEST_ID, "LISTENING", 1);
         PracticeSection reading = section(32L, SET_ID, TEST_ID, "READING", 2);
-        PracticeAttempt listeningAttempt = completedAttempt(41L, listening, false);
         PracticeAttempt readingAttempt = completedAttempt(42L, reading, true);
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
@@ -89,9 +96,16 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(test));
         when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(reading, listening));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+        when(attemptRepository.findCatalogCompletedSections(
+                USER_ID, List.of(32L, 31L)))
+                .thenReturn(List.of(
+                        completedSection(SET_ID, 31L),
+                        completedSection(SET_ID, 32L)));
+        when(attemptRepository.findCatalogAttemptStateCandidates(
                 USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
-                .thenReturn(List.of(readingAttempt, listeningAttempt));
+                .thenReturn(List.of(stateCandidate(42L, SET_ID, 2)));
+        when(attemptRepository.findAllById(List.of(42L)))
+                .thenReturn(List.of(readingAttempt));
 
         PracticeCatalogBatch batch = service.loadBatch(
                 USER_ID, new PracticeCatalogQuery(
@@ -120,9 +134,11 @@ class PracticeCatalogServiceTest {
 
         verify(testRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
         verify(sectionRepository).findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID));
-        verify(attemptRepository)
-                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-                        USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED);
+        verify(attemptRepository).findCatalogCompletedSections(
+                USER_ID, List.of(32L, 31L));
+        verify(attemptRepository).findCatalogAttemptStateCandidates(
+                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED);
+        verify(attemptRepository).findAllById(List.of(42L));
     }
 
     @Test
@@ -166,8 +182,10 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(test));
         when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(section));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+        when(attemptRepository.findCatalogAttemptStateCandidates(
                 USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of(stateCandidate(41L, SET_ID, 2)));
+        when(attemptRepository.findAllById(List.of(41L)))
                 .thenReturn(List.of(attempt));
 
         PracticeCatalogBatch batch = service.loadBatch(
@@ -196,10 +214,6 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(test));
         when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(reading, listening));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
-                .thenReturn(List.of());
-
         PracticeCatalogBatch batch = service.loadBatch(
                 USER_ID, new PracticeCatalogQuery(null, "ALL", "ALL", null, 0));
 
@@ -231,9 +245,17 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(test));
         when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(speaking));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
+        when(attemptRepository.findCatalogAttemptStateCandidates(
                 USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
-                .thenReturn(List.of(graded), List.of(queued), List.of(failed));
+                .thenReturn(
+                        List.of(stateCandidate(41L, SET_ID, 2)),
+                        List.of(stateCandidate(42L, SET_ID, 2)),
+                        List.of(stateCandidate(43L, SET_ID, 2)));
+        when(attemptRepository.findAllById(anyList()))
+                .thenReturn(
+                        List.of(graded),
+                        List.of(queued),
+                        List.of(failed));
 
         PracticeCatalogQuery query =
                 new PracticeCatalogQuery("", "SPEAKING", "Q54", null, 0);
@@ -271,10 +293,6 @@ class PracticeCatalogServiceTest {
                 .thenReturn(List.of(test));
         when(sectionRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(writing));
-        when(attemptRepository.findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
-                .thenReturn(List.of());
-
         PracticeCatalogBatch batch = service.loadBatch(
                 USER_ID,
                 new PracticeCatalogQuery(
@@ -350,13 +368,6 @@ class PracticeCatalogServiceTest {
         when(sectionRepository
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of());
-        when(attemptRepository
-                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-                        USER_ID,
-                        List.of(SET_ID),
-                        PracticeAttempt.STATUS_DISCARDED))
-                .thenReturn(List.of());
-
         PracticeCatalogBatch batch = service.loadBatch(
                 USER_ID,
                 new PracticeCatalogQuery(
@@ -398,11 +409,10 @@ class PracticeCatalogServiceTest {
         when(sectionRepository
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(section));
-        when(attemptRepository
-                .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
-                        USER_ID,
-                        List.of(SET_ID),
-                        PracticeAttempt.STATUS_DISCARDED))
+        when(attemptRepository.findCatalogAttemptStateCandidates(
+                USER_ID, List.of(SET_ID), PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(List.of(stateCandidate(401L, SET_ID, 1)));
+        when(attemptRepository.findAllById(List.of(401L)))
                 .thenReturn(List.of(incoherent));
 
         PracticeCatalogBatch batch = service.loadBatch(
@@ -414,6 +424,161 @@ class PracticeCatalogServiceTest {
             assertThat(card.resumeAttemptId()).isNull();
         });
         assertThat(batch.globalResume()).isNull();
+    }
+
+    @Test
+    void tenThousandSetCatalogKeepsRepositoryCallsConstantAndHydratesTwelveStateCandidates() {
+        PageRequest request =
+                PageRequest.of(417, PracticeCatalogService.BATCH_SIZE);
+        List<PracticeSet> pageSets = LongStream.rangeClosed(1, 12)
+                .mapToObj(offset -> set(
+                        5_000L + offset,
+                        "Bộ đề trang lớn " + offset,
+                        PracticeSet.SKILL_READING))
+                .toList();
+        List<Long> pageSetIds =
+                pageSets.stream().map(PracticeSet::getId).toList();
+        List<PracticeAttempt> stateAttempts = LongStream.rangeClosed(1, 12)
+                .mapToObj(offset -> {
+                    PracticeAttempt attempt = new PracticeAttempt(
+                            USER_ID,
+                            5_000L + offset,
+                            6_000L + offset,
+                            "READING",
+                            7_000L + offset);
+                    ReflectionTestUtils.setField(
+                            attempt, "id", 8_000L + offset);
+                    return attempt;
+                })
+                .toList();
+        List<Long> stateAttemptIds =
+                stateAttempts.stream().map(PracticeAttempt::getId).toList();
+        List<CatalogAttemptStateProjection> stateRows =
+                LongStream.rangeClosed(1, 12)
+                        .mapToObj(offset -> stateCandidate(
+                                8_000L + offset,
+                                5_000L + offset,
+                                1))
+                        .toList();
+
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "",
+                "",
+                null,
+                request))
+                .thenReturn(new PageImpl<>(pageSets, request, 10_000));
+        when(testRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds))
+                .thenReturn(List.of());
+        when(sectionRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds))
+                .thenReturn(List.of());
+        when(attemptRepository.findCatalogAttemptStateCandidates(
+                USER_ID, pageSetIds, PracticeAttempt.STATUS_DISCARDED))
+                .thenReturn(stateRows);
+        when(attemptRepository.findAllById(stateAttemptIds))
+                .thenReturn(stateAttempts);
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery("", "ALL", "ALL", null, 417));
+
+        assertThat(batch.items()).hasSize(PracticeCatalogService.BATCH_SIZE);
+        assertThat(batch.totalElements()).isEqualTo(10_000);
+        assertThat(batch.batch()).isEqualTo(417);
+        assertThat(batch.hasMore()).isTrue();
+        verify(learnerAccessService).activeClassIds(USER_ID);
+        verify(setRepository).findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "",
+                "",
+                null,
+                request);
+        verify(testRepository)
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds);
+        verify(sectionRepository)
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds);
+        verify(attemptRepository).findGlobalResumeCandidates(
+                USER_ID, List.of(-1L), PageRequest.of(0, 1));
+        verify(attemptRepository).findCatalogAttemptStateCandidates(
+                USER_ID, pageSetIds, PracticeAttempt.STATUS_DISCARDED);
+        verify(attemptRepository).findAllById(stateAttemptIds);
+        verify(attemptRepository, never())
+                .findCatalogCompletedSections(anyLong(), anyList());
+        verifyNoMoreInteractions(
+                learnerAccessService,
+                classRepository,
+                setRepository,
+                testRepository,
+                sectionRepository,
+                attemptRepository);
+    }
+
+    @Test
+    void batchBeyondLastPageClampsToTheLastRealServerPage() {
+        PageRequest requested =
+                PageRequest.of(999, PracticeCatalogService.BATCH_SIZE);
+        PageRequest last =
+                PageRequest.of(1, PracticeCatalogService.BATCH_SIZE);
+        PracticeSet lastSet =
+                set(SET_ID, "Bộ đề cuối", PracticeSet.SKILL_READING);
+
+        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
+        when(setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "",
+                "",
+                null,
+                requested))
+                .thenReturn(new PageImpl<>(List.of(), requested, 13));
+        when(setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                USER_ID,
+                List.of(-1L),
+                0L,
+                "",
+                "",
+                null,
+                last))
+                .thenReturn(new PageImpl<>(List.of(lastSet), last, 13));
+        when(testRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of());
+        when(sectionRepository
+                .findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
+                .thenReturn(List.of());
+
+        PracticeCatalogBatch batch = service.loadBatch(
+                USER_ID,
+                new PracticeCatalogQuery("", "ALL", "ALL", null, 999));
+
+        assertThat(batch.batch()).isEqualTo(1);
+        assertThat(batch.items()).extracting(item -> item.id())
+                .containsExactly(SET_ID);
+        assertThat(batch.firstItemNumber()).isEqualTo(13);
+        assertThat(batch.lastItemNumber()).isEqualTo(13);
+        assertThat(batch.totalElements()).isEqualTo(13);
+        assertThat(batch.hasPrevious()).isTrue();
+        assertThat(batch.hasMore()).isFalse();
     }
 
     private PracticeSet set(long id, String title, String skill) {
@@ -450,5 +615,45 @@ class PracticeCatalogServiceTest {
         }
         ReflectionTestUtils.setField(attempt, "id", id);
         return attempt;
+    }
+
+    private CatalogCompletedSectionProjection completedSection(
+            long setId,
+            long sectionId
+    ) {
+        return new CatalogCompletedSectionProjection() {
+            @Override
+            public Long getSetId() {
+                return setId;
+            }
+
+            @Override
+            public Long getSectionId() {
+                return sectionId;
+            }
+        };
+    }
+
+    private CatalogAttemptStateProjection stateCandidate(
+            long attemptId,
+            long setId,
+            int priority
+    ) {
+        return new CatalogAttemptStateProjection() {
+            @Override
+            public Long getAttemptId() {
+                return attemptId;
+            }
+
+            @Override
+            public Long getSetId() {
+                return setId;
+            }
+
+            @Override
+            public Integer getStatePriority() {
+                return priority;
+            }
+        };
     }
 }

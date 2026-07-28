@@ -9,7 +9,7 @@
   <header class="pr-topbar">
     <a class="pr-back-link"
        th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
-      <span aria-hidden="true">&larr;</span>
+      <svg th:replace="~{practice/fragments/icons :: chevronLeft}"></svg>
       Quay lại bài luyện
     </a>
     <strong>Kết quả luyện tập</strong>

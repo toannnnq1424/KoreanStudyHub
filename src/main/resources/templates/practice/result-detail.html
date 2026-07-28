@@ -20,8 +20,9 @@
 <!-- Header fixed top bar -->
 <header class="prd-header">
   <div class="prd-header-left">
-    <a class="prd-back-btn" th:href="@{/practice/attempts/{id}/result(id=${result.submissionId()})}">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    <a class="prd-back-btn" aria-label="Quay lại kết quả"
+       th:href="@{/practice/attempts/{id}/result(id=${result.submissionId()})}">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </a>
   </div>
   <div class="prd-header-center">
@@ -34,8 +35,10 @@
 
 <!-- Main shell -->
 <div class="prd-shell">
-  <div th:if="${success}" class="prd-flash prd-flash-success" th:text="${success}"></div>
-  <div th:if="${error}" class="prd-flash prd-flash-error" th:text="${error}"></div>
+  <div th:if="${success}" class="prd-flash prd-flash-success"
+       role="status" aria-live="polite" th:text="${success}"></div>
+  <div th:if="${error}" class="prd-flash prd-flash-error"
+       role="alert" aria-live="assertive" th:text="${error}"></div>
 
   <section class="prd-speaking-media" th:if="${result.set().skill() == 'SPEAKING'}">
     <h2>Bản ghi câu trả lời Nói</h2>

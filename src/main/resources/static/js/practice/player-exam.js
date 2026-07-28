@@ -3,6 +3,9 @@
 
   const player = document.querySelector('.exam-player');
   if (!player) return;
+  const reducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  );
 
   const attemptId = player.dataset.attemptId || 'unknown';
   const skill = player.dataset.skill || '';
@@ -102,7 +105,10 @@
     updateProgress();
     if (shouldFocus) {
       player.querySelectorAll('.exam-source-pane, .exam-question-pane, .writing-source-pane, .writing-answer-pane')
-        .forEach((pane) => pane.scrollTo({ top: 0, behavior: 'smooth' }));
+        .forEach((pane) => pane.scrollTo({
+          top: 0,
+          behavior: reducedMotion.matches ? 'auto' : 'smooth'
+        }));
       const firstAnswer = questionStage && questionStage.querySelector('input:not([type="hidden"]), textarea');
       if (firstAnswer && window.matchMedia('(max-width: 900px)').matches) firstAnswer.focus({ preventScroll: true });
     }
@@ -225,7 +231,10 @@
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
       range.value = duration > 0 ? String(Math.round((audio.currentTime / duration) * 1000)) : '0';
       time.textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
-      toggle.textContent = audio.paused ? '▶' : 'Ⅱ';
+      const playIcon = toggle.querySelector('[data-audio-icon-play]');
+      const pauseIcon = toggle.querySelector('[data-audio-icon-pause]');
+      if (playIcon) playIcon.hidden = !audio.paused;
+      if (pauseIcon) pauseIcon.hidden = audio.paused;
       toggle.setAttribute('aria-label', audio.paused ? 'Phát âm thanh' : 'Tạm dừng âm thanh');
     };
     toggle.addEventListener('click', () => {
@@ -393,6 +402,7 @@
   const notesList = player.querySelector('[data-notes-list]');
   const notesEmpty = player.querySelector('[data-notes-empty]');
   const noteCount = player.querySelector('[data-note-count]');
+  let notesReturnFocus = null;
 
   const renderNotes = () => {
     if (!notesList) return;
@@ -427,23 +437,65 @@
     }
   };
 
-  const openNotes = () => {
+  const openNotes = (event) => {
+    notesReturnFocus = event?.currentTarget || document.activeElement;
     if (notesDrawer) {
       notesDrawer.classList.add('is-open');
       notesDrawer.setAttribute('aria-hidden', 'false');
+      notesDrawer.removeAttribute('inert');
+      notesDrawer.querySelector('[data-note-close]')?.focus();
     }
+    player.querySelectorAll('[data-note-toggle]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'true');
+    });
     if (notesBackdrop) notesBackdrop.classList.add('is-open');
   };
   const closeNotes = () => {
     if (notesDrawer) {
       notesDrawer.classList.remove('is-open');
       notesDrawer.setAttribute('aria-hidden', 'true');
+      notesDrawer.setAttribute('inert', '');
     }
+    player.querySelectorAll('[data-note-toggle]').forEach((button) => {
+      button.setAttribute('aria-expanded', 'false');
+    });
     if (notesBackdrop) notesBackdrop.classList.remove('is-open');
+    if (notesReturnFocus instanceof HTMLElement
+        && document.contains(notesReturnFocus)) {
+      notesReturnFocus.focus();
+    }
+    notesReturnFocus = null;
   };
   player.querySelectorAll('[data-note-toggle]').forEach((button) => button.addEventListener('click', openNotes));
   player.querySelectorAll('[data-note-close]').forEach((button) => button.addEventListener('click', closeNotes));
   if (notesBackdrop) notesBackdrop.addEventListener('click', closeNotes);
+  document.addEventListener('keydown', (event) => {
+    if (!notesDrawer?.classList.contains('is-open')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeNotes();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(notesDrawer.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), '
+      + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(element => element.getClientRects().length > 0);
+    if (controls.length === 0) {
+      event.preventDefault();
+      notesDrawer.focus();
+      return;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
 
   const highlightButton = player.querySelector('[data-selection-highlight]');
   if (highlightButton) {
@@ -499,6 +551,7 @@
   });
 
   const timer = player.querySelector('[data-room-timer]');
+  const timerAnnouncement = player.querySelector('[data-timer-announcement]');
   if (timer) {
     const timerKey = `ksh-exam-timer:v2:${attemptId}`;
     const configured = Math.max(0, Number(timer.dataset.roomTimer) || 0);
@@ -516,6 +569,13 @@
         timer.textContent = formatTime(remaining);
         timer.classList.toggle('is-danger', remaining <= 300);
         sessionStore.set(timerKey, String(remaining));
+        if (timerAnnouncement && remaining === 300) {
+          timerAnnouncement.textContent = 'Còn 5 phút làm bài.';
+        } else if (timerAnnouncement && remaining === 60) {
+          timerAnnouncement.textContent = 'Còn 1 phút làm bài.';
+        } else if (timerAnnouncement && remaining === 0) {
+          timerAnnouncement.textContent = 'Đã hết giờ. Bài đang được nộp.';
+        }
       };
       paintTimer();
       const interval = window.setInterval(() => {
