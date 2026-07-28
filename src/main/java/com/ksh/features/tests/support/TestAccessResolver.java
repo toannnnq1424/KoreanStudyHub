@@ -115,6 +115,18 @@ public class TestAccessResolver {
                 .orElseThrow(() -> new EntityNotFoundException(ATTEMPT_NF_MSG));
     }
 
+    /**
+     * Returns and locks the caller's attempt for a lifecycle mutation.
+     *
+     * <p>The caller must already be inside a transaction. Holding this lock
+     * through grading prevents two submit requests from both observing
+     * {@code IN_PROGRESS}, and prevents a heartbeat from racing finalization.
+     */
+    public TestAttempt requireOwnAttemptForUpdate(Long attemptId, Long userId) {
+        return attemptRepository.findByIdAndUserIdForUpdate(attemptId, userId)
+                .orElseThrow(() -> new EntityNotFoundException(ATTEMPT_NF_MSG));
+    }
+
     /** Loads an attempt for a lecturer who owns the given exam (submissions review). */
     public TestAttempt requireAttemptForManageable(Long testId, Long attemptId, Long userId) {
         requireManageable(testId, userId);
