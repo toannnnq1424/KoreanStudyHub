@@ -155,6 +155,13 @@ class DetailTabsContractTest {
                 .contains("requestId !== navigationSequence");
 
         assertThat(tabs).containsOnlyOnce("navigate(href, true);");
+        assertThat(tabs)
+                .contains("if (isTab && link.classList.contains('active')")
+                .contains("sameUrl = new URL(href, window.location.origin).href ===")
+                .contains("if (sameUrl) {");
+        assertThat(tabs.indexOf("if (sameUrl) {"))
+                .as("an exact active-tab click is suppressed before dirty confirmation")
+                .isLessThan(tabs.indexOf("if (!dirtyGuard.confirmNavigation()) return;"));
         assertThat(tabs.indexOf("if (!dirtyGuard.confirmNavigation()) return;"))
                 .as("Cancel is decided before monitor teardown/loading")
                 .isLessThan(tabs.indexOf("navigate(href, true);"));
