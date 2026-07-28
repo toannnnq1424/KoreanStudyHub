@@ -8,9 +8,11 @@ import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.Valid
 import com.ksh.features.practice.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -28,7 +30,9 @@ public class PracticePdfAiPayloadBuilder {
     private final LecturerAssetRepository assetRepository;
     private final AssetStorageService assetStorage;
     private final ImportAiPayloadValidator payloadValidator;
+    private final PracticePdfAiLimits limits;
 
+    @Autowired
     public PracticePdfAiPayloadBuilder(PracticePdfRegionAnnotationRepository annotationRepository,
                                        PracticePdfImportSectionDraftRepository sectionDraftRepository,
                                        PracticePdfImportGroupDraftRepository groupDraftRepository,
@@ -36,7 +40,8 @@ public class PracticePdfAiPayloadBuilder {
                                        PracticePdfCropService cropService,
                                        LecturerAssetRepository assetRepository,
                                        AssetStorageService assetStorage,
-                                       ImportAiPayloadValidator payloadValidator) {
+                                       ImportAiPayloadValidator payloadValidator,
+                                       PracticePdfAiLimits limits) {
         this.annotationRepository = annotationRepository;
         this.sectionDraftRepository = sectionDraftRepository;
         this.groupDraftRepository = groupDraftRepository;
@@ -45,6 +50,30 @@ public class PracticePdfAiPayloadBuilder {
         this.assetRepository = assetRepository;
         this.assetStorage = assetStorage;
         this.payloadValidator = payloadValidator;
+        this.limits = limits;
+    }
+
+    PracticePdfAiPayloadBuilder(
+            PracticePdfRegionAnnotationRepository annotationRepository,
+            PracticePdfImportSectionDraftRepository sectionDraftRepository,
+            PracticePdfImportGroupDraftRepository groupDraftRepository,
+            PracticePdfPageExtractionService pageExtractionService,
+            PracticePdfCropService cropService,
+            LecturerAssetRepository assetRepository,
+            AssetStorageService assetStorage,
+            ImportAiPayloadValidator payloadValidator) {
+        this(
+                annotationRepository,
+                sectionDraftRepository,
+                groupDraftRepository,
+                pageExtractionService,
+                cropService,
+                assetRepository,
+                assetStorage,
+                payloadValidator,
+                new PracticePdfAiLimits(
+                        50, 100, 1_000_000, 5_242_880L, 20_971_520L,
+                        40_000_000L, Duration.ofMinutes(2)));
     }
 
     public PayloadInfo buildPayload(PracticePdfImportSession session) {
@@ -53,6 +82,12 @@ public class PracticePdfAiPayloadBuilder {
         int startPage = session.getSelectedStartPage();
         int endPage = session.getSelectedEndPage();
         String strategy = session.getExtractionStrategy() != null ? session.getExtractionStrategy() : "HYBRID";
+        int selectedPages = endPage - startPage + 1;
+        if (startPage < 1 || endPage < startPage
+                || selectedPages > limits.maxSelectedPages()) {
+            throw new IllegalArgumentException(
+                    "Phạm vi trang PDF vượt ngân sách xử lý an toàn.");
+        }
 
         // 1. Load section & group drafts
         List<PracticePdfImportSectionDraft> sectionDrafts = sectionDraftRepository.findBySessionIdOrderByDisplayOrderAsc(sessionId);
@@ -74,6 +109,10 @@ public class PracticePdfAiPayloadBuilder {
                 ignoredCount++;
             }
         }
+        if (inRangeAnnos.size() > limits.maxRegions()) {
+            throw new IllegalArgumentException(
+                    "Số vùng PDF vượt ngân sách xử lý an toàn.");
+        }
 
         // 3. Extract raw text from page range for total character stats
         StringBuilder rawTextBuilder = new StringBuilder();
@@ -83,14 +122,21 @@ public class PracticePdfAiPayloadBuilder {
         for (int p = startPage; p <= endPage; p++) {
             PracticePdfPageExtraction ext = pageExtractionService.extractOrGetPageText(session, p);
             if (ext.getRawText() != null) {
-                rawTextByPage.put(p, ext.getRawText());
-                rawTextBuilder.append(ext.getRawText()).append("\n");
-                totalRawChars += ext.getRawCharCount();
+                String rawText = ext.getRawText();
+                int rawCharacters = rawText.length();
+                if (rawCharacters
+                        > limits.maxTextCharacters() - totalRawChars) {
+                    throw new IllegalArgumentException(
+                            "Nội dung PDF vượt ngân sách ký tự an toàn.");
+                }
+                rawTextByPage.put(p, rawText);
+                rawTextBuilder.append(rawText).append("\n");
+                totalRawChars += rawCharacters;
 
                 PageContext context = new PageContext();
                 context.setPageNumber(p);
                 context.setRawText("");
-                context.setRawCharCount(ext.getRawCharCount());
+                context.setRawCharCount(rawCharacters);
                 context.setAllowEntityCreation(false);
                 context.setUsageRule("Page metadata only. Entity content must come from a traceable region.");
                 pageContexts.add(context);
@@ -103,6 +149,11 @@ public class PracticePdfAiPayloadBuilder {
         List<CropInfo> cropInfos = new ArrayList<>();
         long totalEstimatedBytes = 0;
         int totalSelectedChars = 0;
+        List<LecturerAsset> existingAssets =
+                assetRepository.findBySourceImportSessionId(sessionId);
+        if (existingAssets == null) {
+            existingAssets = List.of();
+        }
 
         for (PracticePdfRegionAnnotation ann : inRangeAnnos) {
             String regionId = "region-" + ann.getId();
@@ -150,8 +201,16 @@ public class PracticePdfAiPayloadBuilder {
                     String extractedText = areaTextExtractor.extractRegionText(pdfPath, ann.getPageNumber(),
                             ann.getxRatio(), ann.getyRatio(), ann.getWidthRatio(), ann.getHeightRatio());
                     rPayload.setOcrText(extractedText);
+                    if (extractedText.length()
+                            > limits.maxTextCharacters() - totalSelectedChars) {
+                        throw new IllegalArgumentException(
+                                "Nội dung vùng PDF vượt ngân sách ký tự an toàn.");
+                    }
                     totalSelectedChars += extractedText.length();
                 } catch (Exception e) {
+                    if (e instanceof IllegalArgumentException unsafeRequest) {
+                        throw unsafeRequest;
+                    }
                     log.error("[PayloadBuilder] Failed to extract text for region={}", regionId, e);
                 }
             }
@@ -159,7 +218,6 @@ public class PracticePdfAiPayloadBuilder {
             // Extract image crop
             if (Boolean.TRUE.equals(rPayload.getSendImage()) && ("HYBRID".equalsIgnoreCase(strategy) || "REGION_ONLY".equalsIgnoreCase(strategy))) {
                 try {
-                    List<LecturerAsset> existingAssets = assetRepository.findBySourceImportSessionId(sessionId);
                     Optional<LecturerAsset> match = PracticePdfRegionAssetSelector
                             .findCurrent(existingAssets, ann);
 
@@ -175,18 +233,46 @@ public class PracticePdfAiPayloadBuilder {
 
                     // Promote temporary data key representation
                     String base64Data = "";
-                    try (InputStream in = assetStorage.load(asset.getStorageKey()).getInputStream()) {
-                        byte[] bytes = in.readAllBytes();
-                        base64Data = "data:" + asset.getMimeType() + ";base64," + Base64.getEncoder().encodeToString(bytes);
+                    if (asset.getFileSize() == null
+                            || asset.getFileSize() < 0L
+                            || asset.getFileSize() > limits.maxImageBytes()) {
+                        throw new IllegalArgumentException(
+                                "Ảnh crop vượt ngân sách kích thước an toàn.");
                     }
+                    try (InputStream in = assetStorage.load(asset.getStorageKey()).getInputStream()) {
+                        byte[] bytes = in.readNBytes(
+                                Math.toIntExact(limits.maxImageBytes() + 1L));
+                        if (bytes.length > limits.maxImageBytes()) {
+                            throw new IllegalArgumentException(
+                                    "Ảnh crop vượt ngân sách kích thước an toàn.");
+                        }
+                        base64Data = "data:" + asset.getMimeType() + ";base64," + Base64.getEncoder().encodeToString(bytes);
 
-                    String assetUrl = "/practice/materials/" + asset.getId() + "/content";
-                    String assetRef = "asset-import-" + sessionId + "-" + regionId;
-                    rPayload.setAssetRef(assetRef);
+                        String assetUrl = "/practice/materials/" + asset.getId() + "/content";
+                        String assetRef = "asset-import-" + sessionId + "-" + regionId;
+                        rPayload.setAssetRef(assetRef);
 
-                    totalEstimatedBytes += asset.getFileSize();
-                    cropInfos.add(new CropInfo(regionId, ann.getPageNumber(), ann.getRegionType(), rPayload.getAssetRef(), rPayload.getPlacement(), assetUrl, base64Data, asset.getFileSize()));
+                        long actualImageBytes = bytes.length;
+                        if (actualImageBytes
+                                > limits.maxTotalImageBytes() - totalEstimatedBytes) {
+                            throw new IllegalArgumentException(
+                                    "Tổng ảnh crop vượt ngân sách request an toàn.");
+                        }
+                        totalEstimatedBytes += actualImageBytes;
+                        cropInfos.add(new CropInfo(
+                                regionId,
+                                ann.getPageNumber(),
+                                ann.getRegionType(),
+                                rPayload.getAssetRef(),
+                                rPayload.getPlacement(),
+                                assetUrl,
+                                base64Data,
+                                actualImageBytes));
+                    }
                 } catch (Exception e) {
+                    if (e instanceof IllegalArgumentException unsafeRequest) {
+                        throw unsafeRequest;
+                    }
                     log.error("[PayloadBuilder] Failed to crop image for region={}", regionId, e);
                 }
             }
@@ -201,10 +287,20 @@ public class PracticePdfAiPayloadBuilder {
                 RegionPayload pageRegion = fullPageRegion(
                         pageContext, rawTextByPage.getOrDefault(pageContext.getPageNumber(), ""));
                 regionPayloads.add(pageRegion);
-                totalSelectedChars += pageContext.getRawCharCount() != null
+                int pageCharacters = pageContext.getRawCharCount() != null
                         ? pageContext.getRawCharCount()
                         : 0;
+                if (pageCharacters
+                        > limits.maxTextCharacters() - totalSelectedChars) {
+                    throw new IllegalArgumentException(
+                            "Nội dung vùng PDF vượt ngân sách ký tự an toàn.");
+                }
+                totalSelectedChars += pageCharacters;
             }
+        }
+        if (regionPayloads.size() > limits.maxRegions()) {
+            throw new IllegalArgumentException(
+                    "Số vùng PDF vượt ngân sách xử lý an toàn.");
         }
 
         // 5. Build section hints
