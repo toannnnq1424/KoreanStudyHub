@@ -10,7 +10,7 @@
 
 | Field | Value |
 |---|---|
-| Audit status | PR #29 merged to `main` at `27466f69`; five code remediations plus this report are finalized on `codex/audit-retention-hardening`; PR, remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
+| Audit status | PR #31 merged to `main` at `ab980f27`; additional concurrency and password-reset remediations are in progress on `codex/audit-followup-hardening`; remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
 | Working branch observed | `codex/audit-retention-hardening` |
@@ -88,6 +88,9 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | QB-IMPORT-001 | High | Question-bank Excel preview omits CSRF and returns 403 | [x] | [x] |
 | QB-TAXONOMY-001 | High | Admin course categories and department question-bank categories are disconnected taxonomies | [x] | [x] Compatibility bridge; [ ] schema consolidation |
 | DB-INVENTORY-001 | Medium | The V60 developer schema contains 104 base tables and one view | [x] | [x] Inventory recorded; [ ] broader rationalization |
+| TEST-CONC-001 | High | Concurrent submit/heartbeat requests can both mutate one test attempt | [x] | [x] |
+| ASSIGN-CONC-001 | High | Concurrent assignment submit/grade can reopen graded work or race first insert | [x] | [x] |
+| AUTH-RESET-001 | High | Password-reset bearer tokens were stored/logged in reusable form and consumed without a lock | [x] | [x] |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1414,6 +1417,72 @@ unrelated discovery inside another commit.
     retention, row count, and actual size before proposing broader deletion.
 - Owner: Codex root
 - Commit: documentation-only follow-up
+- PR:
+
+### TEST-CONC-001 — test-attempt lifecycle mutations were not serialized
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: concurrent submit requests could both observe `IN_PROGRESS`, create
+  duplicate response rows, and overwrite the final score/status; heartbeat
+  could also race finalization.
+- Remediation:
+  - [x] Add an owner-scoped `PESSIMISTIC_WRITE` attempt lookup.
+  - [x] Use the same locked lookup for both `submit` and `heartbeat`.
+  - [x] Preserve the existing idempotent response for an already-closed attempt.
+- Verification: `TestAttemptLifecycleLockContractTest` passed; the contract
+  verifies the owner predicate, pessimistic lock, and both lifecycle call sites.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `d633c175`
+- PR:
+
+### ASSIGN-CONC-001 — assignment submit and grade could lose updates
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk:
+  - a student re-submit could pass the pre-grade check, race a lecturer grade,
+    and restore a `GRADED` submission to `SUBMITTED`;
+  - two first submissions could both observe no row and one would fail with a
+    raw unique-constraint error.
+- Remediation:
+  - [x] Lock the stable assignment parent before submit or grade.
+  - [x] Lock an existing student submission before updating it.
+  - [x] Use the same assignment-then-submission lock order in both workflows.
+- Verification: `AssignmentConcurrencyContractTest` and
+  `TestAttemptLifecycleLockContractTest` passed together, 2/2.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `26f8d327`
+- PR:
+
+### AUTH-RESET-001 — password-reset bearer credential exposure and consume race
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Original risk:
+  - raw bearer tokens were stored in the database and emitted in a DEBUG reset
+    URL when email delivery failed;
+  - unknown submitted email addresses were logged;
+  - two reset requests could consume the same still-valid token concurrently;
+  - reset pages did not explicitly disable caching or referrer disclosure.
+- Remediation:
+  - [x] Persist SHA-256 token digests for all newly issued links.
+  - [x] Retain a read-only raw-token compatibility fallback only for links
+    already issued within their one-hour TTL.
+  - [x] Use `PESSIMISTIC_WRITE` for token consumption.
+  - [x] Remove raw token, reset URL, recipient, and unknown-email PII logs.
+  - [x] Apply `Cache-Control: no-store` and `Referrer-Policy: no-referrer` to
+    reset GET and POST responses.
+- Verification: `PasswordRecoveryServiceSecurityTest` and
+  `PasswordRecoveryControllerSecurityTest` passed 6/6.
+- Scope: no Practice, migration, or developer-password change.
+- Follow-up:
+  - [ ] Add bounded forgot-password throttling and terminal-token retention in
+    a separate operational change.
+- Owner: Codex root
+- Commit: `902e8ea2`
 - PR:
 
 ### New issue template
