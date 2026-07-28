@@ -280,8 +280,10 @@ class WritingEvaluationClientTest {
         OpenAiProperties properties = properties("", "model");
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
+        RestClient restClient = mock(RestClient.class);
         WritingEvaluationClient client = new WritingEvaluationClient(
-                properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, null
+                properties, objectMapper, normalizer, ruleEngine,
+                cacheService, mockEvaluator, restClient
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -289,9 +291,10 @@ class WritingEvaluationClientTest {
         JsonNode root = objectMapper.readTree(result);
         assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
         assertEquals("MISSING_API_KEY", root.path("evaluation_reason").asText());
+        assertFalse(root.path("evaluation_retryable").asBoolean(true));
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
-        verifyNoInteractions(mockEvaluator);
+        verifyNoInteractions(mockEvaluator, restClient);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -312,6 +315,7 @@ class WritingEvaluationClientTest {
         JsonNode root = objectMapper.readTree(result);
         assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
         assertEquals("PROVIDER_UNEXPECTED_ERROR", root.path("evaluation_reason").asText());
+        assertFalse(root.path("evaluation_retryable").asBoolean(true));
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
         verifyNoInteractions(mockEvaluator);
@@ -343,6 +347,82 @@ class WritingEvaluationClientTest {
         assertTrue(logs.contains("status=400"));
         assertTrue(logs.contains("model=safe-model"));
         assertTrue(logs.contains("taskType="));
+    }
+
+    @Test
+    void permanentProviderHttpFailureIsNotRetryable() throws Exception {
+        WritingEvaluationCacheService cacheService =
+                mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(
+                any(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"),
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                cacheService,
+                mock(WritingMockEvaluatorService.class),
+                httpErrorRestClient("permanent bad request"));
+
+        JsonNode root = objectMapper.readTree(client.evaluate(
+                USER_ID,
+                "Bài 53 viết",
+                "한국어를 공부합니다",
+                false,
+                WritingTaskType.Q53));
+
+        assertEquals(
+                "EVALUATION_UNAVAILABLE",
+                root.path("evaluation_status").asText());
+        assertEquals(
+                "PROVIDER_HTTP_ERROR",
+                root.path("evaluation_reason").asText());
+        assertFalse(
+                root.path("evaluation_retryable").asBoolean(true));
+        verify(cacheService, never()).put(
+                any(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString(),
+                anyString());
+    }
+
+    @Test
+    void workerInterruptionPropagatesWithoutPublishingUnavailableOutcome() {
+        WritingEvaluationCacheService cacheService =
+                mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(
+                any(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        RestClient restClient = mock(RestClient.class);
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"),
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                cacheService,
+                mock(WritingMockEvaluatorService.class),
+                restClient);
+
+        Thread.currentThread().interrupt();
+        try {
+            RuntimeException interrupted = assertThrows(
+                    RuntimeException.class,
+                    () -> client.evaluate(
+                            USER_ID,
+                            "Bài 53 viết",
+                            "한국어를 공부합니다",
+                            false,
+                            WritingTaskType.Q53));
+
+            assertEquals(
+                    "Writing evaluation was interrupted.",
+                    interrupted.getMessage());
+            verifyNoInteractions(restClient);
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     @Test

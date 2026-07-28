@@ -60,6 +60,7 @@ public final class PracticeAttemptStatePolicy {
         NOT_IN_PROGRESS,
         INCOMPLETE_VERSION_LOCK,
         INCOMPATIBLE_VERSION,
+        DEADLINE_EXPIRED,
         INCONSISTENT_VERSION_IDENTITY
     }
 
@@ -230,6 +231,11 @@ public final class PracticeAttemptStatePolicy {
                     ResumeRejection.NOT_IN_PROGRESS,
                     "Lượt làm bài đã kết thúc và không thể tiếp tục.");
         }
+        if (attempt.isExpired(java.time.LocalDateTime.now())) {
+            return resumeRejected(
+                    ResumeRejection.DEADLINE_EXPIRED,
+                    "Lượt làm bài đã hết thời gian và không thể tiếp tục.");
+        }
         VersionLockState lockState = versionLockState(attempt);
         if (lockState == VersionLockState.INCOMPLETE) {
             return resumeRejected(
@@ -397,20 +403,29 @@ public final class PracticeAttemptStatePolicy {
             }
             return presentation(attempt, DisplayState.STALE, null);
         }
+        String analysis = attempt.getAnalysisStatus();
+        if (PracticeAttempt.ANALYSIS_QUEUED.equals(analysis)
+                || PracticeAttempt.ANALYSIS_PROCESSING.equals(analysis)) {
+            return presentation(attempt, DisplayState.SCORING, null);
+        }
+        if (PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())
+                && (PracticeAttempt.ANALYSIS_FAILED.equals(analysis)
+                || PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(analysis))) {
+            return presentation(
+                    attempt, DisplayState.PARTIAL, null);
+        }
         if (PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
             return presentation(attempt, DisplayState.SCORED, null);
         }
         if (!PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())) {
             return presentation(attempt, DisplayState.UNAVAILABLE, null);
         }
-
-        String analysis = attempt.getAnalysisStatus();
-        if (PracticeAttempt.ANALYSIS_QUEUED.equals(analysis)
-                || PracticeAttempt.ANALYSIS_PROCESSING.equals(analysis)) {
-            return presentation(attempt, DisplayState.SCORING, null);
-        }
         if (PracticeAttempt.ANALYSIS_SUCCEEDED.equals(analysis)) {
             return presentation(attempt, DisplayState.SCORED, null);
+        }
+        if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(analysis)) {
+            return presentation(
+                    attempt, DisplayState.UNAVAILABLE, null);
         }
         if (PracticeAttempt.ANALYSIS_FAILED.equals(analysis)) {
             return presentation(

@@ -27,6 +27,7 @@ public final class PracticeRoutes {
     public static final String ATTEMPT_SPEAKING_PREFLIGHT = "/attempts/{attemptId}/speaking-check";
     public static final String ATTEMPT_LISTENING_PREFLIGHT = "/attempts/{attemptId}/listening-check";
     public static final String ATTEMPT_SUBMIT = "/attempts/{attemptId}/submit";
+    public static final String ATTEMPT_ANSWERS = "/attempts/{attemptId}/answers";
     public static final String ATTEMPT_DISCARD = "/attempts/{attemptId}/discard";
     public static final String ATTEMPT_INTERRUPT = "/attempts/{attemptId}/interrupt";
     public static final String ATTEMPT_RE_EVALUATE = "/attempts/{attemptId}/re-evaluate";

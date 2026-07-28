@@ -10,8 +10,14 @@
       th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}"
       method="post"
       autocomplete="off"
-      th:attr="data-mode=${mode},data-attempt-id=${attemptId},data-skill=${activeSectionSkill}">
+      th:attr="data-mode=${mode},
+               data-attempt-id=${attemptId},
+               data-skill=${activeSectionSkill},
+               data-deadline-epoch-ms=${attemptDeadlineEpochMs},
+               data-server-now-epoch-ms=${serverNowEpochMs}">
   <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+  <input type="hidden" name="expectedLockVersion"
+         th:value="${attemptLockVersion}" data-attempt-lock-version>
 
   <header class="exam-topbar">
     <a class="exam-icon-button" th:href="${returnUrl}" data-exit-link aria-label="Thoát bài" title="Thoát bài">
@@ -23,7 +29,7 @@
     </div>
     <div class="exam-top-actions">
       <span class="exam-progress"><strong data-progress-done>0</strong>/<span th:text="${view.totalQuestions()}">2</span></span>
-      <span class="exam-timer" th:attr="data-room-timer=${activeSectionDuration}"
+      <span class="exam-timer" data-room-timer
             aria-live="off">60:00</span>
       <span class="sr-only" data-timer-announcement role="status"
             aria-live="polite" aria-atomic="true"></span>
@@ -36,6 +42,8 @@
       <button class="exam-submit-button" type="submit">Nộp bài</button>
     </div>
   </header>
+  <p class="exam-autosave-status" data-autosave-status role="status"
+     aria-live="polite">Bài làm được lưu tự động.</p>
 
   <section class="exam-section-band writing-section-band">
     <div><span>WRITING</span><h1 th:text="${activeSectionTitle}">Phần Viết</h1></div>
@@ -107,7 +115,8 @@
             <textarea th:id="'writing-answer-' + ${q.id()}"
                       th:name="'answer_' + ${q.id()}" data-writing-answer
                       th:attr="aria-describedby='writing-count-' + ${q.id()}"
-                      placeholder="Nhập bài viết tiếng Hàn" spellcheck="false"></textarea>
+                      placeholder="Nhập bài viết tiếng Hàn" spellcheck="false"
+                      th:text="${savedAnswers.get(#strings.toString(q.id()))}"></textarea>
             <span data-answer-count th:id="'writing-count-' + ${q.id()}">0 ký tự</span>
           </div>
           <div class="writing-short-answer" th:unless="${q.questionType() == 'ESSAY'}">
@@ -116,7 +125,8 @@
             <textarea th:id="'writing-answer-' + ${q.id()}"
                       th:name="'answer_' + ${q.id()}" data-writing-answer
                       th:attr="aria-describedby='writing-count-' + ${q.id()}"
-                      placeholder="Nhập câu trả lời tiếng Hàn" spellcheck="false"></textarea>
+                      placeholder="Nhập câu trả lời tiếng Hàn" spellcheck="false"
+                      th:text="${savedAnswers.get(#strings.toString(q.id()))}"></textarea>
             <span data-answer-count th:id="'writing-count-' + ${q.id()}">0 ký tự</span>
           </div>
         </section>

@@ -4,6 +4,7 @@ import com.ksh.features.lessons.dto.SectionDtos.AjaxResult;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.practice.service.PracticeAttemptDeadlineExpiredException;
 import com.ksh.features.storage.StorageNotConfiguredException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,6 +106,15 @@ public class GlobalExceptionHandler {
                                                                HttpServletRequest request) {
         log.info("409 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ex.getMessage() != null ? ex.getMessage() : "");
+    }
+
+    @ExceptionHandler(PracticeAttemptDeadlineExpiredException.class)
+    public ResponseEntity<String> handlePracticeAttemptDeadline(
+            PracticeAttemptDeadlineExpiredException ex,
+            HttpServletRequest request) {
+        log.info("410 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.GONE)
                 .body(ex.getMessage() != null ? ex.getMessage() : "");
     }
 

@@ -384,12 +384,15 @@ public class WritingEvaluationNormalizer {
         }
     }
 
-    public String providerUnavailable(String reason, String taskType, String learnerAnswer) {
+    public String providerUnavailable(String reason,
+                                      String taskType,
+                                      String learnerAnswer,
+                                      boolean retryable) {
         return availabilityResult(
                 "EVALUATION_UNAVAILABLE",
                 "PROVIDER",
                 reason,
-                true,
+                retryable,
                 "Chua co danh gia AI kha dung - vui long cham lai.",
                 taskType,
                 learnerAnswer);

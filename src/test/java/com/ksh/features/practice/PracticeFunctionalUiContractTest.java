@@ -655,9 +655,9 @@ class PracticeFunctionalUiContractTest {
                 "layout-focus",
                 "layout-stacked",
                 "layout-split",
-                "configured <= 0",
-                "ksh-exam-timer:v2:${attemptId}",
-                "storedValue === null ? Number.NaN",
+                "player.dataset.deadlineEpochMs",
+                "player.dataset.serverNowEpochMs",
+                "deadlineSubmission = true",
                 "[data-exit-link]",
                 "'contextmenu', 'copy', 'cut', 'paste'",
                 "startRegion === endRegion");
@@ -1004,6 +1004,64 @@ class PracticeFunctionalUiContractTest {
         assertThat(PracticeFormFields.questionIdFromAnswerField("answer_66")).isEqualTo("66");
         assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
                 .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content");
+    }
+
+    @Test
+    void post13hPlayerAndAuthoringIntegrityBoundariesAreExplicit()
+            throws IOException {
+        String player = Files.readString(
+                PRACTICE_TEMPLATES.resolve("player.html"));
+        String writing = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "player-writing.html"));
+        String playerJs = Files.readString(EXAM_PLAYER_JS);
+        String editor = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "manage/editor.html"));
+        String importWorkspace = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "manage/import-workspace.html"));
+
+        assertThat(player).contains(
+                "data-deadline-epoch-ms",
+                "data-server-now-epoch-ms",
+                "data-room-timer",
+                "data-attempt-lock-version",
+                "savedAnswers.get");
+        assertThat(writing).contains(
+                "data-deadline-epoch-ms",
+                "data-room-timer",
+                "data-attempt-lock-version",
+                "savedAnswers.get");
+        assertThat(playerJs).contains(
+                "method: 'PUT'",
+                "/answers",
+                "expectedLockVersion",
+                "response.status === 409",
+                "response.status === 410",
+                "autosaveGeneration",
+                "autosavePersistedGeneration",
+                "maxAutosaveRetries",
+                "autosaveRetryExhausted",
+                "autosaveSubmitDrain",
+                "drainLatestAnswers",
+                "submissionPending",
+                "exitPending",
+                "flushLatestAnswers",
+                "window.location.assign(link.href)",
+                "player.dataset.deadlineEpochMs")
+                .doesNotContain("ksh-exam-timer");
+        assertThat(editor).contains(
+                "content.textContent = String(msg.content || '')")
+                .doesNotContain("<div>${msg.content}</div>");
+        assertThat(importWorkspace).contains(
+                "title.textContent = String(a.title",
+                "title.title = String(a.title",
+                "attach.addEventListener",
+                "remove.addEventListener")
+                .doesNotContain(
+                        "title=\"${a.title}\">${a.title}</div>",
+                        "onclick=\"associateAssetToSelectedRegion(${a.id})\"");
     }
 
     private static int countOccurrences(String text, String token) {

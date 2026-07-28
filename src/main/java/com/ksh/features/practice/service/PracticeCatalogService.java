@@ -25,6 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -299,7 +300,10 @@ public class PracticeCatalogService {
             List<Long> activeClassIds
     ) {
         return attemptRepository.findGlobalResumeCandidates(
-                        userId, activeClassIds, PageRequest.of(0, 1)).stream()
+                        userId,
+                        activeClassIds,
+                        LocalDateTime.now(),
+                        PageRequest.of(0, 1)).stream()
                 .findFirst()
                 .map(candidate -> new PracticeGlobalResume(
                         candidate.getAttemptId(),

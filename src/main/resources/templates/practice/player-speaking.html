@@ -55,6 +55,8 @@
         th:action="@{/practice/attempts/{id}/submit(id=${attemptId})}" hidden>
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
     <input type="hidden" name="mode" value="practice">
+    <input type="hidden" name="expectedLockVersion"
+           th:value="${attemptLockVersion}">
   </form>
 
   <dialog class="spp-exit-dialog" data-exit-dialog>

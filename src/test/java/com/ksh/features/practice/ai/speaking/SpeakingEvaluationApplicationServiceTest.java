@@ -41,6 +41,49 @@ class SpeakingEvaluationApplicationServiceTest {
     }
 
     @Test
+    void incompleteOrUnsupportedProviderConfigurationSkipsEntirePipeline() {
+        List<PracticeSpeakingMediaRepository
+                .TranscriptionAuthorizationProjection> rows =
+                List.of(row(12L, 3L, "audio/webm"));
+        Fixture missingEvaluatorKey = fixture(
+                true,
+                true,
+                false,
+                rows,
+                rows,
+                true,
+                "openai",
+                "stt-key",
+                "openai-compatible",
+                "");
+        Fixture unsupportedEvaluator = fixture(
+                true,
+                true,
+                false,
+                rows,
+                rows,
+                true,
+                "openai",
+                "stt-key",
+                "unsupported",
+                "evaluator-key");
+
+        for (Fixture fixture :
+                List.of(missingEvaluatorKey, unsupportedEvaluator)) {
+            assertThat(fixture.service.enabled()).isFalse();
+            assertThat(fixture.service.evaluateQuestion(
+                    input(null, "저는 학생입니다.")).skipped())
+                    .isTrue();
+            assertThat(fixture.transcriptionCalls.get()).isZero();
+            assertThat(fixture.evaluationClient.calls()).isZero();
+        }
+        assertThat(missingEvaluatorKey.service
+                .evaluationContractIdentity())
+                .isNotEqualTo(unsupportedEvaluator.service
+                        .evaluationContractIdentity());
+    }
+
+    @Test
     void matchingStoredAudioResultIsReusedWithoutProviderCalls() {
         SpeakingEvaluationResult stored = storedResult(SpeakingEvaluationStatus.EVALUATED,
                 SpeakingEvaluationSource.PROVIDER, true, false, 12L, 3L, "저는 학생입니다.");
@@ -194,11 +237,41 @@ class SpeakingEvaluationApplicationServiceTest {
                 .doesNotContain("77");
     }
 
+    @Test
+    void contractIdentityChangesWhenLogprobClassificationPolicyChanges() {
+        Fixture withLogprobs = fixture(
+                true,
+                true,
+                false,
+                List.of(),
+                List.of(),
+                true);
+        Fixture withoutLogprobs = fixture(
+                true,
+                true,
+                false,
+                List.of(),
+                List.of(),
+                false);
+
+        assertThat(withLogprobs.service.evaluationContractIdentity())
+                .startsWith("ksh-speaking-evaluation-v2|sha256|")
+                .isNotEqualTo(
+                        withoutLogprobs.service
+                                .evaluationContractIdentity());
+    }
+
     private Fixture fixture(boolean transcriptionEnabled,
                             boolean evaluatorEnabled,
                             boolean textFallbackEnabled,
                             List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> rows) {
-        return fixture(transcriptionEnabled, evaluatorEnabled, textFallbackEnabled, rows, rows);
+        return fixture(
+                transcriptionEnabled,
+                evaluatorEnabled,
+                textFallbackEnabled,
+                rows,
+                rows,
+                true);
     }
 
     private Fixture fixture(boolean transcriptionEnabled,
@@ -206,6 +279,44 @@ class SpeakingEvaluationApplicationServiceTest {
                             boolean textFallbackEnabled,
                             List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> firstRows,
                             List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> secondRows) {
+        return fixture(
+                transcriptionEnabled,
+                evaluatorEnabled,
+                textFallbackEnabled,
+                firstRows,
+                secondRows,
+                true);
+    }
+
+    private Fixture fixture(boolean transcriptionEnabled,
+                            boolean evaluatorEnabled,
+                            boolean textFallbackEnabled,
+                            List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> firstRows,
+                            List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> secondRows,
+                            boolean includeLogprobs) {
+        return fixture(
+                transcriptionEnabled,
+                evaluatorEnabled,
+                textFallbackEnabled,
+                firstRows,
+                secondRows,
+                includeLogprobs,
+                "openai",
+                "secret-key",
+                "openai-compatible",
+                "secret-key");
+    }
+
+    private Fixture fixture(boolean transcriptionEnabled,
+                            boolean evaluatorEnabled,
+                            boolean textFallbackEnabled,
+                            List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> firstRows,
+                            List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> secondRows,
+                            boolean includeLogprobs,
+                            String transcriptionProvider,
+                            String transcriptionApiKey,
+                            String evaluatorProvider,
+                            String evaluatorApiKey) {
         PracticeSpeakingMediaRepository repository = mock(PracticeSpeakingMediaRepository.class);
         SpeakingAudioStorage storage = mock(SpeakingAudioStorage.class);
         when(repository.findAuthorizedTranscriptionCandidates(77L, 10L, 11L, PracticeSpeakingMediaStatus.READY))
@@ -218,7 +329,12 @@ class SpeakingEvaluationApplicationServiceTest {
                 throw new IllegalStateException(ex);
             }
         }
-        SpeakingTranscriptionProperties transcriptionProperties = transcriptionProperties(transcriptionEnabled);
+        SpeakingTranscriptionProperties transcriptionProperties =
+                transcriptionProperties(
+                        transcriptionEnabled,
+                        includeLogprobs,
+                        transcriptionProvider,
+                        transcriptionApiKey);
         SpeakingTranscriptionMediaResolver resolver =
                 new SpeakingTranscriptionMediaResolver(repository, storage, transcriptionProperties);
         AtomicInteger transcriptionCalls = new AtomicInteger();
@@ -240,7 +356,11 @@ class SpeakingEvaluationApplicationServiceTest {
                     false);
         };
         FakeEvaluationClient evaluationClient = new FakeEvaluationClient();
-        SpeakingEvaluatorProperties evaluatorProperties = evaluatorProperties(evaluatorEnabled);
+        SpeakingEvaluatorProperties evaluatorProperties =
+                evaluatorProperties(
+                        evaluatorEnabled,
+                        evaluatorProvider,
+                        evaluatorApiKey);
         SpeakingEvaluationOrchestrator orchestrator = new SpeakingEvaluationOrchestrator(
                 evaluationClient,
                 new SpeakingEvaluationNormalizer(),
@@ -301,26 +421,54 @@ class SpeakingEvaluationApplicationServiceTest {
     }
 
     private SpeakingTranscriptionProperties transcriptionProperties(boolean enabled) {
+        return transcriptionProperties(enabled, true);
+    }
+
+    private SpeakingTranscriptionProperties transcriptionProperties(
+            boolean enabled,
+            boolean includeLogprobs) {
+        return transcriptionProperties(
+                enabled,
+                includeLogprobs,
+                "openai",
+                "secret-key");
+    }
+
+    private SpeakingTranscriptionProperties transcriptionProperties(
+            boolean enabled,
+            boolean includeLogprobs,
+            String provider,
+            String apiKey) {
         return new SpeakingTranscriptionProperties(
                 enabled,
-                "openai",
+                provider,
                 "https://api.openai.com/v1",
-                "secret-key",
+                apiKey,
                 "gpt-4o-mini-transcribe",
                 "ko",
                 26214400L,
                 Duration.ofSeconds(30),
                 0,
-                true,
+                includeLogprobs,
                 "audio/webm,audio/mp4");
     }
 
     private SpeakingEvaluatorProperties evaluatorProperties(boolean enabled) {
-        return new SpeakingEvaluatorProperties(
+        return evaluatorProperties(
                 enabled,
                 "openai-compatible",
+                "secret-key");
+    }
+
+    private SpeakingEvaluatorProperties evaluatorProperties(
+            boolean enabled,
+            String provider,
+            String apiKey) {
+        return new SpeakingEvaluatorProperties(
+                enabled,
+                provider,
                 "https://generativelanguage.googleapis.com/v1beta/openai",
-                "secret-key",
+                apiKey,
                 "models/gemini-2.5-flash",
                 Duration.ofSeconds(30),
                 0,

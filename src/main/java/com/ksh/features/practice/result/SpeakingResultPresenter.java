@@ -2,6 +2,7 @@ package com.ksh.features.practice.result;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
@@ -125,6 +126,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         int notAnswered = 0;
         int pending = 0;
         int unscorable = 0;
+        int unavailable = 0;
         int legacyUnverified = 0;
 
         for (PracticeQuestionVersion question : questions) {
@@ -159,7 +161,10 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             }
             JsonNode node = feedbackNode(root, question.getQuestionId(), questions.size() == 1);
             SpeakingEvaluationResult feedback = node == null ? null : feedbackReader.read(node);
-            switch (feedbackState(node, feedback)) {
+            switch (feedbackState(
+                    node,
+                    feedback,
+                    context.attempt().getAnalysisStatus())) {
                 case "READY" -> segments.add(new SegmentFeedback(question.getQuestionId(), feedback));
                 case "LOW_CONFIDENCE" -> {
                     lowConfidenceSegments.add(new SegmentFeedback(question.getQuestionId(), feedback));
@@ -170,6 +175,10 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     unscorable++;
                 }
                 case "PENDING" -> pending++;
+                case "UNAVAILABLE" -> {
+                    unavailable++;
+                    unscorable++;
+                }
                 default -> unscorable++;
             }
         }
@@ -187,7 +196,12 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         int coveredSegments = coveredSpeakingSegments;
         int answered = questions.size() - notAnswered;
         ResultFeedbackAvailability feedback = feedbackAvailability(
-                coveredSegments, pending, unscorable, answered, lowConfidenceSegments.size());
+                coveredSegments,
+                pending,
+                Math.max(0, unscorable - unavailable),
+                unavailable,
+                answered,
+                lowConfidenceSegments.size());
         ResultAnswerDistribution distribution = new ResultAnswerDistribution(
                 0, 0, 0, notAnswered, pending, unscorable, questions.size(), coveredSegments);
         boolean holisticAvailable = !segments.isEmpty()
@@ -341,7 +355,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 rawAnswer,
                 selectedNode,
                 selectedFeedback,
-                currentEvidence);
+                currentEvidence,
+                context.attempt().getAnalysisStatus());
         String evidenceMode = selectedEvidenceMode(
                 canonicalSpeaking, currentEvidence, selectedFeedback,
                 submittedAudioMarker, media);
@@ -602,7 +617,12 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 && feedback.currentEvidenceContract()
                 && (!feedback.evaluationStatus().scoreBearing() || present(transcript));
         String evaluationState = selectedEvaluationState(
-                canonical, answer, node, feedback, currentEvidence);
+                canonical,
+                answer,
+                node,
+                feedback,
+                currentEvidence,
+                context.attempt().getAnalysisStatus());
         String submissionText = audioSubmissionMarker(answer) ? "" : answer;
         String submissionState;
         if (!canonical) {
@@ -717,7 +737,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             String answer,
             JsonNode node,
             SpeakingEvaluationResult feedback,
-            boolean currentEvidence
+            boolean currentEvidence,
+            String analysisStatus
     ) {
         if (!present(answer)) {
             return "UNAVAILABLE";
@@ -725,13 +746,15 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         if (!canonicalSpeaking) {
             return "LEGACY_UNVERIFIED";
         }
-        String state = feedbackState(node, feedback);
+        String state = feedbackState(
+                node, feedback, analysisStatus);
         if (("READY".equals(state) || "LOW_CONFIDENCE".equals(state))
                 && !currentEvidence) {
             return "LEGACY_UNVERIFIED";
         }
         return switch (state) {
-            case "READY", "LOW_CONFIDENCE", "PENDING" -> state;
+            case "READY", "LOW_CONFIDENCE", "PENDING",
+                    "UNAVAILABLE" -> state;
             case "LEGACY" -> "LEGACY_UNVERIFIED";
             default -> "FAILED";
         };
@@ -740,7 +763,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static String selectedProfileState(String evaluationState) {
         return switch (evaluationState) {
             case "READY", "LOW_CONFIDENCE", "PENDING", "FAILED",
-                    "LEGACY_UNVERIFIED" -> evaluationState;
+                    "UNAVAILABLE", "LEGACY_UNVERIFIED" ->
+                    evaluationState;
             default -> "UNAVAILABLE";
         };
     }
@@ -1305,6 +1329,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             int ready,
             int pending,
             int failed,
+            int unavailable,
             int total,
             int lowConfidence) {
         if (total == 0) {
@@ -1329,13 +1354,33 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             return new ResultFeedbackAvailability(
                     "FAILED", "Chưa có đánh giá bài nói khả dụng", 0, total);
         }
+        if (unavailable > 0) {
+            return new ResultFeedbackAvailability(
+                    "UNAVAILABLE",
+                    "Dịch vụ đánh giá bài nói hiện không khả dụng",
+                    0,
+                    total);
+        }
         return new ResultFeedbackAvailability(
                 "UNAVAILABLE", "Chưa có dữ liệu đánh giá bài nói", 0, total);
     }
 
-    private static String feedbackState(JsonNode node, SpeakingEvaluationResult feedback) {
+    private static String feedbackState(
+            JsonNode node,
+            SpeakingEvaluationResult feedback,
+            String analysisStatus) {
         if (node == null || !node.isObject()) {
-            return "PENDING";
+            if (PracticeAttempt.ANALYSIS_QUEUED.equals(
+                    analysisStatus)
+                    || PracticeAttempt.ANALYSIS_PROCESSING.equals(
+                            analysisStatus)) {
+                return "PENDING";
+            }
+            if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(
+                    analysisStatus)) {
+                return "UNAVAILABLE";
+            }
+            return "FAILED";
         }
         String rawStatus = firstPresent(text(node, "evaluationStatus"),
                 text(node, "evaluation_status"));
@@ -1346,11 +1391,23 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 || normalized.contains("PROCESSING")) {
             return "PENDING";
         }
+        if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(
+                analysisStatus)) {
+            return "UNAVAILABLE";
+        }
         if (feedback == null) {
             return "FAILED";
         }
         if (!trustedOverviewCapability(feedback)) {
             return "LEGACY";
+        }
+        if (feedback.evaluationStatus()
+                == SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE
+                || feedback.evaluationStatus()
+                == SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE
+                || feedback.evaluationStatus()
+                == SpeakingEvaluationStatus.AUDIO_UNAVAILABLE) {
+            return "UNAVAILABLE";
         }
         if (feedback.evaluationStatus() == SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE) {
             return "LOW_CONFIDENCE";

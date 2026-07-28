@@ -2,6 +2,7 @@ package com.ksh.features.practice.result;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
@@ -109,7 +110,12 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             }
             JsonNode feedbackNode = feedbackNode(feedbackRoot, question.getQuestionId(), questions.size() == 1);
             WritingTaskResult task = isEssay(question)
-                    ? task(question, answer, feedbackNode, malformedStoredFeedback)
+                    ? task(
+                            question,
+                            answer,
+                            feedbackNode,
+                            malformedStoredFeedback,
+                            context.attempt().getAnalysisStatus())
                     : historicalObjectiveTask(question, answer);
             tasks.add(task);
             if (!answer.isBlank()) {
@@ -782,7 +788,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             PracticeQuestionVersion question,
             String learnerAnswer,
             JsonNode feedbackNode,
-            boolean malformedStoredFeedback) {
+            boolean malformedStoredFeedback,
+            String analysisStatus) {
         String taskType = taskType(question);
         WritingScoringRubric rubric = WritingScoringPolicy.rubricFor(taskType);
         boolean answered = learnerAnswer != null && !learnerAnswer.isBlank();
@@ -804,7 +811,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 usableFeedbackNode,
                 contract,
                 scoreContractReady,
-                score);
+                score,
+                analysisStatus);
         List<ResultRubricCriterion> visibleCriteria = availability.ready()
                 ? parsedCriteria
                 : List.of();
@@ -975,7 +983,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             JsonNode feedbackNode,
             WritingFeedbackCompatibilityReader.EntryResult contract,
             boolean scoreContractReady,
-            ResultScoreSummary score) {
+            ResultScoreSummary score,
+            String analysisStatus) {
         if (!answered) {
             return new ResultFeedbackAvailability(
                     "UNAVAILABLE", "Chưa có bài viết để đánh giá", 0, 0);
@@ -985,7 +994,26 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     "FAILED", "Dữ liệu đánh giá bài viết không hợp lệ", 0, 1);
         }
         if (feedbackNode == null || !feedbackNode.isObject()) {
-            return new ResultFeedbackAvailability("PENDING", "Đang chờ đánh giá", 0, 1);
+            if (PracticeAttempt.ANALYSIS_QUEUED.equals(analysisStatus)
+                    || PracticeAttempt.ANALYSIS_PROCESSING.equals(
+                            analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "PENDING", "Đang chờ đánh giá", 0, 1);
+            }
+            if (PracticeAttempt.ANALYSIS_FAILED.equals(analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "FAILED", "Không thể hoàn tất đánh giá nhiệm vụ này", 0, 1);
+            }
+            if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(
+                    analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "UNAVAILABLE",
+                        "Dịch vụ đánh giá hiện không khả dụng",
+                        0,
+                        1);
+            }
+            return new ResultFeedbackAvailability(
+                    "UNAVAILABLE", "Nhiệm vụ này chưa có đánh giá khả dụng", 0, 1);
         }
         String status = feedback == null ? null : feedback.evaluationStatus();
         String normalizedStatus = normalize(status);
