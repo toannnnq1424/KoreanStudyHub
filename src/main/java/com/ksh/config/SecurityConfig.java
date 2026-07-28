@@ -116,7 +116,7 @@ public class SecurityConfig {
      *
      * <p>Authorization rules:</p>
      * <ul>
-     *   <li>Static resources and upload paths are publicly accessible.</li>
+     *   <li>Static resources plus the controller-backed avatar/exam upload namespaces are public.</li>
      *   <li>{@code /login}, {@code /forgot-password}, and {@code /reset-password} are public.</li>
      *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code LEADER}, or {@code ADMIN} role.</li>
      *   <li>{@code /admin/**} requires the {@code ADMIN} role.</li>
@@ -141,12 +141,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
+                        // Raw upload routing is fail-closed. Only the two
+                        // controller-backed public namespaces are allowed;
+                        // Practice material must use its authorized controller.
                         .requestMatchers(
-                                "/uploads/practice-audio/**",
-                                "/uploads/practice-images/**",
-                                "/uploads/lecturer-assets/**"
-                        ).denyAll()
-                        .requestMatchers("/uploads/**").permitAll()
+                                "/uploads/avatars/**",
+                                "/uploads/exams/**"
+                        ).permitAll()
+                        .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)

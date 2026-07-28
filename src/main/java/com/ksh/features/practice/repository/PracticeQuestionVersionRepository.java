@@ -11,4 +11,6 @@ public interface PracticeQuestionVersionRepository extends JpaRepository<Practic
             Long publishedVersionId);
     List<PracticeQuestionVersion> findByPublishedVersionIdInOrderByPublishedVersionIdAscSectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
             List<Long> publishedVersionIds);
+    List<PracticeQuestionVersion> findBySectionVersionIdInOrderBySectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+            List<Long> sectionVersionIds);
 }

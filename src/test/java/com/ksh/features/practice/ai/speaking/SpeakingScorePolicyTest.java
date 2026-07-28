@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SpeakingScorePolicyTest {
@@ -13,6 +14,9 @@ class SpeakingScorePolicyTest {
     @Test
     void rubricWeightsSumToOneHundred() {
         assertEquals(new BigDecimal("100"), SpeakingRubricCriterion.totalWeight());
+        assertEquals(new BigDecimal("70"), SpeakingRubricCriterion.transcriptGroundedCriteria().stream()
+                .map(SpeakingRubricCriterion::maxScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     @Test
@@ -28,6 +32,16 @@ class SpeakingScorePolicyTest {
         assertEquals(new BigDecimal("30.00"), attemptScore);
         assertEquals(new BigDecimal("60.00"), SpeakingScorePolicy.attemptPercentage(
                 attemptScore, new BigDecimal("50")));
+    }
+
+    @Test
+    void transcriptLanguageProfileCannotProduceQuestionPoints() throws Exception {
+        SpeakingEvaluationResult result = new SpeakingEvaluationNormalizer().normalize(
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                        OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()));
+
+        assertNull(SpeakingScorePolicy.earnedQuestionPoints(BigDecimal.TEN, result));
+        assertNull(result.overallScore());
     }
 
     @Test

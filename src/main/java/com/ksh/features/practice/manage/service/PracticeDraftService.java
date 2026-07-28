@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.*;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptAutosaveAuthorityMerger;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptLifecycleService;
 import com.ksh.features.practice.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -14,8 +16,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class PracticeDraftService {
@@ -31,6 +34,9 @@ public class PracticeDraftService {
     private final ObjectMapper objectMapper;
     private final PracticeDraftContractService draftContractService;
     private final PracticeAuthorizationService authorizationService;
+    private final SpeakingPromptAutosaveAuthorityMerger
+            speakingPromptAutosaveAuthorityMerger;
+    private SpeakingPromptLifecycleService speakingPromptLifecycleService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -41,7 +47,9 @@ public class PracticeDraftService {
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper,
                                 PracticeDraftContractService draftContractService,
-                                PracticeAuthorizationService authorizationService) {
+                                PracticeAuthorizationService authorizationService,
+                                SpeakingPromptAutosaveAuthorityMerger
+                                        speakingPromptAutosaveAuthorityMerger) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -51,10 +59,50 @@ public class PracticeDraftService {
         this.objectMapper = objectMapper;
         this.draftContractService = draftContractService;
         this.authorizationService = authorizationService;
+        this.speakingPromptAutosaveAuthorityMerger =
+                speakingPromptAutosaveAuthorityMerger;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSpeakingPromptLifecycleService(
+            SpeakingPromptLifecycleService speakingPromptLifecycleService) {
+        this.speakingPromptLifecycleService = speakingPromptLifecycleService;
+    }
+
+    public PracticeDraftService(PracticeDraftRepository draftRepository,
+                                PracticeSetRepository setRepository,
+                                PracticeTestRepository testRepository,
+                                PracticeSectionRepository sectionRepository,
+                                PracticeQuestionGroupRepository groupRepository,
+                                PracticeQuestionRepository questionRepository,
+                                ObjectMapper objectMapper,
+                                PracticeDraftContractService draftContractService,
+                                PracticeAuthorizationService authorizationService) {
+        this(
+                draftRepository,
+                setRepository,
+                testRepository,
+                sectionRepository,
+                groupRepository,
+                questionRepository,
+                objectMapper,
+                draftContractService,
+                authorizationService,
+                null);
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository, ObjectMapper objectMapper) {
-        this(draftRepository, null, null, null, null, null, objectMapper, null, null);
+        this(
+                draftRepository,
+                null,
+                null,
+                null,
+                null,
+                null,
+                objectMapper,
+                null,
+                null,
+                null);
     }
 
     public PracticeDraftService(PracticeDraftRepository draftRepository,
@@ -64,7 +112,7 @@ public class PracticeDraftService {
                                 PracticeQuestionRepository questionRepository,
                                 ObjectMapper objectMapper) {
         this(draftRepository, setRepository, null, sectionRepository, groupRepository, questionRepository,
-                objectMapper, null, null);
+                objectMapper, null, null, null);
     }
 
     @Transactional
@@ -132,15 +180,27 @@ public class PracticeDraftService {
     @Transactional
     public PracticeDraft saveDraftState(Long id, Long actorId, String draftJson, String title, String description, Integer clientVersion) {
         PracticeDraft draft = authorizedDraft(id, actorId, PracticeAction.EDIT);
+        if (speakingPromptLifecycleService != null) {
+            draft = draftRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Bản nháp không tồn tại."));
+        }
 
         // Check optimistic locking clientVersion
-        if (clientVersion != null && draft.getVersion() > clientVersion) {
+        if (clientVersion != null
+                && !Objects.equals(draft.getVersion(), clientVersion)) {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(
                     PracticeDraft.class, id
             );
         }
 
-        String normalizedJson = normalizeDraft(draft, draftJson, draft.getCreationMethod());
+        String authoritySafeJson = speakingPromptAutosaveAuthorityMerger == null
+                ? draftJson
+                : speakingPromptAutosaveAuthorityMerger
+                    .preserveAcceptedAuthority(
+                            id, draft.getDraftJson(), draftJson);
+        String normalizedJson = normalizeDraft(
+                draft, authoritySafeJson, draft.getCreationMethod());
         try {
             objectMapper.readTree(normalizedJson);
         } catch (Exception e) {
@@ -156,6 +216,14 @@ public class PracticeDraftService {
         // Maintain creationMethod fallback
         if (draft.getCreationMethod() == null) {
             draft.setCreationMethod("MANUAL");
+        }
+
+        if (speakingPromptLifecycleService != null) {
+            speakingPromptLifecycleService.reconcileDraftQuestions(
+                    id,
+                    draft.getOwnerId(),
+                    actorId,
+                    normalizedJson);
         }
 
         // JPA @Version optimistic locking handling
@@ -389,8 +457,12 @@ public class PracticeDraftService {
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
         } else {
             authorizationService.requireDraftOwner(id, actorId, PracticeAction.EDIT);
-            draft = draftRepository.findById(id)
+            draft = draftRepository.findByIdForUpdate(id)
                     .orElseThrow(() -> new EntityNotFoundException("Bản nháp không tồn tại."));
+        }
+        if (speakingPromptLifecycleService != null) {
+            speakingPromptLifecycleService.teardownDraft(
+                    id, draft.getOwnerId(), actorId);
         }
         draftRepository.delete(draft);
         log.info("[DraftService] Deleted draft id={}", id);
@@ -400,12 +472,23 @@ public class PracticeDraftService {
     public void cleanupEmptyDrafts(Long ownerId) {
         List<PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(ownerId);
         for (PracticeDraft d : drafts) {
+            if (speakingPromptLifecycleService != null) {
+                d = draftRepository.findByIdForUpdate(d.getId())
+                        .orElse(null);
+                if (d == null || !ownerId.equals(d.getOwnerId())) {
+                    continue;
+                }
+            }
             if (d.getPublishedSetId() == null && "DRAFT".equals(d.getStatus())) {
                 String json = d.getDraftJson();
                 if (json != null) {
                     try {
                         JsonNode rootNode = objectMapper.readTree(json);
                         if (rootNode.has("sections") && rootNode.get("sections").isArray() && rootNode.get("sections").size() == 0) {
+                            if (speakingPromptLifecycleService != null) {
+                                speakingPromptLifecycleService.teardownDraft(
+                                        d.getId(), d.getOwnerId(), ownerId);
+                            }
                             draftRepository.delete(d);
                             log.info("[DraftService] Cleaned up empty draft id={} for owner={}", d.getId(), ownerId);
                         }

@@ -16,11 +16,24 @@ public interface PracticeAssetLifecycleTaskRepository
         extends JpaRepository<PracticeAssetLifecycleTask, Long> {
 
     @Query("select t.id from PracticeAssetLifecycleTask t " +
-            "where t.status = 'PENDING' and (t.nextAttemptAt is null or t.nextAttemptAt <= :now) " +
-            "order by t.id asc")
-    List<Long> findDueIds(@Param("now") LocalDateTime now, Pageable pageable);
+            "where (t.status = 'PENDING' and (t.nextAttemptAt is null or t.nextAttemptAt <= :now)) " +
+            "or (t.status = 'RUNNING' and t.nextAttemptAt <= :now) " +
+            "order by t.nextAttemptAt asc, t.id asc")
+    List<Long> findDueIds(
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from PracticeAssetLifecycleTask t where t.id = :id")
     Optional<PracticeAssetLifecycleTask> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select t from PracticeAssetLifecycleTask t
+            where t.sourceStorageKey = :storageKey
+              and t.status in ('PENDING', 'RUNNING')
+            order by t.id asc
+            """)
+    List<PracticeAssetLifecycleTask> findActiveBySourceStorageKeyForUpdate(
+            @Param("storageKey") String storageKey);
 }

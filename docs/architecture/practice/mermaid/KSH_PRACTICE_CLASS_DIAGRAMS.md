@@ -1,6 +1,6 @@
 # KSH Practice Mermaid Class Diagrams
 
-Status: `PRE_13E_ARCHITECTURE_BASELINE`
+Status: `13C3_04_IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION`
 
 Each fenced block is a standalone Mermaid diagram. Copy only the code inside one block into Mermaid Live Editor.
 The four reader-facing areas preserve the ten internal module codes used by code, Draw.io and Jira.
@@ -28,6 +28,27 @@ classDiagram
             <<Service>>
             +mutateDraftGraph()
             +editLogging()
+            +reconcileSpeakingQuestionLifecycle()
+        }
+        class SpeakingPromptLifecycleService {
+            <<Service>>
+            +teardownExactSources()
+            +cancelSoleCurrentTasks()
+            +unlinkQuestionBindings()
+        }
+        class SpeakingPromptRetentionService {
+            <<Service>>
+            +expireUnattachedArtifacts()
+            +preserveImmutableContexts()
+        }
+        class PracticeAssetReferenceGuard {
+            <<Service>>
+            +materialSourceArtifactVersionRefs()
+            +rowLockedLogicalDeleteDecision()
+            +lockAllExactStorageKeyRows()
+            +deferRetainedKeyRecheck()
+            +selectDueTimeThenId()
+            +failClosedPhysicalDeleteRecheck()
         }
         class PracticeDraftContractService {
             <<Service>>
@@ -43,6 +64,11 @@ classDiagram
             <<Service>>
             +immutableSnapshotPublish()
             +afterCommitEvent()
+        }
+        class PracticeMaterialReferenceService {
+            <<Service>>
+            +lockParentsBeforeImmutableInsert()
+            +rejectArchivedOrDeletedParents()
         }
         class PracticeRevisionService {
             <<Service>>
@@ -65,6 +91,8 @@ classDiagram
             <<Service>>
             +buildTemplate()
             +previewImportOrchestration()
+            +verifiedPrivateUploadOnly()
+            +noPromptAiInvocation()
         }
         class PracticeAssessmentExcelV2Codec {
             <<Codec>>
@@ -76,27 +104,51 @@ classDiagram
             +allowedSkillsTypes()
             +contractChoices()
         }
-        class PracticeImportDraftService {
-            <<Service>>
-            +canonicalDraftMaterialization()
-            +replaceImportBoundary()
-        }
-        class PracticeImportSnapshotService {
-            <<Service>>
-            +sourceSnapshot()
-            +auditReplayEvidence()
-        }
         class LecturerAssetService {
             <<Service>>
             +resolveMediaLinks()
             +ownershipChecks()
+            +retainedSafeMetadataMutation()
+            +freshNonReusableStorageNamespace()
+            +durableGeneratedStaging()
+            +retainReferencedAssetUnchanged()
+            +stageAndRetireUnreferencedPromptAssets()
         }
         class PracticeDraftRepository {
             <<Repository>>
             +linkedDraftLookup()
             +draftPersistence()
         }
+        class SpeakingPromptAuthoringController {
+            <<Controller>>
+            +excelStagingAdoptionWithoutAssetId()
+        }
+        class SpeakingPromptOriginalAudioUploadCoordinator {
+            <<Service>>
+            +verifyOutsideLockedBind()
+        }
+        class SpeakingPromptAuthoringService {
+            <<Service>>
+            +authorizeRevisionAndBind()
+            +enqueueSttOnlyAfterExplicitEditorAction()
+        }
+        class SpeakingPromptAssetService {
+            <<Service>>
+            +resolveExactExcelStaging()
+            +lockedStagingToOriginalConversion()
+            +retireExactPriorBindingAfterCommit()
+        }
     }
+    PracticeDraftService --> SpeakingPromptLifecycleService
+    PracticePublisherService --> PracticeMaterialReferenceService : locked immutable references
+    PracticeMaterialReferenceService --> LecturerAssetService : parent asset state
+    SpeakingPromptLifecycleService --> LecturerAssetService : queue unreferenced candidates
+    PracticeAssessmentExcelService --> LecturerAssetService : verified audio only
+    PracticeAssessmentExcelService --> SpeakingPromptLifecycleService : replaced-question teardown
+    SpeakingPromptAuthoringController --> SpeakingPromptOriginalAudioUploadCoordinator : explicit ID-free adoption
+    SpeakingPromptOriginalAudioUploadCoordinator --> SpeakingPromptAuthoringService : preflight and locked bind
+    SpeakingPromptOriginalAudioUploadCoordinator --> SpeakingPromptAssetService : outside-transaction verification
+    SpeakingPromptAuthoringService --> SpeakingPromptAssetService : exact locked conversion
     namespace PDF_PDF_Import_Workspace {
         class PracticeImportController {
             <<Controller>>
@@ -138,6 +190,17 @@ classDiagram
             +providerCallRetry()
             +draftAssemblyFallback()
         }
+        class PracticeImportDraftService {
+            <<Service>>
+            +canonicalDraftMaterialization()
+            +replaceImportBoundary()
+            +rejectSourceBearingCopyBeforeMutation()
+        }
+        class PracticeImportSnapshotService {
+            <<Service>>
+            +sourceSnapshot()
+            +auditReplayEvidence()
+        }
     }
     PracticeDraftController --> PracticeDraftService : edits
     PracticeDraftService --> PracticeDraftContractService : applies contract
@@ -149,22 +212,20 @@ classDiagram
     PracticeAssessmentExcelService --> PracticeAssessmentExcelV2Codec : encodes/decodes
     PracticeAssessmentExcelService --> AssessmentAuthoringCatalogService : loads contract
     PracticeAssessmentExcelService --> LecturerAssetService : resolves media
-    PracticeAssessmentExcelService --> PracticeImportDraftService : imports
-    PracticeImportDraftService --> PracticeImportSnapshotService : records source
+    PracticeAssessmentExcelService --> PracticeDraftRepository : locks and persists merged draft
     PracticeImportController --> PracticePdfImportSessionService : opens
     PracticePdfImportApiController --> PracticePdfPageExtractionService : extracts
     PracticePdfImportApiController --> PracticePdfRegionService : annotates
     PracticePdfRegionService --> PracticePdfCropService : creates crop
     PracticePdfImportApiController --> PracticePdfPayloadPreviewService : previews payload
     PracticePdfImportApiController --> PracticePdfAiOrchestrator : generates
-    PracticeImportDraftService --> PracticeDraftService : creates canonical draft
-    PracticePdfAiOrchestrator --> PracticeImportDraftService : creates canonical draft
-    PracticeImportDraftService --> PracticeDraftValidator : reuses publish checks
+    PracticePdfImportApiController --> PracticeImportDraftService : creates canonical draft
+    PracticePdfImportApiController --> PracticeImportSnapshotService : records source
     classDef current fill:#E8F5E9,stroke:#2E7D32,color:#0B2545,stroke-width:1.5px;
     classDef planned13e fill:#FFF8E1,stroke:#F9A825,color:#0B2545,stroke-width:1.5px,stroke-dasharray:5 3;
     classDef planned13f fill:#E3F2FD,stroke:#1976D2,color:#0B2545,stroke-width:1.5px,stroke-dasharray:5 3;
     classDef deferred fill:#F5F5F5,stroke:#616161,color:#263238,stroke-dasharray:3 3;
-    cssClass "PracticeDraftController,PracticeManageController,PracticeDraftService,PracticeDraftContractService,PracticeDraftValidator,PracticePublisherService,PracticeRevisionService,PracticeCollaborationService,PracticeAssessmentExcelController,PracticeAssessmentExcelService,PracticeAssessmentExcelV2Codec,AssessmentAuthoringCatalogService,PracticeImportDraftService,PracticeImportSnapshotService,LecturerAssetService,PracticeDraftRepository,PracticeImportController,PracticePdfImportApiController,PracticePdfImportSessionService,PracticePdfPageExtractionService,PracticePdfRegionService,PracticePdfCropService,PracticePdfPayloadPreviewService,PracticePdfAiOrchestrator" current
+    cssClass "PracticeDraftController,PracticeManageController,PracticeDraftService,PracticeDraftContractService,PracticeDraftValidator,PracticePublisherService,PracticeRevisionService,PracticeCollaborationService,PracticeAssessmentExcelController,PracticeAssessmentExcelService,PracticeAssessmentExcelV2Codec,AssessmentAuthoringCatalogService,PracticeImportDraftService,PracticeImportSnapshotService,LecturerAssetService,PracticeDraftRepository,SpeakingPromptAuthoringController,SpeakingPromptOriginalAudioUploadCoordinator,SpeakingPromptAuthoringService,SpeakingPromptAssetService,PracticeImportController,PracticePdfImportApiController,PracticePdfImportSessionService,PracticePdfPageExtractionService,PracticePdfRegionService,PracticePdfCropService,PracticePdfPayloadPreviewService,PracticePdfAiOrchestrator" current
 ```
 
 ## 2. Skill-based Attempt Lifecycle
@@ -388,12 +449,14 @@ classDiagram
         }
         class SpeakingRuleEngine {
             <<Domainservice>>
-            +sixKoreanCriteria()
+            +fourTranscriptCriteria()
+            +twoAcousticCriteriaNotScorable()
             +evidenceChecks()
         }
         class SpeakingResultPresenter {
             <<Presenter>>
-            +holisticOverview()
+            +transcriptLanguageProfile()
+            +noHolisticScoreWithoutDirectAudio()
             +noPerQuestionOverview()
         }
         class SpeakingEvidencePresenter {

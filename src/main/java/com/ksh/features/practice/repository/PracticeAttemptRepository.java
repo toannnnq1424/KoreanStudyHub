@@ -6,11 +6,53 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt, Long> {
+
+    interface ProgressAllTimeProjection {
+        Long getActivityCount();
+        Long getCompletedCount();
+        Long getInProgressCount();
+        Long getOtherCount();
+        Long getValidDurationCount();
+        Long getExcludedDurationCount();
+        Long getTotalValidMinutes();
+        LocalDateTime getObservedFrom();
+        LocalDateTime getObservedTo();
+        LocalDateTime getAsOf();
+    }
+
+    interface ProgressSkillProjection {
+        String getSkill();
+        Long getActivityCount();
+        Long getCompletedCount();
+        Long getInProgressCount();
+        Long getOtherCount();
+        Long getEligibleScoreCount();
+        Long getExcludedScoreCount();
+        BigDecimal getEarnedPoints();
+        BigDecimal getPossiblePoints();
+        LocalDateTime getObservedFrom();
+        LocalDateTime getObservedTo();
+        LocalDateTime getAsOf();
+    }
+
+    interface GlobalResumeProjection {
+        Long getAttemptId();
+        Long getSetId();
+        Long getTestId();
+        Long getSectionId();
+        String getSetTitle();
+        String getTestTitle();
+        String getSkill();
+        LocalDateTime getActivityAt();
+    }
 
     Optional<PracticeAttempt> findByIdAndUserId(Long id, Long userId);
 
@@ -30,15 +72,357 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
     List<PracticeAttempt> findBySetIdAndUserIdOrderByCreatedAtDescIdDesc(
             Long setId, Long userId);
 
-    List<PracticeAttempt> findTop100ByUserIdOrderByCreatedAtDesc(Long userId);
+    /**
+     * Canonical all-time progress counts and duration coverage. Duration is
+     * eligible only for a completed attempt with a positive value below four
+     * hours; invalid evidence is counted as excluded and is never substituted.
+     */
+    @Query(value = """
+            SELECT
+                COUNT(*) AS activityCount,
+                COALESCE(SUM(CASE WHEN a.status IN ('SUBMITTED', 'GRADED') THEN 1 ELSE 0 END), 0)
+                    AS completedCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status = 'IN_PROGRESS'
+                     AND ppv.id IS NOT NULL
+                     AND psv.id IS NOT NULL
+                     AND ptv.id IS NOT NULL
+                     AND pscv.id IS NOT NULL
+                     AND (
+                         a.version_compatibility_status IS NULL
+                         OR TRIM(a.version_compatibility_status) = ''
+                         OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                     )
+                    THEN 1 ELSE 0 END), 0)
+                    AS inProgressCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status NOT IN ('IN_PROGRESS', 'SUBMITTED', 'GRADED')
+                      OR (
+                          a.status = 'IN_PROGRESS'
+                          AND (
+                              ppv.id IS NULL
+                              OR psv.id IS NULL
+                              OR ptv.id IS NULL
+                              OR pscv.id IS NULL
+                              OR (
+                                  a.version_compatibility_status IS NOT NULL
+                                  AND TRIM(a.version_compatibility_status) <> ''
+                                  AND UPPER(TRIM(a.version_compatibility_status)) <> 'COMPATIBLE'
+                              )
+                          )
+                      )
+                    THEN 1 ELSE 0 END), 0)
+                    AS otherCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status IN ('SUBMITTED', 'GRADED')
+                     AND a.started_at IS NOT NULL
+                     AND COALESCE(a.submitted_at, a.updated_at, a.created_at) > a.started_at
+                     AND TIMESTAMPDIFF(
+                         MINUTE, a.started_at, COALESCE(a.submitted_at, a.updated_at, a.created_at)
+                     ) BETWEEN 1 AND 239
+                    THEN 1 ELSE 0 END), 0) AS validDurationCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status IN ('SUBMITTED', 'GRADED')
+                     AND NOT (
+                         a.started_at IS NOT NULL
+                         AND COALESCE(a.submitted_at, a.updated_at, a.created_at) > a.started_at
+                         AND TIMESTAMPDIFF(
+                             MINUTE, a.started_at, COALESCE(a.submitted_at, a.updated_at, a.created_at)
+                         ) BETWEEN 1 AND 239
+                     )
+                    THEN 1 ELSE 0 END), 0) AS excludedDurationCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status IN ('SUBMITTED', 'GRADED')
+                     AND a.started_at IS NOT NULL
+                     AND COALESCE(a.submitted_at, a.updated_at, a.created_at) > a.started_at
+                     AND TIMESTAMPDIFF(
+                         MINUTE, a.started_at, COALESCE(a.submitted_at, a.updated_at, a.created_at)
+                     ) BETWEEN 1 AND 239
+                    THEN TIMESTAMPDIFF(
+                         MINUTE, a.started_at, COALESCE(a.submitted_at, a.updated_at, a.created_at)
+                     )
+                    ELSE 0 END), 0) AS totalValidMinutes,
+                MIN(COALESCE(a.submitted_at, a.updated_at, a.created_at)) AS observedFrom,
+                MAX(COALESCE(a.submitted_at, a.updated_at, a.created_at)) AS observedTo,
+                CURRENT_TIMESTAMP AS asOf
+            FROM practice_attempts a
+            LEFT JOIN practice_published_versions ppv
+              ON ppv.id = a.published_version_id
+             AND ppv.set_id = a.set_id
+            LEFT JOIN practice_set_versions psv
+              ON psv.id = a.set_version_id
+             AND psv.published_version_id = ppv.id
+             AND psv.set_id = a.set_id
+            LEFT JOIN practice_test_versions ptv
+              ON ptv.id = a.test_version_id
+             AND ptv.published_version_id = ppv.id
+             AND ptv.set_version_id = psv.id
+             AND ptv.test_id = a.test_id
+            LEFT JOIN practice_section_versions pscv
+              ON pscv.id = a.section_version_id
+             AND pscv.published_version_id = ppv.id
+             AND pscv.test_version_id = ptv.id
+             AND pscv.section_id = a.section_id
+             AND pscv.skill = a.skill
+            WHERE a.user_id = :userId
+              AND a.status <> :discardedStatus
+            """, nativeQuery = true)
+    ProgressAllTimeProjection findProgressAllTime(
+            @Param("userId") Long userId,
+            @Param("discardedStatus") String discardedStatus);
 
-    List<PracticeAttempt> findTop100ByUserIdAndStatusNotOrderByCreatedAtDescIdDesc(
-            Long userId, String status);
+    /**
+     * All-time per-skill activity plus Objective earned/possible evidence.
+     * Writing task cohorts are assembled from immutable question-version
+     * evidence by PracticeProgressService; Speaking numeric evidence is
+     * intentionally ineligible.
+     */
+    @Query(value = """
+            SELECT
+                a.skill AS skill,
+                COUNT(*) AS activityCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status IN ('SUBMITTED', 'GRADED') THEN 1 ELSE 0 END), 0)
+                    AS completedCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status = 'IN_PROGRESS'
+                     AND ppv.id IS NOT NULL
+                     AND psv.id IS NOT NULL
+                     AND ptv.id IS NOT NULL
+                     AND pscv.id IS NOT NULL
+                     AND (
+                         a.version_compatibility_status IS NULL
+                         OR TRIM(a.version_compatibility_status) = ''
+                         OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                     )
+                    THEN 1 ELSE 0 END), 0)
+                    AS inProgressCount,
+                COALESCE(SUM(CASE
+                    WHEN a.status NOT IN ('IN_PROGRESS', 'SUBMITTED', 'GRADED')
+                      OR (
+                          a.status = 'IN_PROGRESS'
+                          AND (
+                              ppv.id IS NULL
+                              OR psv.id IS NULL
+                              OR ptv.id IS NULL
+                              OR pscv.id IS NULL
+                              OR (
+                                  a.version_compatibility_status IS NOT NULL
+                                  AND TRIM(a.version_compatibility_status) <> ''
+                                  AND UPPER(TRIM(a.version_compatibility_status)) <> 'COMPATIBLE'
+                              )
+                          )
+                      )
+                    THEN 1 ELSE 0 END), 0)
+                    AS otherCount,
+                COALESCE(SUM(CASE
+                    WHEN a.skill IN ('READING', 'LISTENING')
+                     AND a.status IN ('SUBMITTED', 'GRADED')
+                     AND ppv.id IS NOT NULL
+                     AND psv.id IS NOT NULL
+                     AND ptv.id IS NOT NULL
+                     AND pscv.id IS NOT NULL
+                     AND a.score_unit = 'EARNED_POINTS'
+                     AND a.earned_points IS NOT NULL
+                     AND a.total_points IS NOT NULL
+                     AND a.total_points > 0
+                    THEN 1 ELSE 0 END), 0) AS eligibleScoreCount,
+                COALESCE(SUM(CASE
+                    WHEN a.skill IN ('READING', 'LISTENING')
+                     AND a.status IN ('SUBMITTED', 'GRADED')
+                     AND (
+                         ppv.id IS NULL
+                         OR psv.id IS NULL
+                         OR ptv.id IS NULL
+                         OR pscv.id IS NULL
+                         OR a.score_unit IS NULL
+                         OR a.score_unit <> 'EARNED_POINTS'
+                         OR a.earned_points IS NULL
+                         OR a.total_points IS NULL
+                         OR a.total_points <= 0
+                     )
+                    THEN 1 ELSE 0 END), 0) AS excludedScoreCount,
+                SUM(CASE
+                    WHEN a.skill IN ('READING', 'LISTENING')
+                     AND a.status IN ('SUBMITTED', 'GRADED')
+                     AND ppv.id IS NOT NULL
+                     AND psv.id IS NOT NULL
+                     AND ptv.id IS NOT NULL
+                     AND pscv.id IS NOT NULL
+                     AND a.score_unit = 'EARNED_POINTS'
+                     AND a.earned_points IS NOT NULL
+                     AND a.total_points IS NOT NULL
+                     AND a.total_points > 0
+                    THEN a.earned_points ELSE NULL END) AS earnedPoints,
+                SUM(CASE
+                    WHEN a.skill IN ('READING', 'LISTENING')
+                     AND a.status IN ('SUBMITTED', 'GRADED')
+                     AND ppv.id IS NOT NULL
+                     AND psv.id IS NOT NULL
+                     AND ptv.id IS NOT NULL
+                     AND pscv.id IS NOT NULL
+                     AND a.score_unit = 'EARNED_POINTS'
+                     AND a.earned_points IS NOT NULL
+                     AND a.total_points IS NOT NULL
+                     AND a.total_points > 0
+                    THEN a.total_points ELSE NULL END) AS possiblePoints,
+                MIN(COALESCE(a.submitted_at, a.updated_at, a.created_at)) AS observedFrom,
+                MAX(COALESCE(a.submitted_at, a.updated_at, a.created_at)) AS observedTo,
+                CURRENT_TIMESTAMP AS asOf
+            FROM practice_attempts a
+            LEFT JOIN practice_published_versions ppv
+              ON ppv.id = a.published_version_id
+             AND ppv.set_id = a.set_id
+            LEFT JOIN practice_set_versions psv
+              ON psv.id = a.set_version_id
+             AND psv.published_version_id = ppv.id
+             AND psv.set_id = a.set_id
+            LEFT JOIN practice_test_versions ptv
+              ON ptv.id = a.test_version_id
+             AND ptv.published_version_id = ppv.id
+             AND ptv.set_version_id = psv.id
+             AND ptv.test_id = a.test_id
+            LEFT JOIN practice_section_versions pscv
+              ON pscv.id = a.section_version_id
+             AND pscv.published_version_id = ppv.id
+             AND pscv.test_version_id = ptv.id
+             AND pscv.section_id = a.section_id
+             AND pscv.skill = a.skill
+            WHERE a.user_id = :userId
+              AND a.status <> :discardedStatus
+            GROUP BY a.skill
+            """, nativeQuery = true)
+    List<ProgressSkillProjection> findProgressAllTimeBySkill(
+            @Param("userId") Long userId,
+            @Param("discardedStatus") String discardedStatus);
 
-    List<PracticeAttempt> findByUserIdOrderByCreatedAtDesc(Long userId);
+    @Query("""
+            select a
+            from PracticeAttempt a
+            where a.userId = :userId
+              and a.status <> :discardedStatus
+            order by coalesce(a.submittedAt, a.updatedAt, a.createdAt) desc, a.id desc
+            """)
+    List<PracticeAttempt> findRecentProgressAttempts(
+            @Param("userId") Long userId,
+            @Param("discardedStatus") String discardedStatus,
+            Pageable pageable);
+
+    @Query("""
+            select a
+            from PracticeAttempt a
+            where a.userId = :userId
+              and a.skill = 'WRITING'
+              and a.status <> :discardedStatus
+            """)
+    List<PracticeAttempt> findProgressWritingAttempts(
+            @Param("userId") Long userId,
+            @Param("discardedStatus") String discardedStatus);
 
     List<PracticeAttempt> findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
             Long userId, List<Long> setIds, String status);
+
+    /**
+     * Bounded set-page/catalog identity batch for both resume and result-link
+     * policy. It returns only active attempts whose four immutable levels and
+     * source set/test/section/skill identity are coherent and compatible.
+     */
+    @Query(value = """
+            SELECT a.id
+            FROM practice_attempts a
+            JOIN practice_sets s
+              ON s.id = a.set_id
+             AND s.status = 'PUBLISHED'
+             AND s.is_deleted = 0
+            JOIN practice_published_versions ppv
+              ON ppv.id = a.published_version_id
+             AND ppv.set_id = a.set_id
+            JOIN practice_set_versions psv
+              ON psv.id = a.set_version_id
+             AND psv.published_version_id = ppv.id
+             AND psv.set_id = a.set_id
+            JOIN practice_test_versions ptv
+              ON ptv.id = a.test_version_id
+             AND ptv.published_version_id = ppv.id
+             AND ptv.set_version_id = psv.id
+             AND ptv.test_id = a.test_id
+            JOIN practice_section_versions pscv
+              ON pscv.id = a.section_version_id
+             AND pscv.published_version_id = ppv.id
+             AND pscv.test_version_id = ptv.id
+             AND pscv.section_id = a.section_id
+             AND pscv.skill = a.skill
+            WHERE a.user_id = :userId
+              AND a.set_id IN (:setIds)
+              AND a.status <> 'DISCARDED'
+              AND (
+                    a.version_compatibility_status IS NULL
+                    OR TRIM(a.version_compatibility_status) = ''
+                    OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                  )
+            """, nativeQuery = true)
+    List<Long> findCoherentAttemptIdentityIds(
+            @Param("userId") Long userId,
+            @Param("setIds") List<Long> setIds);
+
+    /**
+     * Global learner resume candidate. This query deliberately ignores catalog
+     * search, skill, class filter and pagination while retaining the same live
+     * published-set authorization boundary and a coherent immutable lock.
+     */
+    @Query(value = """
+            SELECT
+                a.id AS attemptId,
+                a.set_id AS setId,
+                a.test_id AS testId,
+                a.section_id AS sectionId,
+                psv.title AS setTitle,
+                ptv.title AS testTitle,
+                pscv.skill AS skill,
+                COALESCE(a.submitted_at, a.updated_at, a.created_at) AS activityAt
+            FROM practice_attempts a
+            JOIN practice_sets s
+              ON s.id = a.set_id
+             AND s.status = 'PUBLISHED'
+             AND s.is_deleted = 0
+            JOIN practice_published_versions ppv
+              ON ppv.id = a.published_version_id
+             AND ppv.set_id = a.set_id
+            JOIN practice_set_versions psv
+              ON psv.id = a.set_version_id
+             AND psv.published_version_id = ppv.id
+             AND psv.set_id = a.set_id
+            JOIN practice_test_versions ptv
+              ON ptv.id = a.test_version_id
+             AND ptv.published_version_id = ppv.id
+             AND ptv.set_version_id = psv.id
+             AND ptv.test_id = a.test_id
+            JOIN practice_section_versions pscv
+              ON pscv.id = a.section_version_id
+             AND pscv.published_version_id = ppv.id
+             AND pscv.test_version_id = ptv.id
+             AND pscv.section_id = a.section_id
+             AND pscv.skill = a.skill
+            WHERE a.user_id = :userId
+              AND a.status = 'IN_PROGRESS'
+              AND (
+                    a.version_compatibility_status IS NULL
+                    OR TRIM(a.version_compatibility_status) = ''
+                    OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                  )
+              AND (
+                    s.scope = 'GLOBAL'
+                    OR s.created_by = :userId
+                    OR (s.scope = 'CLASS' AND s.class_id IN (:activeClassIds))
+                  )
+            ORDER BY
+                COALESCE(a.submitted_at, a.updated_at, a.created_at) DESC,
+                a.id DESC
+            """, nativeQuery = true)
+    List<GlobalResumeProjection> findGlobalResumeCandidates(
+            @Param("userId") Long userId,
+            @Param("activeClassIds") List<Long> activeClassIds,
+            Pageable pageable);
 
     Optional<PracticeAttempt> findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
             Long userId, Long testId, Long sectionId, String status);

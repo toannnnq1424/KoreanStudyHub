@@ -12,22 +12,32 @@
           const content = question.content && typeof question.content === 'object'
             ? question.content
             : {};
-          const speakingDelivery = content.speakingDelivery && typeof content.speakingDelivery === 'object'
-            ? content.speakingDelivery
-            : {};
+          const speakingPresentation = question.speakingPresentation
+            && typeof question.speakingPresentation === 'object'
+            ? question.speakingPresentation
+            : null;
           totalPoints += points;
           return {
             questionNo: Number(question.questionNo) || questionIndex + 1,
             questionType: question.questionType,
-            prompt: question.prompt || '',
+            prompt: speakingPresentation
+              ? (speakingPresentation.promptText || '')
+              : (question.prompt || ''),
             questionContent: content,
+            speakingPresentation,
             options: Array.isArray(content.options) ? content.options : [],
             imageUrl: content.imageReference || '',
             audioUrl: content.audioReference || '',
-            speakingPromptAudioUrl: speakingDelivery.promptAudioReference || '',
-            speakingPromptPlayLimit: Number(speakingDelivery.promptPlayLimit) || 1,
-            prepTimeSeconds: Number(speakingDelivery.preparationSeconds ?? question.prepTimeSeconds) || 0,
-            respTimeSeconds: Number(speakingDelivery.responseSeconds ?? question.respTimeSeconds) || 0,
+            prepTimeSeconds: Number(
+              speakingPresentation
+                ? speakingPresentation.preparationSeconds
+                : question.prepTimeSeconds
+            ) || 0,
+            respTimeSeconds: Number(
+              speakingPresentation
+                ? speakingPresentation.responseSeconds
+                : question.respTimeSeconds
+            ) || 0,
             points
           };
         });

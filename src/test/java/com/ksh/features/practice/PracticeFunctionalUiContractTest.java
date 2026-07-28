@@ -51,6 +51,12 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/js/practice-result.js");
     private static final Path WRITING_RESULT_PRESENTER =
             Path.of("src/main/java/com/ksh/features/practice/result/WritingResultPresenter.java");
+    private static final Path PRACTICE_CONTROLLER =
+            Path.of("src/main/java/com/ksh/features/practice/controller/PracticeController.java");
+    private static final Path PRACTICE_SERVICE =
+            Path.of("src/main/java/com/ksh/features/practice/service/PracticeService.java");
+    private static final Path PRACTICE_ATTEMPT_REPOSITORY =
+            Path.of("src/main/java/com/ksh/features/practice/repository/PracticeAttemptRepository.java");
 
     @Test
     void detailPagesUsePerTestAndPerSkillContracts() throws IOException {
@@ -61,7 +67,11 @@ class PracticeFunctionalUiContractTest {
         assertThat(template).contains("testId=${test.id()}");
         assertThat(template).doesNotContain("testId=${view.set().id()}");
         assertThat(testDetail).contains("th:each=\"card : ${skillCards}\"");
-        assertThat(testDetail).contains("card.completedAttempts()", "data-attempt-toggle");
+        assertThat(testDetail).contains(
+                "card.completedAttempts()",
+                "attempt.resultEligible()",
+                "snapshot tương thích",
+                "data-attempt-toggle");
         assertThat(testDetail).doesNotContain("submissions", "inProgressAttempts", "Overall");
     }
 
@@ -100,7 +110,7 @@ class PracticeFunctionalUiContractTest {
                 "gain.connect(context.destination)",
                 "stream.getTracks().forEach",
                 "blob.size > 0",
-                "Dịch vụ lưu bản ghi Speaking đang tắt");
+                "Dịch vụ lưu bản ghi phần Nói đang tắt");
         assertThat(preflightJs).doesNotContain("fetch(\"http", "fetch('http");
         assertThat(preflightCss).contains(".spc-page", ".spc-panel", ".spc-meter", ".spc-mascot");
     }
@@ -138,7 +148,7 @@ class PracticeFunctionalUiContractTest {
                 "listening-check-audio-area",
                 "handleListeningCheckAudioSelect",
                 "syncSectionContract(section)",
-                "Audio thử loa trước phần Nghe");
+                "Âm thanh thử loa trước phần Nghe");
     }
 
     @Test
@@ -156,11 +166,29 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("fragments/catalog-cards.html"));
         String catalogJs = Files.readString(PRACTICE_CATALOG_JS);
         String catalogCss = Files.readString(PRACTICE_CATALOG_CSS);
+        String mainRule = catalogCss.substring(
+                catalogCss.indexOf(".pc-main {"),
+                catalogCss.indexOf(".pc-layout {"));
 
         assertThat(template).contains("catalog.totalElements()");
-        assertThat(template).contains("catalog.resumeCard()");
+        assertThat(template).contains(
+                "catalog.globalResume()",
+                "resume.attemptId()",
+                "resume.setTitle()",
+                "resume.testTitle()",
+                "resume.skillLabel()");
+        assertThat(template).doesNotContain("catalog.resumeCard()");
         assertThat(template).contains("pc-resume-banner");
         assertThat(template).contains("pc-skill-pill");
+        assertThat(template).contains(
+                "name=\"writingTask\"",
+                "catalog.writingTask()",
+                "writingTask='Q51'",
+                "writingTask='Q52'",
+                "writingTask='Q53'",
+                "writingTask='Q54'",
+                "Câu 51 · 51번",
+                "Câu 54 · 54번");
         assertThat(template).contains("data-endpoint=@{/practice/catalog}");
         assertThat(cards).contains("card.testCount()");
         assertThat(cards).contains("card.completedTests()");
@@ -173,13 +201,25 @@ class PracticeFunctionalUiContractTest {
         assertThat(cards).contains("card.hasSkill('WRITING')");
         assertThat(cards).contains("card.hasSkill('SPEAKING')");
         assertThat(cards).doesNotContain("card.questionCount()");
+        assertThat(cards).doesNotContain("pc-resume-banner", "globalResume()");
         assertThat(cards).contains("pc-card-book");
         assertThat(cards).contains("bài test");
         assertThat(catalogCss).contains("pc-skill-mixed");
         assertThat(catalogCss).contains("pc-card-skill-icons");
         assertThat(catalogCss).contains("grid-template-columns: repeat(4, minmax(0, 1fr))");
+        assertThat(catalogCss).contains(
+                "@media (max-width: 1180px)",
+                "grid-template-columns: repeat(3, minmax(0, 1fr))",
+                "@media (max-width: 760px)",
+                "grid-template-columns: repeat(2, minmax(0, 1fr))",
+                "@media (max-width: 560px)",
+                "grid-template-columns: minmax(0, 1fr)");
+        assertThat(mainRule)
+                .contains("min-width: 0")
+                .doesNotContain("width: 100%", "margin-left");
         assertThat(catalogJs).contains("IntersectionObserver");
         assertThat(catalogJs).contains("params.set('batch'");
+        assertThat(catalogJs).contains("new URLSearchParams(window.location.search)");
         assertThat(catalogJs).contains("card.dataset.skillCycle");
         assertThat(catalogJs).contains("window.setInterval");
         assertThat(catalogJs).contains("}, 2000)");
@@ -188,6 +228,69 @@ class PracticeFunctionalUiContractTest {
         assertThat(template).doesNotContain("set.skill() == 'READING' ? 40");
         assertThat(template).doesNotContain("set.skill() == 'LISTENING' ? 20");
         assertThat(template).doesNotContain("AI quota");
+    }
+
+    @Test
+    void globalResumeAndReEvaluationGateStayOutsideCardAndProviderPaths()
+            throws IOException {
+        String service = Files.readString(PRACTICE_SERVICE);
+        String repository = Files.readString(PRACTICE_ATTEMPT_REPOSITORY);
+        int reEvaluateStart = service.indexOf(
+                "public Long reEvaluate(Long attemptId, Long userId)");
+        int questionEntry = service.indexOf(
+                "public Long reEvaluateQuestion", reEvaluateStart);
+        int commonGate = service.indexOf(
+                "private PracticeAttempt requireReEvaluationAttempt",
+                questionEntry);
+        String fullCommand = service.substring(reEvaluateStart, questionEntry);
+        String questionCommand = service.substring(questionEntry, commonGate);
+        int transactionFallback = service.indexOf(
+                "private Long reEvaluateInTransaction", commonGate);
+        String gate = service.substring(commonGate, transactionFallback);
+
+        assertThat(fullCommand).contains(
+                "requireReEvaluationAttempt",
+                "loadWritingReEvaluationSnapshot",
+                "loadNonWritingEssayReEvaluationSnapshot");
+        assertThat(fullCommand.indexOf("requireReEvaluationAttempt"))
+                .isLessThan(
+                        fullCommand.indexOf(
+                                "loadWritingReEvaluationSnapshot"));
+        assertThat(fullCommand).doesNotContain(
+                "loadSpeakingReEvaluationSnapshot",
+                "gradeSpeakingSnapshot");
+        assertThat(questionCommand).contains(
+                "requireReEvaluationAttempt",
+                "loadWritingQuestionReEvaluationSnapshot");
+        assertThat(questionCommand.indexOf("requireReEvaluationAttempt"))
+                .isLessThan(questionCommand.indexOf(
+                        "loadWritingQuestionReEvaluationSnapshot"));
+        assertThat(gate).contains(
+                "findByIdAndUserId",
+                "reEvaluationEligibility",
+                "hasCoherentAttemptIdentity",
+                "loadPublished");
+        assertThat(gate.indexOf("findByIdAndUserId"))
+                .isLessThan(gate.indexOf("reEvaluationEligibility"));
+        assertThat(gate.indexOf("reEvaluationEligibility"))
+                .isLessThan(gate.indexOf("hasCoherentAttemptIdentity"));
+        assertThat(gate.indexOf("hasCoherentAttemptIdentity"))
+                .isLessThan(gate.indexOf("loadPublished"));
+        assertThat(gate).doesNotContain(
+                "loadQuestionSnapshots",
+                "evaluateQuestion",
+                "gradeWritingSnapshot",
+                "saveAndFlush");
+        assertThat(repository).contains(
+                "findGlobalResumeCandidates",
+                "a.user_id = :userId",
+                "s.status = 'PUBLISHED'",
+                "s.is_deleted = 0",
+                "s.scope = 'GLOBAL'",
+                "s.created_by = :userId",
+                "s.class_id IN (:activeClassIds)",
+                "COALESCE(a.submitted_at, a.updated_at, a.created_at) DESC",
+                "a.id DESC");
     }
 
     @Test
@@ -204,29 +307,90 @@ class PracticeFunctionalUiContractTest {
                 "result.identity().testId()",
                 "practice/result/objective :: panel",
                 "practice/result/writing :: panel",
-                "practice/result/speaking :: panel");
+                "practice/result/speaking :: panel",
+                "result.answers().scoredLabel()",
+                "result.identity().skill() != 'SPEAKING'",
+                "result.identity().skill() == 'SPEAKING'",
+                "Phạm vi hồ sơ",
+                "phần có hồ sơ ngôn ngữ")
+                .doesNotContain("result.celebratory()", "pr-skill-mark");
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("rl-result.html"))).isFalse();
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/reading.html"))).isFalse();
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/listening.html"))).isFalse();
-        assertThat(objective).contains("Đúng một phần", "Không thể chấm", "giải thích");
+        assertThat(objective).contains(
+                "Đúng một phần",
+                "Không thể chấm",
+                "Điểm đạt được",
+                "Tỷ lệ điểm",
+                "row.pointsDisplay()",
+                "row.scoreRateDisplay()",
+                "th:case=\"'READY'\"",
+                "th:case=\"'PARTIAL'\"",
+                "th:case=\"'PENDING'\"",
+                "th:case=\"'FAILED'\"",
+                "th:case=\"'UNAVAILABLE'\"",
+                "Xem đáp án và giải thích hiện có",
+                "Xem đáp án")
+                .doesNotContain("Độ chính xác", "row.accuracyDisplay()");
         assertThat(writingPresenter).contains(
                 "Nhiệm vụ và Nội dung",
                 "Cấu trúc và mạch lạc",
                 "Từ vựng và Diễn đạt",
-                "Ngữ pháp và Độ chính xác");
-        assertThat(writing).contains("không cộng thêm vào tổng điểm")
-                .doesNotContain("Task Response", "Lexical Resource", "IELTS", "Band descriptors");
+                "Ngữ pháp và Độ chính xác",
+                "expectedMaxScore",
+                "visibleCriteria")
+                .doesNotContain("ResultEvaluationBand.fromPercentage");
+        assertThat(writing).contains(
+                "Đánh giá luyện tập KSH",
+                "không phải điểm hoặc chứng chỉ TOPIK chính thức",
+                "Thành phần tính điểm",
+                "Phân bổ điểm theo từng ô trống",
+                "không có điểm riêng và không cộng vào tổng điểm",
+                "Không tính điểm",
+                "task.evaluated()",
+                "th:case=\"'PENDING'\"",
+                "th:case=\"'FAILED'\"",
+                "th:case=\"'UNAVAILABLE'\"",
+                "th:tabindex=\"${status.first ? 0 : -1}\"",
+                "th:tabindex=\"${lensStatus.first ? 0 : -1}\"",
+                "<details class=\"pr-task-prompt\"",
+                "pr-task-prompt-preview",
+                "pr-task-prompt-full",
+                "questionId=${task.questionId()}",
+                "th:if=\"${task.detailAvailable()}\"",
+                "th:unless=\"${task.detailAvailable()}\"",
+                "Chi tiết riêng chưa khả dụng cho định dạng Writing lịch sử này",
+                "Chưa có trang chi tiết cho nhiệm vụ này")
+                .doesNotContain(
+                        "Task Response", "Lexical Resource", "IELTS", "Band descriptors",
+                        "criterion.band()", "lens.band()", "pr-scale", "th:hidden");
         assertThat(speaking).contains(
-                "Đánh giá toàn bài",
+                "Phạm vi và độ tin cậy",
+                "Hồ sơ ngôn ngữ dựa trên bản chép lời",
+                "Kết quả Nói tổng hợp",
+                "Không có điểm số",
+                "criterion.scored()",
+                "criterion.notScorable()",
                 "Kế hoạch luyện tập tiếp theo",
-                "Sáu tiêu chí tiếng Hàn",
-                "TRANSCRIPT_ONLY")
-                .doesNotContain("Câu 1", "data-result-tabs=\"speaking");
+                "Xem bản chép lời và bằng chứng chi tiết")
+                .doesNotContain(
+                        "Câu 1", "data-result-tabs=\"speaking", "IELTS", "radar",
+                        "criterion.band()", "criterion.percentage()", "pr-scale");
         assertThat(css).contains(
                 "--pr-blue:", "--pr-green:", "--pr-amber:", "--pr-red:", "--pr-gray:",
-                ".pr-speaking-action-plan", "@media (max-width: 720px)")
-                .doesNotContain("linear-gradient", "radial-gradient");
-        assertThat(js).contains("[data-result-tabs]", "aria-selected", "hidden");
+                ".pr-speaking-action-plan", ".pr-next-action", ".pr-table td::before",
+                ".pr-writing-scorecard", ".pr-writing-lenses", ".pr-writing-state",
+                ".pr-task-action-unavailable",
+                ".pr-speaking-profile-state", ".pr-speaking-provenance",
+                ".pr-speaking-criterion.is-not-scorable",
+                ".pr-task-prompt-preview", "-webkit-line-clamp: 3", ".pr-task-actions",
+                ".practice-result-page summary:focus-visible", "@media (max-width: 720px)")
+                .doesNotContain(
+                        "linear-gradient", "radial-gradient", "min-width: 800px",
+                        ".pr-band-chip", ".pr-scale", "radar");
+        assertThat(js).contains(
+                "[data-result-tabs]", "aria-selected", "hidden",
+                "ArrowRight", "ArrowLeft", "Home", "End");
     }
 
     @Test
@@ -235,6 +399,180 @@ class PracticeFunctionalUiContractTest {
 
         assertThat(template).contains("result.identity().testId()");
         assertThat(template).contains("/practice/sets/{setId}/tests/{testId}");
+    }
+
+    @Test
+    void speakingRecoveryOpensCanonicalOtherAttemptPreflightWithoutChangingScreens()
+            throws IOException {
+        String overview = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result/speaking.html"));
+        String resultDetail = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-speaking.html"));
+
+        assertThat(overview)
+                .contains(
+                        "result.feedback().state() == 'FAILED' or result.feedback().state() == 'UNAVAILABLE'",
+                        "Lần nộp này được lưu bất biến và không thể đánh giá lại",
+                        "“Luyện lại” mở bước chuẩn bị cho một lượt khác",
+                        "Nếu đã có một lượt khác đang làm dở và còn hợp lệ",
+                        "/practice/sets/{setId}/tests/{testId}",
+                        "result.identity().setId()",
+                        "result.identity().testId()",
+                        "Luyện lại · 다시 연습",
+                        "/practice/attempts/{id}/result/detail")
+                .doesNotContain(
+                        "<form",
+                        "/re-evaluate",
+                        "retry provider",
+                        "sẽ bắt đầu một lần làm bài mới");
+        assertThat(resultDetail)
+                .contains("data-result-detail-kind=\"SPEAKING_DETAIL\"")
+                .doesNotContain(
+                        "Luyện lại · 다시 연습",
+                        "/re-evaluate",
+                        "pr-speaking-recovery");
+    }
+
+    @Test
+    void resultDetailUsesThreeTypedServerRenderedScreenBoundaries() throws IOException {
+        String objective = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-objective.html"));
+        String writing = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-writing.html"));
+        String speaking = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-speaking.html"));
+        String detailCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-detail.css"));
+        String tabsJs = Files.readString(PRACTICE_RESULT_JS);
+
+        assertThat(objective).contains(
+                "data-result-detail-kind=\"OBJECTIVE_DETAIL\"",
+                "resultDetail.payload().summary().breakdown()",
+                "resultDetail.payload().sourceGroups()",
+                "resultDetail.payload().questions()",
+                "data-objective-question-type",
+                "Nguồn và bằng chứng gốc",
+                "Đáp án người học",
+                "Đáp án chính thức",
+                "Giải thích của giáo viên",
+                "Lời giải AI",
+                "Dịch đoạn liên quan",
+                "Bản chép lời đã được phê duyệt",
+                "Phương án, trạng thái người học và lý do loại chọn",
+                "Giá trị từng ô trống và đáp án được chấp nhận",
+                "Vì sao không phải",
+                "Digest tài sản",
+                "evidenceTranslations()",
+                "Gắn với bằng chứng",
+                "tabindex=\"-1\"")
+                .doesNotContain(
+                        "groupsJson", "JSON.parse", "questionsJson",
+                        "IELTS", "Band", "Task Response", "Lexical Resource",
+                        "th:utext", "pageIndex()");
+        assertThat(detailCss).contains(
+                ".prd-objective-layout",
+                ".prd-objective-nav-list a:focus-visible",
+                ".prd-objective-question:focus",
+                "@media (max-width: 980px)",
+                "@media (max-width: 640px)");
+        assertThat(writing).contains(
+                "data-result-detail-kind=\"WRITING_DETAIL\"",
+                "resultDetail.payload().scoreCriteria()",
+                "resultDetail.payload().diagnosticGroups()",
+                "group.strengthChips()",
+                "group.needsImprovementChips()",
+                "chip.labelVi()",
+                "chip.labelKo()",
+                "chip.count()",
+                "resultDetail.payload().scoreProfileId()",
+                "task.score().pointsDisplay()",
+                "task.feedback().label()",
+                "task.feedback().stateLabelKo()",
+                "data-writing-diagnostic-filter",
+                "data-writing-feature",
+                "aria-pressed",
+                "data-result-tabs",
+                "role=\"tabpanel\"",
+                "aria-controls",
+                "aria-labelledby",
+                "aria-selected",
+                "Tổng quan",
+                "개요",
+                "Điểm mạnh",
+                "강점",
+                "Cần cải thiện",
+                "개선 필요",
+                "Bài nâng cấp",
+                "개선된 답안",
+                "Không có đề bài bất biến khả dụng",
+                "Người học chưa nộp câu trả lời",
+                "/js/practice-result.js",
+                "name=\"questionId\"",
+                "_csrf.parameterName")
+                .doesNotContain(
+                        "questionsJson", "JSON.parse", "Content", "Coherence",
+                        "Bài mẫu", "data-tab=\"sample\"", "th:utext",
+                        "teacherReference()", "Bài tham khảo của giáo viên",
+                        "교사 참고 답안");
+        assertThat(writing.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(writing.indexOf("resultDetail.payload().scoreCriteria()"))
+                .isBetween(
+                        writing.indexOf("th:id=\"${'writing-panel-overview-"),
+                        writing.indexOf("th:id=\"${'writing-panel-strengths-"));
+        assertThat(detailCss).contains(
+                ".prd-writing-review-layout",
+                ".prd-writing-tabs",
+                ".prd-writing-tab.is-active",
+                ".prd-writing-tab:focus-visible",
+                ".prd-writing-panel[hidden]",
+                "@media (max-width: 940px)");
+        assertThat(tabsJs).contains(
+                "[data-result-tabs]",
+                "aria-selected",
+                "ArrowRight",
+                "ArrowLeft",
+                "Home",
+                "End",
+                "nextTab.focus()",
+                "[data-writing-diagnostic-filter]",
+                "aria-pressed",
+                "finding.hidden",
+                "firstMatch.focus",
+                "firstMatch.scrollIntoView",
+                "[data-speaking-diagnostic-filter]",
+                "dataset.speakingFeature")
+                .doesNotContain("JSON.parse", "JSON.stringify");
+        assertThat(speaking).contains(
+                "data-result-detail-kind=\"SPEAKING_DETAIL\"",
+                "data-speaking-active-question",
+                "data-speaking-evidence-mode",
+                "data-speaking-recording-state",
+                "data-speaking-acoustic-state",
+                "resultDetail.payload().scoreCriteria()",
+                "resultDetail.payload().diagnosticGroups()",
+                "resultDetail.payload().evidence().transcriptText()",
+                "resultDetail.payload().upgrade().learnerDerivedUpgrade()",
+                "data-speaking-diagnostic-filter",
+                "Tổng quan",
+                "개요",
+                "Điểm mạnh",
+                "강점",
+                "Cần cải thiện",
+                "개선 필요",
+                "Bài nâng cấp",
+                "개선된 답변",
+                "không chứng minh bộ đánh giá đã nghe âm thanh")
+                .doesNotContain(
+                        "questionsJson", "JSON.parse", "Content", "Coherence",
+                        "holistic", "subtotal", "AUDIO_SUBMITTED",
+                        "S_FLUENCY_", "S_PRONUNCIATION_");
+        assertThat(speaking.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(detailCss).contains(
+                ".prd-speaking-tabs",
+                ".prd-speaking-panel[hidden]",
+                ".prd-speaking-chip[aria-pressed=\"true\"]",
+                ".prd-speaking-recording audio",
+                "@media (max-width: 980px)");
     }
 
     @Test
@@ -303,6 +641,165 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
+    void progressSerializationFailureKeepsTypedUnavailableState() throws IOException {
+        String controller = Files.readString(PRACTICE_CONTROLLER);
+        String progress = Files.readString(PRACTICE_TEMPLATES.resolve("progress.html"));
+        String facts = Files.readString(
+                PRACTICE_TEMPLATES.resolve("fragments/progress-facts.html"));
+        String progressJs = Files.readString(PRACTICE_PROGRESS_JS);
+
+        assertThat(controller).contains(
+                "PracticeProgressService progressService",
+                "ProgressExclusionReason",
+                ".SERIALIZATION_UNAVAILABLE",
+                "SAFE_PROGRESS_JSON_MAPPER",
+                "serializeProgressFallback(unavailable.overview())",
+                "serializeProgressFallback(unavailable.analytics())",
+                "PracticeModelAttributes.PROGRESS_STATE");
+        assertThat(controller).doesNotContain(
+                "SAFE_PROGRESS_OVERVIEW_JSON",
+                "SAFE_PROGRESS_ANALYTICS_JSON",
+                "PracticeModelAttributes.OVERVIEW_JSON, \"{}\"",
+                "PracticeModelAttributes.ANALYTICS_JSON, \"{}\"");
+        assertThat(progress).contains(
+                "id=\"progress-unavailable-state\"",
+                "progressState.availability().name() == 'UNAVAILABLE'",
+                "progressState.reason().name() == 'PAGE_DATA_UNAVAILABLE'",
+                "progressState.reason().name() == 'SERIALIZATION_UNAVAILABLE'",
+                "progressState.retryHint() == 'RELOAD'",
+                "Chưa thể hiển thị dữ liệu tiến độ",
+                "Không có biểu đồ cũ nào được giữ lại.",
+                "Tải lại với bộ lọc hiện tại",
+                "overview.totalPracticeMinutes() == null",
+                "'Chưa khả dụng'",
+                "FILTER_NO_DATA",
+                "NO_ACTIVITY",
+                "CHART_ENHANCEMENT_UNAVAILABLE",
+                "hidden data-chart-visual",
+                "Bộ lọc tác vụ/hồ sơ Viết chỉ áp dụng",
+                "không có điểm Nói tổng hợp",
+                "row.scoreFact().renderableValue()",
+                "row.score() != null",
+                "row.totalPoints() != null",
+                "row.score() + ' / ' + row.totalPoints()",
+                "Điểm chưa khả dụng",
+                "Điểm Viết theo tác vụ và nhóm có thể so sánh",
+                "Q51-Q54, hồ sơ/gói chính sách và mức tối đa khác nhau luôn ở các nhóm riêng",
+                "/practice(skill='WRITING',writingTask=${task.taskType()})");
+        assertThat(facts).contains(
+                "Quy mô mẫu · 표본",
+                "적격 사실 ",
+                "Độ phủ nguồn · 소스 범위",
+                "적격 ",
+                "Khoảng quan sát · 관찰 기간",
+                "시작 시각 없음",
+                "종료 시각 없음",
+                "Chốt dữ liệu · 기준 시각",
+                "Nguồn giới hạn · 제한된 소스",
+                "반환 ",
+                "đã cắt bớt nguồn · 일부 잘림",
+                "Độ tin cậy nguồn · 자료 신뢰 근거",
+                "data-chart-failure-message",
+                "Thử tải biểu đồ lại · 차트 다시 불러오기",
+                "profile=${filter.profileId()}",
+                "표본 규모, 최신성, 범위만 요약",
+                "Dữ liệu cũ chưa xác minh · 검증되지 않은 이전 데이터",
+                "Thiếu khóa phiên bản bất biến · 불변 버전 잠금 불완전",
+                "Nói chỉ có hoạt động/hồ sơ/độ phủ; không có điểm tổng hợp · 말하기는 활동/프로필/범위만 제공하며 종합 점수는 없음");
+        assertThat(progress).doesNotContain(
+                "currentLevel() == 'Chưa có dữ liệu điểm'",
+                "Lượt làm bài đã nộp",
+                "bài tuần này",
+                "Xét 20 bài gần nhất",
+                "Lịch sử luyện tập đầy đủ",
+                "tối đa 30 lượt làm bài gần nhất",
+                "Lịch sử hoạt động luyện tập trong 12 tuần gần đây",
+                ": row.status())",
+                "Phản hồi thông minh",
+                "Phân tích bứt phá",
+                "Điểm trung bình kỹ năng Viết");
+        assertThat(progressJs).contains(
+                "cell.totalMinutes === null",
+                "thời lượng chưa khả dụng",
+                "canvas.hidden = true",
+                "Bảng chuẩn vẫn dùng được",
+                "function enhanceHeatmap()",
+                "status.querySelector('[data-chart-failure-message]')",
+                "metric.skill === 'READING' || metric.skill === 'LISTENING'",
+                "metric.scoreFact.value");
+        assertThat(progressJs).doesNotContain(
+                "Math.round((value / totalCount) * 100)",
+                "m.skill !== 'SPEAKING'");
+    }
+
+    @Test
+    void progressRendersPartialObjectiveFactsWithEvidenceInFallbackAndCharts()
+            throws IOException {
+        String dto = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/dto/PracticeDtos.java"));
+        String progress = Files.readString(PRACTICE_TEMPLATES.resolve("progress.html"));
+        String facts = Files.readString(
+                PRACTICE_TEMPLATES.resolve("fragments/progress-facts.html"));
+        String progressJs = Files.readString(PRACTICE_PROGRESS_JS);
+
+        assertThat(dto).contains(
+                "public boolean renderableValue()",
+                "value != null",
+                "availability == ProgressAvailability.AVAILABLE",
+                "availability == ProgressAvailability.PARTIAL",
+                "public boolean partialCoverage()");
+        assertThat(progress).contains(
+                "overview.recentScoreFact().renderableValue()",
+                "metric.scoreFact().renderableValue()",
+                "metric.scoreFact().partialCoverage()",
+                "point.scoreFact().renderableValue()",
+                "point.scoreFact().partialCoverage()",
+                "metric.scoreFact().numerator()",
+                "metric.scoreFact().denominator()",
+                "sourceFact(${metric.scoreFact()})",
+                "sourceFact(${point.scoreFact()})",
+                "Một phần · 부분 범위");
+        assertThat(facts).contains(
+                "fact.partialCoverage()",
+                "Độ phủ một phần · 부분 범위",
+                "hoạt động bị loại không được đổi thành 0",
+                "제외된 활동은 0점으로 바꾸지 않고",
+                "Điểm đạt / điểm có thể đạt · 획득 점수 / 가능 점수",
+                "fact.numerator() != null && fact.denominator() != null",
+                "fact.numerator() + ' / ' + fact.denominator()",
+                "Độ phủ nguồn · 소스 범위",
+                "Khoảng quan sát · 관찰 기간");
+        assertThat(progressJs).contains(
+                "function renderableNumericFact(fact)",
+                "fact.availability === 'AVAILABLE' || fact.availability === 'PARTIAL'",
+                "fact.value !== null",
+                "renderableNumericFact(metric.scoreFact)",
+                "renderableNumericFact(point.scoreFact)");
+        assertThat(progressJs).doesNotContain(
+                "function availableNumericFact(fact)",
+                "Number(fact.value || 0)");
+    }
+
+    @Test
+    void scoreTrendKeepsRepeatedSameSkillTimestampAsDistinctEventSlots() throws IOException {
+        String progressJs = Files.readString(PRACTICE_PROGRESS_JS);
+
+        assertThat(progressJs).contains(
+                "function buildScoreTrendEventSlots(trend)",
+                "const occurrenceKey = `${point.date}::${point.skill}`;",
+                "const occurrence = occurrenceByDateAndSkill.get(occurrenceKey) || 0;",
+                "occurrenceByDateAndSkill.set(occurrenceKey, occurrence + 1);",
+                "const eventKey = `${point.date}::${occurrence}`;",
+                "eventSlots.push(slot);",
+                "const slots = buildScoreTrendEventSlots(trend);",
+                "slot.pointsBySkill[skill]?.score ?? null",
+                "slot.pointsBySkill[context.dataset.skill]");
+        assertThat(progressJs).doesNotContain(
+                "const uniqueDates = [];",
+                "pointsMap[pt.date][pt.skill] =");
+    }
+
+    @Test
     void practiceWebBoundaryConstantsCoverHighRiskContracts() {
         assertThat(PracticeRoutes.BASE).isEqualTo("/practice");
         assertThat(PracticeRoutes.CATALOG_BATCH).isEqualTo("/catalog");
@@ -314,10 +811,16 @@ class PracticeFunctionalUiContractTest {
         assertThat(PracticeRoutes.redirectToResultDetail(44L, 55L))
                 .isEqualTo("redirect:/practice/attempts/44/result/detail?questionId=55");
 
-        assertThat(PracticeViews.RESULT_DETAIL).isEqualTo("practice/result-detail");
+        assertThat(PracticeViews.RESULT_DETAIL_OBJECTIVE)
+                .isEqualTo("practice/result-detail-objective");
+        assertThat(PracticeViews.RESULT_DETAIL_WRITING)
+                .isEqualTo("practice/result-detail-writing");
+        assertThat(PracticeViews.RESULT_DETAIL_SPEAKING)
+                .isEqualTo("practice/result-detail-speaking");
         assertThat(PracticeViews.CATALOG_CARDS)
                 .isEqualTo("practice/fragments/catalog-cards :: cards");
         assertThat(PracticeModelAttributes.CATALOG).isEqualTo("catalog");
+        assertThat(PracticeModelAttributes.RESULT_DETAIL).isEqualTo("resultDetail");
         assertThat(PracticeModelAttributes.SPEAKING_MEDIA_PLAYBACK_ENABLED)
                 .isEqualTo("speakingMediaPlaybackEnabled");
         assertThat(PracticeFormFields.answerKey(66L)).isEqualTo("answer_66");
@@ -325,5 +828,15 @@ class PracticeFunctionalUiContractTest {
         assertThat(PracticeFormFields.questionIdFromAnswerField("answer_66")).isEqualTo("66");
         assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
                 .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content");
+    }
+
+    private static int countOccurrences(String text, String token) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = text.indexOf(token, offset)) >= 0) {
+            count++;
+            offset += token.length();
+        }
+        return count;
     }
 }

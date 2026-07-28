@@ -19,15 +19,44 @@ class SpeakingEvaluationPromptBuilderTest {
         String payload = builder.userPayload(request(false));
         JsonNode root = objectMapper.readTree(payload);
 
-        assertThat(root.path("task").path("question_text").asText()).isEqualTo("자기소개를 하세요.");
+        assertThat(root.path("task").has("question_text")).isFalse();
+        assertThat(root.path("task").path("question_version_id").asLong())
+                .isEqualTo(101L);
         assertThat(root.path("task").path("target_level").asText()).isEqualTo("TOPIK II");
+        assertThat(root.path("prompt_context").path("authority").asText())
+                .isEqualTo("IMMUTABLE_LECTURER_QUESTION_VERSION_CONTEXT");
+        assertThat(root.path("prompt_context").path("text").asText())
+                .isEqualTo("자기소개를 하세요.");
+        assertThat(root.path("prompt_context").path("learner_evidence").asBoolean())
+                .isFalse();
+        assertThat(root.path("transcription").path("authority").asText())
+                .isEqualTo("LEARNER_MEDIA_TRANSCRIPTION_PIPELINE");
         assertThat(root.path("transcription").path("transcript").asText()).isEqualTo("저는 학생 이에요");
         assertThat(root.path("transcription").path("normalized_transcript").asText()).isEqualTo("저는 학생이에요.");
         assertThat(root.path("transcription").path("actually_heard_transcript").asText()).isEqualTo("저는 학생이에요.");
-        assertThat(root.path("transcription").path("interpreted_intent").asText()).isEqualTo("The learner introduces themself.");
+        assertThat(root.path("transcription").has("interpreted_intent")).isFalse();
         assertThat(root.path("transcription").path("transcript_confidence").decimalValue()).isEqualByComparingTo("0.81");
         assertThat(root.path("allowed_rubric").toString()).contains("S_CONTENT_TASK_FULFILLMENT");
-        assertThat(root.path("pre_evaluation_signals").toString()).contains("NO_PHONEME_CERTAINTY");
+        assertThat(root.path("allowed_rubric").toString())
+                .doesNotContain("S_FLUENCY", "S_PRONUNCIATION_DELIVERY");
+        assertThat(root.path("allowed_evidence_sources")).hasSize(1);
+        assertThat(root.path("allowed_evidence_sources").get(0).asText()).isEqualTo("TRANSCRIPT");
+        assertThat(root.path("evaluator_capability").path("capability").asText())
+                .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(root.path("evaluator_capability").path("learner_audio_received_by_evaluator").asBoolean())
+                .isFalse();
+        assertThat(root.path("evaluator_capability").path("acoustic_criteria_available").asBoolean())
+                .isFalse();
+        assertThat(root.path("evaluator_capability").path("holistic_score_available").asBoolean())
+                .isFalse();
+        assertThat(root.path("versions").path("prompt_version").asText())
+                .isEqualTo(SpeakingPromptRules.PROMPT_VERSION);
+        assertThat(root.path("versions").path("rubric_version").asText())
+                .isEqualTo(SpeakingPromptRules.RUBRIC_VERSION);
+        assertThat(root.path("versions").path("schema_version").asText())
+                .isEqualTo(SpeakingPromptRules.SCHEMA_VERSION);
+        assertThat(root.path("versions").path("evidence_contract_version").asText())
+                .isEqualTo(SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
     }
 
     @Test
@@ -36,6 +65,12 @@ class SpeakingEvaluationPromptBuilderTest {
         String requestString = request(false).toString();
 
         assertThat(payload)
+                .doesNotContain("audio_metadata")
+                .doesNotContain("audio_media_id")
+                .doesNotContain("media_version")
+                .doesNotContain("duration_ms")
+                .doesNotContain("byte_size")
+                .doesNotContain("audio/webm")
                 .doesNotContain("storage-key-secret")
                 .doesNotContain("D:\\private\\audio.webm")
                 .doesNotContain("/practice/speaking-media/private")
@@ -60,7 +95,8 @@ class SpeakingEvaluationPromptBuilderTest {
         assertThat(schema.toString())
                 .contains("S_CONTENT_TASK_FULFILLMENT")
                 .contains("S_GRAMMAR_SENTENCE_CONTROL")
-                .contains("S_PRONUNCIATION_DELIVERY")
+                .contains("S_VOCABULARY_EXPRESSIONS")
+                .contains("S_COHERENCE_ORGANIZATION")
                 .contains("overall_summary")
                 .contains("task_achievement_summary")
                 .contains("action_plan")
@@ -68,12 +104,17 @@ class SpeakingEvaluationPromptBuilderTest {
                 .contains("strengths")
                 .contains("needs_improvement")
                 .contains("confidence_notes")
+                .contains("const=false")
+                .contains("minItems=4")
+                .contains("maxItems=4")
                 .contains("subcriteria")
                 .contains("transcript_annotations")
                 .contains("evidence_scope")
                 .contains("suggestion_ko")
                 .contains("S_GRAMMAR_HONORIFIC_REGISTER")
-                .contains("S_PRONUNCIATION_SUSPECTED_BATCHIM_LINKING_VOWEL")
+                .doesNotContain("S_FLUENCY")
+                .doesNotContain("S_PRONUNCIATION_DELIVERY")
+                .doesNotContain("AUDIO_METADATA")
                 .doesNotContain("W_CONTENT");
     }
 
@@ -85,6 +126,10 @@ class SpeakingEvaluationPromptBuilderTest {
         return new SpeakingEvaluationRequest(
                 10L,
                 11L,
+                101L,
+                "자기소개를 하세요.",
+                "f".repeat(64),
+                "speaking-prompt-version-context-v1",
                 "자기소개를 하세요.",
                 "TOPIK II",
                 "Say who you are and what you study.",
@@ -103,8 +148,8 @@ class SpeakingEvaluationPromptBuilderTest {
                 "The learner introduces themself.",
                 new BigDecimal("0.81"),
                 textFallback,
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1");
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
     }
 }

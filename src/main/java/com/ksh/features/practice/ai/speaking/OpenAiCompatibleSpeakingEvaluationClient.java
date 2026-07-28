@@ -49,6 +49,10 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
     @Override
     public SpeakingEvaluationProviderResult evaluate(SpeakingEvaluationRequest request) {
         long startNanos = System.nanoTime();
+        if (request == null || !request.transcriptLanguageEvaluatorContract()) {
+            return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                    "UNSUPPORTED_EVALUATOR_CAPABILITY", false, startNanos);
+        }
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             return failure(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE, "MISSING_API_KEY", false, startNanos);
         }

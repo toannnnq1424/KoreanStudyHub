@@ -1,6 +1,6 @@
 # KSH Practice Mermaid Sequence Diagrams
 
-Status: `PRE_13E_ARCHITECTURE_BASELINE`
+Status: `13C3_04_IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION`
 
 This document contains exactly 30 standalone Mermaid sequence diagrams, one for each formal Practice Use Case.
 Copy only the code inside one fenced block into Mermaid Live Editor.
@@ -118,13 +118,14 @@ sequenceDiagram
     participant P03 as PracticeAssessmentExcelController
     participant P04 as PracticeAssessmentExcelService
     participant P05 as Excel Codec
-    participant P06 as LecturerAssetService
+    participant P06 as PracticeDraftValidator
     Note over P01,P06: CURRENT - UC-XLS-02 - Preview a workbook and resolve validation issues
     P01->>P02: upload workbook for preview
     P02->>P03: POST preview
     P03->>P04: preview(workbook)
     P04->>P05: decode + validate schema
-    P04->>P06: resolve referenced media
+    P05->>P06: validate learner-safe draft contract
+    Note over P04,P06: Preview performs no asset lookup and never calls STT or TTS
     P04-->>P03: preview + diagnostics
     P03-->>P02: render structured preview
 ```
@@ -140,17 +141,84 @@ sequenceDiagram
     participant P02 as Excel Workspace
     participant P03 as PracticeAssessmentExcelController
     participant P04 as PracticeAssessmentExcelService
-    participant P05 as PracticeImportDraftService
-    participant P06 as Database
-    Note over P01,P06: CURRENT - UC-XLS-03 - Import a workbook as a standard editable draft
+    participant P05 as LecturerAssetService
+    participant P06 as SpeakingPromptLifecycleService
+    participant P07 as PracticeDraftRepository
+    participant P08 as SpeakingPromptAuthoringController
+    participant P09 as UploadCoordinator + AuthoringService
+    participant P10 as SpeakingPromptAssetService
+    Note over P01,P10: CURRENT - UC-XLS-03 - Import a workbook as a standard editable draft
     P01->>P02: confirm import
     P02->>P03: POST import
     P03->>P04: revalidate workbook + context
-    P04->>P05: materialize canonical graph
-    P05->>P06: persist graph + snapshot atomically
-    P06-->>P05: new draft graph
-    P05-->>P03: import summary
+    P04->>P07: authorize and lock exact linked draft
+    P04->>P04: require v2 audio_upload + audio_only + teacher_upload
+    P04->>P05: require verified private audio already referenced by this draft
+    P04->>P06: teardown replaced/non-Speaking client identities
+    P04->>P07: persist merged canonical draft
+    P04->>P05: link exact question staging reference
+    Note over P04,P06: Import/export creates no source, artifact, task, transcript or provider call
+    P04-->>P03: import summary
     P03-->>P02: redirect to editor
+    P02->>P08: GET authorized prompt state
+    P08-->>P02: staging-available boolean only
+    P01->>P02: click Verify and use Excel audio
+    P02->>P08: POST expected draft/source revisions (no asset ID)
+    P08->>P09: explicit Editor adoption command
+    P09->>P09: authorize exact draft/question and current revisions
+    P09->>P10: resolve sole staging reference and verify bytes outside transaction
+    P09->>P09: lock draft/source/asset/reference, bind original and enqueue STT
+    Note over P08,P10: Explicit Editor action may enqueue STT; it never calls TTS
+    P08-->>P02: accepted current Editor state
+```
+
+#### 13C3 lifecycle addendum - Delete or supersede one Speaking source
+
+Status: `CURRENT_SOURCE_CANDIDATE`
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor L as Authorized lecturer/collaborator
+    participant D as PracticeDraftService
+    participant S as SpeakingPromptLifecycleService
+    participant T as Prompt task/artifact repositories
+    participant R as Material/reference guard
+    participant P as Material publication
+    participant Q as Asset lifecycle queue
+    Note over R,Q: Every new physical object uses a fresh UUID namespace; generated TTS is immediately private bounded staging
+    L->>D: autosave without old clientId / delete draft
+    D->>D: authorize and lock draft
+    D->>S: reconcile exact owner,draft,clientId set
+    S->>S: lock ordered sources
+    S->>T: cancel sole task or retain shared attachment
+    S->>T: detach historical source_id with owner identity retained
+    S->>R: unlink exact question placements
+    S->>S: delete mutable source
+    opt replacement audio has an exact prior question binding
+        S->>R: unlink prior binding for exact draft/placement/clientId only
+        R-->>Q: after commit, send opaque prior-asset cleanup candidate
+    end
+    Note over T,R: immutable version context always prevents retirement
+    R->>R: authorize owner/session, lock exact asset, recheck every retained reference
+    alt material/source/artifact/immutable context still retains asset
+        R-->>S: leave status and deletedAt unchanged
+    else exact asset is unreferenced
+        R->>Q: mark DELETION_PENDING and enqueue durable cleanup
+    end
+    Note over T,Q: unattached reusable artifacts use the separate bounded retention window
+    P->>R: lock every parent asset before first immutable reference insert
+    alt parent is missing, archived or deleted
+        R-->>P: fail closed; do not insert or resurrect
+    else all parent assets are locked and active/temporary
+        R-->>P: insert immutable references, then promote visibility
+    end
+    Q->>R: lock all exact-key sibling rows; final reference/state recheck
+    alt sibling still needs bytes
+        Q-->>Q: keep exact candidate PENDING; due-time then ID; no I/O
+    else key is releasable
+        Q-->>Q: storage delete outside database transaction only
+    end
 ```
 
 ### Module PDF - PDF Import Workspace
@@ -222,7 +290,12 @@ sequenceDiagram
     P04->>P05: generate structured questions
     P05-->>P04: result or typed failure
     P04->>P06: validate + materialize
-    P06->>P07: persist canonical draft
+    P06->>P07: lock/inspect exact source draft identity
+    alt source retains Speaking/material identity
+        P06-->>P03: fail before target mutation or source deletion
+    else source is pristine import-only
+        P06->>P07: persist canonical draft
+    end
     P03-->>P02: show draft/retry/manual fallback
 ```
 
@@ -572,7 +645,7 @@ sequenceDiagram
     P06->>P07: persist validated status/evidence
 ```
 
-#### UC-SPK-03 - Review a holistic Speaking result and per-question evidence
+#### UC-SPK-03 - Review a transcript-grounded Speaking profile and per-question evidence
 
 Status: `PLANNED 13E`
 
@@ -585,13 +658,13 @@ sequenceDiagram
     participant P04 as PracticeResultDetailAssembler (13E)
     participant P05 as SpeakingEvidencePresenter (13E)
     participant P06 as Private Media Endpoint
-    Note over P01,P06: PLANNED 13E - UC-SPK-03 - Review a holistic Speaking result and per-question evidence
+    Note over P01,P06: PLANNED 13E - UC-SPK-03 - Review a transcript-grounded profile and per-question evidence
     P01->>P02: open Speaking detail
     P02->>P03: GET result/detail
-    P03->>P04: load holistic + question evidence
+    P03->>P04: load typed profile + question evidence
     P04->>P05: map transcript/media/evidence
     P05->>P06: create authorized playback references
-    P05-->>P02: render holistic and per-question evidence
+    P05-->>P02: render evidence-honest profile and per-question evidence
 ```
 
 ### Module RES - Result Overview & Detail

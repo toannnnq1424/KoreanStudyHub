@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/head :: head('PDF Import Workspace | KSH', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Không gian nhập PDF | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
@@ -696,8 +696,8 @@
         </div>
         <div class="ws-title" th:text="${sessionInfo.title}">Đề thi bóc tách</div>
         <div style="font-size:0.72rem; color:var(--ksh-text-muted); font-weight:600;"
-             th:text="|Đích nhập: Test ${sessionInfo.targetTestNo} · ${sessionInfo.targetLessonCode} · ${sessionInfo.targetSkill}|">
-          Đích nhập: Test 1 · R1 · Phần Đọc
+             th:text="|Đích nhập: Bài kiểm tra ${sessionInfo.targetTestNo} · ${sessionInfo.targetLessonCode} · ${sessionInfo.targetSkill}|">
+          Đích nhập: Bài kiểm tra 1 · R1 · Phần Đọc
         </div>
       </div>
 
@@ -709,10 +709,10 @@
             <div class="ai-pop-title" id="ai-pop-title">AI sẵn sàng</div>
             <div class="ai-pop-message" id="ai-pop-message">KSH sẽ kiểm tra vùng khoanh trước khi gửi dữ liệu sang AI.</div>
             <div class="ai-pop-meta">
-              <span id="ai-pop-provider">Provider: chưa gọi</span>
+              <span id="ai-pop-provider">Nhà cung cấp: chưa gọi</span>
               <span id="ai-pop-attempt">Số lần thử: 0</span>
               <span id="ai-pop-time">Lần cuối: -</span>
-              <span id="ai-pop-request">Request ID: -</span>
+              <span id="ai-pop-request">Mã yêu cầu: -</span>
             </div>
             <div class="ai-pop-actions">
               <button type="button" class="pi-btn-primary" onclick="runAiAnalysis()">Thử lại AI</button>
@@ -803,7 +803,7 @@
           <button type="button" class="stage-tool-btn active" id="tool-select" onclick="setWorkspaceTool('select')" title="Chọn vùng (S)" aria-label="Chọn vùng">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l3.057 15 2.537-5.51L17 19h2L5 3z"/></svg>
           </button>
-          <button type="button" class="stage-tool-btn" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Khoanh vùng để crop ảnh (D)" aria-label="Khoanh vùng để crop ảnh">
+          <button type="button" class="stage-tool-btn" id="tool-draw" onclick="setWorkspaceTool('draw')" title="Khoanh vùng để cắt ảnh (D)" aria-label="Khoanh vùng để cắt ảnh">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
           </button>
           <button type="button" class="stage-tool-btn" id="tool-pan" onclick="setWorkspaceTool('pan')" title="Kéo di chuyển (H)" aria-label="Kéo di chuyển">
@@ -861,13 +861,13 @@
             <div id="inspector-form-area" style="display:none;">
               <!-- Crop Thumbnail Preview Section -->
               <div id="inspector-crop-preview-sec" style="display:none; margin-bottom:16px; padding:12px; background:var(--ksh-surface-sec); border:1px solid var(--ksh-border); border-radius:8px;">
-                <label class="form-label">Ảnh cắt (Crop Preview)</label>
+                <label class="form-label">Xem trước ảnh cắt</label>
                 <div style="text-align:center; margin-bottom:8px;">
                   <img id="inspector-crop-img" src="" style="max-width:100%; max-height:120px; object-fit:contain; border:1px solid var(--ksh-border); border-radius:4px; background:#fff; padding:2px;">
                 </div>
                 <div style="font-size:0.72rem; color:var(--ksh-text-muted); display:flex; justify-content:space-between; align-items:center;">
                   <span id="inspector-crop-size">0 KB</span>
-                  <span id="inspector-crop-status" style="font-weight:700; color:var(--ksh-success);">Đã crop</span>
+                  <span id="inspector-crop-status" style="font-weight:700; color:var(--ksh-success);">Đã cắt ảnh</span>
                 </div>
                 <button type="button" id="btn-toggle-crop-library"
                         style="display:none; width:100%; margin-top:8px; padding:6px 10px; font-size:0.75rem; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid var(--ksh-primary); background:var(--ksh-primary); color:#fff; transition:all .15s ease;"
@@ -913,7 +913,7 @@
                     <option value="TRUE_FALSE_NOT_GIVEN">Đúng / Sai / Không có thông tin</option>
                     <option value="FILL_BLANK">Điền từ vào ô trống</option>
                     <option value="ESSAY">Tự luận (Essay)</option>
-                    <option value="SPEAKING">Nói (Speaking)</option>
+                    <option value="SPEAKING">Nói</option>
                   </select>
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -1147,7 +1147,7 @@
     <input type="text" id="asset-search-input" class="form-input" placeholder="Tìm kiếm theo tên..." oninput="loadLibraryAssets()">
     <select id="asset-type-filter" class="form-select" onchange="loadLibraryAssets()">
       <option value="">Tất cả loại ảnh</option>
-      <option value="IMAGE">Ảnh crop PDF</option>
+      <option value="IMAGE">Ảnh cắt từ PDF</option>
       <option value="QUESTION_IMAGE">Ảnh câu hỏi</option>
       <option value="PASSAGE_IMAGE">Ảnh bài đọc</option>
       <option value="OPTION_IMAGE">Ảnh phương án</option>
@@ -1878,7 +1878,7 @@
   function renderRegionDestinationSummary(type, ann = {}) {
     const summary = document.getElementById('region-destination-summary');
     if (!summary) return;
-    const target = `Test ${TARGET_TEST_NO} · ${TARGET_LESSON_CODE} · ${targetSkillLabel()}`;
+    const target = `Bài kiểm tra ${TARGET_TEST_NO} · ${TARGET_LESSON_CODE} · ${targetSkillLabel()}`;
     const messages = {
       AUTO_DETECT: `AI tự xác định vai trò của vùng trước khi đưa vào ${target}.`,
       INSTRUCTION: `Hiển thị như hướng dẫn dùng chung của nhóm trong ${target}.`,
@@ -2159,7 +2159,7 @@
       const stats = data.stats;
       const context = data.context || {};
       document.getElementById('p-stat-pages').innerText = `Trang ${context.pageFrom || '-'}-${context.pageTo || '-'} (${stats.selectedPagesCount || 0})`;
-      document.getElementById('p-stat-target').innerText = `Test ${context.targetTestNo || TARGET_TEST_NO} · ${context.targetLessonCode || TARGET_LESSON_CODE}`;
+      document.getElementById('p-stat-target').innerText = `Bài kiểm tra ${context.targetTestNo || TARGET_TEST_NO} · ${context.targetLessonCode || TARGET_LESSON_CODE}`;
       document.getElementById('p-stat-regions').innerText = `${data.regions.length} vùng`;
       document.getElementById('p-stat-crops').innerText = `${stats.cropCount} ảnh`;
 
@@ -2275,10 +2275,10 @@
     badge.innerText = config[0];
     if (title) title.innerText = config[0];
     if (message) message.innerText = opts.message || 'KSH sẽ kiểm tra vùng khoanh trước khi gửi dữ liệu sang AI.';
-    if (provider) provider.innerText = `Provider: ${opts.provider || 'OpenAI/Gemini endpoint'}`;
+    if (provider) provider.innerText = `Nhà cung cấp: ${opts.provider || 'điểm cuối OpenAI/Gemini'}`;
     if (attempt) attempt.innerText = `Số lần thử: ${aiAttemptCount}`;
     if (time) time.innerText = `Lần cuối: ${opts.lastAttemptAt || '-'}`;
-    if (request) request.innerText = `Request ID: ${opts.requestId || lastAiRequestId}`;
+    if (request) request.innerText = `Mã yêu cầu: ${opts.requestId || lastAiRequestId}`;
   }
 
   function toggleAiStatusPopover() {
@@ -2387,7 +2387,7 @@
       const secNode = document.createElement('div');
       secNode.className = 'region-item-row';
       secNode.style.fontWeight = '800';
-      secNode.textContent = `Test ${sec.testNo || TARGET_TEST_NO} · ${sec.lessonCode || TARGET_LESSON_CODE} · ${sec.title || sec.skill}`;
+      secNode.textContent = `Bài kiểm tra ${sec.testNo || TARGET_TEST_NO} · ${sec.lessonCode || TARGET_LESSON_CODE} · ${sec.title || sec.skill}`;
       container.appendChild(secNode);
 
       const groups = sec.groups || [];
@@ -2589,7 +2589,7 @@
   }
 
   async function deleteWorkspaceSession() {
-    if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn phiên PDF Import này cùng tất cả ảnh cắt? Bản biên soạn thủ công liên kết (nếu có) sẽ KHÔNG bị ảnh hưởng.")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn phiên nhập PDF này cùng tất cả ảnh cắt? Bản biên soạn thủ công liên kết (nếu có) sẽ KHÔNG bị ảnh hưởng.")) return;
 
     showLoading("Đang xóa bản nháp...", "Vui lòng chờ.");
     try {
@@ -2603,7 +2603,7 @@
         }
       });
       if (res.ok) {
-        alert("Đã xóa phiên PDF Import thành công.");
+        alert("Đã xóa phiên nhập PDF thành công.");
         window.location.href = "/practice/manage/import";
       }
     } catch (e) {
@@ -2661,7 +2661,7 @@
 
         grid.innerHTML = '';
         if (assets.length === 0) {
-          grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:22px; color:var(--ksh-text-muted); line-height:1.55;">Kho ảnh của bạn chưa có ảnh nào. Khi crop một vùng IMAGE_ASSET, hãy bấm “Lưu vào kho ảnh” để tái sử dụng trong các đề sau.</div>';
+          grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:22px; color:var(--ksh-text-muted); line-height:1.55;">Kho ảnh của bạn chưa có ảnh nào. Khi cắt một vùng ảnh, hãy bấm “Lưu vào kho ảnh” để tái sử dụng trong các đề sau.</div>';
           return;
         }
 
@@ -2696,7 +2696,7 @@
   // Toggle crop between TEMPORARY ↔ ACTIVE (save/unsave from personal library)
   async function toggleCropLibraryStatus() {
     if (!state.selectedRegionId || !state.selectedAssetId) {
-      alert("Vui lòng chọn một vùng có ảnh crop trước.");
+      alert("Vui lòng chọn một vùng có ảnh đã cắt trước.");
       return;
     }
     const token = document.querySelector('meta[name="_csrf"]').content;
@@ -2707,7 +2707,7 @@
     try {
       if (currentStatus === 'TEMPORARY') {
         // Promote: TEMPORARY → ACTIVE
-        showLoading("Đang lưu vào kho ảnh...", "Lưu crop vào thư viện cá nhân.");
+        showLoading("Đang lưu vào kho ảnh...", "Lưu ảnh đã cắt vào thư viện cá nhân.");
         const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${assetId}`, {
           method: 'POST',
           headers: { [header]: token }
@@ -2717,7 +2717,7 @@
         if (ann) { ann.saveToAssetLibrary = true; }
       } else {
         // Demote: ACTIVE → TEMPORARY
-        showLoading("Đang bỏ lưu...", "Chuyển crop về trạng thái tạm.");
+        showLoading("Đang bỏ lưu...", "Chuyển ảnh đã cắt về trạng thái tạm.");
         const res = await fetch(`/practice/manage/assets/${assetId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', [header]: token },
@@ -2745,14 +2745,14 @@
     const token = document.querySelector('meta[name="_csrf"]').content;
     const header = document.querySelector('meta[name="_csrf_header"]').content;
 
-    showLoading("Đang lưu crop vào kho ảnh...", "KSH đang tìm crop tạm của vùng đã chọn.");
+    showLoading("Đang lưu ảnh đã cắt vào kho ảnh...", "KSH đang tìm ảnh cắt tạm của vùng đã chọn.");
     try {
       const assetsRes = await fetch(`/practice/manage/assets?sessionId=${SESSION_ID}`);
-      if (!assetsRes.ok) throw new Error("Không tải được danh sách crop tạm.");
+      if (!assetsRes.ok) throw new Error("Không tải được danh sách ảnh cắt tạm.");
       const assets = await assetsRes.json();
       const ann = state.regions.find(r => r.id === state.selectedRegionId);
       const asset = findCurrentRegionCropAsset(assets, ann);
-      if (!asset) throw new Error("Vùng này chưa có crop tạm. Hãy bật gửi ảnh và lưu lại vùng trước.");
+      if (!asset) throw new Error("Vùng này chưa có ảnh cắt tạm. Hãy bật gửi ảnh và lưu lại vùng trước.");
 
       const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/regions/${state.selectedRegionId}/promote-asset?assetId=${asset.id}`, {
         method: 'POST',

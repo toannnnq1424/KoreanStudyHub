@@ -14,7 +14,12 @@ public final class PracticeViews {
     public static final String PLAYER_SPEAKING = "practice/player-speaking";
     public static final String PLAYER_WRITING = "practice/player-writing";
     public static final String RESULT = "practice/result";
+    public static final String RESULT_DETAIL_OBJECTIVE = "practice/result-detail-objective";
+    public static final String RESULT_DETAIL_WRITING = "practice/result-detail-writing";
+    public static final String RESULT_DETAIL_SPEAKING = "practice/result-detail-speaking";
+    /** Legacy compatibility template retained until the Phase 15 cleanup gate. */
     public static final String RESULT_DETAIL = "practice/result-detail";
+    /** Legacy compatibility template retained until the Phase 15 cleanup gate. */
     public static final String READING_LISTENING_RESULT_DETAIL = "practice/rl-result-detail";
     public static final String PROGRESS = "practice/progress";
 

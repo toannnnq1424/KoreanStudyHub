@@ -21,9 +21,10 @@
         </nav>
 
         <h1 class="detail-title">Danh mục System Prompt</h1>
-        <p class="detail-sub">Quản lý các system prompt dùng chung cho tính năng AI.
-            Mỗi prompt có một tên riêng; các màn hình gọi AI sẽ chọn prompt theo tên
-            này. Prompt đang tắt sẽ không xuất hiện trong danh sách chọn.</p>
+        <p class="detail-sub">Quản lý danh mục system prompt cấp hệ thống.
+            Phiên bản hiện tại chỉ lưu và quản trị danh mục; chưa nối danh mục này
+            vào AI client hoặc luồng Luyện tập. Trạng thái bật/tắt chỉ thuộc phạm vi
+            danh mục quản trị.</p>
 
         <!-- Flash → toast on page load (admin.js drains this node). -->
         <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"

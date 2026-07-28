@@ -4,17 +4,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
+import com.ksh.features.practice.service.audio.OpenAiAudioHttpTransport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -289,38 +288,28 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
 
     private static class RestClientOpenAiTranscriptionTransport implements OpenAiTranscriptionTransport {
         private final SpeakingTranscriptionProperties properties;
-        private final RestClient restClient;
+        private final OpenAiAudioHttpTransport transport;
 
         private RestClientOpenAiTranscriptionTransport(SpeakingTranscriptionProperties properties) {
             this.properties = properties;
-            this.restClient = RestClient.builder()
-                    .baseUrl(properties.baseUrl())
-                    .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                    .requestFactory(requestFactory(properties.timeout()))
-                    .build();
+            this.transport = new OpenAiAudioHttpTransport(
+                    properties.baseUrl(),
+                    properties.apiKey(),
+                    properties.timeout(),
+                    properties.timeout());
         }
 
         @Override
         public String post(MultiValueMap<String, Object> body) {
-            return restClient.post()
-                    .uri("/audio/transcriptions")
-                    .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
+            return transport.postForString(
+                    "/audio/transcriptions",
+                    MediaType.MULTIPART_FORM_DATA,
+                    body);
         }
 
         @Override
         public String baseUrl() {
             return properties.baseUrl();
-        }
-
-        private static SimpleClientHttpRequestFactory requestFactory(Duration timeout) {
-            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            int timeoutMs = Math.toIntExact(Math.min(timeout.toMillis(), Integer.MAX_VALUE));
-            factory.setConnectTimeout(timeoutMs);
-            factory.setReadTimeout(timeoutMs);
-            return factory;
         }
     }
 

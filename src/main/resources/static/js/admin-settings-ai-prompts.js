@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   ULP — Admin AI System Prompt catalog
+   KSH — Admin AI System Prompt catalog
 
    Only one interaction lives here: the delete confirmation dialog on
    /admin/settings/ai/prompts. Unlike the provider screen there is no secret to

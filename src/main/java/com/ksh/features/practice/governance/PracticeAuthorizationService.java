@@ -86,6 +86,16 @@ public class PracticeAuthorizationService {
         throw denied(action);
     }
 
+    @Transactional(readOnly = true)
+    public boolean canReadDraft(Long draftId, Long actorId) {
+        try {
+            requireDraft(draftId, actorId, PracticeAction.READ);
+            return true;
+        } catch (EntityNotFoundException | AccessDeniedException exception) {
+            return false;
+        }
+    }
+
     @Transactional
     public Decision requireSet(Long setId, Long actorId, PracticeAction action) {
         requireGlobal(actorId, action);
@@ -101,6 +111,16 @@ public class PracticeAuthorizationService {
             return new Decision(set.getCreatedBy(), set.isOwnerLocked());
         }
         throw denied(action);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canReadSet(Long setId, Long actorId) {
+        try {
+            requireSet(setId, actorId, PracticeAction.READ);
+            return true;
+        } catch (EntityNotFoundException | AccessDeniedException exception) {
+            return false;
+        }
     }
 
     @Transactional

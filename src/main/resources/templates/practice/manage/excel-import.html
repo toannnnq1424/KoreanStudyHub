@@ -9,7 +9,7 @@
   <div class="excel-import-shell">
     <div class="excel-import-heading">
       <div>
-        <div class="editor-eyebrow">Lecturer workspace</div>
+        <div class="editor-eyebrow">Không gian giảng viên</div>
         <h1>Nhập dữ liệu Excel vào <span th:text="${lessonCode}">R1</span></h1>
       </div>
       <a th:href="${draftId != null ? '/practice/manage/drafts/' + draftId : '/practice/manage'}"
@@ -20,19 +20,24 @@
       <div class="excel-template-row">
         <span></span>
         <a id="download-template" class="btn-action btn-sec"
-           th:href="@{/practice/manage/excel/template}">Tải file mẫu</a>
+           th:href="@{/practice/manage/excel/template}">Tải tệp mẫu</a>
       </div>
 
-      <label class="form-label" for="excel-file">File XLSX</label>
+      <label class="form-label" for="excel-file">Tệp XLSX</label>
       <input id="excel-file" class="form-input" type="file"
              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 
-      <label class="form-label excel-media-label" for="excel-media-files">Ảnh/audio đi kèm (tùy chọn)</label>
+      <label class="form-label excel-media-label" for="excel-media-files">Ảnh/âm thanh đi kèm (tùy chọn)</label>
       <input id="excel-media-files" class="form-input" type="file" multiple
              accept=".png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.ogg,.webm,image/*,audio/*">
       <div class="excel-field-hint">
         Chọn các tệp được tham chiếu trong Excel. Hệ thống ghép theo tên tệp, hiển thị ngay trong preview
         và chỉ tải những tệp thực sự được dùng khi xác nhận nhập.
+      </div>
+      <div class="excel-field-hint" data-speaking-excel-boundary>
+        Với câu Nói, Excel chỉ nhận âm thanh do giảng viên tải lên. Excel không bật hoặc gọi TTS;
+        nhập văn bản và TTS tùy chọn chỉ có trong trình biên soạn. Sau khi nhập, hãy mở từng câu Nói
+        trong Editor để xác minh, liên kết audio và tạo bản chép lời trước khi xuất bản.
       </div>
       <div id="page-error" class="excel-page-error" role="alert" hidden></div>
 
@@ -47,7 +52,7 @@
   <div class="excel-preview-dialog">
     <header class="excel-preview-header">
       <div>
-        <div class="editor-eyebrow">Excel preview</div>
+        <div class="editor-eyebrow">Xem trước Excel</div>
         <h2 id="excel-preview-title">Kiểm tra dữ liệu trước khi nhập</h2>
       </div>
       <button id="close-preview" class="excel-icon-button" type="button" aria-label="Đóng">&times;</button>
@@ -56,7 +61,7 @@
     <div class="excel-preview-body">
       <div class="excel-preview-context">
         <div><span>Tệp</span><strong id="preview-file-name">-</strong></div>
-        <div><span>Đích nhập</span><strong th:text="|Test ${testNo} · ${lessonCode}|">Test 1 · R1</strong></div>
+        <div><span>Đích nhập</span><strong th:text="|Bài kiểm tra ${testNo} · ${lessonCode}|">Bài kiểm tra 1 · R1</strong></div>
       </div>
       <div class="excel-summary-grid" aria-label="Tổng hợp dữ liệu import">
         <div class="excel-summary-item">
@@ -101,7 +106,7 @@
           <tr>
             <th>Sheet / Dòng</th>
             <th>Trạng thái</th>
-            <th>Test / Section</th>
+            <th>Bài kiểm tra / Phần</th>
             <th>Nhóm / Hướng dẫn</th>
             <th>Nhóm / Bài đọc</th>
             <th>Nhóm / Transcript</th>
@@ -130,7 +135,7 @@
     <footer class="excel-preview-footer">
       <div id="preview-metadata" class="excel-preview-metadata"></div>
       <div class="excel-preview-actions">
-        <button id="choose-other-file" type="button" class="btn-action btn-sec">Chọn file khác</button>
+        <button id="choose-other-file" type="button" class="btn-action btn-sec">Chọn tệp khác</button>
         <button id="confirm-import" type="button" class="btn-action btn-pri" disabled>Không có dòng hợp lệ</button>
       </div>
     </footer>
@@ -240,6 +245,59 @@
     button.textContent = loading ? label : button.dataset.label;
   }
 
+  async function readExcelJsonResponse(response, fallbackMessage) {
+    const raw = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+    const redirectedToLogin =
+      response.redirected && response.url.includes('/login');
+    if (response.status === 401 || redirectedToLogin) {
+      throw new Error(
+        'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi thử import.');
+    }
+    if (response.status === 403) {
+      throw new Error(
+        'Bạn không còn quyền chỉnh sửa bản nháp này.');
+    }
+    if (!contentType.includes('application/json')) {
+      throw new Error(
+        `${fallbackMessage} (HTTP ${response.status}). `
+          + 'Máy chủ không trả về dữ liệu JSON hợp lệ.');
+    }
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      throw new Error(
+        `${fallbackMessage} (HTTP ${response.status}). `
+          + 'Máy chủ trả về JSON không hợp lệ.');
+    }
+    if (!response.ok) {
+      throw new Error(data.error || fallbackMessage);
+    }
+    return data;
+  }
+
+  function requireExcelUploadPayload(payload) {
+    const assetId = Number(payload && payload.assetId);
+    const filename = typeof payload?.filename === 'string'
+      ? payload.filename.trim()
+      : '';
+    const url = typeof payload?.url === 'string'
+      ? payload.url.trim()
+      : '';
+    const match = url.match(/^\/practice\/materials\/([1-9]\d*)\/content$/);
+    if (!Number.isSafeInteger(assetId)
+        || assetId <= 0
+        || !filename
+        || !match
+        || String(assetId) !== match[1]) {
+      throw new Error(
+        'Máy chủ trả về thông tin media không hợp lệ. '
+          + 'Tệp chưa được dùng để nhập.');
+    }
+    return { assetId, filename, url };
+  }
+
   async function submit(action, mediaOverrides = null) {
     if (!fileInput.files[0]) throw new Error('Vui lòng chọn file Excel.');
     const body = new FormData();
@@ -248,20 +306,15 @@
     body.append('testNo', SELECTED_TEST_NO);
     body.append('lessonCode', SELECTED_LESSON_CODE);
     if (mediaOverrides) body.append('mediaOverrides', JSON.stringify(mediaOverrides));
-    const headers = csrfHeader && csrfToken ? { [csrfHeader]: csrfToken } : {};
+    const headers = {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
     const response = await fetch(`/practice/manage/excel/${action}`, { method: 'POST', headers, body });
-    const raw = await response.text();
-    let data = null;
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch (error) {
-      const redirectedToLogin = response.redirected && response.url.includes('/login');
-      throw new Error(redirectedToLogin
-        ? 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi thử import.'
-        : `Máy chủ không trả về dữ liệu JSON hợp lệ (HTTP ${response.status}). Bản nháp chưa bị thay đổi.`);
-    }
-    if (!response.ok) throw new Error(data.error || 'Không xử lý được file Excel.');
-    return data;
+    return readExcelJsonResponse(
+      response,
+      'Không xử lý được file Excel. Bản nháp chưa bị thay đổi.');
   }
 
   function statusLabel(status) {
@@ -401,7 +454,7 @@
   function mediaCell(imageReference, audioReference) {
     const cell = document.createElement('td');
     appendMedia(cell, 'Ảnh', imageReference, 'image');
-    appendMedia(cell, 'Audio', audioReference, 'audio');
+    appendMedia(cell, 'Âm thanh', audioReference, 'audio');
     if (!imageReference && !audioReference) appendText(cell, null);
     return cell;
   }
@@ -423,7 +476,7 @@
     item.appendChild(title);
     if (value) appendText(item, value);
     appendMedia(item, 'Ảnh', imageReference, 'image');
-    appendMedia(item, 'Audio', audioReference, 'audio');
+    appendMedia(item, 'Âm thanh', audioReference, 'audio');
     container.appendChild(item);
   }
 
@@ -447,7 +500,7 @@
       header.className = 'excel-compact-section-header';
       const title = document.createElement('div');
       title.className = 'excel-compact-section-title';
-      title.textContent = `Test ${section.row.testNo || '-'} · ${section.row.lessonCode || '-'} · ${section.row.detail?.skill || '-'}`;
+      title.textContent = `Bài kiểm tra ${section.row.testNo || '-'} · ${section.row.lessonCode || '-'} · ${section.row.detail?.skill || '-'}`;
       const meta = document.createElement('div');
       meta.className = 'excel-compact-section-meta';
       const count = [...section.groups.values()].flat().length;
@@ -499,7 +552,7 @@
           prompt.className = 'excel-question-prompt';
           prompt.textContent = row.prompt || '(Chưa có nội dung đề)';
           appendMedia(prompt, 'Ảnh câu hỏi', row.detail?.questionImageReference, 'image');
-          appendMedia(prompt, 'Audio câu hỏi', row.detail?.questionAudioReference, 'audio');
+          appendMedia(prompt, 'Âm thanh câu hỏi', row.detail?.questionAudioReference, 'audio');
 
           const contract = document.createElement('div');
           contract.className = 'excel-question-contract';
@@ -634,7 +687,7 @@
 
       const lesson = document.createElement('td');
       const skill = row.detail?.skill || '-';
-      lesson.textContent = `Test ${row.testNo || '-'} · ${row.lessonCode || '-'} (${skill})`;
+      lesson.textContent = `Bài kiểm tra ${row.testNo || '-'} · ${row.lessonCode || '-'} (${skill})`;
       tr.appendChild(lesson);
 
       const groupInstruction = document.createElement('td');
@@ -747,20 +800,19 @@
     if (!kind) throw new Error(`Không xác định được loại media của ${file.name}.`);
     const body = new FormData();
     body.append('file', file);
-    const headers = csrfHeader && csrfToken ? { [csrfHeader]: csrfToken } : {};
+    const headers = {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
     const response = await fetch(
       `/practice/manage/drafts/${LINKED_DRAFT_ID}/upload-${kind}`,
       { method: 'POST', headers, body }
     );
-    const raw = await response.text();
-    let data;
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch (error) {
-      throw new Error(`Không tải được media ${file.name} (HTTP ${response.status}).`);
-    }
-    if (!response.ok || !data.url) throw new Error(data.error || `Không tải được media ${file.name}.`);
-    return data.url;
+    const data = await readExcelJsonResponse(
+      response,
+      `Không tải được media ${file.name}.`);
+    return requireExcelUploadPayload(data).url;
   }
 
   async function uploadPendingMedia() {

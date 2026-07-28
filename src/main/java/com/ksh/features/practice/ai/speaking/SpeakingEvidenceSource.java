@@ -4,5 +4,9 @@ public enum SpeakingEvidenceSource {
     TRANSCRIPT,
     AUDIO_METADATA,
     PROMPT,
-    INTERPRETED_INTENT
+    INTERPRETED_INTENT;
+
+    public boolean transcriptLanguageGrounding() {
+        return this == TRANSCRIPT;
+    }
 }

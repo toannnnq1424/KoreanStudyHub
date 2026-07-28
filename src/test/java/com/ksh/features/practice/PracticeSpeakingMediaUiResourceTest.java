@@ -55,9 +55,20 @@ class PracticeSpeakingMediaUiResourceTest {
                 "promptAudioCleanup",
                 "removeEventListener(\"ended\", onEnded)",
                 "removeEventListener(\"error\", onAudioError)",
+                "deliverySteps",
+                "step === \"PROMPT_PLAYBACK\"",
+                "step === \"PREPARATION\"",
+                "step === \"RECORDING\"",
+                "showAction(\"Phát đề bài\"",
+                "promptAudioState.hidden = true",
+                "stopMicrophone();\n    resetAudio();",
                 "interruptRequest",
                 "keepalive: true");
-        assertThat(javascript).doesNotContain("pronunciationScore", "officialTopikScore");
+        assertThat(javascript).doesNotContain(
+                "pronunciationScore",
+                "officialTopikScore",
+                "deliveryMode ===",
+                "promptPlayLimit || 1");
     }
 
     @Test

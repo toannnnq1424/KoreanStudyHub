@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public enum SpeakingRubricCriterion {
     CONTENT_TASK_FULFILLMENT("S_CONTENT_TASK_FULFILLMENT", "Content / Task Fulfillment", 20),
@@ -35,6 +37,57 @@ public enum SpeakingRubricCriterion {
 
     public BigDecimal maxScore() {
         return maxScore;
+    }
+
+    public boolean transcriptGrounded() {
+        return this != FLUENCY && this != PRONUNCIATION_DELIVERY;
+    }
+
+    public boolean requiresAcousticEvidence() {
+        return !transcriptGrounded();
+    }
+
+    /**
+     * Phase-13 closed parent/child contract. Unknown or cross-parent identifiers
+     * fail closed; PRE-14 may replace this bounded list with a versioned registry.
+     */
+    public boolean ownsSubcriterion(String subcriterionId) {
+        if (subcriterionId == null || subcriterionId.isBlank()) {
+            return false;
+        }
+        return allowedSubcriteria().contains(subcriterionId.trim());
+    }
+
+    private Set<String> allowedSubcriteria() {
+        return switch (this) {
+            case CONTENT_TASK_FULFILLMENT -> Set.of(
+                    "S_CONTENT_RELEVANCE",
+                    "S_CONTENT_PROMPT_COVERAGE",
+                    "S_CONTENT_SPECIFICITY_EXAMPLES");
+            case VOCABULARY_EXPRESSIONS -> Set.of(
+                    "S_VOCAB_TOPIC_WORDS",
+                    "S_VOCAB_NATURAL_EXPRESSIONS",
+                    "S_VOCAB_REPETITION_CONTROL",
+                    "S_VOCAB_WORD_CHOICE");
+            case GRAMMAR_SENTENCE_CONTROL -> Set.of(
+                    "S_GRAMMAR_PARTICLES",
+                    "S_GRAMMAR_TENSE_ASPECT",
+                    "S_GRAMMAR_ENDINGS",
+                    "S_GRAMMAR_SENTENCE_STRUCTURE",
+                    "S_GRAMMAR_HONORIFIC_REGISTER",
+                    "S_GRAMMAR_CONNECTORS");
+            case COHERENCE_ORGANIZATION -> Set.of(
+                    "S_COHERENCE_ORGANIZATION",
+                    "S_COHERENCE_LOGICAL_FLOW",
+                    "S_COHERENCE_DISCOURSE_MARKERS");
+            case FLUENCY, PRONUNCIATION_DELIVERY -> Set.of();
+        };
+    }
+
+    public static List<SpeakingRubricCriterion> transcriptGroundedCriteria() {
+        return Arrays.stream(values())
+                .filter(SpeakingRubricCriterion::transcriptGrounded)
+                .toList();
     }
 
     public static BigDecimal totalWeight() {

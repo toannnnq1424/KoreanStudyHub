@@ -2,6 +2,7 @@ package com.ksh.features.practice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePublishedVersion;
+import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.PracticeQuestionGroup;
 import com.ksh.entities.PracticeQuestionGroupVersion;
@@ -85,6 +86,12 @@ public class PracticePublishedVersionService {
 
     @Transactional
     public PracticePublishedVersion createPublishedVersion(Long setId, Long publishedBy) {
+        return createPublishedVersionDetailed(setId, publishedBy).publishedVersion();
+    }
+
+    @Transactional
+    public PublishedVersionCreation createPublishedVersionDetailed(
+            Long setId, Long publishedBy) {
         PracticeSet set = setRepository.findById(setId)
                 .orElseThrow(() -> new EntityNotFoundException("Practice set not found."));
         List<PracticeTest> tests = testRepository.findBySetIdOrderByDisplayOrderAsc(setId);
@@ -99,6 +106,7 @@ public class PracticePublishedVersionService {
                         contentHash(setId), publishedBy));
 
         PracticeSetVersion setVersion = setVersionRepository.save(new PracticeSetVersion(publishedVersion.getId(), set));
+        Map<Long, Long> questionVersionIdByQuestionId = new LinkedHashMap<>();
         for (PracticeTest test : tests) {
             PracticeTestVersion testVersion = testVersionRepository.save(
                     new PracticeTestVersion(publishedVersion.getId(), setVersion.getId(), test));
@@ -124,15 +132,27 @@ public class PracticePublishedVersionService {
                         .sorted(Comparator.comparing(PracticeQuestion::getDisplayOrder, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(PracticeQuestion::getQuestionNo, Comparator.nullsLast(Integer::compareTo)))
                         .toList()) {
-                    questionVersionRepository.save(new PracticeQuestionVersion(
+                    PracticeQuestionVersion savedQuestionVersion =
+                            questionVersionRepository.save(new PracticeQuestionVersion(
                             publishedVersion.getId(),
                             sectionVersion.getId(),
                             question.getGroupId() == null ? null : groupVersionIds.get(question.getGroupId()),
                             question));
+                    if (questionVersionIdByQuestionId.put(
+                            question.getId(), savedQuestionVersion.getId()) != null) {
+                        throw new IllegalStateException(
+                                "A live question was snapshotted more than once.");
+                    }
                 }
             }
         }
-        return publishedVersion;
+        return new PublishedVersionCreation(
+                publishedVersion, Map.copyOf(questionVersionIdByQuestionId));
+    }
+
+    public record PublishedVersionCreation(
+            PracticePublishedVersion publishedVersion,
+            Map<Long, Long> questionVersionIdByQuestionId) {
     }
 
     private void validateUngroupedQuestionScope(Long setId, List<PracticeTest> tests,
@@ -223,6 +243,47 @@ public class PracticePublishedVersionService {
                 section.get(),
                 groupVersionRepository.findBySectionVersionIdOrderByDisplayOrderAscIdAsc(sectionVersionId),
                 questionVersionRepository.findBySectionVersionIdOrderByDisplayOrderAscQuestionNoAscIdAsc(sectionVersionId)));
+    }
+
+    /**
+     * Validates only the four-level immutable identity chain. Deliberately
+     * does not load groups or questions so command gates can reject an invalid
+     * attempt before touching question snapshots.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasCoherentAttemptIdentity(PracticeAttempt attempt) {
+        if (attempt == null
+                || attempt.getSetId() == null
+                || attempt.getTestId() == null
+                || attempt.getSectionId() == null
+                || attempt.getSkill() == null
+                || attempt.getPublishedVersionId() == null
+                || attempt.getSetVersionId() == null
+                || attempt.getTestVersionId() == null
+                || attempt.getSectionVersionId() == null) {
+            return false;
+        }
+        Optional<PracticePublishedVersion> published =
+                publishedVersionRepository.findById(attempt.getPublishedVersionId());
+        Optional<PracticeSetVersion> set =
+                setVersionRepository.findById(attempt.getSetVersionId());
+        Optional<PracticeTestVersion> test =
+                testVersionRepository.findById(attempt.getTestVersionId());
+        Optional<PracticeSectionVersion> section =
+                sectionVersionRepository.findById(attempt.getSectionVersionId());
+        if (published.isEmpty() || set.isEmpty() || test.isEmpty() || section.isEmpty()) {
+            return false;
+        }
+        return attempt.getSetId().equals(published.get().getSetId())
+                && attempt.getSetId().equals(set.get().getSetId())
+                && attempt.getPublishedVersionId().equals(set.get().getPublishedVersionId())
+                && attempt.getPublishedVersionId().equals(test.get().getPublishedVersionId())
+                && attempt.getPublishedVersionId().equals(section.get().getPublishedVersionId())
+                && attempt.getSetVersionId().equals(test.get().getSetVersionId())
+                && attempt.getTestId().equals(test.get().getTestId())
+                && attempt.getTestVersionId().equals(section.get().getTestVersionId())
+                && attempt.getSectionId().equals(section.get().getSectionId())
+                && attempt.getSkill().equalsIgnoreCase(section.get().getSkill());
     }
 
     @Transactional(readOnly = true)

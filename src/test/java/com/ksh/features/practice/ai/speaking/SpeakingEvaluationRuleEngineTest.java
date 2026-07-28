@@ -12,16 +12,16 @@ class SpeakingEvaluationRuleEngineTest {
     private final SpeakingRuleEngine ruleEngine = new SpeakingRuleEngine();
 
     @Test
-    void detectsRepeatedFillers() {
+    void transcriptFillersDoNotCreateAcousticSignals() {
         SpeakingRuleEngine.SpeakingRuleAnalysis analysis = ruleEngine.analyze(
                 "음 저는 어 그 한국어를 뭐 그러니까 공부하고 있어요. 음 재미있어요.",
                 new BigDecimal("0.90"),
                 false);
 
-        assertThat(codes(analysis)).contains("REPEATED_FILLERS");
-        assertThat(analysis.signals()).anyMatch(signal ->
-                signal.category() == SpeakingRuleEngine.SpeakingRuleCategory.FLUENCY
-                        && signal.action() == SpeakingRuleEngine.SpeakingRuleAction.SUGGESTION);
+        assertThat(codes(analysis)).doesNotContain("REPEATED_FILLERS");
+        assertThat(analysis.signals()).noneMatch(signal ->
+                signal.message().toLowerCase().contains("fluency")
+                        || signal.message().toLowerCase().contains("listener burden"));
     }
 
     @Test
@@ -49,15 +49,16 @@ class SpeakingEvaluationRuleEngineTest {
     }
 
     @Test
-    void emitsNoPhonemeCertaintyButNoPhonemeDiagnosis() {
+    void normalTranscriptEmitsNoAcousticCategoryOrDiagnosis() {
         SpeakingRuleEngine.SpeakingRuleAnalysis analysis = ruleEngine.analyze(
                 "저는 한국어를 공부하고 있어요.",
                 new BigDecimal("0.90"),
                 false);
 
-        assertThat(codes(analysis)).contains("NO_PHONEME_CERTAINTY");
-        assertThat(analysis.signals())
-                .noneMatch(signal -> signal.message().contains("phoneme /"));
+        assertThat(codes(analysis)).doesNotContain("NO_PHONEME_CERTAINTY", "REPEATED_FILLERS");
+        assertThat(analysis.signals()).noneMatch(signal ->
+                signal.message().toLowerCase().contains("pronunciation")
+                        || signal.message().toLowerCase().contains("phoneme"));
     }
 
     @Test
@@ -68,9 +69,13 @@ class SpeakingEvaluationRuleEngineTest {
                 true);
 
         assertThat(codes(analysis))
-                .contains("TEXT_FALLBACK_NO_AUDIO")
+                .contains("TEXT_FALLBACK_TRANSCRIPT_ONLY")
                 .contains("LOW_TRANSCRIPT_CONFIDENCE")
-                .contains("NO_PHONEME_CERTAINTY");
+                .doesNotContain("NO_PHONEME_CERTAINTY", "REPEATED_FILLERS");
+        assertThat(analysis.signals()).allMatch(signal ->
+                signal.category() == SpeakingRuleEngine.SpeakingRuleCategory.CONTENT
+                        || signal.category() == SpeakingRuleEngine.SpeakingRuleCategory.REGISTER
+                        || signal.category() == SpeakingRuleEngine.SpeakingRuleCategory.COHERENCE);
     }
 
     private Set<String> codes(SpeakingRuleEngine.SpeakingRuleAnalysis analysis) {

@@ -11,7 +11,6 @@ import java.util.regex.Pattern;
 
 @Component
 public class SpeakingRuleEngine {
-    private static final List<String> FILLERS = List.of("음", "어", "그", "뭐", "뭐랄까", "그러니까", "약간", "이제");
     private static final List<String> DISCOURSE_MARKERS = List.of(
             "먼저", "그리고", "또한", "하지만", "그래서", "예를 들면", "마지막으로", "제 생각에는");
     private static final Pattern HANGUL = Pattern.compile(".*[가-힣].*");
@@ -29,40 +28,24 @@ public class SpeakingRuleEngine {
         List<SpeakingRuleSignal> signals = new ArrayList<>();
         if (textFallback) {
             signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.INFO,
-                    SpeakingRuleCategory.PRONUNCIATION, "TEXT_FALLBACK_NO_AUDIO",
-                    "Text fallback: no learner audio is available, so pronunciation is not audio-grounded."));
+                    SpeakingRuleCategory.CONTENT, "TEXT_FALLBACK_TRANSCRIPT_ONLY",
+                    "Text fallback supplies language evidence only; do not create any acoustic claim."));
         }
         if (transcriptConfidence != null
                 && transcriptConfidence.compareTo(new BigDecimal("0.50")) < 0) {
             signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.INFO,
-                    SpeakingRuleCategory.PRONUNCIATION, "LOW_TRANSCRIPT_CONFIDENCE",
-                    "Low transcript confidence; language and delivery judgments should be conservative."));
+                    SpeakingRuleCategory.CONTENT, "LOW_TRANSCRIPT_CONFIDENCE",
+                    "The transcript is uncertain; confidence is provenance, not scoring or acoustic evidence."));
         }
-        signals.add(signal(SpeakingRuleSeverity.LOW, SpeakingRuleAction.INFO,
-                SpeakingRuleCategory.PRONUNCIATION, "NO_PHONEME_CERTAINTY",
-                "No specialized pronunciation alignment is available; do not output exact phoneme diagnosis."));
         if (transcript == null || !HANGUL.matcher(transcript).matches()) {
             signals.add(signal(SpeakingRuleSeverity.HIGH, SpeakingRuleAction.NEEDS_IMPROVEMENT,
                     SpeakingRuleCategory.CONTENT, "NO_KOREAN_TRANSCRIPT",
                     "Transcript has no Korean evidence or is empty."));
             return new SpeakingRuleAnalysis(signals);
         }
-        repeatedFillers(transcript, signals);
         mixedRegister(transcript, signals);
         missingDiscourseMarkers(transcript, signals);
         return new SpeakingRuleAnalysis(signals);
-    }
-
-    private void repeatedFillers(String transcript, List<SpeakingRuleSignal> signals) {
-        int total = 0;
-        for (String filler : FILLERS) {
-            total += countToken(transcript, filler);
-        }
-        if (total >= 4) {
-            signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.SUGGESTION,
-                    SpeakingRuleCategory.FLUENCY, "REPEATED_FILLERS",
-                    "Repeated filler words detected; evaluate fluency and listener burden conservatively."));
-        }
     }
 
     private void mixedRegister(String transcript, List<SpeakingRuleSignal> signals) {
@@ -85,16 +68,6 @@ public class SpeakingRuleEngine {
                     SpeakingRuleCategory.COHERENCE, "NO_DISCOURSE_MARKERS",
                     "Long answer has no common discourse markers; evaluate organization carefully."));
         }
-    }
-
-    private static int countToken(String transcript, String token) {
-        int count = 0;
-        int index = transcript.indexOf(token);
-        while (index >= 0) {
-            count++;
-            index = transcript.indexOf(token, index + token.length());
-        }
-        return count;
     }
 
     private static boolean containsAny(String transcript, String... values) {
@@ -141,9 +114,7 @@ public class SpeakingRuleEngine {
         VOCABULARY,
         GRAMMAR,
         REGISTER,
-        COHERENCE,
-        FLUENCY,
-        PRONUNCIATION
+        COHERENCE
     }
 
     public record SpeakingRuleSignal(

@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SpeakingEvaluationNormalizerTest {
@@ -19,9 +20,23 @@ class SpeakingEvaluationNormalizerTest {
         SpeakingEvaluationResult result = normalizer.normalize(validInput());
 
         assertEquals(SpeakingEvaluationStatus.EVALUATED, result.evaluationStatus());
-        assertTrue(result.scoreAvailable());
-        assertEquals(new BigDecimal("78.00"), result.overallScore());
+        assertFalse(result.scoreAvailable());
+        assertNull(result.overallScore());
+        assertNull(result.levelLabel());
+        assertNull(result.listenerBurden());
+        assertTrue(result.profileAvailable());
+        assertFalse(result.holisticScoreAvailable());
+        assertEquals(SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                result.evaluatorCapability());
+        assertEquals(SpeakingEvidenceMode.TRANSCRIPT_ONLY, result.evidenceMode());
+        assertEquals(SpeakingContractTrust.CURRENT_VERIFIED, result.contractTrust());
         assertEquals(6, result.rubricScores().size());
+        assertNull(score(result, SpeakingRubricCriterion.FLUENCY));
+        assertNull(score(result, SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
+        assertEquals(SpeakingCriterionAvailability.NOT_SCORABLE,
+                availability(result, SpeakingRubricCriterion.FLUENCY));
+        assertEquals(SpeakingCriterionAvailability.NOT_SCORABLE,
+                availability(result, SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
         assertEquals(Long.valueOf(44), result.audioMediaId());
         assertEquals(Long.valueOf(3), result.mediaVersion());
         assertEquals(SpeakingEvaluationNormalizer.SCHEMA_VERSION, result.schemaVersion());
@@ -46,11 +61,15 @@ class SpeakingEvaluationNormalizerTest {
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.scoreAvailable());
+        assertFalse(result.scoreAvailable());
+        assertNull(result.overallScore());
+        assertFalse(result.profileAvailable());
+        assertEquals(SpeakingEvaluationStatus.INVALID_PROVIDER_RESULT, result.evaluationStatus());
+        assertEquals("MISSING_AUTHORITATIVE_TRANSCRIPT", result.errorCategory());
         assertNotNull(result.rubricScores());
         assertNotNull(result.evidence());
         assertNotNull(result.recommendations());
-        assertEquals(SpeakingEvaluationSource.PROVIDER, result.source());
+        assertEquals(SpeakingEvaluationSource.SYSTEM, result.source());
     }
 
     @Test
@@ -68,13 +87,13 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
-    void invalidOverallScoreDoesNotBecomeFabricatedLowScore() throws Exception {
+    void providerOverallScoreIsIgnoredRatherThanPersisted() throws Exception {
         JsonNode input = (JsonNode) validInput().deepCopy();
         ((com.fasterxml.jackson.databind.node.ObjectNode) input).put("overall_score", 101);
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertEquals(SpeakingEvaluationStatus.INVALID_PROVIDER_RESULT, result.evaluationStatus());
+        assertEquals(SpeakingEvaluationStatus.EVALUATED, result.evaluationStatus());
         assertFalse(result.scoreAvailable());
         assertNull(result.overallScore());
     }
@@ -98,16 +117,16 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
-    void actuallyHeardTranscriptAndInterpretedIntentRemainSeparate() throws Exception {
+    void providerInterpretedIntentIsNotPromotedWithoutBackendAuthority() throws Exception {
         SpeakingEvaluationResult result = normalizer.normalize(validInput());
 
         assertEquals("저는 학교... 갔어요", result.actuallyHeardTranscript());
-        assertEquals("The learner intended to say that they went to school.", result.interpretedIntent());
-        assertNotEquals(result.actuallyHeardTranscript(), result.interpretedIntent());
+        assertNull(result.interpretedIntent());
+        assertNull(result.intentConfidence());
     }
 
     @Test
-    void interpretedIntentEvidenceDoesNotPreventGroundedScoreCaps() throws Exception {
+    void interpretedIntentAndLowConfidenceNeverEnableAcousticScoring() throws Exception {
         JsonNode input = objectMapper.readTree(validInput().toString().replace(
                 "\"transcript_confidence\":0.9",
                 "\"transcript_confidence\":0.2").replace(
@@ -119,24 +138,30 @@ class SpeakingEvaluationNormalizerTest {
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
         assertEquals(SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE, result.evaluationStatus());
-        assertEquals(new BigDecimal("10.00"), score(result, SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL));
-        assertEquals(new BigDecimal("7.50"), score(result, SpeakingRubricCriterion.FLUENCY));
-        assertEquals(new BigDecimal("7.50"), score(result, SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
-        assertTrue(result.recommendations().stream().anyMatch(value -> value.contains("Low transcript confidence")));
+        assertFalse(result.profileAvailable());
+        assertFalse(result.holisticScoreAvailable());
+        assertTrue(result.rubricScores().isEmpty());
+        assertTrue(result.criterionFeedback().isEmpty());
+        assertNull(result.overallScore());
+        assertTrue(result.recommendations().stream().anyMatch(value -> value.contains("bản chép lời thấp")));
     }
 
     @Test
-    void lowConfidenceKeepsCriterionWithGroundedEvidenceButCapsWeakOnes() throws Exception {
+    void lowConfidencePreservesProvenanceButFailsClosedWithoutAnyNumericProfile() throws Exception {
         JsonNode input = objectMapper.readTree(validInput().toString().replace(
                 "\"transcript_confidence\":0.9",
                 "\"transcript_confidence\":0.2"));
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertEquals(new BigDecimal("16.00"), score(result, SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL));
-        assertEquals(new BigDecimal("11.00"), score(result, SpeakingRubricCriterion.FLUENCY));
-        assertEquals(new BigDecimal("7.50"), score(result, SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
-        assertEquals(new BigDecimal("75.50"), result.overallScore());
+        assertEquals(SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE, result.evaluationStatus());
+        assertEquals(new BigDecimal("0.2"), result.transcriptConfidence());
+        assertEquals(SpeakingEvaluationSource.PROVIDER, result.source());
+        assertTrue(result.currentEvidenceContract());
+        assertFalse(result.profileAvailable());
+        assertTrue(result.rubricScores().isEmpty());
+        assertTrue(result.criterionFeedback().isEmpty());
+        assertNull(result.overallScore());
     }
 
     @Test
@@ -146,11 +171,8 @@ class SpeakingEvaluationNormalizerTest {
                 .map(SpeakingEvaluationResult.Evidence::source)
                 .collect(Collectors.toSet());
 
-        assertEquals(Set.of(
-                SpeakingEvidenceSource.TRANSCRIPT,
-                SpeakingEvidenceSource.AUDIO_METADATA,
-                SpeakingEvidenceSource.PROMPT,
-                SpeakingEvidenceSource.INTERPRETED_INTENT), sources);
+        assertEquals(Set.of(SpeakingEvidenceSource.TRANSCRIPT), sources);
+        assertFalse(sources.contains(SpeakingEvidenceSource.AUDIO_METADATA));
     }
 
     @Test
@@ -162,16 +184,17 @@ class SpeakingEvaluationNormalizerTest {
         assertEquals("The learner introduces themself and stays on topic.", result.taskAchievementSummary());
         assertEquals(2, result.majorStrengths().size());
         assertEquals(2, result.majorNeedsImprovement().size());
-        assertEquals(2, result.actionPlan().size());
+        assertEquals(1, result.actionPlan().size());
         assertEquals(SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL, result.actionPlan().get(0).criterion());
         assertEquals("S_GRAMMAR_PARTICLES", result.actionPlan().get(0).subCriterionId());
-        assertEquals("Độ tin cậy đủ để phản hồi tổng quát, nhưng phát âm vẫn chỉ là gợi ý.", result.confidenceNotes());
+        assertNull(result.confidenceNotes());
         assertEquals(1, result.strengths().size());
         assertEquals("S_CONTENT_RELEVANCE", result.strengths().get(0).subCriterionId());
         assertEquals("", result.strengths().get(0).correction());
         assertEquals(1, result.needsImprovement().size());
         assertEquals("학생이에요", result.needsImprovement().get(0).correction());
-        assertEquals(6, result.criterionFeedback().size());
+        assertEquals(4, result.criterionFeedback().size());
+        assertThat(result.criterionFeedback()).allMatch(row -> row.criterion().transcriptGrounded());
         assertEquals(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, result.criterionFeedback().get(0).criterion());
         assertEquals("S_CONTENT_RELEVANCE", result.criterionFeedback().get(0).subcriteria().get(0).subCriterionId());
         assertEquals(1, result.transcriptAnnotations().size());
@@ -180,6 +203,113 @@ class SpeakingEvaluationNormalizerTest {
         assertEquals("TEXT_SPAN", result.transcriptAnnotations().get(0).evidenceScope());
         assertEquals("학생 이에요", result.transcriptAnnotations().get(0).evidence());
         assertEquals("학생이에요", result.transcriptAnnotations().get(0).suggestionKo());
+        assertEquals(3, result.transcriptAnnotations().get(0).startOffset());
+        assertEquals(9, result.transcriptAnnotations().get(0).endOffset());
+    }
+
+    @Test
+    void nonexistentTranscriptSpanIsDroppedFromAnnotationsAndFindings() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode annotation =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
+        annotation.put("evidence", "존재하지 않는 구절");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertTrue(result.transcriptAnnotations().isEmpty());
+        assertTrue(result.findings().isEmpty());
+        assertEquals(SpeakingContractTrust.CURRENT_VERIFIED, result.contractTrust());
+    }
+
+    @Test
+    void providerOffsetsAreIgnoredAndDerivedFromAuthoritativeTranscript() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode annotation =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
+        annotation.put("start_offset", 999);
+        annotation.put("end_offset", -7);
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(1, result.transcriptAnnotations().size());
+        assertEquals(3, result.transcriptAnnotations().get(0).startOffset());
+        assertEquals(9, result.transcriptAnnotations().get(0).endOffset());
+    }
+
+    @Test
+    void wholeAnswerWithNonemptyEvidenceIsDropped() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode strength =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("strengths").get(0);
+        strength.put("evidence_scope", "WHOLE_ANSWER");
+        strength.put("evidence", "fake whole-answer highlight");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertTrue(result.strengths().isEmpty());
+    }
+
+    @Test
+    void strengthWithProviderCorrectionIsDropped() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) input.path("strengths").get(0))
+                .put("correction", "không được phép sửa trong điểm mạnh");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertTrue(result.strengths().isEmpty());
+    }
+
+    @Test
+    void taskMetadataWithoutAuthoritativeEnvelopeIsDropped() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode need =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("needs_improvement").get(0);
+        need.put("evidence_scope", "TASK_METADATA");
+        need.put("evidence_source", "PROMPT");
+        need.put("evidence", "provider-authored task claim");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertTrue(result.needsImprovement().isEmpty());
+    }
+
+    @Test
+    void repeatedExactSpanUsesDistinctBackendDerivedOccurrencesInProviderOrder() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        input.put("actually_heard_transcript", "다시 다시 말해요");
+        com.fasterxml.jackson.databind.node.ArrayNode annotations =
+                (com.fasterxml.jackson.databind.node.ArrayNode) input.path("transcript_annotations");
+        com.fasterxml.jackson.databind.node.ObjectNode first =
+                (com.fasterxml.jackson.databind.node.ObjectNode) annotations.get(0).deepCopy();
+        first.put("evidence", "다시");
+        first.put("start_offset", 100);
+        first.put("end_offset", 200);
+        com.fasterxml.jackson.databind.node.ObjectNode second = first.deepCopy();
+        annotations.removeAll();
+        annotations.add(first);
+        annotations.add(second);
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(2, result.transcriptAnnotations().size());
+        assertEquals(0, result.transcriptAnnotations().get(0).startOffset());
+        assertEquals(2, result.transcriptAnnotations().get(0).endOffset());
+        assertEquals(3, result.transcriptAnnotations().get(1).startOffset());
+        assertEquals(5, result.transcriptAnnotations().get(1).endOffset());
+    }
+
+    @Test
+    void mismatchedSubcriterionParentIsDropped() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode annotation =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
+        annotation.put("criterion_id", "S_CONTENT_TASK_FULFILLMENT");
+        annotation.put("sub_criterion_id", "S_GRAMMAR_PARTICLES");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertTrue(result.transcriptAnnotations().isEmpty());
     }
 
     @Test
@@ -194,14 +324,34 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
-    void impossibleOverallAndRubricCombinationUsesDeterministicRubricTotal() throws Exception {
+    void impossibleOverallAndRubricCombinationCannotCreateHolisticScore() throws Exception {
         JsonNode input = (JsonNode) validInput().deepCopy();
         ((com.fasterxml.jackson.databind.node.ObjectNode) input).put("overall_score", 99);
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.scoreAvailable());
-        assertEquals(new BigDecimal("78.00"), result.overallScore());
+        assertFalse(result.scoreAvailable());
+        assertNull(result.overallScore());
+    }
+
+    @Test
+    void fourTranscriptGroundedRowsRetainPartialLanguageProfile() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input =
+                (com.fasterxml.jackson.databind.node.ObjectNode) validInput().deepCopy();
+        com.fasterxml.jackson.databind.node.ArrayNode rows =
+                (com.fasterxml.jackson.databind.node.ArrayNode) input.path("rubric_scores");
+        rows.remove(rows.size() - 1);
+        rows.remove(rows.size() - 1);
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(SpeakingEvaluationStatus.EVALUATED, result.evaluationStatus());
+        assertTrue(result.profileAvailable());
+        assertFalse(result.scoreAvailable());
+        assertNull(result.overallScore());
+        assertEquals(4, result.rubricScores().stream().filter(SpeakingEvaluationResult.RubricScore::scored).count());
+        assertEquals(2, result.rubricScores().stream()
+                .filter(row -> row.availability() == SpeakingCriterionAvailability.NOT_SCORABLE).count());
     }
 
     @Test
@@ -222,6 +372,17 @@ class SpeakingEvaluationNormalizerTest {
                 .findFirst()
                 .orElseThrow()
                 .score();
+    }
+
+    private SpeakingCriterionAvailability availability(
+            SpeakingEvaluationResult result,
+            SpeakingRubricCriterion criterion
+    ) {
+        return result.rubricScores().stream()
+                .filter(row -> row.criterion() == criterion)
+                .findFirst()
+                .orElseThrow()
+                .availability();
     }
 
     private JsonNode validInput() throws Exception {
@@ -251,7 +412,7 @@ class SpeakingEvaluationNormalizerTest {
                     {"criterion":"PRONUNCIATION_DELIVERY","score":10,"feedback":"Advisory only"}
                   ],
                   "evidence":[
-                    {"source":"TRANSCRIPT","criterion":"GRAMMAR_SENTENCE_CONTROL","excerpt":"학교 갔어요","confidence":0.9},
+                    {"source":"TRANSCRIPT","criterion":"GRAMMAR_SENTENCE_CONTROL","excerpt":"학교... 갔어요","confidence":0.9},
                     {"source":"AUDIO_METADATA","criterion":"FLUENCY","excerpt":"pause metadata","confidence":0.8},
                     {"source":"PROMPT","criterion":"CONTENT_TASK_FULFILLMENT","excerpt":"task requirement","confidence":1},
                     {"source":"INTERPRETED_INTENT","criterion":"CONTENT_TASK_FULFILLMENT","excerpt":"intended meaning","confidence":0.8}
@@ -265,5 +426,10 @@ class SpeakingEvaluationNormalizerTest {
                   "retryable":false
                 }
                 """);
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode richInput() throws Exception {
+        return (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(
+                OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson());
     }
 }

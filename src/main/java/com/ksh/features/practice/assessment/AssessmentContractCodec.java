@@ -16,6 +16,24 @@ import java.util.function.Function;
 public class AssessmentContractCodec {
 
     private static final Set<String> TFNG_VALUES = Set.of("TRUE", "FALSE", "NOT_GIVEN");
+    private static final Set<String> QUESTION_CONTENT_FIELDS = Set.of(
+            "schemaVersion",
+            "options",
+            "blanks",
+            "imageReference",
+            "audioReference",
+            "speakingDelivery");
+    private static final Set<String> OPTION_FIELDS =
+            Set.of("id", "text", "imageReference");
+    private static final Set<String> BLANK_FIELDS = Set.of("id", "prompt");
+    private static final Set<String> SPEAKING_DELIVERY_FIELDS = Set.of(
+            "inputType",
+            "deliveryMode",
+            "promptAudioReference",
+            "audioOrigin",
+            "promptPlayLimit",
+            "preparationSeconds",
+            "responseSeconds");
 
     private final ObjectMapper objectMapper;
     private final QuestionTypeResolver typeResolver;
@@ -31,6 +49,7 @@ public class AssessmentContractCodec {
     }
 
     public QuestionContent readQuestionContent(String json, CanonicalQuestionType type) {
+        validateQuestionContentJsonShape(json);
         QuestionContent content = read(json, QuestionContent.class, "question content");
         validateQuestionContent(content, type);
         return content;
@@ -124,7 +143,10 @@ public class AssessmentContractCodec {
     public void validateQuestionContent(QuestionContent content, CanonicalQuestionType type) {
         require(content, "question content");
         require(type, "question type");
-        requireVersion(content.schemaVersion(), QuestionContent.SCHEMA_VERSION, "question content");
+        requireVersion(
+                content.schemaVersion(),
+                Set.of(QuestionContent.SCHEMA_VERSION_V1, QuestionContent.SCHEMA_VERSION_V2),
+                "question content");
         uniqueIds(content.options(), QuestionContent.Option::id, "option");
         uniqueIds(content.blanks(), QuestionContent.Blank::id, "blank");
 
@@ -132,7 +154,14 @@ public class AssessmentContractCodec {
             throw new IllegalArgumentException("Speaking delivery is only valid for SPEAKING questions");
         }
         if (content.speakingDelivery() != null) {
-            validateSpeakingDelivery(content.speakingDelivery());
+            validateSpeakingDelivery(content.schemaVersion(), content.speakingDelivery());
+        }
+        if (QuestionContent.SCHEMA_VERSION_V2.equals(content.schemaVersion())) {
+            if (type != CanonicalQuestionType.SPEAKING) {
+                throw new IllegalArgumentException(
+                        "question-content-v2 is only valid for SPEAKING questions");
+            }
+            require(content.speakingDelivery(), "v2 speaking delivery");
         }
 
         switch (type) {
@@ -144,10 +173,53 @@ public class AssessmentContractCodec {
         }
     }
 
-    private static void validateSpeakingDelivery(QuestionContent.SpeakingDelivery delivery) {
-        requireRange(delivery.promptPlayLimit(), 1, 10, "speaking prompt play limit");
+    private static void validateSpeakingDelivery(
+            String schemaVersion,
+            QuestionContent.SpeakingDelivery delivery) {
         requireRange(delivery.preparationSeconds(), 0, 600, "speaking preparation seconds");
         requireRange(delivery.responseSeconds(), 1, 1800, "speaking response seconds");
+        if (QuestionContent.SCHEMA_VERSION_V1.equals(schemaVersion)) {
+            requireRange(delivery.promptPlayLimit(), 1, 10, "speaking prompt play limit");
+            if (delivery.inputType() != null
+                    || delivery.deliveryMode() != null
+                    || delivery.audioOrigin() != null) {
+                throw new IllegalArgumentException(
+                        "question-content-v1 cannot contain v2 speaking mode identity");
+            }
+            return;
+        }
+
+        QuestionContent.SpeakingPromptInputType inputType =
+                require(delivery.inputType(), "speaking prompt input type");
+        QuestionContent.SpeakingDeliveryMode deliveryMode =
+                require(delivery.deliveryMode(), "speaking delivery mode");
+        QuestionContent.SpeakingAudioOrigin audioOrigin =
+                require(delivery.audioOrigin(), "speaking audio origin");
+        boolean hasPromptAudio = !blank(delivery.promptAudioReference());
+
+        boolean uploadedAudio = inputType == QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD
+                && deliveryMode == QuestionContent.SpeakingDeliveryMode.AUDIO_ONLY
+                && audioOrigin == QuestionContent.SpeakingAudioOrigin.TEACHER_UPLOAD
+                && hasPromptAudio;
+        boolean manualTextOnly = inputType == QuestionContent.SpeakingPromptInputType.MANUAL_TEXT
+                && deliveryMode == QuestionContent.SpeakingDeliveryMode.TEXT_ONLY
+                && audioOrigin == QuestionContent.SpeakingAudioOrigin.NONE
+                && !hasPromptAudio
+                && delivery.promptPlayLimit() == null;
+        boolean manualTextWithTts = inputType == QuestionContent.SpeakingPromptInputType.MANUAL_TEXT
+                && deliveryMode == QuestionContent.SpeakingDeliveryMode.TEXT_AND_AUDIO
+                && audioOrigin == QuestionContent.SpeakingAudioOrigin.AI_TTS
+                && hasPromptAudio
+                && validAudioPlayLimit(delivery.promptPlayLimit());
+        uploadedAudio = uploadedAudio && validAudioPlayLimit(delivery.promptPlayLimit());
+        if (!uploadedAudio && !manualTextOnly && !manualTextWithTts) {
+            throw new IllegalArgumentException(
+                    "Unsupported question-content-v2 speaking mode combination");
+        }
+    }
+
+    private static boolean validAudioPlayLimit(Integer value) {
+        return value != null && value >= 1 && value <= 10;
     }
 
     public void validateAnswerSpec(AnswerSpec spec, QuestionContent content) {
@@ -230,6 +302,66 @@ public class AssessmentContractCodec {
         }
     }
 
+    private void validateQuestionContentJsonShape(String json) {
+        if (blank(json)) {
+            throw new IllegalArgumentException("Missing question content JSON");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            requireObject(root, "question content");
+            rejectUnknownFields(root, QUESTION_CONTENT_FIELDS, "question content");
+
+            JsonNode options = root.get("options");
+            if (options != null && !options.isNull()) {
+                if (!options.isArray()) {
+                    throw new IllegalArgumentException("Question content options must be an array");
+                }
+                for (JsonNode option : options) {
+                    requireObject(option, "question content option");
+                    rejectUnknownFields(option, OPTION_FIELDS, "question content option");
+                }
+            }
+
+            JsonNode blanks = root.get("blanks");
+            if (blanks != null && !blanks.isNull()) {
+                if (!blanks.isArray()) {
+                    throw new IllegalArgumentException("Question content blanks must be an array");
+                }
+                for (JsonNode contentBlank : blanks) {
+                    requireObject(contentBlank, "question content blank");
+                    rejectUnknownFields(contentBlank, BLANK_FIELDS, "question content blank");
+                }
+            }
+
+            JsonNode delivery = root.get("speakingDelivery");
+            if (delivery != null && !delivery.isNull()) {
+                requireObject(delivery, "speaking delivery");
+                rejectUnknownFields(
+                        delivery, SPEAKING_DELIVERY_FIELDS, "speaking delivery");
+            }
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException("Invalid question content JSON", exception);
+        }
+    }
+
+    private static void requireObject(JsonNode node, String label) {
+        if (node == null || !node.isObject()) {
+            throw new IllegalArgumentException(label + " must be a JSON object");
+        }
+    }
+
+    private static void rejectUnknownFields(
+            JsonNode object,
+            Set<String> allowedFields,
+            String label) {
+        object.fieldNames().forEachRemaining(field -> {
+            if (!allowedFields.contains(field)) {
+                throw new IllegalArgumentException(
+                        "Unsupported " + label + " field: " + field);
+            }
+        });
+    }
+
     private String resolveLegacyOptionId(String legacyValue, QuestionContent content) {
         String value = required(legacyValue, "legacy option answer");
         for (QuestionContent.Option option : content.options()) {
@@ -276,6 +408,12 @@ public class AssessmentContractCodec {
 
     private static void requireVersion(String actual, String expected, String label) {
         if (!expected.equals(actual)) {
+            throw new IllegalArgumentException("Unsupported " + label + " schema version: " + actual);
+        }
+    }
+
+    private static void requireVersion(String actual, Set<String> expected, String label) {
+        if (!expected.contains(actual)) {
             throw new IllegalArgumentException("Unsupported " + label + " schema version: " + actual);
         }
     }

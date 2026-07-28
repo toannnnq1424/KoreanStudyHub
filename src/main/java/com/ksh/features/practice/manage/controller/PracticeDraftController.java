@@ -6,6 +6,7 @@ import com.ksh.features.practice.manage.service.PracticeDraftPreviewService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptAuthoringConflictException;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.security.KshUserDetails;
@@ -187,7 +188,8 @@ public class PracticeDraftController {
                     "version", saved.getVersion(),
                     "validation", valRes
             ));
-        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException
+                 | SpeakingPromptAuthoringConflictException e) {
             log.warn("[DraftAutosave] Optimistic lock conflict on draftId={}: {}", draftId, e.getMessage());
             return ResponseEntity.status(409).body(Map.of(
                     "status", "conflict",

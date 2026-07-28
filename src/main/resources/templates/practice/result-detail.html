@@ -12,7 +12,6 @@
   const questions = JSON.parse(/*[[${questionsJson}]]*/ '[]');
   const setSkill = /*[[${result.set().skill()}]]*/ 'WRITING';
   const attemptId = /*[[${result.submissionId()}]]*/ '';
-  const overallScore = parseFloat(/*[[${result.score() != null ? result.score().stripTrailingZeros().toPlainString() : '0'}]]*/ '0');
   const rawAiFeedbackJson = /*[[${result.set().skill() == 'WRITING' or (result.set().skill() == 'SPEAKING' and !#lists.isEmpty(result.speakingQuestionFeedbacks())) ? '{}' : result.aiFeedbackJson()}]]*/ '{}';
   const activeQuestionId = /*[[${activeQuestionId}]]*/ null;
   /*]]>*/
@@ -29,7 +28,7 @@
     <span class="prd-header-title">Kết quả chi tiết</span>
   </div>
   <div class="prd-header-right">
-    <a class="prd-complete-btn" th:href="@{/practice}">Complete</a>
+    <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
   </div>
 </header>
 
@@ -124,21 +123,6 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           Bài mẫu
         </button>
-        <button class="prd-tab-btn" data-tab="criterion-content" role="tab" type="button" th:if="${result.set().skill() == 'SPEAKING'}">
-          Nội dung
-        </button>
-        <button class="prd-tab-btn" data-tab="criterion-vocabulary" role="tab" type="button" th:if="${result.set().skill() == 'SPEAKING'}">
-          Từ vựng
-        </button>
-        <button class="prd-tab-btn" data-tab="criterion-grammar" role="tab" type="button" th:if="${result.set().skill() == 'SPEAKING'}">
-          Ngữ pháp
-        </button>
-        <button class="prd-tab-btn" data-tab="criterion-fluency" role="tab" type="button" th:if="${result.set().skill() == 'SPEAKING'}">
-          Độ lưu loát
-        </button>
-        <button class="prd-tab-btn" data-tab="criterion-pronunciation" role="tab" type="button" th:if="${result.set().skill() == 'SPEAKING'}">
-          Phát âm
-        </button>
       </div>
 
       <!-- TAB: OVERVIEW -->
@@ -146,11 +130,14 @@
         <div class="prd-overview-header">
           <div class="prd-task-score-display">
             <strong id="ov-score">—</strong>
-            <span id="ov-score-max">/ 100</span>
-            <div class="prd-task-score-label"
-                 th:text="${result.set().skill() == 'SPEAKING' ? 'Điểm luyện tập tham khảo' : 'Điểm bài làm'}">Điểm bài làm</div>
+            <span id="ov-score-max"></span>
+            <div class="prd-task-score-label" id="ov-score-label"
+                 th:text="${result.set().skill() == 'SPEAKING' ? 'Không có điểm Nói tổng hợp' : 'Điểm bài làm'}">Điểm bài làm</div>
           </div>
         </div>
+        <p class="prd-speaking-scope-notice" th:if="${result.set().skill() == 'SPEAKING'}">
+          Hồ sơ này chỉ dựa trên bản chép lời; không đánh giá độ lưu loát, phát âm hoặc đặc tính âm thanh.
+        </p>
 
         <!-- Rubric chips -->
         <div class="prd-rubric-chips" id="prd-rubric-chips">
@@ -182,7 +169,8 @@
 
       <!-- TAB: UPGRADED ANSWER -->
       <div class="prd-tab-panel" id="tab-upgrade">
-        <div class="prd-section-label" style="margin-bottom: 12px;">Bài viết nâng cấp</div>
+        <div class="prd-section-label" style="margin-bottom: 12px;"
+             th:text="${result.set().skill() == 'SPEAKING' ? 'Bài nói nâng cấp' : 'Bài viết nâng cấp'}">Bài viết nâng cấp</div>
         <div class="prd-upgrade-text" id="prd-upgrade-text"></div>
 
         <div class="prd-section-label" style="margin: 24px 0 12px;">So sánh câu từng phần</div>
@@ -195,31 +183,10 @@
           <span class="prd-sample-badge">Bài mẫu tham khảo</span>
           <button class="prd-copy-btn" id="prd-copy-btn" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            Copy
+            Sao chép
           </button>
         </div>
         <div class="prd-sample-text" id="prd-sample-text"></div>
-      </div>
-
-      <div class="prd-tab-panel" id="tab-criterion-content" data-speaking-criterion="S_CONTENT_TASK_FULFILLMENT">
-        <div class="prd-section-label">Content / Task Fulfillment</div>
-        <div class="prd-findings-list" id="criterion-content-body"></div>
-      </div>
-      <div class="prd-tab-panel" id="tab-criterion-vocabulary" data-speaking-criterion="S_VOCABULARY_EXPRESSIONS">
-        <div class="prd-section-label">Vocabulary & Expressions</div>
-        <div class="prd-findings-list" id="criterion-vocabulary-body"></div>
-      </div>
-      <div class="prd-tab-panel" id="tab-criterion-grammar" data-speaking-criterion="S_GRAMMAR_SENTENCE_CONTROL">
-        <div class="prd-section-label">Grammar & Sentence Control</div>
-        <div class="prd-findings-list" id="criterion-grammar-body"></div>
-      </div>
-      <div class="prd-tab-panel" id="tab-criterion-fluency" data-speaking-criterion="S_FLUENCY">
-        <div class="prd-section-label">Fluency</div>
-        <div class="prd-findings-list" id="criterion-fluency-body"></div>
-      </div>
-      <div class="prd-tab-panel" id="tab-criterion-pronunciation" data-speaking-criterion="S_PRONUNCIATION_DELIVERY">
-        <div class="prd-section-label">Pronunciation & Delivery (advisory)</div>
-        <div class="prd-findings-list" id="criterion-pronunciation-body"></div>
       </div>
 
     </aside>
@@ -321,8 +288,31 @@
     activateTab(activeTab);
   }
 
-  function isActiveQuestionSpeakingFeedback() {
-    return setSkill === 'SPEAKING' && !!currentQ.speakingFeedback;
+  function isActiveSpeakingQuestion() {
+    return setSkill === 'SPEAKING';
+  }
+
+  function isSpeakingProfileAvailable() {
+    return isActiveSpeakingQuestion()
+      && !!currentQ.speakingFeedback
+      && field(aiData, 'profile_available', 'profileAvailable') === true;
+  }
+
+  function speakingScoredRubricRows() {
+    if (!isSpeakingProfileAvailable()) return [];
+    return rubricScores.filter(row => {
+      const score = row && row.score;
+      const maxScore = row && row.maxScore;
+      return row
+        && row.availability === 'SCORED'
+        && typeof score === 'number'
+        && typeof maxScore === 'number'
+        && Number.isFinite(score)
+        && Number.isFinite(maxScore)
+        && score >= 0
+        && maxScore > 0
+        && score <= maxScore;
+    });
   }
 
   function setQuestion(idx) {
@@ -460,7 +450,6 @@
     }
     if (tabId === 'upgrade') renderUpgradePanel();
     if (tabId === 'sample') renderSamplePanel();
-    if (tabId && tabId.startsWith('criterion-')) renderSpeakingCriterionPanel(tabId);
   }
   primaryTabs.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
 
@@ -468,35 +457,59 @@
   function renderOverview() {
     const scoreEl = document.getElementById('ov-score');
     const scoreMaxEl = document.getElementById('ov-score-max');
+    const scoreLabelEl = document.getElementById('ov-score-label');
     const summaryEl = document.getElementById('ov-summary-text');
 
     const hasRawScore = aiData.raw_score !== undefined || aiData.percentage !== undefined || aiData.score !== undefined || aiData.overallScore !== undefined || aiData.overall_score !== undefined;
     const hasRawMax = aiData.raw_score_max !== undefined;
-    const rawScore = isActiveQuestionSpeakingFeedback()
-      ? (field(aiData, 'score_available', 'scoreAvailable') === false ? null : parseFloat(firstValue(aiData.percentage, aiData.overallScore, aiData.overall_score, overallScore)))
-      : (hasRawScore ? parseFloat(aiData.raw_score || aiData.percentage || aiData.score || 0) : null);
+    const rawScore = hasRawScore ? parseFloat(aiData.raw_score || aiData.percentage || aiData.score || 0) : null;
     const rawMax = hasRawMax ? parseFloat(aiData.raw_score_max) : null;
-    if (scoreEl) scoreEl.textContent = rawScore === null || Number.isNaN(rawScore) ? '--' : rawScore.toFixed(0);
-    if (scoreMaxEl) scoreMaxEl.textContent = isActiveQuestionSpeakingFeedback() && rawScore !== null && !Number.isNaN(rawScore)
-      ? '/ 100'
-      : (rawMax === null || Number.isNaN(rawMax) ? '' : '/ ' + rawMax.toFixed(0));
+    if (isActiveSpeakingQuestion()) {
+      const holisticScoreAvailable = isSpeakingProfileAvailable()
+        && field(aiData, 'holistic_score_available', 'holisticScoreAvailable') === true;
+      const holisticScoreValue = firstValue(aiData.percentage, aiData.overallScore, aiData.overall_score);
+      const holisticScore = holisticScoreValue;
+      const showHolisticScore = holisticScoreAvailable
+        && typeof holisticScoreValue === 'number'
+        && Number.isFinite(holisticScore)
+        && holisticScore >= 0
+        && holisticScore <= 100;
+      if (scoreEl) scoreEl.textContent = showHolisticScore ? String(holisticScore) : 'Không khả dụng';
+      if (scoreMaxEl) scoreMaxEl.textContent = showHolisticScore ? '%' : '';
+      if (scoreLabelEl) scoreLabelEl.textContent = showHolisticScore
+        ? 'Điểm Nói tổng hợp'
+        : 'Không có điểm Nói tổng hợp';
+    } else {
+      if (scoreEl) scoreEl.textContent = rawScore === null || Number.isNaN(rawScore) ? '--' : rawScore.toFixed(0);
+      if (scoreMaxEl) scoreMaxEl.textContent = rawMax === null || Number.isNaN(rawMax) ? '' : '/ ' + rawMax.toFixed(0);
+      if (scoreLabelEl) scoreLabelEl.textContent = 'Điểm bài làm';
+    }
     if (summaryEl) {
-      const status = field(aiData, 'evaluation_status', 'evaluationStatus');
       const summary = firstValue(aiData.overall_summary, aiData.overallSummary, aiData.task_achievement_summary, aiData.taskAchievementSummary, aiData.summary_vi, aiData.summary);
       const confidence = firstValue(aiData.confidence_notes, aiData.confidenceNotes);
-      summaryEl.textContent = [status, summary || 'Chưa có nhận xét.', confidence].filter(Boolean).join(' — ');
+      summaryEl.textContent = [summary || 'Chưa có nhận xét.', confidence].filter(Boolean).join(' — ');
     }
 
     const chipsEl = document.getElementById('prd-rubric-chips');
     if (chipsEl) {
-      if (rubricScores.length > 0) {
-        chipsEl.innerHTML = rubricScores.map(r => {
-          const rubricValue = isActiveQuestionSpeakingFeedback() ? firstValue(r.score, r.percentage) : r.score;
-          const rubricMax = isActiveQuestionSpeakingFeedback() ? parseFloat(firstValue(r.maxScore, r.max_score, 100)) : parseFloat(r.maxScore || 10);
+      const visibleRubricRows = isActiveSpeakingQuestion()
+        ? speakingScoredRubricRows()
+        : rubricScores;
+      if (visibleRubricRows.length > 0) {
+        chipsEl.innerHTML = visibleRubricRows.map(r => {
+          if (isActiveSpeakingQuestion()) {
+            return `<div class="prd-rubric-chip">
+              <div class="prd-chip-name">${escHtml(firstValue(r.name, 'Tiêu chí hồ sơ'))}</div>
+              <div class="prd-chip-score">${escHtml(String(r.score))}/${escHtml(String(r.maxScore))}</div>
+              <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
+            </div>`;
+          }
+          const rubricValue = r.score;
+          const rubricMax = parseFloat(r.maxScore || 10);
           const pct = rubricMax > 0 ? Math.round(((parseFloat(rubricValue) || 0) / rubricMax) * 100) : 0;
           const cls = pct >= 70 ? 'prd-chip-good' : pct >= 45 ? 'prd-chip-med' : 'prd-chip-low';
           return `<div class="prd-rubric-chip ${cls}">
-            <div class="prd-chip-name">${escHtml(firstValue(r.name, r.displayName, r.criterionId))}</div>
+            <div class="prd-chip-name">${escHtml(firstValue(r.name, 'Tiêu chí đánh giá'))}</div>
             <div class="prd-chip-score">${rubricValue}/${rubricMax}</div>
             <div class="prd-chip-bar"><div class="prd-chip-fill" style="width:${pct}%"></div></div>
             <div class="prd-chip-feedback">${escHtml(r.feedback || '')}</div>
@@ -553,7 +566,7 @@
         <div class="prd-finding-card prd-finding-strength">
           <div class="prd-finding-header">
             <span class="prd-finding-idx prd-idx-strength">${idx + 1}</span>
-            <span class="prd-finding-label">${escHtml(s.uiLabel || s.vietnameseLabel || s.criterionId)}</span>
+            <span class="prd-finding-label">${escHtml(s.uiLabel || s.vietnameseLabel || 'Điểm mạnh')}</span>
           </div>
           <div class="prd-finding-evidence prd-evidence-strength">"${escHtml(s.evidence)}"</div>
           <div class="prd-finding-explanation">${escHtml(s.explanationVi)}</div>
@@ -612,7 +625,7 @@
         <div class="prd-finding-card prd-finding-need">
           <div class="prd-finding-header">
             <span class="prd-finding-idx prd-idx-need">${idx + 1}</span>
-            <span class="prd-finding-label">${escHtml(n.uiLabel || n.vietnameseLabel || n.criterionId)}</span>
+            <span class="prd-finding-label">${escHtml(n.uiLabel || n.vietnameseLabel || 'Điểm cần cải thiện')}</span>
             ${n.severity ? `<span class="prd-sev-badge ${SEV_CLASSES[n.severity] || 'prd-sev-badge-med'}">${SEV_LABELS[n.severity] || n.severity}</span>` : ''}
           </div>
           ${n.errorType ? `<div class="prd-finding-error-type">${escHtml(n.errorType)}</div>` : ''}
@@ -666,8 +679,8 @@
     if (copyBtn && sample) {
       copyBtn.onclick = () => {
         navigator.clipboard.writeText(sample).then(() => {
-          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Đã copy!';
-          setTimeout(() => { copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy'; }, 1800);
+          copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Đã sao chép!';
+          setTimeout(() => { copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Sao chép'; }, 1800);
         });
       };
     }
@@ -689,38 +702,6 @@
       if (value !== undefined && value !== null && value !== '') return value;
     }
     return null;
-  }
-
-  function renderSpeakingCriterionPanel(tabId) {
-    if (setSkill !== 'SPEAKING') return;
-    const panel = document.getElementById('tab-' + tabId);
-    if (!panel) return;
-    const criterionId = panel.dataset.speakingCriterion;
-    const body = document.getElementById(tabId + '-body');
-    if (!body) return;
-    const rich = arrayField(aiData, 'criterion_feedback', 'criterionFeedback')
-      .find(row => firstValue(row.criterionId, row.criterion_id) === criterionId);
-    const rubric = rubricScores.find(row => firstValue(row.criterionId, row.criterion_id) === criterionId);
-    const relatedStrengths = strengths.filter(row => firstValue(row.criterionId, row.criterion_id) === criterionId);
-    const relatedNeeds = needs.filter(row => firstValue(row.criterionId, row.criterion_id) === criterionId);
-    const relatedAnnotations = annotations.filter(row => firstValue(row.criterionId, row.criterion_id) === criterionId);
-    const score = rich ? firstValue(rich.score) : firstValue(rubric && rubric.score, rubric && rubric.percentage);
-    const maxScore = rich ? firstValue(rich.maxScore, rich.max_score) : firstValue(rubric && rubric.maxScore, rubric && rubric.max_score, 100);
-    const summary = rich ? firstValue(rich.summary, rich.feedback) : firstValue(rubric && rubric.feedback);
-    const subcriteria = rich && Array.isArray(rich.subcriteria) ? rich.subcriteria : [];
-    body.innerHTML = `
-      <div class="prd-finding-card">
-        <div class="prd-finding-header">
-          <span class="prd-finding-label">${escHtml(criterionId)}</span>
-          <span>${score !== null ? escHtml(String(score)) : '--'}${maxScore !== null ? ' / ' + escHtml(String(maxScore)) : ''}</span>
-        </div>
-        <div class="prd-finding-explanation">${escHtml(summary || 'Chưa có nhận xét cho tiêu chí này.')}</div>
-      </div>
-      ${subcriteria.map(sub => `<div class="prd-finding-card"><strong>${escHtml(firstValue(sub.name, sub.displayName, sub.subcriterionId, sub.sub_criterion_id))}</strong><div>${escHtml(firstValue(sub.summary, sub.levelLabel, sub.level_label, ''))}</div></div>`).join('')}
-      ${relatedStrengths.map(item => `<div class="prd-finding-card prd-finding-strength"><strong>Điểm mạnh</strong><div>${escHtml(firstValue(item.evidence, ''))}</div><div>${escHtml(firstValue(item.explanationVi, item.explanation_vi, ''))}</div></div>`).join('')}
-      ${relatedNeeds.map(item => `<div class="prd-finding-card prd-finding-need"><strong>Cần cải thiện</strong><div>${escHtml(firstValue(item.evidence, ''))}</div><div>${escHtml(firstValue(item.explanationVi, item.explanation_vi, ''))}</div><div>${escHtml(firstValue(item.correction, ''))}</div></div>`).join('')}
-      ${relatedAnnotations.map(item => `<div class="prd-finding-card"><strong>Evidence</strong><div>${escHtml(firstValue(item.evidence, ''))}</div><div>${escHtml(firstValue(item.explanationVi, item.explanation_vi, ''))}</div><div>${escHtml(firstValue(item.suggestionKo, item.suggestion_ko, item.correction, ''))}</div></div>`).join('')}
-    `;
   }
 
   setQuestion(initialQuestionIndex);

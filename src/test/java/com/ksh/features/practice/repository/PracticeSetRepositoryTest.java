@@ -3,7 +3,9 @@ package com.ksh.features.practice.repository;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
+import com.ksh.entities.PracticeQuestion;
 import com.ksh.entities.User;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,9 @@ class PracticeSetRepositoryTest {
 
     @Autowired
     private PracticeSectionRepository sectionRepository;
+
+    @Autowired
+    private PracticeQuestionRepository questionRepository;
 
     @Autowired
     private ClassRepository classRepository;
@@ -69,6 +74,22 @@ class PracticeSetRepositoryTest {
         sectionRepository.saveAndFlush(new PracticeSection(
                 global.getId(), "Phần Nói", PracticeSet.SKILL_SPEAKING,
                 "SPEAKING", null, 10, BigDecimal.TEN, 1));
+        sectionRepository.saveAndFlush(new PracticeSection(
+                global.getId(), "Phần Viết", PracticeSet.SKILL_WRITING,
+                "ESSAY", null, 10, BigDecimal.TEN, 2));
+        sectionRepository.saveAndFlush(new PracticeSection(
+                classVisible.getId(), "Phần Viết", PracticeSet.SKILL_WRITING,
+                "ESSAY", null, 10, BigDecimal.TEN, 1));
+        PracticeQuestion q53 = new PracticeQuestion(
+                global.getId(), 53, PracticeQuestion.TYPE_ESSAY, "Viết 53",
+                null, null, null, BigDecimal.valueOf(30), 1);
+        q53.setWritingTaskType(WritingTaskType.Q53);
+        questionRepository.saveAndFlush(q53);
+        PracticeQuestion q54 = new PracticeQuestion(
+                classVisible.getId(), 54, PracticeQuestion.TYPE_ESSAY, "Viết 54",
+                null, null, null, BigDecimal.valueOf(50), 1);
+        q54.setWritingTaskType(WritingTaskType.Q54);
+        questionRepository.saveAndFlush(q54);
 
         Page<PracticeSet> visible = setRepository.findLearnerVisiblePublished(
                 PracticeSet.STATUS_PUBLISHED,
@@ -79,6 +100,7 @@ class PracticeSetRepositoryTest {
                 0L,
                 marker,
                 "",
+                null,
                 PageRequest.of(0, 12));
 
         assertThat(visible.getContent())
@@ -94,6 +116,7 @@ class PracticeSetRepositoryTest {
                 0L,
                 marker,
                 PracticeSet.SKILL_SPEAKING,
+                null,
                 PageRequest.of(0, 12));
         assertThat(speaking.getContent())
                 .extracting(PracticeSet::getId)
@@ -108,9 +131,25 @@ class PracticeSetRepositoryTest {
                 enrolledClass.getId(),
                 marker,
                 "",
+                null,
                 PageRequest.of(0, 12));
         assertThat(selectedClass.getContent())
                 .extracting(PracticeSet::getId)
                 .containsExactly(classVisible.getId());
+
+        Page<PracticeSet> writing53 = setRepository.findLearnerVisiblePublished(
+                PracticeSet.STATUS_PUBLISHED,
+                PracticeSet.SCOPE_GLOBAL,
+                PracticeSet.SCOPE_CLASS,
+                lecturer.getId() + 1000,
+                List.of(enrolledClass.getId()),
+                0L,
+                marker,
+                PracticeSet.SKILL_WRITING,
+                WritingTaskType.Q53,
+                PageRequest.of(0, 12));
+        assertThat(writing53.getContent())
+                .extracting(PracticeSet::getId)
+                .containsExactly(global.getId());
     }
 }

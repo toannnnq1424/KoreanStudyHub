@@ -4,19 +4,33 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfDraftView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeResultView;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeResultDetailView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetTestCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeTestRow;
+import com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressAvailability;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressExclusionReason;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressFilterOption;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressFilterState;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressSkillFilter;
+import com.ksh.features.practice.dto.PracticeDtos.ProgressWritingTaskFilter;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTaskProgressSeam;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTaskScoreCohort;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeAttemptResumeNotAllowedException;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeReEvaluationNotAllowedException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeCatalogService;
 import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticeLearnerAccessService;
+import com.ksh.features.practice.service.PracticeProgressService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import com.ksh.features.practice.result.PracticeResultAssembler;
+import com.ksh.features.practice.result.PracticeResultDetailAssembler;
 import com.ksh.features.practice.web.PracticeFormFields;
 import com.ksh.features.practice.web.PracticeModelAttributes;
 import com.ksh.features.practice.web.PracticeRoutes;
@@ -46,8 +60,11 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -59,14 +76,22 @@ public class PracticeController {
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);
     private static final String SPEAKING_PREFLIGHT_SESSION_PREFIX = "practice.speaking.preflight.";
     private static final String LISTENING_PREFLIGHT_SESSION_PREFIX = "practice.listening.preflight.";
+    /**
+     * Independent last-resort serializer for the closed unavailable DTO
+     * contract. It is deliberately not the injected application mapper that
+     * caused the presentation failure.
+     */
+    private static final ObjectMapper SAFE_PROGRESS_JSON_MAPPER = new ObjectMapper();
 
     private final PracticeService practiceService;
+    private final PracticeProgressService progressService;
     private final PracticeCatalogService catalogService;
     private final PracticeDetailPageService detailPageService;
     private final PracticeLearnerAccessService learnerAccessService;
     private final PracticeAttemptDiscardService attemptDiscardService;
     private final PracticeSpeakingMediaService speakingMediaService;
     private final PracticeResultAssembler resultAssembler;
+    private final PracticeResultDetailAssembler resultDetailAssembler;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository;
@@ -74,12 +99,14 @@ public class PracticeController {
     private final boolean speakingMediaPlaybackEnabled;
 
     public PracticeController(PracticeService practiceService,
+                              PracticeProgressService progressService,
                               PracticeCatalogService catalogService,
                               PracticeDetailPageService detailPageService,
                               PracticeLearnerAccessService learnerAccessService,
                               PracticeAttemptDiscardService attemptDiscardService,
                               PracticeSpeakingMediaService speakingMediaService,
                               PracticeResultAssembler resultAssembler,
+                              PracticeResultDetailAssembler resultDetailAssembler,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
                               com.ksh.features.practice.repository.PracticeSectionRepository sectionRepository,
@@ -88,12 +115,14 @@ public class PracticeController {
                               @Value("${app.practice.speaking-media.playback-api-enabled:false}")
                               boolean speakingMediaPlaybackEnabled) {
         this.practiceService = practiceService;
+        this.progressService = progressService;
         this.catalogService = catalogService;
         this.detailPageService = detailPageService;
         this.learnerAccessService = learnerAccessService;
         this.attemptDiscardService = attemptDiscardService;
         this.speakingMediaService = speakingMediaService;
         this.resultAssembler = resultAssembler;
+        this.resultDetailAssembler = resultDetailAssembler;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.sectionRepository = sectionRepository;
@@ -105,12 +134,15 @@ public class PracticeController {
     public String index(@AuthenticationPrincipal KshUserDetails user,
                         @RequestParam(value = "q", defaultValue = "") String search,
                         @RequestParam(value = "skill", defaultValue = "ALL") String skill,
+                        @RequestParam(value = "writingTask", defaultValue = "ALL")
+                        String writingTask,
                         @RequestParam(value = "classId", required = false) Long classId,
                         Model model) {
         model.addAttribute(
                 PracticeModelAttributes.CATALOG,
                 catalogService.loadBatch(
-                        user.getId(), new PracticeCatalogQuery(search, skill, classId, 0)));
+                        user.getId(),
+                        new PracticeCatalogQuery(search, skill, writingTask, classId, 0)));
         return PracticeViews.INDEX;
     }
 
@@ -118,13 +150,17 @@ public class PracticeController {
     public String catalogBatch(@AuthenticationPrincipal KshUserDetails user,
                                @RequestParam(value = "q", defaultValue = "") String search,
                                @RequestParam(value = "skill", defaultValue = "ALL") String skill,
+                               @RequestParam(value = "writingTask", defaultValue = "ALL")
+                               String writingTask,
                                @RequestParam(value = "classId", required = false) Long classId,
                                @RequestParam(value = "batch", defaultValue = "1") int batch,
                                Model model) {
         model.addAttribute(
                 PracticeModelAttributes.CATALOG,
                 catalogService.loadBatch(
-                        user.getId(), new PracticeCatalogQuery(search, skill, classId, batch)));
+                        user.getId(),
+                        new PracticeCatalogQuery(
+                                search, skill, writingTask, classId, batch)));
         return PracticeViews.CATALOG_CARDS;
     }
 
@@ -454,6 +490,18 @@ public class PracticeController {
             log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, attempt.getStatus());
             return PracticeRoutes.redirectToResult(attemptId);
         }
+        try {
+            practiceService.requireCanonicalAttemptDelivery(
+                    attemptId, user.getId());
+        } catch (PracticeAttemptResumeNotAllowedException exception) {
+            return handleNonResumableAttempt(
+                    attemptId,
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
 
         if ("SPEAKING".equals(attempt.getSkill())) {
             if (!speakingPreflightComplete(session, attemptId)) {
@@ -496,8 +544,20 @@ public class PracticeController {
             return PracticeRoutes.redirectToAttemptListeningPreflight(attemptId);
         }
 
-        PracticeService.AttemptPlayerView playerView =
-                practiceService.getAttemptPlayerView(attemptId, user.getId());
+        PracticeService.AttemptPlayerView playerView;
+        try {
+            playerView =
+                    practiceService.getAttemptPlayerView(
+                            attemptId, user.getId());
+        } catch (PracticeAttemptResumeNotAllowedException exception) {
+            return handleNonResumableAttempt(
+                    attemptId,
+                    attempt.getSetId(),
+                    attempt.getTestId(),
+                    session,
+                    redirectAttributes,
+                    exception);
+        }
         PracticeService.AttemptSectionDelivery delivery = playerView.delivery();
 
         model.addAttribute(PracticeModelAttributes.VIEW, playerView.view());
@@ -566,51 +626,15 @@ public class PracticeController {
                                       @RequestParam(value = "questionId", required = false) Long questionId,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
-        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        String skill = attempt.getSkill();
-
-        if ("READING".equals(skill) || "LISTENING".equals(skill)) {
-            com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView rlResult =
-                    practiceService.getReadingListeningResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, rlResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
-            try {
-                String groupsJson = objectMapper.writeValueAsString(rlResult.groups());
-                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, groupsJson);
-            } catch (Exception e) {
-                model.addAttribute(PracticeModelAttributes.GROUPS_JSON, "[]");
-            }
-            return PracticeViews.READING_LISTENING_RESULT_DETAIL;
-        } else {
-            PracticeResultView standardResult = practiceService.getResult(attemptId, user.getId());
-            model.addAttribute(PracticeModelAttributes.RESULT, standardResult);
-            model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
-            addSpeakingMediaModel(model, user.getId(), attempt, false);
-            Long activeQuestionId = activeWritingQuestionId(skill, standardResult, questionId);
-            model.addAttribute(PracticeModelAttributes.ACTIVE_QUESTION_ID, activeQuestionId);
-            try {
-                String questionsJson = "WRITING".equals(skill)
-                        ? objectMapper.writeValueAsString(standardResult.questionFeedbacks())
-                        : "SPEAKING".equals(skill) && !standardResult.speakingQuestionFeedbacks().isEmpty()
-                        ? objectMapper.writeValueAsString(standardResult.speakingQuestionFeedbacks())
-                        : objectMapper.writeValueAsString(
-                            standardResult.answerReviews().stream()
-                                .map(q -> {
-                                    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-                                    m.put("questionId", q.questionId());
-                                    m.put("questionNo", q.questionNo());
-                                    m.put("questionType", q.questionType());
-                                    m.put("prompt", q.prompt());
-                                    m.put("learnerAnswer", q.learnerAnswer() == null ? "" : q.learnerAnswer());
-                                    return m;
-                                }).toList()
-                        );
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, questionsJson);
-            } catch (Exception e) {
-                model.addAttribute(PracticeModelAttributes.QUESTIONS_JSON, "[]");
-            }
-            return PracticeViews.RESULT_DETAIL;
-        }
+        PracticeResultDetailView detail = resultDetailAssembler
+                .assemble(attemptId, user.getId(), questionId);
+        model.addAttribute(PracticeModelAttributes.RESULT_DETAIL, detail);
+        model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+        return switch (detail.screenKind()) {
+            case OBJECTIVE_DETAIL -> PracticeViews.RESULT_DETAIL_OBJECTIVE;
+            case WRITING_DETAIL -> PracticeViews.RESULT_DETAIL_WRITING;
+            case SPEAKING_DETAIL -> PracticeViews.RESULT_DETAIL_SPEAKING;
+        };
     }
 
     @PostMapping(PracticeRoutes.ATTEMPT_RE_EVALUATE)
@@ -618,19 +642,27 @@ public class PracticeController {
                                     @RequestParam(value = "questionId", required = false) Long questionId,
                                     @AuthenticationPrincipal KshUserDetails user,
                                     RedirectAttributes redirectAttributes) {
-        if (questionId == null) {
-            Long refreshedSubmissionId = practiceService.reEvaluate(attemptId, user.getId());
-            redirectAttributes.addFlashAttribute("success", "Đã chấm lại bài viết bằng Audit Mode.");
-            return PracticeRoutes.redirectToResult(refreshedSubmissionId);
-        }
-
         try {
+            if (questionId == null) {
+                Long refreshedSubmissionId =
+                        practiceService.reEvaluate(attemptId, user.getId());
+                redirectAttributes.addFlashAttribute(
+                        "success", "Đã chấm lại bài viết bằng Audit Mode.");
+                return PracticeRoutes.redirectToResult(refreshedSubmissionId);
+            }
             Long refreshedSubmissionId = practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
             redirectAttributes.addFlashAttribute("success", "Đã chấm lại câu đã chọn.");
             return redirectToResultDetail(refreshedSubmissionId, questionId);
+        } catch (PracticeReEvaluationNotAllowedException ex) {
+            redirectAttributes.addFlashAttribute("error", ex.getMessage());
+            return questionId == null
+                    ? PracticeRoutes.redirectToResult(attemptId)
+                    : redirectToResultDetail(attemptId, questionId);
         } catch (PracticeAttemptConflictException ex) {
             redirectAttributes.addFlashAttribute("error", safeReEvaluationError(ex));
-            return redirectToResultDetail(attemptId, questionId);
+            return questionId == null
+                    ? PracticeRoutes.redirectToResult(attemptId)
+                    : redirectToResultDetail(attemptId, questionId);
         }
     }
 
@@ -715,6 +747,16 @@ public class PracticeController {
                                                  HttpSession session,
                                                  RedirectAttributes redirectAttributes,
                                                  RuntimeException exception) {
+        if (exception instanceof PracticeAttemptResumeNotAllowedException
+                resumeException) {
+            return handleNonResumableAttempt(
+                    attemptId,
+                    setId,
+                    testId,
+                    session,
+                    redirectAttributes,
+                    resumeException);
+        }
         log.warn("[PracticeController] Speaking delivery is not playable attemptId={} reason={}",
                 attemptId, exception.getMessage());
         try {
@@ -736,6 +778,16 @@ public class PracticeController {
                                                   HttpSession session,
                                                   RedirectAttributes redirectAttributes,
                                                   RuntimeException exception) {
+        if (exception instanceof PracticeAttemptResumeNotAllowedException
+                resumeException) {
+            return handleNonResumableAttempt(
+                    attemptId,
+                    setId,
+                    testId,
+                    session,
+                    redirectAttributes,
+                    resumeException);
+        }
         log.warn("[PracticeController] Listening delivery is not playable attemptId={} reason={}",
                 attemptId, exception.getMessage());
         try {
@@ -747,6 +799,25 @@ public class PracticeController {
         clearListeningPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("error",
                 "Phần Listening chưa có audio thử loa hợp lệ. Giảng viên cần cập nhật và xuất bản lại.");
+        return PracticeRoutes.redirectToTestDetail(setId, testId);
+    }
+
+    private String handleNonResumableAttempt(
+            Long attemptId,
+            Long setId,
+            Long testId,
+            HttpSession session,
+            RedirectAttributes redirectAttributes,
+            PracticeAttemptResumeNotAllowedException exception
+    ) {
+        log.warn(
+                "[PracticeController] Attempt is not canonically resumable "
+                        + "attemptId={} rejection={}",
+                attemptId,
+                exception.getRejection());
+        clearSpeakingPreflight(session, attemptId);
+        clearListeningPreflight(session, attemptId);
+        redirectAttributes.addFlashAttribute("error", exception.getMessage());
         return PracticeRoutes.redirectToTestDetail(setId, testId);
     }
 
@@ -833,18 +904,6 @@ public class PracticeController {
         }
     }
 
-    private Long activeWritingQuestionId(String skill, PracticeResultView result, Long requestedQuestionId) {
-        if (!"WRITING".equals(skill) || requestedQuestionId == null || result.questionFeedbacks() == null) {
-            return null;
-        }
-        return result.questionFeedbacks().stream()
-                .filter(row -> requestedQuestionId.equals(row.questionId()))
-                .filter(row -> "ESSAY".equals(row.questionType()))
-                .findFirst()
-                .map(row -> requestedQuestionId)
-                .orElse(null);
-    }
-
     private String safeReEvaluationError(PracticeAttemptConflictException ex) {
         String message = ex.getMessage();
         if (message != null && message.contains("Du lieu phan hoi cu khong ho tro cham lai tung cau")) {
@@ -863,32 +922,306 @@ public class PracticeController {
     @PreAuthorize(Roles.PREAUTH_STUDENT)
     public String progress(@AuthenticationPrincipal KshUserDetails user,
                            @RequestParam(value = "tab", defaultValue = "overview") String tab,
+                           @RequestParam(value = "skill", defaultValue = "ALL") String skill,
+                           @RequestParam(value = "writingTask", defaultValue = "ALL")
+                           String writingTask,
+                           @RequestParam(value = "profile", defaultValue = "ALL") String profile,
                            Model model) {
         User userEntity = userRepository.findById(user.getId()).orElse(null);
         String name = userEntity != null ? userEntity.getFullName() : user.getFullName();
         String avatar = userEntity != null ? userEntity.getAvatarUrl() : "";
         if (avatar == null) avatar = "";
 
-        PracticeProgressPageData pageData =
-                practiceService.getProgressPageData(user.getId(), name, avatar);
-        com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview overview =
-                pageData.overview();
-        com.ksh.features.practice.dto.PracticeDtos.PracticeAnalytics analytics =
-                pageData.analytics();
+        PracticeProgressPageData pageData;
+        try {
+            pageData = progressService.getProgressPageData(user.getId(), name, avatar);
+        } catch (RuntimeException ex) {
+            log.warn("Unable to load practice progress for user {}", user.getId(), ex);
+            pageData = PracticeProgressPageData.unavailable(
+                    name,
+                    avatar,
+                    com.ksh.features.practice.dto.PracticeDtos.ProgressExclusionReason
+                            .PAGE_DATA_UNAVAILABLE);
+        }
+        ProgressPresentation presentation =
+                presentProgress(pageData, tab, skill, writingTask, profile);
+        LearningProgressOverview overview = presentation.overview();
+        PracticeAnalytics analytics = presentation.analytics();
 
-        model.addAttribute(PracticeModelAttributes.TAB, tab);
+        model.addAttribute(PracticeModelAttributes.TAB, presentation.filter().tab());
         model.addAttribute(PracticeModelAttributes.OVERVIEW, overview);
         model.addAttribute(PracticeModelAttributes.ANALYTICS, analytics);
+        model.addAttribute(PracticeModelAttributes.PROGRESS_STATE, pageData.state());
+        model.addAttribute(PracticeModelAttributes.PROGRESS_FILTER, presentation.filter());
 
         try {
-            model.addAttribute(PracticeModelAttributes.OVERVIEW_JSON, objectMapper.writeValueAsString(overview));
-            model.addAttribute(PracticeModelAttributes.ANALYTICS_JSON, objectMapper.writeValueAsString(analytics));
+            String overviewJson = objectMapper.writeValueAsString(overview);
+            String analyticsJson = objectMapper.writeValueAsString(analytics);
+            model.addAttribute(PracticeModelAttributes.OVERVIEW_JSON, overviewJson);
+            model.addAttribute(PracticeModelAttributes.ANALYTICS_JSON, analyticsJson);
         } catch (Exception e) {
-            model.addAttribute(PracticeModelAttributes.OVERVIEW_JSON, "{}");
-            model.addAttribute(PracticeModelAttributes.ANALYTICS_JSON, "{}");
+            log.warn("Unable to serialize practice progress for user {}", user.getId(), e);
+            PracticeProgressPageData unavailable = PracticeProgressPageData.unavailable(
+                    name,
+                    avatar,
+                    com.ksh.features.practice.dto.PracticeDtos.ProgressExclusionReason
+                            .SERIALIZATION_UNAVAILABLE);
+            model.addAttribute(PracticeModelAttributes.OVERVIEW, unavailable.overview());
+            model.addAttribute(PracticeModelAttributes.ANALYTICS, unavailable.analytics());
+            model.addAttribute(PracticeModelAttributes.PROGRESS_STATE, unavailable.state());
+            ProgressFilterState unavailableFilter = new ProgressFilterState(
+                    presentation.filter().tab(),
+                    presentation.filter().skill(),
+                    presentation.filter().writingTask(),
+                    presentation.filter().profileId(),
+                    presentation.filter().profileOptions(),
+                    ProgressAvailability.UNAVAILABLE,
+                    ProgressExclusionReason.SERIALIZATION_UNAVAILABLE);
+            model.addAttribute(
+                    PracticeModelAttributes.PROGRESS_FILTER,
+                    unavailableFilter);
+            model.addAttribute(
+                    PracticeModelAttributes.TAB,
+                    unavailableFilter.tab());
+            model.addAttribute(
+                    PracticeModelAttributes.OVERVIEW_JSON,
+                    serializeProgressFallback(unavailable.overview()));
+            model.addAttribute(
+                    PracticeModelAttributes.ANALYTICS_JSON,
+                    serializeProgressFallback(unavailable.analytics()));
         }
 
         return PracticeViews.PROGRESS;
+    }
+
+    public String progress(
+            KshUserDetails user,
+            String tab,
+            Model model
+    ) {
+        return progress(user, tab, "ALL", "ALL", "ALL", model);
+    }
+
+    private ProgressPresentation presentProgress(
+            PracticeProgressPageData pageData,
+            String rawTab,
+            String rawSkill,
+            String rawWritingTask,
+            String rawProfile
+    ) {
+        String tab = rawTab != null && Set.of("overview", "test-practice").contains(rawTab)
+                ? rawTab
+                : "overview";
+        ProgressSkillFilter skill = normalizedEnum(
+                rawSkill, ProgressSkillFilter.class, ProgressSkillFilter.ALL);
+        ProgressWritingTaskFilter writingTask = skill == ProgressSkillFilter.WRITING
+                ? normalizedEnum(
+                        rawWritingTask,
+                        ProgressWritingTaskFilter.class,
+                        ProgressWritingTaskFilter.ALL)
+                : ProgressWritingTaskFilter.ALL;
+
+        List<WritingTaskProgressSeam> taskCandidates =
+                pageData.analytics().writingTaskSeams().stream()
+                        .filter(seam -> skill == ProgressSkillFilter.ALL
+                                || skill == ProgressSkillFilter.WRITING)
+                        .filter(seam -> writingTask == ProgressWritingTaskFilter.ALL
+                                || writingTask.name().equals(seam.taskType()))
+                        .toList();
+
+        Map<String, ProgressFilterOption> optionById = new LinkedHashMap<>();
+        Map<String, Integer> ordinalByTask = new LinkedHashMap<>();
+        for (WritingTaskProgressSeam seam : taskCandidates) {
+            for (WritingTaskScoreCohort cohort : seam.cohorts()) {
+                if (cohort.cohortId() == null || cohort.cohortId().isBlank()) continue;
+                int ordinal = ordinalByTask.merge(seam.taskType(), 1, Integer::sum);
+                String maximum = cohort.maximum() == null
+                        ? "chưa xác định"
+                        : cohort.maximum().stripTrailingZeros().toPlainString();
+                optionById.putIfAbsent(
+                        cohort.cohortId(),
+                        new ProgressFilterOption(
+                                cohort.cohortId(),
+                                seam.label() + " · nhóm chấm " + ordinal
+                                        + " · tối đa " + maximum + " điểm",
+                                writingTaskLabelKo(seam.taskType())
+                                        + " · 채점 그룹 " + ordinal
+                                        + " · 최대 " + maximum + "점"));
+            }
+        }
+        List<ProgressFilterOption> profileOptions =
+                List.copyOf(optionById.values());
+        String requestedProfile = rawProfile == null ? "" : rawProfile.strip();
+        String profile = skill == ProgressSkillFilter.WRITING
+                && optionById.containsKey(requestedProfile)
+                ? requestedProfile
+                : "ALL";
+
+        List<WritingTaskProgressSeam> selectedTaskSeams =
+                taskCandidates.stream()
+                        .map(seam -> selectWritingCohorts(seam, profile))
+                        .filter(seam -> "ALL".equals(profile)
+                                || !seam.cohorts().isEmpty())
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> skillMetrics =
+                pageData.overview().skillMetrics().stream()
+                        .filter(metric -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(metric.skill()))
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> weeklyMetrics =
+                pageData.analytics().weeklySkillMetrics().stream()
+                        .filter(metric -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(metric.skill()))
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.ScoreTrendPoint> trend =
+                pageData.analytics().scoreTrend().stream()
+                        .filter(point -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(point.skill()))
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.QuestionTypePerf> typeRows =
+                pageData.analytics().questionTypePerf().stream()
+                        .filter(row -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(row.skill()))
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary> recentHistory =
+                pageData.overview().recentHistory().stream()
+                        .filter(row -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(row.skill()))
+                        .toList();
+        List<com.ksh.features.practice.dto.PracticeDtos.PracticeResultSummary> history =
+                pageData.analytics().history().stream()
+                        .filter(row -> skill == ProgressSkillFilter.ALL
+                                || skill.name().equals(row.skill()))
+                        .toList();
+
+        boolean hasSelectedData = hasSelectedProgressData(
+                pageData, skill, writingTask, profile, skillMetrics, selectedTaskSeams);
+        ProgressAvailability filterAvailability;
+        ProgressExclusionReason filterReason;
+        if (pageData.state().availability() == ProgressAvailability.UNAVAILABLE) {
+            filterAvailability = ProgressAvailability.UNAVAILABLE;
+            filterReason = pageData.state().reason();
+        } else if (pageData.overview().attemptCounts().total() == 0) {
+            filterAvailability = ProgressAvailability.UNAVAILABLE;
+            filterReason = ProgressExclusionReason.NO_ACTIVITY;
+        } else if (!hasSelectedData) {
+            filterAvailability = ProgressAvailability.UNAVAILABLE;
+            filterReason = ProgressExclusionReason.FILTER_NO_DATA;
+        } else {
+            filterAvailability = ProgressAvailability.AVAILABLE;
+            filterReason = null;
+        }
+        ProgressFilterState filter = new ProgressFilterState(
+                tab, skill, writingTask, profile, profileOptions,
+                filterAvailability, filterReason);
+
+        LearningProgressOverview sourceOverview = pageData.overview();
+        LearningProgressOverview overview = new LearningProgressOverview(
+                sourceOverview.studentName(),
+                sourceOverview.avatarUrl(),
+                sourceOverview.currentLevel(),
+                sourceOverview.totalAttempts(),
+                sourceOverview.totalCompletedTests(),
+                sourceOverview.totalPracticeMinutes(),
+                sourceOverview.recentAverageScore(),
+                skillMetrics,
+                sourceOverview.heatmap(),
+                recentHistory,
+                sourceOverview.attemptCounts(),
+                sourceOverview.levelFact(),
+                sourceOverview.durationFact(),
+                sourceOverview.recentScoreFact(),
+                sourceOverview.allTimeWindow(),
+                sourceOverview.recentDetailWindow(),
+                sourceOverview.coverage());
+        PracticeAnalytics sourceAnalytics = pageData.analytics();
+        PracticeAnalytics analytics = new PracticeAnalytics(
+                weeklyMetrics,
+                trend,
+                typeRows,
+                List.of(),
+                history,
+                selectedTaskSeams,
+                sourceAnalytics.writingAttemptCoverage(),
+                sourceAnalytics.recentDetailWindow(),
+                sourceAnalytics.state());
+        return new ProgressPresentation(overview, analytics, filter);
+    }
+
+    private boolean hasSelectedProgressData(
+            PracticeProgressPageData pageData,
+            ProgressSkillFilter skill,
+            ProgressWritingTaskFilter writingTask,
+            String profile,
+            List<com.ksh.features.practice.dto.PracticeDtos.SkillMetric> metrics,
+            List<WritingTaskProgressSeam> taskSeams
+    ) {
+        if (skill == ProgressSkillFilter.ALL) {
+            return pageData.overview().attemptCounts().total() > 0;
+        }
+        if (skill == ProgressSkillFilter.WRITING
+                && (writingTask != ProgressWritingTaskFilter.ALL
+                || !"ALL".equals(profile))) {
+            return taskSeams.stream().anyMatch(seam ->
+                    seam.coverage() != null && seam.coverage().activityCount() > 0);
+        }
+        return metrics.stream().anyMatch(metric -> metric.attemptCount() > 0);
+    }
+
+    private WritingTaskProgressSeam selectWritingCohorts(
+            WritingTaskProgressSeam seam,
+            String profile
+    ) {
+        if ("ALL".equals(profile)) return seam;
+        List<WritingTaskScoreCohort> cohorts = seam.cohorts().stream()
+                .filter(cohort -> profile.equals(cohort.cohortId()))
+                .toList();
+        return new WritingTaskProgressSeam(
+                seam.taskType(),
+                seam.label(),
+                seam.availability(),
+                cohorts,
+                seam.observationWindow(),
+                seam.coverage());
+    }
+
+    private String writingTaskLabelKo(String taskType) {
+        return switch (taskType == null ? "" : taskType) {
+            case "Q51" -> "51번";
+            case "Q52" -> "52번";
+            case "Q53" -> "53번";
+            case "Q54" -> "54번";
+            default -> "쓰기";
+        };
+    }
+
+    private <T extends Enum<T>> T normalizedEnum(
+            String rawValue,
+            Class<T> type,
+            T fallback
+    ) {
+        if (rawValue == null) return fallback;
+        try {
+            return Enum.valueOf(type, rawValue.strip().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return fallback;
+        }
+    }
+
+    private record ProgressPresentation(
+            LearningProgressOverview overview,
+            PracticeAnalytics analytics,
+            ProgressFilterState filter
+    ) {}
+
+    private String serializeProgressFallback(Object value) {
+        try {
+            return SAFE_PROGRESS_JSON_MAPPER.writeValueAsString(value);
+        } catch (Exception fallbackFailure) {
+            throw new IllegalStateException(
+                    "Unable to serialize the canonical unavailable progress DTO",
+                    fallbackFailure);
+        }
     }
 
     @GetMapping(PracticeRoutes.MANAGE_UPLOAD)

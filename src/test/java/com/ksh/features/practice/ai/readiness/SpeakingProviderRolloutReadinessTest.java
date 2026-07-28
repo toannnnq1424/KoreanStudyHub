@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.readiness;
 
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorProperties;
+import com.ksh.features.practice.ai.speaking.SpeakingPromptRules;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
 import org.junit.jupiter.api.Test;
 
@@ -26,15 +27,17 @@ class SpeakingProviderRolloutReadinessTest {
     }
 
     @Test
-    void bothGatesAndAllowedProvidersAndKeysPassProviderGateOnly() {
+    void bothGatesAndAllowedProvidersRemainNoGoWithoutDirectAudioFullEvaluator() {
         var readiness = new SpeakingProviderRolloutReadiness(
                 transcription(true, "openai", "TRANSCRIPTION_SECRET"),
                 evaluator(true, "openai-compatible", "EVALUATOR_SECRET"));
 
         AiReadinessReport report = readiness.assessLiveSpeakingProviderReadiness();
 
-        assertThat(report.blockers()).isEmpty();
-        assertThat(report.rolloutAllowed()).isTrue();
+        assertThat(report.rolloutAllowed()).isFalse();
+        assertThat(report.blockers())
+                .extracting(AiReadinessIssue::code)
+                .containsExactly("DIRECT_AUDIO_FULL_EVALUATOR_NOT_READY");
         assertThat(report.issues())
                 .extracting(AiReadinessIssue::code)
                 .contains("LIVE_PROVIDER_PATH_CONFIGURED");
@@ -92,9 +95,9 @@ class SpeakingProviderRolloutReadinessTest {
                 "models/gemini-2.5-flash",
                 Duration.ofSeconds(30),
                 2,
-                "speaking-eval-v1",
-                "speaking-rubric-v1",
-                "speaking-schema-v1");
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
     }
 
     private static String render(Object value) {

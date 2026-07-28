@@ -57,7 +57,11 @@ class ExamQuestionBankInsertIntegrationTest {
         lecturerId = lecturer.getId();
         departmentId = lecturer.getDepartmentId();
 
-        ClassEntity clazz = classRepository.findAllByLecturerId(lecturerId).stream().findFirst().orElseThrow();
+        ClassEntity clazz = new ClassEntity(
+                "Lớp kiểm thử chèn ngân hàng", lecturerId, lecturerId,
+                null, null, null, 100);
+        clazz.setDepartmentId(departmentId);
+        clazz = classRepository.saveAndFlush(clazz);
         com.ksh.features.tests.entity.Test test =
                 new com.ksh.features.tests.entity.Test(lecturerId, com.ksh.features.tests.entity.Test.TYPE_MOCK);
         test.setTitle("Bài test chèn từ ngân hàng");

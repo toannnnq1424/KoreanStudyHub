@@ -1,6 +1,11 @@
 # KSH Practice Architecture Artifact Manifest
 
-Status: `PRE_13E_ARCHITECTURE_BASELINE`
+Status: `13C3_04_IMPLEMENTED_STATIC_ACCEPTED_READY_FOR_PHASE_VALIDATION`
+
+The repository-owned Markdown/Mermaid inventory includes the 13C3 prompt
+authoring and cleanup boundary. Generated DOCX/Drawio artifacts are not
+regenerated during static implementation; the excluded external
+`SEP490_G103_KoreanHub.drawio.xml` is outside this inventory.
 
 Generated for branch: `feature/practice-reduce-scope`
 
@@ -66,13 +71,13 @@ The ten internal modules remain the technical traceability model:
 | Code | Capability | Primary actors | Current implementation boundary | Planned boundary |
 |---|---|---|---|---|
 | CAT | Catalog, access and attempt entry | Student | `PracticeController`, `PracticeCatalogService`, `PracticeDetailPageService`, `PracticeLearnerAccessService`, `PracticeService` | 13G scale/a11y checks |
-| AUT | Manual authoring, publish and revision | Lecturer, collaborator | `PracticeDraftController`, `PracticeManageController`, `PracticeDraftService`, `PracticePublisherService`, governance and immutable version services | Phase 15 compatibility cleanup only |
-| XLS | Excel template, preview and import | Lecturer | `PracticeAssessmentExcelController`, `PracticeAssessmentExcelService`, `PracticeAssessmentExcelV2Codec`, `PracticeImportDraftService` | 13G responsive preview review |
-| PDF | PDF workspace and AI-assisted draft import | Lecturer | `PracticeImportController`, `PracticePdfImportApiController` and PDF session/region/crop/payload/orchestrator/assembler services | 13G workspace review; provider UAT later |
+| AUT | Manual authoring, publish and revision | Lecturer, collaborator | `PracticeDraftController`, `PracticeManageController`, `PracticeDraftService`, `PracticePublisherService`, 13C3 Speaking source/artifact/task/version-context authoring, pre-mutation Speaking flush for every structural add/copy/move/delete, exact source-local binding retirement after commit, parent-asset locks before immutable material-reference publication, fresh storage namespaces, bounded generated staging, exact cleanup/retention, governance and immutable version services | Phase 15 compatibility cleanup only |
+| XLS | Excel template, preview and import | Lecturer | `PracticeAssessmentExcelController`, `PracticeAssessmentExcelService`, `PracticeAssessmentExcelV2Codec`, `PracticeDraftRepository`, `SpeakingPromptLifecycleService`; Speaking import requires verified private `audio_upload + audio_only + teacher_upload` already referenced by the exact locked draft and ends at question staging with no STT/TTS call. A separate ID-free Editor click reauthorizes, verifies outside the bind transaction, converts exact staging and may enqueue STT; it never calls TTS. | 13G responsive preview review |
+| PDF | PDF workspace and AI-assisted draft import | Lecturer | `PracticeImportController`, `PracticePdfImportApiController` and PDF session/region/crop/payload/orchestrator/assembler services; generic asset mutation is row-locked/reference-safe and copy/attach fails before mutation for source-bearing Speaking/material drafts | 13G workspace review; provider UAT later |
 | PLY | Skill-native player and attempt lifecycle | Student | `PracticeController`, `PracticeService`, immutable snapshot/scoring contracts and speaking media endpoint | 13H journey/device closure |
 | RLE | Reading/Listening immutable explanation lifecycle | Lecturer/operator, Student | 13D event, preparation, fingerprint, binding, task, worker, retry, read services | 13E evidence rendering only |
 | WRT | Korean Writing AI evaluation | Student, reviewer | Writing client, normalizer, rubric/rule/score services, cache and current result presenter | 13E evidence detail |
-| SPK | Speaking media, transcription and evaluation | Student, reviewer | private media service/storage, transcription resolver/client, evaluation orchestrator/client and result presenter | 13E per-question evidence; multimodal audio scoring remains NO-GO |
+| SPK | Speaking prompt authoring, media, transcription and evaluation | Lecturer/collaborator, Student, reviewer | owner-scoped prompt source/artifact/task worker, upload/STT and manual-text/optional-TTS Editor, immutable evaluator context, private media service/storage with fresh UUID allocation and bounded `TEMPORARY / AI_TTS` staging, exact replacement-binding retirement, all-sibling storage-key locks plus durable fair-queued deferred cleanup and row-locked no-mutation retention/lifecycle guard, and transcript-only result presenter | multimodal learner-audio scoring remains NO-GO |
 | RES | Result overview and evidence detail | Student | 13D `PracticeResultAssembler` and three skill-native presenters | 13E detail assembler/evidence presenters |
 | PRG | Progress aggregates and recovery | Student, lecturer/operator | bounded `PracticeService.getProgressPageData` and current `/practice/progress` page | 13F real filters, confidence/recency and recovery UX |
 
@@ -92,7 +97,7 @@ does not rename or merge their stable identifiers.
 | PLY | `UC-PLY-01` device preflight; `UC-PLY-02` play/save/resume; `UC-PLY-03` submit/timeout/discard |
 | RLE | `UC-RLE-01` prepare artifacts after commit; `UC-RLE-02` generate/reuse/retry; `UC-RLE-03` immutable read-only result lookup |
 | WRT | `UC-WRT-01` evaluate submitted essay; `UC-WRT-02` reuse/re-evaluate feedback; `UC-WRT-03` review Korean rubric evidence |
-| SPK | `UC-SPK-01` manage private recording; `UC-SPK-02` transcribe/evaluate; `UC-SPK-03` review holistic and per-question evidence |
+| SPK | `UC-SPK-01` manage private recording; `UC-SPK-02` transcribe/evaluate; `UC-SPK-03` review transcript-grounded profile and per-question evidence; holistic remains unavailable without authorized direct audio |
 | RES | `UC-RES-01` view result overview; `UC-RES-02` view evidence detail; `UC-RES-03` handle pending/failed/unavailable states |
 | PRG | `UC-PRG-01` view real aggregates; `UC-PRG-02` filter/drill down; `UC-PRG-03` recover/retry operational feedback |
 

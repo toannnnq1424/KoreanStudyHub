@@ -5,13 +5,22 @@
 This runbook covers operational inspection for:
 
 - `practice_writing_evaluation_cache`;
-- `question_explanation_artifacts`;
+- Reading/Listening-only `question_explanation_artifacts`;
 - `question_version_explanation_bindings`;
 - `question_explanation_generation_tasks`.
 
 The default and only unapproved mode is **READ-ONLY**. Do not copy cleanup SQL
 from an older revision of this runbook. The former
-`question_explanation_cache` table was migrated and dropped by Flyway V28.
+`question_explanation_cache` table was backfilled and dropped by current
+Flyway V37, not V28. The `2026-07-24` audit found that V37 backfill unsafe as
+legacy-upgrade evidence: it ignores V34's `question_version_id`, assumes
+question ID/fingerprint/language equivalence and then drops the old table.
+Table presence does not prove that historical bindings were migrated safely.
+
+Despite the historical filenames, V26 and V39 are semantic duplicates of the
+exam rich-text widening; misleadingly named V27 creates
+`practice_writing_evaluation_cache`. The Writing cache is independent from the
+R/L `question_explanation_*` lifecycle.
 
 An explanation artifact is published assessment evidence, not a learner cache:
 
@@ -57,6 +66,26 @@ SHOW INDEX FROM question_explanation_generation_tasks;
 ```
 
 Do not run Flyway, a worker, a provider request or DML as part of inspection.
+
+## Guarded Rebaseline Safety
+
+`REBASELINE_GO_WITH_GUARDS` is a future pre-14 plan, not an instruction to
+mutate the inspected database. It may execute only after consolidated Phase
+13E, after final pre-14 schema contracts are frozen, and only with written
+proof that no retained/deployed/shared/canonical/upgrade obligation exists.
+Any positive or unknown obligation is a hard stop.
+
+Never use Flyway repair, never clean/reuse an old schema and keep it read-only
+as evidence. A later authorized run creates a newly named disposable DB with
+validate-on-migrate enabled and clean disabled by default; clean is available
+only through an explicit disposable-profile allowlist. Preserve non-Practice
+V38-V43 bytes/checksums, pull before choosing the next free version, and treat
+`V44__practice_baseline.sql` as proposed only if V44 is then free.
+
+The final Practice baseline is schema-only and contains no legacy backfill or
+content seed. Before 14A it receives only minimal technical R/L/W/S smoke
+fixtures. Canonical Vietnamese/Korean SME-reviewed UAT content is loaded only
+after 14F. No local schema is a “master” database.
 
 ## Privacy Rules
 
@@ -217,6 +246,12 @@ FROM question_version_explanation_bindings
 GROUP BY question_version_id, explanation_language
 HAVING COUNT(*) > 1;
 ```
+
+The duplicate query above matches the current one-row binding schema. The
+pre-14 target replaces it with append-only active/superseded binding history:
+exactly one compatible row may be active while prior rows remain auditable.
+Update this inspection query with the deployed status-column contract when
+that schema is implemented; do not guess a future column name in advance.
 
 Do not print raw fingerprints while investigating a mismatch. Use row IDs in a
 restricted incident session.

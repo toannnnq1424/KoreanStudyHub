@@ -1,5 +1,10 @@
 # Practice Phase 13E Result Fixtures
 
+> **Historical-fixture note (`2026-07-22`, UX-05):** the Speaking 78-percent,
+> six-row fixture below captured the pre-correction baseline and is not valid
+> current contract evidence. Current validation must use F06/UX-05 transcript
+> semantics and must not reinterpret this retained fixture as trusted scoring.
+
 Status: `LOADED_BROWSER_BASELINE_REVIEWED`
 
 Date: 2026-07-17

@@ -9,6 +9,7 @@ import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class PracticeDraftContractServiceTest {
 
@@ -29,10 +30,17 @@ class PracticeDraftContractServiceTest {
                 .path("questions").get(0);
         JsonNode delivery = question.path("questionContent").path("speakingDelivery");
 
+        assertEquals("question-content-v1",
+                question.path("questionContent").path("schemaVersion").asText());
         assertEquals("/practice/materials/9/content", delivery.path("promptAudioReference").asText());
         assertEquals(3, delivery.path("promptPlayLimit").asInt());
         assertEquals(15, delivery.path("preparationSeconds").asInt());
         assertEquals(45, delivery.path("responseSeconds").asInt());
+        assertFalse(delivery.has("inputType"));
+        assertFalse(delivery.has("deliveryMode"));
+        assertFalse(delivery.has("audioOrigin"));
+        assertEquals("/practice/materials/9/content",
+                question.path("speakingPromptAudioUrl").asText());
         assertEquals(3, question.path("speakingPromptPlayLimit").asInt());
         assertEquals(15, question.path("prepTimeSeconds").asInt());
         assertEquals(45, question.path("respTimeSeconds").asInt());

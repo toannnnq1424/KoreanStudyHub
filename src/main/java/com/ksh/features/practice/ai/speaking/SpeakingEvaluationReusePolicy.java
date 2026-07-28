@@ -27,7 +27,9 @@ public class SpeakingEvaluationReusePolicy {
                 && stored.evaluationStatus().scoreBearing()
                 && stored.evaluationStatus() != SpeakingEvaluationStatus.MOCK_EVALUATED
                 && stored.evaluationStatus() != SpeakingEvaluationStatus.LEGACY_RESULT) {
-            return Decision.reuse("MATCHING_SCORE_BEARING_RESULT");
+            return stored.profileAvailable()
+                    ? Decision.reuse("MATCHING_TRANSCRIPT_LANGUAGE_PROFILE")
+                    : Decision.evaluate("MATCHING_RESULT_MISSING_LANGUAGE_PROFILE");
         }
         if (stored.retryable()) {
             return Decision.evaluate("RETRYABLE_FAILURE");
@@ -43,10 +45,10 @@ public class SpeakingEvaluationReusePolicy {
         if (stored != null
                 && candidate != null
                 && candidate.retryable()
-                && !candidate.scoreAvailable()
+                && !candidate.profileAvailable()
                 && currentIdentity != null
                 && currentIdentity.matches(stored)
-                && stored.scoreAvailable()
+                && stored.profileAvailable()
                 && stored.evaluationStatus() != SpeakingEvaluationStatus.LEGACY_RESULT
                 && stored.evaluationStatus() != SpeakingEvaluationStatus.MOCK_EVALUATED) {
             return stored;

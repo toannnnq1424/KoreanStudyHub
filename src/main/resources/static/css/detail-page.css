@@ -451,6 +451,6 @@
 }
 
 .role-badge.role-admin    { background: #fee2e2; color: #991b1b; }
-.role-badge.role-head     { background: var(--color-warning-soft); color: var(--color-warning); }
+.role-badge.role-leader   { background: var(--color-warning-soft); color: var(--color-warning); }
 .role-badge.role-lecturer { background: #dbeafe; color: #1e40af; }
 .role-badge.role-student  { background: var(--color-success-soft); color: var(--color-success); }

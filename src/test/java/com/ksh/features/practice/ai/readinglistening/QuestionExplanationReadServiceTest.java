@@ -51,6 +51,8 @@ class QuestionExplanationReadServiceTest {
                 contractCodec,
                 typeResolver,
                 objectMapper);
+        when(typeResolver.resolve("SINGLE_CHOICE"))
+                .thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
     }
 
     @Test
@@ -167,6 +169,187 @@ class QuestionExplanationReadServiceTest {
                 .isEqualTo("B");
     }
 
+    @Test
+    void objectiveReadAdaptsOnlyValidV2SingleChoiceWithExactTextEvidence() {
+        String explanation = """
+                {"meaningVi":"Nghĩa","evidenceQuote":"본문","evidenceKind":"TEXT",
+                 "correctReasonVi":"Đúng vì nguồn nêu rõ","relatedTranslationVi":"Đoạn chính",
+                 "eliminatedOptions":[{"optionKey":"option_2","reasonVi":"Sai với nguồn"}]}
+                """;
+        QuestionExplanationArtifact ready = artifact(
+                211L, QuestionExplanationArtifact.STATUS_READY, explanation);
+        ReflectionTestUtils.setField(ready, "inputContractJson", singleChoiceInput());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(111L, "vi"))
+                .thenReturn(Optional.of(binding(111L, 211L)));
+        when(artifactRepository.findById(211L)).thenReturn(Optional.of(ready));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact result =
+                service.readObjective(111L, CanonicalQuestionType.SINGLE_CHOICE)
+                        .orElseThrow();
+
+        assertThat(result.schemaVersion()).isEqualTo("v2");
+        assertThat(result.questionType()).isEqualTo(CanonicalQuestionType.SINGLE_CHOICE);
+        assertThat(result.evidence()).singleElement().isInstanceOf(
+                QuestionExplanationReadService.TextEvidence.class);
+        assertThat(result.relevantTranslations()).isEmpty();
+        QuestionExplanationReadService.SingleChoiceExplanation typed =
+                (QuestionExplanationReadService.SingleChoiceExplanation)
+                        result.typeExplanation();
+        assertThat(typed.optionRationales()).extracting(
+                QuestionExplanationReadService.OptionRationale::optionId)
+                .containsExactly("option_1", "option_2");
+    }
+
+    @Test
+    void objectiveReadRejectsCrossTypeV3AndV2FillBlankInsteadOfCoercingShape() {
+        QuestionExplanationArtifact crossType = artifact(
+                212L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {"schemaVersion":"v3","questionType":"SINGLE_CHOICE","explanation":{
+                  "meaningVi":"Nghĩa","correctReasonVi":"Lý do",
+                  "textEvidenceRefs":[],"imageEvidenceRefs":[],"relevantTranslations":[],
+                  "blankExplanations":[]}}
+                """);
+        ReflectionTestUtils.setField(crossType, "responseSchemaVersion", "v3");
+        ReflectionTestUtils.setField(crossType, "inputContractJson", singleChoiceInput());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(112L, "vi"))
+                .thenReturn(Optional.of(binding(112L, 212L)));
+        when(artifactRepository.findById(212L)).thenReturn(Optional.of(crossType));
+
+        assertThat(service.readObjective(
+                112L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
+
+        QuestionExplanationArtifact v2Fill = artifact(
+                213L,
+                QuestionExplanationArtifact.STATUS_READY,
+                validExplanation("fill"));
+        ReflectionTestUtils.setField(v2Fill, "questionType", "FILL_BLANK");
+        ReflectionTestUtils.setField(v2Fill, "inputContractJson", """
+                {"schemaVersion":"rl-explanation-input-v2","questionType":"FILL_BLANK",
+                 "questionContent":{"blanks":[{"id":"blank_1"}]},
+                 "answerSpec":{"blanks":[{"blankId":"blank_1","acceptedValues":["값"]}]},
+                 "stimulus":{"passageText":"본문","transcriptText":null,"approved":true},
+                 "media":[]}
+                """);
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(113L, "vi"))
+                .thenReturn(Optional.of(binding(113L, 213L)));
+        when(artifactRepository.findById(213L)).thenReturn(Optional.of(v2Fill));
+
+        assertThat(service.readObjective(
+                113L, CanonicalQuestionType.FILL_BLANK)).isEmpty();
+    }
+
+    @Test
+    void objectiveReadRejectsNonExactTextAndImageWithoutAuthoritativeRegion() {
+        QuestionExplanationArtifact nonExact = artifact(
+                214L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {"schemaVersion":"v3","questionType":"SINGLE_CHOICE","explanation":{
+                  "meaningVi":"Nghĩa","correctReasonVi":"Lý do",
+                  "optionRationales":[
+                    {"optionId":"option_1","reasonVi":"Đúng","evidenceIds":["e1"]},
+                    {"optionId":"option_2","reasonVi":"Sai","evidenceIds":["e1"]}],
+                  "textEvidenceRefs":[{"evidenceId":"e1","kind":"TEXT_SPAN",
+                    "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                    "exactQuoteKo":"본문","startOffset":1,"endOffset":3}],
+                  "imageEvidenceRefs":[],"relevantTranslations":[]}}
+                """);
+        ReflectionTestUtils.setField(nonExact, "responseSchemaVersion", "v3");
+        ReflectionTestUtils.setField(nonExact, "inputContractJson", singleChoiceInput());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(114L, "vi"))
+                .thenReturn(Optional.of(binding(114L, 214L)));
+        when(artifactRepository.findById(214L)).thenReturn(Optional.of(nonExact));
+        assertThat(service.readObjective(
+                114L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
+
+        QuestionExplanationArtifact imageWithoutRegion = artifact(
+                215L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {"schemaVersion":"v3","questionType":"SINGLE_CHOICE","explanation":{
+                  "meaningVi":"Nghĩa","correctReasonVi":"Lý do",
+                  "optionRationales":[
+                    {"optionId":"option_1","reasonVi":"Đúng","evidenceIds":["img"]},
+                    {"optionId":"option_2","reasonVi":"Sai","evidenceIds":["img"]}],
+                  "textEvidenceRefs":[],
+                  "imageEvidenceRefs":[{"evidenceId":"img","kind":"IMAGE_REGION",
+                    "purpose":"ANSWER_RATIONALE","sourceRole":"question.image",
+                    "assetDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "imageIndex":0,"regionMode":"RECTANGLE",
+                    "x":null,"y":null,"width":null,"height":null}],
+                  "relevantTranslations":[]}}
+                """);
+        ReflectionTestUtils.setField(imageWithoutRegion, "responseSchemaVersion", "v3");
+        ReflectionTestUtils.setField(
+                imageWithoutRegion, "inputContractJson", singleChoiceImageInput());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(115L, "vi"))
+                .thenReturn(Optional.of(binding(115L, 215L)));
+        when(artifactRepository.findById(215L)).thenReturn(Optional.of(imageWithoutRegion));
+        assertThat(service.readObjective(
+                115L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
+    }
+
+    @Test
+    void objectiveReadAcceptsExactV3TextSpanAndEvidenceBoundTranslation() {
+        QuestionExplanationArtifact exact = artifact(
+                216L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {"schemaVersion":"v3","questionType":"SINGLE_CHOICE","explanation":{
+                  "meaningVi":"Nghĩa","correctReasonVi":"Lý do",
+                  "optionRationales":[
+                    {"optionId":"option_1","reasonVi":"Đúng","evidenceIds":["e1"]},
+                    {"optionId":"option_2","reasonVi":"Sai","evidenceIds":["e1"]}],
+                  "textEvidenceRefs":[{"evidenceId":"e1","kind":"TEXT_SPAN",
+                    "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                    "exactQuoteKo":"본문","startOffset":0,"endOffset":2}],
+                  "imageEvidenceRefs":[],
+                  "relevantTranslations":[
+                    {"evidenceId":"e1","translationVi":"Đoạn văn chính"}]}}
+                """);
+        ReflectionTestUtils.setField(exact, "responseSchemaVersion", "v3");
+        ReflectionTestUtils.setField(exact, "inputContractJson", singleChoiceInput());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(116L, "vi"))
+                .thenReturn(Optional.of(binding(116L, 216L)));
+        when(artifactRepository.findById(216L)).thenReturn(Optional.of(exact));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact result =
+                service.readObjective(116L, CanonicalQuestionType.SINGLE_CHOICE)
+                        .orElseThrow();
+
+        assertThat(result.evidence()).singleElement().satisfies(value -> {
+            QuestionExplanationReadService.TextEvidence text =
+                    (QuestionExplanationReadService.TextEvidence) value;
+            assertThat(text.exactQuoteKo()).isEqualTo("본문");
+            assertThat(text.startOffset()).isZero();
+            assertThat(text.endOffset()).isEqualTo(2);
+        });
+        assertThat(result.relevantTranslations()).singleElement().satisfies(translation -> {
+            assertThat(translation.evidenceId()).isEqualTo("e1");
+            assertThat(translation.translationVi()).isEqualTo("Đoạn văn chính");
+        });
+    }
+
+    @Test
+    void objectiveReadRejectsArtifactWhenImmutableBindingFingerprintDoesNotMatch() {
+        QuestionExplanationArtifact ready = artifact(
+                217L,
+                QuestionExplanationArtifact.STATUS_READY,
+                validExplanation("wrong binding"));
+        ReflectionTestUtils.setField(
+                ready,
+                "fingerprint",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(117L, "vi"))
+                .thenReturn(Optional.of(binding(117L, 217L)));
+        when(artifactRepository.findById(217L)).thenReturn(Optional.of(ready));
+
+        assertThat(service.readObjective(
+                117L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
+    }
+
     private void bindReady(Long questionVersionId, Long artifactId, String explanationJson) {
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(questionVersionId, "vi"))
                 .thenReturn(Optional.of(binding(questionVersionId, artifactId)));
@@ -186,6 +369,10 @@ class QuestionExplanationReadServiceTest {
         ReflectionTestUtils.setField(binding, "questionVersionId", questionVersionId);
         ReflectionTestUtils.setField(binding, "artifactId", artifactId);
         ReflectionTestUtils.setField(binding, "explanationLanguage", "vi");
+        ReflectionTestUtils.setField(
+                binding,
+                "fingerprint",
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         return binding;
     }
 
@@ -195,9 +382,47 @@ class QuestionExplanationReadServiceTest {
             String explanationJson) {
         QuestionExplanationArtifact artifact = instantiate(QuestionExplanationArtifact.class);
         ReflectionTestUtils.setField(artifact, "id", id);
+        ReflectionTestUtils.setField(
+                artifact,
+                "fingerprint",
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        ReflectionTestUtils.setField(artifact, "questionType", "SINGLE_CHOICE");
+        ReflectionTestUtils.setField(artifact, "responseSchemaVersion", "v2");
+        ReflectionTestUtils.setField(artifact, "inputContractJson", minimalSingleChoiceInput());
         ReflectionTestUtils.setField(artifact, "status", status);
         ReflectionTestUtils.setField(artifact, "explanationJson", explanationJson);
         return artifact;
+    }
+
+    private static String minimalSingleChoiceInput() {
+        return """
+                {"schemaVersion":"rl-explanation-input-v2","questionType":"SINGLE_CHOICE",
+                 "questionContent":{"options":[{"id":"option_1"}]},
+                 "answerSpec":{"correctOptionIds":["option_1"]},
+                 "stimulus":{"passageText":"본문","transcriptText":null,"approved":true},
+                 "media":[]}
+                """;
+    }
+
+    private static String singleChoiceInput() {
+        return """
+                {"schemaVersion":"rl-explanation-input-v2","questionType":"SINGLE_CHOICE",
+                 "questionContent":{"options":[{"id":"option_1"},{"id":"option_2"}]},
+                 "answerSpec":{"correctOptionIds":["option_1"]},
+                 "stimulus":{"passageText":"본문 근거","transcriptText":null,"approved":true},
+                 "media":[]}
+                """;
+    }
+
+    private static String singleChoiceImageInput() {
+        return """
+                {"schemaVersion":"rl-explanation-input-v2","questionType":"SINGLE_CHOICE",
+                 "questionContent":{"options":[{"id":"option_1"},{"id":"option_2"}]},
+                 "answerSpec":{"correctOptionIds":["option_1"]},
+                 "stimulus":{"passageText":"","transcriptText":null,"approved":true},
+                 "media":[{"role":"question.image","kind":"IMAGE",
+                   "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
+                """;
     }
 
     private static <T> T instantiate(Class<T> type) {

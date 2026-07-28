@@ -3,6 +3,9 @@ package com.ksh.features.practice.ai.speaking;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,7 +28,7 @@ class SpeakingEvaluationReusePolicyTest {
                 "speaking-rubric-v1",
                 "speaking-schema-v1",
                 "저는 학생입니다.");
-        SpeakingEvaluationIdentity identity = SpeakingEvaluationIdentity.audio(
+        SpeakingEvaluationIdentity identity = audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
@@ -49,11 +52,11 @@ class SpeakingEvaluationReusePolicyTest {
                 "speaking-schema-v1",
                 "저는 학생입니다.");
 
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 99L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1"), true).reuse()).isFalse();
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 4L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1"), true).reuse()).isFalse();
@@ -75,23 +78,23 @@ class SpeakingEvaluationReusePolicyTest {
                 "speaking-schema-v1",
                 "저는 학생입니다.");
 
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1"), true).reuse()).isFalse();
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-pro", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1"), true).reuse()).isFalse();
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v2",
                 "speaking-rubric-v1", "speaking-schema-v1"), true).reuse()).isFalse();
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v2", "speaking-schema-v1"), true).reuse()).isFalse();
-        assertThat(policy.decide(stored, SpeakingEvaluationIdentity.audio(
+        assertThat(policy.decide(stored, audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v2"), true).reuse()).isFalse();
@@ -99,7 +102,7 @@ class SpeakingEvaluationReusePolicyTest {
 
     @Test
     void legacyOrMockIsNotReusableWhenRealProviderIsEnabled() {
-        SpeakingEvaluationIdentity identity = SpeakingEvaluationIdentity.audio(
+        SpeakingEvaluationIdentity identity = audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
@@ -118,7 +121,7 @@ class SpeakingEvaluationReusePolicyTest {
 
     @Test
     void retryableFailureIsNotReusableButNonRetryableMatchingFailureIsReusable() {
-        SpeakingEvaluationIdentity identity = SpeakingEvaluationIdentity.audio(
+        SpeakingEvaluationIdentity identity = audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
@@ -163,7 +166,7 @@ class SpeakingEvaluationReusePolicyTest {
                 "speaking-rubric-v1",
                 "speaking-schema-v1",
                 null);
-        SpeakingEvaluationIdentity identity = SpeakingEvaluationIdentity.audio(
+        SpeakingEvaluationIdentity identity = audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
@@ -199,7 +202,7 @@ class SpeakingEvaluationReusePolicyTest {
                 "speaking-rubric-v1",
                 "speaking-schema-v1",
                 null);
-        SpeakingEvaluationIdentity changedIdentity = SpeakingEvaluationIdentity.audio(
+        SpeakingEvaluationIdentity changedIdentity = audioIdentity(
                 1L, 2L, 99L, 1L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
@@ -209,7 +212,7 @@ class SpeakingEvaluationReusePolicyTest {
 
     @Test
     void textFallbackIdentityUsesNormalizedHashWithoutExposingAnswer() {
-        SpeakingEvaluationIdentity identity = SpeakingEvaluationIdentity.textFallback(
+        SpeakingEvaluationIdentity identity = textFallbackIdentity(
                 1L, 2L, "  저는   학생입니다.  ", "models/gemini-2.5-flash",
                 "speaking-eval-v1", "speaking-rubric-v1", "speaking-schema-v1");
         SpeakingEvaluationResult stored = result(
@@ -230,6 +233,119 @@ class SpeakingEvaluationReusePolicyTest {
         assertThat(identity.toString()).doesNotContain("저는 학생입니다");
     }
 
+    @Test
+    void immutableQuestionVersionContextIdentityControlsReuse() {
+        SpeakingEvaluationResult stored = withPromptContext(
+                result(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        SpeakingEvaluationSource.PROVIDER,
+                        true,
+                        false,
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        "speaking-eval-v1",
+                        "speaking-rubric-v1",
+                        "speaking-schema-v1",
+                        "저는 학생입니다."),
+                101L,
+                "a".repeat(64),
+                "speaking-prompt-version-context-v1");
+        SpeakingEvaluationIdentity exact = SpeakingEvaluationIdentity.audio(
+                1L, 2L, 101L, "a".repeat(64),
+                "speaking-prompt-version-context-v1",
+                12L, 3L, "gpt-4o-mini-transcribe",
+                "models/gemini-2.5-flash",
+                SpeakingPromptRules.PROMPT_VERSION,
+                SpeakingPromptRules.RUBRIC_VERSION,
+                SpeakingPromptRules.SCHEMA_VERSION);
+
+        assertThat(policy.decide(stored, exact, true).reuse()).isTrue();
+        assertThat(policy.decide(
+                stored,
+                SpeakingEvaluationIdentity.audio(
+                        1L, 2L, 202L, "a".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L, 3L, "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION),
+                true).reuse()).isFalse();
+        assertThat(policy.decide(
+                stored,
+                SpeakingEvaluationIdentity.audio(
+                        1L, 2L, 101L, "b".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L, 3L, "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION),
+                true).reuse()).isFalse();
+    }
+
+    @Test
+    void configuredDefaultPromptIdentityIsCurrentAndReusable()
+            throws Exception {
+        String applicationProperties = Files.readString(
+                Path.of("src/main/resources/application.properties"));
+        SpeakingEvaluatorProperties defaults =
+                new SpeakingEvaluatorProperties(
+                        false,
+                        "openai-compatible",
+                        "https://example.invalid",
+                        "",
+                        "models/gemini-2.5-flash",
+                        Duration.ofSeconds(30),
+                        0,
+                        "",
+                        "",
+                        "");
+
+        assertThat(applicationProperties).contains(
+                "PRACTICE_SPEAKING_EVALUATOR_PROMPT_VERSION:"
+                        + SpeakingPromptRules.PROMPT_VERSION + "}");
+        assertThat(defaults.promptVersion())
+                .isEqualTo(SpeakingPromptRules.PROMPT_VERSION);
+
+        SpeakingEvaluationResult stored = withPromptContext(
+                result(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        SpeakingEvaluationSource.PROVIDER,
+                        true,
+                        false,
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        defaults.model(),
+                        defaults.promptVersion(),
+                        defaults.rubricVersion(),
+                        defaults.schemaVersion(),
+                        "저는 학생입니다."),
+                101L,
+                "a".repeat(64),
+                "speaking-prompt-version-context-v1");
+        SpeakingEvaluationIdentity identity =
+                SpeakingEvaluationIdentity.audio(
+                        1L,
+                        2L,
+                        101L,
+                        "a".repeat(64),
+                        "speaking-prompt-version-context-v1",
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        defaults.model(),
+                        defaults.promptVersion(),
+                        defaults.rubricVersion(),
+                        defaults.schemaVersion());
+
+        assertThat(stored.currentEvidenceContract()).isTrue();
+        assertThat(policy.decide(stored, identity, true).reuse()).isTrue();
+    }
+
     private SpeakingEvaluationResult result(
             SpeakingEvaluationStatus status,
             SpeakingEvaluationSource source,
@@ -244,6 +360,13 @@ class SpeakingEvaluationReusePolicyTest {
             String schemaVersion,
             String actuallyHeardTranscript
     ) {
+        promptVersion = currentPromptVersion(promptVersion);
+        rubricVersion = currentRubricVersion(rubricVersion);
+        schemaVersion = currentSchemaVersion(schemaVersion);
+        boolean legacy = status == SpeakingEvaluationStatus.LEGACY_RESULT
+                || status == SpeakingEvaluationStatus.MOCK_EVALUATED
+                || source == SpeakingEvaluationSource.LEGACY
+                || source == SpeakingEvaluationSource.MOCK;
         return new SpeakingEvaluationResult(
                 status,
                 scoreAvailable,
@@ -253,6 +376,12 @@ class SpeakingEvaluationReusePolicyTest {
                 promptVersion,
                 rubricVersion,
                 schemaVersion,
+                legacy ? SpeakingEvaluatorCapability.LEGACY_UNKNOWN
+                        : SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                legacy ? SpeakingEvidenceMode.UNKNOWN : SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                legacy ? null : SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                legacy ? SpeakingContractTrust.LEGACY_UNVERIFIED
+                        : SpeakingContractTrust.CURRENT_VERIFIED,
                 mediaId,
                 mediaVersion,
                 actuallyHeardTranscript,
@@ -274,7 +403,7 @@ class SpeakingEvaluationReusePolicyTest {
                 List.of(),
                 List.of(),
                 null,
-                List.of(),
+                scoreAvailable ? languageProfileRubrics() : List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -284,5 +413,128 @@ class SpeakingEvaluationReusePolicyTest {
                 List.of(),
                 scoreAvailable ? null : status.name(),
                 retryable);
+    }
+
+    private SpeakingEvaluationIdentity audioIdentity(
+            Long attemptId,
+            Long questionId,
+            Long audioMediaId,
+            Long mediaVersion,
+            String transcriptionModel,
+            String evaluatorModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion
+    ) {
+        return SpeakingEvaluationIdentity.audio(
+                attemptId, questionId, audioMediaId, mediaVersion,
+                transcriptionModel, evaluatorModel,
+                currentPromptVersion(promptVersion),
+                currentRubricVersion(rubricVersion),
+                currentSchemaVersion(schemaVersion));
+    }
+
+    private SpeakingEvaluationIdentity textFallbackIdentity(
+            Long attemptId,
+            Long questionId,
+            String answer,
+            String evaluatorModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion
+    ) {
+        return SpeakingEvaluationIdentity.textFallback(
+                attemptId, questionId, answer, evaluatorModel,
+                currentPromptVersion(promptVersion),
+                currentRubricVersion(rubricVersion),
+                currentSchemaVersion(schemaVersion));
+    }
+
+    private SpeakingEvaluationResult withPromptContext(
+            SpeakingEvaluationResult result,
+            Long questionVersionId,
+            String fingerprint,
+            String contractIdentity) {
+        return new SpeakingEvaluationResult(
+                result.evaluationStatus(),
+                result.scoreAvailable(),
+                result.source(),
+                result.model(),
+                result.transcriptionModel(),
+                result.promptVersion(),
+                result.rubricVersion(),
+                result.schemaVersion(),
+                result.evaluatorCapability(),
+                result.evidenceMode(),
+                result.evidenceContractVersion(),
+                result.contractTrust(),
+                questionVersionId,
+                fingerprint,
+                contractIdentity,
+                result.audioMediaId(),
+                result.mediaVersion(),
+                result.transcript(),
+                result.normalizedTranscript(),
+                result.actuallyHeardTranscript(),
+                result.interpretedIntent(),
+                result.intentConfidence(),
+                result.transcriptConfidence(),
+                result.listenerBurden(),
+                result.overallScore(),
+                result.levelLabel(),
+                result.overallSummary(),
+                result.taskAchievementSummary(),
+                result.majorStrengths(),
+                result.majorNeedsImprovement(),
+                result.actionPlan(),
+                result.criterionFeedback(),
+                result.transcriptAnnotations(),
+                result.strengths(),
+                result.needsImprovement(),
+                result.confidenceNotes(),
+                result.rubricScores(),
+                result.findings(),
+                result.evidence(),
+                result.recommendations(),
+                result.upgradedAnswer(),
+                result.sampleAnswer(),
+                result.pronunciationAdvisory(),
+                result.fluencyObservations(),
+                result.errorCategory(),
+                result.retryable());
+    }
+
+    private String currentPromptVersion(String value) {
+        return "speaking-eval-v1".equals(value) ? SpeakingPromptRules.PROMPT_VERSION : value;
+    }
+
+    private String currentRubricVersion(String value) {
+        return "speaking-rubric-v1".equals(value) ? SpeakingPromptRules.RUBRIC_VERSION : value;
+    }
+
+    private String currentSchemaVersion(String value) {
+        return "speaking-schema-v1".equals(value) ? SpeakingPromptRules.SCHEMA_VERSION : value;
+    }
+
+    private List<SpeakingEvaluationResult.RubricScore> languageProfileRubrics() {
+        return List.of(
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
+                        new BigDecimal("16"), new BigDecimal("20"), "Content"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL,
+                        new BigDecimal("16"), new BigDecimal("20"), "Grammar"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS,
+                        new BigDecimal("12"), new BigDecimal("15"), "Vocabulary"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.COHERENCE_ORGANIZATION,
+                        new BigDecimal("12"), new BigDecimal("15"), "Coherence"),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.FLUENCY, null, null, "No audio",
+                        SpeakingCriterionAvailability.NOT_SCORABLE),
+                new SpeakingEvaluationResult.RubricScore(
+                        SpeakingRubricCriterion.PRONUNCIATION_DELIVERY, null, null, "No audio",
+                        SpeakingCriterionAvailability.NOT_SCORABLE));
     }
 }

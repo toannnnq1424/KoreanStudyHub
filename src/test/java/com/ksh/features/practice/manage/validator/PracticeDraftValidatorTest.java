@@ -282,6 +282,74 @@ public class PracticeDraftValidatorTest {
     }
 
     @Test
+    void speakingV2AcceptsOnlyTheThreeCoherentDeliveryCombinations() {
+        for (String delivery : java.util.List.of(
+                """
+                "inputType":"audio_upload","deliveryMode":"audio_only",
+                "promptAudioReference":"/practice/manage/drafts/10/questions/q/speaking-prompt/media/original",
+                "audioOrigin":"teacher_upload","promptPlayLimit":1
+                """,
+                """
+                "inputType":"manual_text","deliveryMode":"text_only",
+                "audioOrigin":"none"
+                """,
+                """
+                "inputType":"manual_text","deliveryMode":"text_and_audio",
+                "promptAudioReference":"/practice/manage/drafts/10/questions/q/speaking-prompt/media/generated",
+                "audioOrigin":"ai_tts","promptPlayLimit":1
+                """)) {
+            PracticeDraftValidator.ValidationResult result =
+                    validator.validate(speakingV2Draft(delivery));
+
+            assertFalse(result.messages().stream().anyMatch(message ->
+                    "SPEAKING_MODE_COMBINATION_INVALID".equals(message.code())
+                            || "SPEAKING_TEXT_ONLY_AUDIO_FORBIDDEN"
+                            .equals(message.code())));
+        }
+    }
+
+    @Test
+    void speakingV2RejectsCrossModeAndInventedTextOnlyPlayback() {
+        PracticeDraftValidator.ValidationResult cross = validator.validate(
+                speakingV2Draft("""
+                        "inputType":"audio_upload",
+                        "deliveryMode":"text_and_audio",
+                        "promptAudioReference":"/practice/materials/7/content",
+                        "audioOrigin":"ai_tts",
+                        "promptPlayLimit":1
+                        """));
+        PracticeDraftValidator.ValidationResult textOnlyAudio =
+                validator.validate(speakingV2Draft("""
+                        "inputType":"manual_text",
+                        "deliveryMode":"text_only",
+                        "promptAudioReference":"/practice/materials/7/content",
+                        "audioOrigin":"none",
+                        "promptPlayLimit":1
+                        """));
+
+        assertTrue(cross.messages().stream().anyMatch(message ->
+                "SPEAKING_MODE_COMBINATION_INVALID".equals(message.code())));
+        assertTrue(textOnlyAudio.messages().stream().anyMatch(message ->
+                "SPEAKING_TEXT_ONLY_AUDIO_FORBIDDEN".equals(message.code())));
+    }
+
+    @Test
+    void speakingManualV2RequiresKoreanCapablePrompt() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                speakingV2Draft("""
+                        "inputType":"manual_text",
+                        "deliveryMode":"text_only",
+                        "audioOrigin":"none"
+                        """).replace(
+                        "주말에 무엇을 합니까?",
+                        "Describe your weekend"));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "SPEAKING_MANUAL_PROMPT_KOREAN_REQUIRED"
+                        .equals(message.code())));
+    }
+
+    @Test
     void fillBlankTokenPlacedExactlyOnceIsValid() {
         PracticeDraftValidator.ValidationResult result = validator.validate(
                 fillBlankDraft("도시는 {{blank:blank_1}}입니다."));
@@ -439,6 +507,28 @@ public class PracticeDraftValidatorTest {
                       }
                     }
                 """.formatted(questionType));
+    }
+
+    private String speakingV2Draft(String deliveryFields) {
+        return draft("SPEAKING", """
+                    {
+                      "clientId": "q",
+                      "questionNo": 1,
+                      "questionType": "SPEAKING",
+                      "prompt": "주말에 무엇을 합니까?",
+                      "answer": { "value": "" },
+                      "explanationVi": "Giải thích",
+                      "points": 10,
+                      "questionContent": {
+                        "schemaVersion": "question-content-v2",
+                        "speakingDelivery": {
+                          %s,
+                          "preparationSeconds": 30,
+                          "responseSeconds": 60
+                        }
+                      }
+                    }
+                """.formatted(deliveryFields));
     }
 
     private String fillBlankDraft(String prompt) {

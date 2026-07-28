@@ -6,7 +6,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticePdfImportSession;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptSourceRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
+import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import com.ksh.features.practice.repository.PracticePdfImportSessionRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
@@ -24,22 +26,37 @@ public class PracticeImportDraftService {
     private final PracticePdfImportSessionRepository sessionRepository;
     private final ObjectMapper objectMapper;
     private final PracticeAuthorizationService authorizationService;
+    private final SpeakingPromptSourceRepository promptSourceRepository;
+    private final PracticeMaterialReferenceRepository materialReferenceRepository;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeImportDraftService(PracticeDraftRepository draftRepository,
                                       PracticePdfImportSessionRepository sessionRepository,
                                       ObjectMapper objectMapper,
-                                      PracticeAuthorizationService authorizationService) {
+                                      PracticeAuthorizationService authorizationService,
+                                      SpeakingPromptSourceRepository promptSourceRepository,
+                                      PracticeMaterialReferenceRepository materialReferenceRepository) {
         this.draftRepository = draftRepository;
         this.sessionRepository = sessionRepository;
         this.objectMapper = objectMapper;
         this.authorizationService = authorizationService;
+        this.promptSourceRepository = promptSourceRepository;
+        this.materialReferenceRepository = materialReferenceRepository;
+    }
+
+    PracticeImportDraftService(PracticeDraftRepository draftRepository,
+                               PracticePdfImportSessionRepository sessionRepository,
+                               ObjectMapper objectMapper,
+                               SpeakingPromptSourceRepository promptSourceRepository,
+                               PracticeMaterialReferenceRepository materialReferenceRepository) {
+        this(draftRepository, sessionRepository, objectMapper, null,
+                promptSourceRepository, materialReferenceRepository);
     }
 
     public PracticeImportDraftService(PracticeDraftRepository draftRepository,
                                       PracticePdfImportSessionRepository sessionRepository,
                                       ObjectMapper objectMapper) {
-        this(draftRepository, sessionRepository, objectMapper, null);
+        this(draftRepository, sessionRepository, objectMapper, null, null, null);
     }
 
     @Transactional
@@ -53,8 +70,9 @@ public class PracticeImportDraftService {
         if (session.getLinkedDraftId() == null) {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
-
-        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
+        PracticeDraft aiDraft = lockAuthorizedDraft(
+                editableDraft(session.getLinkedDraftId(), userId));
+        requirePristinePdfOnlyDraft(aiDraft, userId);
 
         // Copy and elevate AI Draft to MANUAL mode
         PracticeDraft manualDraft = new PracticeDraft(
@@ -89,8 +107,15 @@ public class PracticeImportDraftService {
         if (session.getLinkedDraftId() == null) {
             throw new IllegalStateException("Session chưa chạy AI hoặc không có AI Draft liên kết.");
         }
+        if (java.util.Objects.equals(
+                session.getLinkedDraftId(), targetDraftId)) {
+            throw new IllegalArgumentException(
+                    "Bản nháp đích phải khác bản nháp tạm của phiên import.");
+        }
 
-        PracticeDraft aiDraft = editableDraft(session.getLinkedDraftId(), userId);
+        PracticeDraft aiDraft = lockAuthorizedDraft(
+                editableDraft(session.getLinkedDraftId(), userId));
+        requirePristinePdfOnlyDraft(aiDraft, userId);
 
         PracticeDraft targetDraft = editableDraft(targetDraftId, userId);
 
@@ -133,10 +158,124 @@ public class PracticeImportDraftService {
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Không tìm thấy bản nháp tương ứng."));
         }
-        authorizationService.requireDraft(
-                draftId, actorId, PracticeAction.EDIT);
-        return draftRepository.findById(draftId)
+        PracticeAuthorizationService.Decision decision =
+                authorizationService.requireDraft(
+                        draftId, actorId, PracticeAction.EDIT);
+        PracticeDraft draft = draftRepository.findById(draftId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Không tìm thấy bản nháp tương ứng."));
+        if (!java.util.Objects.equals(
+                decision.ownerId(), draft.getOwnerId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Chủ sở hữu bản nháp không khớp quyền đã xác thực.");
+        }
+        return draft;
+    }
+
+    private PracticeDraft lockAuthorizedDraft(PracticeDraft authorizedDraft) {
+        PracticeDraft locked = draftRepository.findByIdForUpdate(
+                        authorizedDraft.getId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Không tìm thấy bản nháp tương ứng."));
+        if (!java.util.Objects.equals(
+                authorizedDraft.getOwnerId(), locked.getOwnerId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Chủ sở hữu bản nháp đã thay đổi sau khi xác thực.");
+        }
+        return locked;
+    }
+
+    /**
+     * PDF import can copy only a draft whose identity is still wholly carried
+     * by the import session and JSON. Speaking v2 sources and draft material
+     * bindings are draft-local mutable state; copying their client/audio
+     * identity without an approved migration would either orphan that state or
+     * make the copied draft point at another draft's private media.
+     */
+    private void requirePristinePdfOnlyDraft(
+            PracticeDraft lockedDraft,
+            Long actorId) {
+        if (promptSourceRepository == null
+                || materialReferenceRepository == null) {
+            throw new IllegalStateException(
+                    "Không thể xác minh trạng thái nguồn của bản nháp import.");
+        }
+        if (!java.util.Objects.equals(
+                lockedDraft.getOwnerId(), actorId)
+                && authorizationService == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền quản lý bản nháp import này.");
+        }
+        if (!promptSourceRepository
+                .findByDraftIdForUpdate(lockedDraft.getId())
+                .isEmpty()) {
+            throw sourceIdentityConflict();
+        }
+        if (!materialReferenceRepository
+                .findByDraftId(lockedDraft.getId())
+                .isEmpty()) {
+            throw sourceIdentityConflict();
+        }
+        if (containsMutableSpeakingIdentity(lockedDraft.getDraftJson())) {
+            throw sourceIdentityConflict();
+        }
+    }
+
+    private boolean containsMutableSpeakingIdentity(String draftJson) {
+        try {
+            JsonNode root = objectMapper.readTree(draftJson);
+            if (root == null || !root.isObject()) {
+                return true;
+            }
+            for (JsonNode section : root.path("sections")) {
+                boolean speakingSection =
+                        "SPEAKING".equalsIgnoreCase(
+                                section.path("skill").asText(""));
+                for (JsonNode group : section.path("groups")) {
+                    for (JsonNode question : group.path("questions")) {
+                        if (!speakingSection
+                                && !"SPEAKING".equalsIgnoreCase(
+                                        question.path("questionType")
+                                                .asText(""))) {
+                            continue;
+                        }
+                        JsonNode content = question.path("questionContent");
+                        boolean explicitV2 =
+                                "question-content-v2".equals(
+                                        content.path("schemaVersion").asText(""))
+                                || content.has("speakingDelivery");
+                        boolean authoringIdentity =
+                                question.has("speakingPromptAuthoring");
+                        boolean audioIdentity =
+                                hasText(question, "speakingPromptAudioUrl")
+                                || hasText(question, "audioUrl")
+                                || hasText(
+                                        content.path("speakingDelivery"),
+                                        "promptAudioReference");
+                        if (explicitV2
+                                || authoringIdentity
+                                || audioIdentity) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        } catch (Exception exception) {
+            return true;
+        }
+    }
+
+    private static boolean hasText(JsonNode node, String field) {
+        return node != null
+                && node.hasNonNull(field)
+                && !node.path(field).asText("").isBlank();
+    }
+
+    private static IllegalStateException sourceIdentityConflict() {
+        return new IllegalStateException(
+                "Bản nháp AI đã có nguồn hoặc tài nguyên Speaking gắn riêng. "
+                        + "Hãy tiếp tục chỉnh sửa bản nháp đó; hệ thống không "
+                        + "tự sao chép hoặc xóa định danh audio/clientId.");
     }
 }

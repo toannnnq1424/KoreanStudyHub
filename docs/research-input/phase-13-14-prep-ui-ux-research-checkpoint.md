@@ -5,6 +5,16 @@
 > Phạm vi: tham khảo UI/UX cho KSH từ 96 ảnh chụp do người dùng cung cấp và phiên trải nghiệm trực tiếp trên tài khoản PREP đã đăng nhập.
 > Tài liệu này là checkpoint trung gian. Phần TOEIC và một số trạng thái player sâu vẫn tiếp tục được khảo sát sau khi checkpoint được lưu.
 > Cập nhật reduced-scope: `2026-07-13`. Ảnh/contact sheet và route đã quan sát là nguồn chuẩn cho **bằng chứng PREP tại thời điểm ghi nhận**, không phải nguồn chuẩn cho domain, schema, quyền hoặc route của KSH.
+>
+> **Roadmap supersession (`2026-07-22`):** các heading lịch sử ở cuối checkpoint
+> từng gán `13E = Result summary` và `13F = Evidence-based result detail` đã bị
+> supersede. Contract hiện hành là `13D = Result overview + immutable explanation
+> lifecycle`, `13E = đúng ba skill-native Result Detail screens`, `13F =
+> Progress/profile aggregation + operational recovery`; xem
+> `PRACTICE_PHASE_10_16_EXECUTION_BLUEPRINT.md`,
+> `CODEX_PRACTICE_WORKFLOW.md` và Phase 13E live log. Nội dung PREP dưới đây chỉ
+> còn là bằng chứng/pattern IA, không phải lệnh thực thi hay taxonomy IELTS cho
+> KSH.
 
 ## 1. Mục tiêu và ranh giới
 
@@ -656,6 +666,24 @@ Acceptance:
 - in-progress attempt không xóa score đã nộp;
 - route/back-link đúng test và set thực tế.
 
+Roadmap hiện hành supersede các heading lịch sử tiếp theo như sau:
+
+| Heading lịch sử trong checkpoint | Owner hiện hành |
+| --- | --- |
+| `13D - Skill-native player shell` | Phase 13C |
+| `13E - Result summary` | Phase 13D, đã hoàn tất và qua focused/fresh-route gate |
+| `13F - Evidence-based result detail` | Phase 13E; `13E-01` implemented pending phase validation with `ACCEPT_STATIC`, no validation; `13E-02` Objective R/L implementation in progress |
+| `13G - Progress dashboard` | Phase 13F |
+
+Current Phase 13E tách đúng ba Detail screen: Objective Reading/Listening,
+Writing và Speaking. Nó sở hữu backend Vietnamese/Korean labels/chips, Writing
+score-vs-diagnostic hierarchy, Speaking evidence-honest chip IA và type-native
+R/L renderer. Các criterion/band/taxonomy IELTS quan sát trong PREP không trở
+thành contract KSH. Khi đến `13E-03`, Writing chỉ dựng seam cho ba scoring
+criteria ổn định và diagnostic evidence task-bounded; expanded Korean registry,
+provider schema/prompt/normalizer/rule/cache identity thuộc pre-14 gate, còn
+final SME/calibration thuộc post-14 release closure.
+
 ### 13D - Skill-native player shell
 
 Mục tiêu:
@@ -675,7 +703,7 @@ Acceptance:
 - mobile có interaction riêng, không chỉ thu nhỏ desktop;
 - Speaking không ghi âm trước consent và user gesture.
 
-### 13E - Result summary
+### 13E - Result summary — `HISTORICAL_MAPPING_SUPERSEDED_2026_07_22`
 
 Mục tiêu:
 
@@ -692,7 +720,7 @@ Acceptance:
 - cách tổng hợp điểm và scoring runtime version được diễn đạt đúng;
 - R/L và W/S dùng shell thống nhất nhưng content theo skill.
 
-### 13F - Evidence-based result detail
+### 13F - Evidence-based result detail — `HISTORICAL_MAPPING_SUPERSEDED_2026_07_22`
 
 Mục tiêu:
 
@@ -751,65 +779,66 @@ Acceptance:
 - mascot không che nội dung/control, không roaming trong timed player và đứng yên khi reduced motion bật;
 - state transition của mascot phản ánh đúng app state, one-shot kết thúc phải quay về loop trước đó.
 
-## 8. Định hướng Phase 14 đề xuất
+## 8. Phase 14 mapping — superseded by canonical 14A-14F
 
-### 14A - Report contract và context capture
+> Phân nhóm research cũ `14A contract / 14B modal / 14C queue / 14D lifecycle /
+> 14E safety` đã bị supersede bởi workflow và blueprint hiện hành. Canonical
+> Phase 14 vẫn là toàn bộ 14A-14F “Report an Error & Content Review”; không
+> renumber và không rút thành modal. Các quan sát PREP dưới đây chỉ được map vào
+> canonical scope, không tự định nghĩa lại phase.
 
-- định nghĩa category, severity, scope và reporter intent;
-- auto-attach entity/version/attempt/view context;
-- rule attachment theo category;
-- privacy consent cho screenshot/audio;
-- idempotency key và correlation ID.
+### 14A - Entry points and immutable context
 
-### 14B - Learner report UI
+- entry point nhất quán ở player, question review và result detail;
+- định nghĩa target/category/severity/scope/reporter intent;
+- server auto-attach set/test/section/group/question, immutable content version,
+  attempt, current view/tab, actor/timestamp và correlation context;
+- idempotency key; learner không phải nhập lại internal ID.
 
-- entry point nhất quán ở player/result/detail;
-- form ngắn, category-first;
-- question/group scope tự chọn theo current context;
-- preview dữ liệu sẽ gửi;
-- upload progress, remove/retry và validation;
-- receipt ID sau submit.
+### 14B - Learner form and safe evidence snapshot
 
-### 14C - Review queue và triage
+- form ngắn, category-first; question/group scope lấy từ current context;
+- preview đúng dữ liệu sẽ gửi; receipt ID sau submit;
+- optional screenshot/audio có consent, MIME inspection, size limit, private
+  storage, remove/retry và retention/deletion contract trước implementation;
+- không mặc định thu toàn màn hình hoặc log raw answer/audio ngoài policy.
 
-- queue theo category/severity/set/test/skill/content version;
-- assignment và ownership;
-- duplicate detection;
-- evidence viewer có snapshot, không phụ thuộc nội dung hiện tại;
-- link tới authoring/version workflow của Phase 11/9.
+### 14C - Deduplication and learner-safe status history
 
-### 14D - Lifecycle, SLA và communication
-
-Đề xuất state:
+- audit/mapping state baseline với candidate research, không âm thầm thay enum:
 
 ```text
 NEW -> TRIAGED -> IN_REVIEW -> NEEDS_INFO -> RESOLVED/REJECTED/DUPLICATE
 ```
 
-- SLA theo severity;
+- dedupe theo immutable target/version/category và bounded window;
+- mọi transition có actor, timestamp, reason; learner không thấy internal note;
+- rate limit, anti-spam, idempotent submit và rule reopen có policy.
+
+### 14D - Reviewer queue and immutable correction
+
+- queue theo category/severity/set/test/skill/content version, assignment,
+  ownership và age;
+- evidence viewer mở đúng snapshot cũ, không phụ thuộc mutable content hiện tại;
+- authorization theo report/content/attempt scope;
+- correction đi qua authoring/version workflow, tạo version/artifact mới và
+  supersede bản cũ; AI không tự publish.
+
+### 14E - Resolution feedback and operational loop
+
 - notification khi cần thêm thông tin hoặc đã giải quyết;
-- resolution note cho learner;
-- audit trail bất biến;
-- rule reopen.
+- resolution note learner-safe, SLA/age, duplicate grouping và metrics;
+- PII redaction hỗ trợ reviewer; learner không thấy moderation nội bộ;
+- confirmed defect tạo regression fixture.
 
-### 14E - Safety, privacy và abuse controls
+### 14F - End-to-end acceptance gate
 
-- sanitize filename và MIME sniffing;
-- malware/image processing guard;
-- attachment retention;
-- PII redaction hỗ trợ reviewer;
-- rate limit và anti-spam;
-- không log raw answer/audio ngoài retention/privacy rule đã định nghĩa;
-- authorization theo report và content scope.
-
-### Phase 14 acceptance tổng quát
-
-- report từ một question phải mở lại đúng snapshot đã báo;
-- content được sửa không làm mất bằng chứng cũ;
-- learner không thấy dữ liệu nội bộ của reviewer;
-- reviewer không truy cập attempt ngoài quyền;
-- duplicate reports không tạo nhiều sửa đổi mâu thuẫn;
-- mọi transition có actor, timestamp và reason.
+- report từ một question mở lại đúng immutable snapshot đã báo;
+- content/explanation được sửa không làm mất bằng chứng cũ;
+- learner không thấy dữ liệu nội bộ; reviewer không truy cập attempt ngoài quyền;
+- duplicate reports không tạo nhiều correction mâu thuẫn;
+- permission/privacy/dedupe/attachment/malformed-content và complete audit trail
+  đều được kiểm chứng end-to-end.
 
 ## 9. Hướng mở rộng view model/DTO
 

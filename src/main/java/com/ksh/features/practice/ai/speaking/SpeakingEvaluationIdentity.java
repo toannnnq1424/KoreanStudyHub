@@ -8,6 +8,9 @@ import java.util.HexFormat;
 public record SpeakingEvaluationIdentity(
         Long attemptId,
         Long questionId,
+        Long questionVersionId,
+        String promptContextFingerprint,
+        String promptContextContractIdentity,
         SpeakingEvaluationSource source,
         Long audioMediaId,
         Long mediaVersion,
@@ -21,6 +24,9 @@ public record SpeakingEvaluationIdentity(
     public static SpeakingEvaluationIdentity audio(
             Long attemptId,
             Long questionId,
+            Long questionVersionId,
+            String promptContextFingerprint,
+            String promptContextContractIdentity,
             Long audioMediaId,
             Long mediaVersion,
             String transcriptionModel,
@@ -32,11 +38,60 @@ public record SpeakingEvaluationIdentity(
         return new SpeakingEvaluationIdentity(
                 attemptId,
                 questionId,
+                questionVersionId,
+                blankToNull(promptContextFingerprint),
+                blankToNull(promptContextContractIdentity),
                 SpeakingEvaluationSource.PROVIDER,
                 audioMediaId,
                 mediaVersion,
                 null,
                 blankToNull(transcriptionModel),
+                blankToNull(evaluatorModel),
+                blankToNull(promptVersion),
+                blankToNull(rubricVersion),
+                blankToNull(schemaVersion));
+    }
+
+    public static SpeakingEvaluationIdentity audio(
+            Long attemptId,
+            Long questionId,
+            Long audioMediaId,
+            Long mediaVersion,
+            String transcriptionModel,
+            String evaluatorModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion
+    ) {
+        return audio(
+                attemptId, questionId, null, null, null,
+                audioMediaId, mediaVersion, transcriptionModel, evaluatorModel,
+                promptVersion, rubricVersion, schemaVersion);
+    }
+
+    public static SpeakingEvaluationIdentity textFallback(
+            Long attemptId,
+            Long questionId,
+            Long questionVersionId,
+            String promptContextFingerprint,
+            String promptContextContractIdentity,
+            String textFallbackAnswer,
+            String evaluatorModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion
+    ) {
+        return new SpeakingEvaluationIdentity(
+                attemptId,
+                questionId,
+                questionVersionId,
+                blankToNull(promptContextFingerprint),
+                blankToNull(promptContextContractIdentity),
+                SpeakingEvaluationSource.TEXT_FALLBACK,
+                null,
+                null,
+                hashNormalizedText(textFallbackAnswer),
+                null,
                 blankToNull(evaluatorModel),
                 blankToNull(promptVersion),
                 blankToNull(rubricVersion),
@@ -52,18 +107,10 @@ public record SpeakingEvaluationIdentity(
             String rubricVersion,
             String schemaVersion
     ) {
-        return new SpeakingEvaluationIdentity(
-                attemptId,
-                questionId,
-                SpeakingEvaluationSource.TEXT_FALLBACK,
-                null,
-                null,
-                hashNormalizedText(textFallbackAnswer),
-                null,
-                blankToNull(evaluatorModel),
-                blankToNull(promptVersion),
-                blankToNull(rubricVersion),
-                blankToNull(schemaVersion));
+        return textFallback(
+                attemptId, questionId, null, null, null,
+                textFallbackAnswer, evaluatorModel, promptVersion,
+                rubricVersion, schemaVersion);
     }
 
     public boolean matches(SpeakingEvaluationResult stored) {
@@ -86,7 +133,16 @@ public record SpeakingEvaluationIdentity(
     }
 
     private boolean commonFieldsMatch(SpeakingEvaluationResult stored) {
-        return java.util.Objects.equals(evaluatorModel, blankToNull(stored.model()))
+        return stored.currentEvidenceContract()
+                && java.util.Objects.equals(
+                questionVersionId, stored.questionVersionId())
+                && java.util.Objects.equals(
+                promptContextFingerprint,
+                blankToNull(stored.promptContextFingerprint()))
+                && java.util.Objects.equals(
+                promptContextContractIdentity,
+                blankToNull(stored.promptContextContractIdentity()))
+                && java.util.Objects.equals(evaluatorModel, blankToNull(stored.model()))
                 && java.util.Objects.equals(promptVersion, blankToNull(stored.promptVersion()))
                 && java.util.Objects.equals(rubricVersion, blankToNull(stored.rubricVersion()))
                 && java.util.Objects.equals(schemaVersion, blankToNull(stored.schemaVersion()));
@@ -122,9 +178,14 @@ public record SpeakingEvaluationIdentity(
         return "SpeakingEvaluationIdentity{"
                 + "attemptId=" + attemptId
                 + ", questionId=" + questionId
+                + ", questionVersionId=" + questionVersionId
+                + ", promptContextFingerprintPresent="
+                + (promptContextFingerprint != null)
+                + ", promptContextContractIdentity='"
+                + promptContextContractIdentity + '\''
                 + ", source=" + source
-                + ", audioMediaId=" + audioMediaId
-                + ", mediaVersion=" + mediaVersion
+                + ", audioMediaPresent=" + (audioMediaId != null)
+                + ", mediaVersionPresent=" + (mediaVersion != null)
                 + ", textFallbackHashPresent=" + (textFallbackHash != null)
                 + ", transcriptionModel='" + transcriptionModel + '\''
                 + ", evaluatorModel='" + evaluatorModel + '\''

@@ -367,7 +367,10 @@ public class PracticeDraftContractService {
                 60);
 
         QuestionContent.SpeakingDelivery delivery = new QuestionContent.SpeakingDelivery(
+                current == null ? null : current.inputType(),
+                current == null ? null : current.deliveryMode(),
                 promptAudioReference.isBlank() ? null : promptAudioReference,
+                current == null ? null : current.audioOrigin(),
                 promptPlayLimit,
                 preparationSeconds,
                 responseSeconds);

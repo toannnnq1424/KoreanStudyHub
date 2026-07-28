@@ -80,6 +80,7 @@ class PracticeAuthorizationServiceTest {
         PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
                 10L, 22L);
         allow(22L, PracticeAction.EDIT);
+        allow(22L, PracticeAction.PUBLISH);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
         when(collaborationRepository
                 .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
@@ -87,6 +88,8 @@ class PracticeAuthorizationServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> service.requireSet(10L, 22L, PracticeAction.EDIT));
+        assertThrows(AccessDeniedException.class,
+                () -> service.requireSet(10L, 22L, PracticeAction.PUBLISH));
     }
 
     @Test
@@ -167,6 +170,23 @@ class PracticeAuthorizationServiceTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> service.requireDraft(20L, 22L, PracticeAction.EDIT));
+    }
+
+    @Test
+    void readProbesReturnBooleanWithoutLeakingAuthorizationFailures() throws Exception {
+        PracticeSet set = set(10L, 11L);
+        PracticeDraft draft = new PracticeDraft(
+                "Draft", "", "GLOBAL", null,
+                "DRAFT", 11L, "{}");
+        setId(draft, 20L);
+        allow(11L, PracticeAction.READ);
+        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
+        when(draftRepository.findById(20L)).thenReturn(Optional.of(draft));
+
+        assertTrue(service.canReadSet(10L, 11L));
+        assertTrue(service.canReadDraft(20L, 11L));
+        assertFalse(service.canReadSet(10L, 99L));
+        assertFalse(service.canReadDraft(20L, 99L));
     }
 
     private void allow(Long actorId, PracticeAction action) {

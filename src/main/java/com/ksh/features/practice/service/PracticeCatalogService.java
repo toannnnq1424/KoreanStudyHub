@@ -5,12 +5,15 @@ import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogClassOption;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogSkill;
+import com.ksh.features.practice.dto.PracticeDtos.PracticeGlobalResume;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -20,7 +23,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -40,6 +42,10 @@ public class PracticeCatalogService {
     private static final List<String> SKILL_ORDER =
             List.of("LISTENING", "READING", "WRITING", "SPEAKING");
     private static final Set<String> ALLOWED_SKILLS = Set.copyOf(SKILL_ORDER);
+    private static final Set<String> ALLOWED_WRITING_TASKS =
+            Set.of("Q51", "Q52", "Q53", "Q54");
+    private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
+            PracticeAttemptStatePolicy.INSTANCE;
 
     private final PracticeSetRepository setRepository;
     private final PracticeTestRepository testRepository;
@@ -67,9 +73,12 @@ public class PracticeCatalogService {
         List<Long> activeClassIds = learnerAccessService.activeClassIds(userId);
         List<Long> queryClassIds = activeClassIds.isEmpty() ? List.of(-1L) : activeClassIds;
         List<PracticeCatalogClassOption> classOptions = loadClassOptions(activeClassIds);
+        PracticeGlobalResume globalResume =
+                loadGlobalResume(userId, queryClassIds);
         if (query.classId() != null && !activeClassIds.contains(query.classId())) {
             return new PracticeCatalogBatch(
-                    List.of(), classOptions, query.search(), query.skill(), query.classId(),
+                    List.of(), globalResume, classOptions, query.search(), query.skill(),
+                    query.writingTask(), query.classId(),
                     query.batch(), BATCH_SIZE, 0, false);
         }
         long selectedClassId = query.classId() == null ? 0L : query.classId();
@@ -83,11 +92,15 @@ public class PracticeCatalogService {
                 selectedClassId,
                 query.search(),
                 "ALL".equals(query.skill()) ? "" : query.skill(),
+                "ALL".equals(query.writingTask())
+                        ? null
+                        : WritingTaskType.valueOf(query.writingTask()),
                 PageRequest.of(query.batch(), BATCH_SIZE));
 
         if (setPage.isEmpty()) {
             return new PracticeCatalogBatch(
-                    List.of(), classOptions, query.search(), query.skill(),
+                    List.of(), globalResume, classOptions, query.search(), query.skill(),
+                    query.writingTask(),
                     selectedClassId == 0 ? null : selectedClassId,
                     query.batch(), BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
         }
@@ -108,6 +121,9 @@ public class PracticeCatalogService {
         List<PracticeAttempt> attempts = attemptRepository
                 .findByUserIdAndSetIdInAndStatusNotOrderByCreatedAtDescIdDesc(
                         userId, setIds, PracticeAttempt.STATUS_DISCARDED);
+        Set<Long> coherentAttemptIds = Set.copyOf(
+                attemptRepository.findCoherentAttemptIdentityIds(
+                        userId, setIds));
 
         Map<Long, List<PracticeTest>> testsBySet = groupBy(tests, PracticeTest::getSetId);
         Map<Long, List<PracticeSection>> sectionsBySet = groupBy(sections, PracticeSection::getSetId);
@@ -122,11 +138,12 @@ public class PracticeCatalogService {
                         testsBySet.getOrDefault(set.getId(), List.of()),
                         sectionsBySet.getOrDefault(set.getId(), List.of()),
                         attemptsBySet.getOrDefault(set.getId(), List.of()),
-                        classNames))
+                        classNames,
+                        coherentAttemptIds))
                 .toList();
 
         return new PracticeCatalogBatch(
-                cards, classOptions, query.search(), query.skill(),
+                cards, globalResume, classOptions, query.search(), query.skill(), query.writingTask(),
                 selectedClassId == 0 ? null : selectedClassId,
                 query.batch(), BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
     }
@@ -135,11 +152,13 @@ public class PracticeCatalogService {
                                        List<PracticeTest> tests,
                                        List<PracticeSection> sections,
                                        List<PracticeAttempt> attempts,
-                                       Map<Long, String> classNames) {
+                                       Map<Long, String> classNames,
+                                       Set<Long> coherentAttemptIds) {
         List<PracticeCatalogSkill> skills = deriveSkills(set, sections);
         String primarySkill = skills.isEmpty() ? "READING" : skills.get(0).code();
         int completedTests = completedTestCount(tests, sections, attempts);
-        AttemptState state = resolveState(attempts);
+        AttemptState state =
+                resolveState(attempts, coherentAttemptIds);
         String visibility = PracticeSet.SCOPE_CLASS.equals(set.getScope())
                 ? classNames.getOrDefault(set.getClassId(), "Lớp học")
                 : "Công khai trong KSH";
@@ -171,8 +190,7 @@ public class PracticeCatalogService {
                                    List<PracticeSection> sections,
                                    List<PracticeAttempt> attempts) {
         Set<Long> completedSectionIds = attempts.stream()
-                .filter(attempt -> PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
-                        || PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus()))
+                .filter(ATTEMPT_STATE::isCompleted)
                 .map(PracticeAttempt::getSectionId)
                 .filter(id -> id != null)
                 .collect(Collectors.toSet());
@@ -191,54 +209,62 @@ public class PracticeCatalogService {
         return completed;
     }
 
-    private AttemptState resolveState(List<PracticeAttempt> attempts) {
-        PracticeAttempt resumable = attempts.stream()
-                .filter(attempt -> PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus()))
-                .max(Comparator.comparing(this::attemptTimestamp)
-                        .thenComparing(attempt -> attempt.getId() == null ? 0L : attempt.getId()))
-                .orElse(null);
+    private AttemptState resolveState(
+            List<PracticeAttempt> attempts,
+            Set<Long> coherentAttemptIds
+    ) {
+        PracticeAttempt resumable =
+                ATTEMPT_STATE.newestCanonicalResumable(
+                        attempts,
+                        attempt -> attempt.getId() != null
+                                && coherentAttemptIds.contains(
+                                attempt.getId()));
         if (resumable != null) {
-            String compatibility = resumable.getVersionCompatibilityStatus();
-            if (compatibility != null && !compatibility.isBlank()
-                    && !"COMPATIBLE".equalsIgnoreCase(compatibility)) {
-                return new AttemptState("STALE", "Cần bắt đầu lại", null);
-            }
             return new AttemptState("IN_PROGRESS", "Đang làm", resumable.getId());
         }
 
-        PracticeAttempt latest = attempts.stream()
-                .max(Comparator.comparing(this::attemptTimestamp)
-                        .thenComparing(attempt -> attempt.getId() == null ? 0L : attempt.getId()))
+        PracticeAttempt stale = attempts.stream()
+                .filter(attempt ->
+                        ATTEMPT_STATE.isStaleOrRestartRequired(
+                                attempt,
+                                attempt.getId() != null
+                                        && coherentAttemptIds.contains(
+                                        attempt.getId())))
+                .min(ATTEMPT_STATE.newestActivityFirst())
                 .orElse(null);
-        if (latest == null) return new AttemptState("NOT_STARTED", "Chưa bắt đầu", null);
-        if (PracticeAttempt.STATUS_GRADED.equals(latest.getStatus())) {
-            return new AttemptState("SCORED", "Đã có kết quả", null);
+        if (stale != null) {
+            return new AttemptState("STALE", "Cần bắt đầu lại", null);
         }
-        if (!PracticeAttempt.STATUS_SUBMITTED.equals(latest.getStatus())) {
+        PracticeAttempt latest = ATTEMPT_STATE.newest(attempts);
+        if (latest == null) {
             return new AttemptState("NOT_STARTED", "Chưa bắt đầu", null);
         }
-
-        String analysisStatus = latest.getAnalysisStatus();
-        if (analysisStatus == null || analysisStatus.isBlank()) {
-            return new AttemptState("SUBMITTED", "Đã nộp", null);
-        }
-        return switch (analysisStatus) {
-            case PracticeAttempt.ANALYSIS_QUEUED, PracticeAttempt.ANALYSIS_PROCESSING ->
-                    new AttemptState("SCORING", "Đang chấm", null);
-            case PracticeAttempt.ANALYSIS_SUCCEEDED ->
-                    new AttemptState("SCORED", "Đã có kết quả", null);
-            case PracticeAttempt.ANALYSIS_FAILED -> latest.isObjectiveSkill()
-                    ? new AttemptState("PARTIAL", "Có điểm, thiếu phản hồi", null)
-                    : new AttemptState("FAILED", "Chấm điểm thất bại", null);
-            default -> new AttemptState("SUBMITTED", "Đã nộp", null);
-        };
+        PracticeAttemptStatePolicy.Presentation presentation =
+                ATTEMPT_STATE.presentation(latest, true);
+        return new AttemptState(
+                presentation.code(),
+                presentation.label(),
+                presentation.resumeAttemptId());
     }
 
-    private LocalDateTime attemptTimestamp(PracticeAttempt attempt) {
-        if (attempt.getUpdatedAt() != null) return attempt.getUpdatedAt();
-        if (attempt.getCreatedAt() != null) return attempt.getCreatedAt();
-        if (attempt.getStartedAt() != null) return attempt.getStartedAt();
-        return LocalDateTime.MIN;
+    private PracticeGlobalResume loadGlobalResume(
+            Long userId,
+            List<Long> activeClassIds
+    ) {
+        return attemptRepository.findGlobalResumeCandidates(
+                        userId, activeClassIds, PageRequest.of(0, 1)).stream()
+                .findFirst()
+                .map(candidate -> new PracticeGlobalResume(
+                        candidate.getAttemptId(),
+                        candidate.getSetId(),
+                        candidate.getTestId(),
+                        candidate.getSectionId(),
+                        candidate.getSetTitle(),
+                        candidate.getTestTitle(),
+                        candidate.getSkill(),
+                        PracticeDtos.getSkillLabel(candidate.getSkill()),
+                        candidate.getActivityAt()))
+                .orElse(null);
     }
 
     private List<PracticeCatalogClassOption> loadClassOptions(List<Long> classIds) {
@@ -258,11 +284,17 @@ public class PracticeCatalogService {
                 ? "ALL"
                 : raw.skill().strip().toUpperCase(Locale.ROOT);
         if (!ALLOWED_SKILLS.contains(skill)) skill = "ALL";
+        String writingTask = raw == null || raw.writingTask() == null
+                ? "ALL"
+                : raw.writingTask().strip().toUpperCase(Locale.ROOT);
+        if (!"WRITING".equals(skill) || !ALLOWED_WRITING_TASKS.contains(writingTask)) {
+            writingTask = "ALL";
+        }
         int batch = raw == null ? 0 : Math.max(0, raw.batch());
         Long classId = raw == null || raw.classId() == null || raw.classId() <= 0
                 ? null
                 : raw.classId();
-        return new PracticeCatalogQuery(search, skill, classId, batch);
+        return new PracticeCatalogQuery(search, skill, writingTask, classId, batch);
     }
 
     private String skillLabel(String skill) {

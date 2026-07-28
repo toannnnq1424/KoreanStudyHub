@@ -20,6 +20,7 @@ import com.ksh.features.practice.ai.readinglistening.PublishedVersionExplanation
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptPublicationService;
 import com.ksh.features.practice.repository.PracticeQuestionGroupRepository;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSectionRepository;
@@ -64,6 +65,7 @@ public class PracticePublisherService {
     private final PracticeAuthorizationService authorizationService;
     private final PracticeMaterialReferenceService materialReferenceService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final SpeakingPromptPublicationService speakingPromptPublicationService;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
@@ -81,7 +83,8 @@ public class PracticePublisherService {
                                      ObjectMapper objectMapper,
                                      PracticeAuthorizationService authorizationService,
                                      PracticeMaterialReferenceService materialReferenceService,
-                                     ApplicationEventPublisher applicationEventPublisher) {
+                                     ApplicationEventPublisher applicationEventPublisher,
+                                     SpeakingPromptPublicationService speakingPromptPublicationService) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -98,6 +101,7 @@ public class PracticePublisherService {
         this.authorizationService = authorizationService;
         this.materialReferenceService = materialReferenceService;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.speakingPromptPublicationService = speakingPromptPublicationService;
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
     }
@@ -114,7 +118,7 @@ public class PracticePublisherService {
                              ObjectMapper objectMapper) {
         this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
                 editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper,
-                null, null, null);
+                null, null, null, null);
     }
 
     @Transactional
@@ -143,6 +147,15 @@ public class PracticePublisherService {
                             "Bản nháp không tồn tại."));
         }
         Long ownerId = authorization == null ? actorId : authorization.ownerId();
+        if (speakingPromptPublicationService != null) {
+            draft = draftRepository.findByIdForUpdate(draftId)
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                            "Bản nháp không tồn tại."));
+            if (!Objects.equals(ownerId, draft.getOwnerId())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Bạn không có quyền xuất bản bản nháp này.");
+            }
+        }
 
         // Parse JSON
         JsonNode root;
@@ -165,8 +178,20 @@ public class PracticePublisherService {
         // Validate
         PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(draft.getDraftJson());
         if (valRes.hasBlocking()) {
-            throw new IllegalStateException("Không thể xuất bản bản nháp do chứa lỗi nghiêm trọng (BLOCKING). Vui lòng kiểm tra lại cấu trúc đề.");
+            String detail = valRes.messages().stream()
+                    .filter(message -> "BLOCKING".equals(message.type()))
+                    .map(PracticeDraftValidator.ValidationMsg::content)
+                    .limit(5)
+                    .reduce((left, right) -> left + " " + right)
+                    .orElse("Vui lòng kiểm tra lại cấu trúc đề.");
+            throw new IllegalStateException(
+                    "Không thể xuất bản bản nháp: " + detail);
         }
+        SpeakingPromptPublicationService.PublicationPlan speakingPlan =
+                speakingPromptPublicationService == null
+                        ? new SpeakingPromptPublicationService.PublicationPlan(Map.of())
+                        : speakingPromptPublicationService.prepare(
+                                draftId, ownerId, root);
 
         // Create or update PracticeSet
         JsonNode sectionsNode = root.path("sections");
@@ -254,6 +279,7 @@ public class PracticePublisherService {
 
         Map<String, PracticeTest> persistedTests = persistTests(root, savedSet, draft);
         Map<Long, Integer> sectionOrderByTest = new LinkedHashMap<>();
+        Map<String, Long> speakingQuestionIdsByClient = new LinkedHashMap<>();
 
         // Save sections, groups and questions
         if (sectionsNode.isArray()) {
@@ -363,6 +389,29 @@ public class PracticePublisherService {
                                         rawSkill, qNode);
                                 QuestionContent questionContent = resolveQuestionContent(
                                         qNode, canonicalType, optJsonString);
+                                String questionClientId =
+                                        qNode.path("clientId").asText("").trim();
+                                SpeakingPromptPublicationService.Candidate
+                                        speakingCandidate = null;
+                                if (canonicalType == CanonicalQuestionType.SPEAKING
+                                        && speakingPromptPublicationService != null) {
+                                    speakingCandidate =
+                                            speakingPlan.require(questionClientId);
+                                    questionContent =
+                                            speakingCandidate.learnerContent();
+                                    if (questionContent.speakingDelivery()
+                                            .deliveryMode()
+                                            == QuestionContent.SpeakingDeliveryMode
+                                                    .AUDIO_ONLY) {
+                                        /*
+                                         * The upload transcript lives only in
+                                         * the immutable evaluator context.
+                                         * It is never copied into the learner
+                                         * question/payload surface.
+                                         */
+                                        qPrompt = "";
+                                    }
+                                }
                                 AnswerSpec answerSpec = resolveAnswerSpec(
                                         qNode, rawType, ansVal, questionContent);
                                 AssessmentSkill questionSkill = resolveSkill(rawSkill);
@@ -401,7 +450,16 @@ public class PracticePublisherService {
                                 question.setAnswerSpecJson(assessmentContractCodec.writeAnswerSpec(
                                         answerSpec, questionContent));
                                 question.setGroupId(savedGroup.getId());
-                                questionRepository.save(question);
+                                PracticeQuestion savedQuestion =
+                                        questionRepository.save(question);
+                                if (speakingCandidate != null) {
+                                    if (speakingQuestionIdsByClient.put(
+                                            questionClientId,
+                                            savedQuestion.getId()) != null) {
+                                        throw new IllegalStateException(
+                                                "Không thể xuất bản Speaking: clientId câu hỏi bị trùng.");
+                                    }
+                                }
                                 sectionLocalQNo = persistedQuestionNo + 1;
                             }
                         }
@@ -432,14 +490,48 @@ public class PracticePublisherService {
         editLogRepository.save(logEntry);
 
         com.ksh.entities.PracticePublishedVersion publishedVersion = null;
+        Map<String, Long> speakingQuestionVersionIdsByClient =
+                new LinkedHashMap<>();
+        if (!speakingPlan.candidates().isEmpty()
+                && publishedVersionService == null) {
+            throw new IllegalStateException(
+                    "Không thể xuất bản Speaking: dịch vụ tạo phiên bản bất biến chưa sẵn sàng.");
+        }
         if (publishedVersionService != null) {
-            publishedVersion = publishedVersionService.createPublishedVersion(
-                    savedSet.getId(), actorId);
+            if (speakingPromptPublicationService == null) {
+                publishedVersion = publishedVersionService.createPublishedVersion(
+                        savedSet.getId(), actorId);
+            } else {
+                com.ksh.features.practice.service.PracticePublishedVersionService
+                        .PublishedVersionCreation creation =
+                        publishedVersionService.createPublishedVersionDetailed(
+                                savedSet.getId(), actorId);
+                publishedVersion = creation.publishedVersion();
+                for (Map.Entry<String, Long> entry :
+                        speakingQuestionIdsByClient.entrySet()) {
+                    Long questionVersionId =
+                            creation.questionVersionIdByQuestionId()
+                                    .get(entry.getValue());
+                    if (questionVersionId == null) {
+                        throw new IllegalStateException(
+                                "Không thể xuất bản Speaking: thiếu phiên bản câu hỏi bất biến.");
+                    }
+                    speakingQuestionVersionIdsByClient.put(
+                            entry.getKey(), questionVersionId);
+                }
+                speakingPromptPublicationService.persistContexts(
+                        speakingPlan,
+                        speakingQuestionVersionIdsByClient,
+                        actorId);
+            }
         }
 
         if (materialReferenceService != null && publishedVersion != null) {
             materialReferenceService.promoteDraftReferences(
-                    draftId, savedSet.getId(), publishedVersion.getId());
+                    draftId,
+                    savedSet.getId(),
+                    publishedVersion.getId(),
+                    speakingPlan.activeAssetBindings());
         }
 
         if (applicationEventPublisher != null && publishedVersion != null) {
