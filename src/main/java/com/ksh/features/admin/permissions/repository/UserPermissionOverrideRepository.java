@@ -2,6 +2,8 @@ package com.ksh.features.admin.permissions.repository;
 
 import com.ksh.entities.UserPermissionOverride;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -28,6 +30,10 @@ public interface UserPermissionOverrideRepository extends JpaRepository<UserPerm
      * @return the existing row, or empty when the pair has never been overridden
      */
     Optional<UserPermissionOverride> findByUserIdAndPermissionId(Long userId, Long permissionId);
+
+    /** Reads only the mutex owner id so mutation paths can lock the user first. */
+    @Query("select o.userId from UserPermissionOverride o where o.id = :id")
+    Optional<Long> findUserIdById(@Param("id") Long id);
 
     /**
      * Loads every override recorded for one user, including inactive and expired ones.

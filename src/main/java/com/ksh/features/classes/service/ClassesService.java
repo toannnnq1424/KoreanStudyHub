@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -136,6 +137,17 @@ public class ClassesService {
     @Transactional(readOnly = true)
     public ClassEntity getEditable(Long id, Long userId, Role role) {
         return loadEditable(id, userId, role);
+    }
+
+    /** Locks an editable class so sibling append operations share one mutex row. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ClassEntity getEditableForUpdate(Long id, Long userId, Role role) {
+        ClassEntity entity = classRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!isEditableBy(entity, userId, role)) {
+            throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
+        return entity;
     }
 
     /**

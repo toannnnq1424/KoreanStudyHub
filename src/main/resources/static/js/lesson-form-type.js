@@ -462,6 +462,14 @@
         if (!form) return;
         var modal = document.getElementById('lessonTypeConfirmModal');
         var proceeding = false;
+        var submitting = false;
+        var activeSubmitter = null;
+
+        function setSubmitControlsDisabled(disabled) {
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (control) {
+                control.disabled = disabled;
+            });
+        }
 
         function confirmTypeSwitch(next) {
             if (!modal) { next(true); return; }
@@ -491,6 +499,7 @@
         function submitForReal(submitter) {
             proceeding = true;
             window.setTimeout(function () {
+                setSubmitControlsDisabled(false);
                 if (typeof form.requestSubmit === 'function') {
                     form.requestSubmit(submitter || undefined);
                 } else {
@@ -501,6 +510,9 @@
 
         function abortSubmit() {
             proceeding = false;
+            submitting = false;
+            activeSubmitter = null;
+            setSubmitControlsDisabled(false);
         }
 
         form.addEventListener('submit', function (e) {
@@ -508,7 +520,11 @@
             // (and the Quill content-copy listener) run untouched.
             if (proceeding) return;
             e.preventDefault();
-            var submitter = e.submitter || null;
+            if (submitting) return;
+            submitting = true;
+            activeSubmitter = e.submitter || null;
+            setSubmitControlsDisabled(true);
+            var submitter = activeSubmitter;
             confirmTypeSwitch(function (okType) {
                 if (!okType) { abortSubmit(); return; }
                 // Gate 2 + 3: upload whichever media is pending. Each helper

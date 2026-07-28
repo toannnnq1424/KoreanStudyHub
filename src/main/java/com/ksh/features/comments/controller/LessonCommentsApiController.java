@@ -120,7 +120,7 @@ public class LessonCommentsApiController {
                                              @PathVariable Long commentId,
                                              @AuthenticationPrincipal KshUserDetails user) {
         try {
-            commentsService.delete(lessonId, commentId, user.getId());
+            commentsService.delete(lessonId, commentId, user.getId(), user.getRole());
             return ResponseEntity.ok(AjaxResult.success());
         } catch (AccessDeniedException ex) {
             return forbidden();

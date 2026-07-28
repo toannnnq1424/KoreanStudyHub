@@ -110,7 +110,7 @@ public class LessonsService {
                             String status, String contentHtmlRaw,
                             Long userId, Role role) {
         ClassEntity clazz = classesService.getEditable(classId, userId, role);
-        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        reorderService.lockSectionForUpdate(sectionId, classId);
 
         short nextOrder = (short) (lessonRepository.findMaxDisplayOrder(sectionId) + 1);
         Lesson lesson = new Lesson(sectionId, title, nextOrder, userId);

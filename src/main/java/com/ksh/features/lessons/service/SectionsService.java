@@ -75,7 +75,7 @@ public class SectionsService {
      */
     @Transactional
     public SectionRow create(Long classId, String title, Long userId, Role role) {
-        ClassEntity clazz = classesService.getEditable(classId, userId, role);
+        ClassEntity clazz = classesService.getEditableForUpdate(classId, userId, role);
         short nextOrder = (short) (sectionRepository.findMaxDisplayOrder(clazz.getId()) + 1);
         Section section = new Section(clazz.getId(), title, nextOrder, userId);
         Section saved = sectionRepository.save(section);

@@ -1,5 +1,6 @@
 package com.ksh.features.admin.users.service;
 
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.Permission;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
@@ -84,7 +85,7 @@ public class UserPermissionToggleService {
      */
     @Transactional
     public String toggle(Long userId, String featureKey, boolean granted, Long actorId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_USER));
         Permission permission = permissionRepository.findByFeatureKey(featureKey)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_PERMISSION + featureKey));
@@ -103,7 +104,7 @@ public class UserPermissionToggleService {
 
         applyChange(userId, permission.getId(), granted, fromRole, existing, actorId);
         writeAudit(userId, permission, before, after, actorId);
-        permissionResolver.evictUser(userId);
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(userId));
         return permission.getName();
     }
 

@@ -1,5 +1,6 @@
 package com.ksh.features.admin.permissions.service;
 
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.Permission;
 import com.ksh.entities.RolePermission;
 import com.ksh.features.admin.permissions.dto.PermissionDtos.MatrixCell;
@@ -109,7 +110,7 @@ public class PermissionMatrixService {
         }
         rolePermissionRepository.save(new RolePermission(roleCode, permission.getId()));
         auditWriter.writeMatrixChange(roleCode, featureKey, true, actorId);
-        permissionResolver.evictRole(roleCode);
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole(roleCode));
     }
 
     /**
@@ -134,7 +135,7 @@ public class PermissionMatrixService {
         }
         rolePermissionRepository.delete(existing.get());
         auditWriter.writeMatrixChange(roleCode, featureKey, false, actorId);
-        permissionResolver.evictRole(roleCode);
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole(roleCode));
     }
 
     /** Role codes forming the matrix columns, in enum order. */
