@@ -13,8 +13,10 @@
 
   <main class="pi-main-wrapper">
     <div class="pm-shell">
-      <div th:if="${success}" class="pm-message" th:text="${success}"></div>
-      <div th:if="${error}" class="pm-message error" th:text="${error}"></div>
+      <div th:if="${success}" class="pm-message" role="status"
+           aria-live="polite" th:text="${success}"></div>
+      <div th:if="${error}" class="pm-message error" role="alert"
+           aria-live="assertive" th:text="${error}"></div>
 
       <header class="pm-header">
         <div>
@@ -42,7 +44,8 @@
         </div>
         <div th:unless="${#lists.isEmpty(catalog.mine)}" class="pm-table-wrap">
           <table class="pm-table">
-            <thead><tr><th>Xem trước</th><th>Tài nguyên</th><th>Trạng thái</th><th>Đang sử dụng</th><th>Cập nhật</th><th></th></tr></thead>
+            <caption class="pi-sr-only">Tài nguyên do tôi sở hữu</caption>
+            <thead><tr><th scope="col">Xem trước</th><th scope="col">Tài nguyên</th><th scope="col">Trạng thái</th><th scope="col">Đang sử dụng</th><th scope="col">Cập nhật</th><th scope="col">Hành động</th></tr></thead>
             <tbody>
             <tr th:each="item : ${catalog.mine}">
               <td class="pm-preview-cell">
@@ -91,7 +94,8 @@
         </div>
         <div th:unless="${#lists.isEmpty(catalog.shared)}" class="pm-table-wrap">
           <table class="pm-table">
-            <thead><tr><th>Xem trước</th><th>Tài nguyên</th><th>Chủ sở hữu</th><th>Trạng thái</th><th>Đang sử dụng</th><th>Cập nhật</th></tr></thead>
+            <caption class="pi-sr-only">Tài nguyên được giảng viên khác chia sẻ</caption>
+            <thead><tr><th scope="col">Xem trước</th><th scope="col">Tài nguyên</th><th scope="col">Chủ sở hữu</th><th scope="col">Trạng thái</th><th scope="col">Đang sử dụng</th><th scope="col">Cập nhật</th></tr></thead>
             <tbody>
             <tr th:each="item : ${catalog.shared}">
               <td class="pm-preview-cell">

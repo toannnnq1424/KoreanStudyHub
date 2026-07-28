@@ -19,8 +19,10 @@
     <div class="pp-content-container">
 
       <!-- Alert notifications -->
-      <div th:if="${success}" style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${success}"></div>
-      <div th:if="${error}" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${error}"></div>
+      <div th:if="${success}" role="status" aria-live="polite"
+           style="background: rgba(8, 122, 79, 0.12); color: #087A4F; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${success}"></div>
+      <div th:if="${error}" role="alert" aria-live="assertive"
+           style="background: rgba(180, 35, 62, 0.12); color: #B4233E; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; font-weight: 600;" th:text="${error}"></div>
 
       <!-- Header -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
@@ -48,15 +50,16 @@
 
         <div th:unless="${#lists.isEmpty(versions)}" class="pp-table-wrapper">
           <table class="pp-table">
+            <caption class="pi-sr-only">Các phiên bản bộ đề đã xuất bản</caption>
             <thead>
               <tr>
-                <th>Tên bộ đề</th>
-                <th>Phiên bản</th>
-                <th>Trạng thái</th>
-                <th>Xuất bản lúc</th>
-                <th>Người xuất bản</th>
-                <th>Dấu vết nội dung</th>
-                <th style="text-align:right;">Hành động</th>
+                <th scope="col">Tên bộ đề</th>
+                <th scope="col">Phiên bản</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col">Xuất bản lúc</th>
+                <th scope="col">Người xuất bản</th>
+                <th scope="col">Dấu vết nội dung</th>
+                <th scope="col" style="text-align:right;">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -118,13 +121,14 @@
         <div th:if="${explanationRecoveryAuthorized and !#lists.isEmpty(explanationRecoveryRows)}"
              class="pp-table-wrapper">
           <table class="pp-table pm-explanation-recovery__table">
+            <caption class="pi-sr-only">Trạng thái khôi phục giải thích theo câu hỏi và phiên bản</caption>
             <thead>
               <tr>
-                <th>Phiên bản</th>
-                <th>Câu hỏi</th>
-                <th>Kỹ năng</th>
-                <th>Trạng thái</th>
-                <th style="text-align:right;">Khôi phục</th>
+                <th scope="col">Phiên bản</th>
+                <th scope="col">Câu hỏi</th>
+                <th scope="col">Kỹ năng</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col" style="text-align:right;">Khôi phục</th>
               </tr>
             </thead>
             <tbody>

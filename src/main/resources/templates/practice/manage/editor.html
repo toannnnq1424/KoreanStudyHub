@@ -27,6 +27,7 @@
     <div class="toolbar-divider" aria-hidden="true"></div>
     <div class="toolbar-title-block">
       <div class="breadcrumb-text">Kho học liệu / Biên soạn đề thi</div>
+      <label class="sr-only" for="draft-title">Tiêu đề bộ đề</label>
       <input type="text" id="draft-title" th:value="${draft.title}" class="draft-title-input" oninput="triggerAutosave()" placeholder="Nhập tiêu đề bộ đề...">
     </div>
     <span id="autosave-status" class="autosave-badge" role="status"
@@ -68,7 +69,10 @@
     <div class="dots-menu-container">
       <button id="dots-menu-trigger" type="button" class="dots-trigger"
               aria-haspopup="menu" aria-expanded="false" aria-controls="dots-dropdown-menu"
-              onclick="toggleDotsDropdown(event)">⋮</button>
+              aria-label="Mở menu bản nháp"
+              onclick="toggleDotsDropdown(event)">
+        <svg th:replace="~{practice/fragments/icons :: moreVertical}"></svg>
+      </button>
       <div class="dots-dropdown" id="dots-dropdown-menu">
         <a href="#" onclick="focusDraftTitle(event)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -124,7 +128,7 @@
           </button>
           <div style="border-top:1px solid #F1F5F9; margin:4px 0;"></div>
           <!-- Section type actions -->
-          <div style="padding:4px 10px 4px; font-size:0.7rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.06em;">Thêm phần thi</div>
+          <div style="padding:4px 10px 4px; font-size:0.7rem; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.06em;">Thêm phần thi</div>
           <button type="button" data-editor-action="add-section" data-skill="READING" onclick="addSectionWrapper('READING', event)"
             style="display:flex; align-items:center; gap:8px; padding:8px 12px; font-size:0.82rem; color:var(--pp-text); background:none; border:none; width:100%; text-align:left; cursor:pointer; border-radius:6px; transition:background 0.15s;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -147,7 +151,7 @@
           </button>
           <!-- Context-dependent actions -->
           <div style="border-top:1px solid #F1F5F9; margin:4px 0;"></div>
-          <div style="padding:4px 10px 4px; font-size:0.7rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.06em;">Theo ngữ cảnh</div>
+          <div style="padding:4px 10px 4px; font-size:0.7rem; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.06em;">Theo ngữ cảnh</div>
           <button type="button" id="menu-add-group" data-editor-action="add-group" disabled
             style="display:flex; align-items:center; gap:8px; padding:8px 12px; font-size:0.82rem; color:var(--pp-text); background:none; border:none; width:100%; text-align:left; cursor:pointer; border-radius:6px; transition:background 0.15s; opacity:0.45;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12H7"/><path d="M21 6H7"/><path d="M21 18H7"/><path d="M3 6v12a2 2 0 0 0 2 2h2"/></svg>
@@ -170,7 +174,8 @@
   <main class="panel-editor">
     <div class="editor-container" id="editor-workspace">
       <!-- Publish Eligibility Banner -->
-      <div id="publish-status-banner" style="padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; font-size: 0.88rem; font-weight: 600; display: none; align-items: center; gap: 8px;"></div>
+      <div id="publish-status-banner" role="alert" aria-live="assertive" aria-atomic="true"
+           style="padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; font-size: 0.88rem; font-weight: 600; display: none; align-items: center; gap: 8px;"></div>
 
       <!-- A. Welcome/Placeholder State -->
       <div id="editor-placeholder" class="empty-workspace-state">
@@ -198,7 +203,7 @@
         </div>
 
         <div style="margin-bottom:20px;">
-          <label class="form-label">Mô tả học liệu</label>
+          <label class="form-label" for="draft-description">Mô tả học liệu</label>
           <textarea id="draft-description" class="form-textarea" style="height:100px;" placeholder="Mô tả mục tiêu và nội dung của bộ đề..." oninput="saveDraftMetadata()"></textarea>
         </div>
       </div>
@@ -206,19 +211,20 @@
       <!-- C. Test Editor -->
       <div id="editor-test-card" class="editor-card" style="display:none;">
         <div class="editor-eyebrow">Bài kiểm tra</div>
+        <label class="sr-only" for="test-title">Tên bài kiểm tra</label>
         <input type="text" id="test-title" class="editor-title-inline" oninput="saveCurrentNode()" placeholder="Tên bài kiểm tra">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
           <div>
-            <label class="form-label">Số thứ tự bài kiểm tra</label>
+            <label class="form-label" for="test-no">Số thứ tự bài kiểm tra</label>
             <input type="number" id="test-no" class="form-input" readonly>
           </div>
           <div>
-            <label class="form-label">Thời lượng dự kiến (phút)</label>
+            <label class="form-label" for="test-estimated-minutes">Thời lượng dự kiến (phút)</label>
             <input type="number" id="test-estimated-minutes" class="form-input" min="1" oninput="saveCurrentNode()" placeholder="Tự động">
           </div>
         </div>
         <div style="margin-bottom:20px;">
-          <label class="form-label">Mô tả</label>
+          <label class="form-label" for="test-description">Mô tả</label>
           <textarea id="test-description" class="form-textarea" style="height:90px;" oninput="saveCurrentNode()" placeholder="Ghi chú cho bài kiểm tra này"></textarea>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -231,15 +237,16 @@
       <!-- C. Section Editor -->
       <div id="editor-section-card" class="editor-card" style="display:none;">
         <div class="editor-eyebrow">Phần thi</div>
+        <label class="sr-only" for="sec-title">Tên phần thi</label>
         <input type="text" id="sec-title" class="editor-title-inline" oninput="saveCurrentNode()" placeholder="Nhập tên phần thi...">
         
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:24px;">
           <div>
-            <label class="form-label">Mã phần</label>
+            <label class="form-label" for="sec-lesson-code">Mã phần</label>
             <input type="text" id="sec-lesson-code" class="form-input" readonly>
           </div>
           <div>
-            <label class="form-label">Kỹ năng</label>
+            <label class="form-label" for="sec-skill">Kỹ năng</label>
             <select id="sec-skill" class="form-input" onchange="saveCurrentNode()">
               <option value="READING">읽기 (Đọc)</option>
               <option value="LISTENING">듣기 (Nghe)</option>
@@ -248,7 +255,7 @@
             </select>
           </div>
           <div>
-            <label class="form-label">Thời lượng làm bài (phút)</label>
+            <label class="form-label" for="sec-duration">Thời lượng làm bài (phút)</label>
             <input type="number" id="sec-duration" class="form-input" oninput="saveCurrentNode()">
           </div>
         </div>
@@ -258,7 +265,10 @@
           <p style="margin:-8px 0 12px; color:var(--pp-text-muted); font-size:0.8rem; line-height:1.5;">
             Âm thanh ngắn này chỉ dùng ở bước kiểm tra thiết bị. Âm thanh làm bài vẫn cấu hình riêng trong từng nhóm câu.
           </p>
-          <div class="audio-upload-box" onclick="document.getElementById('listening-check-audio-input').click()">
+          <div class="audio-upload-box" role="button" tabindex="0"
+               aria-controls="listening-check-audio-input"
+               onclick="if (event.target.id !== 'listening-check-audio-input') document.getElementById('listening-check-audio-input').click()"
+               onkeydown="activateUploadZone(event, 'listening-check-audio-input')">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
             <p style="margin:0; font-size:0.85rem; font-weight:600;">Chọn âm thanh thử loa</p>
             <span style="font-size:0.75rem; color:var(--pp-text-muted);">Bắt buộc với đề Nghe mới xuất bản</span>
@@ -275,37 +285,48 @@
       <div id="editor-group-card" class="editor-card" style="display:none;">
         <div class="editor-eyebrow">Nhóm câu hỏi</div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <label class="sr-only" for="grp-label">Nhãn nhóm câu hỏi</label>
           <input type="text" id="grp-label" class="editor-title-inline" style="margin:0; width:50%;" oninput="saveCurrentNode()" placeholder="Nhập nhãn nhóm (Ví dụ: Nhóm 1-5)">
           <div style="font-size:0.85rem; color:var(--pp-text-muted);" id="grp-meta-info">Phần: Đọc · 0 câu</div>
         </div>
 
         <div style="margin-bottom:20px; max-width:260px;">
-          <label class="form-label">Mã nhóm</label>
+          <label class="form-label" for="grp-code">Mã nhóm</label>
           <input id="grp-code" class="form-input" readonly>
         </div>
 
         <div style="margin-bottom:20px;">
-          <label class="form-label">Hướng dẫn làm nhóm câu</label>
+          <label class="form-label" for="grp-instruction">Hướng dẫn làm nhóm câu</label>
           <input id="grp-instruction" class="form-input" placeholder="Nhập hướng dẫn..." oninput="saveCurrentNode()">
         </div>
 
         <!-- Shared Content Tabs -->
         <label class="form-label">Nội dung dùng chung cho cả nhóm</label>
-        <div class="segmented-control">
-          <div class="segmented-tab active" id="tab-passage" onclick="setGroupTab('passage')">Văn bản đọc hiểu</div>
-          <div class="segmented-tab" id="tab-transcript" onclick="setGroupTab('transcript')">Lời thoại nghe</div>
-          <div class="segmented-tab" id="tab-none" onclick="setGroupTab('none')">Không có nội dung chung</div>
+        <div class="segmented-control" role="tablist" aria-label="Loại nội dung dùng chung">
+          <button type="button" role="tab" class="segmented-tab active" id="tab-passage"
+                  aria-selected="true" tabindex="0" aria-controls="grp-passage-area"
+                  onclick="setGroupTab('passage')">Văn bản đọc hiểu</button>
+          <button type="button" role="tab" class="segmented-tab" id="tab-transcript"
+                  aria-selected="false" tabindex="-1" aria-controls="grp-passage-area"
+                  onclick="setGroupTab('transcript')">Lời thoại nghe</button>
+          <button type="button" role="tab" class="segmented-tab" id="tab-none"
+                  aria-selected="false" tabindex="-1" aria-controls="grp-passage-area"
+                  onclick="setGroupTab('none')">Không có nội dung chung</button>
         </div>
 
-        <div style="margin-bottom:20px;" id="grp-passage-area">
-          <label class="form-label" id="grp-passage-label">Văn bản đọc hiểu</label>
+        <div style="margin-bottom:20px;" id="grp-passage-area" role="tabpanel"
+             aria-labelledby="tab-passage">
+          <label class="form-label" id="grp-passage-label" for="grp-passage">Văn bản đọc hiểu</label>
           <textarea id="grp-passage" class="form-textarea" style="height:150px;" placeholder="Nhập nội dung bài đọc hoặc lời thoại..." oninput="saveCurrentNode()"></textarea>
         </div>
 
         <!-- Audio resources (Listening only) -->
         <div style="margin-bottom:24px;" id="group-audio-area">
           <label class="form-label">Tài nguyên âm thanh (MP3, WAV)</label>
-          <div class="audio-upload-box" id="audio-dropzone" onclick="document.getElementById('audio-file-input').click()">
+          <div class="audio-upload-box" id="audio-dropzone" role="button" tabindex="0"
+               aria-controls="audio-file-input"
+               onclick="if (event.target.id !== 'audio-file-input') document.getElementById('audio-file-input').click()"
+               onkeydown="activateUploadZone(event, 'audio-file-input')">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:8px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             <p style="margin:0; font-size:0.85rem; font-weight:600;">Kéo thả tệp âm thanh vào đây hoặc nhấp để tải lên</p>
             <span style="font-size:0.75rem; color:var(--pp-text-muted);">Hỗ trợ MP3, WAV dung lượng nhỏ hơn 10MB</span>
@@ -333,7 +354,10 @@
         <!-- Image resources (Upload image for Group) -->
         <div style="margin-bottom:24px;">
           <label class="form-label">Tài nguyên hình ảnh (Ảnh đề bài / Đọc hiểu)</label>
-          <div class="audio-upload-box" id="group-image-dropzone" onclick="document.getElementById('group-image-file-input').click()">
+          <div class="audio-upload-box" id="group-image-dropzone" role="button" tabindex="0"
+               aria-controls="group-image-file-input"
+               onclick="if (event.target.id !== 'group-image-file-input') document.getElementById('group-image-file-input').click()"
+               onkeydown="activateUploadZone(event, 'group-image-file-input')">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <p style="margin:0; font-size:0.85rem; font-weight:600;">Nhấp hoặc kéo thả hình ảnh vào đây để tải lên</p>
             <span style="font-size:0.75rem; color:var(--pp-text-muted);">Hỗ trợ PNG, JPG, JPEG dung lượng nhỏ hơn 5MB</span>
@@ -363,11 +387,11 @@
         
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
           <div>
-            <label class="form-label">Thứ tự câu hỏi</label>
+            <label class="form-label" for="q-no">Thứ tự câu hỏi</label>
             <input type="number" id="q-no" class="form-input" readonly title="Số câu được hệ thống quản lý trong từng phần Đọc/Nghe/Viết/Nói.">
           </div>
           <div>
-            <label class="form-label">Dạng câu hỏi</label>
+            <label class="form-label" for="q-type">Dạng câu hỏi</label>
             <select id="q-type" class="form-input" onchange="handleQuestionTypeChange()">
               <option value="SINGLE_CHOICE">객관식 (Trắc nghiệm chọn một)</option>
               <option value="TRUE_FALSE_NOT_GIVEN">맞다/틀리다 (Đúng/Sai)</option>
@@ -379,7 +403,7 @@
         </div>
 
         <div id="standard-question-prompt-field" style="margin-bottom:20px;">
-          <label class="form-label">Đề bài / Câu hỏi</label>
+          <label class="form-label" for="q-prompt">Đề bài / Câu hỏi</label>
           <textarea id="q-prompt" class="form-textarea question-prompt-editor" rows="3"
                     placeholder="Ví dụ: Đoạn văn sau nói về chủ đề gì?" oninput="handleQuestionPromptInput()"></textarea>
         </div>
@@ -403,7 +427,7 @@
         </div>
 
         <div style="margin-bottom:20px;">
-          <label class="form-label">Điểm tối đa / Trọng số</label>
+          <label class="form-label" for="q-points">Điểm tối đa / Trọng số</label>
           <input type="number" id="q-points" class="form-input" step="0.5" value="2.0" oninput="saveCurrentNode()">
         </div>
 
@@ -456,16 +480,16 @@
         <div id="essay-area" style="margin-bottom:24px; display:none;">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
             <div>
-              <label class="form-label">Ký tự tối thiểu</label>
+              <label class="form-label" for="q-essay-min">Ký tự tối thiểu</label>
               <input type="number" id="q-essay-min" class="form-input" placeholder="200" oninput="saveCurrentNode()">
             </div>
             <div>
-              <label class="form-label">Ký tự tối đa</label>
+              <label class="form-label" for="q-essay-max">Ký tự tối đa</label>
               <input type="number" id="q-essay-max" class="form-input" placeholder="300" oninput="saveCurrentNode()">
             </div>
           </div>
           <div style="margin-bottom:16px;">
-            <label class="form-label">Loại bài Viết</label>
+            <label class="form-label" for="q-essay-task">Loại bài Viết</label>
             <select id="q-essay-task" class="form-input" onchange="saveCurrentNode()">
               <option value="">Chọn loại bài Viết</option>
               <option value="Q51">Câu 51 (Điền cụm từ thư tín)</option>
@@ -475,7 +499,7 @@
             </select>
           </div>
           <div style="margin-bottom:16px;">
-            <label class="form-label">Bài viết mẫu tiêu chuẩn</label>
+            <label class="form-label" for="q-essay-sample">Bài viết mẫu tiêu chuẩn</label>
             <textarea id="q-essay-sample" class="form-textarea" style="height:120px;" placeholder="Bài viết mẫu đạt điểm tối đa..." oninput="saveCurrentNode()"></textarea>
           </div>
         </div>
@@ -581,22 +605,22 @@
 
           <div class="sp-shared-controls">
           <div id="speaking-play-limit-control" style="margin-bottom:16px; max-width:280px;">
-            <label class="form-label">Số lần phát âm thanh đề bài</label>
+            <label class="form-label" for="q-speak-play-limit">Số lần phát âm thanh đề bài</label>
             <input type="number" id="q-speak-play-limit" class="form-input" min="1" max="10" value="1" oninput="saveCurrentNode()">
             <div style="font-size:0.75rem; color:var(--pp-text-muted); margin-top:6px;">Từ 1 đến 10 lần. Trình làm bài tự phát lần đầu khi mở câu.</div>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
             <div>
-              <label class="form-label">Thời gian chuẩn bị (giây)</label>
+              <label class="form-label" for="q-speak-prep">Thời gian chuẩn bị (giây)</label>
               <input type="number" id="q-speak-prep" class="form-input" min="0" max="600" value="30" oninput="saveCurrentNode()">
             </div>
             <div>
-              <label class="form-label">Thời gian nói (giây)</label>
+              <label class="form-label" for="q-speak-resp">Thời gian nói (giây)</label>
               <input type="number" id="q-speak-resp" class="form-input" min="1" max="1800" value="60" oninput="saveCurrentNode()">
             </div>
           </div>
           <div style="margin-bottom:16px;">
-            <label class="form-label">Bài nói mẫu tham khảo</label>
+            <label class="form-label" for="q-speak-sample">Bài nói mẫu tham khảo</label>
             <textarea id="q-speak-sample" class="form-textarea" style="height:100px;" placeholder="Văn bản hoặc âm thanh nói mẫu gợi ý..." oninput="saveCurrentNode()"></textarea>
           </div>
           </div>
@@ -605,7 +629,10 @@
         <!-- Image resources (Upload image for Question) -->
         <div style="margin-bottom:20px;">
           <label class="form-label">Tài nguyên hình ảnh (Ảnh câu hỏi nếu có)</label>
-          <div class="audio-upload-box" id="question-image-dropzone" onclick="document.getElementById('question-image-file-input').click()">
+          <div class="audio-upload-box" id="question-image-dropzone" role="button" tabindex="0"
+               aria-controls="question-image-file-input"
+               onclick="if (event.target.id !== 'question-image-file-input') document.getElementById('question-image-file-input').click()"
+               onkeydown="activateUploadZone(event, 'question-image-file-input')">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <p style="margin:0; font-size:0.85rem; font-weight:600;">Nhấp để chọn ảnh câu hỏi</p>
             <span style="font-size:0.75rem; color:var(--pp-text-muted);">Hỗ trợ PNG, JPG, JPEG dung lượng nhỏ hơn 5MB</span>
@@ -621,7 +648,7 @@
         <!-- Translation & Explanations -->
         <div class="form-section-title">Giải thích & Dịch</div>
         <div style="margin-bottom:16px;">
-          <label class="form-label">Bài dịch & Giải thích đáp án (Tiếng Việt)</label>
+          <label class="form-label" for="q-explanation">Bài dịch & Giải thích đáp án (Tiếng Việt)</label>
           <textarea id="q-explanation" class="form-textarea" style="height:120px;" placeholder="Lời giải thích tiếng Việt cho đáp án đúng và bài dịch đoạn văn..." oninput="saveCurrentNode()"></textarea>
         </div>
       </div>
@@ -630,20 +657,25 @@
   </main>
 
   <!-- 3. Validation Inspector Panel -->
-  <aside class="panel-validation" id="editor-validation-panel"
-         aria-label="Kiểm tra chất lượng đề — di chuột hoặc dùng nút Kiểm tra để mở">
+  <aside class="panel-validation"
+         aria-label="Kiểm tra chất lượng đề — di chuột hoặc dùng nút Kiểm tra để mở"
+         onmouseenter="handleValidationPanelMouseEnter()"
+         onmouseleave="handleValidationPanelMouseLeave()">
     <button type="button" id="validation-panel-trigger"
             class="validation-handle"
             aria-label="Mở bảng kiểm tra chất lượng đề"
             aria-controls="editor-validation-panel"
             aria-expanded="false"
             onclick="toggleValidationPanel(event)">Kiểm tra</button>
+    <div id="editor-validation-panel" class="validation-panel-surface"
+         role="region" aria-labelledby="validation-panel-title"
+         aria-hidden="true" inert hidden tabindex="-1">
     <div class="validation-header">
       <div class="validation-header-row">
-        <span class="validation-title">Kiểm tra chất lượng đề</span>
+        <span class="validation-title" id="validation-panel-title">Kiểm tra chất lượng đề</span>
         <button type="button" class="validation-close"
                 aria-label="Đóng bảng kiểm tra chất lượng đề"
-                onclick="setValidationPanelOpen(false, true)">Đóng</button>
+                onclick="closeValidationPanel(true)">Đóng</button>
       </div>
       
       <!-- Stats items -->
@@ -660,27 +692,37 @@
           <span id="progress-text">0% hoàn thiện</span>
         </div>
         <div class="progress-bar-bg">
-          <div id="progress-fill" class="progress-bar-fill"></div>
+          <div id="progress-fill" class="progress-bar-fill" role="progressbar"
+               aria-label="Mức độ hoàn thiện bộ đề"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
         </div>
       </div>
     </div>
 
     <!-- Tab filter cards -->
-    <div class="filter-chips">
-      <button class="chip active" id="chip-all" onclick="setValidationFilter('ALL')">Tất cả</button>
-      <button class="chip" id="chip-blocking" onclick="setValidationFilter('BLOCKING')">Lỗi</button>
-      <button class="chip" id="chip-warning" onclick="setValidationFilter('WARNING')">Cảnh báo</button>
+    <div class="filter-chips" role="group" aria-label="Lọc kết quả kiểm tra">
+      <button type="button" class="chip active" id="chip-all" aria-pressed="true"
+              onclick="setValidationFilter('ALL')">Tất cả</button>
+      <button type="button" class="chip" id="chip-blocking" aria-pressed="false"
+              onclick="setValidationFilter('BLOCKING')">Lỗi</button>
+      <button type="button" class="chip" id="chip-warning" aria-pressed="false"
+              onclick="setValidationFilter('WARNING')">Cảnh báo</button>
     </div>
 
-    <div class="validation-list-wrapper" id="validation-list">
+    <div class="validation-list-wrapper" id="validation-list"
+         role="status" aria-live="polite" aria-atomic="false">
       <!-- Validation warning alerts injected here -->
+    </div>
     </div>
   </aside>
 
 </div>
 
 <!-- Preview Modal -->
-<div class="modal-overlay" id="preview-modal" onclick="closePreviewModal()" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+<div class="modal-overlay" id="preview-modal" role="dialog" aria-modal="true"
+     aria-labelledby="preview-modal-title" aria-hidden="true" inert
+     onclick="closePreviewModal()"
+     style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; padding:20px;">
   <style>
     .preview-grp-tab {
       padding: 8px 14px;
@@ -759,19 +801,23 @@
       box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);
     }
   </style>
-  <div class="preview-modal-content" onclick="event.stopPropagation()">
+  <div class="preview-modal-content" tabindex="-1" onclick="event.stopPropagation()">
     <!-- Header -->
     <div style="padding:16px 24px; border-bottom:1px solid #E2E8F0; display:flex; justify-content:space-between; align-items:center; background:#ffffff;">
       <div>
         <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:#0F172A;" id="preview-modal-title">Xem trước đề thi</h3>
         <span style="font-size:0.75rem; color:#64748B;">Giao diện chia đôi giả lập phòng thi thực tế của học viên</span>
       </div>
-      <button onclick="closePreviewModal()" style="background:none; border:none; color:#64748B; font-size:1.5rem; cursor:pointer; line-height:1; padding:4px;">✕</button>
+      <button type="button" id="preview-modal-close" onclick="closePreviewModal()"
+              aria-label="Đóng bản xem trước"
+              style="background:none; border:none; color:#64748B; cursor:pointer; line-height:1; padding:4px;">
+        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
+      </button>
     </div>
     
     <div class="preview-group-nav">
       <span>Nhóm câu hỏi</span>
-      <div id="preview-group-selector">
+      <div id="preview-group-selector" role="tablist" aria-label="Nhóm câu hỏi xem trước">
         <!-- Group buttons injected dynamically -->
       </div>
     </div>
@@ -794,7 +840,8 @@
         
         <!-- Group Image -->
         <div id="preview-group-image-container" style="display:none; text-align:center;">
-          <img id="preview-group-image" style="max-width:100%; border-radius:8px; border:1px solid #E2E8F0; max-height:280px;" />
+          <img id="preview-group-image" alt="Ảnh dùng chung của nhóm câu hỏi"
+               style="max-width:100%; border-radius:8px; border:1px solid #E2E8F0; max-height:280px;" />
         </div>
 
         <!-- Passage / Text Box -->
@@ -875,6 +922,50 @@
   let latestValidation = null;
   let expandedNodes = {}; // Tracks expanded/collapsed state
   let fillPromptSelection = null;
+  let previewReturnFocus = null;
+  let validationPanelReturnFocus = null;
+  let validationPanelPinned = false;
+
+  function activateUploadZone(event, inputId) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    document.getElementById(inputId)?.click();
+  }
+
+  function focusableEditorControls(container) {
+    return Array.from(container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), '
+      + 'select:not([disabled]), textarea:not([disabled]), '
+      + '[tabindex]:not([tabindex="-1"])'))
+      .filter(element => !element.hidden
+        && element.getAttribute('aria-hidden') !== 'true'
+        && element.getClientRects().length > 0);
+  }
+
+  function trapEditorSurfaceFocus(event, surface, closeAction) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeAction();
+      return true;
+    }
+    if (event.key !== 'Tab') return false;
+    const controls = focusableEditorControls(surface);
+    if (controls.length === 0) {
+      event.preventDefault();
+      surface.focus();
+      return true;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return true;
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
     // Global mousedown listener to close dropdowns when clicking OUTSIDE them.
@@ -2153,14 +2244,19 @@
   // Segmented tab controls for shared group text
   function setGroupTab(tab, persist = true) {
     if (!['passage', 'transcript', 'none'].includes(tab)) tab = 'none';
-    document.querySelectorAll('.segmented-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelectorAll('.segmented-tab').forEach(el => {
+      const selected = el.id === 'tab-' + tab;
+      el.classList.toggle('active', selected);
+      el.setAttribute('aria-selected', selected ? 'true' : 'false');
+      el.tabIndex = selected ? 0 : -1;
+    });
 
     const passageArea = document.getElementById('grp-passage-area');
     if (tab === 'none') {
       passageArea.style.display = 'none';
     } else {
       passageArea.style.display = 'block';
+      passageArea.setAttribute('aria-labelledby', 'tab-' + tab);
       const label = document.getElementById('grp-passage-label');
       label.innerText = tab === 'passage' ? "Văn bản đọc hiểu" : "Lời thoại nghe (Transcript)";
     }
@@ -2352,7 +2448,7 @@
       + ' display:block; margin:0 auto;';
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.textContent = '✕';
+    remove.innerHTML = editorCloseIcon(12);
     remove.title = 'Xóa hình ảnh';
     remove.setAttribute('aria-label', 'Xóa hình ảnh');
     remove.style.cssText =
@@ -2727,6 +2823,22 @@
     return circles[num] || `(${num})`;
   }
 
+  function editorCloseIcon(size = 14) {
+    return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>`;
+  }
+
+  function editorGripIcon(size = 18) {
+    return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>
+              <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
+              <circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>
+            </svg>`;
+  }
+
   function renderOptionRows(q) {
     const list = document.getElementById('options-list');
     list.innerHTML = '';
@@ -2753,22 +2865,27 @@
       card.className = 'opt-card';
       card.innerHTML = `
         <div class="opt-card-grid">
-          <div class="opt-drag-handle">☰</div>
+          <div class="opt-drag-handle" aria-hidden="true">${editorGripIcon(18)}</div>
           <div class="opt-index">${getCircledNumber(idx + 1)}</div>
           <input type="${q.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}" 
                  name="correct-opt" 
                  class="opt-checkbox"
+                 aria-label="Đánh dấu phương án ${idx + 1} là đáp án đúng"
                  ${isCorrect ? 'checked' : ''} 
                  onchange="setCorrectOption(${idx})">
-          <input type="text" class="opt-text-input" value="${escapeHtml(val)}" oninput="saveOptions()">
+          <input type="text" class="opt-text-input" value="${escapeHtml(val)}"
+                 aria-label="Nội dung phương án ${idx + 1}" oninput="saveOptions()">
           <button type="button" class="tree-ellipsis-btn" onclick="chooseOptionImage(${idx})" title="Chọn ảnh cho phương án" aria-label="Chọn ảnh cho phương án">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
           </button>
-          <button class="opt-delete-btn" onclick="removeOptionRow(${idx})" ${q.options.length <= policy.minOptions ? 'disabled' : ''} title="Xóa phương án">✕</button>
+          <button type="button" class="opt-delete-btn" onclick="removeOptionRow(${idx})"
+                  ${q.options.length <= policy.minOptions ? 'disabled' : ''}
+                  title="Xóa phương án" aria-label="Xóa phương án ${idx + 1}">${editorCloseIcon(14)}</button>
           ${imageReference ? `<div style="grid-column:4 / 7; display:flex; align-items:center; gap:8px; color:var(--pp-text-muted); font-size:0.76rem; min-width:0;">
             <img src="${escapeHtml(imageReference)}" alt="Ảnh phương án ${idx + 1}" style="width:52px; height:38px; object-fit:contain; border:1px solid var(--pp-border); border-radius:6px; background:#fff;">
             <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(imageReference)}</span>
-            <button type="button" class="tree-ellipsis-btn" onclick="removeOptionImage(${idx})" title="Xóa ảnh phương án">✕</button>
+            <button type="button" class="tree-ellipsis-btn" onclick="removeOptionImage(${idx})"
+                    title="Xóa ảnh phương án" aria-label="Xóa ảnh phương án ${idx + 1}">${editorCloseIcon(14)}</button>
           </div>` : ''}
         </div>
       `;
@@ -2942,7 +3059,8 @@
         </button>
         <label><span>Nhãn hiển thị</span><input class="form-input fill-prompt" data-index="${index}" value="${escapeHtml(blank.prompt || '')}" placeholder="Ví dụ: Thành phố"></label>
         <label><span>Đáp án chấp nhận, ngăn cách bằng |</span><input class="form-input fill-values" data-index="${index}" value="${escapeHtml((blank.acceptedValues || []).join(' | '))}" placeholder="đáp án | biến thể"></label>
-        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})" title="Xóa ô trống" aria-label="Xóa ô trống ${index + 1}">✕</button>`;
+        <button type="button" class="opt-delete-btn" onclick="removeFillBlank(${index})"
+                title="Xóa ô trống" aria-label="Xóa ô trống ${index + 1}">${editorCloseIcon(14)}</button>`;
       container.appendChild(row);
     });
     container.querySelectorAll('input').forEach(input => input.addEventListener('input', saveFillBlanks));
@@ -4251,18 +4369,66 @@
     status.style.color = 'var(--pp-error)';
   }
 
-  function setValidationPanelOpen(open, restoreFocus = false) {
+  function setValidationPanelOpen(
+    open,
+    restoreFocus = false,
+    moveFocus = false
+  ) {
     const panel = document.getElementById('editor-validation-panel');
+    const shell = document.querySelector('.panel-validation');
     const trigger = document.getElementById('validation-panel-trigger');
-    if (!panel || !trigger) return;
-    panel.classList.toggle('is-open', open === true);
+    if (!panel || !shell || !trigger) return;
+    if (open === true) {
+      if (moveFocus) {
+        validationPanelReturnFocus =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : trigger;
+      }
+      panel.hidden = false;
+      panel.inert = false;
+      panel.setAttribute('aria-hidden', 'false');
+      shell.classList.add('is-open');
+    } else {
+      shell.classList.remove('is-open');
+      panel.inert = true;
+      panel.setAttribute('aria-hidden', 'true');
+      panel.hidden = true;
+    }
     trigger.setAttribute('aria-expanded', open === true ? 'true' : 'false');
     trigger.setAttribute(
       'aria-label',
       open === true
         ? 'Đóng bảng kiểm tra chất lượng đề'
         : 'Mở bảng kiểm tra chất lượng đề');
-    if (!open && restoreFocus) trigger.focus();
+    if (open === true && moveFocus) {
+      requestAnimationFrame(() => {
+        panel.querySelector('.validation-close')?.focus();
+      });
+    }
+    if (!open && restoreFocus) {
+      const returnTarget = validationPanelReturnFocus || trigger;
+      if (returnTarget instanceof HTMLElement
+          && document.contains(returnTarget)) {
+        returnTarget.focus();
+      }
+      validationPanelReturnFocus = null;
+    }
+  }
+
+  function closeValidationPanel(restoreFocus = false) {
+    validationPanelPinned = false;
+    setValidationPanelOpen(false, restoreFocus);
+  }
+
+  function handleValidationPanelMouseEnter() {
+    setValidationPanelOpen(true);
+  }
+
+  function handleValidationPanelMouseLeave() {
+    const panel = document.getElementById('editor-validation-panel');
+    if (validationPanelPinned || panel?.contains(document.activeElement)) return;
+    setValidationPanelOpen(false);
   }
 
   function toggleValidationPanel(event) {
@@ -4270,17 +4436,57 @@
       event.preventDefault();
       event.stopPropagation();
     }
-    const panel = document.getElementById('editor-validation-panel');
-    setValidationPanelOpen(!panel.classList.contains('is-open'));
+    if (validationPanelPinned) {
+      closeValidationPanel(true);
+      return;
+    }
+    validationPanelPinned = true;
+    setValidationPanelOpen(true, false, true);
   }
 
   document.addEventListener('keydown', event => {
+    const currentTab = event.target.closest?.('[role="tab"]');
+    if (currentTab
+        && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      const tablist = currentTab.closest('[role="tablist"]');
+      const tabs = Array.from(
+        tablist?.querySelectorAll('[role="tab"]:not([disabled])') || []);
+      const currentIndex = tabs.indexOf(currentTab);
+      if (currentIndex >= 0 && tabs.length > 0) {
+        event.preventDefault();
+        let targetIndex = currentIndex;
+        if (event.key === 'Home') targetIndex = 0;
+        if (event.key === 'End') targetIndex = tabs.length - 1;
+        if (event.key === 'ArrowLeft') {
+          targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        }
+        if (event.key === 'ArrowRight') {
+          targetIndex = (currentIndex + 1) % tabs.length;
+        }
+        tabs[targetIndex].focus();
+        tabs[targetIndex].click();
+        return;
+      }
+    }
+
+    const previewModal = document.getElementById('preview-modal');
+    if (previewModal?.getAttribute('aria-hidden') === 'false'
+        && trapEditorSurfaceFocus(event, previewModal, closePreviewModal)) {
+      return;
+    }
+    const assetDrawer = document.getElementById('asset-library-drawer');
+    if (assetDrawer?.getAttribute('aria-hidden') === 'false'
+        && trapEditorSurfaceFocus(
+          event, assetDrawer, () => toggleAssetLibraryDrawer(false))) {
+      return;
+    }
+
     if (event.key === 'Escape') {
       const validationPanel =
         document.getElementById('editor-validation-panel');
       const structurePanel = document.querySelector('.panel-structure');
-      if (validationPanel?.classList.contains('is-open')) {
-        setValidationPanelOpen(false, true);
+      if (validationPanel?.getAttribute('aria-hidden') === 'false') {
+        closeValidationPanel(true);
       }
       if (structurePanel?.classList.contains('is-expanded')) {
         setStructurePanelOpen(false, true);
@@ -4310,6 +4516,7 @@
       percent = Math.max(10, Math.min(100, 100 - issuesWeight));
     }
     progressFill.style.width = percent + "%";
+    progressFill.setAttribute('aria-valuenow', String(percent));
     progressText.innerText = `${percent}% hoàn thành`;
 
     const vList = document.getElementById('validation-list');
@@ -4349,8 +4556,7 @@
         </div>
       `;
       
-      // Node jump click handler
-      card.onclick = () => {
+      const jumpToValidationTarget = () => {
         if (msg.sIdx !== null && msg.sIdx !== undefined) {
           if (msg.qIdx !== null && msg.qIdx !== undefined) {
             selectNode('question', msg.sIdx, msg.gIdx, msg.qIdx);
@@ -4361,6 +4567,17 @@
           }
         }
       };
+      if (msg.sIdx !== null && msg.sIdx !== undefined) {
+        card.role = 'button';
+        card.tabIndex = 0;
+        card.setAttribute('aria-label', `Đi tới vị trí: ${msg.content}`);
+        card.onclick = jumpToValidationTarget;
+        card.onkeydown = event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          jumpToValidationTarget();
+        };
+      }
 
       vList.appendChild(card);
     });
@@ -4368,11 +4585,14 @@
 
   function setValidationFilter(filter) {
     validationFilter = filter;
-    document.querySelectorAll('.chip').forEach(el => el.classList.remove('active'));
-    
-    if (filter === 'ALL') document.getElementById('chip-all').classList.add('active');
-    else if (filter === 'BLOCKING') document.getElementById('chip-blocking').classList.add('active');
-    else if (filter === 'WARNING') document.getElementById('chip-warning').classList.add('active');
+    const selectedId = filter === 'BLOCKING'
+      ? 'chip-blocking'
+      : filter === 'WARNING' ? 'chip-warning' : 'chip-all';
+    document.querySelectorAll('.filter-chips .chip').forEach(el => {
+      const selected = el.id === selectedId;
+      el.classList.toggle('active', selected);
+      el.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
     
     if (latestValidation) updateValidationPanel(latestValidation);
   }
@@ -4550,6 +4770,7 @@
   let previewGroups = [];
 
   async function openPreviewModal() {
+    previewReturnFocus = document.activeElement;
     try {
       if (syncDraftDocumentTitle()) draftDirty = true;
       const saved = await flushDraftBeforeNavigation();
@@ -4568,8 +4789,8 @@
       previewGroups = delivery.groups;
       document.getElementById('preview-modal-title').innerText = `Xem trước: ${delivery.title}`;
       document.getElementById('preview-total-points-label').innerText = `Tổng điểm: ${delivery.totalPoints}đ`;
-      document.getElementById('preview-modal').style.display = 'flex';
     } catch (error) {
+      previewReturnFocus = null;
       alert(error.message || 'Không thể tạo bản xem trước an toàn.');
       return;
     }
@@ -4578,20 +4799,25 @@
     const selector = document.getElementById('preview-group-selector');
     selector.innerHTML = '';
     if (previewGroups.length === 0) {
-      selector.innerHTML = `<span style="font-size:0.85rem; color:#94A3B8; font-style:italic;">Bộ đề chưa có câu hỏi nào</span>`;
+      selector.innerHTML = `<span style="font-size:0.85rem; color:#64748B; font-style:italic;">Bộ đề chưa có câu hỏi nào</span>`;
       document.getElementById('preview-group-instruction').innerHTML = '';
       document.getElementById('preview-group-passage').style.display = 'none';
       document.getElementById('preview-group-audio-container').style.display = 'none';
       document.getElementById('preview-group-image-container').style.display = 'none';
       document.getElementById('preview-writing-prompts').replaceChildren();
       document.getElementById('preview-questions-stack').innerHTML = '';
+      showPreviewModal();
       return;
     }
 
+    activePreviewGroupIndex = 0;
     previewGroups.forEach((item, idx) => {
       const btn = document.createElement('button');
       btn.type = 'button';
+      btn.role = 'tab';
       btn.className = `preview-grp-tab ${idx === activePreviewGroupIndex ? 'active' : ''}`;
+      btn.setAttribute('aria-selected', idx === activePreviewGroupIndex ? 'true' : 'false');
+      btn.tabIndex = idx === activePreviewGroupIndex ? 0 : -1;
       
       let labelText = item.grp.label || `Nhóm ${idx + 1}`;
       if (item.grp.questions && item.grp.questions.length > 0) {
@@ -4608,14 +4834,26 @@
         activePreviewGroupIndex = idx;
         document.querySelectorAll('.preview-grp-tab').forEach((b, bIdx) => {
           b.classList.toggle('active', bIdx === idx);
+          b.setAttribute('aria-selected', bIdx === idx ? 'true' : 'false');
+          b.tabIndex = bIdx === idx ? 0 : -1;
         });
         renderActivePreviewGroup();
       };
       selector.appendChild(btn);
     });
 
-    activePreviewGroupIndex = 0;
     renderActivePreviewGroup();
+    showPreviewModal();
+  }
+
+  function showPreviewModal() {
+    const modal = document.getElementById('preview-modal');
+    modal.style.display = 'flex';
+    modal.inert = false;
+    modal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+      document.getElementById('preview-modal-close')?.focus();
+    });
   }
 
   function renderActivePreviewGroup() {
@@ -4643,7 +4881,7 @@
     // 1. Instruction
     const instruction = String(grp.instruction || '').trim();
     const instructionHtml = instruction ? `
-      <div style="font-size:0.75rem; font-weight:700; color:#94A3B8; text-transform:uppercase; margin-bottom:4px;">HƯỚNG DẪN BÀI THI:</div>
+      <div style="font-size:0.75rem; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">HƯỚNG DẪN BÀI THI:</div>
       <div style="font-weight:600; color:#1E293B;">${escapeHtml(instruction)}</div>
     ` : '';
     document.getElementById('preview-group-instruction').innerHTML = instructionHtml;
@@ -4713,7 +4951,7 @@
     questionsStack.innerHTML = '';
 
     if (!grp.questions || grp.questions.length === 0) {
-      questionsStack.innerHTML = `<div style="text-align:center; color:#94A3B8; padding:40px; font-style:italic;">Nhóm này chưa có câu hỏi nào.</div>`;
+      questionsStack.innerHTML = `<div style="text-align:center; color:#64748B; padding:40px; font-style:italic;">Nhóm này chưa có câu hỏi nào.</div>`;
       return;
     }
 
@@ -4905,7 +5143,15 @@
   function closePreviewModal() {
     const audioPlayer = document.getElementById('preview-group-audio');
     if (audioPlayer) audioPlayer.pause();
-    document.getElementById('preview-modal').style.display = 'none';
+    const modal = document.getElementById('preview-modal');
+    modal.inert = true;
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    if (previewReturnFocus instanceof HTMLElement
+        && document.contains(previewReturnFocus)) {
+      previewReturnFocus.focus();
+    }
+    previewReturnFocus = null;
   }
 </script>
 
@@ -4979,24 +5225,35 @@
   }
 </style>
 
-<div id="asset-library-drawer" class="asset-library-drawer" aria-hidden="true">
+<div id="asset-library-drawer" class="asset-library-drawer" role="dialog"
+     aria-modal="true" aria-labelledby="asset-library-title"
+     aria-hidden="true" inert>
    <!-- Header -->
    <div style="padding: 16px 20px; border-bottom: 1px solid #E5EAF2; display: flex; justify-content: space-between; align-items: center; background: #F8FAFD;">
-     <h3 style="margin: 0; font-size: 0.92rem; font-weight: 800; color: #172033; display: flex; align-items: center; gap: 8px;">
+     <h3 id="asset-library-title"
+         style="margin: 0; font-size: 0.92rem; font-weight: 800; color: #172033; display: flex; align-items: center; gap: 8px;">
        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F6EF7" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
        Thư viện Kho ảnh
      </h3>
-     <button type="button" onclick="toggleAssetLibraryDrawer()"
+     <button type="button" id="asset-library-close" onclick="toggleAssetLibraryDrawer()"
              aria-label="Đóng thư viện ảnh"
-             style="background: none; border: none; cursor: pointer; color: #687389; font-weight: 700; font-size: 1.1rem; padding:0;">✕</button>
+             style="background: none; border: none; cursor: pointer; color: #687389; font-weight: 700; padding:0;">
+       <svg th:replace="~{practice/fragments/icons :: close}"></svg>
+     </button>
    </div>
    <!-- Tabs -->
-   <div style="display: flex; background: #F8FAFD; border-bottom: 1px solid #E5EAF2;">
-     <button class="asset-tab-btn active" id="asset-tab-active" onclick="switchAssetTab('active')">Ảnh của tôi</button>
-     <button class="asset-tab-btn" id="asset-tab-session" onclick="switchAssetTab('session')">Từ tệp PDF này</button>
+   <div role="tablist" aria-label="Nguồn ảnh"
+        style="display: flex; background: #F8FAFD; border-bottom: 1px solid #E5EAF2;">
+     <button type="button" role="tab" class="asset-tab-btn active" id="asset-tab-active"
+             aria-selected="true" tabindex="0" aria-controls="asset-list-container"
+             onclick="switchAssetTab('active')">Ảnh của tôi</button>
+     <button type="button" role="tab" class="asset-tab-btn" id="asset-tab-session"
+             aria-selected="false" tabindex="-1" aria-controls="asset-list-container"
+             onclick="switchAssetTab('session')">Từ tệp PDF này</button>
    </div>
    <!-- Content / List -->
-   <div id="asset-list-container" style="flex: 1; overflow-y: auto; padding: 16px; background: #F6F8FC; display: flex; flex-direction: column; gap: 12px;">
+   <div id="asset-list-container" role="tabpanel" aria-labelledby="asset-tab-active"
+        style="flex: 1; overflow-y: auto; padding: 16px; background: #F6F8FC; display: flex; flex-direction: column; gap: 12px;">
      <!-- Populated by JS -->
    </div>
 </div>
@@ -5004,33 +5261,57 @@
 <script>
   let isAssetLibraryOpen = false;
   let activeAssetTab = 'active'; // active, session
+  let assetLibraryReturnFocus = null;
 
-  function toggleAssetLibraryDrawer() {
+  function toggleAssetLibraryDrawer(forceOpen) {
     const drawer = document.getElementById('asset-library-drawer');
     const trigger = document.getElementById('asset-library-trigger');
-    isAssetLibraryOpen = !isAssetLibraryOpen;
+    const nextOpen = typeof forceOpen === 'boolean'
+      ? forceOpen
+      : !isAssetLibraryOpen;
+    if (nextOpen === isAssetLibraryOpen) return;
+    isAssetLibraryOpen = nextOpen;
     drawer.classList.toggle('is-open', isAssetLibraryOpen);
     drawer.setAttribute('aria-hidden', isAssetLibraryOpen ? 'false' : 'true');
+    drawer.inert = !isAssetLibraryOpen;
     if (trigger) {
       trigger.setAttribute(
         'aria-expanded',
         isAssetLibraryOpen ? 'true' : 'false');
     }
     if (isAssetLibraryOpen) {
+      assetLibraryReturnFocus = document.activeElement;
       loadAssetLibrary();
+      requestAnimationFrame(() => {
+        document.getElementById('asset-library-close')?.focus();
+      });
+    } else {
+      const returnTarget = assetLibraryReturnFocus || trigger;
+      if (returnTarget instanceof HTMLElement
+          && document.contains(returnTarget)) {
+        returnTarget.focus();
+      }
+      assetLibraryReturnFocus = null;
     }
   }
 
   function switchAssetTab(tab) {
     activeAssetTab = tab;
-    document.querySelectorAll('.asset-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('asset-tab-' + tab).classList.add('active');
+    document.querySelectorAll('.asset-tab-btn').forEach(btn => {
+      const selected = btn.id === 'asset-tab-' + tab;
+      btn.classList.toggle('active', selected);
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+      btn.tabIndex = selected ? 0 : -1;
+    });
+    document.getElementById('asset-list-container')
+      .setAttribute('aria-labelledby', 'asset-tab-' + tab);
     loadAssetLibrary();
   }
 
   async function loadAssetLibrary() {
     const container = document.getElementById('asset-list-container');
-    container.innerHTML = '<div style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Đang tải...</div>';
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML = '<div role="status" style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Đang tải...</div>';
     
     // We can extract sessionId from draft metadata if available, else fetch general
     let url = '/practice/manage/assets';
@@ -5040,6 +5321,7 @@
         url += '?sessionId=' + sesId;
       } else {
         container.innerHTML = '<div style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Bản nháp này chưa liên kết với phiên nhập PDF.</div>';
+        container.setAttribute('aria-busy', 'false');
         return;
       }
     }
@@ -5050,10 +5332,13 @@
         headers: editorApiHeaders()
       }, 'Không tải được kho ảnh.');
       renderAssetsList(assets);
+      container.setAttribute('aria-busy', 'false');
     } catch (e) {
       console.error(e);
       container.replaceChildren();
+      container.setAttribute('aria-busy', 'false');
       const error = document.createElement('div');
+      error.role = 'alert';
       error.style.cssText =
         'text-align:center; padding:20px; color:#B42318; font-size:0.8rem;';
       error.textContent = e && e.message

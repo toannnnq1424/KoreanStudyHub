@@ -1,10 +1,18 @@
 package com.ksh.features.practice.manage;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -128,6 +136,16 @@ class PracticePhase11AuthoringUiContractTest {
                 "id=\"asset-library-drawer\" class=\"asset-library-drawer\""));
         assertTrue(editor.contains("id=\"editor-validation-panel\""));
         assertTrue(editor.contains("aria-controls=\"editor-validation-panel\""));
+        assertTrue(editor.contains(
+                "aria-hidden=\"true\" inert hidden tabindex=\"-1\""));
+        assertTrue(editor.contains("panel.hidden = false"));
+        assertTrue(editor.contains("panel.inert = false"));
+        assertTrue(editor.contains("panel.inert = true"));
+        assertTrue(editor.contains("panel.hidden = true"));
+        assertTrue(editor.contains(
+                "panel.querySelector('.validation-close')?.focus()"));
+        assertTrue(editor.contains(
+                "const returnTarget = validationPanelReturnFocus || trigger"));
         assertFalse(editor.contains(
                 "<aside class=\"panel-validation\" tabindex=\"0\""));
         assertTrue(editor.contains("role=\"status\""));
@@ -157,6 +175,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editorCss.contains(".validation-handle:focus-visible"));
         assertTrue(editorCss.contains("pointer-events: none"));
         assertTrue(editorCss.contains(".panel-validation.is-open"));
+        assertTrue(editorCss.contains(".validation-panel-surface[hidden]"));
         assertTrue(editorCss.contains(".asset-library-drawer.is-open"));
         assertTrue(editorCss.contains("top: var(--editor-toolbar-height)"));
         assertTrue(editorCss.contains("width: min(350px, 100vw)"));
@@ -340,7 +359,11 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(imagePreview.contains("container.replaceChildren()"));
         assertTrue(imagePreview.contains("image.src = url"));
         assertTrue(imagePreview.contains("reference.textContent = url"));
-        assertFalse(imagePreview.contains("innerHTML"));
+        assertTrue(imagePreview.contains(
+                "remove.innerHTML = editorCloseIcon(12)"));
+        assertFalse(imagePreview
+                .replace("remove.innerHTML = editorCloseIcon(12);", "")
+                .contains("innerHTML"));
         assertTrue(audioPreview.contains(
                 "if (!isPrivatePracticeMaterialUrl(url))"));
         assertTrue(audioPreview.contains("container.replaceChildren()"));
@@ -476,7 +499,26 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(workspace.contains("title=\"Khoanh vùng để cắt ảnh (D)\""));
         assertFalse(workspace.contains("advanced-only\" id=\"tool-draw\""));
         assertTrue(workspace.contains("{ s: 'select', d: 'draw', h: 'pan' }"));
-        assertTrue(workspace.contains("input, textarea, select, [contenteditable=\"true\"]"));
+        assertTrue(workspace.contains(
+                "input, textarea, select, button, a, [role=\"tab\"]"));
+        assertTrue(workspace.contains("if (e.defaultPrevented) return"));
+        assertTrue(workspace.contains(
+                "#ai-status-popover[aria-hidden=\"false\"]"));
+        assertTrue(workspace.contains(
+                "aria-controls=\"ai-status-popover\" aria-expanded=\"false\""));
+        assertTrue(workspace.contains("function openAiStatusPopover(options = {})"));
+        assertTrue(workspace.contains("function closeAiStatusPopover(options = {})"));
+        assertTrue(workspace.contains("announceAiStatus(`Phân tích AI thất bại."));
+        assertTrue(workspace.contains("event.stopPropagation()"));
+        assertTrue(wizard.contains(
+                "type=\"button\" id=\"dropzone\" class=\"import-dropzone\""));
+        assertTrue(wizard.contains("aria-controls=\"file-input\""));
+        assertTrue(wizard.contains("function setImportLoading(loading)"));
+        assertTrue(wizard.contains("form.setAttribute('aria-busy', 'true')"));
+        assertTrue(wizard.contains("@media (max-width: 768px)"));
+        assertTrue(wizard.contains("@media (prefers-reduced-motion: reduce)"));
+        assertTrue(wizard.contains(
+                "id=\"loading-overlay\" role=\"status\""));
         assertTrue(workspace.contains("function findCurrentRegionCropAsset(assets, annotation)"));
         assertTrue(workspace.contains("sameCoordinate(asset.cropX, annotation.xRatio)"));
         assertFalse(workspace.contains("assets.find(a => a.sourceRegionId ==="));
@@ -845,24 +887,111 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void renderedResourcesRemainUtf8AndAvoidEmojiStyleProductIcons() throws Exception {
+    void activePracticeSourcesRemainUtf8AndAvoidEmojiStyleProductIcons() throws Exception {
         List<Path> roots = List.of(
-                Path.of("src/main/resources/templates"),
-                Path.of("src/main/resources/static/js"),
-                Path.of("src/main/resources/static/css"),
-                Path.of("src/main/resources/db/migration"));
-        List<String> mojibakeMarkers = List.of("Cáº", "Ä", "Pháº", "Viáº", "â€", "ðŸ");
+                Path.of("src/main/resources/templates/practice"),
+                Path.of("src/main/resources/static/js/practice"),
+                Path.of("src/main/resources/static/css/practice"),
+                Path.of("src/main/java/com/ksh/features/practice"));
+        List<Path> activeFiles = new ArrayList<>();
 
         for (Path root : roots) {
             try (var paths = Files.walk(root)) {
-                for (Path path : paths.filter(Files::isRegularFile).toList()) {
-                    String content = Files.readString(path);
-                    for (String marker : mojibakeMarkers) {
-                        assertFalse(content.contains(marker), "Mojibake marker " + marker + " in " + path);
-                    }
-                    assertFalse(containsEmojiStyleIcon(content), "Emoji-style product icon in " + path);
-                }
+                activeFiles.addAll(paths.filter(Files::isRegularFile).toList());
             }
+        }
+        try (var paths = Files.list(Path.of("src/main/resources/static/css"))) {
+            activeFiles.addAll(paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("practice"))
+                    .toList());
+        }
+        try (var paths = Files.list(Path.of("src/main/resources/static/js"))) {
+            activeFiles.addAll(paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("practice"))
+                    .filter(path -> path.getFileName().toString().endsWith(".js"))
+                    .toList());
+        }
+        activeFiles.add(Path.of(
+                "src/main/resources/templates/fragments/practice-sidebar.html"));
+        activeFiles.add(Path.of("src/main/resources/application.properties"));
+
+        List<String> mojibakeMarkers = List.of(
+                "\uFFFD", "ï¿½", "Cáº", "Ä", "Ä‘", "Äƒ", "Æ¡", "Æ°",
+                "Pháº", "Viáº", "â€", "ðŸ");
+        for (Path path : activeFiles) {
+            String content = readStrictUtf8(path);
+            for (String marker : mojibakeMarkers) {
+                assertFalse(
+                        content.contains(marker),
+                        "Mojibake marker " + marker + " in " + path);
+            }
+            assertFalse(
+                    containsMojibakeUtf8Continuation(content),
+                    "Mis-decoded UTF-8 continuation sequence in " + path);
+            if (path.getFileName().toString().endsWith(".html")) {
+                assertNoTextGlyphProductControls(content, path);
+            } else if (path.getFileName().toString().endsWith(".js")) {
+                assertNoJavascriptTextGlyphProductControls(content, path);
+            }
+        }
+    }
+
+    @Test
+    void appliedMigrationsRemainUtf8ReadableButOutsideActiveIconPolicy() throws Exception {
+        Path migrationRoot = Path.of("src/main/resources/db/migration");
+        try (var paths = Files.walk(migrationRoot)) {
+            for (Path path : paths.filter(Files::isRegularFile).toList()) {
+                assertFalse(
+                        readStrictUtf8(path).contains("\uFFFD"),
+                        "Invalid replacement character in immutable migration " + path);
+            }
+        }
+    }
+
+    @Test
+    void touchedProductControlsUseNamedReusableLocalSvgFragments()
+            throws Exception {
+        String icons = read(
+                "src/main/resources/templates/practice/fragments/icons.html");
+        String editor = read(
+                "src/main/resources/templates/practice/manage/editor.html");
+        String importWorkspace = read(
+                "src/main/resources/templates/practice/manage/import-workspace.html");
+        String catalog = read(
+                "src/main/resources/templates/practice/index.html");
+        String playerSpeaking = read(
+                "src/main/resources/templates/practice/player-speaking.html");
+        String importWizard = read(
+                "src/main/resources/templates/practice/manage/import-wizard.html");
+        String result = read(
+                "src/main/resources/templates/practice/result.html");
+        List<String> typedDetails = List.of(
+                read("src/main/resources/templates/practice/result-detail-objective.html"),
+                read("src/main/resources/templates/practice/result-detail-writing.html"),
+                read("src/main/resources/templates/practice/result-detail-speaking.html"));
+
+        assertTrue(icons.contains("th:fragment=\"close\""));
+        assertTrue(icons.contains("th:fragment=\"moreVertical\""));
+        assertTrue(icons.contains("th:fragment=\"chevronLeft\""));
+        assertTrue(icons.contains("th:fragment=\"chevronRight\""));
+        assertFragmentUsageAtLeast(editor, "moreVertical", 1, "editor");
+        assertFragmentUsageAtLeast(editor, "close", 2, "editor");
+        assertFragmentUsageAtLeast(
+                importWorkspace, "moreVertical", 1, "import workspace");
+        assertFragmentUsageAtLeast(
+                importWorkspace, "close", 4, "import workspace");
+        assertFragmentUsageAtLeast(catalog, "chevronLeft", 2, "catalog");
+        assertFragmentUsageAtLeast(catalog, "chevronRight", 2, "catalog");
+        assertFragmentUsageAtLeast(
+                playerSpeaking, "close", 1, "Speaking player");
+        assertFragmentUsageAtLeast(
+                importWizard, "chevronRight", 1, "import wizard");
+        assertFragmentUsageAtLeast(result, "chevronLeft", 1, "Result");
+        for (String detail : typedDetails) {
+            assertFragmentUsageAtLeast(
+                    detail, "chevronLeft", 1, "typed Result Detail");
         }
     }
 
@@ -893,8 +1022,127 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(materialController.contains(".mustRevalidate()"));
     }
 
-    private static boolean containsEmojiStyleIcon(String content) {
-        return content.codePoints().anyMatch(codePoint -> codePoint >= 0x1F300 && codePoint <= 0x1FAFF);
+    private static void assertNoTextGlyphProductControls(
+            String content,
+            Path path
+    ) {
+        for (Element control : Jsoup.parse(content).select(
+                "button, a, summary, [role=button], [role=tab], "
+                        + "[role=menuitem], input[type=button], input[type=submit]")) {
+            String visibleControlText =
+                    control.text() + " " + control.attr("value");
+            for (String glyph : List.of(
+                    "▶", "Ⅱ", "✕", "×", "☰", "⋮", "✓", "←", "→")) {
+                assertFalse(
+                        visibleControlText.contains(glyph),
+                        "Text-glyph product control "
+                                + glyph
+                                + " in "
+                                + path
+                                + ": "
+                                + control.outerHtml());
+            }
+            assertFalse(
+                    containsSupplementaryEmoji(visibleControlText),
+                    "Emoji-style product control in "
+                            + path
+                            + ": "
+                            + control.outerHtml());
+        }
+    }
+
+    private static void assertNoJavascriptTextGlyphProductControls(
+            String content,
+            Path path
+    ) {
+        Pattern controlAssignment = Pattern.compile(
+                "(?is)\\b\\w*(?:btn|button)\\w*\\b"
+                        + "\\s*\\.(?:textContent|innerText|innerHTML|value)"
+                        + "\\s*=\\s*(?<value>.*?);");
+        Matcher matcher = controlAssignment.matcher(content);
+        while (matcher.find()) {
+            String assignedValue = matcher.group("value");
+            for (String glyph : List.of(
+                    "▶", "Ⅱ", "✕", "×", "☰", "⋮", "✓", "←", "→")) {
+                assertFalse(
+                        assignedValue.contains(glyph),
+                        "Text-glyph JavaScript product control "
+                                + glyph
+                                + " in "
+                                + path
+                                + ": "
+                                + matcher.group());
+            }
+            assertFalse(
+                    containsSupplementaryEmoji(assignedValue),
+                    "Emoji-style JavaScript product control in "
+                            + path
+                            + ": "
+                            + matcher.group());
+        }
+    }
+
+    private static boolean containsSupplementaryEmoji(String content) {
+        return content.codePoints().anyMatch(
+                codePoint -> codePoint >= 0x1F300
+                        && codePoint <= 0x1FAFF);
+    }
+
+    private static boolean containsMojibakeUtf8Continuation(String content) {
+        for (int index = 0; index + 1 < content.length(); index++) {
+            char lead = content.charAt(index);
+            char continuation = content.charAt(index + 1);
+            if ((lead == '\u00C2' || lead == '\u00C3')
+                    && continuation >= '\u0080'
+                    && continuation <= '\u00BF') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String readStrictUtf8(Path path) throws Exception {
+        byte[] bytes = Files.readAllBytes(path);
+        assertFalse(
+                hasUtf8Bom(bytes),
+                "UTF-8 BOM is not allowed in " + path);
+        return StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes))
+                .toString();
+    }
+
+    private static boolean hasUtf8Bom(byte[] bytes) {
+        return bytes.length >= 3
+                && (bytes[0] & 0xFF) == 0xEF
+                && (bytes[1] & 0xFF) == 0xBB
+                && (bytes[2] & 0xFF) == 0xBF;
+    }
+
+    private static void assertFragmentUsageAtLeast(
+            String template,
+            String fragment,
+            int minimum,
+            String surface
+    ) {
+        String reference = "practice/fragments/icons :: " + fragment;
+        int count = 0;
+        int cursor = 0;
+        while ((cursor = template.indexOf(reference, cursor)) >= 0) {
+            count++;
+            cursor += reference.length();
+        }
+        assertTrue(
+                count >= minimum,
+                "Expected at least "
+                        + minimum
+                        + " uses of "
+                        + fragment
+                        + " in "
+                        + surface
+                        + ", found "
+                        + count);
     }
 
     private static String between(String source, String start, String end) {
