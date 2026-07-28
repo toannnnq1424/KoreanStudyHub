@@ -1,7 +1,9 @@
 package com.ksh.features.lessons.repository;
 
 import com.ksh.entities.Section;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,6 +23,12 @@ public interface SectionRepository extends JpaRepository<Section, Long> {
 
     /** Loads a section scoped by class to harden the URL hierarchy. */
     Optional<Section> findByIdAndClassId(Long id, Long classId);
+
+    /** Locks a section as the stable parent for a lesson reorder operation. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Section s where s.id = :id and s.classId = :classId")
+    Optional<Section> findByIdAndClassIdForUpdate(@Param("id") Long id,
+                                                  @Param("classId") Long classId);
 
     /**
      * Returns the highest {@code display_order} currently used for the given

@@ -4,6 +4,7 @@ import com.ksh.features.tests.dto.TestDtos.SubmitRequest;
 import com.ksh.features.tests.dto.TestDtos.SubmitResult;
 import com.ksh.features.tests.service.TestAttemptService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,7 @@ import static com.ksh.features.lessons.dto.SectionDtos.AjaxResult;
  */
 @RestController
 @RequestMapping(value = API_TESTS, produces = MediaType.APPLICATION_JSON_VALUE)
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class TestApiController {
 
     private static final Logger log = LoggerFactory.getLogger(TestApiController.class);

@@ -1,16 +1,24 @@
 package com.ksh.features.flashcards.repository;
 
 import com.ksh.features.flashcards.entity.Flashcard;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /** Repository for {@link Flashcard} rows. */
 public interface FlashcardRepository extends JpaRepository<Flashcard, Long> {
+
+    /** Serializes per-card review state transitions across concurrent ratings. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Flashcard c where c.id = :id")
+    Optional<Flashcard> findByIdForUpdate(@Param("id") Long id);
 
     /** Cards of a deck in editor/study order. */
     List<Flashcard> findByDeckIdOrderBySortOrderAsc(Long deckId);

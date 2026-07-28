@@ -2,12 +2,15 @@ package com.ksh.config;
 
 import com.ksh.security.Roles;
 import com.ksh.security.CustomOidcUserService;
+import com.ksh.security.LoginAttemptThrottle;
+import com.ksh.security.LoginThrottleFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -19,6 +22,10 @@ import org.springframework.security.oauth2.client.web.AuthenticatedPrincipalOAut
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -83,6 +90,30 @@ public class SecurityConfig {
                 response.sendRedirect("/login?error=oauth_unregistered");
     }
 
+    @Bean
+    public AuthenticationFailureHandler formFailureHandler(
+            LoginAttemptThrottle throttle) {
+        SimpleUrlAuthenticationFailureHandler delegate =
+                new SimpleUrlAuthenticationFailureHandler("/login?error");
+        return (request, response, exception) -> {
+            throttle.recordFailure(
+                    request.getParameter("username"), request.getRemoteAddr());
+            delegate.onAuthenticationFailure(request, response, exception);
+        };
+    }
+
+    @Bean
+    public AuthenticationSuccessHandler formSuccessHandler(
+            LoginAttemptThrottle throttle) {
+        SavedRequestAwareAuthenticationSuccessHandler delegate =
+                new SavedRequestAwareAuthenticationSuccessHandler();
+        delegate.setDefaultTargetUrl("/");
+        return (request, response, authentication) -> {
+            throttle.recordSuccess(request.getParameter("username"));
+            delegate.onAuthenticationSuccess(request, response, authentication);
+        };
+    }
+
     /**
      * In-memory store for {@link org.springframework.security.oauth2.client.OAuth2AuthorizedClient}
      * instances. Required when a custom {@link ClientRegistrationRepository}
@@ -131,7 +162,12 @@ public class SecurityConfig {
      * @throws Exception if an error occurs while building the filter chain
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            LoginAttemptThrottle loginAttemptThrottle,
+            @Qualifier("formFailureHandler")
+            AuthenticationFailureHandler formFailureHandler,
+            AuthenticationSuccessHandler formSuccessHandler) throws Exception {
         http
                 // Allow same-origin framing so the in-app PDF.js / docx
                 // viewer iframes render (default is DENY). See decision 0010.
@@ -175,8 +211,8 @@ public class SecurityConfig {
                         // Fallback "/" remains safe: when a user opens /login
                         // directly there is no saved request and they are sent
                         // to the home page as before.
-                        .defaultSuccessUrl("/", false)
-                        .failureUrl("/login?error")
+                        .successHandler(formSuccessHandler)
+                        .failureHandler(formFailureHandler)
                         .permitAll()
                 )
                 .logout(logout -> logout
@@ -195,6 +231,9 @@ public class SecurityConfig {
                         // class join.
                         .defaultSuccessUrl("/", false)
                 )
+                .addFilterBefore(
+                        new LoginThrottleFilter(loginAttemptThrottle),
+                        UsernamePasswordAuthenticationFilter.class)
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's
                 // form rendering, after the response buffer has already been flushed —

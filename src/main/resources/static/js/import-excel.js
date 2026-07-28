@@ -9,7 +9,8 @@
 
   var state = {
     classId: null, uploadUrl: null, templateUrl: null,
-    sessionId: null, rows: [], filter: 'ALL'
+    sessionId: null, rows: [], filter: 'ALL',
+    uploadGeneration: 0, uploadController: null
   };
 
   function el(id) { return document.getElementById(id); }
@@ -29,9 +30,19 @@
       s.style.display = s.getAttribute('data-step') === stepName ? '' : 'none';
     });
   }
+
+  function invalidateUpload() {
+    state.uploadGeneration += 1;
+    if (state.uploadController) {
+      state.uploadController.abort();
+      state.uploadController = null;
+    }
+  }
+
   function openModal() {
     var modal = el('importExcelModal');
     if (!modal) return;
+    invalidateUpload();
     if (typeof modal.showModal === 'function') modal.showModal();
     else modal.setAttribute('open', '');
     showStep('step1');
@@ -39,6 +50,7 @@
   }
 
   function closeModal() {
+    invalidateUpload();
     var modal = el('importExcelModal');
     if (!modal) return;
     if (typeof modal.close === 'function' && modal.open) modal.close();
@@ -83,6 +95,17 @@
       var elem = el(id);
       if (elem) elem.addEventListener('click', CLICK_HANDLERS[id]);
     });
+  }
+
+  function bindModalLifecycle() {
+    var modal = el('importExcelModal');
+    if (!modal) return;
+
+    // Capture the header close before its inline dialog.close() handler runs.
+    var closeButton = modal.querySelector('.iex-close');
+    if (closeButton) closeButton.addEventListener('click', invalidateUpload, true);
+    modal.addEventListener('cancel', invalidateUpload);
+    modal.addEventListener('close', invalidateUpload);
   }
 
   // ── Step 1: file input + drag-and-drop ──────────────────────────────
@@ -134,12 +157,13 @@
    * `init` is forwarded directly to fetch() — caller is responsible for
    * headers and body.
    */
-  function postAndHandle(url, init, btn, defaultErrorMsg, onOk) {
-    fetch(url, init)
+  function postAndHandle(url, init, btn, defaultErrorMsg, onOk, isCurrent) {
+    return fetch(url, init)
       .then(function (res) {
         return res.json().then(function (j) { return { status: res.status, body: j }; });
       })
       .then(function (out) {
+        if (isCurrent && !isCurrent()) return;
         if (out.status !== 200) {
           var msg = (out.body && out.body.error) || defaultErrorMsg;
           if (window.KshToast) window.KshToast.error(msg);
@@ -149,6 +173,7 @@
         onOk(out.body);
       })
       .catch(function (err) {
+        if ((isCurrent && !isCurrent()) || (err && err.name === 'AbortError')) return;
         console.error(err);
         if (window.KshToast) window.KshToast.error('Không kết nối được tới server.');
         if (btn) btn.disabled = false;
@@ -157,17 +182,35 @@
 
   // ── Upload (step 1 → step 2) ────────────────────────────────────────
   function doUpload(file) {
+    invalidateUpload();
+    var requestGeneration = state.uploadGeneration;
+    var controller = typeof window.AbortController === 'function'
+        ? new window.AbortController()
+        : null;
+    state.uploadController = controller;
+
+    function isCurrentUpload() {
+      return requestGeneration === state.uploadGeneration
+          && (!controller || state.uploadController === controller);
+    }
+
     var uploadBtn = el('importExcelUploadBtn');
     if (uploadBtn) uploadBtn.disabled = true;
     var formData = new FormData(); formData.append('file', file);
-    postAndHandle(state.uploadUrl, {
+    var requestInit = {
       method: 'POST', headers: csrfHeaders(),
       body: formData, credentials: 'same-origin'
-    }, uploadBtn, 'Tải lên thất bại.', function (body) {
+    };
+    if (controller) requestInit.signal = controller.signal;
+
+    postAndHandle(state.uploadUrl, requestInit,
+        uploadBtn, 'Tải lên thất bại.', function (body) {
       state.sessionId = body.sessionId;
       state.rows = body.rows || [];
       renderPreview(body);
       showStep('step2');
+    }, isCurrentUpload).then(function () {
+      if (isCurrentUpload()) state.uploadController = null;
     });
   }
 
@@ -300,6 +343,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     if (!el('importExcelModal')) return;
     bindAllClicks();
+    bindModalLifecycle();
     bindFileInputAndDropZone();
     bindFilterButtons();
 

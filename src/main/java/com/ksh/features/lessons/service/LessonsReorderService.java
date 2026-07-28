@@ -76,7 +76,8 @@ public class LessonsReorderService {
     public void reorder(Long classId, Long sectionId, List<Long> orderedIds,
                         Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
-        verifySectionBelongsToClass(sectionId, classId);
+        sectionRepository.findByIdAndClassIdForUpdate(sectionId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_SECTION_NOT_FOUND));
         if (orderedIds == null) {
             throw new IllegalArgumentException("Danh sách thứ tự không được rỗng");
         }

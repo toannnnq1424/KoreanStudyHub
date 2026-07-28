@@ -10,14 +10,15 @@
 
 | Field | Value |
 |---|---|
-| Audit status | PR #32 merged to `main` at `9390b820`; phase-2 messaging, assignment-role, and tab-navigation remediations are finalized on `codex/audit-followup-phase2`; remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
+| Audit status | PR #33 merged to `main` at `8b80e498`; phase-3 fixes are verified locally on `codex/audit-followup-phase3`; policy-dependent, deferred, and manual-UAT items remain explicitly open below |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
-| Working branch observed | `codex/audit-retention-hardening` |
+| Working branch observed | `codex/audit-followup-phase3` |
 | ULP reference | `https://github.com/dikhamchua/ulp/tree/32d394c5f6d0818955455bc01f20633b66d594b5` |
 | ULP local snapshot used | `C:\Users\Admin\AppData\Local\Temp\ksh-ulp-32d394c5-20260729\ulp-32d394c5f6d0818955455bc01f20633b66d594b5` |
 | KSH root | `D:\Downloads\ksh` |
 | Comparison method | Path inventory, normalized namespace/branding comparison, semantic review, call-site tracing, and test-contract review |
+| Phase-3 verification | 15/15 focused database-free tests passed; `node --check` passed for `import-excel.js`; no full or DB-backed suite was run |
 | Last updated | 2026-07-29, Asia/Bangkok |
 | Primary constraint | Preserve the existing `/practice` foundation, AI configuration, and storage configuration |
 
@@ -96,6 +97,20 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | MSG-CONC-001 | Medium | Concurrent conversation creation could surface a unique-constraint failure | [x] | [x] |
 | ASSIGN-AUTH-001 | Medium | Learner assignment routes accepted any authenticated role with a stale enrollment | [x] | [x] |
 | UX-TABS-003 | Medium | Clicking the exact active exam tab prompted and reloaded an unsaved draft | [x] | [x] |
+| AUTH-LOGIN-001 | High | Form login allowed unlimited password guesses | [x] | [x] |
+| TEST-AUTH-001 | High | Learner test routes accepted elevated roles that retained an enrollment | [x] | [x] |
+| PUBLIC-VIEW-001 | Medium | Public attachment responses could remain in caches after bearer-token expiry | [x] | [x] |
+| FLASH-REVIEW-001 | High | Concurrent flashcard ratings could lose an SM-2 transition or collide on first insert | [x] | [x] |
+| LESSON-ORDER-001 | Medium | Concurrent section/lesson reorder could collide during temporary ordering | [x] | [x] |
+| IMPORT-STALE-001 | High | A stale student-import upload response can replace a newer preview/session | [x] | [x] |
+| DEPT-LEADER-CONC-001 | High | Concurrent leader reassignment can desynchronize department pointers and user role/department | [x] | [ ] Product policy required |
+| PROGRESS-TOGGLE-001 | Medium | Concurrent lesson-completion toggles can collide or lose parity | [x] | [ ] Product semantics required |
+| MSG-REALTIME-001 | Medium | Realtime conversation bubbles use the truncated sidebar snippet | [x] | [ ] |
+| MSG-READ-001 | Medium | A message received in an open conversation remains unread server-side | [x] | [ ] |
+| COMMENT-DUPE-001 | Medium | Double-clicking root lesson-comment submit sends duplicate POSTs | [x] | [ ] |
+| SECTION-DELETE-STATE-001 | Medium | Deleting the selected section leaves its lesson pane and client selection stale | [x] | [ ] |
+| PUBLIC-VIEW-TOKEN-001 | Medium | Public attachment bearer tokens remain reusable plaintext database values | [x] | [ ] Token lifecycle redesign required |
+| MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] | [ ] Product policy required |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1596,6 +1611,183 @@ unrelated discovery inside another commit.
 - Owner: Codex root
 - Commit: `774b8ce4`
 - PR:
+
+### AUTH-LOGIN-001 — form login accepted unlimited password guesses
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: an attacker could issue unbounded password checks against one account
+  or from one client address.
+- Remediation:
+  - [x] Add a bounded 15-minute process-local failure window for normalized
+    account and servlet remote-address keys.
+  - [x] Hash retained keys, prune expired windows, and cap state at 20,000 keys.
+  - [x] Reject blocked attempts before password verification with the same
+    neutral `/login?error` redirect used for ordinary failures.
+  - [x] Clear the account bucket after a successful login while preserving
+    saved-request navigation.
+  - [x] Do not trust forwarded client headers without a trusted-proxy policy.
+- Verification: `LoginAttemptThrottleTest` 4/4 and
+  `LoginThrottleFilterTest` 2/2 passed database-free.
+- Scope: no Practice, migration, or developer-password change.
+- Commit: `f87eaf2d`
+
+### TEST-AUTH-001 — learner test endpoints lacked an exact role boundary
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: an account promoted to lecturer, leader, or admin while retaining an
+  active enrollment could still start, heartbeat, submit, or review a learner
+  test attempt.
+- Remediation:
+  - [x] Require `Roles.PREAUTH_STUDENT` on `StudentTestController`,
+    `StudentClassTestsController`, and `TestApiController`.
+  - [x] Keep enrollment and ownership checks as the resource-level boundary.
+  - [x] Leave `StudentPracticeController` unchanged under the Practice freeze.
+- Verification: `StudentTestRoleBoundaryContractTest` passed 1/1.
+- Scope: no Practice, migration, or developer-password change.
+- Commit: `459b71df`
+
+### PUBLIC-VIEW-001 — public attachment responses could outlive token expiry in caches
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Remediation:
+  - [x] Add `Cache-Control: private, no-store` and
+    `Referrer-Policy: no-referrer` to success, not-found, and internal-error
+    responses.
+  - [x] Remove token/storage-key material from error logs.
+- Verification: `PublicViewControllerSecurityHeadersTest` passed 2/2.
+- Follow-up: plaintext bearer-token storage remains open as
+  `PUBLIC-VIEW-TOKEN-001`.
+- Scope: no Practice, migration, or developer-password change.
+- Commit: `642a664a`
+
+### FLASH-REVIEW-001 — concurrent ratings could lose Smart Review state
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: concurrent first ratings could collide on the unique review row, while
+  existing-row ratings could both derive from the same prior SM-2 state.
+- Remediation:
+  - [x] Authorize access before acquiring a database lock.
+  - [x] Lock the stable flashcard row before reading or mutating review state.
+- Verification: `ParentLockBeforeMutationContractTest` includes the pessimistic
+  lock and lock-before-review contract; 4/4 tests passed across both data fixes.
+- Scope: no Practice, migration, or developer-password change.
+- Commit: `fcd397fc`
+
+### LESSON-ORDER-001 — concurrent reorder could collide on temporary positions
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Remediation:
+  - [x] Lock the class row before loading/mutating its sections.
+  - [x] Lock the class-scoped section row before loading/mutating its lessons.
+  - [x] Retain the existing two-phase temporary/final ordering algorithm.
+- Verification: `ParentLockBeforeMutationContractTest` passed 4/4 across
+  `FLASH-REVIEW-001` and this issue.
+- Scope: no Practice, migration, or developer-password change.
+- Commit: `fcd397fc`
+
+### IMPORT-STALE-001 — stale upload callbacks can replace a newer import preview
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Reproduction:
+  - [x] Start upload A, close the modal, reopen it, and start upload B.
+  - [x] Resolve B first and A second; the old callback replaces the visible
+    rows and session id, so confirmation can target the unintended workbook.
+- Remediation checklist:
+  - [x] Invalidate and abort the active upload on modal close/open.
+  - [x] Ignore callbacks whose request/open generation is no longer current.
+  - [x] Prove only the newest session can render and be confirmed.
+- Verification: `ImportExcelUploadRaceContractTest` passed 2/2;
+  `node --check src/main/resources/static/js/import-excel.js` passed.
+- Scope: student Excel import only; no Practice or migration change.
+- Commit: `b3de78e2`
+
+### Untouched findings requiring a later decision or fix
+
+#### DEPT-LEADER-CONC-001 — department leader reassignment is not serialized
+
+- Severity: High
+- Status: [x] Finding confirmed; [ ] policy decided; [ ] remediated; [ ] verified
+- Evidence: `DepartmentService.applyLeaderAssignment()` updates department and
+  user rows through unlocked read/check/write sequences.
+- Risk: concurrent edits can leave multiple department pointers inconsistent
+  with `users.department_id`, or demote a newly assigned leader.
+- Decision required: [ ] Can one user lead more than one department?
+- Proposed fix after decision: deterministically lock affected departments and
+  old/new user rows before validation and mutation.
+
+#### PROGRESS-TOGGLE-001 — concurrent lesson-completion toggles lose parity
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] semantics decided; [ ] remediated; [ ] verified
+- Evidence: `LearningProgressService.toggleCompletion()` performs an unlocked
+  find-or-create/update on unique `(user_id, lesson_id)`.
+- Decision required: [ ] Should two concurrent toggles cancel each other, or
+  should the operation become an idempotent set-completed/set-incomplete API?
+
+#### MSG-REALTIME-001 — realtime message body is truncated to sidebar snippet
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Evidence: `MessagingService` sends only `snippet(body)` and
+  `messaging.js` renders that snippet as the open-thread bubble.
+- Remediation checklist:
+  - [ ] Add an exact full-body field while retaining the bounded sidebar snippet.
+  - [ ] Render the full body only in the active conversation.
+
+#### MSG-READ-001 — incoming message in an open thread remains unread
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Evidence: STOMP handling appends the bubble and refreshes unread count but
+  does not mark the newly received owned conversation read.
+- Remediation checklist:
+  - [ ] Add an owned mark-read endpoint/service action.
+  - [ ] Mark read before refreshing the visible badge.
+
+#### COMMENT-DUPE-001 — root lesson-comment submit has no in-flight guard
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Evidence: `lesson-comments.js` permits two submit events before the first POST
+  clears the composer.
+- Remediation checklist:
+  - [ ] Disable/guard submit while the POST is in flight.
+  - [ ] Preserve text and restore the button after failure.
+
+#### SECTION-DELETE-STATE-001 — selected-section deletion leaves stale client state
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Evidence: `sections.js` removes the section entry but leaves the deleted
+  section's lesson pane and `state.selectedSectionId` active.
+- Risk: subsequent lesson actions can target a section that no longer exists.
+- Remediation checklist:
+  - [ ] Clear or select a valid replacement section after successful deletion.
+  - [ ] Reload/clear the right pane before enabling further lesson actions.
+
+#### PUBLIC-VIEW-TOKEN-001 — public attachment tokens are stored as plaintext
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] design approved; [ ] remediated; [ ] verified
+- Constraint: the current service reuses a live raw token to reconstruct its
+  public URL, so a digest-only change cannot be made safely in place.
+- Decision required: [ ] Choose non-reuse/replacement semantics or encryption
+  with a managed key; do not add a migration during the current freeze.
+
+#### MSG-RELATION-REVOKE-001 — conversations persist after relationship revocation
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [ ] policy decided; [ ] remediated; [ ] verified
+- Evidence: role/enrollment is checked at conversation creation; later
+  open/send checks membership only.
+- Decision required: [ ] Retain deliberate D2 persistence, or revoke messaging
+  when the class relationship or role becomes invalid.
 
 ### New issue template
 
