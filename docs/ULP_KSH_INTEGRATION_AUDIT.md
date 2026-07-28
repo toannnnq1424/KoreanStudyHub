@@ -113,16 +113,26 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] | [ ] Product policy required |
 | LEADER-SCOPE-001 | Critical | Legacy class policies treat every LEADER as a global ADMIN across departments | [x] | [x] Focused verification |
 | STORAGE-TX-001 | Critical | DB rollback cannot compensate object-storage writes/deletes performed inside the transaction | [x] | [x] Focused verification |
-| CLASS-CODE-RETRY-001 | High | Class/invite collision retries continue inside a transaction poisoned by `saveAndFlush` | [x] | [ ] |
-| PUBLIC-VIEW-CONC-001 | High | Concurrent public-token creation can leave multiple live rows and break Optional lookup | [x] | [ ] |
-| LIBRARY-BIND-DELETE-001 | High | Library deletion can race a lesson bind and delete a newly referenced blob | [x] | [ ] |
-| COMMENT-BULK-TX-001 | High | Bulk moderation self-invocation bypasses the advertised per-item transaction boundary | [x] | [ ] |
-| COMMENT-MUTATION-CONC-001 | Medium | Concurrent comment mutations can duplicate audits or overwrite state | [x] | [ ] |
-| QB-IMPORT-STALE-002 | High | A stale Question Bank preview can replace the current workbook session | [x] | [ ] |
-| PROGRESS-STALE-001 | Medium | Delayed progress detail can render student A beneath student B's selection | [x] | [ ] |
-| LIBRARY-PICKER-STALE-001 | Medium | A closed library request can populate a later picker with the wrong asset kind | [x] | [ ] |
-| CLONE-WIZARD-STALE-001 | Medium | Delayed section results can mismatch the clone wizard's selected class | [x] | [ ] |
-| TEST-MONITOR-STALE-001 | Medium | Overlapping monitor polls can roll the live test UI backward | [x] | [ ] |
+| CLASS-CODE-RETRY-001 | High | Class/invite collision retries continue inside a transaction poisoned by `saveAndFlush` | [x] | [x] |
+| PUBLIC-VIEW-CONC-001 | High | Concurrent public-token creation can leave multiple live rows and break Optional lookup | [x] | [x] |
+| LIBRARY-BIND-DELETE-001 | High | Library deletion can race a lesson bind and delete a newly referenced blob | [x] | [x] |
+| COMMENT-BULK-TX-001 | High | Bulk moderation self-invocation bypasses the advertised per-item transaction boundary | [x] | [x] |
+| COMMENT-MUTATION-CONC-001 | Medium | Concurrent comment mutations can duplicate audits or overwrite state | [x] | [x] |
+| QB-IMPORT-STALE-002 | High | A stale Question Bank preview can replace the current workbook session | [x] | [x] |
+| PROGRESS-STALE-001 | Medium | Delayed progress detail can render student A beneath student B's selection | [x] | [x] |
+| LIBRARY-PICKER-STALE-001 | Medium | A closed library request can populate a later picker with the wrong asset kind | [x] | [x] |
+| CLONE-WIZARD-STALE-001 | Medium | Delayed section results can mismatch the clone wizard's selected class | [x] | [x] |
+| TEST-MONITOR-STALE-001 | Medium | Overlapping monitor polls can roll the live test UI backward | [x] | [x] |
+| PERMISSION-OVERRIDE-CONC-001 | High | Permission override races and pre-commit cache eviction can retain stale authorization | [x] | [x] Focused verification |
+| LESSON-APPEND-CONC-001 | High | Concurrent section/lesson/template append can collide on sibling display order | [x] | [x] Focused verification |
+| LIBRARY-ATTACH-WIZARD-STALE-001 | High | Stale target/preflight responses can bind library content using mismatched state | [x] | [x] |
+| FLASHCARD-DECK-DUPE-001 | Medium | Double submit can persist a flashcard deck twice before native resubmit | [x] | [x] |
+| LESSON-FORM-DUPE-001 | High | Repeated lesson submit can upload or bind media more than once | [x] | [x] |
+| COMMENT-DELETE-SCOPE-001 | Medium | Department LEADER/ADMIN moderators could hide but not delete comments | [x] | [x] |
+| TEST-LEADER-SCOPE-001 | High | Test-management services do not honor department-scoped LEADER/global ADMIN class access | [x] | [ ] Next group |
+| EXAM-IMAGE-ORPHAN-001 | Medium | Unclaimed exam image uploads have no owner-bound staging lifecycle or cleanup | [x] | [ ] Design required |
+| GENERIC-TOGGLE-CONC-001 | Medium | Several admin parity toggles read and write state without serialization | [x] | [ ] Next group |
+| AI-PROVIDER-ORDER-CONC-001 | Medium | Concurrent AI provider creation can collide on global display order | [x] | [ ] Design required |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1987,6 +1997,38 @@ unrelated discovery inside another commit.
 - [x] `git diff --check`
 - [x] No `practice` source, configuration, schema, or test path changed.
 - [ ] Database-backed concurrency/integration tests remain deferred by request.
+
+### Phase 6 findings and remediation (2026-07-29)
+
+- [x] `PERMISSION-OVERRIDE-CONC-001`: lock the affected user before override
+  mutation and evict permission caches only after successful commit.
+- [x] `LESSON-APPEND-CONC-001`: lock the stable class/section parent before
+  computing `MAX(display_order) + 1` for section, lesson, and template clones.
+- [x] `LIBRARY-ATTACH-WIZARD-STALE-001`: bind async results and replacement
+  preflight to a request generation and immutable target snapshot.
+- [x] `FLASHCARD-DECK-DUPE-001`: lock submit controls during async persistence.
+- [x] `LESSON-FORM-DUPE-001`: lock submit controls through confirm/upload/bind
+  and release them only on abort/failure or guarded native resubmit.
+- [x] `COMMENT-DELETE-SCOPE-001`: use canonical moderator policy for deletion
+  while preserving author deletion.
+- [ ] `TEST-LEADER-SCOPE-001`: confirmed; deferred to the next focused group
+  because it spans test controllers, resolver, listing, and exam services.
+- [ ] `EXAM-IMAGE-ORPHAN-001`: needs an owner-bound staged-upload/claim/expiry
+  design; transaction rollback alone cannot cover separate HTTP requests.
+- [ ] `GENERIC-TOGGLE-CONC-001`: confirmed in several admin toggle services;
+  schedule as a separate lock/desired-state group.
+- [ ] `AI-PROVIDER-ORDER-CONC-001`: needs a stable global ordering lock or an
+  ordering redesign, including the empty-table case.
+
+Verification:
+
+- [x] Maven compile.
+- [x] Focused DB-free backend and source-contract tests.
+- [x] JavaScript syntax checks for all three changed frontend files.
+- [x] `git diff --check`.
+- [x] No Practice, migration, developer-password, or user-owned config/template
+  changes included.
+- [ ] Real-database lock behavior remains deferred by request.
 
 ### New issue template
 
