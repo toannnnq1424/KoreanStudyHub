@@ -44,6 +44,10 @@
   function uploadPreview(file) {
     var formData = new FormData();
     formData.append('file', file);
+    var headers = {};
+    if (csrfToken && csrfHeader && csrfToken.content && csrfHeader.content) {
+      headers[csrfHeader.content] = csrfToken.content;
+    }
     panel.hidden = false;
     loading.hidden = false;
     errorBox.hidden = true;
@@ -55,6 +59,7 @@
     fetch(IMPORT_BASE + '/preview', {
       method: 'POST',
       body: formData,
+      headers: headers,
       credentials: 'same-origin'
     }).then(readJson)
       .then(function (result) {

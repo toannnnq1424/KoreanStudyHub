@@ -4,9 +4,9 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.dto.QuestionBankImportDtos.ConfirmResult;
 import com.ksh.features.questionbank.dto.QuestionBankImportDtos.PreviewRow;
-import com.ksh.features.questionbank.entity.QuestionBankCategory;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.entity.QuestionBankOption;
+import com.ksh.features.questionbank.dto.QuestionBankViews.CategoryOption;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser.ParsedFile;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser.RawRow;
@@ -14,7 +14,6 @@ import com.ksh.features.questionbank.imports.QuestionBankImportSession;
 import com.ksh.features.questionbank.imports.QuestionBankImportSession.ImportedItem;
 import com.ksh.features.questionbank.imports.QuestionBankImportSession.ImportedOption;
 import com.ksh.features.questionbank.imports.QuestionBankImportSessionStore;
-import com.ksh.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
 import com.ksh.security.Role;
@@ -49,7 +48,7 @@ public class QuestionBankImportService {
 
     private final UserRepository userRepository;
     private final QuestionBankAccessPolicy accessPolicy;
-    private final QuestionBankCategoryRepository categoryRepository;
+    private final QuestionBankCategoryService categoryService;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
     private final QuestionBankImportParser importParser;
@@ -57,14 +56,14 @@ public class QuestionBankImportService {
 
     public QuestionBankImportService(UserRepository userRepository,
                                      QuestionBankAccessPolicy accessPolicy,
-                                     QuestionBankCategoryRepository categoryRepository,
+                                     QuestionBankCategoryService categoryService,
                                      QuestionBankItemRepository itemRepository,
                                      QuestionBankOptionRepository optionRepository,
                                      QuestionBankImportParser importParser,
                                      QuestionBankImportSessionStore sessionStore) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
-        this.categoryRepository = categoryRepository;
+        this.categoryService = categoryService;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
         this.importParser = importParser;
@@ -75,7 +74,7 @@ public class QuestionBankImportService {
     public QuestionBankImportSession previewUpload(Long userId, Role role, MultipartFile file) {
         User actor = requireActor(userId, role);
         Long departmentId = requireDepartment(actor);
-        Map<String, QuestionBankCategory> categories = activeCategoriesByName(departmentId);
+        Map<String, CategoryOption> categories = activeCategoriesByName(actor);
         String workflowStatus = importedWorkflowStatus(actor);
         ParsedFile parsed = importParser.parse(file);
 
@@ -116,10 +115,18 @@ public class QuestionBankImportService {
         }
 
         List<Long> itemIds = new ArrayList<>();
+        Map<Long, Long> resolvedCategoryIds = new LinkedHashMap<>();
         for (ImportedItem importedItem : session.getItems()) {
+            Long categoryId = resolvedCategoryIds.get(importedItem.categoryId());
+            if (categoryId == null) {
+                categoryId = categoryService
+                        .resolveForContribution(importedItem.categoryId(), actor)
+                        .getId();
+                resolvedCategoryIds.put(importedItem.categoryId(), categoryId);
+            }
             QuestionBankItem item = itemRepository.save(new QuestionBankItem(
                     departmentId,
-                    importedItem.categoryId(),
+                    categoryId,
                     actor.getId(),
                     importedItem.questionType(),
                     session.getWorkflowStatus(),
@@ -136,9 +143,9 @@ public class QuestionBankImportService {
         return new ConfirmResult(itemIds.size(), session.toPreview().totalRows(), session.getWorkflowStatus(), itemIds);
     }
 
-    private ValidationResult validateRow(RawRow raw, Map<String, QuestionBankCategory> categories) {
+    private ValidationResult validateRow(RawRow raw, Map<String, CategoryOption> categories) {
         List<String> messages = new ArrayList<>();
-        QuestionBankCategory category = categories.get(normalizeKey(raw.categoryName()));
+        CategoryOption category = categories.get(normalizeKey(raw.categoryName()));
         if (category == null) {
             messages.add("Danh mục không tồn tại hoặc đang bị ẩn");
         }
@@ -209,7 +216,7 @@ public class QuestionBankImportService {
                 correctCount,
                 blocking);
         ImportedItem item = blocking ? null : new ImportedItem(
-                category.getId(),
+                category.id(),
                 questionType,
                 contentHtml,
                 explanationHtml,
@@ -217,10 +224,10 @@ public class QuestionBankImportService {
         return new ValidationResult(previewRow, item, blocking);
     }
 
-    private Map<String, QuestionBankCategory> activeCategoriesByName(Long departmentId) {
-        Map<String, QuestionBankCategory> categories = new LinkedHashMap<>();
-        for (QuestionBankCategory category : categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(departmentId)) {
-            categories.put(normalizeKey(category.getName()), category);
+    private Map<String, CategoryOption> activeCategoriesByName(User actor) {
+        Map<String, CategoryOption> categories = new LinkedHashMap<>();
+        for (CategoryOption category : categoryService.activeOptionsFor(actor)) {
+            categories.put(normalizeKey(category.name()), category);
         }
         return categories;
     }
