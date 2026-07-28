@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * In-memory store for pending {@link ImportSession} objects.
@@ -72,9 +73,25 @@ public class ImportSessionStore {
         return Optional.of(session);
     }
 
-    /** Explicit removal — called after a successful confirm so the UUID cannot be replayed. */
-    public void delete(UUID id) {
-        if (id != null) sessions.remove(id);
+    /** Atomically consumes an owned, live session for one confirmation attempt. */
+    public Optional<ImportSession> claim(UUID id, Long lecturerId) {
+        if (id == null) return Optional.empty();
+        AtomicReference<ImportSession> claimed = new AtomicReference<>();
+        Instant now = Instant.now();
+        sessions.computeIfPresent(id, (key, session) -> {
+            if (session.isExpired(now)) return null;
+            if (!session.getLecturerId().equals(lecturerId)) return session;
+            claimed.set(session);
+            return null;
+        });
+        return Optional.ofNullable(claimed.get());
+    }
+
+    /** Restores a claim whose validation or database transaction failed. */
+    public void restore(ImportSession session) {
+        if (session != null && !session.isExpired(Instant.now())) {
+            sessions.putIfAbsent(session.getId(), session);
+        }
     }
 
     /** Returns the current number of cached sessions (test/observability helper). */
