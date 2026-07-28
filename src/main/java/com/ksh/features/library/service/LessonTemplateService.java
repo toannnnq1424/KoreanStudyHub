@@ -315,7 +315,7 @@ public class LessonTemplateService {
                                                     Long sectionId, Long userId, Role role) {
         LessonTemplate template = getOwned(userId, templateId);
         classesService.getEditable(classId, userId, role);
-        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        reorderService.lockSectionForUpdate(sectionId, classId);
 
         Lesson lesson = materializeDraft(sectionId, template.getTitle(),
                 template.getContentType(), userId);
@@ -350,7 +350,7 @@ public class LessonTemplateService {
         Lesson source = lessonsService.getEditableLesson(
                 sourceClassId, sourceSectionId, sourceLessonId, userId, role);
         classesService.getEditable(targetClassId, userId, role);
-        reorderService.verifySectionBelongsToClass(targetSectionId, targetClassId);
+        reorderService.lockSectionForUpdate(targetSectionId, targetClassId);
 
         String type = source.getContentType() == null
                 ? CONTENT_TYPE_RICHTEXT : source.getContentType();

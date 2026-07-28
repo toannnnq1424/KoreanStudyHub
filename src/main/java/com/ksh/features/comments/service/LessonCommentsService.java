@@ -149,14 +149,14 @@ public class LessonCommentsService {
         return assembler.singleRow(comment, clazz.getLecturerId(), userId);
     }
 
-    /** Soft-deletes a comment when the caller is its author or the owning lecturer. */
+    /** Soft-deletes a comment when the caller is its author or a class moderator. */
     @Transactional
-    public void delete(Long lessonId, Long commentId, Long userId) {
-        ClassEntity clazz = authorize(lessonId, userId);
+    public void delete(Long lessonId, Long commentId, Long userId, Role role) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
         Comment comment = loadLiveCommentForUpdate(lessonId, commentId);
         boolean owner = comment.getUserId().equals(userId);
-        boolean lecturer = clazz.getLecturerId().equals(userId);
-        if (!owner && !lecturer) {
+        boolean moderator = accessPolicy.isModerator(clazz, userId, role);
+        if (!owner && !moderator) {
             throw new AccessDeniedException("Not allowed to delete this comment");
         }
         comment.markDeleted();
@@ -286,7 +286,7 @@ public class LessonCommentsService {
 
     // ── Authorization ──────────────────────────────────────────────────
 
-    /** Participant-only access (create/edit/delete): no ADMIN/LEADER bypass. */
+    /** Participant-only access for create/edit: no ADMIN/LEADER bypass. */
     private ClassEntity authorize(Long lessonId, Long userId) {
         return authorize(lessonId, userId, null);
     }
