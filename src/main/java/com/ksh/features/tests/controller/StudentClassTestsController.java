@@ -3,6 +3,7 @@ package com.ksh.features.tests.controller;
 import com.ksh.features.tests.dto.TestDtos.ClassTestsView;
 import com.ksh.features.tests.service.TestCatalogService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -30,7 +31,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_TESTS;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/tests")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentClassTestsController {
 
     private final TestCatalogService catalogService;
