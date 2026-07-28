@@ -2678,13 +2678,14 @@ Final JDK `17.0.19` evidence:
   with no Speaking prompt source table and exactly one Admin AI prompt table;
 - forward upgrade rehearsal: `V1-V55` = `55/55/0`, with exactly one table for
   each of those two independently owned capabilities;
-- targeted integrated contracts
-  (`PracticeIntegrationTest#testModeView`,
-  `PracticePhase11AuthoringUiContractTest`,
+- targeted integrated contracts from the five valid selectors
+  (`PracticePhase11AuthoringUiContractTest`,
   `SpeakingPromptAuthoringFoundationMigrationTest`,
   `KshBrandingContractTest`, `AppShellNavigationContractTest`, and
   `Sprint8AiSystemPromptIntegrationTest`): 41 tests / 0 failures / 0 errors /
-  0 skipped; and
+  0 skipped. The additional stale token
+  `PracticeIntegrationTest#testModeView` matched no current method and
+  contributed zero tests; it is not counted as executed evidence; and
 - validation wrapper exit code `0`; both disposable databases were dropped
   and the cleanup absence assertion passed.
 
@@ -2700,3 +2701,45 @@ Current handoff:
 - `CURRENT_REQUIRED_ACTION = MERGE_COMMIT_PUSH_THEN_TWO_EXACT_SHA_AUDITS`;
 - no PR or merge to `main` is authorized until both new audits accept the
   exact pushed latest-main SHA.
+
+### 14.24 Exact-SHA audit evidence correction
+
+The latest-main merge commit was pushed normally at
+`93eaefa6745f3e072b819aed427b00bd518b5c09`. Two independent read-only audits
+verified that exact remote commit and tree.
+
+The architecture/duplication/ownership audit accepted the tree with no
+blocker. It confirmed the complete Phase 13F ancestry, the immutable main V54
+blob followed by the Practice V55 migration, canonical live KSH branding,
+separate Practice and project-wide AI/storage ownership, and the preserved
+responsive Vietnamese navigation/role contracts.
+
+The scope/contract/regression audit found one release-evidence blocker and no
+production-code, schema, security or cross-skill blocker: the targeted gate
+command still named the removed method
+`PracticeIntegrationTest#testModeView`. Surefire executed the five valid
+class selectors, whose counts independently total all 41 reported tests, but
+the stale method token itself ran no test. Section 14.23 now records that fact
+instead of attributing coverage to the stale selector.
+
+One focused correction gate on JDK `17.0.19` ran the two current contracts in
+a single Maven invocation:
+
+- `PracticeIntegrationTest#testPlayerView`;
+- `PracticeIntegrationTest#legacyModeRedirectsToSetDetail`;
+- 2 tests / 0 failures / 0 errors / 0 skipped;
+- fresh disposable Flyway V55 proof: `55/55/0`; and
+- wrapper exit code `0`, followed by database cleanup/absence proof.
+
+The already-green 2,366-test full suite also executed the complete current
+`PracticeIntegrationTest`; it is unchanged evidence. This correction changes
+only the accuracy of the live log, not production code, schema, prompt,
+AI/storage ownership or deferred browser/provider gates.
+
+Current handoff:
+
+- `PHASE_13C3_AUDIT_EVIDENCE_CORRECTION = GREEN`;
+- `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_DOC_CORRECTION_COMMIT_PUSH`;
+- `CURRENT_REQUIRED_ACTION = COMMIT_PUSH_DOC_CORRECTION_THEN_RERUN_BOTH_AUDITS`;
+- the architecture acceptance and scope rejection above remain verdicts for
+  exact SHA `93eaefa` only and cannot authorize the corrected SHA.
