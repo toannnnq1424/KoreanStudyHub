@@ -108,11 +108,14 @@
               </a>
             </div>
           </form>
-          <p class="pp-filter-boundary"
-             th:if="${progressFilter.writingFilterActive()}">
-            Bộ lọc tác vụ/hồ sơ Viết chỉ áp dụng cho các nhóm điểm Viết. Tổng hoạt động, lịch học và lịch sử không có
-            chiều tác vụ/hồ sơ nên vẫn là dữ kiện toàn cục hoặc chỉ lọc theo kỹ năng.
-          </p>
+          <details class="pp-filter-boundary"
+                   th:if="${progressFilter.writingFilterActive()}">
+            <summary>Phạm vi của bộ lọc Viết · 쓰기 필터 범위</summary>
+            <p>
+              Bộ lọc tác vụ/hồ sơ Viết chỉ áp dụng cho các nhóm điểm Viết. Tổng hoạt động, lịch học và lịch sử không có
+              chiều tác vụ/hồ sơ nên vẫn là dữ kiện toàn cục hoặc chỉ lọc theo kỹ năng.
+            </p>
+          </details>
         </section>
 
         <section class="pp-state-card"
@@ -146,47 +149,6 @@
 
         <th:block th:unless="${progressFilter.reason() != null
                               && progressFilter.reason().name() == 'NO_ACTIVITY'}">
-          <section class="pp-hero-card" aria-label="Tóm tắt toàn bộ lịch sử">
-            <div class="pp-hero-left">
-              <div class="pp-avatar-wrapper">
-                <img th:if="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}"
-                     th:src="${overview.avatarUrl()}" alt="Ảnh đại diện">
-                <div th:unless="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}"
-                     class="pp-avatar-placeholder"
-                     th:text="${#strings.isEmpty(overview.studentName()) ? 'K' : #strings.substring(overview.studentName(), 0, 1)}">K</div>
-              </div>
-              <div class="pp-hero-greet">
-                <p>Xin chào,</p>
-                <h2 th:text="${overview.studentName()}">Học viên KSH</h2>
-                <span>Tóm tắt toàn bộ lịch sử · 전체 기록 요약</span>
-              </div>
-            </div>
-            <dl class="pp-hero-facts">
-              <div>
-                <dt>Tổng hoạt động</dt>
-                <dd th:text="${overview.attemptCounts().total()}">0</dd>
-              </div>
-              <div>
-                <dt>Đã hoàn thành</dt>
-                <dd th:text="${overview.attemptCounts().completed()}">0</dd>
-              </div>
-              <div>
-                <dt>Đang làm</dt>
-                <dd th:text="${overview.attemptCounts().inProgress()}">0</dd>
-              </div>
-              <div>
-                <dt>Thời lượng hợp lệ</dt>
-                <dd th:text="${overview.totalPracticeMinutes() == null
-                              ? 'Chưa khả dụng'
-                              : overview.totalPracticeMinutes() + ' phút'}">Chưa khả dụng</dd>
-              </div>
-            </dl>
-            <div class="pp-hero-source">
-              <th:block th:replace="~{practice/fragments/progress-facts :: coverage(${overview.coverage()})}"></th:block>
-              <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${overview.allTimeWindow()})}"></th:block>
-            </div>
-          </section>
-
           <nav class="pp-tabs" aria-label="Khu vực tiến độ">
             <a class="pp-tab-btn"
                th:classappend="${progressFilter.tab() == 'overview'} ? ' active'"
@@ -209,42 +171,77 @@
           </nav>
 
           <div class="pp-tab-panel active" th:if="${progressFilter.tab() == 'overview'}">
-            <section class="pp-stats-row" aria-label="Dữ kiện tổng quan">
-              <article class="pp-stat-card">
-                <div class="pp-stat-info">
-                  <span>Điểm gần đây</span>
-                  <h3 th:if="${overview.recentScoreFact().renderableValue()}"
-                      th:text="${overview.recentScoreFact().value() + '%'}">80%</h3>
-                  <h3 th:unless="${overview.recentScoreFact().renderableValue()}">
-                    Chưa khả dụng
-                  </h3>
-                  <p>Chỉ gồm điểm Đọc/Nghe đủ điều kiện; không có điểm Nói tổng hợp và không gộp các tác vụ Viết.</p>
-                  <th:block th:replace="~{practice/fragments/progress-facts :: sourceFact(${overview.recentScoreFact()})}"></th:block>
+            <section class="pp-hero-card pp-summary-grid" aria-label="Tóm tắt toàn bộ lịch sử">
+              <article class="pp-focal-panel">
+                <header class="pp-profile-line">
+                  <span>Hồ sơ học tập</span>
+                  <span class="pp-profile-identity">
+                    <img th:if="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}"
+                         th:src="${overview.avatarUrl()}"
+                         alt="Ảnh đại diện">
+                    <span th:unless="${overview.avatarUrl() != null && !overview.avatarUrl().isEmpty()}"
+                          class="pp-profile-avatar-fallback"
+                          aria-hidden="true"
+                          th:text="${#strings.isEmpty(overview.studentName())
+                                   ? 'K'
+                                   : #strings.substring(overview.studentName(), 0, 1)}">K</span>
+                    <strong th:text="${overview.studentName()}">Học viên KSH</strong>
+                  </span>
+                </header>
+                <p class="pp-focal-label">Điểm Đọc/Nghe gần đây</p>
+                <div class="pp-focal-score"
+                     th:if="${overview.recentScoreFact().renderableValue()}">
+                  <strong th:text="${overview.recentScoreFact().value()}">91.49</strong><span>%</span>
+                </div>
+                <p class="pp-focal-unavailable"
+                   th:unless="${overview.recentScoreFact().renderableValue()}">
+                  Chưa khả dụng
+                </p>
+                <p class="pp-focal-note">
+                  Chỉ gồm dữ kiện Đọc/Nghe đủ điều kiện; Viết tách theo tác vụ, Nói không có điểm tổng hợp.
+                </p>
+                <dl class="pp-hero-facts">
+                  <div>
+                    <dt>Hoạt động</dt>
+                    <dd th:text="${overview.attemptCounts().total()}">0</dd>
+                  </div>
+                  <div>
+                    <dt>Hoàn thành</dt>
+                    <dd th:text="${overview.attemptCounts().completed()}">0</dd>
+                  </div>
+                  <div>
+                    <dt>Đang làm</dt>
+                    <dd th:text="${overview.attemptCounts().inProgress()}">0</dd>
+                  </div>
+                  <div>
+                    <dt>Phút hợp lệ</dt>
+                    <dd th:text="${overview.totalPracticeMinutes() == null
+                                  ? '—'
+                                  : overview.totalPracticeMinutes()}">—</dd>
+                  </div>
+                </dl>
+                <div class="pp-focal-audit">
+                  <th:block th:replace="~{practice/fragments/progress-facts
+                                          :: sourceFact(${overview.recentScoreFact()})}"></th:block>
+                  <th:block th:replace="~{practice/fragments/progress-facts
+                                          :: sourceFact(${overview.durationFact()})}"></th:block>
                 </div>
               </article>
-              <article class="pp-stat-card">
-                <div class="pp-stat-info">
-                  <span>Thời gian luyện hợp lệ</span>
-                  <h3 th:text="${overview.totalPracticeMinutes() == null
-                                ? 'Chưa khả dụng'
-                                : overview.totalPracticeMinutes() + ' phút'}">Chưa khả dụng</h3>
-                  <p>Thời lượng thiếu hoặc sai bị loại và được ghi rõ trong độ phủ.</p>
-                  <th:block th:replace="~{practice/fragments/progress-facts :: sourceFact(${overview.durationFact()})}"></th:block>
-                </div>
-              </article>
-            </section>
 
-            <section class="pp-charts-row">
-              <article class="pp-chart-card" data-chart-shell="radar">
+              <article class="pp-chart-card pp-skill-panel" data-chart-shell="radar">
                 <header class="pp-chart-header">
-                  <h2>Điểm Đọc/Nghe đủ điều kiện · 읽기/듣기 점수</h2>
-                  <p>Viết không vào radar vì các tác vụ/hồ sơ/mức tối đa không được gộp; Nói không có điểm tổng hợp.</p>
+                  <h2>So sánh kỹ năng · 기능 비교</h2>
+                  <p>Điểm Đọc/Nghe trên thang 100. Viết không vào radar; Nói không có điểm tổng hợp.</p>
                 </header>
                 <div class="pp-chart-container">
                   <canvas id="chart-radar-skills" hidden aria-hidden="true"></canvas>
+                  <div class="pp-chart-loading" data-chart-loading aria-hidden="true">
+                    <span></span><span></span><span></span>
+                  </div>
                   <th:block th:replace="~{practice/fragments/progress-facts
                                           :: chartFailure(${progressFilter})}"></th:block>
-                  <div class="pp-chart-fallback" data-chart-fallback>
+                  <details class="pp-chart-fallback" data-chart-fallback>
+                    <summary>Xem bảng và độ phủ · 데이터 표 및 범위</summary>
                     <table class="pp-table">
                       <caption>Bảng thay thế biểu đồ điểm Đọc/Nghe</caption>
                       <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / hoạt động</th><th scope="col">Độ phủ</th></tr></thead>
@@ -259,11 +256,10 @@
                                      ? metric.scoreFact().numerator() + ' / '
                                        + metric.scoreFact().denominator()
                                      : 'Chưa khả dụng'}">3 / 4</td>
-                        <td th:text="${metric.scoreFact().sampleSize() + ' / ' + metric.scoreFact().activityCount()}">2 / 3</td>
+                        <td th:text="${metric.scoreFact().sampleSize() + ' / '
+                                     + metric.scoreFact().activityCount()}">2 / 3</td>
                         <td>
-                          <strong th:if="${metric.scoreFact().partialCoverage()}">
-                            Một phần · 부분 범위
-                          </strong>
+                          <strong th:if="${metric.scoreFact().partialCoverage()}">Một phần · 부분 범위</strong>
                           <span th:text="${metric.scoreFact().coverage().eligibleCount() + ' đủ điều kiện; '
                                          + metric.scoreFact().coverage().excludedCount() + ' bị loại'}">2 đủ điều kiện</span>
                         </td>
@@ -272,84 +268,32 @@
                     </table>
                     <th:block th:each="metric : ${overview.skillMetrics()}">
                       <th:block th:if="${metric.skill() == 'READING' || metric.skill() == 'LISTENING'}"
-                                th:replace="~{practice/fragments/progress-facts :: sourceFact(${metric.scoreFact()})}"></th:block>
+                                th:replace="~{practice/fragments/progress-facts
+                                              :: sourceFact(${metric.scoreFact()})}"></th:block>
                     </th:block>
                     <p class="pp-section-empty"
                        th:if="${#lists.isEmpty(overview.skillMetrics())
                                || progressFilter.skill().name() == 'WRITING'
                                || progressFilter.skill().name() == 'SPEAKING'}">
-                      Không có điểm Đọc/Nghe đủ điều kiện cho bộ lọc này · 표시할 수 있는 읽기/듣기 점수가 없습니다.
+                      Không có điểm Đọc/Nghe đủ điều kiện cho bộ lọc này.
                     </p>
-                  </div>
+                  </details>
                 </div>
               </article>
 
-              <article class="pp-chart-card" data-chart-shell="distribution">
-                <header class="pp-chart-header">
-                  <h2>Hoạt động theo kỹ năng · 기능별 활동</h2>
-                  <p>Đây là số lượt đã lưu, không phải tỷ lệ năng lực hoặc điểm kỹ năng. Tác vụ/hồ sơ Viết không lọc dữ kiện này.</p>
-                </header>
-                <div class="pp-chart-container">
-                  <canvas id="chart-donut-distribution" hidden aria-hidden="true"></canvas>
-                  <th:block th:replace="~{practice/fragments/progress-facts
-                                          :: chartFailure(${progressFilter})}"></th:block>
-                  <div class="pp-chart-fallback" data-chart-fallback>
-                    <table class="pp-table">
-                      <caption>Bảng thay thế biểu đồ hoạt động theo kỹ năng</caption>
-                      <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Hoạt động</th><th scope="col">Hoàn thành</th><th scope="col">Đang làm</th></tr></thead>
-                      <tbody>
-                      <tr th:each="metric : ${overview.skillMetrics()}">
-                        <th scope="row" th:text="${metric.skillLabel()}">Kỹ năng</th>
-                        <td th:text="${metric.attemptCounts().total()}">0</td>
-                        <td th:text="${metric.attemptCounts().completed()}">0</td>
-                        <td th:text="${metric.attemptCounts().inProgress()}">0</td>
-                      </tr>
-                      </tbody>
-                    </table>
-                    <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${overview.allTimeWindow()})}"></th:block>
-                    <p class="pp-section-empty" th:if="${#lists.isEmpty(overview.skillMetrics())}">
-                      Bộ lọc này chưa có dữ kiện hoạt động theo kỹ năng · 이 필터에는 기능별 활동 데이터가 없습니다.
-                    </p>
-                  </div>
-                </div>
-              </article>
-            </section>
-
-            <section class="pp-heatmap-card" data-chart-shell="heatmap">
-              <header class="pp-heatmap-header">
-                <div>
-                  <h2>Tần suất toàn bộ kỹ năng · 전체 기능 학습 빈도</h2>
-                  <p>Không áp dụng bộ lọc kỹ năng/tác vụ vì dữ kiện ngày không mang chiều đó.</p>
-                </div>
-              </header>
-              <div class="pp-heatmap-wrapper" hidden data-chart-visual aria-hidden="true">
-                <div class="pp-heatmap-grid" id="heatmap-grid"></div>
+              <div class="pp-hero-source">
+                <th:block th:replace="~{practice/fragments/progress-facts
+                                        :: sourceEvidence(${overview.coverage()}, ${overview.allTimeWindow()})}"></th:block>
               </div>
-              <th:block th:replace="~{practice/fragments/progress-facts
-                                      :: chartFailure(${progressFilter})}"></th:block>
-              <div class="pp-chart-fallback" data-chart-fallback>
-                <table class="pp-table">
-                  <caption>Bảng thay thế lịch hoạt động, từ nguồn gần đây bị giới hạn</caption>
-                  <thead><tr><th scope="col">Ngày</th><th scope="col">Số hoạt động</th><th scope="col">Thời lượng hợp lệ</th><th scope="col">Độ phủ thời lượng</th></tr></thead>
-                  <tbody>
-                  <tr th:each="cell : ${overview.heatmap()}">
-                    <th scope="row" th:text="${cell.date()}">2026-07-25</th>
-                    <td th:text="${cell.attemptCount()}">0</td>
-                    <td th:text="${cell.totalMinutes() == null ? 'Chưa khả dụng' : cell.totalMinutes() + ' phút'}">Chưa khả dụng</td>
-                    <td>
-                      <th:block th:replace="~{practice/fragments/progress-facts :: coverage(${cell.durationCoverage()})}"></th:block>
-                    </td>
-                  </tr>
-                  </tbody>
-                </table>
-              </div>
-              <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${overview.recentDetailWindow()})}"></th:block>
             </section>
 
             <section class="pp-history-card">
               <header class="pp-history-title-row">
-                <h2>Lịch sử theo kỹ năng đã chọn · 선택 기능 기록</h2>
-                <p>Tối đa 8 hoạt động từ nguồn chi tiết gần đây.</p>
+                <div>
+                  <span class="pp-section-kicker">Hoạt động gần đây</span>
+                  <h2>Lịch sử theo kỹ năng đã chọn</h2>
+                </div>
+                <p>Tối đa 8 hoạt động</p>
               </header>
               <div class="pp-empty-state" th:if="${#lists.isEmpty(overview.recentHistory())}">
                 <h3>Chưa có hoạt động phù hợp · 일치하는 활동이 없습니다</h3>
@@ -363,8 +307,9 @@
               <div class="pp-timeline" th:unless="${#lists.isEmpty(overview.recentHistory())}">
                 <article class="pp-timeline-item" th:each="row : ${overview.recentHistory()}">
                   <div class="pp-timeline-content">
-                    <div>
+                    <div class="pp-timeline-main">
                       <span class="pp-timeline-skill-tag"
+                            th:classappend="${#strings.toLowerCase(row.skill())}"
                             th:text="${row.skill() == 'READING' ? 'Đọc · 읽기'
                                      : (row.skill() == 'LISTENING' ? 'Nghe · 듣기'
                                      : (row.skill() == 'WRITING' ? 'Viết · 쓰기' : 'Nói · 말하기'))}">Đọc</span>
@@ -376,10 +321,10 @@
                       <strong th:if="${row.resumable()}">Đang làm</strong>
                       <strong th:if="${row.state() == 'STALE'}">Cần bắt đầu lại</strong>
                       <strong th:if="${row.resultEligible() && row.skill() == 'SPEAKING'}">
-                        Hoạt động Nói; không có điểm tổng hợp
+                        Không có điểm tổng hợp
                       </strong>
                       <strong th:if="${row.resultEligible() && row.skill() == 'WRITING'}">
-                        Xem các nhóm điểm theo tác vụ Viết
+                        Điểm theo tác vụ
                       </strong>
                       <strong th:if="${row.resultEligible()
                                       && (row.skill() == 'READING' || row.skill() == 'LISTENING')
@@ -389,11 +334,8 @@
                       <strong th:if="${row.resultEligible()
                                       && (row.skill() == 'READING' || row.skill() == 'LISTENING')
                                       && !row.scoreFact().renderableValue()}">
-                        Điểm chưa khả dụng
+                        Chưa có điểm
                       </strong>
-                      <th:block th:if="${row.resultEligible()
-                                        && (row.skill() == 'READING' || row.skill() == 'LISTENING')}"
-                                th:replace="~{practice/fragments/progress-facts :: sourceFact(${row.scoreFact()})}"></th:block>
                       <a th:if="${row.resumable()}"
                          th:href="@{/practice/attempts/{id}(id=${row.id()})}">Tiếp tục</a>
                       <a th:if="${row.resultEligible()}"
@@ -402,7 +344,81 @@
                   </div>
                 </article>
               </div>
-              <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${overview.recentDetailWindow()})}"></th:block>
+              <th:block th:replace="~{practice/fragments/progress-facts
+                                      :: sourceWindow(${overview.recentDetailWindow()})}"></th:block>
+            </section>
+
+            <section class="pp-overview-insights" aria-label="Biểu đồ bổ sung">
+              <article class="pp-chart-card" data-chart-shell="distribution">
+                <header class="pp-chart-header">
+                  <h2>Hoạt động theo kỹ năng · 기능별 활동</h2>
+                  <p>Số lượt đã lưu, không phải điểm năng lực.</p>
+                </header>
+                <div class="pp-chart-container">
+                  <canvas id="chart-donut-distribution" hidden aria-hidden="true"></canvas>
+                  <div class="pp-chart-loading is-distribution" data-chart-loading aria-hidden="true">
+                    <span></span><span></span><span></span>
+                  </div>
+                  <th:block th:replace="~{practice/fragments/progress-facts
+                                          :: chartFailure(${progressFilter})}"></th:block>
+                  <details class="pp-chart-fallback" data-chart-fallback>
+                    <summary>Xem bảng hoạt động · 활동 표</summary>
+                    <table class="pp-table">
+                      <caption>Bảng thay thế biểu đồ hoạt động theo kỹ năng</caption>
+                      <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Hoạt động</th><th scope="col">Hoàn thành</th><th scope="col">Đang làm</th></tr></thead>
+                      <tbody>
+                      <tr th:each="metric : ${overview.skillMetrics()}">
+                        <th scope="row" th:text="${metric.skillLabel()}">Kỹ năng</th>
+                        <td th:text="${metric.attemptCounts().total()}">0</td>
+                        <td th:text="${metric.attemptCounts().completed()}">0</td>
+                        <td th:text="${metric.attemptCounts().inProgress()}">0</td>
+                      </tr>
+                      </tbody>
+                    </table>
+                    <th:block th:replace="~{practice/fragments/progress-facts
+                                            :: sourceWindow(${overview.allTimeWindow()})}"></th:block>
+                    <p class="pp-section-empty" th:if="${#lists.isEmpty(overview.skillMetrics())}">
+                      Chưa có dữ kiện hoạt động theo kỹ năng.
+                    </p>
+                  </details>
+                </div>
+              </article>
+
+              <article class="pp-heatmap-card" data-chart-shell="heatmap">
+                <header class="pp-heatmap-header">
+                  <div>
+                    <h2>Nhịp luyện tập · 학습 빈도</h2>
+                    <p>Tần suất toàn bộ kỹ năng theo ngày.</p>
+                  </div>
+                </header>
+                <div class="pp-heatmap-wrapper" hidden data-chart-visual aria-hidden="true">
+                  <div class="pp-heatmap-grid" id="heatmap-grid"></div>
+                </div>
+                <th:block th:replace="~{practice/fragments/progress-facts
+                                        :: chartFailure(${progressFilter})}"></th:block>
+                <details class="pp-chart-fallback" data-chart-fallback>
+                  <summary>Xem lịch dạng bảng · 활동 달력 표</summary>
+                  <table class="pp-table">
+                    <caption>Bảng thay thế lịch hoạt động, từ nguồn gần đây bị giới hạn</caption>
+                    <thead><tr><th scope="col">Ngày</th><th scope="col">Số hoạt động</th><th scope="col">Thời lượng hợp lệ</th><th scope="col">Độ phủ thời lượng</th></tr></thead>
+                    <tbody>
+                    <tr th:each="cell : ${overview.heatmap()}">
+                      <th scope="row" th:text="${cell.date()}">2026-07-25</th>
+                      <td th:text="${cell.attemptCount()}">0</td>
+                      <td th:text="${cell.totalMinutes() == null
+                                   ? 'Chưa khả dụng'
+                                   : cell.totalMinutes() + ' phút'}">Chưa khả dụng</td>
+                      <td>
+                        <th:block th:replace="~{practice/fragments/progress-facts
+                                                :: coverage(${cell.durationCoverage()})}"></th:block>
+                      </td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </details>
+                <th:block th:replace="~{practice/fragments/progress-facts
+                                        :: sourceWindow(${overview.recentDetailWindow()})}"></th:block>
+              </article>
             </section>
           </div>
 
@@ -414,9 +430,13 @@
               </header>
               <div class="pp-chart-container pp-chart-container-wide">
                 <canvas id="chart-score-trend" hidden aria-hidden="true"></canvas>
+                <div class="pp-chart-loading is-trend" data-chart-loading aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
                 <th:block th:replace="~{practice/fragments/progress-facts
                                         :: chartFailure(${progressFilter})}"></th:block>
-                <div class="pp-chart-fallback" data-chart-fallback>
+                <details class="pp-chart-fallback" data-chart-fallback>
+                  <summary>Xem bảng xu hướng và độ phủ · 추이 표 및 범위 보기</summary>
                   <table class="pp-table">
                     <caption>Bảng thay thế biểu đồ xu hướng</caption>
                     <thead><tr><th scope="col">Thời điểm</th><th scope="col">Kỹ năng</th><th scope="col">Bài luyện</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / độ phủ</th></tr></thead>
@@ -443,12 +463,14 @@
                     </tr>
                     </tbody>
                   </table>
-                  <th:block th:each="point : ${analytics.scoreTrend()}"
-                            th:replace="~{practice/fragments/progress-facts :: sourceFact(${point.scoreFact()})}"></th:block>
+                  <th:block th:each="point : ${analytics.scoreTrend()}">
+                    <th:block th:replace="~{practice/fragments/progress-facts
+                                            :: sourceFact(${point.scoreFact()})}"></th:block>
+                  </th:block>
                   <p class="pp-section-empty" th:if="${#lists.isEmpty(analytics.scoreTrend())}">
                     Không có sự kiện điểm Đọc/Nghe đủ điều kiện cho bộ lọc này.
                   </p>
-                </div>
+                </details>
               </div>
               <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${analytics.recentDetailWindow()})}"></th:block>
             </section>
