@@ -1,7 +1,7 @@
 package com.ksh.features.notifications.service;
 
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.mail.MailService;
+import com.ksh.features.mail.outbox.MailOutboxService;
 import com.ksh.features.notifications.dto.NotificationDtos.NotificationRow;
 import com.ksh.features.notifications.entity.Notification;
 import com.ksh.features.notifications.entity.NotificationType;
@@ -17,12 +17,12 @@ import java.time.LocalDateTime;
 /**
  * Application service for in-app notifications (Sprint 5, #63/#64).
  *
- * <p>Owns creation (with best-effort email for whitelisted types), listing,
+ * <p>Owns creation (with durable email enqueue for whitelisted types), listing,
  * unread-count, and owner-scoped mark-read. Entities never leak past this layer.
  *
- * <p>Email delivery is best-effort and synchronous: the row is persisted first;
- * a mail failure never prevents the in-app notification from appearing.
- * {@code is_email_sent} is set only when delivery actually succeeds.
+ * <p>The notification and its email outbox job are persisted atomically.
+ * SMTP delivery happens asynchronously; {@code is_email_sent} is set only
+ * after the outbox worker records a successful delivery.
  */
 @Service
 public class NotificationService {
@@ -32,24 +32,24 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    private final MailService mailService;
+    private final MailOutboxService mailOutboxService;
 
     public NotificationService(NotificationRepository notificationRepository,
                                UserRepository userRepository,
-                               MailService mailService) {
+                               MailOutboxService mailOutboxService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
-        this.mailService = mailService;
+        this.mailOutboxService = mailOutboxService;
     }
 
     // ── Creation ────────────────────────────────────────────────────────
 
     /**
      * Persists a new notification and, when the type is email-whitelisted
-     * ({@link NotificationType#EMAIL_TYPES}), sends a best-effort email to the
-     * recipient. {@code is_email_sent} is set only on successful delivery.
+     * ({@link NotificationType#EMAIL_TYPES}), atomically enqueues a durable
+     * email job for the recipient.
      *
-     * <p>Email failure or unconfigured SMTP does NOT prevent persistence.
+     * <p>SMTP availability is not consulted in this request transaction.
      *
      * @param userId        the recipient's user id
      * @param title         short notification title (Vietnamese UI text)
@@ -66,14 +66,16 @@ public class NotificationService {
                 type, referenceType, referenceId);
         Notification saved = notificationRepository.save(notification);
 
-        // Best-effort email for whitelisted types only.
+        // Preserve the existing whitelist. Delivery is handled asynchronously.
         if (NotificationType.EMAIL_TYPES.contains(type)) {
             userRepository.findById(userId).ifPresent(user -> {
-                String subject = "[KSH] " + title;
-                boolean sent = mailService.send(user.getEmail(), subject, content);
-                if (sent) {
-                    saved.setEmailSent(true);
-                    notificationRepository.save(saved);
+                String recipient = user.getEmail();
+                if (recipient != null && !recipient.isBlank()) {
+                    mailOutboxService.enqueueNotification(
+                            saved.getId(),
+                            recipient,
+                            "[KSH] " + title,
+                            content);
                 }
             });
         }

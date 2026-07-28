@@ -2,7 +2,7 @@ package com.ksh.features.notifications.service;
 
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.mail.MailService;
+import com.ksh.features.mail.outbox.MailOutboxService;
 import com.ksh.features.notifications.dto.NotificationDtos.NotificationRow;
 import com.ksh.features.notifications.entity.Notification;
 import com.ksh.features.notifications.entity.NotificationType;
@@ -23,14 +23,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link NotificationService}.
  *
- * <p>Covers creation (persist-first + best-effort email), owner-scoped
+ * <p>Covers creation (atomic durable email enqueue), owner-scoped
  * mark-read (foreign id is silent no-op), unread count, and list paging.
  */
 class NotificationServiceTest {
@@ -40,15 +39,18 @@ class NotificationServiceTest {
 
     private NotificationRepository notificationRepository;
     private UserRepository userRepository;
-    private MailService mailService;
+    private MailOutboxService mailOutboxService;
     private NotificationService service;
 
     @BeforeEach
     void setUp() {
         notificationRepository = mock(NotificationRepository.class);
         userRepository = mock(UserRepository.class);
-        mailService = mock(MailService.class);
-        service = new NotificationService(notificationRepository, userRepository, mailService);
+        mailOutboxService = mock(MailOutboxService.class);
+        service = new NotificationService(
+                notificationRepository,
+                userRepository,
+                mailOutboxService);
     }
 
     // ── create ─────────────────────────────────────────────────────────
@@ -65,57 +67,60 @@ class NotificationServiceTest {
     }
 
     @Test
-    void create_does_not_send_email_for_non_whitelisted_type() {
+    void create_does_not_enqueue_email_for_non_whitelisted_type() {
         stubSave(NotificationType.CLASS_ENROLLED, NotificationType.REF_CLASS, 1L);
 
         service.create(USER_ID, "T", "B", NotificationType.CLASS_ENROLLED,
                 NotificationType.REF_CLASS, 1L);
 
-        // CLASS_ENROLLED is NOT in EMAIL_TYPES — no email should be sent.
-        verify(mailService, never()).send(anyString(), anyString(), anyString());
+        // CLASS_ENROLLED is NOT in EMAIL_TYPES — no email should be enqueued.
+        verify(mailOutboxService, never())
+                .enqueueNotification(any(), anyString(), anyString(), anyString());
     }
 
     @Test
-    void create_sends_email_for_lesson_published_type() {
-        Notification saved = stubSave(NotificationType.LESSON_PUBLISHED,
+    void create_enqueues_email_for_lesson_published_type() {
+        stubSave(NotificationType.LESSON_PUBLISHED,
                 NotificationType.REF_LESSON, 5L);
         User user = user("student@ksh.edu.vn");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(mailService.send(eq("student@ksh.edu.vn"), anyString(), anyString()))
-                .thenReturn(true);
 
         service.create(USER_ID, "Bài mới", "Nội dung",
                 NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
 
-        verify(mailService).send(eq("student@ksh.edu.vn"), anyString(), anyString());
-        // saved twice: once for persist, once to flip is_email_sent=true.
-        verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(mailOutboxService).enqueueNotification(
+                eq(NOTIF_ID),
+                eq("student@ksh.edu.vn"),
+                anyString(),
+                eq("Nội dung"));
     }
 
     @Test
-    void create_does_not_flip_email_sent_when_mail_fails() {
-        stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
-        User user = user("fail@ksh.edu.vn");
+    void create_leaves_email_sent_false_until_worker_completes() {
+        Notification saved = stubSave(
+                NotificationType.LESSON_PUBLISHED,
+                NotificationType.REF_LESSON,
+                5L);
+        User user = user("student@ksh.edu.vn");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        // Mail send returns false → SMTP not configured or rejected.
-        when(mailService.send(anyString(), anyString(), anyString())).thenReturn(false);
 
         service.create(USER_ID, "T", "B",
                 NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
 
-        // Only the initial persist save; no second save for is_email_sent.
-        verify(notificationRepository, times(1)).save(any(Notification.class));
+        assertThat(saved.isEmailSent()).isFalse();
+        verify(notificationRepository).save(any(Notification.class));
     }
 
     @Test
-    void create_does_not_send_email_when_user_not_found() {
+    void create_does_not_enqueue_email_when_user_not_found() {
         stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
         service.create(USER_ID, "T", "B",
                 NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
 
-        verify(mailService, never()).send(anyString(), anyString(), anyString());
+        verify(mailOutboxService, never())
+                .enqueueNotification(any(), anyString(), anyString(), anyString());
     }
 
     // ── markRead ──────────────────────────────────────────────────────

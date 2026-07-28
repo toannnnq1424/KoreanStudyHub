@@ -5,8 +5,8 @@ import java.util.Set;
 /**
  * String constants for the {@code notifications.type} column.
  *
- * <p>A whitelist set ({@link #EMAIL_TYPES}) declares which types trigger a
- * best-effort email; currently {@link #LESSON_PUBLISHED} and
+ * <p>A whitelist set ({@link #EMAIL_TYPES}) declares which types enqueue a
+ * durable email; currently {@link #LESSON_PUBLISHED} and
  * {@link #ASSIGNMENT_PUBLISHED} qualify.
  * All types are stored as VARCHAR(30) in the DB (per V1 schema).
  */
@@ -40,7 +40,7 @@ public final class NotificationType {
     public static final String JOIN_REJECTED = "JOIN_REJECTED";
 
     /**
-     * The set of notification types that trigger a best-effort email.
+     * The set of notification types that trigger a durable email outbox job.
      * Join-approval lifecycle types and CLASS_ENROLLED / ASSIGNMENT_GRADED
      * are intentionally excluded (in-app only).
      */
