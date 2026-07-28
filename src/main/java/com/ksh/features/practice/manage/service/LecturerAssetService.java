@@ -121,7 +121,8 @@ public class LecturerAssetService {
         asset.setFileSize(stored.sizeBytes());
         asset.setSha256(stored.sha256());
         asset.setAssetType("IMAGE");
-        asset.setTitle(originalFilename != null ? originalFilename : "Imported Crop");
+        asset.setTitle(validatedAssetTitle(
+                originalFilename, "Imported Crop"));
         asset.setSourcePageNumber(sourcePageNumber);
         asset.setCropX(cropX);
         asset.setCropY(cropY);
@@ -267,7 +268,8 @@ public class LecturerAssetService {
             asset.setFileSize(stored.sizeBytes());
             asset.setSha256(stored.sha256());
             asset.setAssetType(assetType.toUpperCase(java.util.Locale.ROOT));
-            asset.setTitle(file.getOriginalFilename());
+            asset.setTitle(validatedAssetTitle(
+                    file.getOriginalFilename(), "Tài nguyên đã tải lên"));
             asset.setSourceType("MANUAL_UPLOAD");
             asset.setStatus(bindDraftReference ? "ACTIVE" : "TEMPORARY");
             asset.setVisibility("PRIVATE");
@@ -517,7 +519,9 @@ public class LecturerAssetService {
                 status,
                 "Trạng thái asset chỉ được thay đổi qua thao tác promote hoặc xóa chuyên biệt.");
 
-        if (title != null) asset.setTitle(title);
+        if (title != null) {
+            asset.setTitle(validatedAssetTitle(title, null));
+        }
         if (tagsJson != null) asset.setTagsJson(tagsJson);
         if (lecturerNote != null) asset.setLecturerNote(lecturerNote);
         asset.setUpdatedAt(LocalDateTime.now());
@@ -696,7 +700,8 @@ public class LecturerAssetService {
         staged.setFileSize(stored.sizeBytes());
         staged.setSha256(stored.sha256().toLowerCase(Locale.ROOT));
         staged.setAssetType("AUDIO");
-        staged.setTitle(filename);
+        staged.setTitle(validatedAssetTitle(
+                filename, "Tài nguyên tạm"));
         staged.setSourceType(sourceType.toUpperCase(Locale.ROOT));
         staged.setStatus("TEMPORARY");
         staged.setVisibility("PRIVATE");
@@ -765,7 +770,8 @@ public class LecturerAssetService {
                         .orElse(null);
                 LocalDateTime now = LocalDateTime.now();
                 if (asset == null) {
-                    staged.setTitle(title);
+                    staged.setTitle(validatedAssetTitle(
+                            title, "Tài nguyên"));
                     staged.setStatus("ACTIVE");
                     staged.setRetentionUntil(null);
                     staged.setUpdatedAt(now);
@@ -1321,6 +1327,28 @@ public class LecturerAssetService {
                                 discardStoredCandidate(storageKey, true);
                             }
                         });
+    }
+
+    static String validatedAssetTitle(
+            String value, String fallback) {
+        String candidate = value;
+        if (candidate == null || candidate.isBlank()) {
+            candidate = fallback;
+        }
+        if (candidate == null || candidate.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Tiêu đề tài nguyên không được để trống.");
+        }
+        if (candidate.codePointCount(0, candidate.length()) > 255) {
+            throw new IllegalArgumentException(
+                    "Tiêu đề tài nguyên không được vượt quá 255 ký tự.");
+        }
+        if (candidate.codePoints().anyMatch(
+                Character::isISOControl)) {
+            throw new IllegalArgumentException(
+                    "Tiêu đề tài nguyên chứa ký tự điều khiển không hợp lệ.");
+        }
+        return candidate;
     }
 
     /**
