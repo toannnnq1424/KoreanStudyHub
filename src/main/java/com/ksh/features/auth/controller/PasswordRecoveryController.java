@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 import static com.ksh.common.IConstant.*;
@@ -75,7 +76,9 @@ public class PasswordRecoveryController {
      * in the model when the token is missing, expired, or already used.
      */
     @GetMapping("/reset-password")
-    public String resetForm(@RequestParam("token") String token, Model model) {
+    public String resetForm(@RequestParam("token") String token, Model model,
+                            HttpServletResponse response) {
+        secureResetResponse(response);
         User user = service.validateToken(token);
         if (user == null) {
             model.addAttribute(ATTR_INVALID, true);
@@ -92,7 +95,9 @@ public class PasswordRecoveryController {
      */
     @PostMapping("/reset-password")
     public String resetSubmit(@Valid @ModelAttribute("request") AuthDtos.ResetPasswordRequest req,
-                               BindingResult result, Model model, RedirectAttributes ra) {
+                               BindingResult result, Model model, RedirectAttributes ra,
+                               HttpServletResponse response) {
+        secureResetResponse(response);
         if (result.hasErrors()) {
             model.addAttribute(ATTR_TOKEN, req.token());
             return VIEW_RESET_PASSWORD;
@@ -104,5 +109,10 @@ public class PasswordRecoveryController {
         }
         ra.addFlashAttribute(ATTR_RESET_SUCCESS, true);
         return REDIRECT_LOGIN;
+    }
+
+    private static void secureResetResponse(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Referrer-Policy", "no-referrer");
     }
 }
