@@ -17,31 +17,47 @@
   </header>
 
   <main class="pr-main">
-    <section class="pr-summary" aria-labelledby="result-title">
-      <div class="pr-summary-copy">
-        <p class="pr-eyebrow">
-          <span>Kết quả kỹ năng</span>
-          <strong th:text="${result.identity().skillLabel()}">Đọc</strong>
-        </p>
-        <h1 id="result-title" th:text="${result.identity().setTitle()}">Bộ đề luyện tập</h1>
-        <p class="pr-context">
-          <span th:text="${result.identity().testTitle()}">Test 1</span>
-          <span aria-hidden="true">/</span>
-          <span th:text="${result.identity().sectionTitle()}">Phần Đọc</span>
-        </p>
+    <section class="pr-summary"
+             th:classappend="${' is-' + #strings.toLowerCase(result.identity().skill())}"
+             aria-labelledby="result-title">
+      <div class="pr-summary-layout">
+        <div class="pr-summary-copy">
+          <p class="pr-eyebrow">
+            <span>Kết quả kỹ năng</span>
+            <strong th:text="${result.identity().skillLabel()}">Đọc</strong>
+          </p>
+          <h1 id="result-title" th:text="${result.identity().setTitle()}">Bộ đề luyện tập</h1>
+          <p class="pr-context">
+            <span th:text="${result.identity().testTitle()}">Test 1</span>
+            <span aria-hidden="true">/</span>
+            <span th:text="${result.identity().sectionTitle()}">Phần Đọc</span>
+          </p>
+        </div>
 
-        <div class="pr-result-focus" th:if="${result.score().available()}">
-          <span class="pr-result-label">Kết quả chính</span>
-          <div class="pr-score-line">
-            <strong th:text="${result.score().primaryDisplay()}">80</strong>
-            <span th:if="${result.score().unit() == 'PERCENTAGE'}">%</span>
-            <small th:text="${result.score().scaleLabel()}">Thang 100</small>
+        <div class="pr-summary-score">
+          <div class="pr-result-focus" th:if="${result.score().available()}">
+            <span class="pr-result-label">Kết quả chính</span>
+            <div class="pr-score-line">
+              <strong th:if="${result.score().pointsDisplay() != null}"
+                      th:text="${result.score().pointsDisplay()}">38/40</strong>
+              <strong th:unless="${result.score().pointsDisplay() != null}"
+                      th:text="${result.score().primaryDisplay()}">80</strong>
+              <span th:if="${result.score().pointsDisplay() == null
+                           and result.score().unit() == 'PERCENTAGE'}">%</span>
+              <small th:text="${result.score().scaleLabel()}">Thang 100</small>
+            </div>
+          </div>
+          <div class="pr-score-unavailable" th:unless="${result.score().available()}">
+            Chưa có điểm số khả dụng
           </div>
         </div>
-        <div class="pr-score-unavailable" th:unless="${result.score().available()}">
-          Chưa có điểm số khả dụng
-        </div>
+      </div>
 
+      <details class="pr-calculation-details">
+        <summary>
+          <span>Cách tính và thông tin bài làm</span>
+          <small>Điểm, tiến độ, thời gian và trạng thái phản hồi</small>
+        </summary>
         <dl class="pr-summary-meta">
           <div>
             <dt>Kỹ năng</dt>
@@ -74,7 +90,7 @@
             <dd th:text="${result.score().levelLabel()}">Đang phát triển</dd>
           </div>
         </dl>
-      </div>
+      </details>
     </section>
 
     <th:block th:switch="${result.payload().kind()}">

@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <th:block th:fragment="panel(result)">
-  <section class="pr-section" aria-labelledby="writing-overview-title">
+  <section id="result-analysis" class="pr-section" aria-labelledby="writing-overview-title">
     <div class="pr-section-heading">
       <div>
         <p class="pr-section-kicker">Phân tích bài viết</p>
@@ -99,46 +99,6 @@
           </p>
         </section>
 
-        <section class="pr-writing-lenses" th:unless="${task.analysisLenses().isEmpty()}"
-                 th:attr="aria-labelledby=${'writing-diagnostic-heading-' + taskStatus.index}">
-          <div class="pr-writing-block-heading">
-            <div>
-              <p class="pr-section-kicker">Góc nhìn học tập</p>
-              <h4 th:id="${'writing-diagnostic-heading-' + taskStatus.index}">Chẩn đoán để luyện tiếp</h4>
-            </div>
-            <span>Các góc nhìn này không có điểm riêng và không cộng vào tổng điểm.</span>
-          </div>
-
-          <div class="pr-segmented is-compact" role="tablist" aria-label="Chọn góc chẩn đoán"
-               th:data-result-tabs="${'writing-lenses-' + taskStatus.index}">
-            <button type="button" role="tab"
-                    th:each="lens, lensStatus : ${task.analysisLenses()}"
-                    th:id="${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}"
-                    th:attr="aria-controls=${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index},aria-selected=${lensStatus.first}"
-                    th:tabindex="${lensStatus.first ? 0 : -1}"
-                    th:classappend="${lensStatus.first ? ' is-active' : ''}"
-                    th:data-result-target="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
-                    th:text="${lens.label()}">Nội dung</button>
-          </div>
-
-          <section class="pr-lens-panel"
-                   th:each="lens, lensStatus : ${task.analysisLenses()}"
-                   th:id="${'writing-lens-panel-' + taskStatus.index + '-' + lensStatus.index}"
-                   role="tabpanel"
-                   tabindex="0"
-                   th:attr="aria-labelledby=${'writing-lens-tab-' + taskStatus.index + '-' + lensStatus.index}">
-            <div class="pr-lens-summary">
-              <h5 th:text="${lens.label()}">Nhiệm vụ và Nội dung</h5>
-              <span class="pr-diagnostic-chip">Không tính điểm</span>
-            </div>
-            <ul class="pr-evidence-list" th:unless="${lens.evidence().isEmpty()}">
-              <li th:each="evidence : ${lens.evidence()}" th:text="${evidence}">Bằng chứng</li>
-            </ul>
-            <p class="pr-diagnostic-empty" th:if="${lens.evidence().isEmpty()}">
-              Chưa có ghi chú chẩn đoán riêng cho góc nhìn này.
-            </p>
-          </section>
-        </section>
       </th:block>
 
       <section class="pr-writing-state" th:unless="${task.evaluated()}"
