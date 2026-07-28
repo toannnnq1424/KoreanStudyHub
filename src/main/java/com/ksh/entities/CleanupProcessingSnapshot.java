@@ -8,6 +8,8 @@ public record CleanupProcessingSnapshot(
         PracticeSpeakingStorageProvider storageProvider,
         String storageKey,
         PracticeSpeakingMediaCleanupStatus status,
+        String claimToken,
+        LocalDateTime leaseExpiresAt,
         Long attemptCount,
         LocalDateTime nextAttemptAt
 ) {
@@ -17,6 +19,8 @@ public record CleanupProcessingSnapshot(
                 + ", lockVersion=" + lockVersion
                 + ", storageProvider=" + storageProvider
                 + ", status=" + status
+                + ", claimed=" + (claimToken != null)
+                + ", leaseExpiresAt=" + leaseExpiresAt
                 + ", attemptCount=" + attemptCount
                 + ", nextAttemptAt=" + nextAttemptAt
                 + '}';

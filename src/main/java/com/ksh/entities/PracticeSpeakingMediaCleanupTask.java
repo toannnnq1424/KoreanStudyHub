@@ -48,6 +48,12 @@ public class PracticeSpeakingMediaCleanupTask {
     @Column(nullable = false, length = 30)
     private PracticeSpeakingMediaCleanupStatus status;
 
+    @Column(name = "claim_token", length = 64)
+    private String claimToken;
+
+    @Column(name = "lease_expires_at")
+    private LocalDateTime leaseExpiresAt;
+
     @Column(name = "attempt_count", nullable = false)
     private Long attemptCount = 0L;
 
@@ -96,8 +102,37 @@ public class PracticeSpeakingMediaCleanupTask {
         return task;
     }
 
-    public void markCompleted(Long expectedLockVersion, LocalDateTime completedAt) {
+    public void claim(Long expectedLockVersion,
+                      String claimToken,
+                      LocalDateTime leaseExpiresAt) {
         requireExpectedVersion(expectedLockVersion);
+        if (status == PracticeSpeakingMediaCleanupStatus.COMPLETED
+                || status == PracticeSpeakingMediaCleanupStatus.TERMINAL) {
+            throw new IllegalStateException("Cleanup task is already final.");
+        }
+        this.status = PracticeSpeakingMediaCleanupStatus.PROCESSING;
+        this.claimToken = requireClaimToken(claimToken);
+        this.leaseExpiresAt = require(leaseExpiresAt, "leaseExpiresAt");
+    }
+
+    public boolean isClaimable(LocalDateTime now) {
+        if (now == null) {
+            return false;
+        }
+        if (status == PracticeSpeakingMediaCleanupStatus.PENDING
+                || status == PracticeSpeakingMediaCleanupStatus.RETRY) {
+            return dueAt != null && !dueAt.isAfter(now)
+                    && nextAttemptAt != null && !nextAttemptAt.isAfter(now);
+        }
+        return status == PracticeSpeakingMediaCleanupStatus.PROCESSING
+                && leaseExpiresAt != null
+                && !leaseExpiresAt.isAfter(now);
+    }
+
+    public void markCompleted(Long expectedLockVersion,
+                              String expectedClaimToken,
+                              LocalDateTime completedAt) {
+        requireOwnedClaim(expectedLockVersion, expectedClaimToken);
         if (status == PracticeSpeakingMediaCleanupStatus.COMPLETED) {
             return;
         }
@@ -107,12 +142,14 @@ public class PracticeSpeakingMediaCleanupTask {
         status = PracticeSpeakingMediaCleanupStatus.COMPLETED;
         this.completedAt = require(completedAt, "completedAt");
         lastErrorCode = null;
+        clearClaim();
     }
 
     public void markRetry(Long expectedLockVersion,
+                          String expectedClaimToken,
                           PracticeSpeakingMediaCleanupErrorCode errorCode,
                           LocalDateTime nextAttemptAt) {
-        requireExpectedVersion(expectedLockVersion);
+        requireOwnedClaim(expectedLockVersion, expectedClaimToken);
         if (status == PracticeSpeakingMediaCleanupStatus.COMPLETED
                 || status == PracticeSpeakingMediaCleanupStatus.TERMINAL) {
             return;
@@ -121,12 +158,14 @@ public class PracticeSpeakingMediaCleanupTask {
         attemptCount = incrementAttemptCount();
         lastErrorCode = require(errorCode, "errorCode");
         this.nextAttemptAt = require(nextAttemptAt, "nextAttemptAt");
+        clearClaim();
     }
 
     public void markTerminal(Long expectedLockVersion,
+                             String expectedClaimToken,
                              PracticeSpeakingMediaCleanupErrorCode errorCode,
                              LocalDateTime completedAt) {
-        requireExpectedVersion(expectedLockVersion);
+        requireOwnedClaim(expectedLockVersion, expectedClaimToken);
         if (status == PracticeSpeakingMediaCleanupStatus.COMPLETED
                 || status == PracticeSpeakingMediaCleanupStatus.TERMINAL) {
             return;
@@ -135,6 +174,7 @@ public class PracticeSpeakingMediaCleanupTask {
         attemptCount = incrementAttemptCount();
         lastErrorCode = require(errorCode, "errorCode");
         this.completedAt = require(completedAt, "completedAt");
+        clearClaim();
     }
 
     public CleanupProcessingSnapshot toProcessingSnapshot() {
@@ -144,8 +184,33 @@ public class PracticeSpeakingMediaCleanupTask {
                 storageProvider,
                 storageKey,
                 status,
+                claimToken,
+                leaseExpiresAt,
                 attemptCount,
                 nextAttemptAt);
+    }
+
+    private void requireOwnedClaim(Long expectedLockVersion,
+                                   String expectedClaimToken) {
+        requireExpectedVersion(expectedLockVersion);
+        if (status != PracticeSpeakingMediaCleanupStatus.PROCESSING
+                || claimToken == null
+                || expectedClaimToken == null
+                || !claimToken.equals(expectedClaimToken)) {
+            throw new IllegalStateException("Cleanup task claim mismatch.");
+        }
+    }
+
+    private static String requireClaimToken(String value) {
+        if (value == null || value.isBlank() || value.length() > 64) {
+            throw new IllegalArgumentException("claimToken is invalid.");
+        }
+        return value;
+    }
+
+    private void clearClaim() {
+        claimToken = null;
+        leaseExpiresAt = null;
     }
 
     private void requireExpectedVersion(Long expectedLockVersion) {
@@ -192,6 +257,8 @@ public class PracticeSpeakingMediaCleanupTask {
     public LocalDateTime getDueAt() { return dueAt; }
     public LocalDateTime getNextAttemptAt() { return nextAttemptAt; }
     public PracticeSpeakingMediaCleanupStatus getStatus() { return status; }
+    public String getClaimToken() { return claimToken; }
+    public LocalDateTime getLeaseExpiresAt() { return leaseExpiresAt; }
     public Long getAttemptCount() { return attemptCount; }
     public PracticeSpeakingMediaCleanupErrorCode getLastErrorCode() { return lastErrorCode; }
     public LocalDateTime getCompletedAt() { return completedAt; }

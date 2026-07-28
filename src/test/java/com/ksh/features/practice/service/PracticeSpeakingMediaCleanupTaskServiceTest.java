@@ -30,6 +30,9 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +81,8 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                 "due_at",
                 "next_attempt_at",
                 "status",
+                "claim_token",
+                "lease_expires_at",
                 "attempt_count",
                 "last_error_code",
                 "completed_at",
@@ -102,7 +107,16 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                 "PRIMARY",
                 "uk_psm_cleanup_storage",
                 "idx_psm_cleanup_status_next_attempt",
-                "idx_psm_cleanup_due_at");
+                "idx_psm_cleanup_due_at",
+                "idx_psm_cleanup_status_lease");
+
+        String statusCheck = jdbcTemplate.queryForObject("""
+                SELECT check_clause
+                FROM information_schema.check_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND constraint_name = 'chk_psm_cleanup_status'
+                """, String.class);
+        assertThat(statusCheck).contains("PROCESSING");
     }
 
     @Test
@@ -127,6 +141,30 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     }
 
     @Test
+    void subsecondClockNormalizesImmediateLogicalDeleteBeforeClaim() {
+        Instant fractionalInstant = Instant.parse("2026-07-05T00:00:00.900Z");
+        LocalDateTime persistedSecond =
+                LocalDateTime.ofInstant(fractionalInstant, ZoneOffset.UTC).withNano(0);
+        PracticeSpeakingMediaCleanupTaskService fractionalClockService =
+                new PracticeSpeakingMediaCleanupTaskService(
+                        repository,
+                        Clock.fixed(fractionalInstant, ZoneOffset.UTC));
+        String storageKey = "learner-speaking/ready/fractional-immediate-delete";
+
+        Long taskId = inTransaction(() -> fractionalClockService.enqueueLogicalDelete(
+                PracticeSpeakingStorageProvider.LOCAL, storageKey));
+
+        var persisted = repository.findById(taskId).orElseThrow();
+        assertThat(persisted.getDueAt()).isEqualTo(persistedSecond);
+        assertThat(persisted.getNextAttemptAt()).isEqualTo(persistedSecond);
+
+        CleanupProcessingSnapshot claim = inTransaction(() ->
+                fractionalClockService.claimForProcessing(taskId).orElseThrow());
+        assertThat(claim.status()).isEqualTo(PracticeSpeakingMediaCleanupStatus.PROCESSING);
+        assertThat(claim.claimToken()).isNotBlank();
+    }
+
+    @Test
     void idempotentEnqueueKeepsOneTaskAndDoesNotReactivateCompletedOrTerminal() {
         Long taskId = inTransaction(() -> taskService.enqueueLogicalDelete(
                 PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
@@ -136,31 +174,33 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(repository.findAll()).hasSize(1);
         assertThat(repository.findById(taskId).orElseThrow().getDueAt()).isEqualTo(NOW);
 
-        var retrySnapshot = taskService.processingSnapshot(taskId).orElseThrow();
+        var retrySnapshot = taskService.claimForProcessing(taskId).orElseThrow();
         taskService.markRetry(
-                taskId,
-                retrySnapshot.lockVersion(),
-                retrySnapshot.attemptCount(),
+                retrySnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
         Long retryId = inTransaction(() -> taskService.enqueueSupersededRetention(
                 PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
         assertThat(retryId).isEqualTo(taskId);
         assertThat(repository.findById(taskId).orElseThrow().getAttemptCount()).isEqualTo(1L);
 
-        var completedSnapshot = taskService.processingSnapshot(taskId).orElseThrow();
-        taskService.markCompleted(taskId, completedSnapshot.lockVersion());
+        String completedKey =
+                "learner-speaking/ready/completed-secret-b3a1";
+        Long completedTaskId = taskService.enqueueCompensationOrphan(
+                PracticeSpeakingStorageProvider.LOCAL, completedKey);
+        var completedSnapshot =
+                taskService.claimForProcessing(completedTaskId).orElseThrow();
+        taskService.markCompleted(completedSnapshot);
         Long completedId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
-        assertThat(completedId).isEqualTo(taskId);
-        assertThat(repository.findById(taskId).orElseThrow().getStatus())
+                PracticeSpeakingStorageProvider.LOCAL, completedKey));
+        assertThat(completedId).isEqualTo(completedTaskId);
+        assertThat(repository.findById(completedTaskId).orElseThrow().getStatus())
                 .isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
 
         Long terminalTaskId = inTransaction(() -> taskService.enqueueLogicalDelete(
                 PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/terminal-secret-b3a1"));
-        var terminalSnapshot = taskService.processingSnapshot(terminalTaskId).orElseThrow();
+        var terminalSnapshot = taskService.claimForProcessing(terminalTaskId).orElseThrow();
         taskService.markTerminal(
-                terminalTaskId,
-                terminalSnapshot.lockVersion(),
+                terminalSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.INVALID_STORAGE_IDENTITY);
         inTransaction(() -> taskService.enqueueLogicalDelete(
                 PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/terminal-secret-b3a1"));
@@ -215,11 +255,14 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(discardTask.getNextAttemptAt()).isEqualTo(NOW.plusHours(24));
         assertThat(taskService.findDueTaskIds(NOW, 10)).doesNotContain(discardTaskId);
 
-        var discardSnapshot = taskService.processingSnapshot(discardTaskId).orElseThrow();
+        jdbcTemplate.update("""
+                UPDATE practice_speaking_media_cleanup_tasks
+                SET due_at = ?, next_attempt_at = ?
+                WHERE id = ?
+                """, NOW, NOW, discardTaskId);
+        var discardSnapshot = taskService.claimForProcessing(discardTaskId).orElseThrow();
         taskService.markRetry(
-                discardTaskId,
-                discardSnapshot.lockVersion(),
-                discardSnapshot.attemptCount(),
+                discardSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
         var retryBefore = repository.findById(discardTaskId).orElseThrow();
         inTransaction(() -> taskService.enqueueDiscardAttempt(
@@ -231,11 +274,9 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
         Long logicalId = inTransaction(() -> taskService.enqueueLogicalDelete(
                 PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY));
-        var logicalSnapshot = taskService.processingSnapshot(logicalId).orElseThrow();
+        var logicalSnapshot = taskService.claimForProcessing(logicalId).orElseThrow();
         taskService.markRetry(
-                logicalId,
-                logicalSnapshot.lockVersion(),
-                logicalSnapshot.attemptCount(),
+                logicalSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
         var logicalBefore = repository.findById(logicalId).orElseThrow();
         inTransaction(() -> taskService.enqueueDiscardAttempt(
@@ -274,22 +315,31 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     @Test
     void staleOutcomeVersionIsRejected() {
         Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        CleanupProcessingSnapshot claim = taskService.claimForProcessing(taskId).orElseThrow();
+        CleanupProcessingSnapshot wrongVersion = new CleanupProcessingSnapshot(
+                claim.taskId(),
+                999L,
+                claim.storageProvider(),
+                claim.storageKey(),
+                claim.status(),
+                claim.claimToken(),
+                claim.leaseExpiresAt(),
+                claim.attemptCount(),
+                claim.nextAttemptAt());
 
-        assertThatThrownBy(() -> taskService.markCompleted(taskId, 999L))
+        assertThatThrownBy(() -> taskService.markCompleted(wrongVersion))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Cleanup task version mismatch.");
     }
 
     @Test
-    void staleRetryCannotOverwriteCompletedTaskAndFreshCompletedRetryIsNoOp() {
+    void staleRetryCannotOverwriteCompletedTaskAndFinalTaskCannotBeReclaimed() {
         Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
-        CleanupProcessingSnapshot stale = taskService.processingSnapshot(taskId).orElseThrow();
-        taskService.markCompleted(taskId, stale.lockVersion());
+        CleanupProcessingSnapshot stale = taskService.claimForProcessing(taskId).orElseThrow();
+        taskService.markCompleted(stale);
 
         assertThatThrownBy(() -> taskService.markRetry(
-                taskId,
-                stale.lockVersion(),
-                stale.attemptCount(),
+                stale,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Cleanup task version mismatch.");
@@ -297,15 +347,71 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(completed.getStatus()).isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
         assertThat(completed.getLastErrorCode()).isNull();
 
-        CleanupProcessingSnapshot fresh = taskService.processingSnapshot(taskId).orElseThrow();
-        assertThat(taskService.markRetry(
-                taskId,
-                fresh.lockVersion(),
-                fresh.attemptCount(),
-                PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED))
-                .isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
+        assertThat(taskService.claimForProcessing(taskId)).isEmpty();
+    }
+
+    @Test
+    void onlyOneWorkerOwnsLiveClaimAndExpiredClaimCanBeReclaimed() {
+        Long taskId = taskService.enqueueCompensationOrphan(
+                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+
+        CleanupProcessingSnapshot first =
+                taskService.claimForProcessing(taskId).orElseThrow();
+        assertThat(first.status())
+                .isEqualTo(PracticeSpeakingMediaCleanupStatus.PROCESSING);
+        assertThat(first.claimToken()).isNotBlank();
+        assertThat(first.leaseExpiresAt()).isEqualTo(NOW.plusMinutes(5));
+        assertThat(taskService.claimForProcessing(taskId)).isEmpty();
+
+        jdbcTemplate.update("""
+                UPDATE practice_speaking_media_cleanup_tasks
+                SET lease_expires_at = ?
+                WHERE id = ?
+                """, NOW.minusSeconds(1), taskId);
+
+        CleanupProcessingSnapshot reclaimed =
+                taskService.claimForProcessing(taskId).orElseThrow();
+        assertThat(reclaimed.claimToken()).isNotEqualTo(first.claimToken());
+        assertThat(reclaimed.leaseExpiresAt()).isEqualTo(NOW.plusMinutes(5));
+        assertThatThrownBy(() -> taskService.markCompleted(first))
+                .isInstanceOf(IllegalStateException.class);
+
+        taskService.markCompleted(reclaimed);
         assertThat(repository.findById(taskId).orElseThrow().getStatus())
                 .isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
+    }
+
+    @Test
+    void concurrentWorkersProduceExactlyOneLiveClaim() throws Exception {
+        Long taskId = taskService.enqueueCompensationOrphan(
+                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return taskService.claimForProcessing(taskId);
+            });
+            var second = executor.submit(() -> {
+                ready.countDown();
+                start.await(5, TimeUnit.SECONDS);
+                return taskService.claimForProcessing(taskId);
+            });
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            List<CleanupProcessingSnapshot> claims = java.util.stream.Stream
+                    .of(first.get(10, TimeUnit.SECONDS),
+                            second.get(10, TimeUnit.SECONDS))
+                    .flatMap(java.util.Optional::stream)
+                    .toList();
+            assertThat(claims).hasSize(1);
+            taskService.markCompleted(claims.get(0));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -443,6 +549,12 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                                Long taskId,
                                Long attemptCount,
                                LocalDateTime nextAttemptAt) {
+        jdbcTemplate.update("""
+                UPDATE practice_speaking_media_cleanup_tasks
+                SET next_attempt_at = ?
+                WHERE id = ?
+                  AND status = 'RETRY'
+                """, NOW, taskId);
         assertThat(processor.processTaskNow(taskId).outcome()).isEqualTo(Outcome.RETRY);
         var task = repository.findById(taskId).orElseThrow();
         assertThat(task.getAttemptCount()).isEqualTo(attemptCount);

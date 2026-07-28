@@ -31,7 +31,7 @@ public class PracticeSpeakingMediaCleanupProcessor {
     }
 
     public CleanupTaskProcessingResult processTaskNow(Long taskId) {
-        return taskService.processingSnapshot(taskId)
+        return taskService.claimForProcessing(taskId)
                 .map(this::processSnapshot)
                 .orElse(CleanupTaskProcessingResult.skipped());
     }
@@ -61,36 +61,49 @@ public class PracticeSpeakingMediaCleanupProcessor {
     }
 
     private CleanupTaskProcessingResult processSnapshot(CleanupProcessingSnapshot snapshot) {
-        if (snapshot.status() == PracticeSpeakingMediaCleanupStatus.COMPLETED
-                || snapshot.status() == PracticeSpeakingMediaCleanupStatus.TERMINAL) {
+        if (snapshot.status() != PracticeSpeakingMediaCleanupStatus.PROCESSING
+                || snapshot.claimToken() == null) {
             return CleanupTaskProcessingResult.skipped();
         }
         if (snapshot.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
-            taskService.markTerminal(
-                    snapshot.taskId(),
-                    snapshot.lockVersion(),
+            return terminalOrSkipped(
+                    snapshot,
                     PracticeSpeakingMediaCleanupErrorCode.PROVIDER_UNSUPPORTED);
-            return CleanupTaskProcessingResult.terminal();
         }
         if (!isValidLocalStorageKey(snapshot.storageKey())) {
-            taskService.markTerminal(
-                    snapshot.taskId(),
-                    snapshot.lockVersion(),
+            return terminalOrSkipped(
+                    snapshot,
                     PracticeSpeakingMediaCleanupErrorCode.INVALID_STORAGE_IDENTITY);
-            return CleanupTaskProcessingResult.terminal();
         }
         try {
             storage.delete(snapshot.storageKey());
-            taskService.markCompleted(snapshot.taskId(), snapshot.lockVersion());
-            return CleanupTaskProcessingResult.completed();
+            try {
+                taskService.markCompleted(snapshot);
+                return CleanupTaskProcessingResult.completed();
+            } catch (IllegalStateException lostClaim) {
+                return CleanupTaskProcessingResult.skipped();
+            }
         } catch (RuntimeException ex) {
-            taskService.markRetry(
-                    snapshot.taskId(),
-                    snapshot.lockVersion(),
-                    snapshot.attemptCount(),
-                    PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+            try {
+                taskService.markRetry(
+                        snapshot,
+                        PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+            } catch (IllegalStateException lostClaim) {
+                return CleanupTaskProcessingResult.skipped();
+            }
             log.warn(CLEANUP_FAILED_EVENT);
             return CleanupTaskProcessingResult.retry();
+        }
+    }
+
+    private CleanupTaskProcessingResult terminalOrSkipped(
+            CleanupProcessingSnapshot snapshot,
+            PracticeSpeakingMediaCleanupErrorCode errorCode) {
+        try {
+            taskService.markTerminal(snapshot, errorCode);
+            return CleanupTaskProcessingResult.terminal();
+        } catch (IllegalStateException lostClaim) {
+            return CleanupTaskProcessingResult.skipped();
         }
     }
 
