@@ -94,6 +94,9 @@
     if (code === "CONFLICT" || status === 409) {
       return "Không thể thay đổi bản ghi ở trạng thái hiện tại.";
     }
+    if (code === "DEADLINE_EXPIRED" || status === 410) {
+      return "Lượt Nói đã hết thời gian. Hệ thống đang hủy lượt và đóng bản ghi.";
+    }
     if (code === "TOO_LARGE" || status === 413) {
       return "Tệp âm thanh vượt quá dung lượng cho phép.";
     }
@@ -384,6 +387,13 @@
     if (response.status === 403) {
       throw new Error("Bạn không còn quyền tải bản ghi cho lượt làm này.");
     }
+    if (response.status === 410
+        || (payload && payload.code === "DEADLINE_EXPIRED")) {
+      var uploadError = new Error(
+        uploadErrorMessage(payload, response.status));
+      uploadError.deadlineExpired = true;
+      throw uploadError;
+    }
     if (!response.ok
         || !payload
         || payload.status !== "READY"
@@ -466,6 +476,18 @@
     } catch (caught) {
       stopMicrophone();
       resetAudio();
+      if (caught && caught.deadlineExpired) {
+        recordedBlob = null;
+        hideAction();
+        setConnection("Đã hết thời gian", "error");
+        setState("Lượt Nói đã hết hạn", NaN);
+        setError(caught.message);
+        message.textContent =
+          "KSH đang đóng lượt Nói theo thời hạn máy chủ. Bản ghi quá hạn không được lưu.";
+        allowNavigation = true;
+        submitForm.requestSubmit();
+        return;
+      }
       setConnection("Cần xử lý", "error");
       setState("Tạm dừng", NaN);
       setError(caught && caught.message ? caught.message : "Không thể tiếp tục phần Nói.");
@@ -478,6 +500,18 @@
               else finalizeAttempt();
             })
             .catch(function (retryError) {
+              if (retryError && retryError.deadlineExpired) {
+                recordedBlob = null;
+                hideAction();
+                setConnection("Đã hết thời gian", "error");
+                setState("Lượt Nói đã hết hạn", NaN);
+                setError(retryError.message);
+                message.textContent =
+                  "KSH đang đóng lượt Nói theo thời hạn máy chủ. Bản ghi quá hạn không được lưu.";
+                allowNavigation = true;
+                submitForm.requestSubmit();
+                return;
+              }
               setError(retryError.message || "Vẫn chưa thể lưu bản ghi.");
               showAction("Thử lưu lại", retryUpload);
             });

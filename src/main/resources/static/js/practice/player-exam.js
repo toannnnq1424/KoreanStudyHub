@@ -195,8 +195,184 @@
     }
   };
 
+  const hydrateFillAnswer = (container) => {
+    const hidden = container.querySelector('[data-fill-answer]');
+    if (!hidden || !hidden.value) return;
+    try {
+      const stored = JSON.parse(hidden.value);
+      const blankAnswers = stored && stored.blankAnswers;
+      if (!blankAnswers || typeof blankAnswers !== 'object') return;
+      container.querySelectorAll('.exam-blank-input').forEach((input) => {
+        const value = blankAnswers[input.dataset.blankId || 'blank_1'];
+        if (typeof value === 'string') input.value = value;
+      });
+    } catch (error) {
+      // Malformed retained drafts stay fail-closed and are replaced on input.
+    }
+  };
+
   renderFillBlankTemplates();
+  player.querySelectorAll('[data-fill-question]').forEach(hydrateFillAnswer);
   player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+
+  let autosaveTimer = null;
+  let autosaveInFlight = null;
+  let autosaveBlocked = false;
+  let autosaveGeneration = 0;
+  let autosavePersistedGeneration = 0;
+  let autosavePending = false;
+  let autosaveRetryCount = 0;
+  let autosaveRetryDelay = 0;
+  let autosaveRetryExhausted = false;
+  let autosaveSubmitDrain = false;
+  let submissionPending = false;
+  let exitPending = false;
+  let deadlineSubmission = false;
+  const maxAutosaveRetries = 3;
+  const lockVersionInput = player.querySelector('[data-attempt-lock-version]');
+  const autosaveStatus = player.querySelector('[data-autosave-status]');
+  const csrfInput = player.querySelector('input[name^="_csrf"]');
+
+  const announceAutosave = (message) => {
+    if (autosaveStatus) autosaveStatus.textContent = message;
+  };
+
+  const scheduleAutosave = (delay = 800) => {
+    if (autosaveBlocked) return;
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(() => {
+      autosaveTimer = null;
+      saveAnswers();
+    }, Math.max(0, delay));
+  };
+
+  const markAutosaveDirty = () => {
+    autosaveGeneration += 1;
+    autosavePending = true;
+    autosaveRetryCount = 0;
+    autosaveRetryDelay = 0;
+    autosaveRetryExhausted = false;
+    scheduleAutosave();
+  };
+
+  const saveAnswers = () => {
+    if (autosaveBlocked || !lockVersionInput) return Promise.resolve(false);
+    if (autosaveInFlight) {
+      autosavePending = true;
+      return autosaveInFlight;
+    }
+    player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+    const requestedGeneration = autosaveGeneration;
+    autosavePending = false;
+    const body = new FormData(player);
+    body.set('expectedLockVersion', lockVersionInput.value);
+    const headers = { 'Accept': 'application/json' };
+    if (csrfInput && csrfInput.value) headers['X-CSRF-TOKEN'] = csrfInput.value;
+    announceAutosave('Đang lưu bài làm…');
+    autosaveInFlight = fetch(`/practice/attempts/${encodeURIComponent(attemptId)}/answers`, {
+      method: 'PUT',
+      headers: headers,
+      body: body,
+      credentials: 'same-origin'
+    }).then(async (response) => {
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.status === 'SAVED') {
+        lockVersionInput.value = String(payload.lockVersion);
+        autosavePersistedGeneration = Math.max(
+          autosavePersistedGeneration,
+          requestedGeneration
+        );
+        autosaveRetryCount = 0;
+        autosaveRetryDelay = 0;
+        autosaveRetryExhausted = false;
+        announceAutosave('Đã lưu bài làm.');
+        return true;
+      }
+      if (response.status === 409) {
+        autosaveBlocked = true;
+        announceAutosave('Bài làm đã thay đổi ở phiên khác. Hãy tải lại trang.');
+        return false;
+      }
+      if (response.status === 410) {
+        autosaveBlocked = true;
+        deadlineSubmission = true;
+        announceAutosave('Đã hết giờ. Hệ thống dùng đáp án đã lưu trước hạn.');
+        return false;
+      }
+      if (response.status === 429 || response.status >= 500) {
+        autosaveRetryCount += 1;
+        if (autosaveRetryCount <= maxAutosaveRetries) {
+          autosavePending = true;
+          autosaveRetryDelay = 1000 * (2 ** (autosaveRetryCount - 1));
+          announceAutosave(payload.message || 'Chưa thể lưu bài. Hệ thống sẽ thử lại.');
+        } else {
+          autosavePending = false;
+          autosaveRetryExhausted = true;
+          announceAutosave('Chưa thể lưu bài sau nhiều lần thử. Hãy kiểm tra kết nối và sửa đáp án để thử lại.');
+        }
+        return false;
+      }
+      autosaveBlocked = true;
+      announceAutosave(payload.message || 'Không thể lưu bài làm. Hãy tải lại trang.');
+      return false;
+    }).catch(() => {
+      autosaveRetryCount += 1;
+      if (autosaveRetryCount <= maxAutosaveRetries) {
+        autosavePending = true;
+        autosaveRetryDelay = 1000 * (2 ** (autosaveRetryCount - 1));
+        announceAutosave('Mất kết nối. Hệ thống sẽ thử lưu lại.');
+      } else {
+        autosavePending = false;
+        autosaveRetryExhausted = true;
+        announceAutosave('Mất kết nối và chưa thể lưu bài. Hãy kiểm tra mạng và sửa đáp án để thử lại.');
+      }
+      return false;
+    }).finally(() => {
+      autosaveInFlight = null;
+      if (!autosaveBlocked
+          && !autosaveRetryExhausted
+          && !autosaveSubmitDrain
+          && (autosavePending
+            || autosavePersistedGeneration < autosaveGeneration)) {
+        const delay = autosaveRetryDelay;
+        autosaveRetryDelay = 0;
+        scheduleAutosave(delay);
+      }
+    });
+    return autosaveInFlight;
+  };
+
+  const waitForAutosaveRetry = (delay) => new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, delay));
+  });
+
+  const drainLatestAnswers = () => {
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    return saveAnswers().then((saved) => {
+      if (autosaveBlocked || deadlineSubmission) return saved;
+      if (saved
+          && autosavePersistedGeneration >= autosaveGeneration) {
+        return true;
+      }
+      if (autosaveRetryExhausted) return false;
+      const delay = autosaveRetryDelay;
+      autosaveRetryDelay = 0;
+      return waitForAutosaveRetry(delay)
+        .then(drainLatestAnswers);
+    });
+  };
+
+  const flushLatestAnswers = () => {
+    autosaveSubmitDrain = true;
+    autosaveRetryCount = 0;
+    autosaveRetryDelay = 0;
+    autosaveRetryExhausted = false;
+    return drainLatestAnswers()
+      .finally(() => {
+        autosaveSubmitDrain = false;
+      });
+  };
 
   player.addEventListener('input', (event) => {
     const fill = event.target.closest && event.target.closest('[data-fill-question]');
@@ -206,8 +382,12 @@
       : null;
     if (counter) counter.textContent = `${Array.from(event.target.value).length} ký tự`;
     updateProgress();
+    markAutosaveDirty();
   });
-  player.addEventListener('change', updateProgress);
+  player.addEventListener('change', () => {
+    updateProgress();
+    markAutosaveDirty();
+  });
 
   const formatTime = (seconds) => {
     const safe = Number.isFinite(seconds) && seconds >= 0 ? Math.floor(seconds) : 0;
@@ -553,50 +733,116 @@
   const timer = player.querySelector('[data-room-timer]');
   const timerAnnouncement = player.querySelector('[data-timer-announcement]');
   if (timer) {
-    const timerKey = `ksh-exam-timer:v2:${attemptId}`;
-    const configured = Math.max(0, Number(timer.dataset.roomTimer) || 0);
-    if (configured <= 0) {
+    const deadlineEpochMs = Number(player.dataset.deadlineEpochMs);
+    const serverNowEpochMs = Number(player.dataset.serverNowEpochMs);
+    if (!Number.isFinite(deadlineEpochMs) || !Number.isFinite(serverNowEpochMs)) {
       timer.textContent = '--:--';
       timer.classList.add('is-unconfigured');
-      sessionStore.remove(timerKey);
     } else {
-      const storedValue = sessionStore.get(timerKey);
-      const stored = storedValue === null ? Number.NaN : Number(storedValue);
-      let remaining = Number.isFinite(stored) && stored >= 0 && stored <= configured
-        ? Math.floor(stored)
-        : configured;
+      const browserStartedAt = Date.now();
+      let lastAnnounced = null;
+      let expired = false;
+      const remainingSeconds = () => Math.max(
+        0,
+        Math.ceil((deadlineEpochMs
+          - (serverNowEpochMs + (Date.now() - browserStartedAt))) / 1000)
+      );
       const paintTimer = () => {
+        const remaining = remainingSeconds();
         timer.textContent = formatTime(remaining);
         timer.classList.toggle('is-danger', remaining <= 300);
-        sessionStore.set(timerKey, String(remaining));
-        if (timerAnnouncement && remaining === 300) {
+        if (timerAnnouncement && remaining <= 300 && lastAnnounced !== 300) {
+          lastAnnounced = 300;
           timerAnnouncement.textContent = 'Còn 5 phút làm bài.';
-        } else if (timerAnnouncement && remaining === 60) {
-          timerAnnouncement.textContent = 'Còn 1 phút làm bài.';
-        } else if (timerAnnouncement && remaining === 0) {
-          timerAnnouncement.textContent = 'Đã hết giờ. Bài đang được nộp.';
         }
-      };
-      paintTimer();
-      const interval = window.setInterval(() => {
-        remaining = Math.max(0, remaining - 1);
-        paintTimer();
-        if (remaining === 0) {
+        if (timerAnnouncement && remaining <= 60 && lastAnnounced !== 60) {
+          lastAnnounced = 60;
+          timerAnnouncement.textContent = 'Còn 1 phút làm bài.';
+        }
+        if (timerAnnouncement && remaining === 0 && !expired) {
+          expired = true;
+          timerAnnouncement.textContent = 'Đã hết giờ. Bài đang được nộp.';
+          deadlineSubmission = true;
           window.clearInterval(interval);
           allowNavigation = true;
           player.requestSubmit();
         }
-      }, 1000);
-      player.addEventListener('submit', () => sessionStore.remove(timerKey));
+      };
+      const interval = window.setInterval(() => {
+        paintTimer();
+      }, 250);
+      paintTimer();
     }
   }
 
-  player.addEventListener('submit', () => {
+  let nativeSubmitAuthorized = false;
+  player.addEventListener('submit', (event) => {
     player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+    if (!nativeSubmitAuthorized) {
+      event.preventDefault();
+      if (submissionPending) return;
+      submissionPending = true;
+      const submitControls = Array.from(
+        player.querySelectorAll('button[type="submit"], input[type="submit"]')
+      );
+      submitControls.forEach((control) => {
+        control.disabled = true;
+      });
+      if (deadlineSubmission) {
+        nativeSubmitAuthorized = true;
+        allowNavigation = true;
+        player.submit();
+        return;
+      }
+      window.clearTimeout(autosaveTimer);
+      flushLatestAnswers().then((saved) => {
+        if (!saved) {
+          if (deadlineSubmission && !nativeSubmitAuthorized) {
+            nativeSubmitAuthorized = true;
+            allowNavigation = true;
+            player.submit();
+          }
+          return;
+        }
+        if (autosaveBlocked) return;
+        nativeSubmitAuthorized = true;
+        allowNavigation = true;
+        player.submit();
+      }).finally(() => {
+        if (!nativeSubmitAuthorized && !deadlineSubmission) {
+          submissionPending = false;
+          submitControls.forEach((control) => {
+            control.disabled = false;
+          });
+        }
+      });
+      return;
+    }
     allowNavigation = true;
   });
   player.querySelectorAll('[data-exit-link]').forEach((link) => {
-    link.addEventListener('click', () => { allowNavigation = true; });
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (exitPending || submissionPending) return;
+      exitPending = true;
+      link.setAttribute('aria-disabled', 'true');
+      window.clearTimeout(autosaveTimer);
+      flushLatestAnswers().then((saved) => {
+        if (saved && !autosaveBlocked) {
+          allowNavigation = true;
+          window.location.assign(link.href);
+          return;
+        }
+        if (deadlineSubmission) {
+          player.requestSubmit();
+        }
+      }).finally(() => {
+        if (!allowNavigation) {
+          exitPending = false;
+          link.removeAttribute('aria-disabled');
+        }
+      });
+    });
   });
   window.addEventListener('beforeunload', (event) => {
     if (!allowNavigation) {

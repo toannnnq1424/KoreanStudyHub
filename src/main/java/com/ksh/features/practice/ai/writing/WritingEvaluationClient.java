@@ -177,6 +177,20 @@ public class WritingEvaluationClient {
         return evaluate(null, prompt, learnerAnswer, false);
     }
 
+    public String evaluationContractIdentity() {
+        return String.join(
+                "|",
+                "ksh-writing-evaluation-v2",
+                properties.baseUrl(),
+                properties.evaluatorModel(),
+                properties.connectTimeout().toString(),
+                properties.readTimeout().toString(),
+                "max-retries=5",
+                WritingPromptRules.PROMPT_VERSION,
+                WritingPromptRules.RUBRIC_VERSION,
+                cacheSchemaVersion());
+    }
+
     public String evaluate(String prompt, String learnerAnswer, boolean isReEvaluation) {
         return evaluate(null, prompt, learnerAnswer, isReEvaluation);
     }
@@ -243,7 +257,11 @@ public class WritingEvaluationClient {
         // 3. Fail closed when provider credentials are unavailable
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             long providerStart = PracticeAiMetrics.startNanos();
-            String unavailable = normalizer.providerUnavailable("MISSING_API_KEY", ruleAnalysis.taskType(), learnerAnswer);
+            String unavailable = normalizer.providerUnavailable(
+                    "MISSING_API_KEY",
+                    ruleAnalysis.taskType(),
+                    learnerAnswer,
+                    false);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return unavailable;
         }
@@ -267,23 +285,39 @@ public class WritingEvaluationClient {
             String failure = normalizer.contractFailure(ex.reason(), ruleAnalysis.taskType(), learnerAnswer);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return failure;
+        } catch (EvaluationInterruptedException ex) {
+            // Worker interruption is lifecycle control, not a provider
+            // availability outcome. Let the durable job remain reclaimable.
+            throw ex;
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
             log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
                     status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
-            String unavailable = normalizer.providerUnavailable("PROVIDER_HTTP_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            String unavailable = normalizer.providerUnavailable(
+                    "PROVIDER_HTTP_ERROR",
+                    ruleAnalysis.taskType(),
+                    learnerAnswer,
+                    isRetryable(status));
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return unavailable;
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            String unavailable = normalizer.providerUnavailable("PROVIDER_TRANSPORT_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            String unavailable = normalizer.providerUnavailable(
+                    "PROVIDER_TRANSPORT_ERROR",
+                    ruleAnalysis.taskType(),
+                    learnerAnswer,
+                    true);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return unavailable;
         } catch (Exception ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            String unavailable = normalizer.providerUnavailable("PROVIDER_UNEXPECTED_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            String unavailable = normalizer.providerUnavailable(
+                    "PROVIDER_UNEXPECTED_ERROR",
+                    ruleAnalysis.taskType(),
+                    learnerAnswer,
+                    false);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return unavailable;
         }
@@ -413,6 +447,7 @@ public class WritingEvaluationClient {
         int maxRetries = 5;
         long backoffMs = 3000;
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            requireEvaluationThreadActive();
             try {
                 return restClient.post()
                         .uri("/chat/completions")
@@ -463,6 +498,20 @@ public class WritingEvaluationClient {
             Thread.sleep(backoffMs);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            throw new EvaluationInterruptedException(interrupted);
+        }
+    }
+
+    private static void requireEvaluationThreadActive() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new EvaluationInterruptedException(null);
+        }
+    }
+
+    private static final class EvaluationInterruptedException
+            extends RuntimeException {
+        private EvaluationInterruptedException(Throwable cause) {
+            super("Writing evaluation was interrupted.", cause);
         }
     }
 

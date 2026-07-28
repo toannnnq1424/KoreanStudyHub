@@ -33,6 +33,9 @@ public class PracticeAttempt {
     public static final String ANALYSIS_PROCESSING = "PROCESSING";
     public static final String ANALYSIS_SUCCEEDED = "SUCCEEDED";
     public static final String ANALYSIS_FAILED = "FAILED";
+    public static final String ANALYSIS_UNAVAILABLE = "UNAVAILABLE";
+
+    public static final int MAX_DEADLINE_RECONCILE_ATTEMPTS = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -117,6 +120,24 @@ public class PracticeAttempt {
     @Column(name = "started_at", nullable = false)
     private LocalDateTime startedAt;
 
+    @Column(name = "deadline_at", nullable = false)
+    private LocalDateTime deadlineAt;
+
+    @Column(name = "last_saved_at")
+    private LocalDateTime lastSavedAt;
+
+    @Column(name = "deadline_reconcile_attempts", nullable = false)
+    private Integer deadlineReconcileAttempts = 0;
+
+    @Column(name = "deadline_reconcile_next_at")
+    private LocalDateTime deadlineReconcileNextAt;
+
+    @Column(name = "deadline_reconcile_error_code", length = 100)
+    private String deadlineReconcileErrorCode;
+
+    @Column(name = "deadline_reconcile_quarantined_at")
+    private LocalDateTime deadlineReconcileQuarantinedAt;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
@@ -160,6 +181,7 @@ public class PracticeAttempt {
     void onPersist() {
         LocalDateTime now = LocalDateTime.now();
         if (startedAt == null) startedAt = now;
+        if (deadlineAt == null) deadlineAt = startedAt.plusMinutes(40);
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
     }
@@ -179,6 +201,28 @@ public class PracticeAttempt {
         synchronizeScoreContract(score, totalPoints);
         this.status = STATUS_SUBMITTED;
         this.submittedAt = LocalDateTime.now();
+    }
+
+    public void markSubmittedForAnalysis(BigDecimal totalPoints, String answersJson,
+                                         LocalDateTime now) {
+        requireNotDiscarded();
+        if (!STATUS_IN_PROGRESS.equals(status)) {
+            throw new IllegalStateException(
+                    "Only an in-progress attempt can be queued for analysis.");
+        }
+        LocalDateTime effectiveNow = requireNow(now);
+        this.score = null;
+        this.totalPoints = totalPoints;
+        this.answersJson = answersJson;
+        this.aiFeedbackJson = null;
+        synchronizeScoreContract(null, totalPoints);
+        this.status = STATUS_SUBMITTED;
+        this.submittedAt = effectiveNow;
+        this.analysisStatus = ANALYSIS_QUEUED;
+        this.analysisRequestedAt = effectiveNow;
+        this.analysisCompletedAt = null;
+        this.analysisEngine = null;
+        this.analysisErrorCode = null;
     }
 
     public void markGraded(BigDecimal score, BigDecimal totalPoints,
@@ -205,11 +249,159 @@ public class PracticeAttempt {
         this.status = STATUS_GRADED;
     }
 
+    public void markAnalysisSucceeded(BigDecimal score, BigDecimal totalPoints,
+                                      String answersJson, String aiFeedbackJson,
+                                      String engine, LocalDateTime now) {
+        requireNotDiscarded();
+        this.score = score;
+        this.totalPoints = totalPoints;
+        this.answersJson = answersJson;
+        this.aiFeedbackJson = aiFeedbackJson;
+        synchronizeScoreContract(score, totalPoints);
+        this.analysisStatus = ANALYSIS_SUCCEEDED;
+        this.analysisCompletedAt = requireNow(now);
+        this.analysisEngine = engine;
+        this.analysisErrorCode = null;
+        this.status = STATUS_GRADED;
+    }
+
+    public void markAnalysisProcessing() {
+        requireNotDiscarded();
+        if (!STATUS_SUBMITTED.equals(status) && !STATUS_GRADED.equals(status)) {
+            throw new IllegalStateException(
+                    "Only a terminal learner submission can be processed.");
+        }
+        this.analysisStatus = ANALYSIS_PROCESSING;
+        this.analysisCompletedAt = null;
+        this.analysisErrorCode = null;
+    }
+
+    public void markAnalysisQueued(LocalDateTime now) {
+        requireNotDiscarded();
+        if (!STATUS_SUBMITTED.equals(status) && !STATUS_GRADED.equals(status)) {
+            throw new IllegalStateException(
+                    "Only a terminal learner submission can be queued.");
+        }
+        this.analysisStatus = ANALYSIS_QUEUED;
+        this.analysisRequestedAt = requireNow(now);
+        this.analysisCompletedAt = null;
+        this.analysisErrorCode = null;
+    }
+
+    public void markAnalysisUnavailable(BigDecimal totalPoints,
+                                        String answersJson,
+                                        String aiFeedbackJson,
+                                        String errorCode,
+                                        boolean preserveExistingResult,
+                                        LocalDateTime now) {
+        requireNotDiscarded();
+        if (!preserveExistingResult) {
+            this.score = null;
+            this.totalPoints = totalPoints;
+            this.answersJson = answersJson;
+            this.aiFeedbackJson = aiFeedbackJson;
+            synchronizeScoreContract(null, totalPoints);
+            this.status = STATUS_SUBMITTED;
+        }
+        this.analysisStatus = ANALYSIS_UNAVAILABLE;
+        this.analysisCompletedAt = requireNow(now);
+        this.analysisErrorCode = errorCode;
+    }
+
     public void markAnalysisFailed(String errorCode) {
         requireNotDiscarded();
         this.analysisStatus = ANALYSIS_FAILED;
         this.analysisCompletedAt = LocalDateTime.now();
         this.analysisErrorCode = errorCode;
+    }
+
+    public void markAnalysisFailed(String errorCode, LocalDateTime now) {
+        requireNotDiscarded();
+        this.analysisStatus = ANALYSIS_FAILED;
+        this.analysisCompletedAt = requireNow(now);
+        this.analysisErrorCode = errorCode;
+    }
+
+    public void configureDeadline(Integer durationMinutes, LocalDateTime now) {
+        requireNotDiscarded();
+        if (!STATUS_IN_PROGRESS.equals(status)) {
+            throw new IllegalStateException(
+                    "A deadline can only be configured for an in-progress attempt.");
+        }
+        int effectiveMinutes = durationMinutes == null || durationMinutes <= 0
+                ? 40 : durationMinutes;
+        this.deadlineAt = requireNow(now).plusMinutes(effectiveMinutes);
+    }
+
+    public boolean isExpired(LocalDateTime now) {
+        return deadlineAt != null && now != null && !deadlineAt.isAfter(now);
+    }
+
+    public void saveAnswers(String answersJson, LocalDateTime now) {
+        requireNotDiscarded();
+        if (!STATUS_IN_PROGRESS.equals(status)) {
+            throw new IllegalStateException(
+                    "Only an in-progress attempt can save answers.");
+        }
+        this.answersJson = answersJson;
+        this.lastSavedAt = requireNow(now);
+    }
+
+    public void recordDeadlineReconcileFailure(
+            String errorCode,
+            LocalDateTime now) {
+        requireNotDiscarded();
+        if (!isDeadlineReconcileDue(now)) {
+            throw new IllegalStateException(
+                    "Only a due expired attempt can record deadline reconciliation failure.");
+        }
+        LocalDateTime effectiveNow = requireNow(now);
+        int nextAttempt = Math.min(
+                MAX_DEADLINE_RECONCILE_ATTEMPTS,
+                deadlineReconcileAttempts == null
+                        ? 1
+                        : deadlineReconcileAttempts + 1);
+        deadlineReconcileAttempts = nextAttempt;
+        deadlineReconcileErrorCode = truncate(errorCode, 100);
+        if (nextAttempt >= MAX_DEADLINE_RECONCILE_ATTEMPTS) {
+            deadlineReconcileNextAt = null;
+            deadlineReconcileQuarantinedAt = effectiveNow;
+            return;
+        }
+        long delaySeconds = Math.min(
+                900L,
+                30L * (1L << Math.min(nextAttempt - 1, 4)));
+        deadlineReconcileNextAt =
+                effectiveNow.plusSeconds(delaySeconds);
+        deadlineReconcileQuarantinedAt = null;
+    }
+
+    public boolean isDeadlineReconcileQuarantined() {
+        return deadlineReconcileQuarantinedAt != null;
+    }
+
+    public boolean isDeadlineReconcileDue(LocalDateTime now) {
+        return STATUS_IN_PROGRESS.equals(status)
+                && isExpired(now)
+                && deadlineReconcileQuarantinedAt == null
+                && (deadlineReconcileNextAt == null
+                || !deadlineReconcileNextAt.isAfter(now));
+    }
+
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= max
+                ? value
+                : value.substring(0, max);
+    }
+
+    private static LocalDateTime requireNow(LocalDateTime now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Attempt transition time is required.");
+        }
+        return now;
     }
 
     private void synchronizeScoreContract(BigDecimal compatibilityScore, BigDecimal possiblePoints) {
@@ -315,6 +507,20 @@ public class PracticeAttempt {
     public String getAnalysisEngine() { return analysisEngine; }
     public String getAnalysisErrorCode() { return analysisErrorCode; }
     public LocalDateTime getStartedAt() { return startedAt; }
+    public LocalDateTime getDeadlineAt() { return deadlineAt; }
+    public LocalDateTime getLastSavedAt() { return lastSavedAt; }
+    public Integer getDeadlineReconcileAttempts() {
+        return deadlineReconcileAttempts;
+    }
+    public LocalDateTime getDeadlineReconcileNextAt() {
+        return deadlineReconcileNextAt;
+    }
+    public String getDeadlineReconcileErrorCode() {
+        return deadlineReconcileErrorCode;
+    }
+    public LocalDateTime getDeadlineReconcileQuarantinedAt() {
+        return deadlineReconcileQuarantinedAt;
+    }
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public LocalDateTime getDiscardedAt() { return discardedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
@@ -343,4 +549,5 @@ public class PracticeAttempt {
     public void setSectionId(Long sectionId) { this.sectionId = sectionId; }
     public void setVersionCompatibilityStatus(String versionCompatibilityStatus) { this.versionCompatibilityStatus = versionCompatibilityStatus; }
     public void setVersionCompatibilityNote(String versionCompatibilityNote) { this.versionCompatibilityNote = versionCompatibilityNote; }
+    public void setDeadlineAt(LocalDateTime deadlineAt) { this.deadlineAt = deadlineAt; }
 }

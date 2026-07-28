@@ -17,6 +17,33 @@
   </header>
 
   <main class="pr-main">
+    <section class="pr-lifecycle-notice"
+             th:if="${result.state().code() == 'QUEUED'
+                      or result.state().code() == 'PROCESSING'}"
+             role="status" aria-live="polite">
+      Bài đã được nộp an toàn. Đánh giá đang chạy ở nền; tải lại trang sau
+      để xem phản hồi mới nhất.
+    </section>
+    <section class="pr-lifecycle-notice is-unavailable"
+             th:if="${result.state().code() == 'UNAVAILABLE'
+                      and !result.score().available()}"
+             role="status">
+      Hệ thống chưa thể tạo đánh giá cho lượt này. Không có điểm mô phỏng
+      hoặc phản hồi giả nào được tạo.
+    </section>
+    <section class="pr-lifecycle-notice is-unavailable"
+             th:if="${result.state().code() == 'UNAVAILABLE'
+                      and result.score().available()}"
+             role="status">
+      Lần chấm lại chưa thể hoàn tất. Kết quả đã xác minh trước đó vẫn được
+      giữ nguyên; không có điểm mô phỏng hoặc phản hồi giả nào được tạo.
+    </section>
+    <section class="pr-lifecycle-notice is-unavailable"
+             th:if="${result.state().code() == 'FAILED'}"
+             role="alert">
+      Đánh giá đã kết thúc do lỗi và không tạo điểm hoặc phản hồi giả.
+      Bạn có thể thử lại nếu hệ thống hiển thị thao tác chấm lại.
+    </section>
     <section class="pr-summary"
              th:classappend="${' is-' + #strings.toLowerCase(result.identity().skill())}"
              aria-labelledby="result-title">

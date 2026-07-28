@@ -11,6 +11,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -110,6 +111,24 @@ public class PracticeSpeakingMediaService {
             Long userId, Long attemptId, List<Long> questionIds) {
         PracticeAttempt attempt = loadOwnedAttempt(attemptId, userId);
         validateMutableAttempt(attempt);
+        return requireReadyMediaIdentity(attempt, questionIds);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, SpeakingMediaIdentity>
+    requireReadyMediaForTerminalEvaluation(
+            Long userId, Long attemptId, List<Long> questionIds) {
+        PracticeAttempt attempt = loadOwnedAttempt(attemptId, userId);
+        if (!PracticeAttempt.STATUS_SUBMITTED.equals(attempt.getStatus())
+                && !PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
+            throw new IllegalStateException(
+                    "Speaking evaluation requires a submitted attempt.");
+        }
+        return requireReadyMediaIdentity(attempt, questionIds);
+    }
+
+    private Map<Long, SpeakingMediaIdentity> requireReadyMediaIdentity(
+            PracticeAttempt attempt, List<Long> questionIds) {
         Set<Long> allowedQuestionIds = immutableSpeakingQuestionIds(attempt);
         if (questionIds == null || questionIds.isEmpty()
                 || questionIds.stream().anyMatch(id -> id == null || !allowedQuestionIds.contains(id))) {
@@ -118,7 +137,7 @@ public class PracticeSpeakingMediaService {
 
         Map<Long, SpeakingMediaIdentity> readyByQuestion = new LinkedHashMap<>();
         for (PracticeSpeakingMedia media : mediaRepository.findByAttemptIdAndStatus(
-                attemptId, PracticeSpeakingMediaStatus.READY)) {
+                attempt.getId(), PracticeSpeakingMediaStatus.READY)) {
             if (!questionIds.contains(media.getQuestionId())) {
                 continue;
             }
@@ -170,6 +189,10 @@ public class PracticeSpeakingMediaService {
         }
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
             throw new IllegalStateException("Speaking media can only be changed before submit.");
+        }
+        if (attempt.isExpired(LocalDateTime.now())) {
+            throw new PracticeAttemptDeadlineExpiredException(
+                    attempt.getDeadlineAt());
         }
     }
 

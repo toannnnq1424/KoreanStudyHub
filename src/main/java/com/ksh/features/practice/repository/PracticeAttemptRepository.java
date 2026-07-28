@@ -71,6 +71,10 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
     @Query("select a from PracticeAttempt a where a.id = :id and a.userId = :userId")
     Optional<PracticeAttempt> findByIdAndUserIdForUpdate(@Param("id") Long id, @Param("userId") Long userId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from PracticeAttempt a where a.id = :id")
+    Optional<PracticeAttempt> findByIdForUpdate(@Param("id") Long id);
+
     List<PracticeAttempt> findByTestIdAndUserIdAndSkillOrderByCreatedAtDesc(
             Long testId, Long userId, String skill);
 
@@ -507,6 +511,8 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
              AND pscv.skill = a.skill
             WHERE a.user_id = :userId
               AND a.status = 'IN_PROGRESS'
+              AND a.deadline_at IS NOT NULL
+              AND a.deadline_at > :now
               AND (
                     a.version_compatibility_status IS NULL
                     OR TRIM(a.version_compatibility_status) = ''
@@ -524,6 +530,24 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
     List<GlobalResumeProjection> findGlobalResumeCandidates(
             @Param("userId") Long userId,
             @Param("activeClassIds") List<Long> activeClassIds,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
+
+    @Query(value = """
+            SELECT a.id
+            FROM practice_attempts a
+            WHERE a.status = 'IN_PROGRESS'
+              AND a.deadline_at IS NOT NULL
+              AND a.deadline_at <= :now
+              AND a.deadline_reconcile_quarantined_at IS NULL
+              AND (
+                    a.deadline_reconcile_next_at IS NULL
+                    OR a.deadline_reconcile_next_at <= :now
+                  )
+            ORDER BY a.deadline_at ASC, a.id ASC
+            """, nativeQuery = true)
+    List<Long> findExpiredInProgressAttemptIds(
+            @Param("now") LocalDateTime now,
             Pageable pageable);
 
     Optional<PracticeAttempt> findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(

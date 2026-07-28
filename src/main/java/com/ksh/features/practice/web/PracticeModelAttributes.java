@@ -16,6 +16,10 @@ public final class PracticeModelAttributes {
     public static final String SKILL_CARDS = "skillCards";
     public static final String MODE = "mode";
     public static final String ATTEMPT_ID = "attemptId";
+    public static final String ATTEMPT_LOCK_VERSION = "attemptLockVersion";
+    public static final String ATTEMPT_DEADLINE_EPOCH_MS = "attemptDeadlineEpochMs";
+    public static final String SERVER_NOW_EPOCH_MS = "serverNowEpochMs";
+    public static final String SAVED_ANSWERS = "savedAnswers";
     public static final String RESULT = "result";
     public static final String RESULT_DETAIL = "resultDetail";
     public static final String QUESTIONS_JSON = "questionsJson";

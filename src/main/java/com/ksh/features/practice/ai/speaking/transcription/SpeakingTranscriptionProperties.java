@@ -11,6 +11,14 @@ import java.util.stream.Collectors;
 
 @Component
 public class SpeakingTranscriptionProperties {
+    private static final Duration DEFAULT_TIMEOUT =
+            Duration.ofSeconds(30);
+    private static final Duration MIN_TIMEOUT =
+            Duration.ofSeconds(1);
+    private static final Duration MAX_TIMEOUT =
+            Duration.ofMinutes(2);
+    private static final int MAX_RETRIES = 3;
+
     private final boolean enabled;
     private final String provider;
     private final String baseUrl;
@@ -43,8 +51,9 @@ public class SpeakingTranscriptionProperties {
         this.model = text(model, "gpt-4o-mini-transcribe");
         this.language = text(language, "ko").toLowerCase(Locale.ROOT);
         this.maxBytes = requirePositive(maxBytes, "maxBytes");
-        this.timeout = requirePositive(timeout, "timeout");
-        this.maxRetries = Math.max(0, maxRetries);
+        this.timeout = boundedTimeout(timeout);
+        this.maxRetries = Math.min(
+                MAX_RETRIES, Math.max(0, maxRetries));
         this.includeLogprobs = includeLogprobs;
         this.allowedMimeTypes = parseMimeTypes(allowedMimeTypes);
     }
@@ -68,11 +77,20 @@ public class SpeakingTranscriptionProperties {
         return value;
     }
 
-    private static Duration requirePositive(Duration value, String label) {
-        if (value == null || value.isZero() || value.isNegative()) {
-            throw new IllegalArgumentException(label + " must be positive");
+    private static Duration boundedTimeout(Duration value) {
+        Duration candidate = value == null
+                ? DEFAULT_TIMEOUT
+                : value;
+        if (candidate.isZero() || candidate.isNegative()) {
+            throw new IllegalArgumentException(
+                    "timeout must be positive");
         }
-        return value;
+        if (candidate.compareTo(MIN_TIMEOUT) < 0) {
+            return MIN_TIMEOUT;
+        }
+        return candidate.compareTo(MAX_TIMEOUT) > 0
+                ? MAX_TIMEOUT
+                : candidate;
     }
 
     private static Set<String> parseMimeTypes(String value) {

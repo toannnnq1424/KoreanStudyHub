@@ -112,6 +112,23 @@
   margin: 28px auto 64px;
 }
 
+.pr-lifecycle-notice {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.pr-lifecycle-notice.is-unavailable {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .pr-summary {
   min-height: 0;
   padding: 34px 38px;
