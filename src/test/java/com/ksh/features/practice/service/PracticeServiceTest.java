@@ -105,6 +105,11 @@ class PracticeServiceTest {
         lenient().when(publishedVersionService
                 .hasCoherentAttemptIdentity(any(PracticeAttempt.class)))
                 .thenReturn(true);
+        lenient().when(evaluationClient.evaluationContractIdentity())
+                .thenReturn("ksh-writing-evaluation-test");
+        lenient().when(
+                speakingEvaluationService.evaluationContractIdentity())
+                .thenReturn("ksh-speaking-evaluation-test");
     }
 
     @Test
@@ -1770,6 +1775,7 @@ class PracticeServiceTest {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, skill, 20L);
         attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
         attempt.setStatus(status);
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
         attempt.setAnswersJson("{\"101\":\"3\"}");
         if (existingAiFeedbackJson != null) {
             attempt.setAiFeedbackJson(existingAiFeedbackJson);
@@ -1790,6 +1796,8 @@ class PracticeServiceTest {
         when(sectionRepository.findByIdForShare(20L)).thenReturn(Optional.of(section));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
         when(questionRepository.findById(101L)).thenReturn(Optional.of(q1));
         return attempt;
@@ -1943,24 +1951,59 @@ class PracticeServiceTest {
 
     @Test
     void testSaveInProgressAnswersSuccess() throws Exception {
+        PracticeSet set = new PracticeSet(
+                "Reading", "Desc", "READING", "GLOBAL",
+                null, null, null, "PUBLISHED", 1L);
+        setEntityId(set, 1L);
+        com.ksh.entities.PracticeTest test =
+                new com.ksh.entities.PracticeTest(
+                        1L, "Test", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(
+                1L, "Reading", "READING", "MCQ",
+                "Instruction", 40, BigDecimal.TEN, 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeQuestionGroup group = new PracticeQuestionGroup(
+                1L, "1", 1, 1, "Instruction",
+                null, null, 1);
+        group.setSectionId(20L);
+        setEntityId(group, 30L);
+        PracticeQuestion question = new PracticeQuestion(
+                1L, 1, "SINGLE_CHOICE", "Prompt",
+                "[\"A\",\"B\"]", "1", "Explain",
+                BigDecimal.TEN, 1);
+        question.setGroupId(30L);
+        setEntityId(question, 101L);
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
+        attempt.setLockVersion(0L);
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
+        setEntityId(attempt, 99L);
+        useImmutableSnapshot(
+                attempt, set, test, section, group,
+                List.of(question));
 
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         Map<String, String> form = Map.of("answer_101", "3", "other_field", "value");
         practiceService.saveInProgressAnswers(99L, 2L, form);
 
         assertEquals("{\"101\":\"3\"}", attempt.getAnswersJson());
-        verify(attemptRepository).save(attempt);
+        verify(attemptRepository).saveAndFlush(attempt);
     }
 
     @Test
     void testSaveInProgressAnswersNotInProgressThrows() {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("SUBMITTED");
+        attempt.setLockVersion(0L);
 
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         assertThrows(IllegalStateException.class, () -> {
             practiceService.saveInProgressAnswers(99L, 2L, Map.of());
@@ -1978,6 +2021,7 @@ class PracticeServiceTest {
 
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
         setEntityId(attempt, 99L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -1985,6 +2029,8 @@ class PracticeServiceTest {
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         PracticeQuestion q1 = new PracticeQuestion(
                 1L, 1, "MCQ", "Q",
@@ -2021,6 +2067,7 @@ class PracticeServiceTest {
         setEntityId(section, 20L);
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
         attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
         setEntityId(attempt, 99L);
 
@@ -2028,6 +2075,8 @@ class PracticeServiceTest {
         when(testRepository.findById(10L)).thenReturn(Optional.of(test));
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         PracticePublishedVersion publishedVersion = mock(PracticePublishedVersion.class);
         PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
@@ -2104,6 +2153,7 @@ class PracticeServiceTest {
 
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
         setEntityId(attempt, 99L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -2111,6 +2161,8 @@ class PracticeServiceTest {
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         PracticeQuestion q1 = new PracticeQuestion(
                 1L, 1, "MCQ", "Q",
@@ -2184,6 +2236,7 @@ class PracticeServiceTest {
 
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
+        attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
         setEntityId(attempt, 99L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -2191,6 +2244,8 @@ class PracticeServiceTest {
         when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
         when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(section));
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         // Question 1 belongs to section 20
         PracticeQuestion q1 = new PracticeQuestion(
@@ -2594,6 +2649,120 @@ class PracticeServiceTest {
     }
 
     @Test
+    void speakingAsyncOutcomeUsesActualRetryableFailureAcrossAllQuestions() {
+        Map<Long, SpeakingEvaluationResult> feedback =
+                new LinkedHashMap<>();
+        feedback.put(
+                101L,
+                speakingResult(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        true,
+                        new BigDecimal("80"),
+                        false));
+        feedback.put(
+                102L,
+                speakingResult(
+                        SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE,
+                        false,
+                        null,
+                        true));
+
+        PracticeService.SpeakingOutcomeClassification classification =
+                PracticeService.classifySpeakingEvaluation(
+                        feedback, true);
+
+        assertFalse(classification.succeeded());
+        assertTrue(classification.retryable());
+        assertEquals(
+                PracticeAttemptEvaluationOutcome.UNAVAILABLE,
+                classification.terminalStatus());
+        assertEquals(
+                "EVALUATION_UNAVAILABLE",
+                classification.errorCode());
+    }
+
+    @Test
+    void speakingAsyncOutcomeRejectsUntrustedEvaluatedProfile() {
+        SpeakingEvaluationResult untrusted = speakingResult(
+                SpeakingEvaluationStatus.EVALUATED,
+                true,
+                new BigDecimal("80"),
+                false,
+                SpeakingContractTrust.LEGACY_UNVERIFIED);
+
+        PracticeService.SpeakingOutcomeClassification classification =
+                PracticeService.classifySpeakingEvaluation(
+                        Map.of(101L, untrusted), true);
+
+        assertFalse(classification.succeeded());
+        assertFalse(classification.retryable());
+        assertEquals(
+                PracticeAttemptEvaluationOutcome.FAILED,
+                classification.terminalStatus());
+        assertEquals(
+                "SPEAKING_EVALUATION_FAILED",
+                classification.errorCode());
+    }
+
+    @Test
+    void writingAsyncOutcomeIgnoresSuccessfulSiblingWhenProviderIsUnavailable() {
+        PracticeService.EvaluationFailureMetadata classification =
+                practiceService.writingFailureMetadata("""
+                        {
+                          "101":{
+                            "evaluation_status":"EVALUATED",
+                            "score_available":true,
+                            "raw_score":8,
+                            "raw_score_max":10
+                          },
+                          "102":{
+                            "evaluation_status":"EVALUATION_UNAVAILABLE",
+                            "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
+                            "evaluation_retryable":true,
+                            "score_available":false
+                          }
+                        }
+                        """);
+
+        assertEquals(
+                PracticeAttemptEvaluationOutcome.UNAVAILABLE,
+                classification.terminalStatus());
+        assertEquals(
+                "PROVIDER_TRANSPORT_ERROR",
+                classification.errorCode());
+        assertTrue(classification.retryable());
+    }
+
+    @Test
+    void writingAsyncOutcomePrefersContractFailureOverUnavailableSibling() {
+        PracticeService.EvaluationFailureMetadata classification =
+                practiceService.writingFailureMetadata("""
+                        {
+                          "101":{
+                            "evaluation_status":"EVALUATION_UNAVAILABLE",
+                            "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
+                            "evaluation_retryable":true,
+                            "score_available":false
+                          },
+                          "102":{
+                            "evaluation_status":"EVALUATION_CONTRACT_FAILED",
+                            "evaluation_reason":"PROVIDER_CONTRACT_INVALID",
+                            "evaluation_retryable":false,
+                            "score_available":false
+                          }
+                        }
+                        """);
+
+        assertEquals(
+                PracticeAttemptEvaluationOutcome.FAILED,
+                classification.terminalStatus());
+        assertEquals(
+                "PROVIDER_CONTRACT_INVALID",
+                classification.errorCode());
+        assertTrue(classification.retryable());
+    }
+
+    @Test
     void speakingSubmitAggregatesMultipleQuestionsAndPersistsFeedbackMap() throws Exception {
         PracticeSet set = new PracticeSet("Speaking Set", "Desc", "SPEAKING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         setEntityId(set, 1L);
@@ -2818,7 +2987,8 @@ class PracticeServiceTest {
     }
 
     @Test
-    void mixedLegacySpeakingEssayPersistsVersionedEnvelopeAndAggregatesByQuestionRegardlessOfOrder() throws Exception {
+    void mixedLegacySpeakingEssayRemainsReadableButCannotBeProduced()
+            throws Exception {
         assertMixedLegacySpeakingEssayOrder(List.of("SPEAKING", "ESSAY"));
         setUp();
         assertMixedLegacySpeakingEssayOrder(List.of("ESSAY", "SPEAKING"));
@@ -2871,17 +3041,45 @@ class PracticeServiceTest {
         when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(group));
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(orderedQuestions);
 
-        String essayFeedback = "{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"summary_vi\":\"ESSAY_MIXED_FEEDBACK\"}";
-        when(evaluationClient.evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), eq(false), any()))
-                .thenReturn(essayFeedback);
-        when(evaluationClient.evaluate(eq(2L), eq("Essay prompt"), eq("ESSAY_PRIVATE_SENTINEL_MIXED"), eq(true), any()))
-                .thenReturn(essayFeedback);
-
-        practiceService.submitAttempt(99L, 2L, Map.of(
+        Map<String, String> submittedAnswers = Map.of(
                 "answer_100", "1",
                 "answer_101", "SPEAKING_PRIVATE_SENTINEL_MIXED",
-                "answer_202", "ESSAY_PRIVATE_SENTINEL_MIXED"
-        ));
+                "answer_202", "ESSAY_PRIVATE_SENTINEL_MIXED");
+        assertThrows(
+                IllegalStateException.class,
+                () -> practiceService.submitAttempt(
+                        99L, 2L, submittedAnswers));
+        verifyNoInteractions(
+                evaluationClient, speakingEvaluationService);
+
+        String historicalEnvelope = """
+                {
+                  "_contract":"speaking_mixed_v1",
+                  "speaking_feedback_by_question":{
+                    "101":{
+                      "evaluation_status":"EVALUATED",
+                      "score":7.0,
+                      "summary_vi":"LEGACY_SPEAKING_FEEDBACK"
+                    }
+                  },
+                  "essay_feedback_by_question":{
+                    "202":{
+                      "score":8.0,
+                      "overall_score":8.0,
+                      "raw_score":8.0,
+                      "raw_score_max":10.0,
+                      "summary_vi":"ESSAY_MIXED_FEEDBACK"
+                    }
+                  }
+                }
+                """;
+        attempt.markGraded(
+                new BigDecimal("74.60"),
+                BigDecimal.valueOf(35),
+                "{\"100\":\"1\","
+                        + "\"101\":\"SPEAKING_PRIVATE_SENTINEL_MIXED\","
+                        + "\"202\":\"ESSAY_PRIVATE_SENTINEL_MIXED\"}",
+                historicalEnvelope);
 
         assertMixedEnvelope(attempt);
         assertEquals(0, attempt.getScore().compareTo(new BigDecimal("74.60")));
@@ -2911,12 +3109,8 @@ class PracticeServiceTest {
 
         assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
         assertEquals(0, attempt.getScore().compareTo(new BigDecimal("74.60")));
-        verify(evaluationClient, times(1)).evaluate(
-                eq(2L),
-                eq("Essay prompt"),
-                eq("ESSAY_PRIVATE_SENTINEL_MIXED"),
-                eq(false),
-                any());
+        verifyNoInteractions(
+                evaluationClient, speakingEvaluationService);
         verifyNoInteractions(explanationReadService, audioStorageService);
     }
 
@@ -3741,6 +3935,21 @@ class PracticeServiceTest {
             BigDecimal overallScore,
             boolean retryable
     ) {
+        return speakingResult(
+                status,
+                scoreAvailable,
+                overallScore,
+                retryable,
+                SpeakingContractTrust.CURRENT_VERIFIED);
+    }
+
+    private SpeakingEvaluationResult speakingResult(
+            SpeakingEvaluationStatus status,
+            boolean scoreAvailable,
+            BigDecimal overallScore,
+            boolean retryable,
+            SpeakingContractTrust contractTrust
+    ) {
         return new SpeakingEvaluationResult(
                 status,
                 scoreAvailable,
@@ -3753,7 +3962,7 @@ class PracticeServiceTest {
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
-                SpeakingContractTrust.CURRENT_VERIFIED,
+                contractTrust,
                 12L,
                 3L,
                 "저는 한국어를 공부해요.",

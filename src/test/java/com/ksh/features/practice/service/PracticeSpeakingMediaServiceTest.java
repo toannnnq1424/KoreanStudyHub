@@ -280,6 +280,33 @@ class PracticeSpeakingMediaServiceTest {
     }
 
     @Test
+    void serverDeadlineRejectsSpeakingUploadAndActivation() {
+        Fixture fixture = createSpeakingFixture("deadline-upload");
+        PracticeAttempt attempt = attemptRepository.findById(
+                fixture.attemptId()).orElseThrow();
+        attempt.setDeadlineAt(java.time.LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId()))
+                .isInstanceOf(
+                        PracticeAttemptDeadlineExpiredException.class);
+        assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                descriptor("deadline-upload.webm")))
+                .isInstanceOf(
+                        PracticeAttemptDeadlineExpiredException.class);
+        assertThat(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                PracticeSpeakingMediaStatus.READY)).isEmpty();
+    }
+
+    @Test
     void activationThatCommitsFirstIsCollectedByFollowingDiscard() {
         Fixture fixture = createSpeakingFixture("activation-before-discard");
         ValidatedSpeakingMediaDescriptor descriptor = descriptor("activation-before-discard.webm");

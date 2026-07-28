@@ -1841,6 +1841,8 @@ class PracticeResultPresenterTest {
         PracticeQuestionVersion question = speakingQuestion(201L);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn(null);
+        when(attempt.getAnalysisStatus())
+                .thenReturn(PracticeAttempt.ANALYSIS_QUEUED);
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
@@ -1895,9 +1897,9 @@ class PracticeResultPresenterTest {
                 "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
-        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
         assertThat(result.score().available()).isFalse();
-        assertThat(payload.profileState()).isEqualTo("FAILED");
+        assertThat(payload.profileState()).isEqualTo("UNAVAILABLE");
         assertThat(payload.coveredSegments()).isZero();
         assertThat(payload.criteria()).allSatisfy(criterion -> {
             assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
