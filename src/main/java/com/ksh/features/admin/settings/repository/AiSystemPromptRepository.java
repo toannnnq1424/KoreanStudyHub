@@ -39,4 +39,7 @@ public interface AiSystemPromptRepository extends JpaRepository<AiSystemPrompt, 
      * @return the matching prompt, or empty when the name is free
      */
     Optional<AiSystemPrompt> findByName(String name);
+
+    /** Returns an enabled prompt by its stable feature key. */
+    Optional<AiSystemPrompt> findByNameAndEnabledTrue(String name);
 }
