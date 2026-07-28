@@ -1,7 +1,9 @@
 package com.ksh.features.lessons.repository;
 
 import com.ksh.entities.LessonAttachment;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +24,10 @@ public interface LessonAttachmentRepository extends JpaRepository<LessonAttachme
 
     /** Loads an attachment scoped by lesson to harden the URL hierarchy. */
     Optional<LessonAttachment> findByIdAndLessonId(Long id, Long lessonId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM LessonAttachment a WHERE a.id = :id")
+    Optional<LessonAttachment> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Bulk-deletes every attachment row for the given lesson. The on-disk

@@ -13,7 +13,9 @@
     page: 0,
     q: '',
     onSelect: null,
-    totalPages: 0
+    totalPages: 0,
+    requestGeneration: 0,
+    requestController: null
   };
 
   function toast(kind, message) {
@@ -24,6 +26,14 @@
 
   function el(id) {
     return document.getElementById(id);
+  }
+
+  function invalidateLoad() {
+    state.requestGeneration += 1;
+    if (state.requestController) {
+      state.requestController.abort();
+      state.requestController = null;
+    }
   }
 
   function ensureModal() {
@@ -88,6 +98,7 @@
   }
 
   function close() {
+    invalidateLoad();
     var modal = el('libraryPickerModal');
     if (modal) modal.hidden = true;
     state.onSelect = null;
@@ -139,27 +150,55 @@
   }
 
   function load() {
+    invalidateLoad();
+    var requestGeneration = state.requestGeneration;
+    var controller = typeof window.AbortController === 'function'
+        ? new window.AbortController()
+        : null;
+    state.requestController = controller;
+    var modal = el('libraryPickerModal');
+
+    function isCurrentLoad() {
+      return requestGeneration === state.requestGeneration
+          && (!controller || state.requestController === controller)
+          && modal && !modal.hidden;
+    }
+
     var body = el('libraryPickerBody');
     body.innerHTML = '<div class="library-picker-loading">Đang tải…</div>';
     var url = API + '?page=' + encodeURIComponent(state.page) +
       '&q=' + encodeURIComponent(state.q || '') +
       '&kind=' + encodeURIComponent(state.kind || '') +
       '&size=12';
-    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    var requestInit = {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    };
+    if (controller) requestInit.signal = controller.signal;
+
+    fetch(url, requestInit)
       .then(function (res) {
         if (!res.ok) throw new Error('load failed');
         return res.json();
       })
-      .then(render)
-      .catch(function () {
+      .then(function (page) {
+        if (!isCurrentLoad()) return;
+        render(page);
+      })
+      .catch(function (error) {
+        if (!isCurrentLoad() || (error && error.name === 'AbortError')) return;
         body.innerHTML = '<div class="library-picker-error">Không tải được kho học liệu.</div>';
         toast('error', 'Không tải được kho học liệu');
+      })
+      .finally(function () {
+        if (isCurrentLoad()) state.requestController = null;
       });
   }
 
   function open(opts) {
     opts = opts || {};
     ensureModal();
+    invalidateLoad();
     state.kind = opts.kind || '';
     state.page = 0;
     state.q = '';

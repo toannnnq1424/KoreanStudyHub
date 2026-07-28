@@ -32,8 +32,19 @@
 
     var classId = container.getAttribute('data-class-id');
     var selectedRow = null;
+    var loadGeneration = 0;
+    var loadController = null;
+
+    function invalidateStudentLoad() {
+      loadGeneration += 1;
+      if (loadController) {
+        loadController.abort();
+        loadController = null;
+      }
+    }
 
     function closePanel() {
+      invalidateStudentLoad();
       panel.setAttribute('hidden', '');
       panel.setAttribute('aria-hidden', 'true');
       if (selectedRow) {
@@ -96,6 +107,18 @@
     }
 
     function loadStudent(studentId, studentName) {
+      invalidateStudentLoad();
+      var requestGeneration = loadGeneration;
+      var controller = typeof window.AbortController === 'function'
+          ? new window.AbortController()
+          : null;
+      loadController = controller;
+
+      function isCurrentStudent() {
+        return requestGeneration === loadGeneration
+            && (!controller || loadController === controller);
+      }
+
       title.textContent = studentName ? ('Tiến độ: ' + studentName) : 'Chi tiết tiến độ';
       renderEmpty('Đang tải...');
       openPanel();
@@ -105,10 +128,14 @@
       var csrfHeader = readMeta('_csrf_header');
       if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
 
-      fetch('/lecturer/classes/' + classId + '/progress/' + studentId + '/lessons', {
+      var requestInit = {
         method: 'GET',
         headers: headers
-      })
+      };
+      if (controller) requestInit.signal = controller.signal;
+
+      fetch('/lecturer/classes/' + classId + '/progress/' + studentId + '/lessons',
+          requestInit)
         .then(function (response) {
           if (!response.ok) {
             return response.json().then(function (json) {
@@ -123,11 +150,18 @@
           }
           return response.json();
         })
-        .then(renderBreakdown)
+        .then(function (data) {
+          if (!isCurrentStudent()) return;
+          renderBreakdown(data);
+        })
         .catch(function (err) {
+          if (!isCurrentStudent() || (err && err.name === 'AbortError')) return;
           var msg = err && err.message ? err.message : 'Không tải được tiến độ';
           if (window.KshToast) window.KshToast.error(msg);
           renderEmpty(msg);
+        })
+        .finally(function () {
+          if (isCurrentStudent()) loadController = null;
         });
     }
 

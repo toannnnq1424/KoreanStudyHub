@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 /**
  * Repository for {@link PublicViewToken} — short-lived anonymous
@@ -17,8 +18,9 @@ public interface PublicViewTokenRepository extends JpaRepository<PublicViewToken
 
     Optional<PublicViewToken> findByToken(String token);
 
-    @Query("SELECT t FROM PublicViewToken t WHERE t.attachmentId = :attachmentId AND t.expiresAt > :now ORDER BY t.expiresAt DESC")
-    Optional<PublicViewToken> findLiveTokenByAttachmentId(@Param("attachmentId") Long attachmentId, @Param("now") LocalDateTime now);
+    @Query("SELECT t FROM PublicViewToken t WHERE t.attachmentId = :attachmentId AND t.expiresAt > :now ORDER BY t.expiresAt DESC, t.id DESC")
+    List<PublicViewToken> findLiveTokensByAttachmentId(@Param("attachmentId") Long attachmentId,
+                                                       @Param("now") LocalDateTime now);
 
     @Modifying
     @Query("DELETE FROM PublicViewToken t WHERE t.expiresAt < :now")

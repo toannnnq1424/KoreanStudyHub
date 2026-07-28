@@ -78,6 +78,19 @@ class InviteCodeServiceTest {
         assertThat(captor.getAllValues().get(1).getCode()).hasSize(32);
     }
 
+    @Test
+    void provision_skips_preexisting_candidate_before_single_flush() {
+        when(generator.generateCode()).thenReturn("DUP001", "NEW001");
+        when(inviteRepository.existsByCode("DUP001")).thenReturn(true);
+        when(inviteRepository.existsByCode("NEW001")).thenReturn(false);
+
+        ClassInviteCode created =
+                service.provisionType(CLASS_ID, OWNER_ID, ClassInviteCode.TYPE_CODE);
+
+        assertThat(created.getCode()).isEqualTo("NEW001");
+        verify(inviteRepository, times(1)).saveAndFlush(any(ClassInviteCode.class));
+    }
+
     // ─────────── regenerateActive ───────────
 
     @Test

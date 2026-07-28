@@ -2,10 +2,8 @@ package com.ksh.features.comments.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Comment;
-import com.ksh.entities.CommentModeration;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CommentRow;
-import com.ksh.features.comments.repository.CommentModerationRepository;
 import com.ksh.features.comments.repository.LessonCommentRepository;
 import com.ksh.features.lessons.support.ClassAccessPolicy;
 import com.ksh.features.lessons.support.LessonAccessResolver;
@@ -51,21 +49,21 @@ public class LessonCommentsService {
             List.of(Comment.MODERATION_APPROVED, Comment.MODERATION_REJECTED);
 
     private final LessonCommentRepository commentRepository;
-    private final CommentModerationRepository moderationRepository;
     private final CommentThreadAssembler assembler;
     private final LessonAccessResolver lessonAccessResolver;
     private final ClassAccessPolicy accessPolicy;
+    private final CommentModerationWriter moderationWriter;
 
     public LessonCommentsService(LessonCommentRepository commentRepository,
-                                 CommentModerationRepository moderationRepository,
                                  CommentThreadAssembler assembler,
                                  LessonAccessResolver lessonAccessResolver,
-                                 ClassAccessPolicy accessPolicy) {
+                                 ClassAccessPolicy accessPolicy,
+                                 CommentModerationWriter moderationWriter) {
         this.commentRepository = commentRepository;
-        this.moderationRepository = moderationRepository;
         this.assembler = assembler;
         this.lessonAccessResolver = lessonAccessResolver;
         this.accessPolicy = accessPolicy;
+        this.moderationWriter = moderationWriter;
     }
 
     /**
@@ -142,7 +140,7 @@ public class LessonCommentsService {
     @Transactional
     public CommentRow editOwn(Long lessonId, Long commentId, Long userId, String rawContent) {
         ClassEntity clazz = authorize(lessonId, userId);
-        Comment comment = loadLiveComment(lessonId, commentId);
+        Comment comment = loadLiveCommentForUpdate(lessonId, commentId);
         if (!comment.getUserId().equals(userId)) {
             throw new AccessDeniedException("Not the comment author");
         }
@@ -155,7 +153,7 @@ public class LessonCommentsService {
     @Transactional
     public void delete(Long lessonId, Long commentId, Long userId) {
         ClassEntity clazz = authorize(lessonId, userId);
-        Comment comment = loadLiveComment(lessonId, commentId);
+        Comment comment = loadLiveCommentForUpdate(lessonId, commentId);
         boolean owner = comment.getUserId().equals(userId);
         boolean lecturer = clazz.getLecturerId().equals(userId);
         if (!owner && !lecturer) {
@@ -198,15 +196,7 @@ public class LessonCommentsService {
     @Transactional
     public void hide(Long lessonId, Long commentId, Long userId, Role role) {
         assertModerator(lessonId, userId, role);
-        Comment comment = loadLiveComment(lessonId, commentId);
-        // Idempotent: already hidden → succeed without a duplicate audit row.
-        if (Comment.MODERATION_REJECTED.equals(comment.getModerationStatus())) {
-            return;
-        }
-        comment.hide();
-        commentRepository.saveAndFlush(comment);
-        moderationRepository.save(CommentModeration.record(
-                commentId, userId, CommentModeration.ACTION_REJECTED));
+        moderationWriter.hide(lessonId, commentId, userId);
     }
 
     /**
@@ -219,15 +209,7 @@ public class LessonCommentsService {
     @Transactional
     public void unhide(Long lessonId, Long commentId, Long userId, Role role) {
         assertModerator(lessonId, userId, role);
-        Comment comment = loadLiveComment(lessonId, commentId);
-        // Idempotent: already visible → succeed without a duplicate audit row.
-        if (Comment.MODERATION_APPROVED.equals(comment.getModerationStatus())) {
-            return;
-        }
-        comment.unhide();
-        commentRepository.saveAndFlush(comment);
-        moderationRepository.save(CommentModeration.record(
-                commentId, userId, CommentModeration.ACTION_APPROVED));
+        moderationWriter.unhide(lessonId, commentId, userId);
     }
 
     // ── Bulk moderation (hide / unhide many) ───────────────────────────
@@ -329,6 +311,13 @@ public class LessonCommentsService {
                 .filter(c -> !c.isDeleted() && lessonId.equals(c.getLessonId()))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_COMMENT_NOT_FOUND));
         return comment;
+    }
+
+    /** Locks one live comment before an edit/delete mutation. */
+    private Comment loadLiveCommentForUpdate(Long lessonId, Long commentId) {
+        return commentRepository.findByIdAndLessonIdForUpdate(commentId, lessonId)
+                .filter(comment -> !comment.isDeleted())
+                .orElseThrow(() -> new EntityNotFoundException(MSG_COMMENT_NOT_FOUND));
     }
 
     /**
