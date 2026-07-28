@@ -172,6 +172,23 @@
             if (e.defaultPrevented || e.button !== 0 ||
                 e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
+            // Keep an already-active exact URL in place. In particular, do not
+            // ask to discard an info-form draft only to fetch the same panel.
+            if (isTab && link.classList.contains('active') &&
+                    tabOf(href) === tabOf(window.location.href)) {
+                var sameUrl;
+                try {
+                    sameUrl = new URL(href, window.location.origin).href ===
+                        window.location.href;
+                } catch (error) {
+                    sameUrl = false;
+                }
+                if (sameUrl) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+
             e.preventDefault();
             if (!dirtyGuard.confirmNavigation()) return;
             navigate(href, true);
