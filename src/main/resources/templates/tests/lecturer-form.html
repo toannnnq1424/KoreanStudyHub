@@ -34,7 +34,7 @@
     <!-- Sticky toolbar: Quay lại / Lưu. Lưu is form-associated (form="lfForm")
          and disabled on non-info tabs — there is no form to submit there. -->
     <div class="detail-toolbar">
-      <a th:href="@{/lecturer/tests}" class="toolbar-back">← Quay lại</a>
+      <a th:href="${testReturnUrl}" class="toolbar-back">← Quay lại</a>
       <span class="toolbar-spacer"></span>
       <a class="toolbar-secondary"
          th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
@@ -80,7 +80,7 @@
 <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
           id="lfForm"
           th:attr="data-save-url=@{/lecturer/tests/save},
-                   data-list-url=@{/lecturer/tests},
+                   data-list-url=${testReturnUrl},
                    data-image-url=@{/lecturer/tests/images},
                    data-bank-search-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/search'} : '',
                    data-bank-insert-url=${mode == 'edit'} ? @{'/lecturer/tests/' + ${test.id()} + '/question-bank/insert'} : '',
@@ -92,6 +92,7 @@
          an AJAX tab swap carries the fresh JSON; read by id, never executed. -->
     <script type="application/json" id="lfData" th:inline="javascript">/*[[${examForm}]]*/ null</script>
     <div class="lf-bar" th:if="${mode == 'create'}">
+      <a th:href="${testReturnUrl}" class="toolbar-back">← Quay lại</a>
       <h1 class="lf-title">Tạo bài test</h1>
       <button type="submit" class="tst-btn tst-btn-primary" id="lfSave">Lưu bài test</button>
     </div>
@@ -134,7 +135,10 @@
           <label class="lf-label" for="lfClass">Lớp</label>
           <select class="lf-input" id="lfClass">
             <option value="">— Chọn lớp —</option>
-            <option th:each="c : ${ledClasses}" th:value="${c.id()}" th:text="${c.name()}">Lớp</option>
+            <option th:each="c : ${ledClasses}"
+                    th:value="${c.id()}"
+                    th:text="${c.name()}"
+                    th:selected="${selectedClassId != null and selectedClassId == c.id()}">Lớp</option>
           </select>
           <small class="lf-err" id="lfClassErr"></small>
         </div>
@@ -233,7 +237,8 @@
         </div>
       </div>
 
-      <section class="lf-bank-picker" id="lfBankPicker" hidden>
+      <section class="lf-bank-picker" id="lfBankPicker"
+               data-dirty-guard="ignore" hidden>
         <div class="lf-bank-toolbar">
           <input class="lf-input" id="lfBankQuery" type="text"
                  placeholder="Tìm theo nội dung hoặc danh mục câu hỏi">
@@ -251,7 +256,7 @@
       </section>
 
       <section class="lf-bank-picker lf-ai-panel" id="lfAiGenPanel"
-               th:if="${mode == 'edit'}" hidden>
+               data-dirty-guard="ignore" th:if="${mode == 'edit'}" hidden>
         <p class="lf-media-hint">
           Tải tài liệu PDF/DOCX hoặc dán nội dung bài giảng. Câu hỏi chỉ được lưu
           sau khi bạn xem trước, chọn và xác nhận.
@@ -472,6 +477,7 @@
 <script th:src="@{/js/test-lecturer-form.js}"></script>
 <script th:src="@{/js/test-lecturer-ai-questions.js}"></script>
 <script th:src="@{/js/test-monitor.js}"></script>
+<script th:src="@{/js/detail-tabs-dirty-guard.js}"></script>
 <script th:src="@{/js/test-detail-tabs.js}"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -98,6 +99,94 @@ class MailOutboxRepositoryIntegrationTest {
         assertThat(job.getStatus()).isEqualTo(MailOutboxStatus.PENDING);
         assertThat(job.getAttemptCount()).isZero();
         assertThat(job.getRecipientEmail()).isEqualTo(user.getEmail());
+    }
+
+    @Test
+    void deleting_notification_nulls_link_but_preserves_delivery_snapshot() {
+        User user = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn")
+                .orElseThrow();
+        Notification notification = notificationRepository.saveAndFlush(new Notification(
+                user.getId(),
+                "Snapshot survives",
+                "Notification can be removed independently",
+                NotificationType.LESSON_PUBLISHED,
+                NotificationType.REF_LESSON,
+                124L));
+        MailOutboxJob job = outboxRepository.saveAndFlush(MailOutboxJob.pending(
+                notification.getId(),
+                "snapshot-recipient@example.com",
+                "[KSH] Immutable subject snapshot",
+                "Immutable body snapshot",
+                MailOutboxService.SOURCE_NOTIFICATION,
+                LocalDateTime.now(ZoneOffset.UTC)));
+        Long jobId = job.getId();
+
+        notificationRepository.delete(notification);
+        notificationRepository.flush();
+        entityManager.clear();
+
+        MailOutboxJob retained = outboxRepository.findById(jobId).orElseThrow();
+        assertThat(retained.getNotificationId()).isNull();
+        assertThat(retained.getRecipientEmail())
+                .isEqualTo("snapshot-recipient@example.com");
+        assertThat(retained.getSubject())
+                .isEqualTo("[KSH] Immutable subject snapshot");
+        assertThat(retained.getBody()).isEqualTo("Immutable body snapshot");
+        assertThat(retained.getStatus()).isEqualTo(MailOutboxStatus.PENDING);
+    }
+
+    @Test
+    void terminal_retention_deletes_only_rows_strictly_older_than_each_cutoff() {
+        User user = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn")
+                .orElseThrow();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime sentCutoff = now.minusDays(30);
+        LocalDateTime failedCutoff = now.minusDays(90);
+
+        MailOutboxJob oldSent = retentionJob(user, 201L, now.minusDays(40));
+        oldSent.markSent(sentCutoff.minusSeconds(1));
+        MailOutboxJob boundarySent = retentionJob(user, 202L, now.minusDays(40));
+        boundarySent.markSent(sentCutoff);
+        MailOutboxJob oldFailed = retentionJob(user, 203L, now.minusDays(100));
+        oldFailed.markFailed(failedCutoff.minusSeconds(1), "delivery_failed");
+        MailOutboxJob pending = retentionJob(user, 204L, now.minusDays(120));
+        MailOutboxJob retry = retentionJob(user, 205L, now.minusDays(120));
+        retry.scheduleRetry(now.minusDays(100), now.minusDays(100), "delivery_failed");
+        MailOutboxJob processing = retentionJob(user, 206L, now.minusDays(120));
+        processing.claim("retention-contract", now.minusDays(100), Duration.ofMinutes(2));
+
+        outboxRepository.saveAllAndFlush(List.of(
+                oldSent,
+                boundarySent,
+                oldFailed,
+                pending,
+                retry,
+                processing));
+        Long oldSentId = oldSent.getId();
+        Long boundarySentId = boundarySent.getId();
+        Long oldFailedId = oldFailed.getId();
+        Long pendingId = pending.getId();
+        Long retryId = retry.getId();
+        Long processingId = processing.getId();
+
+        assertThat(outboxRepository.deleteSentBefore(sentCutoff, 100)).isEqualTo(1);
+        assertThat(outboxRepository.deleteFailedBefore(failedCutoff, 100)).isEqualTo(1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(outboxRepository.findById(oldSentId)).isEmpty();
+        assertThat(outboxRepository.findById(oldFailedId)).isEmpty();
+        assertThat(outboxRepository.findAllById(List.of(
+                        boundarySentId,
+                        pendingId,
+                        retryId,
+                        processingId)))
+                .extracting(MailOutboxJob::getStatus)
+                .containsExactlyInAnyOrder(
+                        MailOutboxStatus.SENT,
+                        MailOutboxStatus.PENDING,
+                        MailOutboxStatus.RETRY,
+                        MailOutboxStatus.PROCESSING);
     }
 
     @Test
@@ -185,5 +274,22 @@ class MailOutboxRepositoryIntegrationTest {
             throw new IllegalStateException("Concurrent claim barrier timed out");
         }
         return transactionService.claim(jobId, workerId);
+    }
+
+    private MailOutboxJob retentionJob(User user, long referenceId, LocalDateTime createdAt) {
+        Notification notification = notificationRepository.saveAndFlush(new Notification(
+                user.getId(),
+                "Retention contract " + referenceId,
+                "Terminal retention contract",
+                NotificationType.LESSON_PUBLISHED,
+                NotificationType.REF_LESSON,
+                referenceId));
+        return MailOutboxJob.pending(
+                notification.getId(),
+                "retention-contract@example.com",
+                "[KSH] Retention contract",
+                "Retention contract body",
+                MailOutboxService.SOURCE_NOTIFICATION,
+                createdAt);
     }
 }

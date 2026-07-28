@@ -10,9 +10,10 @@
 
 | Field | Value |
 |---|---|
-| Audit status | Local implementation complete; full automated suite green; PR #29 open, manual UAT and required approval pending |
+| Audit status | PR #29 merged to `main` at `27466f69`; five code remediations plus this report are finalized on `codex/audit-retention-hardening`; PR, remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
-| Working branch observed | `codex/ulp-ksh-integration-hardening` |
+| Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
+| Working branch observed | `codex/audit-retention-hardening` |
 | ULP reference | `https://github.com/dikhamchua/ulp/tree/32d394c5f6d0818955455bc01f20633b66d594b5` |
 | ULP local snapshot used | `C:\Users\Admin\AppData\Local\Temp\ksh-ulp-32d394c5-20260729\ulp-32d394c5f6d0818955455bc01f20633b66d594b5` |
 | KSH root | `D:\Downloads\ksh` |
@@ -23,6 +24,21 @@
 The working tree is shared by parallel agents. File presence or a local diff
 means “implementation in progress,” not “verified.” Re-read `git status`,
 `git diff`, and this document before taking ownership of any item.
+
+### Follow-up remediation scope freeze
+
+- [x] The development password value `123456` is explicitly accepted by the
+  project owner for the current non-production environment; this branch does
+  not change or report it as a production-secret remediation.
+- [x] Migration-chain, empty-schema, Flyway/MySQL-version, and migration CI work
+  is deferred. This branch neither adds nor edits a migration.
+- [x] `/practice` runtime code, AI configuration, storage configuration,
+  schema, assets, and tests remain frozen.
+- [x] `TEST-ISO-001` belongs to another not-yet-merged branch. This follow-up
+  does not duplicate it and does not run database-backed/full-suite tests
+  against the developer schema.
+- [x] Verification on this branch is limited to focused, database-free unit or
+  source-contract tests plus static diff/compile checks.
 
 ### Checkbox semantics
 
@@ -66,6 +82,12 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | UX-TABS-002 | Medium | Generic ULP detail-tab redesign is a separate integration surface, not a bulk-copy candidate | [x] | [x] |
 | CONST-001 | Medium | Keep KSH constants and add enforcement; do not replace `IConstant` with ULP’s version | [x] | [x] |
 | TEST-ISO-001 | High | Tests currently use the default developer MySQL schema instead of an isolated test profile | [x] | [ ] External branch pending |
+| CONTRIBUTOR-ID-001 | Low | Historic KSH commits are split across three verified GitHub identities | [x] | [x] Future commits pinned; [x] historic transfer declined |
+| UX-DIRTY-001 | High | AJAX detail-tab navigation can discard unsaved form changes without warning | [x] | [x] Contract verified; browser UAT open |
+| CLASS-NAV-001 | Medium | Creating a test from a class loses class selection and returns to the global test list | [x] | [x] |
+| QB-IMPORT-001 | High | Question-bank Excel preview omits CSRF and returns 403 | [x] | [x] |
+| QB-TAXONOMY-001 | High | Admin course categories and department question-bank categories are disconnected taxonomies | [x] | [x] Compatibility bridge; [ ] schema consolidation |
+| DB-INVENTORY-001 | Medium | The V60 developer schema contains 104 base tables and one view | [x] | [x] Inventory recorded; [ ] broader rationalization |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -720,8 +742,10 @@ submit; the second click succeeds after the guard was already flipped.
 - [x] Make question insertion and session consumption one transaction.
 - [x] Define failure behavior so a rolled-back insert does not consume the
   session.
-- [x] Delete expired rows opportunistically in bounded batches of 500; a
-  dedicated retention sweep remains open under `NEW-20260729-006`.
+- [x] Delete expired rows through a dedicated isolated retention worker in
+  bounded batches of 500; request/save paths no longer perform cleanup.
+- [x] Bound each run to 20 batches, use `REQUIRES_NEW` batch transactions, and
+  expose non-PII count/age/deletion metrics.
 - [x] Add two-thread confirmation coverage proving one winner.
 - [x] Use a database repository/pessimistic lock compatible with restart and
   multiple application instances.
@@ -730,9 +754,11 @@ submit; the second click succeeds after the guard was already flipped.
 
 **Tracking**
 
-- Owner:
-- Verification evidence:
-- Commit(s):
+- Owner: Codex root
+- Verification evidence: focused AI draft maintenance/metrics/worker/store tests
+  were included in the 50-test database-free remediation run; scheduler and
+  duration validation are covered without touching Practice.
+- Commit(s): `4bcc39a0`
 - PR:
 
 ## 8. Notification email delivery architecture
@@ -812,13 +838,14 @@ submit; the second click succeeds after the guard was already flipped.
   unchanged.
 - [x] Shutdown stops new claims; an interrupted/stale lease becomes recoverable.
 - [x] Logs omit recipient addresses and SMTP/provider detail.
-- [ ] Metrics cover pending, processing, retry, sent, failed, expired leases,
+- [x] Metrics cover pending, processing, retry, sent, failed, expired leases,
   latency, and oldest pending age.
-- [ ] Retention/cleanup for sent and failed rows is defined.
-- [ ] Remaining tests: explicit restart recovery, large backlog fairness, and
-  notification deletion. Commit/rollback, retry, exhaustion, lease collision,
-  lease expiry, duplicate worker claim, worker isolation, and delivery outcome
-  are covered.
+- [x] Retention is defined as 30 days for `SENT` and 90 days for `FAILED`;
+  live `PENDING`, `PROCESSING`, and `RETRY` rows are never selected.
+- [x] Explicit restarted-service lease recovery, large-backlog batching, and
+  notification-deletion FK behavior have focused coverage. The new MySQL
+  retention boundary integration case is recorded but intentionally not run
+  while `TEST-ISO-001` remains external.
 - [x] Verify `LESSON_PUBLISHED` and `ASSIGNMENT_PUBLISHED` behavior against the
   approved KSH product policy.
 
@@ -829,10 +856,12 @@ submit; the second click succeeds after the guard was already flipped.
   correct SMTP configuration; move a deliberately reviewed `FAILED` row to
   `RETRY` with a new `available_at` only through a future admin/runbook action.
   Do not bulk-update rows or promise exactly-once SMTP.
-- Verification evidence: focused mail tests plus
-  `MailOutboxRepositoryIntegrationTest` — 3 tests, including rollback and two
-  concurrent workers, all green.
-- Commit(s):
+- Verification evidence: focused database-free mail/controller tests were part
+  of the 50-test remediation run. The live development runtime executed the
+  native bounded retention query successfully with an empty outbox at
+  2026-07-29 04:10:24 +07:00; this proves SQL execution, not deletion-boundary
+  behavior.
+- Commit(s): `9c6991d2`
 - PR:
 
 ## 9. Constants, controllers, uploads, and broad-copy rejects
@@ -1016,14 +1045,14 @@ commit count.
 | Branch | `codex/ulp-ksh-integration-hardening` |
 | Base | `main` |
 | PR URL | `https://github.com/toannnnq1424/KoreanStudyHub/pull/29` |
-| Draft/ready | Ready; GitHub reports required approval pending |
+| Draft/ready | Merged by the project owner |
 | Head SHA reviewed | `47f7ffea98ed3e2b703268a945c78fbe13c3f7a0` (code/evidence head before this documentation-only C22) |
 | CI run | GitHub reports 0 configured checks; local full-suite evidence is Gate C |
 | Security reviewer |  |
 | Migration reviewer |  |
 | Practice freeze reviewer |  |
-| Final approver |  |
-| Merge commit |  |
+| Final approver | Project owner performed the merge |
+| Merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
 | Post-merge verification |  |
 
 ### Required PR summary checklist
@@ -1135,34 +1164,57 @@ unrelated discovery inside another commit.
 - Commit: N/A (operational/dependency follow-up)
 - PR:
 
-### NEW-20260729-006 — AI draft cleanup is opportunistic
+### NEW-20260729-006 — AI draft cleanup was opportunistic
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [x] bounded request cleanup verified
-- Evidence: generation deletes at most 500 expired sessions before saving a new
-  preview. If generation stops permanently, expired/consumed JSON rows remain.
-- Current safeguard: 10-minute authorization validity, no document bytes stored,
-  bounded cleanup, atomic consume, and no Practice scheduler changes.
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Original evidence: generation deleted at most 500 expired sessions before
+  saving a preview, so expired rows remained indefinitely when generation
+  stopped.
+- Implemented safeguard: the request/save path no longer performs retention.
+  A private daemon worker starts after five minutes, runs hourly, deletes
+  `expires_at <= cutoff` in batches of 500, and stops after 20 batches per run.
+  Every batch uses a separate `REQUIRES_NEW` transaction with a timeout.
 - Remediation:
-  - [ ] Add an isolated scheduled retention sweep or database event.
-  - [ ] Define operational age/count metrics and an explicit retention SLA.
-- Owner: unassigned
-- Commit:
+  - [x] Add an isolated scheduled retention sweep.
+  - [x] Define expired count, oldest-expired age, deleted-row, failure, and
+    duration metrics without session payload or actor data.
+  - [x] Keep the worker, configuration, thread names, and storage independent
+    from `/practice`.
+- Verification: focused maintenance, metrics, worker, and store tests were part
+  of the database-free 50-test remediation run.
+- Owner: Codex root
+- Commit: `4bcc39a0`
 - PR:
 
 ### NEW-20260729-007 — mail outbox retention and metrics gap
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [x] delivery safety documented
-- Evidence: durable states, leases, retries, and dead-letter rows exist, but
-  sent/failed rows have no cleanup job and there are no backlog/age metrics.
-- Risk: recipient addresses and message snapshots persist indefinitely and an
-  operator cannot alert on backlog using application metrics.
+- Status: [x] Finding confirmed; [x] remediated; [x] focused/runtime verification
+- Original evidence: durable states, leases, retries, and dead-letter rows
+  existed, but terminal rows had no cleanup job and backlog/age metrics were
+  absent.
+- Implemented behavior:
+  - bounded native deletion selects only `SENT` older than 30 days and `FAILED`
+    older than 90 days;
+  - each run is capped at ten batches of 500 and stops after a short batch;
+  - status, claimable, expired-lease, oldest-age, deletion, failure, and
+    duration metrics contain no recipient or message data;
+  - an ADMIN-only settings panel exposes the same non-PII operational snapshot;
+  - retention counters publish only after the transactional proxy returns, so
+    rolled-back deletes are not reported as committed.
 - Remediation:
-  - [ ] Define retention for `SENT` and `FAILED` rows.
-  - [ ] Add pending/retry/failed/oldest-age metrics and an operator dashboard.
-- Owner: unassigned
-- Commit:
+  - [x] Define and implement terminal-row retention.
+  - [x] Add pending/retry/failed/oldest-age metrics and an operator snapshot.
+  - [x] Add restarted-service recovery, backlog, FK deletion, SQL contract,
+    metrics-failure isolation, and worker-bound tests.
+  - [ ] Run the new terminal-boundary integration case after `TEST-ISO-001`
+    provides an isolated database.
+- Verification: focused database-free mail tests passed in the 50-test run. The
+  live MySQL runtime executed a retention sweep at 2026-07-29 04:10:24 +07:00
+  with zero rows and no SQL error.
+- Owner: Codex root
+- Commit: `9c6991d2`
 - PR:
 
 ### NEW-20260729-008 — grading semantics mutable after an attempt
@@ -1196,6 +1248,172 @@ unrelated discovery inside another commit.
   rapid-click/Back UAT remains open.
 - Owner: Codex root
 - Commit:
+- PR:
+
+### CONTRIBUTOR-ID-001 — historic commits are attributed to separate accounts
+
+- Severity: Low
+- Status: [x] Root cause confirmed; [x] future identity pinned; [x] history rewrite
+  and email transfer declined by the project owner
+- Evidence:
+  - The project Contributors graph links 178 recent commits to `toannq1424`
+    and 73 to `HiuHi32`; it does not merge them into repository owner
+    `toannnnq1424`.
+  - Root commit `8a349530` is authored as `toannq1424` with the historic
+    verified email that GitHub maps to `/toannq1424`.
+  - `origin/main` contains 206 commits with that historic identity, 73 with
+    the `HiuHi32` identity, and four with the current account's noreply
+    identity.
+  - PR #29's 22 non-merge commits are authored as `HiuHi32`; only merge commit
+    `27466f69` carries the current account's GitHub noreply identity.
+- Decision:
+  - [x] Do not rewrite merged commit history to manufacture a different
+    contribution graph.
+  - [x] Do not add, remove, or transfer account email addresses.
+  - [x] Pin this repository's future author and Git credential username to
+    `toannnnq1424` using its GitHub noreply address.
+  - [x] Keep the browser signed in to the main `toannnnq1424` account.
+- Verification: local `user.name`, `user.email`, and
+  `credential.https://github.com.username` resolve to the selected account;
+  the next real commit must be rechecked with `git show --format=fuller`.
+- Owner: Codex root
+- Commit: N/A (repository-local Git configuration; not committed)
+- PR: N/A
+
+### UX-DIRTY-001 — AJAX tabs can discard unsaved form changes
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] focused contract verified;
+  [ ] browser UAT
+- Related issues: UX-TABS-001 / UX-TABS-002 / NEW-20260729-009
+- Evidence: both `detail-tabs.js` and `test-detail-tabs.js` can replace
+  `#tabPanel` after click or history navigation without first checking whether
+  an editable form differs from its mounted baseline.
+- Risk: an administrator or lecturer can lose unsaved edits when switching a
+  tab, following Back/Forward, or entering the hard-navigation fallback.
+- Remediation:
+  - [x] Track a fresh form baseline after every successful panel swap.
+  - [x] Prompt only when editable controls changed; exclude read-only
+    pager/search interactions.
+  - [x] Cancel preserves DOM, URL, history state, active monitors, and
+    in-flight request ownership.
+  - [x] Confirm navigates exactly once; a valid native form submit does not
+    prompt.
+  - [x] Async save, bank insertion, and AI insertion freeze the panel from
+    payload capture through success/failure; failure unlocks without clearing
+    the dirty baseline.
+  - [x] Add deterministic contract coverage for click, `popstate`, fallback,
+    submit, reset, and successful swap.
+- Practice impact: none permitted; this issue must not modify `/practice`
+  code, configuration, storage, schema, or AI setup.
+- Verification: `DetailTabsContractTest` passed 5/5 before the final
+  synchronous-exception wrapper; the wrapper and all affected scripts pass
+  `node --check`. Manual cancel/confirm/Back race UAT remains open.
+- Owner: Codex root
+- Commit: `49ce1e5d`
+- PR:
+
+### CLASS-NAV-001 — class-scoped test creation loses its return context
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused/browser verification
+- Reproduction: `/lecturer/classes/2/tests` linked to
+  `/lecturer/tests/new`; the form did not select class 2 and Back targeted the
+  global `/lecturer/tests` page.
+- Remediation:
+  - [x] Add the class id to the create link.
+  - [x] Resolve it only against `examService.ledClasses`; never accept an
+    arbitrary return URL.
+  - [x] Preselect the owned class and use the canonical class-test URL for Back
+    and the post-save redirect.
+  - [x] Add “Kho đề test” to the Giảng dạy menu.
+- Verification: `LecturerTestNavigationTest` passed 3/3. Browser inspection
+  confirmed `classId=2`, selected value `2`, and Back target
+  `/lecturer/classes/2/tests`; menu verification remains role/session-dependent.
+- Owner: Codex root
+- Commit: `7bc1a49d`
+- PR:
+
+### QB-IMPORT-001 — Excel preview is rejected by CSRF
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [x] source-contract verification
+- Root cause: `/lecturer/question-bank/import/preview` is a multipart POST, but
+  `question-bank-import.js` sent the CSRF header only for the later JSON confirm
+  request.
+- Remediation:
+  - [x] Read Spring's `_csrf` and `_csrf_header` meta values.
+  - [x] Attach the header to multipart preview without setting a manual
+    `Content-Type`, retaining the browser-generated boundary and same-origin
+    credentials.
+- Verification: `node --check` passed and
+  `QuestionBankFrontendContractTest` pins the preview header contract. A
+  lecturer-role real-file browser UAT remains recommended.
+- Owner: Codex root
+- Commit: `a517c6c9`
+- PR:
+
+### QB-TAXONOMY-001 — Admin and question-bank taxonomies are disconnected
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] compatibility bridge implemented;
+  [ ] long-term schema consolidation
+- Evidence:
+  - `/admin/categories` reads the global hierarchical `categories` table.
+  - Question-bank authoring originally read only department-scoped
+    `question_bank_categories`.
+  - The development DB has 16 global rows (eight active top-level categories
+    and eight children), but zero question-bank categories/items/options.
+- Current compatibility decision:
+  - [x] Offer active top-level Admin categories together with active
+    department-specific categories.
+  - [x] Represent an Admin choice as a transient negative reference so GET and
+    preview requests do not write the DB.
+  - [x] On manual save or import confirm, atomically mirror the selected name
+    into the actor's department using the unique `(department_id, name)` key,
+    then persist the positive mirror id required by the existing FK.
+  - [x] Let an existing department row, including an inactive one, shadow the
+    Admin name so LEADER hide decisions cannot be bypassed.
+  - [x] Keep CSRF, actor role, department access, and FK enforcement intact.
+- Long-term consolidation checklist:
+  - [ ] Decide whether global `categories` is the sole canonical taxonomy or
+    whether department overrides remain a product requirement.
+  - [ ] If global-only is approved, add a new migration that maps existing
+    mirrors, moves `question_bank_items.category_id` to the canonical model,
+    updates import/review services, validates orphan counts, and only then
+    drops `question_bank_categories`.
+  - [ ] Do not edit V46 or drop the current table in place.
+- Verification: category/controller/frontend focused batches passed 10/10;
+  the final atomic-mirror hardening passed 6/6. Browser UAT with a lecturer
+  assigned to a department remains open.
+- Owner: Codex root
+- Commit: `a517c6c9`
+- PR:
+
+### DB-INVENTORY-001 — table-count and taxonomy storage audit
+
+- Severity: Medium
+- Status: [x] Inventory captured; [x] immediate drop decision recorded;
+  [ ] broader table rationalization
+- Direct `information_schema` evidence at approximately 2026-07-29 04:08 +07:00:
+  - 104 base tables and one view;
+  - 31 `practice_*` tables and 16 activity/audit tables by migration inventory;
+  - `categories`: 16 rows, 49,152 allocated bytes;
+  - `question_bank_categories`: zero rows, 65,536 allocated bytes;
+  - `question_bank_items`: zero rows, 98,304 allocated bytes;
+  - `question_bank_options`: zero rows, 32,768 allocated bytes.
+- Dependency evidence: `question_bank_items.category_id` references
+  `question_bank_categories.id`; the table also owns department/name uniqueness,
+  department/creator FKs, and active lookup indexes.
+- Decision:
+  - [x] Do not drop `question_bank_categories` on this no-migration branch:
+    64 KiB is not material bloat, while a direct drop breaks the FK and eight
+    production files.
+  - [x] Record schema consolidation under `QB-TAXONOMY-001`.
+  - [ ] Audit the 31 Practice and 16 activity/audit tables by ownership,
+    retention, row count, and actual size before proposing broader deletion.
+- Owner: Codex root
+- Commit: documentation-only follow-up
 - PR:
 
 ### New issue template

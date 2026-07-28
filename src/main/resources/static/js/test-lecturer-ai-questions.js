@@ -160,6 +160,12 @@
                 toast('error', MSG_NO_SELECTION);
                 return;
             }
+            // Ask before mutating the persisted exam, then freeze the panel so
+            // no post-confirmation edit can be lost by the success redirect.
+            if (window.KshDirtyFormGuard &&
+                    !window.KshDirtyFormGuard.beginMutation(true)) {
+                return;
+            }
             confirmBtn.disabled = true;
             setState('Đang chèn các câu hỏi đã chọn…', true);
             window.FcCommon.postJson(confirmUrl, {
@@ -169,11 +175,17 @@
                 var inserted = result.data && result.data.insertedCount;
                 toast('success', 'Đã chèn ' + (inserted || indexes.length)
                     + ' câu hỏi vào bài test.');
+                if (window.KshDirtyFormGuard) {
+                    window.KshDirtyFormGuard.completeMutation();
+                }
                 window.location.href = editUrl
                     ? editUrl + '?tab=info'
                     : window.location.href;
             }).catch(function (error) {
                 var message = error.message || MSG_CONFIRM_FAILED;
+                if (window.KshDirtyFormGuard) {
+                    window.KshDirtyFormGuard.cancelMutation();
+                }
                 confirmBtn.disabled = false;
                 setState(message, false);
                 toast('error', message);

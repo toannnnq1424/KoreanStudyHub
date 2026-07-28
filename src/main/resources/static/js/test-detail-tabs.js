@@ -42,9 +42,12 @@
     ready(function () {
         var panel = document.getElementById('tabPanel');
         var tabsNav = document.querySelector('.detail-tabs');
-        // Create mode (no tabs) or an unexpected DOM: let the per-module
-        // DOMContentLoaded mounts handle everything, no orchestration needed.
-        if (!panel || !tabsNav) return;
+        if (!panel) return;
+
+        // Create mode has no tab nav, but its form still needs native
+        // Back/sidebar/breadcrumb protection.
+        var dirtyGuard = window.KshDirtyFormGuard.create(panel);
+        if (!tabsNav) return;
 
         // Mark owned so the shared detail-tabs.js (if also loaded) no-ops.
         tabsNav.setAttribute('data-ajax-tabs', 'owned');
@@ -96,6 +99,7 @@
          * login page, where the response carries no #tabPanel).
          */
         function navigate(url, push) {
+            dirtyGuard.beginNavigation();
             var requestId = ++navigationSequence;
             if (navigationController) {
                 navigationController.abort();
@@ -132,13 +136,14 @@
                     syncChrome(tab);
                     var title = doc.querySelector('title');
                     if (title) document.title = title.textContent;
-                    if (push) window.history.pushState({ tab: tab }, '', url);
+                    if (push) dirtyGuard.pushState({ tab: tab }, url);
 
                     // Re-mount info builder + monitor against the fresh DOM.
                     if (window.LfForm) window.LfForm.mount();
                     monitorTeardown = window.MnMonitor
                         ? window.MnMonitor.mount(panel)
                         : function () {};
+                    dirtyGuard.reset();
                     navigationController = null;
                     navigationActive = false;
                 })
@@ -147,6 +152,7 @@
                     navigationController = null;
                     navigationActive = false;
                     // Non-recoverable in-place: hand off to a real navigation.
+                    dirtyGuard.allowHardNavigation();
                     window.location.href = url;
                 });
         }
@@ -167,6 +173,7 @@
                 e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
             e.preventDefault();
+            if (!dirtyGuard.confirmNavigation()) return;
             navigate(href, true);
         });
 
@@ -175,17 +182,22 @@
             var form = e.target;
             if (!panel.contains(form) || !form.classList.contains('sb-search')) return;
             e.preventDefault();
+            if (!dirtyGuard.confirmNavigation()) return;
             var action = form.getAttribute('action') || window.location.pathname;
             var params = new URLSearchParams(new FormData(form)).toString();
             navigate(action + (params ? '?' + params : ''), true);
         });
 
         // ── Back / forward: re-fetch the URL the history entry points at ───
-        window.addEventListener('popstate', function () {
-            navigate(window.location.href, false);
+        window.addEventListener('popstate', function (event) {
+            dirtyGuard.handlePopState(event, function (url) {
+                navigate(url, false);
+            });
         });
 
         // ── First load: mount whatever tab the server rendered ─────────────
         remount();
+        dirtyGuard.reset();
+        dirtyGuard.installHistory({ tab: tabOf(window.location.href) }, window.location.href);
     });
 })();

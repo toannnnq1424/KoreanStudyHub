@@ -308,7 +308,7 @@ public class QuestionBankItemService {
     public Long save(Long userId, Role role, QuestionBankItemForm form) {
         User actor = requireActor(userId, role);
         Long departmentId = requireDepartment(actor);
-        QuestionBankCategory category = categoryService.requireVisibleCategory(form.getCategoryId(), actor);
+        QuestionBankCategory category = categoryService.resolveForContribution(form.getCategoryId(), actor);
         List<QuestionBankOption> options = validatedOptions(form);
         String workflowStatus = resolveWorkflowAction(form.getWorkflowAction());
 
