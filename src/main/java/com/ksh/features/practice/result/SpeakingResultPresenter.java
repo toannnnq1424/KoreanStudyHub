@@ -32,6 +32,7 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingPhraseRewriteView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTaskDetail;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingUpgradeView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFindingView;
@@ -304,6 +305,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     "UNAVAILABLE",
                     List.of(),
                     null,
+                    List.of(),
                     "NO_DETAIL_TASK",
                     diagnosticScopeNoteVi(),
                     diagnosticScopeNoteKo(),
@@ -381,6 +383,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         }
         DiagnosticState diagnosticState = diagnosticState(
                 evaluationState, currentEvidence, resolved);
+        List<SpeakingTextSegment> transcriptSegments = transcriptSegments(
+                selectedFeedback, currentEvidence, authoritativeTranscript);
 
         return new SpeakingDetailPayload(
                 selectedFeedbackAvailability(evaluationState),
@@ -395,6 +399,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 taskScoreState,
                 scoreCriteria,
                 evidence,
+                transcriptSegments,
                 diagnosticState.code(),
                 diagnosticScopeNoteVi(),
                 diagnosticScopeNoteKo(),
@@ -406,6 +411,156 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                         selectedFeedback,
                         currentEvidence,
                         authoritativeTranscript));
+    }
+
+    private static List<SpeakingTextSegment> transcriptSegments(
+            SpeakingEvaluationResult feedback,
+            boolean currentEvidence,
+            String authoritativeTranscript
+    ) {
+        String transcript = authoritativeTranscript == null
+                ? ""
+                : authoritativeTranscript;
+        List<SpeakingTextSegment> fallback =
+                List.of(SpeakingTextSegment.plain(transcript));
+        if (!currentEvidence
+                || feedback == null
+                || !feedback.profileAvailable()
+                || feedback.evidenceMode() != SpeakingEvidenceMode.TRANSCRIPT_ONLY
+                || transcript.isBlank()
+                || feedback.transcriptAnnotations().isEmpty()) {
+            return fallback;
+        }
+
+        List<ResolvedTextAnnotation> resolved = new ArrayList<>();
+        Set<String> identities = new LinkedHashSet<>();
+        for (SpeakingEvaluationResult.TranscriptAnnotation annotation
+                : feedback.transcriptAnnotations()) {
+            if (annotation == null) {
+                return fallback;
+            }
+            String annotationType = normalizedAnnotationType(annotation);
+            if ("advisory".equals(annotationType)
+                    || "WHOLE_ANSWER".equals(annotation.evidenceScope())) {
+                continue;
+            }
+            ResolvedTextAnnotation candidate = resolveTextAnnotation(
+                    transcript, annotation, annotationType);
+            if (candidate == null
+                    || !identities.add(candidate.start() + ":"
+                    + candidate.end() + ":" + candidate.descriptorId())) {
+                return fallback;
+            }
+            resolved.add(candidate);
+        }
+        if (resolved.isEmpty()) {
+            return fallback;
+        }
+        resolved.sort(Comparator
+                .comparingInt(ResolvedTextAnnotation::start)
+                .thenComparingInt(ResolvedTextAnnotation::end)
+                .thenComparing(ResolvedTextAnnotation::descriptorId));
+
+        int previousEnd = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() < previousEnd) {
+                return fallback;
+            }
+            previousEnd = annotation.end();
+        }
+
+        List<SpeakingTextSegment> segments = new ArrayList<>();
+        int cursor = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() > cursor) {
+                segments.add(SpeakingTextSegment.plain(
+                        transcript.substring(cursor, annotation.start())));
+            }
+            segments.add(new SpeakingTextSegment(
+                    transcript.substring(annotation.start(), annotation.end()),
+                    true,
+                    annotation.polarity().name(),
+                    annotation.descriptorId(),
+                    annotation.featureId(),
+                    annotation.explanationVi(),
+                    annotation.correctionKo()));
+            cursor = annotation.end();
+        }
+        if (cursor < transcript.length()) {
+            segments.add(SpeakingTextSegment.plain(transcript.substring(cursor)));
+        }
+        return segments.isEmpty() ? fallback : List.copyOf(segments);
+    }
+
+    private static ResolvedTextAnnotation resolveTextAnnotation(
+            String transcript,
+            SpeakingEvaluationResult.TranscriptAnnotation annotation,
+            String annotationType
+    ) {
+        if (annotation == null
+                || !"TEXT_SPAN".equals(annotation.evidenceScope())
+                || annotation.evidenceSource() != SpeakingEvidenceSource.TRANSCRIPT
+                || annotation.criterion() == null
+                || !annotation.criterion().transcriptGrounded()
+                || !annotation.criterion().ownsSubcriterion(
+                        annotation.subCriterionId())
+                || annotation.startOffset() == null
+                || annotation.endOffset() == null
+                || annotation.startOffset() < 0
+                || annotation.endOffset() <= annotation.startOffset()
+                || annotation.endOffset() > transcript.length()
+                || annotation.evidence() == null
+                || annotation.evidence().isBlank()
+                || annotation.explanationVi() == null
+                || annotation.explanationVi().isBlank()
+                || !transcriptGroundedClaim(annotation.explanationVi())) {
+            return null;
+        }
+        ResultDetailPolarity polarity = switch (annotationType) {
+            case "strength" -> ResultDetailPolarity.STRENGTH;
+            case "needs_improvement" -> ResultDetailPolarity.NEEDS_IMPROVEMENT;
+            default -> null;
+        };
+        if (polarity == null) {
+            return null;
+        }
+        ResultDetailDescriptorRegistry.Definition descriptor =
+                ResultDetailDescriptorRegistry.speaking(
+                        annotation.criterion(),
+                        annotation.subCriterionId(),
+                        polarity);
+        String correction = present(annotation.suggestionKo())
+                ? annotation.suggestionKo().trim()
+                : null;
+        if (descriptor == null
+                || (polarity == ResultDetailPolarity.STRENGTH
+                && correction != null)
+                || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                && correction == null)) {
+            return null;
+        }
+        String exactText = transcript.substring(
+                annotation.startOffset(), annotation.endOffset());
+        if (!exactText.equals(annotation.evidence())) {
+            return null;
+        }
+        return new ResolvedTextAnnotation(
+                annotation.startOffset(),
+                annotation.endOffset(),
+                polarity,
+                descriptor.id(),
+                annotation.subCriterionId().trim(),
+                annotation.explanationVi().trim(),
+                correction);
+    }
+
+    private static String normalizedAnnotationType(
+            SpeakingEvaluationResult.TranscriptAnnotation annotation
+    ) {
+        return annotation == null || annotation.annotationType() == null
+                ? ""
+                : annotation.annotationType().trim()
+                        .toLowerCase(java.util.Locale.ROOT);
     }
 
     private SpeakingTaskDetail detailTask(
@@ -1439,6 +1594,17 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             ResultDetailDescriptorRegistry.SpeakingFamily family,
             ResultDetailDescriptorRegistry.Definition definition,
             ResultDetailDiagnosticFinding finding
+    ) {
+    }
+
+    private record ResolvedTextAnnotation(
+            int start,
+            int end,
+            ResultDetailPolarity polarity,
+            String descriptorId,
+            String featureId,
+            String explanationVi,
+            String correctionKo
     ) {
     }
 

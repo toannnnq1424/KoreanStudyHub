@@ -16,14 +16,6 @@ class PracticeResultWordingTest {
     private static final Path RESOURCE_ROOT = Path.of("src", "main", "resources");
 
     @Test
-    void practiceJsUsesNeutralWritingRawScoreLabel() throws IOException {
-        String js = readResource("static/js/practice.js");
-
-        assertFalse(js.contains("Điểm TOPIK thô"));
-        assertTrue(js.contains("Điểm câu viết theo bộ chấm"));
-    }
-
-    @Test
     void resultDetailUsesNeutralWritingTaskScoreLabel() throws IOException {
         String html = readResource("templates/practice/result-detail.html");
 
@@ -93,22 +85,20 @@ class PracticeResultWordingTest {
     }
 
     @Test
-    void writingFragmentUsesPresenterScoreAndRetainedLegacyJsUsesRubricMaxScore() throws IOException {
+    void writingFragmentUsesPresenterScore() throws IOException {
         String fragment = readResource("templates/practice/result/writing.html");
-        String js = readResource("static/js/practice.js");
 
         assertTrue(fragment.contains("task.score().pointsDisplay()"));
         assertTrue(fragment.contains("criterion.scoreDisplay()"));
         assertTrue(fragment.contains("Đánh giá luyện tập KSH"));
         assertTrue(fragment.contains("không phải điểm hoặc chứng chỉ TOPIK chính thức"));
         assertTrue(fragment.contains("questionId=${task.questionId()}"));
-        assertTrue(fragment.contains("không có điểm riêng và không cộng vào tổng điểm"));
         assertTrue(fragment.contains("Không có điểm hoặc mức chất lượng nào được suy đoán"));
+        assertFalse(fragment.contains("Chẩn đoán để luyện tiếp"));
         assertFalse(fragment.contains("criterion.band()"));
         assertFalse(fragment.contains("lens.band()"));
         assertFalse(fragment.contains("th:hidden"));
         assertFalse(fragment.contains("matchedScore * 10"));
-        assertTrue(js.contains("item.maxScore || 10"));
     }
 
     @Test

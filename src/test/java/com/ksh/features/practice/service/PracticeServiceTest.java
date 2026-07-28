@@ -665,6 +665,15 @@ class PracticeServiceTest {
         assertEquals("/practice/materials/10/content", question.optionRows().get(0).imageReference());
         assertNull(question.answerKey());
         assertNull(question.explanation());
+
+        JsonNode learnerPayload =
+                objectMapper.valueToTree(playerView.view().groups());
+        assertFalse(learnerPayload.toString().contains("Teacher key"));
+        assertFalse(learnerPayload.toString().contains("answerKey"));
+        assertFalse(learnerPayload.toString().contains("explanation"));
+        assertFalse(learnerPayload.toString().contains("transcriptText"));
+        assertFalse(learnerPayload.toString().contains(
+                "stimulusProvenanceJson"));
     }
 
     @Test

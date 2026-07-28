@@ -212,10 +212,10 @@ class PracticeIntegrationTest {
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private WritingEvaluationClient writingEvaluationClient;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private ReadingListeningExplanationClient readingListeningExplanationClient;
 
     private User student;

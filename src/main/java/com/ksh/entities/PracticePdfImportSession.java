@@ -1,5 +1,6 @@
 package com.ksh.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -49,6 +50,12 @@ public class PracticePdfImportSession {
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "generation_claim_token", length = 64)
+    private String generationClaimToken;
+
+    @Column(name = "generation_lease_expires_at")
+    private LocalDateTime generationLeaseExpiresAt;
 
     @Column(name = "extraction_strategy")
     private String extractionStrategy;
@@ -202,6 +209,84 @@ public class PracticePdfImportSession {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public boolean hasLiveGenerationClaim(LocalDateTime now) {
+        return "PROCESSING".equals(status)
+                && generationClaimToken != null
+                && generationLeaseExpiresAt != null
+                && now != null
+                && generationLeaseExpiresAt.isAfter(now);
+    }
+
+    public boolean hasCompletedGeneration() {
+        return "AI_COMPLETED".equals(status) && linkedDraftId != null;
+    }
+
+    public void claimGeneration(
+            String token,
+            LocalDateTime leaseExpiresAt,
+            LocalDateTime now) {
+        if (token == null || token.isBlank() || token.length() > 64) {
+            throw new IllegalArgumentException("generation token is invalid.");
+        }
+        if (leaseExpiresAt == null || now == null || !leaseExpiresAt.isAfter(now)) {
+            throw new IllegalArgumentException("generation lease is invalid.");
+        }
+        status = "PROCESSING";
+        generationClaimToken = token;
+        generationLeaseExpiresAt = leaseExpiresAt;
+        updatedAt = now;
+    }
+
+    public void completeGeneration(
+            String expectedToken,
+            Long draftId,
+            LocalDateTime now) {
+        requireGenerationClaim(expectedToken);
+        linkedDraftId = java.util.Objects.requireNonNull(draftId, "draftId");
+        status = "AI_COMPLETED";
+        clearGenerationClaim();
+        updatedAt = java.util.Objects.requireNonNull(now, "now");
+    }
+
+    public void releaseGeneration(
+            String expectedToken,
+            String nextStatus,
+            LocalDateTime now) {
+        requireGenerationClaim(expectedToken);
+        status = nextStatus;
+        clearGenerationClaim();
+        updatedAt = java.util.Objects.requireNonNull(now, "now");
+    }
+
+    public void markContentChanged(LocalDateTime now) {
+        status = "ANNOTATING";
+        clearGenerationClaim();
+        updatedAt = java.util.Objects.requireNonNull(now, "now");
+    }
+
+    private void requireGenerationClaim(String expectedToken) {
+        if (!"PROCESSING".equals(status)
+                || generationClaimToken == null
+                || expectedToken == null
+                || !generationClaimToken.equals(expectedToken)) {
+            throw new IllegalStateException("PDF AI generation claim mismatch.");
+        }
+    }
+
+    private void clearGenerationClaim() {
+        generationClaimToken = null;
+        generationLeaseExpiresAt = null;
+    }
+
+    @JsonIgnore
+    public String getGenerationClaimToken() {
+        return generationClaimToken;
+    }
+
+    public LocalDateTime getGenerationLeaseExpiresAt() {
+        return generationLeaseExpiresAt;
     }
 
     public String getExtractionStrategy() {

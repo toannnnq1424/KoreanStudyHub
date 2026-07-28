@@ -19,32 +19,60 @@
 
 <th:block th:fragment="sourceFact(fact)">
   <div class="pp-source-facts" th:if="${fact != null}">
-    <p class="pp-partial-coverage" th:if="${fact.partialCoverage()}">
-      <strong>Độ phủ một phần · 부분 범위:</strong>
-      giá trị chỉ tính dữ kiện đủ điều kiện; hoạt động bị loại không được đổi thành 0 và vẫn được nêu trong độ phủ bên dưới ·
-      값은 적격 근거만 집계하며 제외된 활동은 0점으로 바꾸지 않고 아래 범위에 그대로 표시합니다.
-    </p>
-    <p th:if="${fact.numerator() != null && fact.denominator() != null}">
-      <strong>Điểm đạt / điểm có thể đạt · 획득 점수 / 가능 점수:</strong>
-      <span th:text="${fact.numerator() + ' / ' + fact.denominator()}">3 / 4</span>
-    </p>
-    <p><strong>Quy mô mẫu · 표본:</strong>
-      <span th:text="${fact.sampleSize() + ' dữ kiện đủ điều kiện / '
-                     + fact.activityCount() + ' hoạt động · 적격 사실 '
-                     + fact.sampleSize() + '건 / 활동 '
-                     + fact.activityCount() + '건'}">0 / 0</span>
-    </p>
-    <th:block th:replace="~{practice/fragments/progress-facts :: coverage(${fact.coverage()})}"></th:block>
-    <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${fact.observationWindow()})}"></th:block>
-    <p><strong>Độ tin cậy nguồn · 자료 신뢰 근거:</strong>
-      chỉ tóm tắt quy mô mẫu, độ mới và độ phủ; không phải phần trăm, cấp độ hay đánh giá chất lượng ·
-      표본 규모, 최신성, 범위만 요약하며 백분율, 등급 또는 품질 평가는 아닙니다.
-    </p>
+    <details class="pp-evidence-details">
+      <summary>
+        <span th:text="${'Nguồn: ' + fact.sampleSize() + '/'
+                       + fact.activityCount() + ' hoạt động · 출처 '
+                       + fact.sampleSize() + '/'
+                       + fact.activityCount() + '건'}">
+          Nguồn: 0/0 hoạt động
+        </span>
+        <span th:if="${fact.partialCoverage()}"> · Một phần · 부분 범위</span>
+      </summary>
+      <div class="pp-evidence-body">
+        <p class="pp-source-summary">
+          <strong>Quy mô mẫu · 표본:</strong>
+          <span th:text="${fact.sampleSize() + ' dữ kiện đủ điều kiện / '
+                         + fact.activityCount() + ' hoạt động · 적격 사실 '
+                         + fact.sampleSize() + '건 / 활동 '
+                         + fact.activityCount() + '건'}">0 / 0</span>
+        </p>
+        <p class="pp-partial-coverage" th:if="${fact.partialCoverage()}">
+          <strong>Độ phủ một phần · 부분 범위:</strong>
+          giá trị chỉ tính dữ kiện đủ điều kiện; hoạt động bị loại không được đổi thành 0 và vẫn được nêu trong độ phủ bên dưới ·
+          값은 적격 근거만 집계하며 제외된 활동은 0점으로 바꾸지 않고 아래 범위에 그대로 표시합니다.
+        </p>
+        <p th:if="${fact.numerator() != null && fact.denominator() != null}">
+          <strong>Điểm đạt / điểm có thể đạt · 획득 점수 / 가능 점수:</strong>
+          <span th:text="${fact.numerator() + ' / ' + fact.denominator()}">3 / 4</span>
+        </p>
+        <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${fact.coverage()})}"></th:block>
+        <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${fact.observationWindow()})}"></th:block>
+        <p><strong>Độ tin cậy nguồn · 자료 신뢰 근거:</strong>
+          chỉ tóm tắt quy mô mẫu, độ mới và độ phủ; không phải phần trăm, cấp độ hay đánh giá chất lượng ·
+          표본 규모, 최신성, 범위만 요약하며 백분율, 등급 또는 품질 평가는 아닙니다.
+        </p>
+      </div>
+    </details>
   </div>
 </th:block>
 
 <th:block th:fragment="coverage(coverage)">
-  <div class="pp-coverage" th:if="${coverage != null}">
+  <details class="pp-evidence-details pp-coverage" th:if="${coverage != null}">
+    <summary th:text="${'Độ phủ: ' + coverage.eligibleCount() + ' đủ điều kiện, '
+                       + coverage.excludedCount() + ' bị loại · 적격 '
+                       + coverage.eligibleCount() + '건, 제외 '
+                       + coverage.excludedCount() + '건'}">
+      Độ phủ nguồn · 소스 범위
+    </summary>
+    <div class="pp-evidence-body">
+      <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${coverage})}"></th:block>
+    </div>
+  </details>
+</th:block>
+
+<th:block th:fragment="coverageBody(coverage)">
+  <div class="pp-coverage-body" th:if="${coverage != null}">
     <p><strong>Độ phủ nguồn · 소스 범위:</strong>
       <span th:text="${coverage.eligibleCount() + ' đủ điều kiện, '
                      + coverage.excludedCount() + ' bị loại, '
@@ -92,7 +120,27 @@
 </th:block>
 
 <th:block th:fragment="sourceWindow(window)">
-  <div class="pp-source-window" th:if="${window != null}">
+  <details class="pp-evidence-details pp-source-window" th:if="${window != null}">
+    <summary>Nguồn và mốc dữ liệu · 출처 및 기준 시각</summary>
+    <div class="pp-evidence-body">
+      <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${window})}"></th:block>
+    </div>
+  </details>
+</th:block>
+
+<th:block th:fragment="sourceEvidence(coverage, window)">
+  <details class="pp-evidence-details pp-source-evidence"
+           th:if="${coverage != null || window != null}">
+    <summary>Nguồn, độ phủ và thời điểm chốt · 출처, 범위 및 기준 시각</summary>
+    <div class="pp-evidence-body">
+      <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${coverage})}"></th:block>
+      <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${window})}"></th:block>
+    </div>
+  </details>
+</th:block>
+
+<th:block th:fragment="sourceWindowBody(window)">
+  <div class="pp-source-window-body" th:if="${window != null}">
     <p><strong>Phạm vi nguồn · 소스 선택 범위:</strong>
       <span th:text="${window.label()}">Nguồn dữ kiện</span>
     </p>

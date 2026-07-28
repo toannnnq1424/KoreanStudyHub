@@ -2,7 +2,7 @@
 
 Opened: `2026-07-28`
 
-Status: `COMPLETE_FOCUSED_GATE_GREEN`
+Status: `CLOSED_VERIFIED_MERGED`
 
 Branch: `codex/practice-phase13g-responsive-a11y-performance`
 
@@ -10,6 +10,30 @@ Baseline:
 `65328e9fae5201be2f154c90739bcb78f1034e4d`
 
 Validation unit: `PHASE_13G_RESPONSIVE_A11Y_PERFORMANCE`
+
+## 0. Publication Closure Supersession
+
+The pre-publication wording below remains dated audit history. Phase 13G
+publication is closed:
+
+- exact reviewed head:
+  `68f3801214a741688499f9091f6821a03d5f8e0b`;
+- four preserved commits: `74a3026`, `85c61ab`, `81d78e8`, `68f3801`;
+- PR [#27](https://github.com/toannnnq1424/KoreanStudyHub/pull/27) merged the
+  Phase 13G branch into `feature/practice-reduce-scope` as merge commit
+  `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`;
+- PR [#28](https://github.com/toannnnq1424/KoreanStudyHub/pull/28) merged that
+  feature branch into `main` as merge commit
+  `2549438c1a327b6932dc78d5284d7feaf5daf628`; and
+- coordinator verification found the source trees at `68f3801`, `4f09dd9`
+  and `2549438` byte-identical.
+
+The accepted evidence stays bounded to the corrected 56-path snapshot, three
+fresh `ACCEPT_STATIC` verdicts, JDK 17, selector `82/82`, V56 proof
+`56/56/0/1/7`, cleanup absence `0` and PREP/KSH image audit `52/52`.
+No full suite, browser/device journey or provider claim is added by publication.
+The next owner is the separate Phase 13H branch created from exact main SHA
+`2549438`.
 
 ## 1. Entry And Safety Closure
 
@@ -464,7 +488,7 @@ clamping, an actual 10,000-attempt ranked state query and Progress projection/
 activity ordering on MySQL 9.7.1. No full suite, browser/device journey,
 application startup, Docker action or live provider/API call ran.
 
-Phase 13G is `COMPLETE_FOCUSED_GATE_GREEN`. Its terminal transport step is the
-reviewable multi-commit series and one branch push; this does not add product
-or validation evidence. Phase 13 remains open, and 13H may begin only in a
-separate task after that publication step.
+Phase 13G validation closed as `COMPLETE_FOCUSED_GATE_GREEN`; its later
+publication closed as `CLOSED_VERIFIED_MERGED` under Section 0. Publication
+adds no product or validation evidence. Phase 13 remains open and Phase 13H is
+now the separately owned active task.

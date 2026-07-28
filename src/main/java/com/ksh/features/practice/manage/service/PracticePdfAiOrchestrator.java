@@ -9,6 +9,7 @@ import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
@@ -34,7 +35,23 @@ public class PracticePdfAiOrchestrator {
         this.restClient = RestClient.builder()
                 .baseUrl(properties.baseUrl())
                 .defaultHeader("Authorization", "Bearer " + properties.apiKey())
+                .requestFactory(requestFactory(properties))
                 .build();
+    }
+
+    private static SimpleClientHttpRequestFactory requestFactory(
+            OpenAiProperties properties) {
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(
+                properties.connectTimeout() == null
+                        ? java.time.Duration.ofSeconds(5)
+                        : properties.connectTimeout());
+        factory.setReadTimeout(
+                properties.readTimeout() == null
+                        ? java.time.Duration.ofSeconds(60)
+                        : properties.readTimeout());
+        return factory;
     }
 
     public String callAi(PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo, Long sessionId, String strategy) {

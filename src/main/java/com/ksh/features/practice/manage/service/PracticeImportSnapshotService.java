@@ -64,7 +64,8 @@ public class PracticeImportSnapshotService {
 
     @Transactional
     public void restoreSnapshot(Long sessionId, Long userId) {
-        PracticePdfImportSession session = sessionRepository.findById(sessionId)
+        PracticePdfImportSession session = sessionRepository
+                .findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session không tồn tại."));
         if (!session.getUploaderId().equals(userId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền quản lý session này.");
@@ -83,6 +84,7 @@ public class PracticeImportSnapshotService {
             session.setSelectedEndPage((Integer) snapshot.get("selectedEndPage"));
             session.setCurrentPage((Integer) snapshot.get("currentPage"));
             session.setExtractionStrategy((String) snapshot.get("extractionStrategy"));
+            session.markContentChanged(LocalDateTime.now());
             sessionRepository.save(session);
 
             // Delete current annotations

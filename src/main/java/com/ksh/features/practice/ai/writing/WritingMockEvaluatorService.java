@@ -1,14 +1,16 @@
 package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
+/**
+ * Deterministic test fixture only. Production wiring must never register or
+ * invoke this helper when provider evaluation is unavailable.
+ */
 public class WritingMockEvaluatorService {
 
     private final ObjectMapper objectMapper;

@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -590,10 +592,12 @@ class WritingEvaluationNormalizerTest {
     void testRehydrateCachedResultSetsStudentTextFiltersEvidenceAndPreservesScores() throws Exception {
         String cached = """
         {
-          "score": 7.0,
-          "overall_score": 7.0,
+          "score": 73.33,
+          "overall_score": 73.33,
+          "percentage": 73.33,
           "raw_score": 22.0,
           "raw_score_max": 30.0,
+          "scoring_contract": "TASK_NATIVE_RUBRIC_V1",
           "task_type": "Q53",
           "summary": "Good",
           "evaluation_status": "EVALUATED",
@@ -601,9 +605,9 @@ class WritingEvaluationNormalizerTest {
           "evaluation_reason": "NONE",
           "score_available": true,
           "rubric_scores": [
-            {"name": "A", "score": 7.0, "feedback": "A"},
-            {"name": "B", "score": 7.0, "feedback": "B"},
-            {"name": "C", "score": 7.0, "feedback": "C"}
+            {"criterionId": "W_CONTENT_TASK_ACHIEVEMENT", "name": "Hoàn thành nhiệm vụ và Nội dung", "score": 10.0, "maxScore": 12, "feedback": "A"},
+            {"criterionId": "W_ORGANIZATION_COHERENCE", "name": "Cấu trúc và Mạch lạc", "score": 6.0, "maxScore": 9, "feedback": "B"},
+            {"criterionId": "W_LANGUAGE_EXPRESSION", "name": "Ngôn ngữ và Biểu đạt", "score": 6.0, "maxScore": 9, "feedback": "C"}
           ],
           "strengths": [
             {"criterionId": "W_ADVANCED_GRAMMAR_STRUCTURES", "evidence": "공부합니다", "explanationVi": "Good", "correction": ""},
@@ -624,14 +628,16 @@ class WritingEvaluationNormalizerTest {
         }
         """;
 
-        JsonNode root = objectMapper.readTree(normalizer.rehydrateCachedResult(cached, "한국어를 공부합니다"));
+        JsonNode root = objectMapper.readTree(
+                normalizer.rehydrateCachedResult(cached, "한국어를 공부합니다", "Q53"));
 
         assertEquals("한국어를 공부합니다", root.path("student_text").asText());
-        assertEquals(7.0, root.path("score").asDouble());
+        assertEquals(73.33, root.path("score").asDouble());
         assertEquals(22.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         assertEquals("EVALUATED", root.path("evaluation_status").asText());
         assertEquals("CACHE", root.path("evaluation_source").asText());
+        assertEquals("PROVIDER", root.path("evaluation_origin_source").asText());
         assertEquals("NONE", root.path("evaluation_reason").asText());
         assertTrue(root.path("score_available").asBoolean(false));
         assertEquals(3, root.path("rubric_scores").size());
@@ -646,13 +652,38 @@ class WritingEvaluationNormalizerTest {
     }
 
     @Test
-    void testCacheabilityAcceptsOnlyProviderEvaluatedScoreBearingResults() {
+    void testCacheabilityAcceptsOnlyExactInternallyConsistentProviderRubric() throws Exception {
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_FALLBACK\",\"raw_score\":1.0,\"raw_score_max\":100.0}"));
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_STATUS\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"HTTP_ERROR\",\"score_available\":false}"));
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_STATUS\",\"evaluation_status\":\"EVALUATION_CONTRACT_FAILED\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"PROVIDER_CONTRACT_INVALID\",\"score_available\":false}"));
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"MOCK_EVALUATED\",\"evaluation_source\":\"MOCK\",\"raw_score\":1.0,\"raw_score_max\":100.0,\"score_available\":true}"));
         assertFalse(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"INVALID_LEARNER_RESPONSE\",\"evaluation_source\":\"BACKEND_RULE\",\"evaluation_reason\":\"BLANK_ANSWER\",\"raw_score\":0.0,\"raw_score_max\":30.0,\"score_available\":true}"));
-        assertTrue(normalizer.isCacheableAiResult("{\"engine\":\"KSH_WRITING_EVALUATOR_V2\",\"evaluation_status\":\"EVALUATED\",\"evaluation_source\":\"PROVIDER\",\"evaluation_reason\":\"NONE\",\"raw_score\":1.0,\"raw_score_max\":100.0,\"score_available\":true}"));
+        String valid = validQ53CachedProviderResult();
+        assertTrue(normalizer.isCacheableAiResult(valid));
+
+        ObjectNode missingCriterion = (ObjectNode) objectMapper.readTree(valid);
+        ((ArrayNode) missingCriterion.path("rubric_scores")).remove(2);
+        assertFalse(normalizer.isCacheableAiResult(missingCriterion.toString()));
+
+        ObjectNode duplicateCriterion = (ObjectNode) objectMapper.readTree(valid);
+        ((ArrayNode) duplicateCriterion.path("rubric_scores"))
+                .set(2, duplicateCriterion.path("rubric_scores").get(1).deepCopy());
+        assertFalse(normalizer.isCacheableAiResult(duplicateCriterion.toString()));
+
+        ObjectNode wrongMaximum = (ObjectNode) objectMapper.readTree(valid);
+        ((ObjectNode) wrongMaximum.path("rubric_scores").get(0)).put("maxScore", 99);
+        assertFalse(normalizer.isCacheableAiResult(wrongMaximum.toString()));
+
+        ObjectNode outOfBoundsCriterion = (ObjectNode) objectMapper.readTree(valid);
+        ((ObjectNode) outOfBoundsCriterion.path("rubric_scores").get(0)).put("score", 13.0);
+        assertFalse(normalizer.isCacheableAiResult(outOfBoundsCriterion.toString()));
+
+        for (String field : List.of(
+                "raw_score", "raw_score_max", "score", "overall_score", "percentage")) {
+            ObjectNode inconsistent = (ObjectNode) objectMapper.readTree(valid);
+            inconsistent.put(field, inconsistent.path(field).asDouble() + 1.0);
+            assertFalse(normalizer.isCacheableAiResult(inconsistent.toString()), field);
+        }
     }
 
     // ---- Task-specific raw max and score validation ----
@@ -765,5 +796,24 @@ class WritingEvaluationNormalizerTest {
         assertEquals(1.0, rubricsWrong.get(1).path("score").asDouble()); // Fallback expected Q51_52 rubric 2 to 1.0
         assertEquals(1.0, rubricsWrong.get(2).path("score").asDouble()); // Fallback expected Q51_52 rubric 3 to 1.0
         assertEquals(1.0, rootWrong.path("score").asDouble());
+    }
+
+    private String validQ53CachedProviderResult() {
+        String providerJson = """
+                {
+                  "summary": "Good",
+                  "rubric_scores": [
+                    {"criterionId": "W_CONTENT_TASK_ACHIEVEMENT", "score": 10.0, "maxScore": 12, "feedback": "A"},
+                    {"criterionId": "W_ORGANIZATION_COHERENCE", "score": 6.0, "maxScore": 9, "feedback": "B"},
+                    {"criterionId": "W_LANGUAGE_EXPRESSION", "score": 6.0, "maxScore": 9, "feedback": "C"}
+                  ],
+                  "strengths": [],
+                  "needs_improvement": [],
+                  "sentence_rewrites": []
+                }
+                """;
+        String normalized = normalizer.normalize(
+                providerJson, "Q53", "답안", null);
+        return normalizer.sanitizeForCache(normalized);
     }
 }

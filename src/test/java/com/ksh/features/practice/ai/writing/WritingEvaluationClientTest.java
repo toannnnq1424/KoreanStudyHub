@@ -18,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +51,18 @@ class WritingEvaluationClientTest {
             "\"sample_answer\":\"\"," +
             "\"sentence_rewrites\":[]" +
             "}";
+
+    @Test
+    void writingTransportCarriesConfiguredConnectAndReadTimeouts() {
+        var factory = WritingEvaluationClient.requestFactory(
+                Duration.ofMillis(2_500),
+                Duration.ofSeconds(47));
+
+        assertThat(ReflectionTestUtils.getField(factory, "connectTimeout"))
+                .isEqualTo(2_500);
+        assertThat(ReflectionTestUtils.getField(factory, "readTimeout"))
+                .isEqualTo(47_000);
+    }
 
     @Test
     void testEmptyInputIsDefinitelyInvalid() {
@@ -212,7 +225,7 @@ class WritingEvaluationClientTest {
     @Test
     void testCacheHitBeforeApiKeyAndRehydratesStudentText() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = "{\"score\":8.0,\"raw_score\":24.0,\"raw_score_max\":30.0,\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        String cachedValue = cachedProviderResult("Q53");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), anyString(), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
 
@@ -225,31 +238,14 @@ class WritingEvaluationClientTest {
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
         assertTrue(result.contains("\"student_text\":\"한국어\""));
-        assertTrue(result.contains("\"score\":8.0"));
+        assertTrue(result.contains("\"score\":80.0"));
         verifyNoInteractions(mockEvaluator);
     }
 
     @Test
     void cacheHitPreservesScoreStatusReasonAndMarksSourceCache() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = """
-                {
-                  "score":8.0,
-                  "overall_score":8.0,
-                  "raw_score":24.0,
-                  "raw_score_max":30.0,
-                  "task_type":"Q53",
-                  "summary":"Cached provider result",
-                  "evaluation_status":"EVALUATED",
-                  "evaluation_source":"PROVIDER",
-                  "evaluation_reason":"NONE",
-                  "score_available":true,
-                  "strengths":[],
-                  "needs_improvement":[],
-                  "sentence_rewrites":[],
-                  "engine":"KSH_WRITING_EVALUATOR_V2"
-                }
-                """;
+        String cachedValue = cachedProviderResult("Q53");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
 
@@ -263,11 +259,13 @@ class WritingEvaluationClientTest {
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet", learnerAnswer, false, WritingTaskType.Q53));
 
         assertEquals(learnerAnswer, root.path("student_text").asText());
-        assertEquals(8.0, root.path("score").asDouble());
+        assertEquals(80.0, root.path("score").asDouble());
         assertEquals(24.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         assertEquals("EVALUATED", root.path("evaluation_status").asText());
         assertEquals("CACHE", root.path("evaluation_source").asText());
+        assertEquals("PROVIDER",
+                root.path("evaluation_origin_source").asText());
         assertEquals("NONE", root.path("evaluation_reason").asText());
         assertTrue(root.path("score_available").asBoolean(false));
         verifyNoInteractions(mockEvaluator);
@@ -446,7 +444,7 @@ class WritingEvaluationClientTest {
     @Test
     void explicitQ52KeepsIdentityInCacheAndResult() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = "{\"score\":8.0,\"raw_score\":8.9,\"raw_score_max\":10.0,\"task_type\":\"Q52\",\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        String cachedValue = cachedProviderResult("Q52");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q52"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
@@ -633,7 +631,7 @@ class WritingEvaluationClientTest {
     @Test
     void cacheHitRecordsNoProviderMetric() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = "{\"score\":8.0,\"raw_score\":24.0,\"raw_score_max\":30.0,\"strengths\":[],\"needs_improvement\":[],\"sentence_rewrites\":[],\"engine\":\"KSH_WRITING_EVALUATOR_V2\"}";
+        String cachedValue = cachedProviderResult("Q53");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), anyString(), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -702,6 +700,44 @@ class WritingEvaluationClientTest {
                 "cache", "writing", "operation", "parse", "outcome", "malformed").count());
     }
 
+    private String cachedProviderResult(String taskType) {
+        String providerJson;
+        if ("Q52".equals(taskType)) {
+            providerJson = """
+                    {
+                      "summary":"Cached provider result",
+                      "rubric_scores":[
+                        {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2.0,"maxScore":2,"feedback":""},
+                        {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":1.8,"maxScore":2,"feedback":""},
+                        {"criterionId":"W_CLOZE_BLANK_1_EXPRESSION","score":0.9,"maxScore":1,"feedback":""},
+                        {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","score":1.8,"maxScore":2,"feedback":""},
+                        {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","score":1.6,"maxScore":2,"feedback":""},
+                        {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","score":0.8,"maxScore":1,"feedback":""}
+                      ],
+                      "strengths":[],
+                      "needs_improvement":[],
+                      "sentence_rewrites":[]
+                    }
+                    """;
+        } else {
+            providerJson = """
+                    {
+                      "summary":"Cached provider result",
+                      "rubric_scores":[
+                        {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10.0,"maxScore":12,"feedback":""},
+                        {"criterionId":"W_ORGANIZATION_COHERENCE","score":7.0,"maxScore":9,"feedback":""},
+                        {"criterionId":"W_LANGUAGE_EXPRESSION","score":7.0,"maxScore":9,"feedback":""}
+                      ],
+                      "strengths":[],
+                      "needs_improvement":[],
+                      "sentence_rewrites":[]
+                    }
+                    """;
+        }
+        return normalizer.sanitizeForCache(
+                normalizer.normalize(providerJson, taskType, "", null));
+    }
+
     private OpenAiProperties properties(String apiKey, String model) {
         OpenAiProperties properties = mock(OpenAiProperties.class);
         when(properties.evaluatorModel()).thenReturn(model);
@@ -732,9 +768,9 @@ class WritingEvaluationClientTest {
         {
           "summary": "Good",
           "rubric_scores": [
-            {"name": "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)", "score": 7.0, "feedback": "Good"},
-            {"name": "Cấu trúc & Bố cục đoạn văn (글의 전개 구조)", "score": 7.0, "feedback": "Good"},
-            {"name": "Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)", "score": 7.0, "feedback": "Good"}
+            {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10.0,"maxScore":12,"feedback":"Good"},
+            {"criterionId":"W_ORGANIZATION_COHERENCE","score":7.0,"maxScore":9,"feedback":"Good"},
+            {"criterionId":"W_LANGUAGE_EXPRESSION","score":7.0,"maxScore":9,"feedback":"Good"}
           ],
           "strengths": [],
           "needs_improvement": [],

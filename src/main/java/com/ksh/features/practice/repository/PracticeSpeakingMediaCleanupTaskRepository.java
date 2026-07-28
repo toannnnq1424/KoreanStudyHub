@@ -4,6 +4,7 @@ import com.ksh.entities.PracticeSpeakingMediaCleanupTask;
 import com.ksh.entities.PracticeSpeakingStorageProvider;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.persistence.LockModeType;
 
 public interface PracticeSpeakingMediaCleanupTaskRepository
         extends JpaRepository<PracticeSpeakingMediaCleanupTask, Long> {
@@ -21,13 +24,20 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
     @Query("""
             select t.id
             from PracticeSpeakingMediaCleanupTask t
-            where t.status in (com.ksh.entities.PracticeSpeakingMediaCleanupStatus.PENDING,
-                               com.ksh.entities.PracticeSpeakingMediaCleanupStatus.RETRY)
-              and t.nextAttemptAt <= :now
-              and t.dueAt <= :now
+            where ((t.status in (com.ksh.entities.PracticeSpeakingMediaCleanupStatus.PENDING,
+                                 com.ksh.entities.PracticeSpeakingMediaCleanupStatus.RETRY)
+                    and t.nextAttemptAt <= :now
+                    and t.dueAt <= :now)
+                or (t.status = com.ksh.entities.PracticeSpeakingMediaCleanupStatus.PROCESSING
+                    and t.leaseExpiresAt <= :now))
             order by t.dueAt asc, t.nextAttemptAt asc, t.id asc
             """)
     List<Long> findDueTaskIds(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from PracticeSpeakingMediaCleanupTask t where t.id = :taskId")
+    Optional<PracticeSpeakingMediaCleanupTask> findByIdForUpdate(
+            @Param("taskId") Long taskId);
 
     @Modifying
     @Query(value = """

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 public interface PracticeAuthoringCollaborationRepository
         extends JpaRepository<PracticeAuthoringCollaboration, Long> {
@@ -25,4 +26,7 @@ public interface PracticeAuthoringCollaborationRepository
 
     List<PracticeAuthoringCollaboration>
     findBySetIdAndRevokedAtIsNull(Long setId);
+
+    List<PracticeAuthoringCollaboration>
+    findBySetIdInAndRevokedAtIsNull(Collection<Long> setIds);
 }

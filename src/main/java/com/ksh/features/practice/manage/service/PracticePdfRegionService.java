@@ -53,6 +53,8 @@ public class PracticePdfRegionService {
         normalizeAiFlags(annotation);
 
         PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
+        session.markContentChanged(LocalDateTime.now());
+        sessionRepository.save(session);
 
         // Auto crop if image enabled
         triggerAutoCropIfNecessary(session, saved, userId);
@@ -88,6 +90,8 @@ public class PracticePdfRegionService {
         normalizeAiFlags(annotation);
 
         PracticePdfRegionAnnotation saved = annotationRepository.save(annotation);
+        session.markContentChanged(LocalDateTime.now());
+        sessionRepository.save(session);
 
         // Auto crop if image enabled
         triggerAutoCropIfNecessary(session, saved, userId);
@@ -97,7 +101,7 @@ public class PracticePdfRegionService {
 
     @Transactional
     public void deleteAnnotation(Long sessionId, Long annotationId, Long userId) {
-        requireOwnedSession(sessionId, userId);
+        PracticePdfImportSession session = requireOwnedSession(sessionId, userId);
         PracticePdfRegionAnnotation annotation = requireSessionAnnotation(sessionId, annotationId);
 
         // Delete associated asset if it is TEMPORARY
@@ -113,6 +117,8 @@ public class PracticePdfRegionService {
                 });
 
         annotationRepository.delete(annotation);
+        session.markContentChanged(LocalDateTime.now());
+        sessionRepository.save(session);
     }
 
     private PracticePdfImportSession requireOwnedSession(Long sessionId, Long userId) {

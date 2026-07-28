@@ -83,28 +83,29 @@ public class PracticeManageController {
                 .filter(s -> "PUBLISHED".equals(s.getStatus()))
                 .count();
  
-        // Load author names
+        // Resolve dashboard identities with a fixed number of bulk queries.
         java.util.Map<Long, String> authorsMap = new java.util.HashMap<>();
         java.util.Map<Long, String> collaboratorEmailsMap = new java.util.HashMap<>();
         java.util.Map<Long, List<com.ksh.entities.PracticeAuthoringCollaboration>>
                 collaboratorsBySet = new java.util.LinkedHashMap<>();
-        for (PracticeSet s : sets) {
-            if (s.getCreatedBy() != null && !authorsMap.containsKey(s.getCreatedBy())) {
-                userRepository.findById(s.getCreatedBy())
-                        .ifPresent(u -> authorsMap.put(s.getCreatedBy(), u.getFullName()));
-            }
-            List<com.ksh.entities.PracticeAuthoringCollaboration> grants =
-                    collaborationRepository
-                            .findBySetIdAndRevokedAtIsNull(s.getId());
-            collaboratorsBySet.put(s.getId(), grants);
-            for (com.ksh.entities.PracticeAuthoringCollaboration grant : grants) {
-                userRepository.findById(grant.getCollaboratorId()).ifPresent(collaborator -> {
-                    authorsMap.put(grant.getCollaboratorId(), collaborator.getFullName());
-                    collaboratorEmailsMap.put(
-                            grant.getCollaboratorId(), collaborator.getEmail());
-                });
-            }
-        }
+        java.util.Set<Long> ownedSetIds = sets.stream()
+                .map(PracticeSet::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(
+                        java.util.LinkedHashSet::new));
+        ownedSetIds.forEach(setId ->
+                collaboratorsBySet.put(setId, new java.util.ArrayList<>()));
+        List<com.ksh.entities.PracticeAuthoringCollaboration> ownedGrants =
+                ownedSetIds.isEmpty()
+                        ? List.of()
+                        : collaborationRepository
+                                .findBySetIdInAndRevokedAtIsNull(ownedSetIds);
+        ownedGrants.forEach(grant ->
+                collaboratorsBySet
+                        .computeIfAbsent(
+                                grant.getSetId(),
+                                ignored -> new java.util.ArrayList<>())
+                        .add(grant));
  
         // Clean up empty drafts for this user on loading dashboard
         try {
@@ -123,9 +124,28 @@ public class PracticeManageController {
         List<PracticeSet> sharedSets = setRepository.findAllById(sharedSetIds).stream()
                 .filter(set -> status == null || status.isBlank() || status.equals(set.getStatus()))
                 .toList();
-        for (PracticeSet shared : sharedSets) {
-            userRepository.findById(shared.getCreatedBy())
-                    .ifPresent(owner -> authorsMap.put(shared.getCreatedBy(), owner.getFullName()));
+
+        java.util.Set<Long> collaboratorIds = ownedGrants.stream()
+                .map(com.ksh.entities.PracticeAuthoringCollaboration::getCollaboratorId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(
+                        java.util.LinkedHashSet::new));
+        java.util.Set<Long> visibleUserIds = new java.util.LinkedHashSet<>();
+        sets.stream().map(PracticeSet::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .forEach(visibleUserIds::add);
+        sharedSets.stream().map(PracticeSet::getCreatedBy)
+                .filter(java.util.Objects::nonNull)
+                .forEach(visibleUserIds::add);
+        visibleUserIds.addAll(collaboratorIds);
+        if (!visibleUserIds.isEmpty()) {
+            userRepository.findAllById(visibleUserIds).forEach(visibleUser -> {
+                authorsMap.put(visibleUser.getId(), visibleUser.getFullName());
+                if (collaboratorIds.contains(visibleUser.getId())) {
+                    collaboratorEmailsMap.put(
+                            visibleUser.getId(), visibleUser.getEmail());
+                }
+            });
         }
 
         model.addAttribute("sets", sets);

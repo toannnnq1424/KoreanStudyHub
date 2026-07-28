@@ -1,24 +1,30 @@
 package com.ksh.features.practice.manage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.User;
 import com.ksh.features.messaging.service.MessagingService;
 import com.ksh.features.notifications.service.NotificationService;
+import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.manage.controller.PracticePdfImportApiController;
 import com.ksh.features.practice.manage.service.*;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.security.KshUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +37,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -45,49 +53,58 @@ class PracticePdfImportApiControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfImportSessionService sessionService;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfPreviewService previewService;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfRegionService regionService;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfPageExtractionService pageExtractionService;
 
-    @MockBean
+    @MockitoBean
     private LecturerAssetService assetService;
 
-    @MockBean
+    @MockitoBean
     private com.ksh.features.practice.repository.LecturerAssetRepository assetRepository;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfPayloadPreviewService payloadPreviewService;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfAiPayloadBuilder payloadBuilder;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfAiOrchestrator aiOrchestrator;
 
-    @MockBean
+    @MockitoBean
     private PracticePdfDraftAssembler draftAssembler;
 
-    @MockBean
+    @MockitoBean
+    private PracticePdfAiGenerationService generationService;
+
+    @MockitoBean
+    private PracticeDraftRepository draftRepository;
+
+    @MockitoBean
+    private PracticeAuthorizationService authorizationService;
+
+    @MockitoBean
     private PracticeImportDraftService importDraftService;
 
-    @MockBean
+    @MockitoBean
     private PracticeImportSnapshotService snapshotService;
 
-    @MockBean
+    @MockitoBean
     private PracticePublisherService publisherService;
 
-    @MockBean
+    @MockitoBean
     private MessagingService messagingService;
 
-    @MockBean
+    @MockitoBean
     private NotificationService notificationService;
 
     private KshUserDetails lecturerUser;
@@ -115,6 +132,8 @@ class PracticePdfImportApiControllerTest {
                 LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now().plusHours(24)
         );
         session.setId(100L);
+        ReflectionTestUtils.setField(
+                session, "generationClaimToken", "server-secret-token");
 
         when(sessionService.getSession(eq(100L), any())).thenReturn(session);
 
@@ -124,7 +143,8 @@ class PracticePdfImportApiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100))
                 .andExpect(jsonPath("$.originalFilename").value("test.pdf"))
-                .andExpect(jsonPath("$.status").value("UPLOADED"));
+                .andExpect(jsonPath("$.status").value("UPLOADED"))
+                .andExpect(jsonPath("$.generationClaimToken").doesNotExist());
     }
 
     @Test
@@ -242,6 +262,127 @@ class PracticePdfImportApiControllerTest {
                 .andExpect(jsonPath("$.systemPrompt").value(nullValue()))
                 .andExpect(jsonPath("$.requestJsonPreview").value(nullValue()))
                 .andExpect(jsonPath("$.model").value(nullValue()));
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void duplicateGenerateWhileClaimIsLiveDoesNotCallProvider() throws Exception {
+        PracticePdfImportSession session = session(1L);
+        when(sessionService.getSession(100L, 1L)).thenReturn(session);
+        when(generationService.claim(100L, 1L)).thenReturn(
+                new PracticePdfAiGenerationService.ClaimResult(
+                        PracticePdfAiGenerationService.Outcome.IN_PROGRESS,
+                        null,
+                        null,
+                        LocalDateTime.parse("2026-07-28T08:00:00"),
+                        null));
+
+        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
+                        .with(user(lecturerUser))
+                        .with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("PROCESSING"))
+                .andExpect(jsonPath("$.leaseExpiresAt")
+                        .value("2026-07-28T08:00:00"));
+
+        verifyNoInteractions(payloadBuilder, aiOrchestrator, draftAssembler);
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void completedGenerateReturnsOwnedDraftWithoutCallingProvider() throws Exception {
+        PracticePdfImportSession session = session(1L);
+        PracticeDraft completed = new PracticeDraft(
+                "Import", "", "GLOBAL", null, "DRAFT", 1L, "{}");
+        ReflectionTestUtils.setField(completed, "id", 91L);
+        when(sessionService.getSession(100L, 1L)).thenReturn(session);
+        when(generationService.claim(100L, 1L)).thenReturn(
+                new PracticePdfAiGenerationService.ClaimResult(
+                        PracticePdfAiGenerationService.Outcome.COMPLETED,
+                        null,
+                        91L,
+                        null,
+                        null));
+        when(draftRepository.findById(91L))
+                .thenReturn(Optional.of(completed));
+
+        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
+                        .with(user(lecturerUser))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(91));
+
+        verify(authorizationService)
+                .requireDraft(91L, 1L, PracticeAction.EDIT);
+        verifyNoInteractions(payloadBuilder, aiOrchestrator, draftAssembler);
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void claimedGenerationUsesSessionFencedByClaim() throws Exception {
+        PracticePdfImportSession claimedSession = session(1L);
+        claimedSession.setSelectedStartPage(1);
+        claimedSession.setSelectedEndPage(1);
+        PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo =
+                new PracticePdfAiPayloadBuilder.PayloadInfo(
+                        null, "", List.of(), Map.of(), List.of());
+        PracticeDraft generated = new PracticeDraft(
+                "Import", "", "GLOBAL", null, "DRAFT", 1L, "{}");
+        ReflectionTestUtils.setField(generated, "id", 92L);
+
+        when(generationService.claim(100L, 1L)).thenReturn(
+                new PracticePdfAiGenerationService.ClaimResult(
+                        PracticePdfAiGenerationService.Outcome.CLAIMED,
+                        "claim-token",
+                        null,
+                        LocalDateTime.parse("2026-07-28T08:00:00"),
+                        claimedSession));
+        when(payloadBuilder.buildPayload(claimedSession))
+                .thenReturn(payloadInfo);
+        when(aiOrchestrator.callAi(
+                payloadInfo, 100L, claimedSession.getExtractionStrategy()))
+                .thenReturn("{}");
+        when(draftAssembler.assembleAndSaveDraft(
+                claimedSession, "{}", 1L, "claim-token"))
+                .thenReturn(generated);
+
+        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
+                        .with(user(lecturerUser))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(92));
+
+        verify(authorizationService)
+                .requireGlobal(1L, PracticeAction.CREATE);
+        verify(payloadBuilder).buildPayload(claimedSession);
+        verifyNoInteractions(sessionService);
+    }
+
+    @Test
+    @WithMockUser(roles = "LECTURER")
+    void revokedDraftPermissionStopsBeforeProviderAndReleasesClaim()
+            throws Exception {
+        PracticePdfImportSession claimedSession = session(1L);
+        claimedSession.setLinkedDraftId(91L);
+        when(generationService.claim(100L, 1L)).thenReturn(
+                new PracticePdfAiGenerationService.ClaimResult(
+                        PracticePdfAiGenerationService.Outcome.CLAIMED,
+                        "claim-token",
+                        null,
+                        LocalDateTime.parse("2026-07-28T08:00:00"),
+                        claimedSession));
+        doThrow(new AccessDeniedException("revoked"))
+                .when(authorizationService)
+                .requireDraft(91L, 1L, PracticeAction.EDIT);
+
+        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
+                        .with(user(lecturerUser))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(generationService).release(
+                100L, 1L, "claim-token", "READY_FOR_AI");
+        verifyNoInteractions(payloadBuilder, aiOrchestrator, draftAssembler);
     }
 
     @Test

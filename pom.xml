@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.4.4</version>
+		<version>3.5.16</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.ksh</groupId>
@@ -16,7 +16,24 @@
 
 	<properties>
 		<java.version>17</java.version>
-		<aws.sdk.version>2.29.45</aws.sdk.version>
+		<maven.compiler.release>${java.version}</maven.compiler.release>
+		<aws.sdk.version>2.46.8</aws.sdk.version>
+		<!-- Security/compatibility bridges released after the final Boot 3.5 BOM. -->
+		<commons-lang3.version>3.20.0</commons-lang3.version>
+		<!-- POI 5.5.1 is tested against this Commons Codec API level. -->
+		<commons-codec.version>1.20.0</commons-codec.version>
+		<!-- 2.21.5 closes the 2026 JsonView/JsonIgnoreProperties bypass advisories. -->
+		<jackson-bom.version>2.21.5</jackson-bom.version>
+		<logback.version>1.5.38</logback.version>
+		<!-- 2.25.5 closes the 2026 Log4j API/layout serialization advisories. -->
+		<log4j2.version>2.25.5</log4j2.version>
+		<!-- 5.4.3 closes the 2026 HTTP/1.1 and HTTP/2 header exhaustion advisories. -->
+		<httpcore5.version>5.4.3</httpcore5.version>
+		<!-- 4.1.136.Final closes the 2026 Netty HTTP/SPDY denial-of-service advisories. -->
+		<netty.version>4.1.136.Final</netty.version>
+		<tomcat.version>10.1.57</tomcat.version>
+		<cyclonedx-maven-plugin.version>2.9.2</cyclonedx-maven-plugin.version>
+		<dependency-check-maven.version>12.2.2</dependency-check-maven.version>
 	</properties>
 
 	<dependencyManagement>
@@ -100,14 +117,14 @@
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
-			<version>5.2.5</version>
+			<version>5.5.1</version>
 		</dependency>
 
-		<!-- Jsoup: HTML sanitiser for Lesson rich-text body (KSH-4.0b) -->
+		<!-- Jsoup: HTML sanitizer for Lesson rich-text body (KSH-4.0b) -->
 		<dependency>
 			<groupId>org.jsoup</groupId>
 			<artifactId>jsoup</artifactId>
-			<version>1.18.3</version>
+			<version>1.22.2</version>
 		</dependency>
 
 		<!-- AWS SDK v2 — S3 client used against Cloudflare R2 (Object Storage).
@@ -127,7 +144,7 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- Lombok: bo getter/setter/builder thu cong -->
+		<!-- Lombok: bỏ getter/setter/builder thủ công -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -172,7 +189,7 @@
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
-			<version>3.0.3</version>
+			<version>3.0.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.webjars</groupId>
@@ -183,6 +200,39 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>enforce-ksh-build-toolchain</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireJavaVersion>
+									<version>[17,18)</version>
+									<display>true</display>
+									<message>
+										KSH requires JDK 17. Align JAVA_HOME, the IntelliJ
+										project SDK, Maven importer/runner and Spring Boot run
+										configuration with Java 17.
+									</message>
+								</requireJavaVersion>
+								<requireMavenVersion>
+									<version>[3.9,4)</version>
+									<message>
+										KSH requires Maven 3.9.x. Use the repository mvnw
+										wrapper so CLI and IntelliJ execute the same Maven line.
+									</message>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -210,5 +260,43 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>phase13h-security-audit</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.cyclonedx</groupId>
+						<artifactId>cyclonedx-maven-plugin</artifactId>
+						<version>${cyclonedx-maven-plugin.version}</version>
+						<configuration>
+							<outputFormat>json</outputFormat>
+							<outputName>practice-phase13h-sbom-2026-07-28</outputName>
+							<outputDirectory>${project.build.directory}/phase13h-security</outputDirectory>
+							<includeCompileScope>true</includeCompileScope>
+							<includeRuntimeScope>true</includeRuntimeScope>
+							<includeTestScope>true</includeTestScope>
+							<skipAttach>true</skipAttach>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.owasp</groupId>
+						<artifactId>dependency-check-maven</artifactId>
+						<version>${dependency-check-maven.version}</version>
+						<configuration>
+							<formats>
+								<format>JSON</format>
+								<format>HTML</format>
+							</formats>
+							<outputDirectory>${project.build.directory}/phase13h-security</outputDirectory>
+							<failBuildOnCVSS>7.0</failBuildOnCVSS>
+							<failOnError>true</failOnError>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
