@@ -15,7 +15,7 @@
 -- asset-cleanup table needs a durable worker claim token plus bounded exact
 -- storage-key indexes so cleanup claims and new asset registration serialize.
 
--- V34 is applied and immutable. V54 adds the durable claim
+-- V34 is applied and immutable. V55 adds the durable claim
 -- identity and lock access paths required before a lifecycle worker performs
 -- storage I/O.
 ALTER TABLE practice_asset_lifecycle_tasks

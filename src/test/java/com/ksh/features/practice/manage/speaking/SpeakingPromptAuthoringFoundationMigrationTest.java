@@ -12,7 +12,7 @@ class SpeakingPromptAuthoringFoundationMigrationTest {
 
     private static final Path MIGRATION = Path.of(
             "src/main/resources/db/migration/"
-                    + "V54__practice_speaking_prompt_authoring_foundation.sql");
+                    + "V55__practice_speaking_prompt_authoring_foundation.sql");
 
     @Test
     void forwardMigrationSeparatesSourceArtifactTaskRevisionAndVersionAuthorities()

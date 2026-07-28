@@ -2601,3 +2601,102 @@ Current handoff:
 - `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_CORRECTION_COMMIT_PUSH`;
 - `CURRENT_REQUIRED_ACTION = COMMIT_PUSH_CORRECTION_THEN_RERUN_TWO_AUDITS_ON_NEW_SHA`;
 - browser and live-provider gates remain honestly deferred as recorded above.
+
+### 14.22 Latest-main refresh after the post-push correction
+
+The correction commit was pushed normally at
+`569f1b5c13fabe4e96b3faf3418f9a3217e1a3a5`. While its two exact-SHA audits
+were running, a read-only remote check proved that `main` had advanced from
+the previously integrated `1e7cf38` to `7df7b83`. The new main range adds the
+project-wide Admin AI system-prompt catalog and owns
+`V54__ai_system_prompts.sql`.
+
+Opening or merging the feature PR at that point would have left two different
+Flyway migrations at V54. The coordinator therefore did not create the PR.
+A safety branch preserves the exact pushed correction SHA, and the latest
+`origin/main` is being integrated with `--no-commit` so the candidate can be
+made valid before any merge commit exists.
+
+The semantic resolution is intentionally narrow:
+
+- main keeps `V54__ai_system_prompts.sql`;
+- the still-unapplied Practice Speaking foundation advances intact to
+  `V55__practice_speaking_prompt_authoring_foundation.sql`, with its focused
+  migration test and code provenance updated to V55;
+- project-wide Admin AI/storage and Practice-specific AI/storage remain
+  simultaneously present and deliberately separate; no provider, prompt,
+  storage or consumer configuration is redirected between them; and
+- four live production legacy `ULP` branding references introduced or
+  retained by the incoming Admin UI are canonicalized to `KSH`.
+  `KshBrandingContractTest` now prevents a live production source, identifier
+  or visible label from reintroducing the old brand. The provenance-only
+  `ULP` comment in main's published V54 migration remains byte-for-byte
+  unchanged because rewriting even a comment would change its Flyway checksum;
+  immutable migration history is deliberately outside that live-brand guard.
+
+The audit verdicts for `569f1b5` remain evidence for that exact pre-refresh
+tree only. They cannot authorize a PR built from the latest-main integration
+candidate. The required order is now:
+
+1. finish the semantic merge candidate;
+2. run one consolidated JDK-17 integration validation, including fresh and
+   forward-upgrade Flyway V55 evidence;
+3. create the merge commit and push normally;
+4. run both independent read-only audits again on the new exact remote SHA;
+5. create and merge the PR only after both audits accept and GitHub reports a
+   mergeable head.
+
+Current status:
+
+- `PHASE_13C3_LATEST_MAIN_REFRESH = IN_PROGRESS_NOT_COMMITTED`;
+- `LATEST_MAIN_SHA = 7df7b835564a9e3d7c22097e458ea760baf1636f`;
+- `CURRENT_REQUIRED_ACTION = VALIDATE_LATEST_MAIN_V55_INTEGRATION`;
+- browser and live-provider gates remain deferred; no new evidence is claimed
+  before the consolidated validation completes.
+
+### 14.23 Latest-main V55 consolidated validation evidence
+
+This section supersedes only the pending validation status in Section 14.22.
+The two accepted audits for `569f1b5` remain historical evidence for that
+exact pre-refresh tree and are not reused as approval for the new candidate.
+
+The consolidated gate ran on the complete Phase 13C3/13F candidate merged
+with `origin/main` at
+`7df7b835564a9e3d7c22097e458ea760baf1636f`. Main's published
+`V54__ai_system_prompts.sql` stayed byte-for-byte identical to its
+`f2ac2dee78945056278a840d07269e5b9fe25716` Git blob. The unapplied Practice
+Speaking foundation is the single V55 migration.
+
+Final JDK `17.0.19` evidence:
+
+- staged and working-tree whitespace checks: green;
+- clean production compilation: 739 source files, green;
+- full Maven suite: 2,366 tests / 0 failures / 0 errors / 0 skipped;
+- fresh disposable schema: Flyway `V1-V55` = `55/55/0`, with exactly one
+  `practice_speaking_prompt_sources` table and one `ai_system_prompts` table;
+- upgrade rehearsal before the Practice migration: `V1-V54` = `54/54/0`,
+  with no Speaking prompt source table and exactly one Admin AI prompt table;
+- forward upgrade rehearsal: `V1-V55` = `55/55/0`, with exactly one table for
+  each of those two independently owned capabilities;
+- targeted integrated contracts
+  (`PracticeIntegrationTest#testModeView`,
+  `PracticePhase11AuthoringUiContractTest`,
+  `SpeakingPromptAuthoringFoundationMigrationTest`,
+  `KshBrandingContractTest`, `AppShellNavigationContractTest`, and
+  `Sprint8AiSystemPromptIntegrationTest`): 41 tests / 0 failures / 0 errors /
+  0 skipped; and
+- validation wrapper exit code `0`; both disposable databases were dropped
+  and the cleanup absence assertion passed.
+
+The controlled TEST-NET provider failures exercised by automated tests remain
+test fixtures, not live-provider smoke evidence. `BROWSER_QA` remains
+`NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`; live STT/TTS and Speaking audio
+evaluation remain `NOT_RUN_NOT_APPROVED`.
+
+Current handoff:
+
+- `PHASE_13C3_LATEST_MAIN_V55_VALIDATION = GREEN`;
+- `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_MERGE_COMMIT_AND_PUSH`;
+- `CURRENT_REQUIRED_ACTION = MERGE_COMMIT_PUSH_THEN_TWO_EXACT_SHA_AUDITS`;
+- no PR or merge to `main` is authorized until both new audits accept the
+  exact pushed latest-main SHA.

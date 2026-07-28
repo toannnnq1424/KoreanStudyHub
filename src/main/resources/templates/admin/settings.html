@@ -1,124 +1,144 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Admin | Cài đặt hệ thống', ~{::link.page-css})}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
 <div class="class-detail-layout">
-  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
 
-  <main class="col">
-    <h1 class="detail-title">Cài đặt hệ thống</h1>
-    <p class="detail-sub">Quản trị các nhóm cấu hình của KSH. Chỉ tài khoản
-      ADMIN mới truy cập được khu vực này.</p>
+    <main class="col">
+        <h1 class="detail-title">Cài đặt hệ thống</h1>
+        <p class="detail-sub">Quản trị các nhóm cấu hình của KSH. Chỉ tài khoản
+            ADMIN mới truy cập được khu vực này.</p>
 
-    <section class="settings-grid">
-      <a class="settings-card" th:href="@{/admin/settings/email}">
-        <div class="settings-card-icon">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
-        </div>
-        <div class="settings-card-body">
-          <h3>Email (SMTP)</h3>
-          <p>Cấu hình SMTP transport, sender identity, và gửi email thử.</p>
-        </div>
-        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </a>
+        <section class="settings-grid">
+            <a class="settings-card" th:href="@{/admin/settings/email}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>Email (SMTP)</h3>
+                    <p>Cấu hình SMTP transport, sender identity, và gửi email thử.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
 
-      <a class="settings-card" th:href="@{/admin/settings/storage}">
-        <div class="settings-card-icon">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-          </svg>
-        </div>
-        <div class="settings-card-body">
-          <h3>Lưu trữ (Storage)</h3>
-          <p>Chọn local disk hoặc Cloudflare R2 cho tệp tải lên; kiểm tra kết nối.</p>
-        </div>
-        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </a>
+            <a class="settings-card" th:href="@{/admin/settings/storage}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>Lưu trữ (Storage)</h3>
+                    <p>Chọn local disk hoặc Cloudflare R2 cho tệp tải lên; kiểm tra kết nối.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
 
-      <a class="settings-card" th:href="@{/admin/settings/general}">
-        <div class="settings-card-icon">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </div>
-        <div class="settings-card-body">
-          <h3>Chung (General)</h3>
-          <p>Tên hệ thống, mô tả, logo và email liên hệ của nền tảng.</p>
-        </div>
-        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </a>
+            <a class="settings-card" th:href="@{/admin/settings/general}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>Chung (General)</h3>
+                    <p>Tên hệ thống, mô tả, logo và email liên hệ của nền tảng.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
 
-      <a class="settings-card" th:href="@{/admin/settings/oauth}">
-        <div class="settings-card-icon">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-        </div>
-        <div class="settings-card-body">
-          <h3>OAuth Providers</h3>
-          <p>Cấu hình đăng nhập một chạm bằng Google. Áp dụng ngay, không cần restart.</p>
-        </div>
-        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </a>
+            <a class="settings-card" th:href="@{/admin/settings/oauth}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>OAuth Providers</h3>
+                    <p>Cấu hình đăng nhập một chạm bằng Google. Áp dụng ngay, không cần restart.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
 
-      <a class="settings-card" th:href="@{/admin/settings/ai}">
-        <div class="settings-card-icon">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="8" width="16" height="12" rx="2"/>
-            <path d="M12 8V4"/>
-            <circle cx="12" cy="3" r="1"/>
-            <path d="M2 13h2"/>
-            <path d="M20 13h2"/>
-            <circle cx="9" cy="13" r="1"/>
-            <circle cx="15" cy="13" r="1"/>
-            <path d="M9 17h6"/>
-          </svg>
-        </div>
-        <div class="settings-card-body">
-          <h3>AI Providers</h3>
-          <p>Quản lý danh sách AI provider, thứ tự fallback và kiểm tra kết nối.</p>
-        </div>
-        <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </a>
-    </section>
-  </main>
+            <a class="settings-card" th:href="@{/admin/settings/ai}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="8" width="16" height="12" rx="2"/>
+                        <path d="M12 8V4"/>
+                        <circle cx="12" cy="3" r="1"/>
+                        <path d="M2 13h2"/>
+                        <path d="M20 13h2"/>
+                        <circle cx="9" cy="13" r="1"/>
+                        <circle cx="15" cy="13" r="1"/>
+                        <path d="M9 17h6"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>AI Providers</h3>
+                    <p>Quản lý danh sách AI provider, thứ tự fallback và kiểm tra kết nối.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
+
+            <a class="settings-card" th:href="@{/admin/settings/ai/prompts}">
+                <div class="settings-card-icon">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        <line x1="7" y1="8" x2="17" y2="8"/>
+                        <line x1="7" y1="12" x2="13" y2="12"/>
+                    </svg>
+                </div>
+                <div class="settings-card-body">
+                    <h3>System Prompts AI</h3>
+                    <p>Danh mục quản trị độc lập, chưa nối vào AI client hoặc luồng Luyện tập.</p>
+                </div>
+                <svg class="settings-card-arrow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </a>
+        </section>
+    </main>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
