@@ -2,6 +2,16 @@
 
 Last updated: 2026-07-28
 
+Phase 13H entry overlay (`2026-07-28`): Phase 13G is
+`CLOSED_VERIFIED_MERGED` at exact reviewed head
+`68f3801214a741688499f9091f6821a03d5f8e0b`. PR #27 merged it into
+`feature/practice-reduce-scope` as
+`4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`; PR #28 merged that feature
+branch into `main` as `2549438c1a327b6932dc78d5284d7feaf5daf628`.
+Coordinator verification found the three trees byte-identical and preserved
+all four Phase 13G commits. Phase 13H is now open on
+`codex/practice-phase13h-stabilization-gate@2549438`.
+
 Current-source overlay (`2026-07-28`): Phase 13C3 is
 `CLOSED_VERIFIED_MERGED`. Both final independent audits accepted exact SHA
 `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merged as
@@ -73,8 +83,8 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13E result evidence | `COMPLETE_FOCUSED_GATE_GREEN` | `13E-01..05` and the typed three-screen boundary passed the one accepted focused gate: `118/118`, zero failures/errors/skips, using a disposable fresh V44 integration schema deleted afterward. No full suite/browser/provider/Git evidence is claimed |
 | 13F progress/recovery | `COMPLETE_FOCUSED_GATE_GREEN` | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted JDK 17 gate passed `331/331` with zero failures/errors/skips; the disposable fresh database proved `44/44/0/1`, and trapped cleanup plus an independent absence query returned `0`. No full-suite, browser/device, live-provider or Git evidence is claimed |
 | 13C3 Speaking prompt authoring correction | `CLOSED_VERIFIED_MERGED` | The final 167-path validation, latest-main V55 integration, documentation correction and two final exact-SHA audits are closed. Both audits accepted `420a9a9`; PR #26 merged as `65328e9`. Browser QA remains deferred and live STT/TTS remains unapproved. Exact closure is in the 13C3 live log Section 14.25. |
-| 13G responsive/a11y/performance | `COMPLETE_FOCUSED_GATE_GREEN` | The corrected 56-path implementation received three fresh `ACCEPT_STATIC` verdicts. After one grouped test-only correction, the permitted exact rerun passed `82/82` on JDK 17 and fresh MySQL V56; schema proof was `56/56/0/1/7`, cleanup absence was `0`. Its remaining task-local action is only the granular commit series and one branch push. No full suite, browser/device journey or provider call ran. |
-| 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, reproducible JDK 17 toolchain (`13H-TOOLCHAIN-01`), dated dependency-security baseline (`13H-SEC-01`), focused/full tests and browser journeys before closure |
+| 13G responsive/a11y/performance | `CLOSED_VERIFIED_MERGED` | The corrected 56-path implementation received three fresh `ACCEPT_STATIC` verdicts and passed `82/82` on JDK 17 with fresh V56 proof `56/56/0/1/7`, cleanup absence `0` and image audit `52/52`. Exact head `68f3801` was merged through PR #27 as `4f09dd9`, then through PR #28 to `main` as `2549438`; the three trees are byte-identical. No full suite, browser/device journey or provider call ran. |
+| 13H stabilization gate | `IMPLEMENTATION_AUDIT_OPEN` | Branch/ancestry, stash and exclusion checks are closed. Static/dead-route audit, reproducible JDK 17 toolchain (`13H-TOOLCHAIN-01`), dated dependency-security baseline (`13H-SEC-01`), PRE-10..13/COMP-20 ownership, focused/full tests and browser journeys remain before closure. |
 | Post-Phase-13 product/package reconciliation | `NOT_STARTED` | After 13H and end-of-Phase-13 browser/device closure, multiple subagents map the currently separate Practice and non-Practice AI/storage organizations. Until then both implementations stay present, operational and separate, with no consumer redirection or commonization. Only explicitly approved compatibility-first adapters or package slices may later be implemented; no bulk common/Admin/global merge. Validate/commit/push before comprehensive cleanup. See `docs/PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION.md`. |
 | Pre-14 comprehensive `/practice` audit and dead-surface cleanup | `NOT_STARTED` | Mandatory multi-subagent reconciliation of all Practice Markdown, scoring/explanation contracts, live code/routes/presentation, persistence/migrations/seed and retained-data obligations. Evidence-backed cleanup must finish and be validated/committed/pushed before the pre-14 GO/NO-GO gate. See `docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md` |
 
