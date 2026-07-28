@@ -10,7 +10,7 @@
 
 | Field | Value |
 |---|---|
-| Audit status | Local implementation and automated verification in progress; PR/merge pending |
+| Audit status | Local implementation complete; full automated suite green; manual UAT and PR/merge pending |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Working branch observed | `codex/ulp-ksh-integration-hardening` |
 | ULP reference | `https://github.com/dikhamchua/ulp/tree/32d394c5f6d0818955455bc01f20633b66d594b5` |
@@ -167,8 +167,9 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 
 - [x] Scan `src/main` and `src/test` for `Roles.HEAD`, `ROLE_HEAD`,
   `/head/`, `PREAUTH_*HEAD*`, and user-facing “Head” role labels.
-- [ ] Run `PermissionAuthorityFailSafeTest`.
-- [ ] Run affected Leader controller/service integration tests.
+- [x] Run `PermissionAuthorityFailSafeTest` as part of the 2,439-test full suite.
+- [x] Run affected Leader controller/service integration tests as part of the
+  2,439-test full suite.
 
 **Tracking**
 
@@ -915,16 +916,26 @@ No item may be merged solely because its focused test passes.
 - [x] AI question parser/extractor/security tests.
 - [x] AI draft atomic-consumption concurrency tests.
 - [x] Mail outbox transaction, lease, retry, rollback, and collision tests.
-- [ ] Public upload tests.
-- [ ] Class approval concurrency tests.
+- [x] Public upload tests pass as part of the full suite; no upload
+  authorization/configuration code changed.
+- [x] Class approval concurrency tests pass as part of the full suite; KSH's
+  existing class/invite locking implementation was retained.
 - [x] Generic and exam-specific tab lifecycle/latest-wins structural tests.
 
 ### Gate C — full automated suite
 
-- [ ] `.\mvnw.cmd test` passes from a clean process.
-- [ ] Failures are linked to stable issue IDs; no unexplained skips.
+- [x] `mvn "-Dspring.datasource.hikari.maximum-pool-size=2"
+  "-Dspring.datasource.hikari.minimum-idle=0"
+  "-Dspring.test.context.cache.maxSize=8" test` passes from a clean process:
+  2,439 tests, 0 failures, 0 errors, 2 intentional skips, 3:23.
+- [x] Failures from the preceding unconstrained run are linked to
+  `TEST-ISO-001` / `NEW-20260729-003` and `NEW-20260729-002`; there are no
+  unexplained failures.
 - [ ] Tests do not use or mutate a developer/production database.
-- [ ] A repeat run passes without relying on prior test state.
+- [ ] A second full-suite repeat passes without relying on prior test state.
+  Per project-owner direction, no more local test runs were started because an
+  isolated-test-environment change is already being handled on another
+  not-yet-merged branch.
 
 ### Gate D — Practice freeze regression
 
@@ -971,27 +982,28 @@ hash exists and its focused verification is attached.
 
 | Slot | Intended concern | Issue IDs | Ready | Commit hash | Verification | PR |
 |---|---|---|---|---|---|---|
-| C01 | Audit/control document | SCOPE-001, PRACTICE-001 | [ ] |  |  |  |
-| C02 | Practice Windows contract portability | PRACTICE-PORT-001 | [ ] |  |  |  |
-| C03 | Deferred lesson re-submit and guard test | FORM-001 | [ ] |  |  |  |
-| C04 | Single-owner flash and duplicate include cleanup | FLASH-001, FLASH-002 | [ ] |  |  |  |
-| C05 | Latest-wins generic and exam detail-tab engines | UX-TABS-001, UX-TABS-002 | [ ] |  |  |  |
-| C06 | Generic detail-tab page activation | UX-TABS-002 | [ ] |  |  |  |
-| C07 | AI provider detail history | AI-TRANSPORT-001 | [ ] |  |  |  |
-| C08 | AI transport, fallback, bounds, and logging contracts | AI-TRANSPORT-001, AI-BOUNDS-001 | [ ] |  |  |  |
-| C09 | AI question prompt seed and conditional hardening | AIQ-001, MIG-001 | [ ] |  |  |  |
-| C10 | AI question DTO, prompt, parser, and tests | AIQ-001 | [ ] |  |  |  |
-| C11 | Secure PDF/DOCX/text extraction | AIQ-001 | [ ] |  |  |  |
-| C12 | Durable AI draft schema, store, and concurrency tests | AIQ-SESSION-001, MIG-001 | [ ] |  |  |  |
-| C13 | Attempt/grading-semantic locks | CONC-001, AIQ-001 | [ ] |  |  |  |
-| C14 | Atomic AI generation/confirmation service | AIQ-001, AIQ-SESSION-001 | [ ] |  |  |  |
-| C15 | AI question controller authorization/contracts | AIQ-001, CONST-001 | [ ] |  |  |  |
-| C16 | AI question lecturer UI | AIQ-001 | [ ] |  |  |  |
-| C17 | Durable mail outbox schema/domain/repository | MAIL-ARCH-001, MIG-001 | [ ] |  |  |  |
-| C18 | Mail outbox transaction and retry state machine | MAIL-ARCH-001 | [ ] |  |  |  |
-| C19 | Mail outbox delivery worker and scheduler isolation | MAIL-ARCH-001 | [ ] |  |  |  |
-| C20 | Notification/outbox atomic integration | MAIL-001, MAIL-ARCH-001 | [ ] |  |  |  |
-| C21 | Final evidence, branding, and handoff record | BRAND-001, CONST-001 | [ ] |  |  |  |
+| C01 | Audit/control document | SCOPE-001, PRACTICE-001 | [x] | `8e7b51d7` | Report created |  |
+| C02 | Practice Windows contract portability | PRACTICE-PORT-001 | [x] | `beb08e01` | 13 contract + 1,346 Practice green |  |
+| C03 | Deferred lesson re-submit and guard test | FORM-001 | [x] | `025e8716` | Focused + full suite green |  |
+| C04 | Single-owner flash and duplicate include cleanup | FLASH-001, FLASH-002 | [x] | `4a196902` | Structural + full suite green |  |
+| C05 | Latest-wins generic and exam detail-tab engines | UX-TABS-001, UX-TABS-002 | [x] | `96d6826b` | 3 structural + full suite green |  |
+| C06 | Generic detail-tab page activation | UX-TABS-002 | [x] | `a845b3b9` | Controller + full suite green |  |
+| C07 | AI provider detail history | AI-TRANSPORT-001 | [x] | `6e606cda` | Sprint 8 + full suite green |  |
+| C08 | AI transport, fallback, bounds, and logging contracts | AI-TRANSPORT-001, AI-BOUNDS-001 | [x] | `096b5da4` | 39 settings + 5 logging + full suite green |  |
+| C09 | AI question prompt seed and conditional hardening | AIQ-001, MIG-001 | [x] | `7328f95f` | Flyway schema current at V60 |  |
+| C10 | AI question DTO, prompt, parser, and tests | AIQ-001 | [x] | `0f23b706` | Focused + full suite green |  |
+| C11 | Secure PDF/DOCX/text extraction | AIQ-001 | [x] | `e35d6d40` | Focused + full suite green |  |
+| C12 | Durable AI draft schema, store, and concurrency tests | AIQ-SESSION-001, MIG-001 | [x] | `f2eb51c0` | Concurrency + full suite green |  |
+| C13 | Attempt/grading-semantic locks | CONC-001, AIQ-001 | [x] | `cee17ca5` | 14 integration + full suite green |  |
+| C14 | Atomic AI generation/confirmation service | AIQ-001, AIQ-SESSION-001 | [x] | `c2d2f2ad` | Focused + full suite green |  |
+| C15 | AI question controller authorization/contracts | AIQ-001, CONST-001 | [x] | `0ef7ed0c` | Controller + full suite green |  |
+| C16 | AI question lecturer UI | AIQ-001 | [x] | `8914cfee` | Structural + full suite green; manual UAT open |  |
+| C17 | Durable mail outbox schema/domain/repository | MAIL-ARCH-001, MIG-001 | [x] | `257a61b6` | Flyway + repository integration green |  |
+| C18 | Mail outbox transaction and retry state machine | MAIL-ARCH-001 | [x] | `70b95e09` | Focused + full suite green |  |
+| C19 | Mail outbox delivery worker and scheduler isolation | MAIL-ARCH-001 | [x] | `4b67e4ce` | Processor/scheduler + full suite green |  |
+| C20 | Notification/outbox atomic integration | MAIL-001, MAIL-ARCH-001 | [x] | `18768865` | 3 DB integration + full suite green |  |
+| C21 | Final evidence, branding, and handoff record | BRAND-001, CONST-001 | [ ] |  | Static diff/report review |  |
+| C22 | PR URL/head handoff record | SCOPE-001 | [ ] |  | PR creation evidence |  |
 
 If implementation reality requires a split or combination, update this table
 before committing. Do not mix unrelated issue IDs merely to reach a target
@@ -1082,6 +1094,11 @@ unrelated discovery inside another commit.
   - [ ] Add an explicit test profile if isolation is not already guaranteed by
     the build environment.
 - Test/evidence: repeated local runs expose the default `ksh_dba` URL.
+  The unconstrained full suite reached 2,438 tests but failed with 54
+  connection errors after MySQL reported `Too many connections`; the same
+  source state passed all 2,439 tests when the process-local Hikari pool was
+  capped at 2 and the Spring test context cache at 8. This is mitigation
+  evidence, not proof of database isolation.
 - Commit:
 - PR:
 
@@ -1151,7 +1168,7 @@ unrelated discovery inside another commit.
 ### NEW-20260729-008 — grading semantics mutable after an attempt
 
 - Severity: High
-- Status: [x] Finding confirmed; [x] remediated; [ ] full-suite verified
+- Status: [x] Finding confirmed; [x] remediated; [x] full-suite verified
 - Related issue: CONC-001 / AIQ-001
 - Evidence: the baseline in-place writer preserved row ids but accepted changes
   to question type, points, and option `is_correct`, allowing review content to
@@ -1257,15 +1274,15 @@ Every agent taking or releasing work must follow this sequence.
 
 The integration is acceptable only when all of the following are true:
 
-- [ ] Accepted ULP behavior is implemented under KSH naming and contracts.
-- [ ] Rejected ULP behavior has not displaced stronger KSH behavior.
-- [ ] AI question drafts are durable and atomically consumed.
-- [ ] Notification email uses the durable outbox and is operationally
+- [x] Accepted ULP behavior is implemented under KSH naming and contracts.
+- [x] Rejected ULP behavior has not displaced stronger KSH behavior.
+- [x] AI question drafts are durable and atomically consumed.
+- [x] Notification email uses the durable outbox and is operationally
   recoverable.
-- [ ] Upload authorization remains fail-closed.
-- [ ] LEADER parity is preserved.
+- [x] Upload authorization remains fail-closed.
+- [x] LEADER parity is preserved.
 - [ ] Flyway history is valid from empty and existing schemas.
 - [ ] Full automated and manual gates pass.
-- [ ] `/practice` behavior, AI configuration, storage configuration, schema,
+- [x] `/practice` production behavior, AI configuration, storage configuration, schema,
   and tests remain intact.
 - [ ] Commits, PR, reviews, merge SHA, and post-merge evidence are recorded.
