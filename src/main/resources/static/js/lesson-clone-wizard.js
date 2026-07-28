@@ -26,7 +26,9 @@
     classPage: 0,
     classTotalPages: 0,
     classQ: '',
-    binding: false
+    binding: false,
+    targetGeneration: 0,
+    targetController: null
   };
 
   var root = null;
@@ -47,6 +49,14 @@
       if (token) headers[header] = token;
     }
     return headers;
+  }
+
+  function invalidateTargetRequest() {
+    state.targetGeneration += 1;
+    if (state.targetController) {
+      state.targetController.abort();
+      state.targetController = null;
+    }
   }
 
   function ensureDom() {
@@ -145,6 +155,7 @@
       return;
     }
     ensureDom();
+    invalidateTargetRequest();
     state.open = true;
     state.step = STEP_CLASS;
     state.mode = opts.mode || (lessons.length > 1 ? 'lesson' : 'template');
@@ -177,6 +188,7 @@
 
   function close() {
     if (!root) return;
+    invalidateTargetRequest();
     state.open = false;
     root.hidden = true;
   }
@@ -212,12 +224,30 @@
   }
 
   function loadClasses() {
+    invalidateTargetRequest();
+    var requestGeneration = state.targetGeneration;
+    var controller = typeof window.AbortController === 'function'
+        ? new window.AbortController()
+        : null;
+    state.targetController = controller;
+
+    function isCurrentClassLoad() {
+      return state.open
+          && state.step === STEP_CLASS
+          && requestGeneration === state.targetGeneration
+          && (!controller || state.targetController === controller);
+    }
+
     setBodyHtml('<div class="library-attach-loading">Đang tải lớp…</div>');
     var q = encodeURIComponent(state.classQ || '');
     var url = TARGETS + '/classes?page=' + state.classPage + '&size=12&q=' + q;
-    fetch(url, { headers: csrfHeaders(), credentials: 'same-origin' })
+    var requestInit = { headers: csrfHeaders(), credentials: 'same-origin' };
+    if (controller) requestInit.signal = controller.signal;
+
+    fetch(url, requestInit)
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
+        if (!isCurrentClassLoad()) return;
         if (!res.ok) {
           setBodyHtml('<div class="library-attach-empty">Không tải được danh sách lớp.</div>');
           return;
@@ -252,8 +282,12 @@
         setBodyHtml(html);
         bindClassClicks();
       })
-      .catch(function () {
+      .catch(function (error) {
+        if (!isCurrentClassLoad() || (error && error.name === 'AbortError')) return;
         setBodyHtml('<div class="library-attach-empty">Không tải được danh sách lớp.</div>');
+      })
+      .finally(function () {
+        if (isCurrentClassLoad()) state.targetController = null;
       });
   }
 
@@ -312,11 +346,31 @@
   }
 
   function loadSections() {
+    invalidateTargetRequest();
+    var requestGeneration = state.targetGeneration;
+    var requestedClassId = state.classId;
+    var controller = typeof window.AbortController === 'function'
+        ? new window.AbortController()
+        : null;
+    state.targetController = controller;
+
+    function isCurrentSectionLoad() {
+      return state.open
+          && state.step === STEP_SECTION
+          && state.classId === requestedClassId
+          && requestGeneration === state.targetGeneration
+          && (!controller || state.targetController === controller);
+    }
+
     setBodyHtml('<div class="library-attach-loading">Đang tải chương…</div>');
-    var url = TARGETS + '/classes/' + state.classId + '/sections';
-    fetch(url, { headers: csrfHeaders(), credentials: 'same-origin' })
+    var url = TARGETS + '/classes/' + requestedClassId + '/sections';
+    var requestInit = { headers: csrfHeaders(), credentials: 'same-origin' };
+    if (controller) requestInit.signal = controller.signal;
+
+    fetch(url, requestInit)
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
+        if (!isCurrentSectionLoad()) return;
         if (!res.ok) {
           setBodyHtml('<div class="library-attach-empty">Không tải được danh sách chương.</div>');
           return;
@@ -329,8 +383,12 @@
         }
         renderSections(items);
       })
-      .catch(function () {
+      .catch(function (error) {
+        if (!isCurrentSectionLoad() || (error && error.name === 'AbortError')) return;
         setBodyHtml('<div class="library-attach-empty">Không tải được danh sách chương.</div>');
+      })
+      .finally(function () {
+        if (isCurrentSectionLoad()) state.targetController = null;
       });
   }
 
