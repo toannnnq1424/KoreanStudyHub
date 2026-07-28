@@ -75,6 +75,10 @@ public class SmartReviewService {
         Flashcard card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_CARD_NOT_FOUND));
         accessResolver.requireViewable(card.getDeckId(), userId);
+        // Authorize before taking a database lock, then serialize review state
+        // changes on the stable card row.
+        cardRepository.findByIdForUpdate(cardId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_CARD_NOT_FOUND));
 
         FlashcardReview review = reviewRepository
                 .findByUserIdAndFlashcardId(userId, cardId).orElse(null);
