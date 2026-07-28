@@ -165,8 +165,11 @@ public class LecturerAssignmentService {
     public SubmissionDetail getSubmissionDetail(Long classId, Long assignmentId,
                                                 Long submissionId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
-        Assignment a = access.requireAssignment(classId, assignmentId);
-        AssignmentSubmission sub = submissionRepository.findById(submissionId)
+        // Match the student's lock order (assignment, then submission) so a
+        // grade cannot be overwritten by a concurrent re-submit.
+        Assignment a = assignmentRepository.findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
+        AssignmentSubmission sub = submissionRepository.findByIdForUpdate(submissionId)
                 .filter(s -> s.getAssignmentId().equals(assignmentId))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
         Optional<AssignmentFeedback> fb = feedbackRepository.findBySubmissionId(submissionId);
