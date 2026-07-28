@@ -10,7 +10,7 @@
 
 | Field | Value |
 |---|---|
-| Audit status | PR #31 merged to `main` at `ab980f27`; additional concurrency and password-reset remediations are in progress on `codex/audit-followup-hardening`; remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
+| Audit status | PR #32 merged to `main` at `9390b820`; phase-2 messaging, assignment-role, and tab-navigation remediations are finalized on `codex/audit-followup-phase2`; remaining manual UAT, migration-chain validation, and isolated-test-environment work remain open |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
 | Working branch observed | `codex/audit-retention-hardening` |
@@ -93,6 +93,9 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | AUTH-RESET-001 | High | Password-reset bearer tokens were stored/logged in reusable form and consumed without a lock | [x] | [x] |
 | IMPORT-REPLAY-001 | High | Concurrent confirmation could consume one import preview twice | [x] | [x] |
 | AUTH-RESET-002 | High | Forgot-password requests were unthrottled and terminal tokens had no retention | [x] | [x] |
+| MSG-CONC-001 | Medium | Concurrent conversation creation could surface a unique-constraint failure | [x] | [x] |
+| ASSIGN-AUTH-001 | Medium | Learner assignment routes accepted any authenticated role with a stale enrollment | [x] | [x] |
+| UX-TABS-003 | Medium | Clicking the exact active exam tab prompted and reloaded an unsaved draft | [x] | [x] |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -305,7 +308,7 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 
 **Verification**
 
-- [ ] Run `PublicUploadsControllerTest`.
+- [x] Run `PublicUploadsControllerTest` — 12 tests, 0 failures/errors.
 - [ ] Verify avatar and exam public objects remain readable.
 - [ ] Verify private lesson, Practice, nested, traversal, backslash, and unknown
   upload paths are denied or return 404.
@@ -335,7 +338,7 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 
 **Verification**
 
-- [ ] Run `JoinClassServiceTest`.
+- [x] Run `JoinClassServiceTest` — 24 tests, 0 failures/errors.
 - [ ] Run `JoinClassConcurrencyTest`.
 - [ ] Confirm class capacity and invite `max_uses` cannot be exceeded under
   concurrent approval.
@@ -1533,6 +1536,65 @@ unrelated discovery inside another commit.
 - Scope: no Practice, migration, or developer-password change.
 - Owner: Codex root
 - Commit: `379c1923`
+- PR:
+
+### MSG-CONC-001 — conversation get-or-create was not idempotent under concurrency
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: two concurrent requests for the same normalized participant pair could
+  both miss the lookup; the database unique key prevented duplicates but one
+  request surfaced a constraint failure.
+- Remediation:
+  - [x] Route generic and class-scoped conversation creation through one helper.
+  - [x] Lock the lower participant's stable user row before lookup/insert so
+    both orders of the same pair serialize on the same row.
+  - [x] Avoid catch/requery inside a rollback-only transaction and avoid
+    database-specific native SQL.
+- Verification: `MessagingConversationCreationLockTest` passed 3/3 and verifies
+  lock-before-lookup, shared helper use, and no lock for ineligible pairs.
+- Trade-off: different pairs sharing the same lower user id serialize briefly.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `c6703a1c`
+- PR:
+
+### ASSIGN-AUTH-001 — learner assignment controller lacked an exact role boundary
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: the route fell through to `anyRequest().authenticated()` and the service
+  checked only active enrollment. An account changed to lecturer/leader/admin
+  while retaining an enrollment could still read or submit through learner
+  assignment endpoints.
+- Remediation:
+  - [x] Apply `@PreAuthorize(Roles.PREAUTH_STUDENT)` at controller scope.
+  - [x] Preserve the existing enrollment and ownership checks as the
+    resource-level gate.
+- Verification: `StudentAssignmentRoleBoundaryContractTest` passed 1/1 and
+  pins the exact `hasRole('STUDENT')` runtime annotation.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `5ef0056b`
+- PR:
+
+### UX-TABS-003 — exact active exam-tab clicks reloaded the current draft
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
+- Risk: clicking “Thông tin chung” while already on that exact URL prompted to
+  discard edits and could fetch/replace the same form unnecessarily.
+- Remediation:
+  - [x] Detect an active tab whose normalized absolute URL exactly equals the
+    rendered URL.
+  - [x] Prevent the no-op before dirty confirmation or AJAX navigation.
+  - [x] Retain normal navigation when query parameters or destination differ.
+- Verification: `DetailTabsContractTest` passed 5/5; `node --check` passed for
+  `test-detail-tabs.js`. The earlier four dirty/history findings were re-audited
+  and remain fixed.
+- Scope: no Practice, migration, or developer-password change.
+- Owner: Codex root
+- Commit: `774b8ce4`
 - PR:
 
 ### New issue template
