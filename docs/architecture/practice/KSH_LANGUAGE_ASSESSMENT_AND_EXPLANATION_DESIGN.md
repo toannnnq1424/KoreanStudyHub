@@ -8,6 +8,16 @@
 >
 > Ngày rà soát code: 2026-07-20
 >
+> **Current-source overlay (`2026-07-28`):** Phase 13C3 đã
+> `CLOSED_VERIFIED_MERGED`; hai audit cuối đều `ACCEPT` exact SHA `420a9a9` và
+> PR #26 merge thành `65328e9`. Phase 13G presentation, UTF-8, accessibility,
+> responsive và catalog/query/index scale là `COMPLETE_FOCUSED_GATE_GREEN`:
+> exact rerun đạt `82/82`, fresh V56 proof `56/56/0/1/7` và cleanup absence
+> `0`. Không có assessment taxonomy, scoring, prompt, provider, direct-audio,
+> migration cleanup/history rewrite hay Result Detail redesign nào được mở
+> bởi overlay này. Browser/device QA và mọi công việc 13H vẫn defer sang task
+> riêng/end-of-Phase-13.
+>
 > **Roadmap-order amendment (`2026-07-27`):** Phase 14 keeps the full `14A-14F`
 > Report an Error contract but is
 > `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. Current order is Pre-14 ->
@@ -23,11 +33,16 @@
 > cleanup/absence `0`; không claim full suite/browser/provider/Git. Phase 13
 > vẫn mở. `13C3-00..04` là `IMPLEMENTED_AND_VALIDATED`;
 > `PHASE_13C3_IMPLEMENTATION =
-> CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH` và
+> CLOSED_VERIFIED_MERGED` và
 > `PHASE_13C3_VALIDATION =
 > GREEN_WITH_BROWSER_DEFERRED_TO_END_OF_PHASE_13`. Final 167-path snapshot đã
-> đạt compile, 497/497, bounded 31/31 gap closure và fresh V1-V45 proof. Action
-> tiếp theo là granular commits, một push và hai audit post-push trước 13G.
+> đạt compile, 497/497, bounded 31/31 gap closure và fresh V1-V45 proof. Chuỗi
+> commit/push và hai exact-SHA audit đã hoàn tất; cả hai audit đều `ACCEPT`
+> exact SHA `420a9a9`, và PR #26 đã merge vào `main` thành `65328e9`. Phase
+> 13G đã hoàn tất focused gate trên branch
+> `codex/practice-phase13g-responsive-a11y-performance`; branch publication
+> là bước transport cuối của task, còn browser/device và Phase 13H vẫn defer
+> sang task riêng/end-of-Phase-13.
 > Tài liệu này là
 > design authority cho phần runtime/UI được
 > duyệt trong 13E và cho các correctness contract được đưa vào comprehensive

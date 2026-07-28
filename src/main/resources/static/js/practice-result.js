@@ -1,5 +1,8 @@
 (() => {
   'use strict';
+  const reducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  );
 
   const tabLists = document.querySelectorAll('[data-result-tabs]');
 
@@ -82,7 +85,10 @@
       );
       if (firstMatch) {
         firstMatch.focus({ preventScroll: true });
-        firstMatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        firstMatch.scrollIntoView({
+          block: 'nearest',
+          behavior: reducedMotion.matches ? 'auto' : 'smooth'
+        });
       }
     });
   });
@@ -119,7 +125,10 @@
       );
       if (firstMatch) {
         firstMatch.focus({ preventScroll: true });
-        firstMatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        firstMatch.scrollIntoView({
+          block: 'nearest',
+          behavior: reducedMotion.matches ? 'auto' : 'smooth'
+        });
       }
     });
   });

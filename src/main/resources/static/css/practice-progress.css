@@ -7,12 +7,12 @@
   --pp-card-bg: #ffffff;
   --pp-text: #0f172a;
   --pp-text-muted: #64748b;
-  --pp-accent: #3b82f6; /* KSH Blue */
-  --pp-accent-rgb: 59, 130, 246;
+  --pp-accent: #315efb; /* KSH Blue with text-safe contrast */
+  --pp-accent-rgb: 49, 94, 251;
   --pp-border: #e2e8f0;
-  --pp-success: #10b981;
-  --pp-warning: #f59e0b;
-  --pp-error: #ef4444;
+  --pp-success: #087a4f;
+  --pp-warning: #8a5700;
+  --pp-error: #b4233e;
 }
 
 /* Page base background overrides */
@@ -1315,5 +1315,19 @@ body.pi-body {
   .pp-table-wrapper,
   .pp-chart-fallback {
     overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-tab-panel {
+    animation: none;
+  }
+
+  .pp-heatmap-day {
+    transition: none;
+  }
+
+  .pp-heatmap-day:hover {
+    transform: none;
   }
 }

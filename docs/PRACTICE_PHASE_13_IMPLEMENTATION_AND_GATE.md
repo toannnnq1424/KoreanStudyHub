@@ -1,6 +1,19 @@
 # Practice Phase 13 Implementation and Gate
 
-Last updated: 2026-07-26
+Last updated: 2026-07-28
+
+Current-source overlay (`2026-07-28`): Phase 13C3 is
+`CLOSED_VERIFIED_MERGED`. Both final independent audits accepted exact SHA
+`420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merged as
+`65328e9fae5201be2f154c90739bcb78f1034e4d`. Phase 13G inventory and
+implementation are complete; the first static re-audits rejected bounded
+attempt-history, activity-order, out-of-range pagination and remaining import
+accessibility gaps. The corrected 56-path snapshot subsequently received three
+fresh `ACCEPT_STATIC` verdicts. Its first consolidated validation run exposed
+only one stale icon assertion and four nested-Mockito test-helper errors; one
+grouped test-only correction followed, and the single exact rerun passed
+`82/82` with fresh V56 proof `56/56/0/1/7` and cleanup absence `0`. Browser
+and device journeys remain deferred to 13H/end-of-Phase-13.
 
 Roadmap-order amendment (`2026-07-27`): Phase 14 keeps its full `14A-14F`
 contract but is now `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. The
@@ -59,8 +72,8 @@ KSH must not copy PREP branding, assets, wording, CSS, APIs or routes.
 | 13D bounded result-overview UX/evidence correction | `COMPLETE_WITH_FOCUSED_AND_AUTHENTICATED_ROUTE_GATE_GREEN` | `13D-UX-01..05` correct the shared/Objective/Writing hierarchy and make current transcript-only Speaking a four-row language profile with two null `NOT_SCORABLE` acoustic rows and no subtotal/holistic/attempt score. `git diff --check`, JDK 17 compile and 251/251 non-DB focused tests passed. The two previously blocked authenticated Result Detail cases subsequently passed `2/2` on a fresh disposable schema migrated V1-V44; the disposable schema was removed and the stale fixture schema was not repaired. Exact evidence lives in `docs/PRACTICE_PHASE_13D_RESULT_OVERVIEW_UX_CORRECTION_LIVE_CHANGE_LOG.md` Section 14 and the workflow ledger dated 2026-07-22 |
 | 13E result evidence | `COMPLETE_FOCUSED_GATE_GREEN` | `13E-01..05` and the typed three-screen boundary passed the one accepted focused gate: `118/118`, zero failures/errors/skips, using a disposable fresh V44 integration schema deleted afterward. No full suite/browser/provider/Git evidence is claimed |
 | 13F progress/recovery | `COMPLETE_FOCUSED_GATE_GREEN` | `13F-01..06` are `IMPLEMENTED_AND_FOCUSED_TESTED`. The accepted JDK 17 gate passed `331/331` with zero failures/errors/skips; the disposable fresh database proved `44/44/0/1`, and trapped cleanup plus an independent absence query returned `0`. No full-suite, browser/device, live-provider or Git evidence is claimed |
-| 13C3 Speaking prompt authoring correction | `CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH` | The final 167-path isolated snapshot supersedes the 163-path pre-validation union after four authorization/material transaction paths were corrected. JDK 17 compile, the 53-class 497/497 selector, one bounded 31/31 gap closure and fresh V1-V45 Flyway/Hibernate/authenticated Practice proof are green. Browser QA is `NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`; live STT/TTS is `NOT_RUN_NOT_APPROVED`. Historical v1 is unchanged; transcript-only acoustic rows remain `NOT_SCORABLE` and live audio-grounded Speaking AI remains `NO-GO`. Create granular commits and push once, then run two fresh independent audits on the pushed snapshot before 13G. Exact evidence and deferrals are in the 13C3 live log Section 14.18. |
-| 13G responsive/a11y/performance | `NOT_STARTED` | Includes UTF-8, icon, reduced-motion and large-catalog sweeps |
+| 13C3 Speaking prompt authoring correction | `CLOSED_VERIFIED_MERGED` | The final 167-path validation, latest-main V55 integration, documentation correction and two final exact-SHA audits are closed. Both audits accepted `420a9a9`; PR #26 merged as `65328e9`. Browser QA remains deferred and live STT/TTS remains unapproved. Exact closure is in the 13C3 live log Section 14.25. |
+| 13G responsive/a11y/performance | `COMPLETE_FOCUSED_GATE_GREEN` | The corrected 56-path implementation received three fresh `ACCEPT_STATIC` verdicts. After one grouped test-only correction, the permitted exact rerun passed `82/82` on JDK 17 and fresh MySQL V56; schema proof was `56/56/0/1/7`, cleanup absence was `0`. Its remaining task-local action is only the granular commit series and one branch push. No full suite, browser/device journey or provider call ran. |
 | 13H stabilization gate | `NOT_STARTED` | Static/dead-route audit, reproducible JDK 17 toolchain (`13H-TOOLCHAIN-01`), dated dependency-security baseline (`13H-SEC-01`), focused/full tests and browser journeys before closure |
 | Post-Phase-13 product/package reconciliation | `NOT_STARTED` | After 13H and end-of-Phase-13 browser/device closure, multiple subagents map the currently separate Practice and non-Practice AI/storage organizations. Until then both implementations stay present, operational and separate, with no consumer redirection or commonization. Only explicitly approved compatibility-first adapters or package slices may later be implemented; no bulk common/Admin/global merge. Validate/commit/push before comprehensive cleanup. See `docs/PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION.md`. |
 | Pre-14 comprehensive `/practice` audit and dead-surface cleanup | `NOT_STARTED` | Mandatory multi-subagent reconciliation of all Practice Markdown, scoring/explanation contracts, live code/routes/presentation, persistence/migrations/seed and retained-data obligations. Evidence-backed cleanup must finish and be validated/committed/pushed before the pre-14 GO/NO-GO gate. See `docs/PRACTICE_PRE_PHASE_14_COMPREHENSIVE_AUDIT_AND_DEAD_SURFACE_CLEANUP.md` |

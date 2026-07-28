@@ -22,7 +22,7 @@
     <span class="spp-connection" data-connection>Đang chuẩn bị</span>
   </header>
 
-  <section class="spp-stage" aria-live="polite">
+  <section class="spp-stage">
     <div class="spp-prompt-audio" data-prompt-audio-state hidden aria-hidden="true">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
       <span data-play-count>Đang phát đề</span>
@@ -36,8 +36,9 @@
     </article>
 
     <div class="spp-state-panel">
-      <p class="spp-state-label" data-state-label>Đang tải câu hỏi...</p>
-      <strong class="spp-timer" data-timer>--</strong>
+      <p class="spp-state-label" data-state-label role="status"
+         aria-live="polite" aria-atomic="true">Đang tải câu hỏi...</p>
+      <strong class="spp-timer" data-timer aria-live="off">--</strong>
       <div class="spp-wave" data-wave aria-label="Mức âm lượng bản ghi">
         <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
@@ -58,7 +59,9 @@
 
   <dialog class="spp-exit-dialog" data-exit-dialog>
     <form method="dialog">
-      <button class="spp-dialog-close" value="cancel" aria-label="Đóng cảnh báo">×</button>
+      <button class="spp-dialog-close" value="cancel" aria-label="Đóng cảnh báo">
+        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
+      </button>
       <div class="spp-dialog-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.7 2.4 17.4A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.6L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
       </div>

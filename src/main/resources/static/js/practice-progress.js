@@ -12,6 +12,9 @@
     WRITING: 'Viết',
     SPEAKING: 'Nói'
   });
+  const REDUCED_MOTION = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
 
   document.addEventListener('DOMContentLoaded', () => {
     enhanceHeatmap();
@@ -140,6 +143,7 @@
         }]
       },
       options: {
+        animation: REDUCED_MOTION ? false : undefined,
         responsive: true,
         maintainAspectRatio: false,
         scales: {
@@ -182,6 +186,7 @@
         }]
       },
       options: {
+        animation: REDUCED_MOTION ? false : undefined,
         responsive: true,
         maintainAspectRatio: false,
         cutout: '65%',
@@ -264,6 +269,7 @@
         datasets
       },
       options: {
+        animation: REDUCED_MOTION ? false : undefined,
         responsive: true,
         maintainAspectRatio: false,
         scales: {
@@ -302,13 +308,11 @@
       day.classList.add(activities === 0 ? 'lvl-0'
         : activities === 1 ? 'lvl-1'
           : activities <= 3 ? 'lvl-2' : 'lvl-3');
-      day.tabIndex = 0;
-      day.setAttribute('role', 'img');
       const duration = cell.totalMinutes === null
         ? 'thời lượng chưa khả dụng'
         : `${cell.totalMinutes} phút hợp lệ`;
       const label = `${cell.date}: ${activities} hoạt động, ${duration}`;
-      day.setAttribute('aria-label', label);
+      day.title = label;
 
       const show = () => {
         tooltip.textContent = label;
@@ -321,9 +325,7 @@
         tooltip.style.display = 'none';
       };
       day.addEventListener('mouseenter', show);
-      day.addEventListener('focus', show);
       day.addEventListener('mouseleave', hide);
-      day.addEventListener('blur', hide);
       grid.appendChild(day);
     });
     const visual = grid.closest('[data-chart-visual]');

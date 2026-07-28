@@ -791,50 +791,64 @@
   font-weight: 800;
 }
 
-.pc-lazy-loader {
+.pc-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 64px;
-  color: var(--pc-muted);
-  font-size: 11px;
+  gap: 14px;
+  min-height: 72px;
+  padding-top: 14px;
 }
 
-.pc-loader-spinner {
-  display: none;
-  width: 17px;
-  height: 17px;
-  border: 2px solid #d6deea;
-  border-top-color: var(--pc-blue);
-  border-radius: 50%;
-  animation: pc-spin 750ms linear infinite;
-}
-
-.pc-lazy-loader.is-loading .pc-loader-spinner {
-  display: block;
-}
-
-.pc-lazy-loader.is-complete .pc-loader-spinner {
-  display: none;
-}
-
-.pc-loader-status {
+.pc-page-status {
   margin: 0;
+  min-width: 132px;
+  color: var(--pc-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
-.pc-loader-retry {
-  min-height: 31px;
-  border-color: #cbd4df;
+.pc-page-status strong {
+  color: var(--pc-ink);
+  font-weight: 800;
+}
+
+.pc-page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #cbd4df;
+  border-radius: 10px;
   color: var(--pc-ink);
   background: #fff;
-  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
-.pc-noscript {
-  color: var(--pc-muted);
-  font-size: 11px;
-  text-align: center;
+.pc-page-link svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.pc-page-link:not(.is-disabled):hover {
+  border-color: var(--pc-blue);
+  color: var(--pc-blue);
+}
+
+.pc-page-link:focus-visible {
+  outline: 3px solid rgba(79, 110, 247, .28);
+  outline-offset: 2px;
+}
+
+.pc-page-link.is-disabled {
+  color: #8490a3;
+  background: #f5f7fa;
+  cursor: not-allowed;
 }
 
 /* Approved right rail */
@@ -999,10 +1013,6 @@
   font-weight: 800;
 }
 
-@keyframes pc-spin {
-  to { transform: rotate(360deg); }
-}
-
 @media (max-width: 1180px) {
   .pc-card-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1087,6 +1097,21 @@
   .pc-card-visual {
     aspect-ratio: 1.65 / 1;
   }
+
+  .pc-pagination {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pc-page-status {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .pc-page-link {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1100,7 +1125,4 @@
     transform: none;
   }
 
-  .pc-loader-spinner {
-    animation-duration: 1.5s;
-  }
 }

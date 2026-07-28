@@ -71,6 +71,7 @@ import java.util.stream.Collectors;
 public class PracticeProgressService {
 
     static final int RECENT_DETAIL_LIMIT = 100;
+    static final int WRITING_DETAIL_LIMIT = 500;
     private static final int RECENT_HISTORY_LIMIT = 30;
     private static final int OVERVIEW_HISTORY_LIMIT = 8;
     private static final int HEATMAP_DAYS = 84;
@@ -165,9 +166,19 @@ public class PracticeProgressService {
                 userId,
                 PracticeAttempt.STATUS_DISCARDED,
                 PageRequest.of(0, RECENT_DETAIL_LIMIT));
-        List<PracticeAttempt> writingAttempts =
+        List<PracticeAttempt> writingSource =
                 attemptRepository.findProgressWritingAttempts(
-                        userId, PracticeAttempt.STATUS_DISCARDED);
+                        userId,
+                        PracticeAttempt.STATUS_DISCARDED,
+                        PageRequest.of(0, WRITING_DETAIL_LIMIT + 1));
+        boolean writingSourceTruncated =
+                writingSource.size() > WRITING_DETAIL_LIMIT;
+        List<PracticeAttempt> writingAttempts = writingSource.stream()
+                .limit(WRITING_DETAIL_LIMIT)
+                .toList();
+        BoundedWritingSource writingWindow =
+                boundedWritingSource(
+                        writingAttempts, writingSourceTruncated);
 
         long total = number(allTime == null ? null : allTime.getActivityCount());
         long completed = number(allTime == null ? null : allTime.getCompletedCount());
@@ -240,7 +251,11 @@ public class PracticeProgressService {
         VersionIdentitySnapshot writingIdentities =
                 loadVersionIdentities(writingAttempts);
         WritingProgressAggregate writingProgress =
-                writingProgress(writingAttempts, writingIdentities, asOf);
+                writingProgress(
+                        writingAttempts,
+                        writingIdentities,
+                        writingWindow,
+                        asOf);
         VersionIdentitySnapshot identities = loadVersionIdentities(recent);
         RecentObjective recentObjective =
                 recentObjective(recent, recentWindow, identities);
@@ -903,6 +918,7 @@ public class PracticeProgressService {
     private WritingProgressAggregate writingProgress(
             List<PracticeAttempt> attempts,
             VersionIdentitySnapshot identities,
+            BoundedWritingSource sourceWindow,
             LocalDateTime asOf
     ) {
         List<Long> sectionVersionIds = attempts.stream()
@@ -944,9 +960,31 @@ public class PracticeProgressService {
                 eligibleAttempts,
                 attemptExclusions);
         List<WritingTaskProgressSeam> taskSeams = taskStates.values().stream()
-                .map(state -> state.toDto(asOf))
+                .map(state -> state.toDto(sourceWindow, asOf))
                 .toList();
         return new WritingProgressAggregate(taskSeams, attemptCoverage);
+    }
+
+    private BoundedWritingSource boundedWritingSource(
+            List<PracticeAttempt> attempts,
+            boolean truncated
+    ) {
+        List<LocalDateTime> observations = attempts.stream()
+                .map(this::activityAt)
+                .filter(Objects::nonNull)
+                .toList();
+        LocalDateTime observedFrom = observations.stream()
+                .min(LocalDateTime::compareTo)
+                .orElse(null);
+        LocalDateTime observedTo = observations.stream()
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+        return new BoundedWritingSource(
+                WRITING_DETAIL_LIMIT,
+                attempts.size(),
+                truncated,
+                observedFrom,
+                observedTo);
     }
 
     private WritingAttemptAnalysis analyzeWritingAttempt(
@@ -1008,7 +1046,6 @@ public class PracticeProgressService {
         int eligible = 0;
         int excluded = 0;
         ProgressExclusionReason firstReason = null;
-        LocalDateTime observedAt = activityAt(attempt);
         for (PracticeQuestionVersion question : writingQuestions) {
             WritingTaskType immutableTask = question.getWritingTaskType();
             if (immutableTask == null) {
@@ -1023,8 +1060,7 @@ public class PracticeProgressService {
             MutableWritingTask taskState = taskStates.get(immutableTask);
             if (!PracticeQuestion.TYPE_ESSAY.equals(question.getQuestionType())) {
                 taskState.exclude(
-                        ProgressExclusionReason.WRITING_TASK_IDENTITY_MISMATCH,
-                        observedAt);
+                        ProgressExclusionReason.WRITING_TASK_IDENTITY_MISMATCH);
                 excluded++;
                 if (firstReason == null) {
                     firstReason =
@@ -1035,8 +1071,7 @@ public class PracticeProgressService {
             if (!completed(attempt)) {
                 taskState.exclude(
                         ProgressExclusionReason
-                                .SCORE_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY,
-                        observedAt);
+                                .SCORE_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY);
                 excluded++;
                 if (firstReason == null) {
                     firstReason = ProgressExclusionReason
@@ -1045,7 +1080,7 @@ public class PracticeProgressService {
                 continue;
             }
             if (payloadReason != null) {
-                taskState.exclude(payloadReason, observedAt);
+                taskState.exclude(payloadReason);
                 excluded++;
                 if (firstReason == null) {
                     firstReason = payloadReason;
@@ -1059,13 +1094,13 @@ public class PracticeProgressService {
             WritingEvidence evidence =
                     writingEvidence(question, immutableTask, entry);
             if (evidence.reason() != null) {
-                taskState.exclude(evidence.reason(), observedAt);
+                taskState.exclude(evidence.reason());
                 excluded++;
                 if (firstReason == null) {
                     firstReason = evidence.reason();
                 }
             } else {
-                taskState.include(evidence, observedAt);
+                taskState.include(evidence);
                 eligible++;
             }
         }
@@ -1364,47 +1399,31 @@ public class PracticeProgressService {
                 new LinkedHashMap<>();
         private long activityCount;
         private long eligibleCount;
-        private LocalDateTime observedFrom;
-        private LocalDateTime observedTo;
 
         private MutableWritingTask(WritingTaskType task) {
             this.task = task;
         }
 
-        private void include(WritingEvidence evidence, LocalDateTime observedAt) {
+        private void include(WritingEvidence evidence) {
             activityCount++;
             eligibleCount++;
-            observe(observedAt);
             WritingCohortKey key = new WritingCohortKey(
                     evidence.profileId(),
                     evidence.policyBundleId(),
                     evidence.maximum());
             cohorts.computeIfAbsent(key, ignored -> new MutableWritingCohort(key))
-                    .include(evidence.earned(), observedAt);
+                    .include(evidence.earned());
         }
 
-        private void exclude(
-                ProgressExclusionReason reason,
-                LocalDateTime observedAt
-        ) {
+        private void exclude(ProgressExclusionReason reason) {
             activityCount++;
             exclusions.merge(reason, 1L, Long::sum);
-            observe(observedAt);
         }
 
-        private void observe(LocalDateTime observedAt) {
-            if (observedAt == null) {
-                return;
-            }
-            if (observedFrom == null || observedAt.isBefore(observedFrom)) {
-                observedFrom = observedAt;
-            }
-            if (observedTo == null || observedAt.isAfter(observedTo)) {
-                observedTo = observedAt;
-            }
-        }
-
-        private WritingTaskProgressSeam toDto(LocalDateTime asOf) {
+        private WritingTaskProgressSeam toDto(
+                BoundedWritingSource sourceWindow,
+                LocalDateTime asOf
+        ) {
             long excludedCount = activityCount - eligibleCount;
             List<ProgressExclusion> exclusionRows = exclusions.entrySet().stream()
                     .sorted(Comparator.comparing(
@@ -1424,16 +1443,19 @@ public class PracticeProgressService {
                     exclusionRows);
             ProgressObservationWindow taskWindow =
                     new ProgressObservationWindow(
-                            "ALL_TIME_WRITING_TASK_" + task.name(),
-                            "Toàn bộ bằng chứng tác vụ " + task.name(),
-                            false,
-                            null,
-                            activityCount,
-                            false,
-                            observedFrom,
-                            observedTo,
+                            "RECENT_WRITING_SOURCE_" + task.name(),
+                            "Nguồn chọn chung: tối đa "
+                                    + sourceWindow.limit()
+                                    + " hoạt động Writing gần nhất; phân tích tác vụ "
+                                    + task.name(),
+                            true,
+                            sourceWindow.limit(),
+                            sourceWindow.returnedCount(),
+                            sourceWindow.truncated(),
+                            sourceWindow.observedFrom(),
+                            sourceWindow.observedTo(),
                             asOf,
-                            observedTo);
+                            sourceWindow.observedTo());
             List<Map.Entry<WritingCohortKey, MutableWritingCohort>> ordered =
                     cohorts.entrySet().stream()
                             .sorted(Comparator
@@ -1447,7 +1469,7 @@ public class PracticeProgressService {
             List<WritingTaskScoreCohort> cohortRows = new ArrayList<>();
             for (int index = 0; index < ordered.size(); index++) {
                 cohortRows.add(ordered.get(index).getValue().toDto(
-                        task, index + 1, asOf));
+                        task, index + 1, sourceWindow, asOf));
             }
             ProgressAvailability availability = eligibleCount == 0
                     ? ProgressAvailability.UNAVAILABLE
@@ -1469,51 +1491,44 @@ public class PracticeProgressService {
         private BigDecimal earned = BigDecimal.ZERO;
         private BigDecimal possible = BigDecimal.ZERO;
         private long sampleSize;
-        private LocalDateTime observedFrom;
-        private LocalDateTime observedTo;
 
         private MutableWritingCohort(WritingCohortKey key) {
             this.key = key;
         }
 
-        private void include(BigDecimal value, LocalDateTime observedAt) {
+        private void include(BigDecimal value) {
             earned = earned.add(value);
             possible = possible.add(key.maximum());
             sampleSize++;
-            if (observedAt != null
-                    && (observedFrom == null || observedAt.isBefore(observedFrom))) {
-                observedFrom = observedAt;
-            }
-            if (observedAt != null
-                    && (observedTo == null || observedAt.isAfter(observedTo))) {
-                observedTo = observedAt;
-            }
         }
 
         private WritingTaskScoreCohort toDto(
                 WritingTaskType task,
                 int cohortNumber,
+                BoundedWritingSource sourceWindow,
                 LocalDateTime asOf
         ) {
             ProgressObservationWindow window = new ProgressObservationWindow(
-                    "ALL_TIME_WRITING_TASK_"
+                    "RECENT_WRITING_SOURCE_"
                             + task.name()
                             + "_COHORT_"
                             + cohortNumber,
-                    "Cohort "
+                    "Nguồn chọn chung: tối đa "
+                            + sourceWindow.limit()
+                            + " hoạt động Writing gần nhất; cohort "
                             + task.name()
                             + " / "
                             + key.profileId()
                             + " / max "
                             + decimalIdentity(key.maximum()),
-                    false,
-                    null,
-                    sampleSize,
-                    false,
-                    observedFrom,
-                    observedTo,
+                    true,
+                    sourceWindow.limit(),
+                    sourceWindow.returnedCount(),
+                    sourceWindow.truncated(),
+                    sourceWindow.observedFrom(),
+                    sourceWindow.observedTo(),
                     asOf,
-                    observedTo);
+                    sourceWindow.observedTo());
             ProgressCoverage cohortCoverage = new ProgressCoverage(
                     sampleSize, sampleSize, 0, List.of());
             ProgressNumericFact scoreFact = numericFact(
@@ -1545,6 +1560,14 @@ public class PracticeProgressService {
     private String decimalIdentity(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
     }
+
+    private record BoundedWritingSource(
+            int limit,
+            long returnedCount,
+            boolean truncated,
+            LocalDateTime observedFrom,
+            LocalDateTime observedTo
+    ) {}
 
     private static final class MutableHeatmapCell {
         private int attemptCount;
