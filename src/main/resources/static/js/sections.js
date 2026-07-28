@@ -261,12 +261,12 @@
         if (li && li.parentNode) li.parentNode.removeChild(li);
         refreshEmptyState();
         toast('success', 'Đã xoá chương');
-        // If the deleted section was the currently-selected folder, drop
-        // the ?section= query param so the URL stays consistent.
-        var url = new URL(window.location.href);
-        if (url.searchParams.get('section') === String(sectionId)) {
-          url.searchParams.delete('section');
-          window.history.replaceState({}, '', url.toString());
+        // The right pane and its lesson actions belong to the selected
+        // section. Invalidate it immediately, then let the server render a
+        // valid replacement (or the empty state).
+        if (String(state.selectedSectionId) === String(sectionId)) {
+          state.selectedSectionId = null;
+          window.location.assign(state.baseUrl);
         }
       });
   }
