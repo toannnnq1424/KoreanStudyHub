@@ -57,16 +57,19 @@ public class ClassesService {
     private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
     private final ClassCreator creator;
+    private final ClassRoleAccessPolicy accessPolicy;
 
     public ClassesService(ClassRepository classRepository,
                           ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          ClassRoleAccessPolicy accessPolicy) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
+        this.accessPolicy = accessPolicy;
         this.creator = new ClassCreator(classRepository, activityWriter,
                 codeGenerator, inviteCodeService, userRepository);
     }
@@ -87,9 +90,18 @@ public class ClassesService {
      */
     @Transactional(readOnly = true)
     public Page<ClassRow> listForUser(Long userId, Role role, Pageable pageable) {
-        Page<ClassEntity> page = role == Role.LECTURER
-                ? classRepository.findAllByLecturerId(userId, pageable)
-                : classRepository.findAllBy(pageable);
+        Page<ClassEntity> page;
+        if (role == Role.LECTURER) {
+            page = classRepository.findAllByLecturerId(userId, pageable);
+        } else if (role == Role.LEADER) {
+            page = accessPolicy.leaderDepartmentId(userId)
+                    .map(id -> classRepository.findAllByDepartmentId(id, pageable))
+                    .orElseGet(() -> Page.empty(pageable));
+        } else if (role == Role.ADMIN) {
+            page = classRepository.findAllBy(pageable);
+        } else {
+            page = Page.empty(pageable);
+        }
 
         List<ClassEntity> content = page.getContent();
         // List UI "Mã lớp" is the shareable 6-char invite CODE, not classes.code (5-char).
@@ -196,9 +208,7 @@ public class ClassesService {
      */
     public boolean isEditableBy(ClassEntity clazz, Long userId, Role role) {
         if (role == null) return false;
-        return role == Role.ADMIN
-                || role == Role.LEADER
-                || (role == Role.LECTURER && clazz.getLecturerId().equals(userId));
+        return accessPolicy.canAccess(clazz, userId, role);
     }
 
     /** Loads the class and enforces the editable-by authorisation rule. */

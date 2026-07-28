@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Creates and resolves short-lived tokens that grant anonymous
@@ -44,14 +45,18 @@ public class PublicViewTokenService {
      */
     @Transactional
     public String createPublicViewUrl(Long attachmentId) {
-        // Reuse an existing live token to avoid unbounded accumulation.
-        return tokenRepository.findLiveTokenByAttachmentId(attachmentId, LocalDateTime.now())
-                .map(tok -> appBaseUrl + "/public/view/" + tok.getToken())
-                .orElseGet(() -> {
-                    PublicViewToken tok = PublicViewToken.create(attachmentId, TOKEN_VALIDITY_HOURS);
-                    tokenRepository.save(tok);
-                    return appBaseUrl + "/public/view/" + tok.getToken();
-                });
+        attachmentRepository.findByIdForUpdate(attachmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+        List<PublicViewToken> live =
+                tokenRepository.findLiveTokensByAttachmentId(attachmentId, LocalDateTime.now());
+        if (!live.isEmpty()) {
+            PublicViewToken retained = live.get(0);
+            if (live.size() > 1) tokenRepository.deleteAll(live.subList(1, live.size()));
+            return appBaseUrl + "/public/view/" + retained.getToken();
+        }
+        PublicViewToken created = PublicViewToken.create(attachmentId, TOKEN_VALIDITY_HOURS);
+        tokenRepository.save(created);
+        return appBaseUrl + "/public/view/" + created.getToken();
     }
 
     /**
@@ -59,7 +64,7 @@ public class PublicViewTokenService {
      *
      * @throws EntityNotFoundException if the token is invalid or expired
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public AttachmentHandle resolve(String tokenValue) {
         PublicViewToken tok = tokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> new EntityNotFoundException("Invalid token"));

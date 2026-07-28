@@ -16,6 +16,7 @@ import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.features.library.service.LibraryService;
 import com.ksh.features.storage.ObjectStorage;
 import com.ksh.features.storage.StorageKeys;
+import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LessonAttachmentStorageService;
 import com.ksh.features.upload.LessonAttachmentStorageService.StoredAttachment;
 import com.ksh.security.Role;
@@ -115,6 +116,8 @@ public class LessonAttachmentsService {
         loadLesson(sectionId, lessonId);
 
         StoredAttachment stored = storage.store(file, lessonId);
+        StorageTransactionLifecycle.deleteOnRollback(
+                () -> storage.delete(stored.storedPath()));
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
         LessonAttachment saved = attachmentRepository.save(row);
@@ -149,6 +152,8 @@ public class LessonAttachmentsService {
         // Save new PDF first so the CHECK constraint (content_type=PDF
         // requires pdf_attachment_id NOT NULL) is never violated.
         StoredAttachment stored = storage.store(file, lessonId);
+        StorageTransactionLifecycle.deleteOnRollback(
+                () -> storage.delete(stored.storedPath()));
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
@@ -175,7 +180,7 @@ public class LessonAttachmentsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
-        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())
                 || !"application/pdf".equalsIgnoreCase(asset.getMimeType())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_NOT_PDF);
@@ -216,7 +221,7 @@ public class LessonAttachmentsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         loadLesson(sectionId, lessonId);
-        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
         }
@@ -275,7 +280,8 @@ public class LessonAttachmentsService {
     public void removeAttachmentRow(LessonAttachment att) {
         if (att == null) return;
         if (!att.isLibraryBacked()) {
-            storage.delete(att.getStoredPath());
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> storage.delete(att.getStoredPath()));
         }
         attachmentRepository.delete(att);
     }
