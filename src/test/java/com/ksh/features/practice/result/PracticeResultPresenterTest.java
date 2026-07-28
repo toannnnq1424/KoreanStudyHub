@@ -33,8 +33,10 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingCriterionResult;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
@@ -509,6 +511,9 @@ class PracticeResultPresenterTest {
                 .noneSatisfy(chip -> assertThat(chip.id()).contains("W_SENTENCE_VARIETY"));
         assertThat(detail.diagnosticFindings()).allSatisfy(finding -> {
             assertThat(finding.target().kind().name()).isEqualTo("WHOLE_ANSWER");
+            assertThat(detail.filterChips())
+                    .extracting(chip -> chip.id())
+                    .contains(finding.descriptorId());
             assertThat(finding.impact()).isNull();
             assertThat(finding.frequency()).isNull();
             assertThat(finding.confidence()).isNull();
@@ -521,6 +526,112 @@ class PracticeResultPresenterTest {
                         .contains(finding.parentCriterionId());
             }
         });
+    }
+
+    @Test
+    void writingDetailBuildsExactTrustedLearnerAnswerSegmentsWithoutHtml() {
+        String learnerAnswer = "학생은 문법 오류를 고칩니다.";
+        String evidence = "문법 오류";
+        int start = learnerAnswer.indexOf(evidence);
+        int end = start + evidence.length();
+
+        WritingDetailPayload detail = writingDetailWithAnnotations(
+                learnerAnswer,
+                """
+                [
+                  {
+                    "id":"ann-grammar",
+                    "kind":"need",
+                    "criterionId":"W_GRAMMAR_ERRORS",
+                    "start":%d,
+                    "end":%d,
+                    "evidence":"문법 오류",
+                    "explanationVi":"Cần sửa ngữ pháp",
+                    "correction":"문법을 고칩니다"
+                  }
+                ]
+                """.formatted(start, end));
+
+        assertThat(detail.learnerAnswerSegments())
+                .extracting(WritingTextSegment::text)
+                .containsExactly("학생은 ", evidence, "를 고칩니다.");
+        assertThat(detail.learnerAnswerSegments().stream()
+                .map(WritingTextSegment::text)
+                .collect(java.util.stream.Collectors.joining()))
+                .isEqualTo(learnerAnswer);
+        assertThat(detail.learnerAnswerSegments())
+                .filteredOn(WritingTextSegment::annotated)
+                .singleElement()
+                .satisfies(segment -> {
+                    assertThat(segment.annotationId()).isEqualTo("ann-grammar");
+                    assertThat(segment.kind()).isEqualTo("NEEDS_IMPROVEMENT");
+                    assertThat(segment.categoryCode()).isEqualTo("MORPHOSYNTAX");
+                    assertThat(segment.criterionId()).isEqualTo("W_GRAMMAR_ERRORS");
+                    assertThat(segment.featureId())
+                            .isEqualTo("W_GRAMMAR_ERRORS_WRITING_Q53");
+                    assertThat(segment.explanationVi()).isEqualTo("Cần sửa ngữ pháp");
+                    assertThat(segment.correctionKo()).isEqualTo("문법을 고칩니다");
+                });
+        assertThat(objectMapper.valueToTree(detail.learnerAnswerSegments()).toString())
+                .doesNotContain("html", "markup");
+    }
+
+    @Test
+    void writingDetailFailsClosedToPlainAnswerForMalformedOrOverlappingAnnotations() {
+        String learnerAnswer = "abcdef";
+        List<String> unsafeAnnotations = List.of(
+                """
+                [
+                  {
+                    "id":"ann-mismatch",
+                    "kind":"need",
+                    "criterionId":"W_GRAMMAR_ERRORS",
+                    "start":0,
+                    "end":3,
+                    "evidence":"abX",
+                    "explanationVi":"Sai evidence",
+                    "correction":"교정"
+                  }
+                ]
+                """,
+                """
+                [
+                  {
+                    "id":"ann-strength",
+                    "kind":"strength",
+                    "criterionId":"W_NATURAL_KOREAN_EXPRESSIONS",
+                    "start":0,
+                    "end":4,
+                    "evidence":"abcd",
+                    "explanationVi":"Điểm mạnh",
+                    "correction":""
+                  },
+                  {
+                    "id":"ann-need",
+                    "kind":"need",
+                    "criterionId":"W_GRAMMAR_ERRORS",
+                    "start":2,
+                    "end":6,
+                    "evidence":"cdef",
+                    "explanationVi":"Cần sửa",
+                    "correction":"교정"
+                  }
+                ]
+                """);
+
+        for (String annotations : unsafeAnnotations) {
+            WritingDetailPayload detail = writingDetailWithAnnotations(
+                    learnerAnswer, annotations);
+
+            assertThat(detail.learnerAnswerSegments())
+                    .singleElement()
+                    .satisfies(segment -> {
+                        assertThat(segment.text()).isEqualTo(learnerAnswer);
+                        assertThat(segment.annotated()).isFalse();
+                        assertThat(segment.annotationId()).isNull();
+                        assertThat(segment.featureId()).isNull();
+                    });
+        }
     }
 
     @Test
@@ -1209,8 +1320,129 @@ class PracticeResultPresenterTest {
                 .doesNotHaveDuplicates();
         assertThat(detail.scoreCriteria())
                 .filteredOn(criterion -> criterion.criterionId()
-                        .equals("S_GRAMMAR_SENTENCE_CONTROL"))
+                .equals("S_GRAMMAR_SENTENCE_CONTROL"))
                 .hasSize(1);
+    }
+
+    @Test
+    void speakingDetailSegmentsOnlyNonOverlappingCurrentTranscriptAnnotations() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackCompatibilityReader(),
+                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackViewMapper());
+
+        when(attempt.getAiFeedbackJson()).thenReturn(currentSpeakingFeedback(
+                "alpha beta gamma",
+                """
+                [
+                  {
+                    "annotationType":"needs_improvement",
+                    "criterion":"S_GRAMMAR_SENTENCE_CONTROL",
+                    "subCriterionId":"S_GRAMMAR_PARTICLES",
+                    "startOffset":0,
+                    "endOffset":5,
+                    "evidenceSource":"TRANSCRIPT",
+                    "evidenceScope":"TEXT_SPAN",
+                    "evidence":"alpha",
+                    "explanationVi":"Cần sửa tiểu từ.",
+                    "suggestionKo":"알파"
+                  },
+                  {
+                    "annotationType":"strength",
+                    "criterion":"S_VOCABULARY_EXPRESSIONS",
+                    "subCriterionId":"S_VOCAB_TOPIC_WORDS",
+                    "startOffset":11,
+                    "endOffset":16,
+                    "evidenceSource":"TRANSCRIPT",
+                    "evidenceScope":"TEXT_SPAN",
+                    "evidence":"gamma",
+                    "explanationVi":"Từ vựng theo chủ đề phù hợp."
+                  }
+                ]
+                """));
+        PracticeResultContext currentContext = context(
+                "SPEAKING",
+                List.of(question),
+                Map.of("201", "AUDIO_SUBMITTED"),
+                attempt);
+        PracticeResultPresenter.Presentation currentPresentation =
+                presenter.present(currentContext);
+
+        SpeakingDetailPayload current = (SpeakingDetailPayload) presenter.presentDetail(
+                currentContext, overview("SPEAKING", currentPresentation), 201L);
+
+        assertThat(current.transcriptSegments())
+                .extracting(SpeakingTextSegment::text)
+                .containsExactly("alpha", " beta ", "gamma");
+        assertThat(current.transcriptSegments().stream()
+                .map(SpeakingTextSegment::text)
+                .collect(java.util.stream.Collectors.joining()))
+                .isEqualTo(current.evidence().transcriptText());
+        assertThat(current.transcriptSegments())
+                .filteredOn(SpeakingTextSegment::annotated)
+                .satisfiesExactly(
+                        segment -> {
+                            assertThat(segment.kind()).isEqualTo("NEEDS_IMPROVEMENT");
+                            assertThat(segment.descriptorId())
+                                    .isEqualTo(
+                                            "D_S_GRAMMAR_PARTICLES_NEEDS_IMPROVEMENT");
+                            assertThat(segment.featureId())
+                                    .isEqualTo("S_GRAMMAR_PARTICLES");
+                            assertThat(segment.explanationVi())
+                                    .isEqualTo("Cần sửa tiểu từ.");
+                            assertThat(segment.correctionKo()).isEqualTo("알파");
+                        },
+                        segment -> {
+                            assertThat(segment.kind()).isEqualTo("STRENGTH");
+                            assertThat(segment.descriptorId())
+                                    .isEqualTo("D_S_VOCAB_TOPIC_WORDS_STRENGTH");
+                            assertThat(segment.featureId())
+                                    .isEqualTo("S_VOCAB_TOPIC_WORDS");
+                            assertThat(segment.correctionKo()).isNull();
+                        });
+        assertThat(objectMapper.valueToTree(current.transcriptSegments()).toString())
+                .doesNotContain("startOffset", "endOffset", "evidenceSource");
+
+        when(attempt.getAiFeedbackJson()).thenReturn(currentSpeakingFeedback(
+                "alpha beta gamma",
+                """
+                [
+                  {
+                    "annotationType":"needs_improvement",
+                    "criterion":"S_GRAMMAR_SENTENCE_CONTROL",
+                    "subCriterionId":"S_GRAMMAR_PARTICLES",
+                    "startOffset":0,
+                    "endOffset":10,
+                    "evidenceSource":"TRANSCRIPT",
+                    "evidenceScope":"TEXT_SPAN",
+                    "evidence":"alpha beta",
+                    "explanationVi":"Cần sửa tiểu từ.",
+                    "suggestionKo":"알파 베타"
+                  },
+                  {
+                    "annotationType":"strength",
+                    "criterion":"S_VOCABULARY_EXPRESSIONS",
+                    "subCriterionId":"S_VOCAB_TOPIC_WORDS",
+                    "startOffset":6,
+                    "endOffset":16,
+                    "evidenceSource":"TRANSCRIPT",
+                    "evidenceScope":"TEXT_SPAN",
+                    "evidence":"beta gamma",
+                    "explanationVi":"Từ vựng theo chủ đề phù hợp."
+                  }
+                ]
+                """));
+        PracticeResultPresenter.Presentation overlapPresentation =
+                presenter.present(currentContext);
+
+        SpeakingDetailPayload overlap = (SpeakingDetailPayload) presenter.presentDetail(
+                currentContext, overview("SPEAKING", overlapPresentation), 201L);
+
+        assertThat(overlap.transcriptSegments())
+                .containsExactly(SpeakingTextSegment.plain("alpha beta gamma"));
     }
 
     @Test
@@ -1999,6 +2231,88 @@ class PracticeResultPresenterTest {
                 new AssessmentContractCodec(objectMapper, typeResolver),
                 typeResolver,
                 new AssessmentScoringEngine());
+    }
+
+    private WritingDetailPayload writingDetailWithAnnotations(
+            String learnerAnswer,
+            String annotationsJson
+    ) {
+        PracticeQuestionVersion question =
+                writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{
+                  "raw_score":24,
+                  "raw_score_max":30,
+                  "score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"EVALUATED",
+                  "evaluation_source":"PROVIDER",
+                  "rubric_scores":[
+                    {
+                      "criterionId":"W_CONTENT_TASK_ACHIEVEMENT",
+                      "score":10,
+                      "maxScore":12
+                    },
+                    {
+                      "criterionId":"W_ORGANIZATION_COHERENCE",
+                      "score":7,
+                      "maxScore":9
+                    },
+                    {
+                      "criterionId":"W_LANGUAGE_EXPRESSION",
+                      "score":7,
+                      "maxScore":9
+                    }
+                  ],
+                  "annotations":%s
+                }}
+                """.formatted(annotationsJson));
+        WritingResultPresenter presenter = writingPresenter();
+        PracticeResultContext context = context(
+                "WRITING",
+                List.of(question),
+                Map.of("153", learnerAnswer),
+                attempt);
+        PracticeResultPresenter.Presentation presentation =
+                presenter.present(context);
+        return (WritingDetailPayload) presenter.presentDetail(
+                context, overview("WRITING", presentation), 153L);
+    }
+
+    private static String currentSpeakingFeedback(
+            String transcript,
+            String transcriptAnnotations
+    ) {
+        return """
+                {
+                  "_contract":"speaking_ai_v1",
+                  "speaking_feedback_by_question":{"201":{
+                    "evaluationStatus":"EVALUATED",
+                    "scoreAvailable":false,
+                    "source":"PROVIDER",
+                    "evaluatorCapability":"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+                    "evidenceMode":"TRANSCRIPT_ONLY",
+                    "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
+                    "contractTrust":"CURRENT_VERIFIED",
+                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
+                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "actuallyHeardTranscript":"%s",
+                    "rubricScores":[
+                      {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":15,"maxScore":20,"availability":"SCORED"},
+                      {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_COHERENCE_ORGANIZATION","score":11,"maxScore":15,"availability":"SCORED"},
+                      {"criterion":"S_FLUENCY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"},
+                      {"criterion":"S_PRONUNCIATION_DELIVERY","score":null,"maxScore":null,"availability":"NOT_SCORABLE"}
+                    ],
+                    "transcriptAnnotations":%s
+                  }}
+                }
+                """.formatted(transcript, transcriptAnnotations);
     }
 
     private static PracticeAttemptResultView overview(

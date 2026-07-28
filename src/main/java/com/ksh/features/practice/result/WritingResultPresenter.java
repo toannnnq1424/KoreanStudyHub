@@ -39,6 +39,7 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingSentenceRewriteView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import org.springframework.stereotype.Component;
 
@@ -196,12 +197,16 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 .findFirst()
                 .orElse(null);
         List<WritingDiagnosticGroup> diagnosticGroups = List.of();
+        List<WritingTextSegment> learnerAnswerSegments = activeTask == null
+                ? List.of()
+                : plainLearnerAnswer(activeTask.learnerAnswer());
         WritingUpgradeView upgrade = null;
         DiagnosticAvailability diagnosticAvailability =
                 DiagnosticAvailability.noDetailTask();
         if (activeTask != null) {
             JsonNode selectedNode = strictQuestionFeedbackNode(
                     feedbackRoot, activeTask.questionId());
+            learnerAnswerSegments = learnerAnswerSegments(activeTask, selectedNode);
             upgrade = writingUpgrade(activeTask, selectedNode);
             String feedbackState = activeTask.feedback() == null
                     ? null
@@ -253,6 +258,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 activeTask == null ? overview.feedback() : activeTask.feedback(),
                 detailTasks,
                 activeQuestionId,
+                learnerAnswerSegments,
                 List.copyOf(scoreCriteria),
                 WritingScoringPolicy.PROFILE_ID,
                 WritingDiagnosticDescriptorRegistry.SEAM_ID,
@@ -264,6 +270,159 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 diagnosticAvailability.noteKo(),
                 diagnosticGroups,
                 upgrade);
+    }
+
+    private List<WritingTextSegment> learnerAnswerSegments(
+            WritingTaskResult task,
+            JsonNode feedbackNode
+    ) {
+        String learnerAnswer = task == null || task.learnerAnswer() == null
+                ? ""
+                : task.learnerAnswer();
+        List<WritingTextSegment> fallback = plainLearnerAnswer(learnerAnswer);
+        if (task == null
+                || task.clozeTask()
+                || task.feedback() == null
+                || !task.feedback().ready()
+                || !currentTaskContractMatches(task, feedbackNode)) {
+            return fallback;
+        }
+
+        WritingFeedbackView feedback;
+        try {
+            feedback = feedbackMapper.map(feedbackNode);
+        } catch (RuntimeException exception) {
+            return fallback;
+        }
+        JsonNode rawAnnotations = feedbackNode.get("annotations");
+        if (feedback == null
+                || rawAnnotations == null
+                || !rawAnnotations.isArray()
+                || rawAnnotations.isEmpty()
+                || rawAnnotations.size() != feedback.annotations().size()) {
+            return fallback;
+        }
+
+        List<ResolvedTextAnnotation> resolved = new ArrayList<>();
+        Set<String> annotationIds = new LinkedHashSet<>();
+        for (WritingAnnotationView annotation : feedback.annotations()) {
+            ResolvedTextAnnotation candidate = resolveTextAnnotation(
+                    task, learnerAnswer, annotation);
+            if (candidate == null || !annotationIds.add(candidate.annotationId())) {
+                return fallback;
+            }
+            resolved.add(candidate);
+        }
+        resolved.sort(Comparator
+                .comparingInt(ResolvedTextAnnotation::start)
+                .thenComparingInt(ResolvedTextAnnotation::end)
+                .thenComparing(ResolvedTextAnnotation::annotationId));
+
+        int previousEnd = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() < previousEnd) {
+                return fallback;
+            }
+            previousEnd = annotation.end();
+        }
+
+        List<WritingTextSegment> segments = new ArrayList<>();
+        int cursor = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() > cursor) {
+                segments.add(WritingTextSegment.plain(
+                        learnerAnswer.substring(cursor, annotation.start())));
+            }
+            segments.add(new WritingTextSegment(
+                    learnerAnswer.substring(annotation.start(), annotation.end()),
+                    true,
+                    annotation.annotationId(),
+                    annotation.polarity().name(),
+                    annotation.categoryCode(),
+                    annotation.criterionId(),
+                    annotation.explanationVi(),
+                    annotation.correctionKo(),
+                    annotation.featureId()));
+            cursor = annotation.end();
+        }
+        if (cursor < learnerAnswer.length()) {
+            segments.add(WritingTextSegment.plain(
+                    learnerAnswer.substring(cursor)));
+        }
+        return segments.isEmpty() ? fallback : List.copyOf(segments);
+    }
+
+    private static ResolvedTextAnnotation resolveTextAnnotation(
+            WritingTaskResult task,
+            String learnerAnswer,
+            WritingAnnotationView annotation
+    ) {
+        if (annotation == null
+                || annotation.id() == null || annotation.id().isBlank()
+                || annotation.start() == null || annotation.end() == null
+                || annotation.start() < 0
+                || annotation.end() <= annotation.start()
+                || annotation.end() > learnerAnswer.length()
+                || annotation.evidence() == null
+                || annotation.evidence().isBlank()
+                || annotation.explanationVi() == null
+                || annotation.explanationVi().isBlank()) {
+            return null;
+        }
+        ResultDetailPolarity polarity = switch (normalize(annotation.kind())) {
+            case "STRENGTH" -> ResultDetailPolarity.STRENGTH;
+            case "NEED", "NEEDS_IMPROVEMENT" ->
+                    ResultDetailPolarity.NEEDS_IMPROVEMENT;
+            default -> null;
+        };
+        WritingRubricCriterion criterion =
+                WritingRubricCriterion.parse(annotation.criterionId());
+        if (polarity == null
+                || criterion == null
+                || !criterion.activeForProvider()
+                || !criterion.appliesTo(task.taskType())
+                || !criterion.supports(
+                        WritingRubricCriterion.EvidenceScope.TEXT_SPAN)
+                || !criterion.polarity().name().equals(polarity.name())
+                || (polarity == ResultDetailPolarity.STRENGTH
+                && annotation.correction() != null
+                && !annotation.correction().isBlank())
+                || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                && (annotation.correction() == null
+                || annotation.correction().isBlank()))) {
+            return null;
+        }
+        String exactText = learnerAnswer.substring(
+                annotation.start(), annotation.end());
+        if (!exactText.equals(annotation.evidence())) {
+            return null;
+        }
+        WritingDiagnosticDescriptorRegistry.Resolution descriptor =
+                WritingDiagnosticDescriptorRegistry.resolve(
+                        criterion,
+                        task.taskType(),
+                        polarity,
+                        WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+        if (descriptor == null) {
+            return null;
+        }
+        return new ResolvedTextAnnotation(
+                annotation.start(),
+                annotation.end(),
+                annotation.id().trim(),
+                polarity,
+                descriptor.feature().category().code(),
+                criterion.canonicalId(),
+                annotation.explanationVi().trim(),
+                annotation.correction() == null
+                        || annotation.correction().isBlank()
+                        ? null
+                        : annotation.correction().trim(),
+                descriptor.id());
+    }
+
+    private static List<WritingTextSegment> plainLearnerAnswer(String learnerAnswer) {
+        return List.of(WritingTextSegment.plain(learnerAnswer));
     }
 
     private static WritingTaskResult detailTask(
@@ -1054,6 +1213,19 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     private record ResolvedDiagnostic(
             WritingDiagnosticDescriptorRegistry.Resolution definition,
             WritingDiagnosticFinding finding
+    ) {
+    }
+
+    private record ResolvedTextAnnotation(
+            int start,
+            int end,
+            String annotationId,
+            ResultDetailPolarity polarity,
+            String categoryCode,
+            String criterionId,
+            String explanationVi,
+            String correctionKo,
+            String featureId
     ) {
     }
 
