@@ -56,7 +56,12 @@
   ready(function () {
     var panel = document.getElementById('tabPanel');
     var tabsNav = document.querySelector('.detail-tabs');
-    if (!panel || !tabsNav) return;
+    if (!panel) return;
+
+    // Create pages may have an editable #tabPanel without a tab bar. They
+    // still need native Back/sidebar/breadcrumb protection.
+    var dirtyGuard = window.KshDirtyFormGuard.create(panel);
+    if (!tabsNav) return;
 
     // Already claimed by a page-specific orchestrator (e.g. test-detail-tabs).
     if (tabsNav.getAttribute('data-ajax-tabs') === 'owned') return;
@@ -107,6 +112,7 @@
      * when the response has no #tabPanel (auth redirect, error page, …).
      */
     function navigate(url, push) {
+      dirtyGuard.beginNavigation();
       var requestId = ++navigationSequence;
       if (navigationController) {
         navigationController.abort();
@@ -155,7 +161,7 @@
           if (title) document.title = title.textContent;
 
           if (push) {
-            window.history.pushState({ tab: tab }, '', url);
+            dirtyGuard.pushState({ tab: tab }, url);
           }
 
           if (typeof hooks.onAfterSwap === 'function') {
@@ -166,6 +172,7 @@
             detail: { panel: panel, tab: tab, url: url }
           }));
 
+          dirtyGuard.reset();
           navigationController = null;
           navigationActive = false;
         })
@@ -173,6 +180,7 @@
           if (requestId !== navigationSequence || error.name === 'AbortError') return;
           navigationController = null;
           navigationActive = false;
+          dirtyGuard.allowHardNavigation();
           window.location.href = url;
         });
     }
@@ -207,18 +215,19 @@
       }
 
       event.preventDefault();
+      if (!dirtyGuard.confirmNavigation()) return;
       navigate(href, true);
     });
 
-    window.addEventListener('popstate', function () {
-      navigate(window.location.href, false);
+    window.addEventListener('popstate', function (event) {
+      dirtyGuard.handlePopState(event, function (url) {
+        navigate(url, false);
+      });
     });
 
     try {
       var initialTab = tabOf(window.location.href);
-      if (!window.history.state || !window.history.state.tab) {
-        window.history.replaceState({ tab: initialTab }, '', window.location.href);
-      }
+      dirtyGuard.installHistory({ tab: initialTab }, window.location.href);
       syncChrome(initialTab);
     } catch (error) {
       // History state is an enhancement only.
