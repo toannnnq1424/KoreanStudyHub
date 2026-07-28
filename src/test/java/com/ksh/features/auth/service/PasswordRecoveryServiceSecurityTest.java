@@ -25,8 +25,13 @@ class PasswordRecoveryServiceSecurityTest {
     private final PasswordResetTokenRepository tokens = mock(PasswordResetTokenRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private final MailService mail = mock(MailService.class);
+    private final PasswordResetRequestThrottle throttle = mock(PasswordResetRequestThrottle.class);
     private final PasswordRecoveryService service =
-            new PasswordRecoveryService(users, tokens, encoder, mail, "https://ksh.test");
+            new PasswordRecoveryService(users, tokens, encoder, mail, throttle, "https://ksh.test");
+
+    PasswordRecoveryServiceSecurityTest() {
+        when(throttle.allow(anyString(), anyString())).thenReturn(true);
+    }
 
     @Test
     void requestResetPersistsDigestInsteadOfBearerToken() {
@@ -36,11 +41,13 @@ class PasswordRecoveryServiceSecurityTest {
         when(users.findByEmailIgnoreCase("student@example.test")).thenReturn(Optional.of(user));
         when(mail.send(anyString(), anyString(), anyString())).thenReturn(true);
 
-        service.requestReset("student@example.test");
+        when(user.getId()).thenReturn(7L);
+        service.requestReset("student@example.test", "192.0.2.1");
 
         ArgumentCaptor<PasswordResetToken> entity = ArgumentCaptor.forClass(PasswordResetToken.class);
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(tokens).save(entity.capture());
+        verify(tokens).invalidateUnusedForUser(eq(7L), any());
         verify(mail).send(eq("student@example.test"), eq("KSH Password Reset"), body.capture());
 
         String marker = "token=";
@@ -76,7 +83,7 @@ class PasswordRecoveryServiceSecurityTest {
     void unknownEmailIsEnumerationNeutralAndCreatesNoSideEffects() {
         when(users.findByEmailIgnoreCase("missing@example.test")).thenReturn(Optional.empty());
 
-        service.requestReset("missing@example.test");
+        service.requestReset("missing@example.test", "192.0.2.2");
 
         verifyNoInteractions(tokens, mail);
     }
@@ -89,12 +96,21 @@ class PasswordRecoveryServiceSecurityTest {
         when(users.findByEmailIgnoreCase("private@example.test")).thenReturn(Optional.of(user));
         when(mail.send(anyString(), anyString(), anyString())).thenReturn(false);
 
-        service.requestReset("private@example.test");
+        service.requestReset("private@example.test", "192.0.2.3");
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(mail).send(anyString(), anyString(), body.capture());
         String raw = body.getValue().substring(body.getValue().indexOf("token=") + 6)
                 .split("\\s", 2)[0];
         assertThat(output.getAll()).doesNotContain("private@example.test", raw);
+    }
+
+    @Test
+    void throttledRequestHasNoRepositoryOrMailSideEffects() {
+        when(throttle.allow("student@example.test", "192.0.2.4")).thenReturn(false);
+
+        service.requestReset("student@example.test", "192.0.2.4");
+
+        verifyNoInteractions(users, tokens, mail);
     }
 }

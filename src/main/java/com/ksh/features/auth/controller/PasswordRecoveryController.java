@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import static com.ksh.common.IConstant.*;
@@ -62,11 +63,12 @@ public class PasswordRecoveryController {
      */
     @PostMapping("/forgot-password")
     public String forgotSubmit(@Valid @ModelAttribute("request") AuthDtos.ForgotPasswordRequest req,
-                                BindingResult result, Model model, RedirectAttributes ra) {
+                                BindingResult result, Model model, RedirectAttributes ra,
+                                HttpServletRequest request) {
         if (result.hasErrors()) {
             return VIEW_FORGOT_PASSWORD;
         }
-        service.requestReset(req.email());
+        service.requestReset(req.email(), request.getRemoteAddr());
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_RESET_LINK_SENT);
         return REDIRECT_FORGOT;
     }

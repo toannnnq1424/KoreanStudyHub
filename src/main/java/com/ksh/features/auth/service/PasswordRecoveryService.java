@@ -46,17 +46,20 @@ public class PasswordRecoveryService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final PasswordResetRequestThrottle requestThrottle;
     private final String baseUrl;
 
     public PasswordRecoveryService(UserRepository userRepository,
                                    PasswordResetTokenRepository tokenRepository,
                                    PasswordEncoder passwordEncoder,
                                    MailService mailService,
+                                   PasswordResetRequestThrottle requestThrottle,
                                    @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.requestThrottle = requestThrottle;
         this.baseUrl = baseUrl;
     }
 
@@ -71,13 +74,17 @@ public class PasswordRecoveryService {
      * @param email the email address of the account whose password should be reset
      */
     @Transactional
-    public void requestReset(String email) {
+    public void requestReset(String email, String clientIp) {
+        if (!requestThrottle.allow(email, clientIp)) {
+            return;
+        }
         var userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
             return; // silent — neutral response to avoid user enumeration
         }
 
         User user = userOpt.get();
+        tokenRepository.invalidateUnusedForUser(user.getId(), LocalDateTime.now());
         String rawToken = generateToken();
         PasswordResetToken entity = new PasswordResetToken(
                 user, digestToken(rawToken), LocalDateTime.now().plusHours(TOKEN_TTL_HOURS));
