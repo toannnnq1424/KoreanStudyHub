@@ -55,6 +55,20 @@ public class TestAccessResolver {
      */
     public Test requireAttemptable(Long testId, Long userId) {
         Test test = loadOrNotFound(testId);
+        return requireAttemptable(test, userId);
+    }
+
+    /** Returns and locks an accessible exam while a new attempt is created. */
+    public Test requireAttemptableForUpdate(Long testId, Long userId) {
+        Test test = testRepository.findByIdForUpdate(testId)
+                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
+        if (test.isDeleted()) {
+            throw new EntityNotFoundException(NF_MSG);
+        }
+        return requireAttemptable(test, userId);
+    }
+
+    private Test requireAttemptable(Test test, Long userId) {
         // Own PRACTICE test: always accessible to its owner.
         if (test.isPractice() && userId.equals(test.getCreatedBy())) {
             return test;
@@ -73,6 +87,22 @@ public class TestAccessResolver {
      */
     public Test requireManageable(Long testId, Long userId) {
         Test test = loadOrNotFound(testId);
+        return requireManageable(test, userId);
+    }
+
+    /**
+     * Returns and locks an owned exam for a transaction that mutates its question bank.
+     */
+    public Test requireManageableForUpdate(Long testId, Long userId) {
+        Test test = testRepository.findByIdForUpdate(testId)
+                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
+        if (test.isDeleted()) {
+            throw new EntityNotFoundException(NF_MSG);
+        }
+        return requireManageable(test, userId);
+    }
+
+    private Test requireManageable(Test test, Long userId) {
         if (userId.equals(test.getCreatedBy()) || leadsClass(userId, test.getClassId())) {
             return test;
         }

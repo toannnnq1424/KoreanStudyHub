@@ -134,7 +134,7 @@ public class LecturerExamService {
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
                 test.getMediaType(), test.getMediaUrl(), qForms,
-                questionBankWriter.hasStudentResponses(testId));
+                questionBankWriter.hasStudentActivity(testId));
     }
 
     /**
@@ -162,12 +162,12 @@ public class LecturerExamService {
         boolean creating = form.id() == null;
         Test test = creating
                 ? new Test(userId, defaultType(form.type()))
-                : accessResolver.requireManageable(form.id(), userId);
+                : accessResolver.requireManageableForUpdate(form.id(), userId);
         String previousStatus = creating ? null : test.getStatus();
         applyFields(test, form);
         Test saved = testRepository.save(test);
 
-        if (creating || !questionBankWriter.hasStudentResponses(saved.getId())) {
+        if (creating || !questionBankWriter.hasStudentActivity(saved.getId())) {
             questionBankWriter.replaceQuestions(saved.getId(), form.questions());
         } else {
             questionBankWriter.updateQuestionContentsInPlace(saved.getId(), form.questions());
@@ -188,12 +188,12 @@ public class LecturerExamService {
      */
     @Transactional
     public int insertFromBank(Long userId, Role role, Long testId, List<Long> itemIds) {
-        Test test = accessResolver.requireManageable(testId, userId);
+        Test test = accessResolver.requireManageableForUpdate(testId, userId);
         if (itemIds == null || itemIds.isEmpty()) {
             throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
         }
         // Appending questions changes the bank shape, which is unsafe once graded.
-        if (questionBankWriter.hasStudentResponses(testId)) {
+        if (questionBankWriter.hasStudentActivity(testId)) {
             throw new IllegalArgumentException(MSG_QB_INSERT_LOCKED);
         }
         List<BankItemSnapshot> snapshots =
