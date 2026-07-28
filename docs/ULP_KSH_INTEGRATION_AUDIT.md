@@ -104,11 +104,11 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | LESSON-ORDER-001 | Medium | Concurrent section/lesson reorder could collide during temporary ordering | [x] | [x] |
 | IMPORT-STALE-001 | High | A stale student-import upload response can replace a newer preview/session | [x] | [x] |
 | DEPT-LEADER-CONC-001 | High | Concurrent leader reassignment can desynchronize department pointers and user role/department | [x] | [ ] Product policy required |
-| PROGRESS-TOGGLE-001 | Medium | Concurrent lesson-completion toggles can collide or lose parity | [x] | [ ] Product semantics required |
-| MSG-REALTIME-001 | Medium | Realtime conversation bubbles use the truncated sidebar snippet | [x] | [ ] |
-| MSG-READ-001 | Medium | A message received in an open conversation remains unread server-side | [x] | [ ] |
-| COMMENT-DUPE-001 | Medium | Double-clicking root lesson-comment submit sends duplicate POSTs | [x] | [ ] |
-| SECTION-DELETE-STATE-001 | Medium | Deleting the selected section leaves its lesson pane and client selection stale | [x] | [ ] |
+| PROGRESS-TOGGLE-001 | Medium | Concurrent lesson-completion toggles can collide or lose parity | [x] | [x] Focused verification |
+| MSG-REALTIME-001 | Medium | Realtime conversation bubbles use the truncated sidebar snippet | [x] | [x] |
+| MSG-READ-001 | Medium | A message received in an open conversation remains unread server-side | [x] | [x] |
+| COMMENT-DUPE-001 | Medium | Double-clicking root lesson-comment submit sends duplicate POSTs | [x] | [x] |
+| SECTION-DELETE-STATE-001 | Medium | Deleting the selected section leaves its lesson pane and client selection stale | [x] | [x] |
 | PUBLIC-VIEW-TOKEN-001 | Medium | Public attachment bearer tokens remain reusable plaintext database values | [x] | [ ] Token lifecycle redesign required |
 | MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] | [ ] Product policy required |
 | LEADER-SCOPE-001 | Critical | Legacy class policies treat every LEADER as a global ADMIN across departments | [x] | [x] Focused verification |
@@ -1736,7 +1736,8 @@ unrelated discovery inside another commit.
 #### PROGRESS-TOGGLE-001 — concurrent lesson-completion toggles lose parity
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] semantics decided; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] existing toggle semantics retained;
+  [x] remediated; [x] focused verification
 - Evidence: `LearningProgressService.toggleCompletion()` performs an unlocked
   find-or-create/update on unique `(user_id, lesson_id)`.
 - Decision required: [ ] Should two concurrent toggles cancel each other, or
@@ -1745,43 +1746,43 @@ unrelated discovery inside another commit.
 #### MSG-REALTIME-001 — realtime message body is truncated to sidebar snippet
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] remediated; [x] verified
 - Evidence: `MessagingService` sends only `snippet(body)` and
   `messaging.js` renders that snippet as the open-thread bubble.
 - Remediation checklist:
-  - [ ] Add an exact full-body field while retaining the bounded sidebar snippet.
-  - [ ] Render the full body only in the active conversation.
+  - [x] Add an exact full-body field while retaining the bounded sidebar snippet.
+  - [x] Render the full body only in the active conversation.
 
 #### MSG-READ-001 — incoming message in an open thread remains unread
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] remediated; [x] verified
 - Evidence: STOMP handling appends the bubble and refreshes unread count but
   does not mark the newly received owned conversation read.
 - Remediation checklist:
-  - [ ] Add an owned mark-read endpoint/service action.
-  - [ ] Mark read before refreshing the visible badge.
+  - [x] Add an owned mark-read endpoint/service action.
+  - [x] Mark read before refreshing the visible badge.
 
 #### COMMENT-DUPE-001 — root lesson-comment submit has no in-flight guard
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
 - Evidence: `lesson-comments.js` permits two submit events before the first POST
   clears the composer.
 - Remediation checklist:
-  - [ ] Disable/guard submit while the POST is in flight.
-  - [ ] Preserve text and restore the button after failure.
+  - [x] Disable/guard submit while the POST is in flight.
+  - [x] Preserve text and restore the button after failure.
 
 #### SECTION-DELETE-STATE-001 — selected-section deletion leaves stale client state
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] remediated; [x] focused verification
 - Evidence: `sections.js` removes the section entry but leaves the deleted
   section's lesson pane and `state.selectedSectionId` active.
 - Risk: subsequent lesson actions can target a section that no longer exists.
 - Remediation checklist:
-  - [ ] Clear or select a valid replacement section after successful deletion.
-  - [ ] Reload/clear the right pane before enabling further lesson actions.
+  - [x] Clear or select a valid replacement section after successful deletion.
+  - [x] Reload/clear the right pane before enabling further lesson actions.
 
 #### PUBLIC-VIEW-TOKEN-001 — public attachment tokens are stored as plaintext
 
@@ -1800,6 +1801,18 @@ unrelated discovery inside another commit.
   open/send checks membership only.
 - Decision required: [ ] Retain deliberate D2 persistence, or revoke messaging
   when the class relationship or role becomes invalid.
+
+### Phase 5 focused verification (2026-07-29)
+
+- [x] `mvn.cmd -q -DskipTests compile`
+- [x] DB-free tests: `MessagingRealtimeReadTest`,
+  `MessagingConversationCreationLockTest`, `LessonUiMutationContractTest`, and
+  `LearningProgressToggleLockTest`.
+- [x] `node --check` for `messaging.js`, `lesson-comments.js`, and `sections.js`.
+- [x] `git diff --check`.
+- [x] No Practice, migration, developer-password, or user-owned config/template
+  changes included.
+- [ ] Real-database lock behavior remains deferred by request.
 
 ### Post-PR34 audit findings
 
