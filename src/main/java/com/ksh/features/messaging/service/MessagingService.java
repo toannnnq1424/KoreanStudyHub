@@ -27,6 +27,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -282,6 +284,17 @@ public class MessagingService {
         return messageRepository.countUnreadForUser(meId);
     }
 
+    /**
+     * Marks the peer's unread messages in an owned conversation as read and
+     * returns the caller's authoritative total for refreshing all badges.
+     */
+    @Transactional
+    public long markConversationRead(Long meId, Long convId) {
+        requireParticipant(meId, convId);
+        messageRepository.markReadBulk(convId, meId, LocalDateTime.now());
+        return messageRepository.countUnreadForUser(meId);
+    }
+
     // ── Recipient search ────────────────────────────────────────────────
 
     /**
@@ -339,9 +352,25 @@ public class MessagingService {
         Optional<User> sender = userRepository.findById(senderId);
         if (peer.isEmpty()) return;
         String senderName = sender.map(User::getFullName).orElse("");
-        PushPayload payload = new PushPayload(convId, senderName, snippet(body), peerUnread);
+        PushPayload payload = new PushPayload(
+                convId, senderName, snippet(body), body, peerUnread);
         // Route by the peer's email — matches the Spring Security principal name.
-        messagingTemplate.convertAndSendToUser(peer.get().getEmail(), "/queue/messages", payload);
+        Runnable push = () -> messagingTemplate.convertAndSendToUser(
+                peer.get().getEmail(), "/queue/messages", payload);
+        // The browser marks an active thread read as soon as this frame arrives.
+        // Publish only after commit so that request can see and update this row.
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            push.run();
+                        }
+                    });
+        } else {
+            push.run();
+        }
     }
 
     private static String snippet(String body) {

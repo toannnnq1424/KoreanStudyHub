@@ -71,7 +71,7 @@ public class LearningProgressService {
      */
     @Transactional
     public boolean toggleCompletion(Long classId, Long lessonId, Long userId) {
-        runGates(classId, lessonId, userId);
+        runToggleGates(classId, lessonId, userId);
         LearningProgress progress = progressRepository
                 .findByUserIdAndLessonId(userId, lessonId)
                 .orElseGet(() -> new LearningProgress(userId, lessonId));
@@ -100,6 +100,18 @@ public class LearningProgressService {
                 .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
 
         // Gates 2-4: live class, section-belongs-to-class, lesson PUBLISHED.
+        lessonAccessResolver.resolveInClass(classId, lessonId);
+    }
+
+    /**
+     * Applies the same gates while locking the stable enrollment row. This
+     * serializes concurrent toggles before either request reads progress, so
+     * two concurrent toggles have the same parity as two sequential toggles.
+     */
+    private void runToggleGates(Long classId, Long lessonId, Long userId) {
+        enrollmentRepository.findByUserIdAndClassIdForUpdate(userId, classId)
+                .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
+                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
         lessonAccessResolver.resolveInClass(classId, lessonId);
     }
 }
