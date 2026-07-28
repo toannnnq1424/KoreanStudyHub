@@ -147,6 +147,40 @@
       </form>
     </section>
 
+    <!-- ===== Durable outbox operations (non-PII) ===== -->
+    <section class="settings-form-panel" aria-labelledby="mail-outbox-title">
+      <h2 id="mail-outbox-title" class="panel-title">Trạng thái hàng đợi email</h2>
+      <p class="panel-sub">Số liệu vận hành tổng hợp; không hiển thị người nhận,
+        tiêu đề hoặc nội dung email.</p>
+
+      <div th:if="${mailOutboxSnapshotError == true}"
+           class="alert alert-warning" role="status">
+        Tạm thời không đọc được trạng thái hàng đợi. Cấu hình SMTP vẫn có thể sử dụng.
+      </div>
+
+      <div th:if="${mailOutboxSnapshot != null}"
+           id="mail-outbox-operations"
+           class="settings-form"
+           th:attr="data-observed-at=${mailOutboxSnapshot.observedAt}">
+        <dl class="ai-log-totals-grid">
+          <div><dt>Đang chờ</dt><dd th:text="${mailOutboxSnapshot.pending}">0</dd></div>
+          <div><dt>Đang xử lý</dt><dd th:text="${mailOutboxSnapshot.processing}">0</dd></div>
+          <div><dt>Chờ thử lại</dt><dd th:text="${mailOutboxSnapshot.retry}">0</dd></div>
+          <div><dt>Đã gửi</dt><dd th:text="${mailOutboxSnapshot.sent}">0</dd></div>
+          <div><dt>Thất bại</dt><dd th:text="${mailOutboxSnapshot.failed}">0</dd></div>
+          <div><dt>Có thể nhận việc</dt><dd th:text="${mailOutboxSnapshot.totalClaimable}">0</dd></div>
+          <div><dt>Lease đã hết hạn</dt><dd th:text="${mailOutboxSnapshot.expiredProcessingLeases}">0</dd></div>
+          <div>
+            <dt>Tuổi việc cũ nhất</dt>
+            <dd>
+              <span th:text="${mailOutboxSnapshot.oldestClaimableAgeSeconds}">0</span>
+              giây
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
     <!-- ===== Test send panel ===== -->
     <section class="settings-form-panel">
       <h2 class="panel-title">Gửi email thử</h2>

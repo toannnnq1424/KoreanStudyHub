@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -117,5 +118,37 @@ class MailOutboxProcessorTest {
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void successive_polls_continue_through_backlog_larger_than_batch() {
+        MailOutboxTransactionService transactions =
+                mock(MailOutboxTransactionService.class);
+        MailService mailService = mock(MailService.class);
+        when(transactions.findClaimableIds(2))
+                .thenReturn(List.of(1L, 2L))
+                .thenReturn(List.of(3L, 4L));
+        for (long id = 1; id <= 4; id++) {
+            MailOutboxDelivery delivery =
+                    new MailOutboxDelivery(id, "snapshot@example.com", "Subject", "Body");
+            when(transactions.claim(id, WORKER_ID))
+                    .thenReturn(Optional.of(delivery));
+            when(transactions.recordSuccess(id, WORKER_ID)).thenReturn(true);
+        }
+        when(mailService.send(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+        MailOutboxProcessor processor =
+                new MailOutboxProcessor(transactions, mailService, WORKER_ID);
+
+        assertThat(processor.processDue(2)).isEqualTo(2);
+        assertThat(processor.processDue(2)).isEqualTo(2);
+
+        verify(transactions, times(2)).findClaimableIds(2);
+        for (long id = 1; id <= 4; id++) {
+            verify(transactions).claim(id, WORKER_ID);
+            verify(transactions).recordSuccess(id, WORKER_ID);
+        }
     }
 }

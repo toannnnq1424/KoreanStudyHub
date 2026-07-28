@@ -59,15 +59,21 @@ class MailOutboxTransactionServiceTest {
     }
 
     @Test
-    void claim_reclaims_an_expired_processing_lease() {
+    void restarted_processor_reclaims_an_expired_processing_lease() {
         MailOutboxJob job = pendingJob();
         job.claim(
                 "dead-worker",
                 NOW.minusMinutes(5),
                 Duration.ofMinutes(1));
         when(outboxRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(job));
+        MailOutboxTransactionService restartedService =
+                new MailOutboxTransactionService(
+                        outboxRepository,
+                        notificationRepository,
+                        FIXED_CLOCK);
 
-        Optional<MailOutboxDelivery> result = service.claim(7L, WORKER_ID);
+        Optional<MailOutboxDelivery> result =
+                restartedService.claim(7L, WORKER_ID);
 
         assertThat(result).isPresent();
         assertThat(job.getAttemptCount()).isEqualTo(2);
