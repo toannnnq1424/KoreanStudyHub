@@ -10,12 +10,14 @@ import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +35,6 @@ public class WritingEvaluationClient {
     private final WritingRuleEngine ruleEngine;
     private final WritingTaskResolver taskResolver;
     private final WritingEvaluationCacheService cacheService;
-    private final WritingMockEvaluatorService mockEvaluatorService;
     private final PracticeAiMetrics metrics;
     private final AiQuestionImageResolver imageResolver;
 
@@ -42,10 +43,23 @@ public class WritingEvaluationClient {
             WritingEvaluationNormalizer normalizer,
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
+                (RestClient) null, (AiQuestionImageResolver) null, PracticeAiMetrics.noop());
+    }
+
+    /**
+     * Source-compatible test seam retained while the unreachable mock fallback
+     * is removed from the live dependency graph.
+     */
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
-                null, null, PracticeAiMetrics.noop());
+            WritingMockEvaluatorService ignoredMockEvaluatorService) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService);
     }
 
     @Autowired
@@ -55,10 +69,9 @@ public class WritingEvaluationClient {
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService,
             AiQuestionImageResolver imageResolver,
             PracticeAiMetrics metrics) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService, mockEvaluatorService,
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
                 null, imageResolver, metrics);
     }
 
@@ -67,10 +80,19 @@ public class WritingEvaluationClient {
             WritingEvaluationNormalizer normalizer,
             WritingRuleEngine ruleEngine,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
         this(properties, objectMapper, normalizer, ruleEngine, new WritingTaskResolver(),
-                cacheService, mockEvaluatorService, restClient, null, PracticeAiMetrics.noop());
+                cacheService, restClient, null, PracticeAiMetrics.noop());
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService ignoredMockEvaluatorService,
+            RestClient restClient) {
+        this(properties, objectMapper, normalizer, ruleEngine, cacheService, restClient);
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -79,10 +101,9 @@ public class WritingEvaluationClient {
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient) {
         this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                mockEvaluatorService, restClient, null, PracticeAiMetrics.noop());
+                restClient, null, PracticeAiMetrics.noop());
     }
 
     WritingEvaluationClient(OpenAiProperties properties,
@@ -91,11 +112,35 @@ public class WritingEvaluationClient {
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService,
+            WritingMockEvaluatorService ignoredMockEvaluatorService,
+            RestClient restClient) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
+                restClient);
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
             RestClient restClient,
             PracticeAiMetrics metrics) {
         this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                mockEvaluatorService, restClient, null, metrics);
+                restClient, null, metrics);
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingTaskResolver taskResolver,
+            WritingEvaluationCacheService cacheService,
+            WritingMockEvaluatorService ignoredMockEvaluatorService,
+            RestClient restClient,
+            PracticeAiMetrics metrics) {
+        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
+                restClient, metrics);
     }
 
     private WritingEvaluationClient(OpenAiProperties properties,
@@ -104,7 +149,6 @@ public class WritingEvaluationClient {
             WritingRuleEngine ruleEngine,
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService mockEvaluatorService,
             RestClient restClient,
             AiQuestionImageResolver imageResolver,
             PracticeAiMetrics metrics) {
@@ -114,7 +158,6 @@ public class WritingEvaluationClient {
         this.ruleEngine = ruleEngine;
         this.taskResolver = taskResolver;
         this.cacheService = cacheService;
-        this.mockEvaluatorService = mockEvaluatorService;
         this.imageResolver = imageResolver;
         this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
         if (restClient != null) {
@@ -123,6 +166,9 @@ public class WritingEvaluationClient {
             this.restClient = RestClient.builder()
                     .baseUrl(properties.baseUrl())
                     .defaultHeader("Authorization", "Bearer " + properties.apiKey())
+                    .requestFactory(requestFactory(
+                            properties.connectTimeout(),
+                            properties.readTimeout()))
                     .build();
         }
     }
@@ -172,7 +218,8 @@ public class WritingEvaluationClient {
                 if (cached.isPresent()) {
                     long parseStart = PracticeAiMetrics.startNanos();
                     try {
-                        String rehydrated = normalizer.rehydrateCachedResult(cached.get(), learnerAnswer);
+                        String rehydrated = normalizer.rehydrateCachedResult(
+                                cached.get(), learnerAnswer, ruleAnalysis.taskType());
                         log.info("KSH writing evaluation cache hit: taskType={}, charCount={}",
                                 ruleAnalysis.taskType(), ruleAnalysis.characterCount());
                         return rehydrated;
@@ -193,7 +240,7 @@ public class WritingEvaluationClient {
             }
         }
 
-        // 3. Mock mode when API key is missing
+        // 3. Fail closed when provider credentials are unavailable
         if (properties.apiKey() == null || properties.apiKey().isBlank()) {
             long providerStart = PracticeAiMetrics.startNanos();
             String unavailable = normalizer.providerUnavailable("MISSING_API_KEY", ruleAnalysis.taskType(), learnerAnswer);
@@ -224,36 +271,21 @@ public class WritingEvaluationClient {
             int status = ex.getStatusCode().value();
             log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
                     status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
-            if (ex != null) {
-                String unavailable = normalizer.providerUnavailable("PROVIDER_HTTP_ERROR", ruleAnalysis.taskType(), learnerAnswer);
-                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
-                return unavailable;
-            }
-            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi HTTP " + ex.getStatusCode().value());
-            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
-            return fallback;
+            String unavailable = normalizer.providerUnavailable("PROVIDER_HTTP_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+            return unavailable;
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            if (ex != null) {
-                String unavailable = normalizer.providerUnavailable("PROVIDER_TRANSPORT_ERROR", ruleAnalysis.taskType(), learnerAnswer);
-                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
-                return unavailable;
-            }
-            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi kết nối mạng");
-            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
-            return fallback;
+            String unavailable = normalizer.providerUnavailable("PROVIDER_TRANSPORT_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+            return unavailable;
         } catch (Exception ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
                     properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
-            if (ex != null) {
-                String unavailable = normalizer.providerUnavailable("PROVIDER_UNEXPECTED_ERROR", ruleAnalysis.taskType(), learnerAnswer);
-                recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
-                return unavailable;
-            }
-            String fallback = fallbackToMock(prompt, learnerAnswer, ruleAnalysis, "lỗi xử lý hệ thống");
-            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FALLBACK, providerStart);
-            return fallback;
+            String unavailable = normalizer.providerUnavailable("PROVIDER_UNEXPECTED_ERROR", ruleAnalysis.taskType(), learnerAnswer);
+            recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
+            return unavailable;
         }
 
         // 5. Normalize — normalizer is sole source of score/raw_score/raw_score_max
@@ -302,12 +334,6 @@ public class WritingEvaluationClient {
             log.warn("KSH writing evaluation malformed cache cleanup failed: operation=cache-delete taskType={} exception={}",
                     ruleAnalysis.taskType(), exceptionCategory(ex));
         }
-    }
-
-    private String fallbackToMock(String prompt, String learnerAnswer, WritingRuleEngine.RuleAnalysis ruleAnalysis, String reason) {
-        log.info("KSH writing evaluation falling back to mock: {}", reason);
-        String mockJson = mockEvaluatorService.evaluate(prompt, learnerAnswer, ruleAnalysis, reason);
-        return normalizer.normalize(mockJson, ruleAnalysis.taskType(), learnerAnswer, ruleAnalysis);
     }
 
     private void recordWritingProvider(PracticeAiMetrics.ProviderOutcome outcome, long startNanos) {
@@ -411,6 +437,25 @@ public class WritingEvaluationClient {
 
     private static boolean isRetryable(int status) {
         return status == 429 || status == 500 || status == 502 || status == 503 || status == 504;
+    }
+
+    static SimpleClientHttpRequestFactory requestFactory(
+            Duration connectTimeout,
+            Duration readTimeout
+    ) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(timeoutMillis(connectTimeout, Duration.ofSeconds(5)));
+        factory.setReadTimeout(timeoutMillis(readTimeout, Duration.ofSeconds(60)));
+        return factory;
+    }
+
+    private static int timeoutMillis(Duration configured, Duration fallback) {
+        Duration resolved = configured == null ? fallback : configured;
+        long millis = resolved.toMillis();
+        if (millis <= 0) {
+            return Math.toIntExact(fallback.toMillis());
+        }
+        return Math.toIntExact(Math.min(millis, Integer.MAX_VALUE));
     }
 
     private static void sleep(long backoffMs) {
