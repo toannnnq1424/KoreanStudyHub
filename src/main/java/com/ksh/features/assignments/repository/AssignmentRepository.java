@@ -2,9 +2,11 @@ package com.ksh.features.assignments.repository;
 
 import com.ksh.features.assignments.entity.Assignment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +39,15 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
      */
     @Query("SELECT a FROM Assignment a WHERE a.id = :id AND a.classId = :classId AND a.deleted = false")
     Optional<Assignment> findByIdAndClassIdNotDeleted(@Param("id") Long id, @Param("classId") Long classId);
+
+    /**
+     * Serializes submission creation for one assignment. Locking the stable
+     * parent row also closes the race where no submission row exists yet.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Assignment a WHERE a.id = :id AND a.classId = :classId AND a.deleted = false")
+    Optional<Assignment> findByIdAndClassIdNotDeletedForUpdate(@Param("id") Long id,
+                                                               @Param("classId") Long classId);
 
     /**
      * Returns published (and closed) assignments visible to students.

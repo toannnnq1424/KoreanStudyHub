@@ -20,6 +20,8 @@ import com.ksh.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.HtmlUtils;
 
@@ -105,14 +107,17 @@ public class QuestionBankImportService {
     public ConfirmResult confirm(Long userId, Role role, UUID sessionId) {
         User actor = requireActor(userId, role);
         Long departmentId = requireDepartment(actor);
-        QuestionBankImportSession session = sessionStore.get(sessionId, actor.getId())
+        QuestionBankImportSession session = sessionStore.claim(sessionId, actor.getId())
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_SESSION_EXPIRED));
         if (!departmentId.equals(session.getDepartmentId())) {
+            sessionStore.restore(session);
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
         if (!session.toPreview().confirmable()) {
+            sessionStore.restore(session);
             throw new QuestionBankValidationException(MSG_BLOCKING_ERRORS);
         }
+        restoreSessionOnRollback(session);
 
         List<Long> itemIds = new ArrayList<>();
         Map<Long, Long> resolvedCategoryIds = new LinkedHashMap<>();
@@ -139,8 +144,18 @@ public class QuestionBankImportService {
             }
             itemIds.add(item.getId());
         }
-        sessionStore.delete(sessionId);
         return new ConfirmResult(itemIds.size(), session.toPreview().totalRows(), session.getWorkflowStatus(), itemIds);
+    }
+
+    private void restoreSessionOnRollback(QuestionBankImportSession session) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    sessionStore.restore(session);
+                }
+            }
+        });
     }
 
     private ValidationResult validateRow(RawRow raw, Map<String, CategoryOption> categories) {

@@ -48,7 +48,7 @@ public class PasswordResetToken {
      * Creates a new password-reset token for the given user.
      *
      * @param user      the account owner requesting the password reset
-     * @param token     the raw token string (should be cryptographically random)
+     * @param token     SHA-256 digest of the random bearer token
      * @param expiresAt the point in time after which this token is no longer valid
      */
     public PasswordResetToken(User user, String token, LocalDateTime expiresAt) {

@@ -22,6 +22,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
@@ -115,11 +117,12 @@ public class ImportStudentsService {
     public ImportResult confirmImport(UUID sessionId, Long classId, Long lecturerId,
                                       Role role, ImportOptions options) {
         ClassEntity clazz = classesService.getEditable(classId, lecturerId, role);
-        ImportSession session = sessionStore.get(sessionId, lecturerId)
+        ImportSession session = sessionStore.claim(sessionId, lecturerId)
                 .orElseThrow(() -> new InvalidFileException(
                         "Phiên import đã hết hạn hoặc không tồn tại. Vui lòng tải file lên lại."));
 
         if (!session.getClassId().equals(clazz.getId())) {
+            sessionStore.restore(session);
             throw new InvalidFileException("Phiên import không khớp với lớp hiện tại.");
         }
 
@@ -127,18 +130,30 @@ public class ImportStudentsService {
         ImportOptions opts = options == null ? new ImportOptions(false) : options;
         if (errorCount > 0 && !opts.skipErrors()) {
             // Caller must confirm explicitly before importing past the errors.
+            sessionStore.restore(session);
             return new ImportResult(session.totalRows(), 0, 0, 0,
                     (int) errorCount, 0, session.getRows());
         }
 
+        restoreSessionOnRollback(session);
         RowOutcome totals = processAllRows(session.getRows(), classId);
         writeActivity(classId, lecturerId, session, totals);
-        sessionStore.delete(sessionId);
 
         return new ImportResult(session.totalRows(),
                 totals.imported(), totals.reactivated(),
                 totals.skippedDup(), totals.skippedErr(), totals.failed(),
                 session.getRows());
+    }
+
+    private void restoreSessionOnRollback(ImportSession session) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    sessionStore.restore(session);
+                }
+            }
+        });
     }
 
     /**
