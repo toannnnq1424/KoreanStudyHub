@@ -70,6 +70,18 @@ public class AiLogQueryService {
         return repository.findDistinctProviderNames();
     }
 
+    /**
+     * Returns one page of request attempts for a single live provider.
+     *
+     * @param providerId provider identifier
+     * @param pageable page number and size
+     * @return newest-first request history
+     */
+    public Page<AiLogRow> listByProvider(Long providerId, Pageable pageable) {
+        return repository.findByProviderId(providerId, pageable)
+                .map(AiLogQueryService::toRow);
+    }
+
     // ─────────────────────────────────────────────────────────────────
 
     /** Maps the entity onto the read model the template renders. */

@@ -719,6 +719,7 @@ public interface IConstant {
     String VIEW_SETTINGS_AI_FORM = "admin/settings-ai-form";
 
     String ATTR_AI_PROVIDERS    = "providers";
+    String ATTR_AI_PROVIDER     = "provider";
     String ATTR_AI_ALL_DISABLED = "allDisabled";
 
     String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";

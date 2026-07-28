@@ -23,6 +23,9 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Long> 
     /** Every attempt for a test (lecturer monitor / submissions). */
     List<TestAttempt> findByTestId(Long testId);
 
+    /** Shape-changing author operations are forbidden after the first attempt starts. */
+    boolean existsByTestId(Long testId);
+
     /** Per-user guard: an attempt owned by the caller. */
     Optional<TestAttempt> findByIdAndUserId(Long id, Long userId);
 }

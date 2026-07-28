@@ -64,6 +64,8 @@ class AdminUsersDetailPageIntegrationTest {
                 .andExpect(view().name("admin/users-form"))
                 .andExpect(model().attribute("activeDetailTab", "info"))
                 .andExpect(content().string(containsString("id=\"emailInput\"")))
+                .andExpect(content().string(containsString("id=\"tabPanel\"")))
+                .andExpect(content().string(containsString("/js/detail-tabs.js")))
                 .andExpect(content().string(containsString("detail-card")))
                 .andReturn();
 
@@ -166,10 +168,13 @@ class AdminUsersDetailPageIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void editPage_createMode_rendersWithoutTabs() throws Exception {
+        // The shared script is present in create mode too, so assert on the
+        // actual nav/link class attributes instead of the bare file-name text.
         mockMvc.perform(get("/admin/users/new"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/users-form"))
-                .andExpect(content().string(not(containsString("detail-tabs"))))
+                .andExpect(content().string(not(containsString("class=\"detail-tabs\""))))
+                .andExpect(content().string(not(containsString("class=\"detail-tab\""))))
                 .andExpect(content().string(containsString("id=\"emailInput\"")));
     }
 

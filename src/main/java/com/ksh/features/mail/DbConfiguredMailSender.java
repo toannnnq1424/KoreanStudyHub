@@ -79,7 +79,7 @@ public class DbConfiguredMailSender {
 
         String host = cfg.getOrDefault("smtp.host", "").trim();
         if (host.isEmpty()) {
-            log.warn("SMTP host is not configured — skipping send to {}", to);
+            log.warn("SMTP host is not configured — skipping email delivery");
             return MailSendResult.failure("SMTP host is not configured");
         }
 
@@ -88,11 +88,11 @@ public class DbConfiguredMailSender {
         try {
             MimeMessage message = buildMessage(sender, cfg, to, subject, body);
             sender.send(message);
-            log.info("Email sent to {} via {}", to, host);
+            log.info("Email accepted by the configured SMTP relay");
             return MailSendResult.success();
         } catch (MailException | MessagingException | UnsupportedEncodingException e) {
             String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            log.warn("Failed to send email to {}: {}", to, reason);
+            log.warn("Email delivery failed through the configured SMTP relay");
             return MailSendResult.failure(reason);
         }
     }

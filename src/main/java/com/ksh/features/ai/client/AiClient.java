@@ -1,5 +1,6 @@
 package com.ksh.features.ai.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.AiProvider;
 import com.ksh.features.admin.settings.repository.AiProviderRepository;
 import com.ksh.features.ai.log.AiRequestLogger;
@@ -19,20 +20,16 @@ import java.util.Map;
 
 /**
  * Sends chat completion requests to the admin-configured AI providers, falling back
- * down the list when a provider fails in a way another provider could plausibly fix.
+ * down the list when a provider fails.
  *
- * <p><b>Fallback policy.</b> Providers are tried in {@code display_order} ascending.
- * A failure is either transient or permanent:
+ * <p><b>Fallback policy.</b> Providers are tried in {@code display_order} ascending:
  * <ul>
- *   <li><b>Transient</b> — network error, timeout, any 5xx, or 429 rate limit. The
- *       failure is recorded and the next enabled provider is tried.</li>
- *   <li><b>Permanent</b> — 400, 401 or 403. The chain stops immediately and an
- *       {@link AiClientException} is thrown. Trying another provider cannot fix a
- *       malformed request, and for a rejected credential it would only waste quota on
- *       endpoints that will fail the same way.</li>
+ *   <li>Each attempt is logged independently.</li>
+ *   <li>Network, HTTP and embedded provider errors advance to the next provider.</li>
+ *   <li>The chain fails only after every enabled provider has failed.</li>
  * </ul>
- * Any other status is treated as permanent as well, because an unrecognised rejection
- * is more likely a request defect than a provider outage.
+ * Credentials, models and API dialects are configured per provider, so a rejection from
+ * one endpoint is not evidence that a later endpoint will reject the request.
  *
  * <p>Disabled providers are excluded by the repository query and are therefore never
  * contacted. When no enabled provider exists at all, the call fails fast with a message
@@ -51,7 +48,10 @@ public class AiClient {
 
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 
-    private static final int HTTP_TOO_MANY_REQUESTS = 429;
+    private static final int MAX_SUCCESS_BODY_BYTES = 1_048_576;
+    private static final int MAX_ERROR_BODY_BYTES = 2_048;
+    private static final int MAX_ERROR_DETAIL_CHARS = 300;
+    private static final ObjectMapper RESPONSE_MAPPER = new ObjectMapper();
 
     private static final String MSG_NOT_CONFIGURED =
             "Chưa cấu hình AI provider nào đang bật. Vào Cài đặt hệ thống → AI để thêm provider.";
@@ -122,8 +122,7 @@ public class AiClient {
      * @param userMessage the message to send as the sole {@code user} turn
      * @param maxTokens   upper bound on the generated response length
      * @return the assistant reply from the first provider that answered successfully
-     * @throws AiClientException when no provider is enabled, a provider rejects the
-     *                           request permanently, or every provider failed
+     * @throws AiClientException when no provider is enabled or every provider failed
      */
     public String chat(String userMessage, int maxTokens) {
         return chat(userMessage, maxTokens, null);
@@ -138,6 +137,18 @@ public class AiClient {
      * @return the assistant reply from the first provider that answered successfully
      */
     public String chat(String userMessage, int maxTokens, Long userId) {
+        return chat(null, userMessage, maxTokens, userId, AiRequestLogger.SOURCE_CHAT);
+    }
+
+    /**
+     * Sends a system instruction and user turn through the configured fallback chain.
+     *
+     * <p>A blank system prompt is omitted rather than sent as an empty turn. The source
+     * value is recorded for every provider attempt so feature-specific usage can be
+     * audited without creating a second AI transport.
+     */
+    public String chat(String systemPrompt, String userMessage, int maxTokens, Long userId,
+                       String source) {
         List<AiProvider> providers = repository.findEnabledOrdered();
         if (providers.isEmpty()) {
             throw new AiClientException(MSG_NOT_CONFIGURED);
@@ -146,14 +157,12 @@ public class AiClient {
         List<String> failures = new ArrayList<>();
         for (AiProvider provider : providers) {
             try {
-                return callProvider(provider, userMessage, maxTokens,
-                        AiRequestLogger.SOURCE_CHAT, userId).content();
-            } catch (PermanentProviderException e) {
-                // A rejected credential or a malformed request is not fixed by another
-                // endpoint — stop the chain instead of burning quota on the rest.
-                throw new AiClientException(provider.getName() + ": " + e.getMessage(), e);
+                return callProvider(provider, buildMessages(systemPrompt, userMessage),
+                        maxTokens, source, userId).content();
             } catch (RuntimeException e) {
-                log.warn("AI provider '{}' failed transiently: {}", provider.getName(), e.toString());
+                // Credentials, model names and API dialects are provider-specific. A 4xx
+                // from one endpoint must not block a later, independent provider.
+                log.warn("AI provider '{}' failed: {}", provider.getName(), e.toString());
                 failures.add(provider.getName() + ": " + describe(e));
             }
         }
@@ -189,10 +198,21 @@ public class AiClient {
      */
     public String callOne(AiProvider provider, String userMessage, int maxTokens,
                           String source, Long userId) {
-        return callProvider(provider, userMessage, maxTokens, source, userId).content();
+        return callProvider(provider, buildMessages(null, userMessage), maxTokens,
+                source, userId).content();
     }
 
     // ─────────────────────────────────────────────────────────────────
+
+    private static List<Map<String, Object>> buildMessages(String systemPrompt,
+                                                            String userMessage) {
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            return List.of(Map.of("role", "user", "content", userMessage));
+        }
+        return List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userMessage));
+    }
 
     /**
      * Performs one chat completion call against a single provider and records the
@@ -202,15 +222,16 @@ public class AiClient {
      * rethrown unchanged, so the fallback policy in {@link #chat(String, int, Long)} is
      * unaffected by the logging.
      *
-     * @throws PermanentProviderException when the provider rejects the request in a way
-     *                                    that another provider could not resolve
+     * @throws ProviderResponseException when this provider rejects the request
      */
-    private AiResult callProvider(AiProvider provider, String userMessage, int maxTokens,
+    private AiResult callProvider(AiProvider provider, List<Map<String, Object>> messages,
+                                  int maxTokens,
                                   String source, Long userId) {
         Map<String, Object> payload = Map.of(
                 "model", provider.getModel(),
                 "max_tokens", maxTokens,
-                "messages", List.of(Map.of("role", "user", "content", userMessage))
+                "stream", false,
+                "messages", messages
         );
 
         long startedAt = System.nanoTime();
@@ -218,6 +239,7 @@ public class AiClient {
             Map<?, ?> body = restClient.post()
                     .uri(normalizeBaseUrl(provider.getBaseUrl()) + CHAT_COMPLETIONS_PATH)
                     .header("Authorization", "Bearer " + provider.getApiKey())
+                    .accept(MediaType.APPLICATION_JSON)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .exchange((request, response) -> {
@@ -225,7 +247,7 @@ public class AiClient {
                         if (status.isError()) {
                             throw classify(status, readErrorBody(response.getBody()));
                         }
-                        return response.bodyTo(Map.class);
+                        return readSuccessBody(response.getBody());
                     });
 
             AiResult result = new AiResult(extractContent(body), extractUsage(body));
@@ -243,24 +265,45 @@ public class AiClient {
     }
 
     /**
-     * Maps an error status onto the transient/permanent split that drives fallback.
-     * 5xx and 429 are transient; everything else — including 400/401/403 — is permanent.
+     * Maps an HTTP rejection to a provider-scoped failure. The fallback loop decides
+     * whether another independently configured provider should be tried.
      */
     private static RuntimeException classify(HttpStatusCode status, String body) {
         String detail = "HTTP " + status.value() + (body.isBlank() ? "" : " — " + body);
-        if (status.is5xxServerError() || status.value() == HTTP_TOO_MANY_REQUESTS) {
-            return new TransientProviderException(detail);
-        }
-        return new PermanentProviderException(detail);
+        return new ProviderResponseException(detail);
     }
 
-    /** Reads at most 300 characters of an error body so a huge HTML page cannot flood the toast. */
+    /** Reads a bounded prefix so a huge or endless provider body cannot exhaust memory. */
     private static String readErrorBody(java.io.InputStream in) {
         try (in) {
-            String raw = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).trim();
-            return raw.length() > 300 ? raw.substring(0, 300) + "…" : raw;
+            byte[] prefix = in.readNBytes(MAX_ERROR_BODY_BYTES);
+            String raw = new String(prefix, java.nio.charset.StandardCharsets.UTF_8).trim();
+            return raw.length() > MAX_ERROR_DETAIL_CHARS
+                    ? raw.substring(0, MAX_ERROR_DETAIL_CHARS) + "…"
+                    : raw;
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    /**
+     * Parses a successful JSON response through a bounded byte buffer. Token limits do
+     * not constrain a malicious or broken provider's HTTP body, so relying on
+     * {@code bodyTo(Map.class)} alone could allocate an arbitrarily large response.
+     */
+    @SuppressWarnings("unchecked")
+    private static Map<?, ?> readSuccessBody(java.io.InputStream in) {
+        try (in) {
+            byte[] body = in.readNBytes(MAX_SUCCESS_BODY_BYTES + 1);
+            if (body.length > MAX_SUCCESS_BODY_BYTES) {
+                throw new TransientProviderException(
+                        "Phản hồi vượt quá giới hạn kích thước cho phép");
+            }
+            return RESPONSE_MAPPER.readValue(body, Map.class);
+        } catch (TransientProviderException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new TransientProviderException("Phản hồi JSON không hợp lệ");
         }
     }
 
@@ -278,12 +321,29 @@ public class AiClient {
         if (!(first instanceof Map<?, ?> choice)) {
             throw new TransientProviderException("Phản hồi có định dạng không mong đợi");
         }
+        failOnEmbeddedError(choice);
         Object message = choice.get("message");
         if (!(message instanceof Map<?, ?> msg)) {
             throw new TransientProviderException("Phản hồi thiếu trường 'message'");
         }
         Object content = msg.get("content");
         return content == null ? "" : content.toString();
+    }
+
+    /** Rejects gateways that encode an upstream failure inside an HTTP 200 response. */
+    private static void failOnEmbeddedError(Map<?, ?> choice) {
+        Object error = choice.get("error");
+        boolean finishedWithError = "error".equals(choice.get("finish_reason"));
+        if (!finishedWithError && !(error instanceof Map<?, ?>)) {
+            return;
+        }
+        Map<?, ?> details = error instanceof Map<?, ?> map ? map : Map.of();
+        Object code = details.get("code");
+        Object message = details.get("message");
+        String detail = "Provider báo lỗi"
+                + (code == null ? "" : " (code " + code + ")")
+                + (message == null ? "" : ": " + message);
+        throw new ProviderResponseException(detail);
     }
 
     /**
@@ -362,9 +422,9 @@ public class AiClient {
         }
     }
 
-    /** Failure no other provider can fix — 400, 401, 403 and unrecognised rejections. */
-    static class PermanentProviderException extends RuntimeException {
-        PermanentProviderException(String message) {
+    /** A provider-specific HTTP or embedded response rejection. */
+    static class ProviderResponseException extends RuntimeException {
+        ProviderResponseException(String message) {
             super(message);
         }
     }

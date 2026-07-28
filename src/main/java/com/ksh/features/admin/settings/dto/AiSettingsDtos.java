@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
+
 /**
  * DTOs for the {@code /admin/settings/ai} screen.
  *
@@ -70,6 +72,21 @@ public class AiSettingsDtos {
             String baseUrl,
             String maskedKey,
             boolean enabled
+    ) {
+    }
+
+    /**
+     * Secret-free provider metadata used by the edit-page header and tab links.
+     * Keeping the JPA entity out of the MVC model prevents a later template or
+     * serializer change from accidentally exposing {@code apiKey}.
+     */
+    public record AiProviderDetail(
+            Long id,
+            String name,
+            String model,
+            boolean enabled,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {
     }
 

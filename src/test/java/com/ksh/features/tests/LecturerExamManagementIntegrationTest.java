@@ -9,6 +9,8 @@ import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
 import com.ksh.features.tests.entity.Question;
+import com.ksh.features.tests.entity.QuestionOption;
+import com.ksh.features.tests.repository.QuestionOptionRepository;
 import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.entity.TestResponse;
 import com.ksh.features.tests.repository.QuestionRepository;
@@ -33,6 +35,8 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -60,6 +64,7 @@ class LecturerExamManagementIntegrationTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private LecturerExamService lecturerExamService;
     @Autowired private QuestionRepository questionRepository;
+    @Autowired private QuestionOptionRepository optionRepository;
     @Autowired private TestRepository testRepository;
     @Autowired private TestAttemptRepository attemptRepository;
     @Autowired private TestResponseRepository responseRepository;
@@ -216,6 +221,57 @@ class LecturerExamManagementIntegrationTest {
         List<Question> after = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(examId);
         assertEquals(before.size(), after.size());
         assertEquals(before.get(0).getId(), after.get(0).getId());
+    }
+
+    @Test
+    @WithUserDetails(LECTURER)
+    void save_rejects_answer_key_change_after_attempt_started() throws Exception {
+        Question firstQuestion = questionRepository
+                .findByTestIdOrderBySortOrderAscIdAsc(examId)
+                .get(0);
+        attemptRepository.saveAndFlush(new TestAttempt(examId, lecturerId));
+
+        List<OptionForm> flippedMcq = List.of(
+                new OptionForm(null, "Đúng", false),
+                new OptionForm(null, "Sai", true));
+        List<OptionForm> unchangedMr = List.of(
+                new OptionForm(null, "A", true),
+                new OptionForm(null, "B", true),
+                new OptionForm(null, "C", false));
+        List<QuestionForm> questions = List.of(
+                new QuestionForm(null, "MCQ", "1+1=2?", null,
+                        new BigDecimal("2.00"), flippedMcq),
+                new QuestionForm(null, "MR", "Chọn A và B", null,
+                        new BigDecimal("3.00"), unchangedMr));
+        ExamForm changedKey = new ExamForm(
+                examId,
+                "Đề GV JUnit",
+                "mô tả",
+                classId,
+                "MOCK",
+                "PUBLISHED",
+                "FIXED_WINDOW",
+                null,
+                LocalDateTime.now().minusHours(1),
+                LocalDateTime.now().plusHours(1),
+                new BigDecimal("1.00"),
+                false,
+                false,
+                null,
+                null,
+                questions,
+                false);
+
+        mockMvc.perform(post("/lecturer/tests/save").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(changedKey)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
+
+        List<QuestionOption> persisted =
+                optionRepository.findByQuestionIdOrderBySortOrderAscIdAsc(firstQuestion.getId());
+        assertTrue(persisted.get(0).isCorrect());
+        assertFalse(persisted.get(1).isCorrect());
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

@@ -483,26 +483,42 @@
             }
         }
 
+        /**
+         * Re-fire outside the current submit dispatch. A synchronous
+         * requestSubmit() from inside the listener is re-entrant and browsers
+         * may drop it, which made the first save click appear to do nothing.
+         */
+        function submitForReal(submitter) {
+            proceeding = true;
+            window.setTimeout(function () {
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(submitter || undefined);
+                } else {
+                    form.submit();
+                }
+            }, 0);
+        }
+
+        function abortSubmit() {
+            proceeding = false;
+        }
+
         form.addEventListener('submit', function (e) {
             // Once all gates clear we flip proceeding and let the native submit
             // (and the Quill content-copy listener) run untouched.
             if (proceeding) return;
             e.preventDefault();
+            var submitter = e.submitter || null;
             confirmTypeSwitch(function (okType) {
-                if (!okType) return;
+                if (!okType) { abortSubmit(); return; }
                 // Gate 2 + 3: upload whichever media is pending. Each helper
                 // no-ops unless its own content type is selected, so only one
                 // actually uploads for a given lesson.
                 uploadPendingVideo(function (okVideo) {
-                    if (!okVideo) return;
+                    if (!okVideo) { abortSubmit(); return; }
                     uploadPendingPdf(function (okPdf) {
-                        if (!okPdf) return;
-                        proceeding = true;
-                        if (typeof form.requestSubmit === 'function') {
-                            form.requestSubmit();
-                        } else {
-                            form.submit();
-                        }
+                        if (!okPdf) { abortSubmit(); return; }
+                        submitForReal(submitter);
                     });
                 });
             });

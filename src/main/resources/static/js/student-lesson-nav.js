@@ -9,15 +9,7 @@
 (function () {
   'use strict';
 
-  // Drain flash payload (e.g. progress-toggle result) into a toast.
-  document.addEventListener('DOMContentLoaded', function () {
-    var flash = document.getElementById('flash-data');
-    if (!flash || !window.KshToast) return;
-    var ok = flash.getAttribute('data-flash-success');
-    var err = flash.getAttribute('data-flash-error');
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-  });
+  // Server flash payloads are drained centrally by notifications.js.
 
   document.addEventListener('click', function (e) {
     var trigger = e.target.closest('[data-action="leave-class"]');

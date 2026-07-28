@@ -102,7 +102,7 @@ public class TestAttemptService {
      */
     @Transactional
     public TakeView startOrResume(Long testId, Long userId) {
-        Test test = accessResolver.requireAttemptable(testId, userId);
+        Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
         TestAttempt attempt = attemptRepository
                 .findFirstByTestIdAndUserIdAndStatusOrderByStartedAtDesc(
                         testId, userId, TestAttempt.STATUS_IN_PROGRESS)

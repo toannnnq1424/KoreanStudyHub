@@ -1,17 +1,8 @@
-/* Question bank screens — auto-submit toggle switches + flash → toast drain. */
+/* Question bank screens — auto-submit toggle switches + category modal. */
 (function () {
   'use strict';
 
-  // Flash → toast drain. Lecturer pages (list/detail/form) do not load
-  // leader-department.js, so the drain must live here too. The one-shot
-  // data-flash-drained guard keeps LEADER pages (which load both scripts) from
-  // firing the toast twice.
-  var flashData = document.getElementById('flash-data');
-  if (flashData && !flashData.dataset.flashDrained && window.KshToast) {
-    flashData.dataset.flashDrained = '1';
-    if (flashData.dataset.flashSuccess) window.KshToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError) window.KshToast.error(flashData.dataset.flashError);
-  }
+  // Server flash payloads are drained centrally by notifications.js.
 
   // Submit the parent form when an auto-submit switch changes (no inline handler).
   document.addEventListener('change', function (event) {

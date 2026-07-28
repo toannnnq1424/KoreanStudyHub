@@ -1,6 +1,7 @@
 package com.ksh.features.admin.settings.service;
 
 import com.ksh.entities.AiProvider;
+import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderDetail;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderForm;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderRow;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.TestResult;
@@ -88,6 +89,23 @@ public class AiProviderService {
     public Optional<AiProviderForm> loadForm(Long id) {
         return repository.findById(id).map(p -> new AiProviderForm(
                 p.getId(), p.getName(), p.getBaseUrl(), p.getModel(), MASKED, p.isEnabled()));
+    }
+
+    /**
+     * Loads secret-free provider metadata for the edit-page header and history links.
+     *
+     * @param id provider identifier
+     * @return the provider metadata, or empty when it was deleted
+     */
+    @Transactional(readOnly = true)
+    public Optional<AiProviderDetail> findDetailById(Long id) {
+        return repository.findById(id).map(provider -> new AiProviderDetail(
+                provider.getId(),
+                provider.getName(),
+                provider.getModel(),
+                provider.isEnabled(),
+                provider.getCreatedAt(),
+                provider.getUpdatedAt()));
     }
 
     /**
