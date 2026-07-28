@@ -2561,3 +2561,43 @@ Current handoff:
 - `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_MERGE_COMMIT_AND_PUSH`;
 - `CURRENT_REQUIRED_ACTION = MERGE_COMMIT_ONE_PUSH_THEN_TWO_FRESH_POST_PUSH_AUDITS`;
 - the earlier usage-failed audits remain non-passes and cannot be reused.
+
+### 14.21 Post-push integration audit correction
+
+The validated integration snapshot was pushed normally at
+`5e6e8441beb5bcdf36683372126dd4e65df2e418`. Two fresh independent read-only
+audits inspected that exact remote SHA. The scope/contract/regression audit
+accepted it. The architecture/duplication/ownership audit found two bounded
+main-integration defects outside the Speaking persistence/evaluation boundary:
+
+- the canonical role is now `LEADER`, while the shared detail-page stylesheet
+  still targeted the removed `.role-head` badge selector; and
+- the lecturer question-bank list, detail and form pages selected the
+  `classes` primary-navigation item instead of the existing
+  `question-bank` item.
+
+One grouped correction replaces the stale badge selector, gives all three
+lecturer question-bank pages the canonical active key, and adds
+`AppShellNavigationContractTest` to lock both contracts. It does not redirect
+or combine the Practice-specific and project-wide AI/storage families, change
+the V54 schema, or alter Practice authorization and evaluation behavior.
+
+Focused validation on JDK `17.0.19`:
+
+- `git diff --check`: green;
+- Maven selector `AppShellNavigationContractTest`: 2 tests / 0 failures /
+  0 errors / 0 skipped;
+- test compilation: 256 sources with Java release 17, green; and
+- Maven build result: success.
+
+The existing deprecation warnings from unrelated Spring test fixtures remain
+visible but did not affect this correction. The previously green full-suite,
+fresh/upgrade Flyway and integrated-contract evidence in Section 14.20 remains
+the release evidence for the unchanged backend/schema boundary.
+
+Current handoff:
+
+- `PHASE_13C3_POST_PUSH_CORRECTION_VALIDATION = GREEN`;
+- `PHASE_13C3_IMPLEMENTATION = GREEN_PENDING_CORRECTION_COMMIT_PUSH`;
+- `CURRENT_REQUIRED_ACTION = COMMIT_PUSH_CORRECTION_THEN_RERUN_TWO_AUDITS_ON_NEW_SHA`;
+- browser and live-provider gates remain honestly deferred as recorded above.
