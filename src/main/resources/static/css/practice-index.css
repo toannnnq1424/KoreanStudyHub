@@ -32,6 +32,18 @@
   --bg-speaking:  #f5f3ff; --txt-speaking:  #6d28d9;
 }
 
+.pi-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -77,7 +89,8 @@ body.pi-body {
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.01);
 }
 
-.pi-sidebar:hover {
+.pi-sidebar:hover,
+.pi-sidebar:focus-within {
   width: 260px;
 }
 
@@ -151,7 +164,8 @@ body.pi-body {
   transition: opacity 0.15s ease-in-out;
 }
 
-.pi-sidebar:hover .pi-nav-text {
+.pi-sidebar:hover .pi-nav-text,
+.pi-sidebar:focus-within .pi-nav-text {
   opacity: 1;
 }
 
@@ -179,7 +193,8 @@ body.pi-body {
 }
 
 @media (min-width: 761px) {
-  .pi-sidebar:hover ~ .pi-main-wrapper {
+  .pi-sidebar:hover ~ .pi-main-wrapper,
+  .pi-sidebar:focus-within ~ .pi-main-wrapper {
     margin-left: 260px;
   }
 }
@@ -1758,7 +1773,7 @@ body.pi-body {
 .pi-cert-badge.writing { border-color: #3f73ff; color: #3f73ff; }
 .pi-cert-badge.speaking { border-color: #7c3aed; color: #7c3aed; }
 .pi-cert-badge.listening { border-color: #f59e0b; color: #f59e0b; }
-.pi-cert-badge.reading { border-color: #10b981; color: #10b981; }
+.pi-cert-badge.reading { border-color: #087a4f; color: #087a4f; }
 
 .pi-cert-badge-inner {
   display: flex;
@@ -1870,7 +1885,7 @@ body.pi-body {
 }
 
 .pi-item-user-ans strong {
-  color: #10b981;
+  color: #087a4f;
   font-weight: 700;
   margin-left: 4px;
 }
@@ -1913,7 +1928,7 @@ body.pi-body {
 .pi-ex-card-title span {
   font-size: 12px;
   font-weight: 700;
-  color: #10b981;
+  color: #087a4f;
   background: #dcfce7;
   padding: 2px 8px;
   border-radius: 99px;

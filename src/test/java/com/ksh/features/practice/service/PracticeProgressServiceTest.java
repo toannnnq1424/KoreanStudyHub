@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,7 +95,9 @@ class PracticeProgressServiceTest {
                 eq(USER_ID), eq(PracticeAttempt.STATUS_DISCARDED), any(Pageable.class)))
                 .thenReturn(List.of());
         lenient().when(attemptRepository.findProgressWritingAttempts(
-                USER_ID, PracticeAttempt.STATUS_DISCARDED))
+                eq(USER_ID),
+                eq(PracticeAttempt.STATUS_DISCARDED),
+                any(Pageable.class)))
                 .thenReturn(List.of());
         lenient().when(publishedVersionRepository.findAllById(any())).thenReturn(List.of());
         lenient().when(setVersionRepository.findAllById(any())).thenReturn(List.of());
@@ -1174,7 +1178,9 @@ class PracticeProgressServiceTest {
                  "score_available":true}
                 """);
         when(attemptRepository.findProgressWritingAttempts(
-                USER_ID, PracticeAttempt.STATUS_DISCARDED))
+                eq(USER_ID),
+                eq(PracticeAttempt.STATUS_DISCARDED),
+                any(Pageable.class)))
                 .thenReturn(List.of(legacy));
 
         PracticeProgressPageData page =
@@ -1195,6 +1201,57 @@ class PracticeProgressServiceTest {
         verify(questionVersionRepository, never())
                 .findBySectionVersionIdInOrderBySectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
                         any());
+    }
+
+    @Test
+    void writingEvidenceIsBoundedAndReportsTruncationAtRealisticVolume() {
+        List<PracticeAttempt> attempts = IntStream.rangeClosed(
+                        1, PracticeProgressService.WRITING_DETAIL_LIMIT + 1)
+                .mapToObj(index -> new PracticeAttempt(
+                        USER_ID,
+                        10_000L + index,
+                        20_000L + index,
+                        "WRITING",
+                        30_000L + index))
+                .toList();
+        when(attemptRepository.findProgressWritingAttempts(
+                USER_ID,
+                PracticeAttempt.STATUS_DISCARDED,
+                PageRequest.of(
+                        0,
+                        PracticeProgressService.WRITING_DETAIL_LIMIT + 1)))
+                .thenReturn(attempts);
+
+        PracticeProgressPageData page =
+                service.getProgressPageData(USER_ID, "Learner", "");
+
+        assertThat(page.analytics().writingAttemptCoverage().activityCount())
+                .isEqualTo(PracticeProgressService.WRITING_DETAIL_LIMIT);
+        assertThat(page.analytics().writingAttemptCoverage().excludedCount())
+                .isEqualTo(PracticeProgressService.WRITING_DETAIL_LIMIT);
+        assertThat(page.analytics().writingTaskSeams())
+                .allSatisfy(seam -> {
+                    assertThat(seam.observationWindow().bounded()).isTrue();
+                    assertThat(seam.observationWindow().limit())
+                            .isEqualTo(
+                                    PracticeProgressService.WRITING_DETAIL_LIMIT);
+                    assertThat(seam.observationWindow().returnedCount())
+                            .isEqualTo(
+                                    PracticeProgressService.WRITING_DETAIL_LIMIT);
+                    assertThat(seam.observationWindow().truncated()).isTrue();
+                    assertThat(seam.observationWindow().code())
+                            .startsWith("RECENT_WRITING_SOURCE_");
+                    assertThat(seam.observationWindow().label())
+                            .contains(
+                                    "Nguồn chọn chung",
+                                    "500 hoạt động Writing gần nhất");
+                });
+        verify(attemptRepository).findProgressWritingAttempts(
+                USER_ID,
+                PracticeAttempt.STATUS_DISCARDED,
+                PageRequest.of(
+                        0,
+                        PracticeProgressService.WRITING_DETAIL_LIMIT + 1));
     }
 
     private static Stream<Arguments> excludedWritingEvidenceCases() {
@@ -1325,7 +1382,9 @@ class PracticeProgressServiceTest {
                 .findBySectionVersionIdInOrderBySectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
                         any())).thenReturn(questions);
         when(attemptRepository.findProgressWritingAttempts(
-                USER_ID, PracticeAttempt.STATUS_DISCARDED))
+                eq(USER_ID),
+                eq(PracticeAttempt.STATUS_DISCARDED),
+                any(Pageable.class)))
                 .thenReturn(attempts);
     }
 

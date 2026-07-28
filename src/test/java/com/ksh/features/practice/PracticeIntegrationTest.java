@@ -301,6 +301,29 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
+    void catalogPersistsSearchesAndRendersExactVietnameseKoreanUtf8() throws Exception {
+        String exactTitle = "Luyện đọc tiếng Hàn · 한국어 읽기 연습";
+        String exactDescription =
+                "Giữ nguyên dấu tiếng Việt và 한글 từ cơ sở dữ liệu đến HTML.";
+        practiceSet.setTitle(exactTitle);
+        practiceSet.setDescription(exactDescription);
+        setRepository.saveAndFlush(practiceSet);
+        entityManager.clear();
+
+        PracticeSet reloaded = setRepository.findById(practiceSet.getId())
+                .orElseThrow();
+        assertThat(reloaded.getTitle()).isEqualTo(exactTitle);
+        assertThat(reloaded.getDescription()).isEqualTo(exactDescription);
+
+        mockMvc.perform(get("/practice").param("q", "한국어 읽기"))
+                .andExpect(status().isOk())
+                .andExpect(content().encoding("UTF-8"))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString(exactTitle)));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
     void indexCountsARealTestOnlyAfterEverySectionIsCompleted() throws Exception {
         PracticeSection listeningSection = new PracticeSection(
                 practiceSet.getId(), "Phần Nghe", "LISTENING", "SINGLE_CHOICE",
@@ -348,7 +371,7 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void catalogFiltersOnServerAndLoadsTheNextBoundedBatchAsAFragment() throws Exception {
+    void catalogFiltersOnServerAndNavigatesRealBoundedPages() throws Exception {
         String marker = "Lazy catalog " + System.nanoTime();
         for (int index = 1; index <= 13; index++) {
             setRepository.saveAndFlush(new PracticeSet(
@@ -377,8 +400,53 @@ class PracticeIntegrationTest {
                     assertThat(catalog.totalElements()).isEqualTo(13);
                     assertThat(catalog.hasMore()).isTrue();
                     assertThat(catalog.nextBatch()).isEqualTo(1);
-                });
+                })
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("pc-pagination")))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("batch=1")));
 
+        mockMvc.perform(get("/practice")
+                        .param("q", marker)
+                        .param("skill", PracticeSet.SKILL_READING)
+                        .param("batch", "1"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/index"))
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch)
+                            result.getModelAndView().getModel().get("catalog");
+                    assertThat(catalog.items()).hasSize(1);
+                    assertThat(catalog.batch()).isEqualTo(1);
+                    assertThat(catalog.hasPrevious()).isTrue();
+                    assertThat(catalog.hasMore()).isFalse();
+                    assertThat(catalog.firstItemNumber()).isEqualTo(13);
+                    assertThat(catalog.lastItemNumber()).isEqualTo(13);
+                })
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("batch=0")));
+
+        mockMvc.perform(get("/practice")
+                        .param("q", marker)
+                        .param("skill", PracticeSet.SKILL_READING)
+                        .param("batch", "999"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/index"))
+                .andExpect(result -> {
+                    PracticeCatalogBatch catalog = (PracticeCatalogBatch)
+                            result.getModelAndView().getModel().get("catalog");
+                    assertThat(catalog.items()).hasSize(1);
+                    assertThat(catalog.batch()).isEqualTo(1);
+                    assertThat(catalog.firstItemNumber()).isEqualTo(13);
+                    assertThat(catalog.lastItemNumber()).isEqualTo(13);
+                    assertThat(catalog.totalElements()).isEqualTo(13);
+                })
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(
+                                org.hamcrest.Matchers.containsString(
+                                        "0–0 trên 13"))));
+
+        // The bounded fragment route remains compatible for authorized callers,
+        // but the learner page no longer depends on JavaScript to reach it.
         mockMvc.perform(get("/practice/catalog")
                         .param("q", marker)
                         .param("skill", PracticeSet.SKILL_READING)
@@ -402,6 +470,92 @@ class PracticeIntegrationTest {
                     assertThat(catalog.items()).isEmpty();
                     assertThat(catalog.totalElements()).isZero();
                 });
+    }
+
+    @Test
+    void catalogStateProjectionBoundsTenThousandAttemptHistoryToOneCandidate() {
+        PracticeSet volumeSet = setRepository.saveAndFlush(new PracticeSet(
+                "Bộ đề kiểm tra lịch sử lớn",
+                "Bằng chứng query Phase 13G",
+                PracticeSet.SKILL_READING,
+                PracticeSet.SCOPE_GLOBAL,
+                null,
+                null,
+                "{}",
+                PracticeSet.STATUS_PUBLISHED,
+                lecturer.getId()));
+        PracticeTest volumeTest = testRepository.saveAndFlush(new PracticeTest(
+                volumeSet.getId(), "Test lịch sử lớn", null, 1, 40));
+        PracticeSection volumeSection = new PracticeSection(
+                volumeSet.getId(), "Phần Đọc", PracticeSet.SKILL_READING,
+                "SINGLE_CHOICE", null, 40, BigDecimal.TEN, 1);
+        volumeSection.setTestId(volumeTest.getId());
+        volumeSection = sectionRepository.saveAndFlush(volumeSection);
+
+        String digits = """
+                (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2
+                 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
+                 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
+                 UNION ALL SELECT 9)
+                """.strip();
+        String insertHistory = """
+                INSERT INTO practice_attempts (
+                    user_id, set_id, test_id, skill, section_id,
+                    status, analysis_status, started_at, created_at, updated_at
+                )
+                SELECT
+                    ?, ?, ?, 'READING', ?,
+                    'IN_PROGRESS', 'NOT_REQUESTED',
+                    DATE_ADD('2026-01-01 00:00:00',
+                        INTERVAL numbers.n SECOND),
+                    DATE_ADD('2026-01-01 00:00:00',
+                        INTERVAL numbers.n SECOND),
+                    DATE_ADD('2026-01-01 00:00:00',
+                        INTERVAL numbers.n SECOND)
+                FROM (
+                    SELECT ones.n
+                         + tens.n * 10
+                         + hundreds.n * 100
+                         + thousands.n * 1000 AS n
+                    FROM %s ones
+                    CROSS JOIN %s tens
+                    CROSS JOIN %s hundreds
+                    CROSS JOIN %s thousands
+                ) numbers
+                ORDER BY numbers.n
+                """.formatted(digits, digits, digits, digits);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        assertThat(jdbc.update(
+                insertHistory,
+                student.getId(),
+                volumeSet.getId(),
+                volumeTest.getId(),
+                volumeSection.getId()))
+                .isEqualTo(10_000);
+
+        Long newestAttemptId = jdbc.queryForObject(
+                """
+                SELECT id
+                FROM practice_attempts
+                WHERE user_id = ?
+                  AND set_id = ?
+                ORDER BY activity_at DESC, id DESC
+                LIMIT 1
+                """,
+                Long.class,
+                student.getId(),
+                volumeSet.getId());
+        List<PracticeAttemptRepository.CatalogAttemptStateProjection> rows =
+                attemptRepository.findCatalogAttemptStateCandidates(
+                        student.getId(),
+                        List.of(volumeSet.getId()),
+                        PracticeAttempt.STATUS_DISCARDED);
+
+        assertThat(rows).singleElement().satisfies(row -> {
+            assertThat(row.getAttemptId()).isEqualTo(newestAttemptId);
+            assertThat(row.getSetId()).isEqualTo(volumeSet.getId());
+            assertThat(row.getStatePriority()).isEqualTo(1);
+        });
     }
 
     @Test

@@ -134,8 +134,26 @@ public final class PracticeDtos {
             long totalElements,
             boolean hasMore
     ) {
+        public boolean hasPrevious() {
+            return batch > 0;
+        }
+
+        public int previousBatch() {
+            return Math.max(0, batch - 1);
+        }
+
         public int nextBatch() {
             return batch + 1;
+        }
+
+        public long firstItemNumber() {
+            if (items == null || items.isEmpty()) return 0;
+            return (long) batch * batchSize + 1;
+        }
+
+        public long lastItemNumber() {
+            if (items == null || items.isEmpty()) return 0;
+            return Math.min(totalElements, firstItemNumber() + items.size() - 1);
         }
     }
 
