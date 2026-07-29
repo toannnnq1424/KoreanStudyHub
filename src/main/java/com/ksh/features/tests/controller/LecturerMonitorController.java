@@ -9,6 +9,7 @@ import com.ksh.features.tests.service.ExamMonitorService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -95,10 +96,21 @@ public class LecturerMonitorController {
         // Left sidebar chrome: the class this exam belongs to, mirroring the
         // exam detail layout. Absent for exams not tied to a class (classId
         // null) — the template then collapses to a single full-width column.
-        if (review.classId() != null) {
-            ClassEntity clazz = classesService.getViewable(review.classId(), user.getId(), user.getRole());
-            classDetailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
-        }
+        populateClassSidebarIfViewable(review.classId(), user, model);
         return VIEW_TEST_REVIEW;
+    }
+
+    private void populateClassSidebarIfViewable(Long classId,
+                                                KshUserDetails user,
+                                                Model model) {
+        if (classId == null) {
+            return;
+        }
+        try {
+            ClassEntity clazz = classesService.getViewable(classId, user.getId(), user.getRole());
+            classDetailSupport.populateDetail(model, clazz, TAB_TESTS, user.getId(), user.getRole());
+        } catch (AccessDeniedException ignored) {
+            // Review access follows exam ownership; class navigation is optional.
+        }
     }
 }

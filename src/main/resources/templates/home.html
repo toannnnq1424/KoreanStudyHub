@@ -21,6 +21,8 @@
       Vai trò:
       <span sec:authorize="hasRole('ADMIN')"
             style="display:inline-block;background:var(--danger-soft);color:var(--danger);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">ADMIN</span>
+      <span sec:authorize="hasRole('LEADER')"
+            style="display:inline-block;background:var(--primary-soft);color:var(--primary);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">LEADER</span>
       <span sec:authorize="hasRole('LECTURER')"
             style="display:inline-block;background:var(--primary-soft);color:var(--primary);padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;">LECTURER</span>
       <span sec:authorize="hasRole('STUDENT')"

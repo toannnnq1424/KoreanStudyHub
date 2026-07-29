@@ -37,9 +37,11 @@
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-expanded', 'false');
     input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-required', select.required ? 'true' : 'false');
     if (select.id) {
       var label = document.querySelector('label[for="' + select.id + '"]');
-      if (label) input.setAttribute('aria-label', label.textContent.replace('*', '').trim());
+      input.id = select.id + '-combobox';
+      if (label) label.setAttribute('for', input.id);
     }
 
     var list = document.createElement('ul');
@@ -64,6 +66,8 @@
     root.appendChild(list);
     root.appendChild(select);
     select.classList.add('ksh-combo-native');
+    select.tabIndex = -1;
+    select.setAttribute('aria-hidden', 'true');
 
     var filtered = options.slice();
     var activeIndex = -1;
@@ -78,11 +82,13 @@
     function close() {
       list.hidden = true;
       input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
       activeIndex = -1;
     }
 
     function render(items) {
       list.textContent = '';
+      input.removeAttribute('aria-activedescendant');
       if (!items.length) {
         var empty = document.createElement('li');
         empty.className = 'ksh-combo-empty';
@@ -93,11 +99,15 @@
       items.forEach(function (item, i) {
         var li = document.createElement('li');
         li.className = 'ksh-combo-option';
+        li.id = listId + '-option-' + i;
         li.setAttribute('role', 'option');
         li.dataset.value = item.value;
         li.textContent = item.label;
         if (item.value === select.value) li.setAttribute('aria-selected', 'true');
-        if (i === activeIndex) li.classList.add(ACTIVE);
+        if (i === activeIndex) {
+          li.classList.add(ACTIVE);
+          input.setAttribute('aria-activedescendant', li.id);
+        }
         list.appendChild(li);
       });
     }
@@ -107,7 +117,7 @@
       filtered = needle
         ? options.filter(function (option) { return option.needle.indexOf(needle) !== -1; })
         : options.slice();
-      activeIndex = filtered.length ? 0 : -1;
+      activeIndex = -1;
       render(filtered);
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
@@ -117,6 +127,7 @@
       select.value = value;
       input.value = labelFor(value);
       clear.hidden = !value;
+      input.removeAttribute('aria-invalid');
       select.dispatchEvent(new Event('change', { bubbles: true }));
       close();
     }
@@ -127,7 +138,11 @@
         return;
       }
       if (!filtered.length) return;
-      activeIndex = (activeIndex + delta + filtered.length) % filtered.length;
+      if (activeIndex < 0) {
+        activeIndex = delta > 0 ? 0 : filtered.length - 1;
+      } else {
+        activeIndex = (activeIndex + delta + filtered.length) % filtered.length;
+      }
       render(filtered);
       var element = list.children[activeIndex];
       if (element && element.scrollIntoView) element.scrollIntoView({ block: 'nearest' });
@@ -138,9 +153,18 @@
       clear.hidden = false;
     }
 
-    input.addEventListener('focus', function () { open(''); });
+    input.addEventListener('focus', function () {
+      input.select();
+      open('');
+    });
+    input.addEventListener('click', function () {
+      if (list.hidden) {
+        open(input.value === labelFor(select.value) ? '' : input.value);
+      }
+    });
     input.addEventListener('input', function () {
       select.value = '';
+      input.removeAttribute('aria-invalid');
       clear.hidden = !input.value;
       open(input.value);
     });
@@ -170,6 +194,8 @@
       select.value = '';
       input.value = '';
       clear.hidden = true;
+      input.removeAttribute('aria-invalid');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
       input.focus();
       open('');
     });
@@ -180,9 +206,15 @@
         close();
       }, 120);
     });
-    select.addEventListener('invalid', function () {
+    select.addEventListener('invalid', function (event) {
+      event.preventDefault();
       input.setAttribute('aria-invalid', 'true');
       input.focus();
+    });
+    select.addEventListener('change', function () {
+      input.value = select.value ? labelFor(select.value) : '';
+      clear.hidden = !select.value;
+      if (select.value) input.removeAttribute('aria-invalid');
     });
   }
 

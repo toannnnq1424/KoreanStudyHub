@@ -183,13 +183,7 @@ public class LecturerTestController {
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
         model.addAttribute(ATTR_TEST_RETURN_URL, BASE_LECTURER_TESTS);
 
-        // Left sidebar chrome: the class this exam belongs to (share box + class
-        // nav), mirroring the class-detail layout. No class nav item maps to the
-        // tests screen, so no sidebar entry is highlighted (activeTab sentinel).
-        if (form.classId() != null) {
-            ClassEntity clazz = classesService.getViewable(form.classId(), userId, user.getRole());
-            classDetailSupport.populateDetail(model, clazz, TAB_INFO, userId, user.getRole());
-        }
+        populateClassSidebarIfViewable(form.classId(), user, model);
 
         // Lazy per-tab data — only query what the active tab renders.
         if (TAB_MONITOR.equals(activeTab)) {
@@ -202,6 +196,31 @@ public class LecturerTestController {
                     monitorService.historyFor(id, userId, PageRequest.of(Math.max(0, page), HISTORY_PAGE_SIZE)));
         }
         return VIEW_TEST_LECTURER_FORM;
+    }
+
+    /**
+     * Adds optional class chrome without making class ownership a second,
+     * stricter gate for an already-authorized exam page.
+     *
+     * <p>An exam creator remains allowed to manage their exam even if they no
+     * longer lead the attached class. In that case the test access resolver has
+     * already authorized the page, while {@link ClassesService#getViewable}
+     * correctly refuses the unrelated class navigation. The page therefore
+     * falls back to its full-width layout instead of turning that optional
+     * sidebar denial into a 403 for the whole exam.</p>
+     */
+    private void populateClassSidebarIfViewable(Long classId,
+                                                KshUserDetails user,
+                                                Model model) {
+        if (classId == null) {
+            return;
+        }
+        try {
+            ClassEntity clazz = classesService.getViewable(classId, user.getId(), user.getRole());
+            classDetailSupport.populateDetail(model, clazz, TAB_INFO, user.getId(), user.getRole());
+        } catch (AccessDeniedException ignored) {
+            // The test itself is manageable; only the optional class chrome is not.
+        }
     }
 
     private static String returnUrlForClass(Long classId) {

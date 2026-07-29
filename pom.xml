@@ -250,6 +250,11 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<!-- spring-boot:run reads HTML/CSS/JS directly from
+					     src/main/resources, so UI edits only need a browser
+					     refresh during local development. This option affects
+					     the run goal, not the packaged production JAR. -->
+					<addResources>true</addResources>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>
