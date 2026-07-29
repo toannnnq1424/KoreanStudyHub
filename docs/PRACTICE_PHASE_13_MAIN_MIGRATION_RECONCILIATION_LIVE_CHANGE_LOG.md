@@ -235,3 +235,220 @@ Final decision:
 untouched. Resume requires a separately authorized, reviewed correction to the
 main-owned Auth bean (or a newer green main containing that fix), followed by a
 fresh reconciliation and full validation lifecycle.
+
+## 8. Authorized Auth recovery — validation remains NO_GO
+
+Recovery authorization allowed only the concrete constructor-injection blocker
+above. Read-only ownership review found two runtime constructors, with the
+three-argument value-backed constructor intended for Spring and the four-argument
+`Clock` constructor used only by direct unit tests. The bounded local correction
+therefore adds `@Autowired` to the existing value-backed constructor and adds a
+Spring context regression while retaining both direct-construction tests. No
+retention defaults, bounds, clock semantics, scheduling, repository behavior or
+security behavior changed. The resulting uncommitted production and test file
+SHA-256 values are respectively
+`11b7f3849ff1d3b860aa497fc0e211b5f8b5cff16b8ef99e438fb3f285cd8550`
+and `bf32d3651ef25d0e76f5222263db42475621520e14715387804e2bb4585eb7e5`.
+
+The first recovery lifecycle compiled and packaged successfully on OpenJDK
+`17.0.19` and Maven `3.9.16` (785 production sources, 328 test sources). Its
+focused selector discovered 562 tests and returned two failures: the new minimal
+context runner lacked Boot's `Duration` conversion service, and the existing
+Practice native-time projection test observed a precise seven-hour offset because
+the validation URL omitted the application's
+`serverTimezone=Asia/Ho_Chi_Minh` setting. Neither failure required a production
+semantic change. The single concentrated correction pass registered Boot's
+conversion service in the regression test and corrected only the validation URL.
+
+The permitted lifecycle rerun again passed `git diff --check`, the V1-V62
+uniqueness/hash proof and the Java 17 clean package. The focused stage then ended
+with 562 tests, zero assertion failures, 230 errors and zero skips. All nine
+failing suites collapsed to one validation-environment root cause before their
+application contexts could start:
+
+```text
+Could not resolve placeholder 'TEST_DB_USERNAME' in value "${TEST_DB_USERNAME}"
+```
+
+The focused command supplied `TEST_DB_URL` and runtime `DB_USERNAME`/
+`DB_PASSWORD`, but omitted the test-safety guard's separately required
+`TEST_DB_USERNAME`/`TEST_DB_PASSWORD` variables. The constructor regression
+itself passed all three tests, including Spring context construction and both
+existing direct-test construction paths. This is an operator configuration
+failure rather than a new application root cause, but the gate permits no
+additional validation rerun or line-test thrashing. Fresh V1-V62 startup,
+Hibernate/Tomcat, the full suite and browser smoke were therefore not attempted,
+and no recovery provider-call total is claimed.
+
+All eight recovery catalogs across the initial attempt and its rerun were dropped
+by exact name without Flyway clean or repair; the final `information_schema`
+absence count was `0`. At the stop point, remote feature remained
+`c9960d5a9b85e12abce5da2b94e9d8f03eb0361d` and remote main remained
+`3382347c60662a62c5914ef945e119af5e441972`. No correction commit, push, PR or
+remote merge was created.
+
+Recovery decision:
+`PHASE_13_MAIN_MIGRATION_RECONCILIATION_NO_GO`. The authorized constructor fix
+and regression remain as a reviewed local diff, but they are not publication
+evidence until a newly authorized complete lifecycle is green.
+
+## 9. Credential-unblocked complete lifecycle — full-suite NO_GO
+
+The user then supplied the missing disposable-test database credentials and
+authorized continuation. The password was used only as an environment value and
+is not recorded in this log. A read-only gate reconfirmed remote feature at
+`c9960d5a9b85e12abce5da2b94e9d8f03eb0361d`, remote main at
+`3382347c60662a62c5914ef945e119af5e441972`, the local integration at
+`1f48913b84258ac7047ad347d61fc8b4c0acb3c9`, and 62 unique contiguous
+migrations through V62. Four newly named catalogs were proved absent before
+creation. The server identified itself as MySQL `9.7.1`; Flyway logged that its
+latest tested MySQL version is 8.1. This environment difference did not prevent
+the green focused or standalone-startup stages, but it is not treated as MySQL
+8 validation evidence.
+
+The complete lifecycle produced the following green stages:
+
+- Java `17.0.19` / Maven `3.9.16` clean package: 785 production sources, 328
+  test sources and a successfully repackaged application JAR;
+- focused selector: 562 tests, zero failures, zero errors and zero skips;
+- focused catalog: 62 successful Flyway rows, zero failed rows, max V62,
+  `ai_request_logs=0` and `practice_ai_request_audits=0`;
+- standalone fresh startup: Flyway applied all 62 migrations, Hibernate
+  initialized the persistence unit, Tomcat started on isolated port 18082, the
+  root request returned HTTP 302, and graceful shutdown completed;
+- startup catalog: 62 successful Flyway rows, zero failed rows, max V62 and
+  both provider-audit tables at zero;
+- the Auth constructor regression passed all three tests in both the focused
+  run and the later full run.
+
+The full suite then completed with 2,626 tests, 17 failures, 14 errors and zero
+skips. All 31 failing cases were collected before the decision and group into
+three independent, non-Practice/non-Auth-correction families:
+
+1. 23 Comments moderation cases across
+   `LessonCommentsServiceTest` and `LessonCommentsApiControllerTest`: MySQL
+   pessimistic `FOR UPDATE` lock waits/timeouts, with dependent bulk counts of
+   zero and HTTP 500 results;
+2. six authorization/leader-visibility cases across Assignments, Classes,
+   Sections and Student lesson tests: expected success/404/content visibility
+   but observed 403 or entity-not-found behavior;
+3. two file-deletion cases in lesson attachments and library services where the
+   on-disk file remained present.
+
+The full catalog itself still proved 62 successful Flyway rows, zero failed
+rows, max V62, `ai_request_logs=0` and `practice_ai_request_audits=0`. These
+failures are materially different root causes outside the only authorized
+production correction (`PasswordResetTokenRetention`). No corrective edit,
+test retry, browser smoke or publication step was attempted after the full-suite
+result.
+
+All four catalogs from this lifecycle, including the unused browser catalog,
+were dropped by exact name without Flyway clean or repair. The final count of
+all `ksh_test_p13recovery%` schemas was `0`, isolated port 18082 had no listener,
+and both remote refs remained unchanged. No correction commit, push, PR or
+remote merge was created.
+
+Latest recovery decision:
+`PHASE_13_MAIN_MIGRATION_RECONCILIATION_NO_GO`.
+
+## 10. Concentrated integration-failure correction — locally green
+
+The user authorized a bounded correction of the 31 cases collected in the
+preceding full run. Ownership review reduced them to three causes, and the
+correction stayed within those causes:
+
+1. `CommentModerationWriter` used `REQUIRES_NEW` underneath transactional
+   single-item service methods. Transactional integration tests held
+   uncommitted comment fixtures in the outer transaction, so the independent
+   writer connection waited on its own fixture locks. The writer now uses the
+   default `REQUIRED` propagation: a direct moderation call joins the service
+   transaction, while the deliberately non-transactional bulk loop still opens
+   one proxy-owned writer transaction per item in production. Moderation state,
+   audit writes and partial-success ordering are unchanged. The corrected
+   writer SHA-256 is
+   `e378f82ac5125e1cb1c6f39610638206709d5772d8f2a740b1cb23c0c774d234`.
+2. Six authorization expectations predated main's department-scoped LEADER
+   policy. Their fixtures either omitted `classes.department_id` or supplied a
+   STUDENT id with `Role.LEADER`; one test also expected 404 for an existing
+   unauthorized class although the active contract is 403. Tests now use the
+   seeded LEADER identity, assign the owning lecturer's department to created
+   classes and assert the current 403 contract. Active service documentation
+   now states LEADER department scope and ADMIN global scope. Production access
+   policy was not widened.
+3. Two storage tests expected irreversible file deletion before their enclosing
+   test transaction committed. Current production correctly registers deletion
+   with `afterCommit`. Only those two positive deletion tests now run without an
+   ambient test transaction, so the service transaction commits before the
+   filesystem assertion. Production storage timing and rollback safety are
+   unchanged.
+
+The previously authorized Auth constructor correction is unchanged: the
+runtime value-backed constructor remains explicitly selected with `@Autowired`,
+the `Clock` constructor remains available to direct tests, and their SHA-256
+values remain
+`11b7f3849ff1d3b860aa497fc0e211b5f8b5cff16b8ef99e438fb3f285cd8550`
+and
+`bf32d3651ef25d0e76f5222263db42475621520e14715387804e2bb4585eb7e5`.
+
+Validation used OpenJDK `17.0.19`, empty provider credentials and disabled
+AI/STT/TTS/background workers. It produced:
+
+- `git diff --check`: pass;
+- static migration proof: exactly one migration at every version V1-V62;
+- unchanged V61 SHA-256
+  `73e188ca16ad6354f34b85d3772499b365636e30631f44be0064622f2572bc63`;
+- unchanged V62 SHA-256
+  `b01c99a66c49822b1887cff2f62ac2c424e51feee6ebb3ee5eefc0ee244a6629`;
+- Java 17 package: 785 production and 328 test sources compiled, repackaged
+  JAR created;
+- concentrated 13-class selector: 197 tests, zero failures, zero errors and
+  zero skips;
+- full suite on a separately fresh catalog: 2,626 tests, zero failures, zero
+  errors and zero skips;
+- both catalogs: 62 successful Flyway rows, zero failed rows, max V62,
+  `ai_request_logs=0` and `practice_ai_request_audits=0`.
+
+The MySQL server identified itself as `9.7.1`; Flyway repeated that its latest
+tested MySQL version is 8.1. This is green local integration evidence on the
+available server, not a claim of MySQL 8 validation. The two exactly named
+disposable catalogs were dropped after audit without Flyway clean or repair;
+their final `information_schema` presence count was `0`.
+
+The local integrated HEAD remains
+`1f48913b84258ac7047ad347d61fc8b4c0acb3c9`, with integration merge
+`5693a1195329a2c5e02278a7009566e121b6c182`. The local remote-tracking refs
+remain at
+`c9960d5a9b85e12abce5da2b94e9d8f03eb0361d` and
+`3382347c60662a62c5914ef945e119af5e441972`; no commit, push, PR or remote merge
+was created in this correction pass. Publication therefore remains closed
+pending an explicitly resumed publication gate and a fresh remote-main check.
+
+## 11. Publication-gate remote confirmation
+
+The publication gate was explicitly resumed after accepting the green local
+correction evidence above. A fresh `git fetch --prune origin` on 2026-07-29
+proved that neither target had advanced since validation:
+
+- `origin/feature/practice-reduce-scope`:
+  `c9960d5a9b85e12abce5da2b94e9d8f03eb0361d`;
+- `origin/main`: `3382347c60662a62c5914ef945e119af5e441972`;
+- integrated merge: `5693a1195329a2c5e02278a7009566e121b6c182`, whose
+  second parent is the exact main SHA above;
+- accepted pre-recovery documentation HEAD:
+  `1f48913b84258ac7047ad347d61fc8b4c0acb3c9`.
+
+Because both fetched refs are byte-for-byte the validated baselines, there is
+no unvalidated remote delta. The recovery changes were separated into:
+
+- `06f0032d68b393d64ac2d3c432b531bd955242b3` — constructor selection and its
+  Spring-context regression contract;
+- `fb0e723a31a106b911ae5397ec356cf22909b195` — moderation transaction boundary,
+  current authorization fixtures/contracts, and after-commit storage tests.
+
+The third commit contains only this accumulated reconciliation evidence. Before
+push, the complete branch must again prove a clean worktree, ancestry from both
+locked histories, a unique contiguous V1-V62 migration set, unchanged V61/V62
+hashes, and no excluded/unrelated path. Publication remains merge-commit-only;
+checks, PR URLs and final remote merge SHAs are recorded in the gate handoff
+because a commit cannot truthfully contain the SHA of a future merge that
+includes that same commit.
