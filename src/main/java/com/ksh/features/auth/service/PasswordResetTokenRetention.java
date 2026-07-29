@@ -1,6 +1,7 @@
 package com.ksh.features.auth.service;
 
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +22,7 @@ class PasswordResetTokenRetention {
     private final int batchSize;
     private final Duration retentionAge;
 
+    @Autowired
     PasswordResetTokenRetention(
             PasswordResetTokenRepository repository,
             @Value("${app.auth.password-reset.retention.batch-size:500}") int batchSize,
