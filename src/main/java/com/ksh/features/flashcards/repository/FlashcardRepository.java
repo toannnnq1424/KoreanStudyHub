@@ -26,6 +26,8 @@ public interface FlashcardRepository extends JpaRepository<Flashcard, Long> {
     /** Number of cards in a deck (list card counts). */
     long countByDeckId(Long deckId);
 
+    Optional<Flashcard> findFirstByDeckIdAndFrontText(Long deckId, String frontText);
+
     /** Per-deck card counts for a set of decks, as {@code [deckId, count]} rows. */
     @Query("SELECT c.deckId, COUNT(c) FROM Flashcard c " +
             "WHERE c.deckId IN :deckIds GROUP BY c.deckId")
