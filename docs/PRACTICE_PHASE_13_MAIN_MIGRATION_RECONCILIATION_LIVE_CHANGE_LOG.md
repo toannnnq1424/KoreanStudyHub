@@ -4,7 +4,7 @@ Date: `2026-07-29`
 
 Task: `PHASE_13_MAIN_MIGRATION_RECONCILIATION_GATE`
 
-Status: `STATIC_RECONCILIATION_COMPLETE_PENDING_MAIN_INTEGRATION_AND_VALIDATION`
+Status: `READY_FOR_PHASE_VALIDATION`
 
 ## 1. Locked inputs
 
@@ -140,3 +140,42 @@ dcafc441478f3bf83e69f2a9d1f7726322efcea39c240cc744768e9ea77d8947  V59__durable_m
 
 No post-Phase-13 package reconciliation, rebaseline or Pre-14 work is opened by
 this task.
+
+## 6. Main integration and integrated static gate
+
+Immediately before integration, a fresh fetch reconfirmed the feature lock at
+`c9960d5a9b85e12abce5da2b94e9d8f03eb0361d`, main at
+`3382347c60662a62c5914ef945e119af5e441972`, and main's max migration at V60.
+The reconciliation branch then merged that exact main commit with a normal
+merge commit:
+
+- merge commit: `5693a1195329a2c5e02278a7009566e121b6c182`;
+- first parent: `9e6f91259069db3f3d21c24b047f6165ec972e9e`;
+- second parent: `3382347c60662a62c5914ef945e119af5e441972`;
+- integrated tree: `fbdc2458610095bf455b2f7b7ff336ffd55e207d`.
+
+Git found no textual conflict. The stronger integrated audit then established:
+
+- 62 migration files with exactly one file for each version V1 through V62;
+- zero duplicate or missing versions and max version 62;
+- zero byte mismatches across all 60 main-owned migration files;
+- V61/V62 retain the pre-rename hashes and the old Practice V57/V58 paths are
+  absent;
+- no path was independently changed by both sides after merge base `2549438`;
+  the integration therefore contains no silent same-file auto-combination;
+- the full diff contains 139 paths relative to main and 232 paths relative to
+  the original feature ref, with zero excluded-path matches;
+- no duplicate Java filename, JPA table mapping, configuration-properties
+  prefix or application property key was introduced;
+- `SecurityConfig.java` is byte-identical to latest main, while `pom.xml`,
+  `.java-version` and Practice runtime properties retain the reviewed feature
+  versions;
+- zero imports connect the Practice AI/storage packages to the independently
+  added project-wide AI/storage packages in either direction; both families
+  remain present, operationally separate and owned by their original domains;
+- both locked histories are ancestors of the integrated merge and the worktree
+  is clean.
+
+This closes static reconciliation only. Compile, focused/full tests, disposable
+fresh/upgrade Flyway, Hibernate/Tomcat startup, browser smoke and provider-call
+counts must all come from the one consolidated validation lifecycle below.
