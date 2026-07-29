@@ -2305,15 +2305,31 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void testManualDraftForLecturer() throws Exception {
-        // GET /practice/manage/create redirects to /practice/manage/drafts/{draftId}
+        com.ksh.entities.PracticeDraft emptyDraft = draftRepository.saveAndFlush(
+                new com.ksh.entities.PracticeDraft(
+                        "Nháp trống giữ nguyên",
+                        "",
+                        "GLOBAL",
+                        null,
+                        "DRAFT",
+                        lecturer.getId(),
+                        "{\"sections\":[]}"));
+        mockMvc.perform(get("/practice/manage"))
+                .andExpect(status().isOk());
+        assertThat(draftRepository.existsById(emptyDraft.getId())).isTrue();
+
         mockMvc.perform(get("/practice/manage/create"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/manage"));
+
+        mockMvc.perform(post("/practice/manage/create").with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/practice/manage/drafts/*"));
 
-        // Check legacy manual redirect
+        // The legacy GET bookmark is read-only and returns to the dashboard.
         mockMvc.perform(get("/practice/manage/manual"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/manage/create"));
+                .andExpect(redirectedUrl("/practice/manage"));
     }
 
     @Test
@@ -2445,6 +2461,12 @@ class PracticeIntegrationTest {
 
         // 2. Edit existing set -> redirects to /practice/manage/drafts/{id}
         mockMvc.perform(get("/practice/manage/sets/" + publishedSet.getId() + "/edit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        "/practice/sets/" + publishedSet.getId()));
+
+        mockMvc.perform(post("/practice/manage/sets/" + publishedSet.getId() + "/edit")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
         List<com.ksh.entities.PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(lecturer.getId());
@@ -2989,6 +3011,34 @@ class PracticeIntegrationTest {
         verifyNoInteractions(
                 writingEvaluationClient,
                 readingListeningExplanationClient);
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void expiredPlayerGetIsReadOnlyWhileServerDeadlineProcessingRemainsAuthoritative()
+            throws Exception {
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(),
+                defaultTest.getId(),
+                defaultSection.getId(),
+                student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
+        attempt.setDeadlineAt(LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+        clearInvocations(writingEvaluationClient, readingListeningExplanationClient);
+
+        mockMvc.perform(get("/practice/attempts/" + attemptId))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        "/practice/sets/" + practiceSet.getId()
+                                + "/tests/" + defaultTest.getId()))
+                .andExpect(flash().attribute(
+                        "info",
+                        org.hamcrest.Matchers.containsString("Đã hết giờ")));
+
+        PracticeAttempt unchanged = attemptRepository.findById(attemptId).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
+        verifyNoInteractions(writingEvaluationClient, readingListeningExplanationClient);
     }
 
     @Test

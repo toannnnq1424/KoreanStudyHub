@@ -635,6 +635,7 @@ class PracticeFunctionalUiContractTest {
     @Test
     void dedicatedExamPlayersShareNavigationSafetyAndAdaptiveReadingContracts() throws IOException {
         String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
+        String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
         String writingPlayer = Files.readString(PRACTICE_TEMPLATES.resolve("player-writing.html"));
         String js = Files.readString(EXAM_PLAYER_JS);
 
@@ -644,7 +645,17 @@ class PracticeFunctionalUiContractTest {
                 "data-long-source",
                 "data-exit-link",
                 "data-selection-highlight",
-                "data-selection-note");
+                "data-selection-note",
+                ">Đúng</span>",
+                ">Sai</span>",
+                ">Không có thông tin</span>",
+                "'Ô trống ' + blankStat.count");
+        assertThat(player).doesNotContain(
+                ">True</span>",
+                ">False</span>",
+                ">Not Given</span>");
+        assertThat(testDetail).contains(
+                "selectedTest.displayOrder() + 1");
         assertThat(writingPlayer).contains(
                 "player-writing.css",
                 "data-question-stage",

@@ -173,9 +173,9 @@
             </div>
 
             <div class="exam-options compact-options" th:if="${q.questionType() == 'TRUE_FALSE_NOT_GIVEN'}">
-              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="TRUE" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'TRUE'}"><span class="exam-option-key">A</span><span>True</span></label>
-              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="FALSE" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'FALSE'}"><span class="exam-option-key">B</span><span>False</span></label>
-              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="NOT_GIVEN" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'NOT_GIVEN'}"><span class="exam-option-key">C</span><span>Not Given</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="TRUE" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'TRUE'}"><span class="exam-option-key">A</span><span>Đúng</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="FALSE" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'FALSE'}"><span class="exam-option-key">B</span><span>Sai</span></label>
+              <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="NOT_GIVEN" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'NOT_GIVEN'}"><span class="exam-option-key">C</span><span>Không có thông tin</span></label>
             </div>
 
             <div class="exam-fill-response" data-fill-question
@@ -184,9 +184,10 @@
               <div class="exam-fill-bank">
                 <label class="exam-fill-row" th:each="blank, blankStat : ${q.blankRows()}"
                        th:attr="data-blank-row=${blank.id()},data-blank-number=${blankStat.count}">
-                  <span><b th:text="${blankStat.count}">1</b><span th:text="${blank.prompt()}">Ô trống</span></span>
+                  <span><b th:text="${blankStat.count}">1</b><span
+                      th:text="${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}">Ô trống 1</span></span>
                   <input type="text" class="exam-blank-input"
-                         th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt()}"
+                         th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}"
                          autocomplete="off" spellcheck="false">
                 </label>
               </div>

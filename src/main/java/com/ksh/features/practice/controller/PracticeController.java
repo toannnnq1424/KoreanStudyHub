@@ -501,8 +501,11 @@ public class PracticeController {
                     attempt, session, redirectAttributes, false);
         }
         if (attempt.isExpired(java.time.LocalDateTime.now())) {
-            return finalizeExpiredAttempt(
-                    attempt, user.getId(), session, redirectAttributes);
+            redirectAttributes.addFlashAttribute(
+                    "info",
+                    "Đã hết giờ. Hệ thống đang hoàn tất bài từ các đáp án được lưu trước hạn.");
+            return PracticeRoutes.redirectToTestDetail(
+                    attempt.getSetId(), attempt.getTestId());
         }
         try {
             practiceService.requireCanonicalAttemptDelivery(
@@ -1443,6 +1446,6 @@ public class PracticeController {
     @GetMapping(PracticeRoutes.MANAGE_MANUAL)
     @PreAuthorize(Roles.PREAUTH_LECTURER)
     public String manualFormRedirect() {
-        return "redirect:/practice/manage/create";
+        return "redirect:/practice/manage";
     }
 }
