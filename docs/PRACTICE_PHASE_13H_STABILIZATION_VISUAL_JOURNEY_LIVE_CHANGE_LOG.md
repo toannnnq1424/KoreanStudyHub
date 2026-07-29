@@ -911,3 +911,14 @@ migration checksums.
 Final audit-correction decision: **PASS**. No provider call was enabled or
 performed by this correction run. The candidate may proceed to granular
 commits and the single branch push.
+
+## Migration reconciliation note — 2026-07-29
+
+This journal truthfully records the historical validation snapshot in which
+the unpublished Practice operational-claims migration was named V57. Before
+integration with independently advanced main, that exact 867-byte SQL payload
+was renamed to `V61__practice_phase13h_operational_claims.sql`. Its SHA-256 is
+unchanged at
+`73e188ca16ad6354f34b85d3772499b365636e30631f44be0064622f2572bc63`.
+Historical counts and migration evidence above are not rewritten. Main's own
+V57-V60 migrations remain untouched.

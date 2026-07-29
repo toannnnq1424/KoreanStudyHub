@@ -301,3 +301,15 @@ closure branch to `feature/practice-reduce-scope`, followed only after verified
 checks/ancestry/tree and a complete feature-versus-main scope review by
 `feature/practice-reduce-scope` to `main`. Any conflict, failed check or scope
 gap remains an automatic `NO_GO`.
+
+## 10. Migration reconciliation note — 2026-07-29
+
+The browser/device closure above remains historical evidence for the feature
+snapshot that then reported V1-V58. Before the feature was integrated with an
+independently advanced main, its two unpublished Practice migrations were
+renamed byte-identically from V57/V58 to V61/V62. Their SHA-256 values remain
+`73e188ca16ad6354f34b85d3772499b365636e30631f44be0064622f2572bc63`
+and
+`b01c99a66c49822b1887cff2f62ac2c424e51feee6ebb3ee5eefc0ee244a6629`.
+The 2,441-test and browser screenshot counts above are not reinterpreted as an
+integrated V62 run; the integrated tree requires its own validation gate.
