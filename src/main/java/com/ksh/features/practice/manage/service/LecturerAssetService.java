@@ -7,6 +7,7 @@ import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.entities.PracticeAssetLifecycleTask;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
 import com.ksh.features.practice.repository.PracticeAssetLifecycleTaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -931,13 +932,14 @@ public class LecturerAssetService {
                     || materialReferenceService.hasDraftReference(
                             draftId,
                             assetId,
-                            PracticeAssessmentExcelService
-                                    .EXCEL_SPEAKING_STAGING,
+                            PracticeMaterialPlacements
+                                    .SPEAKING_PROMPT_EXCEL_STAGING,
                             questionClientId)
                     || materialReferenceService.hasDraftReference(
                             draftId,
                             assetId,
-                            "SPEAKING_PROMPT_ORIGINAL",
+                            PracticeMaterialPlacements
+                                    .SPEAKING_PROMPT_ORIGINAL,
                             questionClientId))) {
             throw new IllegalArgumentException(
                     "Audio Speaking trong Excel phải là tệp riêng tư đã xác minh, "
@@ -967,7 +969,7 @@ public class LecturerAssetService {
         if (!materialReferenceService.hasDraftReference(
                 draftId,
                 assetId,
-                PracticeAssessmentExcelService.EXCEL_SPEAKING_STAGING,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
                 questionClientId)) {
             throw new IllegalStateException(
                     "Audio Speaking chưa được liên kết với đúng câu hỏi Excel.");
@@ -1114,7 +1116,7 @@ public class LecturerAssetService {
 
     private static String referenceKey(String sectionRef, String groupRef,
                                        String questionRef, String placement) {
-        if (PracticeAssessmentExcelService.EXCEL_SPEAKING_STAGING.equals(
+        if (PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING.equals(
                     placement)
                 && questionRef != null
                 && !questionRef.isBlank()) {

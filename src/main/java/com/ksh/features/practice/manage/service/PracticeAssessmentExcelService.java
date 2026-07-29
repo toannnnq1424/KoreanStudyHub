@@ -17,6 +17,7 @@ import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
@@ -49,8 +50,12 @@ public class PracticeAssessmentExcelService {
     private static final int MAX_MEDIA_OVERRIDES = 200;
     private static final Pattern MANAGED_MEDIA_URL = Pattern.compile(
             "^/practice/materials/(\\d+)/content$");
+    /**
+     * @deprecated use {@link PracticeMaterialPlacements#SPEAKING_PROMPT_EXCEL_STAGING}.
+     */
+    @Deprecated(forRemoval = false)
     public static final String EXCEL_SPEAKING_STAGING =
-            "SPEAKING_PROMPT_EXCEL_STAGING";
+            PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING;
     private static final Set<String> LEGACY_REQUIRED_SHEETS = Set.of(
             "Manifest", "Sections", "Groups", "Questions", "OptionsAnswers");
     private static final Set<String> FATAL_ISSUE_CODES = Set.of(
@@ -613,7 +618,7 @@ public class PracticeAssessmentExcelService {
                     null,
                     null,
                     binding.questionClientId(),
-                    EXCEL_SPEAKING_STAGING,
+                    PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
                     null);
             assetService.consumeExcelSpeakingUploadReference(
                     draftId,
