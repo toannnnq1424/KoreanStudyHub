@@ -21,15 +21,16 @@
             <h1 id="pc-library-title">Khám phá kho bài</h1>
             <p>Chọn bộ đề, bài test và kỹ năng phù hợp với mục tiêu hôm nay.</p>
           </div>
-          <a class="pc-primary-action"
-             sec:authorize="hasRole('LECTURER')"
-             th:href="@{/practice/manage/create}">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            Biên soạn đề
-          </a>
+          <form sec:authorize="hasRole('LECTURER')"
+                method="post" th:action="@{/practice/manage/create}">
+            <button class="pc-primary-action" type="submit">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Biên soạn đề
+            </button>
+          </form>
         </header>
 
         <th:block th:with="resume=${catalog.globalResume()}">

@@ -37,7 +37,7 @@
 
   <div class="toolbar-right">
     <div class="toolbar-actions-scroll">
-    <a id="pdf-import-action" th:href="@{/practice/manage/import(draftId=${draft.id})}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
+    <a id="pdf-import-action" th:href="@{/practice/manage/import}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <span class="toolbar-action-label">Nhập lại từ PDF</span>
     </a>
@@ -2237,7 +2237,7 @@
         ? `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
           + `&testNo=${encodeURIComponent(section.testNo)}`
           + `&lessonCode=${encodeURIComponent(section.lessonCode)}`
-        : `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`;
+        : '/practice/manage/import';
     }
   }
 
@@ -3571,7 +3571,13 @@
     if (!hasSections) {
       if (confirm("Bản nháp này chưa có nội dung và sẽ bị xóa khi rời đi. Bạn có muốn thoát không?")) {
         window.isExitingEditor = true;
-        window.location.href = `/practice/manage/drafts/${DRAFT_ID}/exit`;
+        const deleteForm = document.getElementById('delete-draft-form');
+        if (deleteForm) {
+          deleteForm.submit();
+        } else {
+          window.isExitingEditor = false;
+          showEditorToast('Không thể hủy bản nháp an toàn. Vui lòng tải lại trang.', 'error');
+        }
       }
       return;
     }
@@ -3592,7 +3598,8 @@
         if (deleteForm) {
           deleteForm.submit();
         } else {
-          window.location.href = `/practice/manage/drafts/${DRAFT_ID}/exit`;
+          window.isExitingEditor = false;
+          showEditorToast('Không thể xóa bản nháp an toàn. Vui lòng tải lại trang.', 'error');
         }
       }
     }

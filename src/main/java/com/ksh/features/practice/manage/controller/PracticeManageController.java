@@ -12,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
  
@@ -58,7 +59,7 @@ public class PracticeManageController {
         this.explanationRetryService = explanationRetryService;
     }
  
-    @GetMapping("/sets/{setId}/edit")
+    @PostMapping("/sets/{setId}/edit")
     public String editSet(@org.springframework.web.bind.annotation.PathVariable("setId") Long setId,
                           @RequestParam(value = "preview", defaultValue = "false") boolean preview,
                           @AuthenticationPrincipal KshUserDetails user) {
@@ -66,6 +67,12 @@ public class PracticeManageController {
                 setId, user.getId());
         String editorUrl = "redirect:/practice/manage/drafts/" + draft.getId();
         return preview ? editorUrl + "?preview=1" : editorUrl;
+    }
+
+    @GetMapping("/sets/{setId}/edit")
+    public String editSetGetFallback(
+            @org.springframework.web.bind.annotation.PathVariable("setId") Long setId) {
+        return "redirect:/practice/sets/" + setId;
     }
  
     @GetMapping({"", "/"})
@@ -107,13 +114,6 @@ public class PracticeManageController {
                                 ignored -> new java.util.ArrayList<>())
                         .add(grant));
  
-        // Clean up empty drafts for this user on loading dashboard
-        try {
-            draftService.cleanupEmptyDrafts(user.getId());
-        } catch (Exception e) {
-            // log and continue
-        }
-
         List<com.ksh.entities.PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(user.getId());
 
         List<com.ksh.entities.PracticeAuthoringCollaboration> sharedGrants =

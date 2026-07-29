@@ -54,6 +54,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("id=\"excel-import-action\""));
         assertTrue(editor.contains("id=\"pdf-import-action\""));
         assertTrue(editor.contains("`/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`"));
+        assertTrue(editor.contains(": '/practice/manage/import';"));
         assertTrue(editor.contains("id=\"q-source-trace\""));
         assertTrue(editor.contains("get('preview') === '1'"));
         assertTrue(editor.contains("onclick=\"handleEditorToolNavigation(event)\""));
@@ -458,6 +459,8 @@ class PracticePhase11AuthoringUiContractTest {
     void pdfWorkspaceDefaultsToGuidedModeAndProtectsRawDebugTabs() throws Exception {
         String workspace = read("src/main/resources/templates/practice/manage/import-workspace.html");
         String wizard = read("src/main/resources/templates/practice/manage/import-wizard.html");
+        assertTrue(wizard.contains("th:if=\"${pdfImportError != null}\""));
+        assertTrue(wizard.contains("role=\"alert\""));
 
         assertTrue(workspace.contains("id=\"mode-guided\""));
         assertTrue(workspace.contains("id=\"mode-advanced\""));

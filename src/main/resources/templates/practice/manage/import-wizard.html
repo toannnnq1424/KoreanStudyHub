@@ -29,11 +29,19 @@
           <p style="font-size:0.88rem; color:#687389; margin:4px 0 0 0;">Chọn nơi cần nhập, kiểm tra các trang PDF rồi để AI tạo bản nháp cho giáo viên duyệt.</p>
         </div>
         <div>
-          <a class="pi-btn-secondary" th:href="@{/practice/manage/create}" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #E5EAF2; padding:10px 20px; border-radius:12px; font-weight:600; text-decoration:none; color:#172033; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <form method="post" th:action="@{/practice/manage/create}">
+          <button class="pi-btn-secondary" type="submit" style="display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #E5EAF2; padding:10px 20px; border-radius:12px; font-weight:600; color:#172033; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor:pointer;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tạo đề thủ công
-          </a>
+          </button>
+          </form>
         </div>
+      </div>
+
+      <div th:if="${pdfImportError != null}" role="alert"
+           style="margin:-12px 0 24px; padding:14px 16px; border:1px solid #F2B8B5; border-radius:10px; background:#FFF4F3; color:#8A1C16; font-size:0.88rem; line-height:1.5;"
+           th:text="${pdfImportError}">
+        Bản nháp chưa có phần kỹ năng để nhập PDF.
       </div>
 
       <div class="import-content-grid" style="display: grid; grid-template-columns: 7fr 5fr; gap: 32px;">
