@@ -6,14 +6,20 @@ import com.ksh.features.lessons.repository.LessonAttachmentRepository;
 import com.ksh.features.lessons.repository.PublicViewTokenRepository;
 import com.ksh.features.storage.StorageKeys;
 import jakarta.persistence.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Creates and resolves short-lived tokens that grant anonymous
@@ -23,8 +29,9 @@ import java.util.List;
 @Service
 public class PublicViewTokenService {
 
-    private static final Logger log = LoggerFactory.getLogger(PublicViewTokenService.class);
     private static final int TOKEN_VALIDITY_HOURS = 1;
+    private static final SecureRandom TOKEN_RANDOM = new SecureRandom();
+    private static final Pattern LEGACY_RAW_TOKEN = Pattern.compile("[0-9a-f]{32}");
 
     private final PublicViewTokenRepository tokenRepository;
     private final LessonAttachmentRepository attachmentRepository;
@@ -39,9 +46,10 @@ public class PublicViewTokenService {
     }
 
     /**
-     * Creates a token and returns the absolute public URL that MS Office
-     * Viewer should embed. The token expires after
-     * {@value #TOKEN_VALIDITY_HOURS} hour(s).
+     * Creates a fresh replacement bearer credential and returns the absolute
+     * public URL that MS Office Viewer should embed. Only a SHA-256 digest is
+     * persisted; any older live URL for the same attachment is revoked.
+     * The token expires after {@value #TOKEN_VALIDITY_HOURS} hour(s).
      */
     @Transactional
     public String createPublicViewUrl(Long attachmentId) {
@@ -50,13 +58,14 @@ public class PublicViewTokenService {
         List<PublicViewToken> live =
                 tokenRepository.findLiveTokensByAttachmentId(attachmentId, LocalDateTime.now());
         if (!live.isEmpty()) {
-            PublicViewToken retained = live.get(0);
-            if (live.size() > 1) tokenRepository.deleteAll(live.subList(1, live.size()));
-            return appBaseUrl + "/public/view/" + retained.getToken();
+            tokenRepository.deleteAll(live);
         }
-        PublicViewToken created = PublicViewToken.create(attachmentId, TOKEN_VALIDITY_HOURS);
+
+        String rawToken = newRawToken();
+        PublicViewToken created = PublicViewToken.createWithDigest(
+                attachmentId, hashToken(rawToken), TOKEN_VALIDITY_HOURS);
         tokenRepository.save(created);
-        return appBaseUrl + "/public/view/" + created.getToken();
+        return appBaseUrl + "/public/view/" + rawToken;
     }
 
     /**
@@ -64,9 +73,19 @@ public class PublicViewTokenService {
      *
      * @throws EntityNotFoundException if the token is invalid or expired
      */
-    @Transactional
+    @Transactional(noRollbackFor = EntityNotFoundException.class)
     public AttachmentHandle resolve(String tokenValue) {
-        PublicViewToken tok = tokenRepository.findByToken(tokenValue)
+        String raw = tokenValue == null ? "" : tokenValue.trim();
+        if (raw.isEmpty()) {
+            throw new EntityNotFoundException("Invalid token");
+        }
+        // New rows store only the digest. The raw fallback keeps already-issued
+        // pre-hardening URLs valid until their normal one-hour expiry.
+        Optional<PublicViewToken> found = tokenRepository.findByToken(hashToken(raw));
+        if (found.isEmpty() && LEGACY_RAW_TOKEN.matcher(raw).matches()) {
+            found = tokenRepository.findByToken(raw);
+        }
+        PublicViewToken tok = found
                 .orElseThrow(() -> new EntityNotFoundException("Invalid token"));
         if (tok.isExpired()) {
             tokenRepository.delete(tok);
@@ -83,6 +102,22 @@ public class PublicViewTokenService {
     @Transactional
     public int cleanupExpired() {
         return tokenRepository.deleteExpired(LocalDateTime.now());
+    }
+
+    private static String newRawToken() {
+        byte[] bytes = new byte[32];
+        TOKEN_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    static String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(
+                    digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
 
     /** Tuple returned by {@link #resolve} so the controller can stream the file. */

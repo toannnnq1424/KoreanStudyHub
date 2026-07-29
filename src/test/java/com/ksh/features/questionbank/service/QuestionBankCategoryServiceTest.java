@@ -12,10 +12,13 @@ import com.ksh.features.questionbank.entity.QuestionBankCategory;
 import com.ksh.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
@@ -141,6 +144,37 @@ class QuestionBankCategoryServiceTest {
         service.delete(leader.getId(), 3L);
 
         verify(categoryRepository).delete(category);
+    }
+
+    @Test
+    void toggle_locks_the_department_scoped_category_before_flipping_state() {
+        User leader = user(Role.LEADER, 10L, 99L);
+        Department department = department(5L, leader.getId());
+        QuestionBankCategory category =
+                new QuestionBankCategory(5L, "Grammar", null, true, leader.getId());
+        setId(category, 3L);
+
+        when(userRepository.findById(leader.getId())).thenReturn(Optional.of(leader));
+        when(resolver.resolve(leader.getId())).thenReturn(Optional.of(department));
+        when(categoryRepository.findByIdAndDepartmentIdForUpdate(3L, 5L))
+                .thenReturn(Optional.of(category));
+
+        service.toggle(leader.getId(), 3L);
+
+        assertThat(category.isActive()).isFalse();
+        verify(categoryRepository).findByIdAndDepartmentIdForUpdate(3L, 5L);
+        verify(categoryRepository).save(category);
+    }
+
+    @Test
+    void toggle_lookup_declares_a_pessimistic_write_lock() throws Exception {
+        Method lookup = QuestionBankCategoryRepository.class.getMethod(
+                "findByIdAndDepartmentIdForUpdate", Long.class, Long.class);
+
+        Lock lock = lookup.getAnnotation(Lock.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 
     private static User user(Role role, Long id, Long departmentId) {

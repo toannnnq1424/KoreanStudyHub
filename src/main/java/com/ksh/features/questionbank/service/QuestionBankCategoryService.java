@@ -196,7 +196,13 @@ public class QuestionBankCategoryService {
     @Transactional
     public void toggle(Long userId, Long categoryId) {
         User actor = requireCurator(userId);
-        QuestionBankCategory category = requireSameDepartmentCategory(categoryId, actor);
+        Long departmentId = requireDepartment(actor);
+        if (!accessPolicy.canCurateDepartment(actor, departmentId)) {
+            throw new QuestionBankValidationException(MSG_FORBIDDEN);
+        }
+        QuestionBankCategory category = categoryRepository
+                .findByIdAndDepartmentIdForUpdate(categoryId, departmentId)
+                .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
         category.updateDetails(category.getName(), category.getDescription(), !category.isActive());
         categoryRepository.save(category);
     }

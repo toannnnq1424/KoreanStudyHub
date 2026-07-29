@@ -113,7 +113,11 @@ public class PublicUploadsController {
             if (obj.contentLength() >= 0) {
                 headers.setContentLength(obj.contentLength());
             }
-            headers.setCacheControl("public, max-age=86400");
+            if ("exams".equals(folderNorm) && filename.startsWith("staged-")) {
+                headers.setCacheControl("private, no-store");
+            } else {
+                headers.setCacheControl("public, max-age=86400");
+            }
             return new ResponseEntity<>(new StoredObjectResource(obj, key), headers, HttpStatus.OK);
         } catch (IOException ex) {
             log.warn("Failed to serve public upload {}: {}", key, ex.getMessage());

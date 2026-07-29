@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
@@ -13,7 +15,8 @@ import static com.ksh.common.IConstant.STORAGE_PROVIDER_R2;
 
 /**
  * Composite storage: writes go to the active provider only; reads try
- * local first then R2; deletes attempt both backends best-effort.
+ * local first then R2; deletes attempt every available backend and fail
+ * observably if any backend cannot confirm the deletion.
  *
  * <p>When {@code provider=r2} but R2 is not ready, writes fail closed
  * with {@link StorageNotConfiguredException} — never silent local fallback.
@@ -52,18 +55,38 @@ public class DualReadObjectStorage implements ObjectStorage {
     }
 
     @Override
-    public void delete(String key) {
+    public void delete(String key) throws IOException {
+        IOException failure = null;
         try {
             local.delete(key);
         } catch (Exception ex) {
-            log.warn("Local delete failed for {}: {}", key, ex.getMessage());
+            failure = deletionFailure("Local", key, ex);
         }
-        if (Boolean.TRUE.equals(r2ReadySupplier.get())) {
+
+        boolean r2Ready = Boolean.TRUE.equals(r2ReadySupplier.get());
+        if (r2Ready) {
             try {
                 r2.delete(key);
             } catch (Exception ex) {
-                log.warn("R2 delete failed for {}: {}", key, ex.getMessage());
+                IOException r2Failure = deletionFailure("R2", key, ex);
+                if (failure == null) {
+                    failure = r2Failure;
+                } else {
+                    failure.addSuppressed(r2Failure);
+                }
             }
+        } else if (STORAGE_PROVIDER_R2.equals(
+                normalizeProvider(providerSupplier.get()))) {
+            throw new StorageNotConfiguredException(MSG_STORAGE_R2_NOT_CONFIGURED);
+        }
+
+        if (failure != null) {
+            log.warn("Object delete failed for {}: {}", key, failure.getMessage());
+            throw failure;
+        }
+
+        if (local.exists(key) || (r2Ready && r2.exists(key))) {
+            throw new IOException("Object still exists after delete: " + key);
         }
     }
 
@@ -126,10 +149,27 @@ public class DualReadObjectStorage implements ObjectStorage {
         throw new IOException("Source object not found: " + sourceKey);
     }
 
+    @Override
+    public List<String> listKeys(String prefix) throws IOException {
+        LinkedHashSet<String> keys = new LinkedHashSet<>(local.listKeys(prefix));
+        if (Boolean.TRUE.equals(r2ReadySupplier.get())) {
+            keys.addAll(r2.listKeys(prefix));
+        }
+        return List.copyOf(keys);
+    }
+
     private static String normalizeProvider(String raw) {
         if (raw == null || raw.isBlank()) {
             return STORAGE_PROVIDER_LOCAL;
         }
         return raw.trim().toLowerCase();
+    }
+
+    private static IOException deletionFailure(
+            String backend, String key, Exception cause) {
+        if (cause instanceof IOException ioException) {
+            return ioException;
+        }
+        return new IOException(backend + " delete failed for " + key, cause);
     }
 }

@@ -86,11 +86,12 @@ class PublicViewTokenServiceTest {
 
         assertThat(url).contains("/public/view/");
         String token = url.substring(url.lastIndexOf('/') + 1);
-        // UUID without dashes → 32 hex chars.
-        assertThat(token).hasSize(32).matches("[0-9a-f]{32}");
+        assertThat(token).hasSize(43).matches("[A-Za-z0-9_-]{43}");
 
-        PublicViewToken persisted = tokenRepository.findByToken(token).orElseThrow();
+        PublicViewToken persisted = tokenRepository
+                .findByToken(PublicViewTokenService.hashToken(token)).orElseThrow();
         assertThat(persisted.getAttachmentId()).isEqualTo(attachment.getId());
+        assertThat(persisted.getToken()).isNotEqualTo(token);
         // Default TTL is 1 hour; allow a small clock skew window.
         assertThat(persisted.getExpiresAt())
                 .isAfter(LocalDateTime.now().plusMinutes(55))
@@ -113,6 +114,42 @@ class PublicViewTokenServiceTest {
     }
 
     @Test
+    void resolve_legacy_32_hex_token_remains_compatible_until_expiry() {
+        String legacyToken = "abcdef0123456789abcdef0123456789";
+        tokenRepository.saveAndFlush(new PublicViewToken(
+                attachment.getId(), legacyToken, LocalDateTime.now().plusMinutes(30)));
+
+        AttachmentHandle handle = tokenService.resolve(legacyToken);
+
+        assertThat(handle.originalFilename()).isEqualTo("slides.pptx");
+    }
+
+    @Test
+    void stored_digest_is_not_itself_an_accepted_bearer_credential() {
+        String url = tokenService.createPublicViewUrl(attachment.getId());
+        String rawToken = url.substring(url.lastIndexOf('/') + 1);
+        String storedDigest = PublicViewTokenService.hashToken(rawToken);
+
+        assertThatThrownBy(() -> tokenService.resolve(storedDigest))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage("Invalid token");
+    }
+
+    @Test
+    void minting_a_replacement_revokes_the_previous_live_token() {
+        String firstUrl = tokenService.createPublicViewUrl(attachment.getId());
+        String firstToken = firstUrl.substring(firstUrl.lastIndexOf('/') + 1);
+        String secondUrl = tokenService.createPublicViewUrl(attachment.getId());
+        String secondToken = secondUrl.substring(secondUrl.lastIndexOf('/') + 1);
+
+        assertThatThrownBy(() -> tokenService.resolve(firstToken))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage("Invalid token");
+        assertThat(tokenService.resolve(secondToken).originalFilename())
+                .isEqualTo("slides.pptx");
+    }
+
+    @Test
     void resolve_unknown_token_throws() {
         assertThatThrownBy(() -> tokenService.resolve("deadbeefdeadbeefdeadbeefdeadbeef"))
                 .isInstanceOf(EntityNotFoundException.class)
@@ -122,7 +159,7 @@ class PublicViewTokenServiceTest {
     @Test
     void resolve_expired_token_throws_and_deletes_it() {
         PublicViewToken expired = tokenRepository.saveAndFlush(new PublicViewToken(
-                attachment.getId(), "expiredtokenexpiredtokenexpired0",
+                attachment.getId(), "0123456789abcdef0123456789abcdef",
                 LocalDateTime.now().minusMinutes(1)));
 
         assertThatThrownBy(() -> tokenService.resolve(expired.getToken()))

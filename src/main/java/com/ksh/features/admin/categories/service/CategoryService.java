@@ -155,7 +155,7 @@ public class CategoryService {
     /** Flips the active flag and returns the new state for a confirmation toast. */
     @Transactional
     public boolean toggleActive(Long id) {
-        Category entity = repository.findById(id)
+        Category entity = repository.findByIdForUpdate(id)
                 .orElseThrow(() -> new CategoryValidationException(MSG_NOT_FOUND));
         boolean now = entity.toggleActive();
         repository.save(entity);

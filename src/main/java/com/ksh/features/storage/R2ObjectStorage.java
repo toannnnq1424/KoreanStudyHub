@@ -10,6 +10,8 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -19,6 +21,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
@@ -180,6 +184,32 @@ public class R2ObjectStorage implements ObjectStorage {
                     .build());
         } catch (RuntimeException ex) {
             throw new IOException("R2 copy failed " + src + " -> " + dest, ex);
+        }
+    }
+
+    @Override
+    public List<String> listKeys(String prefix) throws IOException {
+        String safePrefix = StorageKeys.requireSafeKey(prefix);
+        S3Client client = requireClient();
+        String bucket = requireBucket();
+        List<String> keys = new ArrayList<>();
+        String continuationToken = null;
+        try {
+            do {
+                ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
+                        .bucket(bucket)
+                        .prefix(safePrefix);
+                if (continuationToken != null) {
+                    builder.continuationToken(continuationToken);
+                }
+                ListObjectsV2Request request = builder.build();
+                ListObjectsV2Response response = client.listObjectsV2(request);
+                response.contents().forEach(object -> keys.add(object.key()));
+                continuationToken = response.nextContinuationToken();
+            } while (continuationToken != null && !continuationToken.isBlank());
+            return List.copyOf(keys);
+        } catch (RuntimeException ex) {
+            throw new IOException("R2 list failed for prefix " + safePrefix, ex);
         }
     }
 

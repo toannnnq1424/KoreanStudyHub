@@ -1,6 +1,7 @@
 package com.ksh.features.admin.users.controller;
 
 import com.ksh.entities.User;
+import com.ksh.features.admin.departments.service.DepartmentValidationException;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.admin.users.service.AdminUsersReadService;
 import com.ksh.features.admin.users.service.AdminUsersWriteService;
@@ -177,6 +178,9 @@ public class AdminUsersEditController {
             return "redirect:" + userUrl(id) + EDIT_TAB_INFO_SUFFIX;
         } catch (EmailAlreadyUsedException ex) {
             result.rejectValue("email", "email.duplicate", MSG_EMAIL_DUPLICATE);
+            return reRenderEditForm(model, id);
+        } catch (DepartmentValidationException ex) {
+            result.rejectValue("role", "leader.assignment", ex.getMessage());
             return reRenderEditForm(model, id);
         }
     }

@@ -14,7 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,7 +25,7 @@ class PublicViewTokenConcurrencyTest {
             new PublicViewTokenService(tokens, attachments, "https://ksh.test");
 
     @Test
-    void locksAttachmentAndRetainsOneLiveToken() {
+    void locksAttachmentRevokesLiveTokensAndStoresOnlyFreshDigest() {
         LessonAttachment attachment = mock(LessonAttachment.class);
         PublicViewToken newest = new PublicViewToken(
                 9L, "newest", LocalDateTime.now().plusHours(1));
@@ -36,12 +35,12 @@ class PublicViewTokenConcurrencyTest {
         when(tokens.findLiveTokensByAttachmentId(eq(9L), any(LocalDateTime.class)))
                 .thenReturn(List.of(newest, duplicate));
 
-        assertThat(service.createPublicViewUrl(9L))
-                .isEqualTo("https://ksh.test/public/view/newest");
+        String url = service.createPublicViewUrl(9L);
 
+        assertThat(url).startsWith("https://ksh.test/public/view/");
         verify(attachments).findByIdForUpdate(9L);
-        verify(tokens).deleteAll(List.of(duplicate));
-        verify(tokens, never()).save(any());
+        verify(tokens).deleteAll(List.of(newest, duplicate));
+        verify(tokens).save(any(PublicViewToken.class));
     }
 
     @Test

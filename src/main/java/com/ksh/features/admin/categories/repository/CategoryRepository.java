@@ -1,11 +1,14 @@
 package com.ksh.features.admin.categories.repository;
 
 import com.ksh.entities.Category;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Spring Data repository for {@link Category}. Provides the queries the
@@ -13,6 +16,11 @@ import java.util.List;
  * the delete guards (child count + course-link count).
  */
 public interface CategoryRepository extends JpaRepository<Category, Long> {
+
+    /** Serializes parity-style active-state toggles for one category row. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Category c WHERE c.id = :id")
+    Optional<Category> findByIdForUpdate(@Param("id") Long id);
 
     /** All top-level categories (parent_id IS NULL), ordered by name. */
     List<Category> findByParentIdIsNullOrderByNameAsc();

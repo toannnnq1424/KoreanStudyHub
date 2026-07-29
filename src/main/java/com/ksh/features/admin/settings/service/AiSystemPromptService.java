@@ -139,7 +139,7 @@ public class AiSystemPromptService {
      */
     @Transactional
     public Optional<Boolean> toggleEnabled(Long id, Long currentUserId) {
-        return repository.findById(id).map(prompt -> {
+        return repository.findByIdForUpdate(id).map(prompt -> {
             prompt.setEnabled(!prompt.isEnabled());
             prompt.setUpdatedBy(currentUserId);
             repository.save(prompt);

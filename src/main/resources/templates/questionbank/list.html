@@ -59,7 +59,7 @@
       <div class="qb-import-summary" id="qb-import-summary"></div>
       <div class="qb-import-empty" id="qb-import-loading" hidden>Đang đọc file Excel...</div>
       <div class="qb-import-empty" id="qb-import-error" hidden></div>
-      <div class="qb-import-table-wrap" id="qb-import-table-wrap" hidden>
+      <div class="qb-import-table-wrap admin-list-table-scroll" id="qb-import-table-wrap" hidden>
         <table class="admin-list-table qb-table qb-import-table">
           <thead>
           <tr>
@@ -105,38 +105,40 @@
 
     <section class="admin-list-panel">
       <div th:if="${items == null or items.isEmpty()}" class="admin-list-empty">Chưa có câu hỏi phù hợp bộ lọc.</div>
-      <table class="admin-list-table qb-table" th:if="${items != null and !items.isEmpty()}">
-        <thead>
-        <tr>
-          <th>Nội dung</th>
-          <th>Danh mục</th>
-          <th>Loại</th>
-          <th>Trạng thái</th>
-          <th>Người tạo</th>
-          <th>Cập nhật</th>
-          <th>Thao tác</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="item : ${items}">
-          <td>
-            <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}" class="qb-title-link"
-               th:text="${item.contentPreview()}">Nội dung</a>
-          </td>
-          <td th:text="${item.categoryName()}">Danh mục</td>
-          <td><span class="status-pill" th:text="${item.questionType()}">MCQ</span></td>
-          <td><span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
-                    th:text="${item.workflowStatus()}">DRAFT</span></td>
-          <td th:text="${item.contributorName()}">Người tạo</td>
-          <td th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
-          <td class="qb-row-actions">
-            <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}">Xem</a>
-            <a th:if="${item.editable()}" th:href="@{'/lecturer/question-bank/' + ${item.id()} + '/edit'}">Sửa</a>
-            <a th:if="${item.reviewable()}" sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Duyệt</a>
-          </td>
-        </tr>
-        </tbody>
-      </table>
+      <div class="admin-list-table-scroll" th:if="${items != null and !items.isEmpty()}">
+        <table class="admin-list-table qb-table">
+          <thead>
+          <tr>
+            <th>Nội dung</th>
+            <th>Danh mục</th>
+            <th>Loại</th>
+            <th>Trạng thái</th>
+            <th>Người tạo</th>
+            <th>Cập nhật</th>
+            <th>Thao tác</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="item : ${items}">
+            <td>
+              <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}" class="qb-title-link"
+                 th:text="${item.contentPreview()}">Nội dung</a>
+            </td>
+            <td th:text="${item.categoryName()}">Danh mục</td>
+            <td><span class="status-pill" th:text="${item.questionType()}">MCQ</span></td>
+            <td><span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
+                      th:text="${item.workflowStatus()}">DRAFT</span></td>
+            <td th:text="${item.contributorName()}">Người tạo</td>
+            <td th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
+            <td class="qb-row-actions">
+              <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}">Xem</a>
+              <a th:if="${item.editable()}" th:href="@{'/lecturer/question-bank/' + ${item.id()} + '/edit'}">Sửa</a>
+              <a th:if="${item.reviewable()}" sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Duyệt</a>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </th:block>
 </div>

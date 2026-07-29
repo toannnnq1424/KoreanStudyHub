@@ -1,7 +1,9 @@
 package com.ksh.features.questionbank.repository;
 
 import com.ksh.features.questionbank.entity.QuestionBankCategory;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +21,17 @@ public interface QuestionBankCategoryRepository extends JpaRepository<QuestionBa
     List<QuestionBankCategory> findByDepartmentIdAndActiveTrueOrderByNameAsc(Long departmentId);
 
     Optional<QuestionBankCategory> findByIdAndDepartmentId(Long id, Long departmentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT category
+            FROM QuestionBankCategory category
+            WHERE category.id = :id
+              AND category.departmentId = :departmentId
+            """)
+    Optional<QuestionBankCategory> findByIdAndDepartmentIdForUpdate(
+            @Param("id") Long id,
+            @Param("departmentId") Long departmentId);
 
     Optional<QuestionBankCategory> findByDepartmentIdAndNameIgnoreCase(Long departmentId, String name);
 

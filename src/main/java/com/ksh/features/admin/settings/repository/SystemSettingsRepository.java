@@ -1,7 +1,11 @@
 package com.ksh.features.admin.settings.repository;
 
 import com.ksh.entities.SystemSetting;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,6 +38,21 @@ public interface SystemSettingsRepository extends JpaRepository<SystemSetting, L
      * @return an {@link Optional} containing the matching setting, or empty if not found
      */
     Optional<SystemSetting> findBySettingKey(String settingKey);
+
+    /**
+     * Locks one stable setting row until the surrounding transaction completes.
+     *
+     * <p>This is used when a mutation needs a database-backed mutex that remains
+     * available even when the table being mutated is empty. Callers must acquire
+     * this anchor before reading or locking their mutable rows so every code path
+     * follows the same lock order.
+     *
+     * @param settingKey key of the stable row to lock
+     * @return the locked row, or empty when the required seed row is missing
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM SystemSetting s WHERE s.settingKey = :settingKey")
+    Optional<SystemSetting> findBySettingKeyForUpdate(@Param("settingKey") String settingKey);
 
     /**
      * Loads all rows in the given group and returns them as a flat {@code Map<key, value>}.

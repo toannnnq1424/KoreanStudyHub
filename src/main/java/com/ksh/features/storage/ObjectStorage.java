@@ -2,6 +2,7 @@ package com.ksh.features.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 /**
  * Backend-agnostic object storage contract used by every upload family
@@ -38,4 +39,10 @@ public interface ObjectStorage {
 
     /** Server-side copy of bytes from {@code sourceKey} to {@code destKey}. */
     void copy(String sourceKey, String destKey) throws IOException;
+
+    /**
+     * Lists object keys below {@code prefix}. Returned keys are relative,
+     * normalized storage keys (never absolute filesystem paths).
+     */
+    List<String> listKeys(String prefix) throws IOException;
 }

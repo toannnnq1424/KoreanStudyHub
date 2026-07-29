@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 
 /**
  * Disk-backed {@link ObjectStorage} under a configurable root directory
@@ -99,6 +100,27 @@ public class LocalObjectStorage implements ObjectStorage {
         }
         Files.createDirectories(dest.getParent());
         Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    @Override
+    public List<String> listKeys(String prefix) throws IOException {
+        String safePrefix = StorageKeys.requireSafeKey(prefix);
+        int lastSlash = safePrefix.lastIndexOf('/');
+        Path searchRoot = lastSlash < 0
+                ? root
+                : resolve(safePrefix.substring(0, lastSlash));
+        if (!Files.exists(searchRoot)) {
+            return List.of();
+        }
+        try (var paths = Files.walk(searchRoot)) {
+            return paths.filter(Files::isRegularFile)
+                    .map(root::relativize)
+                    .map(Path::toString)
+                    .map(key -> key.replace('\\', '/'))
+                    .filter(key -> key.startsWith(safePrefix))
+                    .sorted()
+                    .toList();
+        }
     }
 
     private Path resolve(String key) {

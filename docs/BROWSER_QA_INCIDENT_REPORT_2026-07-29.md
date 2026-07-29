@@ -2,7 +2,8 @@
 
 > Ngày QA: 2026-07-29
 >
-> Baseline: `origin/main` tại `7d768643df8832de0f375d9bb708e1bf7e9f1e1d` (PR #42)
+> Baseline ban đầu: `origin/main` tại
+> `11aad00954a136ad667b8d936d354d5aa9e3f1dd` (PR #44)
 >
 > Runtime: Java 17.0.9, Spring Boot 3.5.16, MySQL schema V62
 >
@@ -78,6 +79,64 @@
   - Mobile 390×844: ô và menu cùng rộng 283px, `scrollWidth=375`, không tràn ngang.
   - Hai combobox dùng chung tại `/admin/permissions/overrides` vẫn tìm/chọn được.
 
+### QB-PAGE-GUTTER-001 — Form ngân hàng câu hỏi bám sát mép viewport
+
+- [x] Đã sửa bằng CSS resource-only.
+- [x] Đã chụp và kiểm tra lại ở viewport desktop và compact.
+- Mức độ: Medium.
+- Vai trò: `LECTURER`.
+- Route: `/lecturer/question-bank/new`.
+- Hiện tượng:
+  - Link quay lại, tiêu đề, mô tả và khung form bắt đầu sát mép trái viewport.
+  - Ở giao diện desktop rộng, khoảng trống bên ngoài card không đồng nhất với
+    header và các màn hình giảng viên khác.
+- Nguyên nhân gốc:
+  - `.qb-page` giới hạn `max-width` và căn giữa nhưng đặt padding ngang bằng
+    `0`, nên shell chạm mép khi viewport không lớn hơn đáng kể so với nội dung.
+- Bản sửa:
+  - Giữ `max-width: 1240px` và căn giữa, thêm gutter desktop co giãn
+    `clamp(16px, 3vw, 32px)` cùng `box-sizing: border-box`.
+  - Ở breakpoint compact, giữ gutter 14px và khoảng đệm trên 16px thay vì bỏ
+    toàn bộ padding ngang.
+- Bằng chứng hồi quy:
+  - Ảnh chụp desktop sau refresh cho thấy link quay lại, tiêu đề và card thẳng
+    hàng trong một shell có khoảng thở hai bên; form không còn bám góc trái.
+  - Ảnh chụp viewport compact vẫn giữ gutter hai bên, card và trường nhập co
+    trong chiều rộng khả dụng, không xuất hiện cuộn ngang.
+  - Combobox danh mục và dữ liệu tám danh mục hiện hành vẫn hiển thị bình
+    thường sau thay đổi layout.
+
+### QB-RESPONSIVE-001 — Bảng và rich-content Question Bank bị cắt ở màn hình hẹp
+
+- [x] Đã sửa markup/CSS responsive và compile bằng JDK 17.
+- [x] Đã Browser QA route lecturer ở viewport 390×844.
+- [ ] Route review có dữ liệu danh mục cần UAT lại khi bộ môn tạo danh mục đầu
+  tiên; trạng thái rỗng hiện tại đã render bình thường.
+- Mức độ: High.
+- Phạm vi:
+  - `/lecturer/question-bank`
+  - `/leader/question-bank`
+  - trang review/category detail khi có dữ liệu
+- Nguyên nhân gốc:
+  - Bảng `min-width: 720px` nằm trực tiếp trong panel `overflow: hidden`.
+  - Review layout chưa có grid/gap và form inline không wrap ở mobile.
+  - Preview category dùng `th:utext` trong `<span>`, nên HTML block có thể phá
+    line-clamp; `<pre>` và chuỗi dài chưa có cơ chế chống tràn.
+- Bản sửa:
+  - Bọc bảng lecturer, import và review bằng `admin-list-table-scroll`.
+  - Thêm grid review hai cột, tự hạ về một cột; form inline wrap/full-width ở
+    breakpoint mobile.
+  - Thêm `overflow-wrap: anywhere` và cuộn ngang cục bộ cho `<pre>`.
+  - Render preview category bằng plain text `contentPreview`, không nhúng HTML
+    block vào `<span>`.
+- Bằng chứng Browser QA:
+  - Viewport 390×844 cho `clientWidth=375`, `scrollWidth=375`; không có tràn
+    ngang toàn trang.
+  - `.qb-page` giữ gutter trái/phải 14px.
+  - Import wrapper đã có đồng thời `qb-import-table-wrap` và
+    `admin-list-table-scroll`.
+  - Trang LEADER trạng thái rỗng render bình thường sau compile.
+
 ### QB-LEADER-CATALOG-001 — Trang LEADER báo rỗng dù giảng viên có danh mục
 
 - [x] Chốt hướng UX: giải thích cơ chế mirror lười, không tạo dữ liệu bằng GET.
@@ -128,6 +187,174 @@
   chọn dành cho goal `spring-boot:run`.
 - Runtime xác minh: PID Java `15064` giữ nguyên trong phép thử refresh-only.
 
+## E2E lớp học hoàn chỉnh và lỗi phát hiện thêm
+
+### ASGN-LECTURER-FORM-UI-001 — Form tạo bài tập bị ép sát mép
+
+- [x] Đã sửa bằng CSS resource-only.
+- [x] Đã xác minh lại bằng browser desktop và kích thước hẹp.
+- Mức độ: Medium.
+- Route đã tái hiện:
+  `/lecturer/classes/1061/assignments/new`.
+- Hiện tượng:
+  - Form dùng gần như toàn bộ chiều rộng panel, thiếu khoảng đệm.
+  - Hàng điểm tối đa/hạn nộp và cụm nút bị ép sát cạnh.
+- Bản sửa:
+  - Thêm panel riêng có padding co giãn.
+  - Giới hạn cột form ở 840px và căn giữa.
+  - Cho hàng hai cột chuyển thành một cột dưới 720px.
+- Bằng chứng hồi quy:
+  - Desktop: form rộng 840px, nằm giữa panel và có khoảng trống hai bên.
+  - Kích thước hẹp: panel giữ padding 18px, không tràn ngang.
+  - Resource HTML/CSS xuất hiện ngay sau refresh, không restart Maven.
+
+### ASGN-STUDENT-NAV-001 — Bài tập dùng nhầm sidebar giảng viên
+
+- [x] Đã sửa.
+- [x] Đã xác minh toàn bộ danh sách → chi tiết → phản hồi.
+- Mức độ: High.
+- Hiện tượng:
+  - Mục Bài tập trong sidebar học viên bị vô hiệu hóa.
+  - Ba template bài tập lại dùng fragment sidebar giảng viên, làm lộ link quản
+    trị không phù hợp và phá tính nhất quán của luồng học viên.
+- Bản sửa:
+  - Kích hoạt mục Bài tập trong `student-class-sidebar`.
+  - Ba trang học viên dùng chung sidebar học viên và active key
+    `my-classes`.
+- Bằng chứng hồi quy:
+  - `/classes/1061/assignments` tải danh sách và đánh dấu đúng mục Bài tập.
+  - `/classes/1061/assignments/47` tải đúng chi tiết và trạng thái Đã chấm.
+  - `/classes/1061/assignments/47/feedback` tải đúng điểm và nhận xét.
+  - Các link Bài giảng, Bài test và Tin nhắn vẫn là route học viên.
+
+### ASGN-STUDENT-UI-001 — Chi tiết và phản hồi bài tập bị vỡ bố cục
+
+- [x] Đã sửa bằng resource-only, không restart Maven.
+- [x] Đã xác minh trực quan cả ba màn hình tại desktop 1440×900.
+- Mức độ: High.
+- Hiện tượng:
+  - Tiêu đề, metadata và nội dung dính sát cạnh panel.
+  - Sidebar quá hẹp, phần chính kéo edge-to-edge; trang phản hồi mất phân cấp
+    thị giác và các cụm chữ chen sát nhau.
+- Nguyên nhân gốc:
+  - Các template bài tập thiếu `detail-page.css`, trong khi sidebar và layout
+    lớp phụ thuộc các token/layout của stylesheet này.
+  - Panel bài tập không có padding và không giới hạn chiều rộng đọc.
+- Bản sửa:
+  - Tải đủ `detail-page.css`, `class-detail.css`, `student-lessons.css` và
+    `assignments.css` theo đúng thứ tự.
+  - Tạo shell riêng có sidebar 260px, cột nội dung tối đa 1000px và panel có
+    padding/radius.
+  - Bảng danh sách cho phép cuộn ngang ở màn hình nhỏ; breakpoint 900px chuyển
+    sidebar lên trên.
+- Bằng chứng hồi quy:
+  - Danh sách hiển thị đủ sáu cột, không tràn khỏi panel.
+  - Chi tiết hiển thị rõ metadata, yêu cầu và trạng thái bài nộp.
+  - Phản hồi hiển thị `95.00 / 100.00`, nhận xét và nội dung nộp trong các
+    khối riêng, không còn đè/dính chữ.
+
+### ASGN-GRADE-READONLY-001 — Mở trang chấm bài gây lỗi transaction
+
+- [x] Đã sửa nguyên nhân gốc.
+- [x] Đã compile Java 17 và xác minh lại bằng browser.
+- Mức độ: High.
+- Route đã tái hiện:
+  `/lecturer/classes/1061/assignments/47/submissions/15/grade`.
+- Bằng chứng server:
+  - GET chạy trong transaction read-only nhưng repository phát
+    `SELECT ... FOR UPDATE`.
+  - MySQL từ chối câu lệnh ghi khóa trong transaction read-only và trả trang
+    “Đã có lỗi xảy ra”.
+- Bản sửa:
+  - GET chi tiết dùng truy vấn không khóa.
+  - Chuyển khóa bi quan sang transaction `grade()` và giữ thứ tự ổn định:
+    assignment trước, submission sau.
+- Bằng chứng hồi quy:
+  - Trang chấm mở thành công.
+  - Lưu được `95.00/100.00`.
+  - Học viên đọc được nhận xét:
+    “Hoàn thành tốt yêu cầu E2E, dùng đúng ba mẫu câu chào hỏi và giới thiệu.”
+
+### E2E-CLASS-1061 — Bằng chứng luồng giảng viên và học viên
+
+- [x] Giảng viên tạo lớp `#1061`, tên
+  `KSH E2E Complete Flow 2026-07-29`.
+- [x] Học viên vào lớp bằng invite `CA2A4R`; giảng viên phê duyệt thành viên.
+- [x] Tạo chapter `#613` và publish bài giảng `#707`; học viên hoàn thành, trang
+  tiến độ giảng viên ghi nhận 100% (1/1).
+- [x] Tạo và publish bài tập `#47`; học viên nộp submission `#15`; giảng viên
+  chấm 95/100; học viên xem được feedback.
+- [x] Tạo và publish bài test `#96` gồm hai câu MCQ; attempt học viên `#16`
+  đạt 2/2, 2.00/2.00 trong 45 giây; giảng viên xem được bài nộp.
+- [x] Học viên hoàn thành bộ Practice ổn định `/practice/sets/1`, attempt
+  `#66407`, đạt 100/100 và 2/2.
+- Ghi chú:
+  - Mã công khai của lớp là `39JC9`; invite đang hoạt động là `CA2A4R`. Đây là
+    hai khái niệm hiện hữu khác nhau, không phải lỗi dữ liệu.
+  - Không thay đổi AI config, storage config hay logic của `/practice`.
+
+### EXAM-IMAGE-LIFECYCLE-001 — Ảnh soạn đề có thể tồn tại mồ côi hoặc bị cache công khai
+
+- [x] Đã triển khai owner-bound staged upload và transactional claim.
+- [x] Đã harden sanitize/canonical URL, lỗi xoá storage và cache header.
+- [x] Đã Browser QA staged → durable trên bài test thật.
+- [ ] Không chạy focused/full tests theo yêu cầu của chủ dự án.
+- Mức độ: High.
+- Rủi ro đã đóng:
+  - Rich HTML bị sanitizer loại bỏ không còn tạo durable object mồ côi.
+  - Foreign-host, percent-encoded, non-image và staged reference còn sót đều bị
+    từ chối.
+  - Lỗi xoá ở local/R2 không còn bị nuốt; cleanup giữ retry trong bộ nhớ.
+  - `/uploads/exams/staged-*` dùng `Cache-Control: private, no-store`.
+- Bằng chứng browser:
+  - Trước save, test `#97` dùng nguồn
+    `/uploads/exams/staged-3-1785321814407-….png`.
+  - Sau save và mở lại `/lecturer/tests/97/edit`, nguồn đã thành
+    `/uploads/exams/d6c2e725-96f7-415b-85b5-82194816b250.png`.
+  - Preview, edit, monitor và submissions của cụm test không phát sinh trang
+    “Đã có lỗi xảy ra”.
+- Giới hạn còn lại:
+  - Retry xoá hiện chỉ bền trong vòng đời JVM. Muốn chống mất retry khi process
+    crash cần outbox/queue persistent và migration, đang được hoãn theo phạm vi.
+
+### PRACTICE-DEV-DATA-HYGIENE-001 — Dữ liệu fixture Practice quá nhiều
+
+- [ ] Cần dọn/phân loại ở đợt Practice riêng.
+- Mức độ: Low trong môi trường dev.
+- Quan sát: trang Practice hiển thị khoảng 218 bộ, gồm nhiều tên fixture kiểm
+  thử như `Speaking Media ...`.
+- Không xử lý trong đợt này để giữ nguyên phạm vi loại trừ Practice.
+
+### MSG-RECIPIENT-ROSTER-001 — Soạn tin không tải đủ người nhận
+
+- [x] Đã sửa đồng bộ danh sách và quyền tạo hội thoại.
+- [x] Đã xác minh bằng browser với STUDENT, LECTURER và ADMIN.
+- Mức độ: High.
+- Route: `/my/messages/new`.
+- Hiện tượng:
+  - STUDENT chỉ thấy giảng viên của lớp đang tham gia.
+  - LECTURER/LEADER chỉ thấy học viên của lớp do mình dạy.
+  - ADMIN nhận danh sách rỗng.
+- Nguyên nhân gốc:
+  - Controller và template đã render toàn bộ kết quả; JavaScript chỉ lọc nhanh
+    các dòng hiện hữu.
+  - `MessagingAccess` cố ý giới hạn cả roster lẫn POST theo quan hệ cùng lớp.
+- Bản sửa:
+  - STUDENT thấy mọi tài khoản STUDENT, LECTURER và LEADER hợp lệ.
+  - LECTURER, LEADER và ADMIN thấy mọi role hợp lệ trong hệ thống.
+  - Luôn loại chính người gửi, tài khoản inactive, locked và soft-deleted.
+  - Dùng cùng một ma trận role cho danh sách và `POST /my/messages/new`, tránh
+    hiện người nhận nhưng bấm vào lại 404.
+- Bằng chứng browser:
+  - STUDENT thấy tám học sinh khác, LECTURER và LEADER; không thấy ADMIN.
+  - LECTURER thấy học sinh, LEADER và ADMIN; không thấy chính mình.
+  - ADMIN thấy toàn bộ 11 tài khoản hợp lệ còn lại.
+  - Tìm `sv08` chỉ còn đúng `Bùi Tuấn Khang — sv08@ksh.edu.vn`.
+- Ghi chú production:
+  - Yêu cầu này mở rộng Tin nhắn từ quan hệ lớp thành danh bạ hệ thống.
+  - Với dữ liệu lớn nên chuyển sang tìm kiếm phân trang phía server; hiện tại
+    danh sách đầy đủ vẫn được render vào HTML theo đúng yêu cầu sản phẩm.
+
 ## Quan sát cần theo dõi
 
 ### PRACTICE-DEADLINE-RETRY-001 — Hai lượt deadline được lên lịch retry
@@ -174,6 +401,10 @@
 - [x] Browser regression cho các lỗi đã sửa.
 - [x] 13/13 kiểm tra mục tiêu DB-free đạt; `node --check` và `git diff --check`
   đạt. Không chạy full suite theo yêu cầu.
+- [x] Nhóm follow-up hiện tại compile thành công bằng
+  `.\mvnw.cmd -q -DskipTests compile`; `git diff --check` đạt.
+- [ ] Không chạy test focused/full-suite cho nhóm follow-up hiện tại theo yêu
+  cầu; hành vi khóa đồng thời trên kết nối DB thật vẫn chưa được xác minh.
 - [x] Server-log sweep cuối: không có `ERROR`, exception, 403 hay lỗi template
   mới; chỉ còn hai warning platform đã ghi ở trên.
 - [x] Giữ nguyên phạm vi loại trừ: mật khẩu demo `123456`, migration chain và

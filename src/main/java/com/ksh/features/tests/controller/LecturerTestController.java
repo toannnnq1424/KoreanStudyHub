@@ -260,9 +260,10 @@ public class LecturerTestController {
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadImage(@RequestParam("file") MultipartFile file,
+                                         @AuthenticationPrincipal KshUserDetails user) {
         try {
-            String url = examImageStorage.store(file);
+            String url = examImageStorage.store(user.getId(), file);
             return ResponseEntity.ok(AjaxResult.success(Map.of("url", url)));
         } catch (IllegalArgumentException ex) {
             return badRequest(ex.getMessage());

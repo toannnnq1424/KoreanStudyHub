@@ -137,7 +137,7 @@
                 </td>
                 <td>
                   <span class="qb-type-badge" th:text="${item.questionType()}">MCQ</span>
-                  <span class="qb-row-preview" th:utext="${item.content()}">Nội dung</span>
+                  <span class="qb-row-preview" th:text="${item.contentPreview()}">Nội dung</span>
                   <span class="qb-row-sub">
                     <span th:text="${item.contributorName()}">GV</span> ·
                     <span th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM') : '—'}">—</span>
