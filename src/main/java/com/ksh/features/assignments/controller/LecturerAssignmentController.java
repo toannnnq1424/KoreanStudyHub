@@ -5,7 +5,7 @@ import com.ksh.features.assignments.dto.AssignmentDtos.AssignmentForm;
 import com.ksh.features.assignments.dto.AssignmentDtos.GradeForm;
 import com.ksh.features.assignments.service.LecturerAssignmentService;
 import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
-import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.service.ClassesService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -39,14 +39,14 @@ import static com.ksh.common.IConstant.*;
 public class LecturerAssignmentController {
 
     private final LecturerAssignmentService assignmentService;
-    private final ClassRepository classRepository;
+    private final ClassesService classesService;
     private final ClassDetailModelSupport modelSupport;
 
     public LecturerAssignmentController(LecturerAssignmentService assignmentService,
-                                        ClassRepository classRepository,
+                                        ClassesService classesService,
                                         ClassDetailModelSupport modelSupport) {
         this.assignmentService = assignmentService;
-        this.classRepository = classRepository;
+        this.classesService = classesService;
         this.modelSupport = modelSupport;
     }
 
@@ -55,13 +55,13 @@ public class LecturerAssignmentController {
      * does not exist or does not belong to the authenticated lecturer.
      */
     private ClassEntity loadClass(Long classId, Long userId, com.ksh.security.Role role) {
-        ClassEntity clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        // Ownership check: ADMIN and LEADER may view any class; LECTURER only their own.
-        if (role == com.ksh.security.Role.LECTURER && !userId.equals(clazz.getLecturerId())) {
+        try {
+            return classesService.getViewable(classId, userId, role);
+        } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        } catch (org.springframework.security.access.AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
-        return clazz;
     }
 
     // ── List ──────────────────────────────────────────────────────────────

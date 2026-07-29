@@ -1,12 +1,8 @@
-/* LEADER department screens — flash → toast drain.
-   The data-flash-drained guard is shared with question-bank.js so pages that
-   load both scripts drain the flash only once. */
+/* LEADER department screens — page behaviour.
+ *
+ * Server flash payloads are drained centrally by notifications.js. This file
+ * intentionally has no behaviour left; templates keep loading it so future
+ * LEADER-only behaviour has a stable home. */
 (function () {
   'use strict';
-  var flashData = document.getElementById('flash-data');
-  if (flashData && !flashData.dataset.flashDrained && window.KshToast) {
-    flashData.dataset.flashDrained = '1';
-    if (flashData.dataset.flashSuccess) window.KshToast.success(flashData.dataset.flashSuccess);
-    if (flashData.dataset.flashError) window.KshToast.error(flashData.dataset.flashError);
-  }
 })();

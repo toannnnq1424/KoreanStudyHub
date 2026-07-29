@@ -25,6 +25,8 @@
   var statusEl = panel.querySelector('[data-role="status"]');
   var composer = panel.querySelector('[data-role="composer"]');
   var composerInput = panel.querySelector('[data-role="input"]');
+  var composerSubmit = composer ? composer.querySelector('[type="submit"]') : null;
+  var composerSubmitting = false;
 
   // Load-more pagination state: current root page + whether more roots exist.
   var currentPage = 0;
@@ -177,10 +179,19 @@
   if (composer) {
     composer.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (composerSubmitting) return;
       var val = (composerInput.value || '').trim();
       if (!val) { if (window.KshToast) window.KshToast.error(MSG_CONTENT_REQUIRED); return; }
+      composerSubmitting = true;
+      if (composerSubmit) composerSubmit.disabled = true;
       mutate(api('POST', base, { content: val }), 'Đã gửi bình luận').then(function () {
         composerInput.value = '';
+      }, function () {
+        // mutate() already displayed the error. Keep the draft intact so the
+        // author can retry without retyping it.
+      }).then(function () {
+        composerSubmitting = false;
+        if (composerSubmit) composerSubmit.disabled = false;
       });
     });
   }

@@ -629,7 +629,7 @@ class SpeakingPromptAuthoringUiContractTest {
         List<Path> learnerFiles = Files.walk(Path.of("src/main/resources"))
                 .filter(Files::isRegularFile)
                 .filter(path -> {
-                    String value = path.toString();
+                    String value = path.toString().replace('\\', '/');
                     return value.contains("/templates/practice/player")
                             || value.contains("/static/js/practice/player");
                 })

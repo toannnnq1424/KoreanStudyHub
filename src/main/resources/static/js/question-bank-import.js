@@ -15,6 +15,8 @@
   var confirmButton = document.getElementById('qb-import-confirm');
   var resetButton = document.getElementById('qb-import-reset');
   var preview = null;
+  var previewGeneration = 0;
+  var previewController = null;
   var csrfToken = document.querySelector('meta[name="_csrf"]');
   var csrfHeader = document.querySelector('meta[name="_csrf_header"]');
   var IMPORT_BASE = '/lecturer/question-bank/import';
@@ -29,7 +31,16 @@
   resetButton.addEventListener('click', resetState);
   confirmButton.addEventListener('click', confirmImport);
 
+  function invalidatePreviewRequest() {
+    previewGeneration += 1;
+    if (previewController) {
+      previewController.abort();
+      previewController = null;
+    }
+  }
+
   function resetState() {
+    invalidatePreviewRequest();
     fileInput.value = '';
     preview = null;
     confirmButton.disabled = true;
@@ -42,8 +53,24 @@
   }
 
   function uploadPreview(file) {
+    invalidatePreviewRequest();
+    var requestGeneration = previewGeneration;
+    var controller = typeof window.AbortController === 'function'
+        ? new window.AbortController()
+        : null;
+    previewController = controller;
+
+    function isCurrentPreview() {
+      return requestGeneration === previewGeneration
+          && (!controller || previewController === controller);
+    }
+
     var formData = new FormData();
     formData.append('file', file);
+    var headers = {};
+    if (csrfToken && csrfHeader && csrfToken.content && csrfHeader.content) {
+      headers[csrfHeader.content] = csrfToken.content;
+    }
     panel.hidden = false;
     loading.hidden = false;
     errorBox.hidden = true;
@@ -52,12 +79,17 @@
     summary.innerHTML = '';
     rowsBody.innerHTML = '';
 
-    fetch(IMPORT_BASE + '/preview', {
+    var requestInit = {
       method: 'POST',
       body: formData,
+      headers: headers,
       credentials: 'same-origin'
-    }).then(readJson)
+    };
+    if (controller) requestInit.signal = controller.signal;
+
+    fetch(IMPORT_BASE + '/preview', requestInit).then(readJson)
       .then(function (result) {
+        if (!isCurrentPreview()) return;
         loading.hidden = true;
         if (!result.ok) {
           throw new Error(result.error || 'Không thể xem trước file import');
@@ -66,11 +98,15 @@
         renderPreview(result.data);
       })
       .catch(function (error) {
+        if (!isCurrentPreview() || (error && error.name === 'AbortError')) return;
         preview = null;
         confirmButton.disabled = true;
         errorBox.hidden = false;
         errorBox.textContent = error.message || 'Không thể xem trước file import';
         window.KshToast.error(errorBox.textContent);
+      })
+      .finally(function () {
+        if (isCurrentPreview()) previewController = null;
       });
   }
 

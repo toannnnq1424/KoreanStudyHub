@@ -41,6 +41,7 @@ class StudentLessonsServiceTest {
     @Autowired private EntityManager entityManager;
 
     private User lecturer;
+    private User leader;
     private User student;
     private ClassEntity clazz;
     private Section section1;
@@ -49,6 +50,7 @@ class StudentLessonsServiceTest {
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
+        leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         student = ensureUser("student-lessons@ksh.edu.vn", "Student Lessons");
         clazz = saveClass("Student lessons class", "STLSN1");
         section1 = sectionRepository.saveAndFlush(new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
@@ -109,11 +111,11 @@ class StudentLessonsServiceTest {
     }
 
     @Test
-    void leader_not_enrolled_can_list() {
+    void same_department_leader_not_enrolled_can_list() {
         Lesson pub = persistLesson(section1.getId(), "Bài 1", (short) 0, true);
 
         ClassLessonsView view = studentLessonsService
-                .listClassLessons(clazz.getId(), student.getId(), Role.LEADER);
+                .listClassLessons(clazz.getId(), leader.getId(), Role.LEADER);
 
         assertThat(view.classId()).isEqualTo(clazz.getId());
         assertThat(view.sections().get(0).lessons())
@@ -232,6 +234,7 @@ class StudentLessonsServiceTest {
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
+        entity.setDepartmentId(lecturer.getDepartmentId());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

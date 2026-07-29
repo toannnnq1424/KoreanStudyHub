@@ -12,9 +12,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HexFormat;
 
 /**
  * Handles the forgot-password flow: generates a single-use reset token, sends the
@@ -26,12 +29,9 @@ import java.util.Base64;
  * <p>Mail sending is best-effort: {@link MailService#send} returns {@code false}
  * when SMTP is not configured (i.e. {@code smtp.host} is empty in
  * {@code system_settings}) or when delivery fails. In both cases a warning is
- * logged at {@code WARN} level <em>without</em> the token, and the reset link is
- * logged separately at {@code DEBUG} so developers can enable it locally when
- * testing the workflow. The token is <strong>never</strong> emitted at
- * {@code INFO} or {@code WARN} level because those levels are typically collected
- * by log aggregators (Graylog, Loki, CloudWatch) — a leaked token equals account
- * takeover.
+ * logged without the recipient or reset link. Raw tokens are sent only through
+ * the requested email and only their SHA-256 digests are persisted. Typical
+ * application logs therefore contain no reusable password-reset credential.
  */
 @Service
 public class PasswordRecoveryService {
@@ -46,17 +46,20 @@ public class PasswordRecoveryService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final PasswordResetRequestThrottle requestThrottle;
     private final String baseUrl;
 
     public PasswordRecoveryService(UserRepository userRepository,
                                    PasswordResetTokenRepository tokenRepository,
                                    PasswordEncoder passwordEncoder,
                                    MailService mailService,
+                                   PasswordResetRequestThrottle requestThrottle,
                                    @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.requestThrottle = requestThrottle;
         this.baseUrl = baseUrl;
     }
 
@@ -65,24 +68,26 @@ public class PasswordRecoveryService {
      *
      * <p>If the email is not found the method returns silently, giving no
      * indication to the caller that the address is absent (enumeration-safe).
-     * When SMTP is unavailable or the send fails, the reset link is logged at
-     * {@code DEBUG} level only — see class-level Javadoc for the security
-     * rationale.
+     * When SMTP is unavailable or the send fails, neither the recipient nor the
+     * bearer-token reset link is written to application logs.
      *
      * @param email the email address of the account whose password should be reset
      */
     @Transactional
-    public void requestReset(String email) {
+    public void requestReset(String email, String clientIp) {
+        if (!requestThrottle.allow(email, clientIp)) {
+            return;
+        }
         var userOpt = userRepository.findByEmailIgnoreCase(email);
         if (userOpt.isEmpty()) {
-            log.info("Forgot-password requested for unknown email: {}", email);
             return; // silent — neutral response to avoid user enumeration
         }
 
         User user = userOpt.get();
+        tokenRepository.invalidateUnusedForUser(user.getId(), LocalDateTime.now());
         String rawToken = generateToken();
         PasswordResetToken entity = new PasswordResetToken(
-                user, rawToken, LocalDateTime.now().plusHours(TOKEN_TTL_HOURS));
+                user, digestToken(rawToken), LocalDateTime.now().plusHours(TOKEN_TTL_HOURS));
 
         tokenRepository.save(entity);
 
@@ -97,13 +102,8 @@ public class PasswordRecoveryService {
         boolean sent = mailService.send(user.getEmail(),
                 "KSH Password Reset", body);
         if (!sent) {
-            // SMTP is not configured or the send failed. Log at WARN without the
-            // token (WARN is typically collected by log aggregators). The reset
-            // link is logged at DEBUG only so developers can enable it locally
-            // without leaking tokens in production.
-            log.warn("Password-reset email NOT sent to {} (SMTP not configured or send failed). "
-                    + "Token logged at DEBUG level.", user.getEmail());
-            log.debug("Password-reset link for {}: {}", user.getEmail(), link);
+            // Keep both the recipient and bearer-token reset link out of logs.
+            log.warn("Password-reset email was not sent (SMTP unavailable or delivery failed)");
         }
     }
 
@@ -123,7 +123,7 @@ public class PasswordRecoveryService {
      *         is invalid, expired, or already used
      */
     public User validateToken(String rawToken) {
-        var opt = tokenRepository.findByToken(rawToken);
+        var opt = findToken(rawToken);
         if (opt.isEmpty()) {
             return null;
         }
@@ -148,7 +148,7 @@ public class PasswordRecoveryService {
      */
     @Transactional
     public boolean resetPassword(String rawToken, String newPassword) {
-        var opt = tokenRepository.findByToken(rawToken);
+        var opt = findTokenForUpdate(rawToken);
         if (opt.isEmpty()) {
             return false;
         }
@@ -171,5 +171,31 @@ public class PasswordRecoveryService {
         byte[] bytes = new byte[TOKEN_BYTES];
         RNG.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private java.util.Optional<PasswordResetToken> findToken(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        var digested = tokenRepository.findByToken(digestToken(rawToken));
+        return digested.isPresent() ? digested : tokenRepository.findByToken(rawToken);
+    }
+
+    private java.util.Optional<PasswordResetToken> findTokenForUpdate(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        var digested = tokenRepository.findByTokenForUpdate(digestToken(rawToken));
+        return digested.isPresent() ? digested : tokenRepository.findByTokenForUpdate(rawToken);
+    }
+
+    static String digestToken(String rawToken) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
 }

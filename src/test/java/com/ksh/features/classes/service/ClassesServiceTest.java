@@ -60,6 +60,7 @@ class ClassesServiceTest {
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
     private UserRepository userRepository;
+    private ClassRoleAccessPolicy accessPolicy;
     private ClassesService service;
 
     @BeforeEach
@@ -70,9 +71,18 @@ class ClassesServiceTest {
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
         userRepository = mock(UserRepository.class);
+        accessPolicy = mock(ClassRoleAccessPolicy.class);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
+        when(accessPolicy.canAccess(any(), any(), any())).thenAnswer(invocation -> {
+            ClassEntity clazz = invocation.getArgument(0);
+            Long userId = invocation.getArgument(1);
+            Role role = invocation.getArgument(2);
+            return role == Role.ADMIN
+                    || (role == Role.LECTURER && userId.equals(clazz.getLecturerId()))
+                    || role == Role.LEADER;
+        });
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository);
+                codeGenerator, inviteCodeService, userRepository, accessPolicy);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -93,9 +103,10 @@ class ClassesServiceTest {
     }
 
     @Test
-    void list_for_leader_returns_all() {
+    void list_for_leader_returns_only_resolved_department() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(classRepository.findAllBy(any(Pageable.class)))
+        when(accessPolicy.leaderDepartmentId(LEADER_ID)).thenReturn(Optional.of(12L));
+        when(classRepository.findAllByDepartmentId(eq(12L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(
                         List.of(buildClass(1L, "A", LECTURER_ID), buildClass(2L, "B", OTHER_LECTURER_ID)),
                         pageable, 2));
@@ -104,6 +115,7 @@ class ClassesServiceTest {
 
         assertThat(rows.getContent()).hasSize(2);
         verify(classRepository, never()).findAllByLecturerId(any(), any(Pageable.class));
+        verify(classRepository, never()).findAllBy(any(Pageable.class));
     }
 
     @Test
@@ -160,14 +172,11 @@ class ClassesServiceTest {
     }
 
     @Test
-    void create_retries_when_code_collision_then_succeeds() {
+    void create_skips_preexisting_code_before_single_flush() {
         when(codeGenerator.generate()).thenReturn("DUPED", "NILXM");
-
-        DataIntegrityViolationException collision = new DataIntegrityViolationException(
-                "Duplicate key",
-                new RuntimeException("Duplicate entry 'DUPED' for key 'classes.uk_classes_code'"));
+        when(classRepository.countAnyByCode("DUPED")).thenReturn(1L);
+        when(classRepository.countAnyByCode("NILXM")).thenReturn(0L);
         when(classRepository.saveAndFlush(any(ClassEntity.class)))
-                .thenThrow(collision)
                 .thenAnswer(inv -> {
                     ClassEntity e = inv.getArgument(0);
                     ReflectionTestUtils.setField(e, "id", 101L);
@@ -178,7 +187,7 @@ class ClassesServiceTest {
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
-        verify(classRepository, times(2)).saveAndFlush(any(ClassEntity.class));
+        verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter).write(eq(101L), eq(ClassActivity.TYPE_CREATED),
                 any(), eq(LECTURER_ID));
     }
@@ -204,20 +213,16 @@ class ClassesServiceTest {
     }
 
     @Test
-    void create_throws_after_three_collisions() {
+    void create_throws_after_three_preexisting_codes_without_flushing() {
         when(codeGenerator.generate()).thenReturn("A", "B", "C");
-
-        DataIntegrityViolationException collision = new DataIntegrityViolationException(
-                "x",
-                new RuntimeException("Duplicate entry for key 'uk_classes_code'"));
-        when(classRepository.saveAndFlush(any(ClassEntity.class))).thenThrow(collision);
+        when(classRepository.countAnyByCode(any())).thenReturn(1L);
 
         ClassForm form = new ClassForm("Java", "x", null, null, 100);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(ClassCodeGenerationException.class);
 
-        verify(classRepository, times(3)).saveAndFlush(any(ClassEntity.class));
+        verify(classRepository, never()).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
         verify(inviteCodeService, never()).provisionDefaults(any(), any());
@@ -268,7 +273,7 @@ class ClassesServiceTest {
     }
 
     @Test
-    void update_by_leader_succeeds_for_any_class() {
+    void update_by_leader_succeeds_whenPolicyAdmitsDepartment() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));

@@ -2,7 +2,8 @@
  * notifications.js — bell badge polling + Facebook-style dropdown panel.
  *
  * Responsibilities:
- *  1. Drain #flash-data into KshToast when present.
+ *  1. Drain #flash-data into KshToast when present. This file is the single
+ *     owner for non-Practice pages that include fragments/app-header.html.
  *  2. Poll /my/notifications/unread-count every 60s for the header badge.
  *  3. Load recent items into the bell dropdown on open.
  *  4. Open a notification via AJAX mark-read, then navigate to its target.

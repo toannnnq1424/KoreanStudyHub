@@ -768,3 +768,13 @@ from newly created source/resource files reported by `git diff --check`; no
 runtime or test behavior changed. This live journal is the final documentation
 commit. One push, the feature-targeted PR, merge commit, and ancestry/tree
 verification remain pending.
+
+## 11. Migration reconciliation note — 2026-07-29
+
+This journal truthfully records the historical validation snapshot in which
+the unpublished Practice integrity migration was named V58. Before integration
+with independently advanced main, that exact 4,413-byte SQL payload was renamed
+to `V62__practice_attempt_integrity_gate.sql`. Its SHA-256 is unchanged at
+`b01c99a66c49822b1887cff2f62ac2c424e51feee6ebb3ee5eefc0ee244a6629`.
+Historical test counts and V58 evidence above are not rewritten. Main's own
+V57-V60 migrations remain untouched.

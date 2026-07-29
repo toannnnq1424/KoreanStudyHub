@@ -41,6 +41,8 @@
     classTotalPages: 0,
     classQ: '',
     binding: false,
+    checking: false,
+    requestGeneration: 0,
     plan: null
   };
 
@@ -173,18 +175,18 @@
     var back = el('libraryAttachBack');
     var next = el('libraryAttachNext');
     var finish = el('libraryAttachFinish');
-    if (back) back.hidden = state.step === STEP_CLASS || state.binding;
+    if (back) back.hidden = state.step === STEP_CLASS || state.binding || state.checking;
     if (next) {
-      next.hidden = state.step === finalStep() || state.binding;
-      next.disabled = !canAdvance() || state.binding;
+      next.hidden = state.step === finalStep() || state.binding || state.checking;
+      next.disabled = !canAdvance() || state.binding || state.checking;
     }
     if (finish) {
       finish.hidden = state.step !== finalStep();
       if (state.multi) {
         var hasJobs = state.plan && state.plan.jobs && state.plan.jobs.length > 0;
-        finish.disabled = !hasJobs || state.binding;
+        finish.disabled = !hasJobs || state.binding || state.checking;
       } else {
-        finish.disabled = !state.role || state.binding;
+        finish.disabled = !state.role || state.binding || state.checking;
       }
     }
   }
@@ -465,24 +467,34 @@
   }
 
   function loadClasses() {
+    var generation = ++state.requestGeneration;
+    var page = state.classPage;
+    var query = state.classQ || '';
     bodyLoading('Đang tải danh sách lớp…');
-    var url = TARGETS + '/classes?page=' + encodeURIComponent(state.classPage) +
-      '&size=12&q=' + encodeURIComponent(state.classQ || '');
+    var url = TARGETS + '/classes?page=' + encodeURIComponent(page) +
+      '&size=12&q=' + encodeURIComponent(query);
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (res) {
         if (!res.ok) throw new Error('load classes failed');
         return res.json();
       })
-      .then(renderClassList)
+      .then(function (result) {
+        if (!state.open || generation !== state.requestGeneration ||
+            state.step !== STEP_CLASS || page !== state.classPage || query !== state.classQ) return;
+        renderClassList(result);
+      })
       .catch(function () {
+        if (!state.open || generation !== state.requestGeneration) return;
         bodyError('Không tải được danh sách lớp.');
         setStepChrome();
       });
   }
 
   function loadSections() {
+    var generation = ++state.requestGeneration;
+    var classId = state.classId;
     bodyLoading('Đang tải chương…');
-    var url = TARGETS + '/classes/' + encodeURIComponent(state.classId) + '/sections';
+    var url = TARGETS + '/classes/' + encodeURIComponent(classId) + '/sections';
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (res) {
         if (res.status === 403 || res.status === 404) throw new Error('forbidden');
@@ -490,6 +502,8 @@
         return res.json();
       })
       .then(function (items) {
+        if (!state.open || generation !== state.requestGeneration ||
+            state.step !== STEP_SECTION || String(classId) !== String(state.classId)) return;
         // Backend auto-creates "Chương 1" when empty; pre-select sole section.
         if (items && items.length === 1 && !state.sectionId) {
           state.sectionId = items[0].id;
@@ -513,15 +527,19 @@
         );
       })
       .catch(function () {
+        if (!state.open || generation !== state.requestGeneration) return;
         bodyError('Không tải được danh sách chương.');
         setStepChrome();
       });
   }
 
   function loadLessons() {
+    var generation = ++state.requestGeneration;
+    var classId = state.classId;
+    var sectionId = state.sectionId;
     bodyLoading('Đang tải bài giảng…');
-    var url = TARGETS + '/classes/' + encodeURIComponent(state.classId) +
-      '/sections/' + encodeURIComponent(state.sectionId) + '/lessons';
+    var url = TARGETS + '/classes/' + encodeURIComponent(classId) +
+      '/sections/' + encodeURIComponent(sectionId) + '/lessons';
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (res) {
         if (res.status === 403 || res.status === 404) throw new Error('forbidden');
@@ -529,6 +547,9 @@
         return res.json();
       })
       .then(function (items) {
+        if (!state.open || generation !== state.requestGeneration ||
+            state.step !== STEP_LESSON || String(classId) !== String(state.classId) ||
+            String(sectionId) !== String(state.sectionId)) return;
         renderSimpleList(
           items,
           state.lessonId,
@@ -550,6 +571,7 @@
         );
       })
       .catch(function () {
+        if (!state.open || generation !== state.requestGeneration) return;
         bodyError('Không tải được danh sách bài giảng.');
         setStepChrome();
       });
@@ -719,24 +741,35 @@
       doBind();
       return;
     }
+    var generation = ++state.requestGeneration;
+    var classId = state.classId;
+    var sectionId = state.sectionId;
+    var lessonId = state.lessonId;
+    var role = state.role;
+    state.checking = true;
     var finish = el('libraryAttachFinish');
     if (finish) {
       finish.disabled = true;
       finish.textContent = 'Đang kiểm tra…';
     }
     fetchContentSummary().then(function (summary) {
+      if (!state.open || generation !== state.requestGeneration ||
+          String(classId) !== String(state.classId) ||
+          String(sectionId) !== String(state.sectionId) ||
+          String(lessonId) !== String(state.lessonId) || role !== state.role) return;
+      state.checking = false;
       if (finish) finish.textContent = 'Gắn vào bài';
       setStepChrome();
       var needsReplace = false;
       var bodyMsg = '';
-      if (state.role === ROLE_MAIN_PDF && summary && summary.hasMainPdf) {
+      if (role === ROLE_MAIN_PDF && summary && summary.hasMainPdf) {
         needsReplace = true;
         bodyMsg = MSG_REPLACE_PDF;
         if (summary.pdfFilename) {
           bodyMsg += ' (hiện tại: ' + summary.pdfFilename + ')';
         }
       }
-      if (state.role === ROLE_MAIN_VIDEO && summary && summary.hasUploadedVideo) {
+      if (role === ROLE_MAIN_VIDEO && summary && summary.hasUploadedVideo) {
         needsReplace = true;
         bodyMsg = MSG_REPLACE_VIDEO;
       }
@@ -744,7 +777,9 @@
         doBind();
         return;
       }
-      function proceed() { doBind(); }
+      function proceed() {
+        if (generation === state.requestGeneration && state.open) doBind();
+      }
       if (window.KshModal && typeof window.KshModal.confirm === 'function') {
         window.KshModal.confirm({
           title: 'Thay thế nội dung?',
@@ -766,6 +801,11 @@
       return;
     }
 
+    var generation = ++state.requestGeneration;
+    var classId = state.classId;
+    var sectionId = state.sectionId;
+    var lessonId = state.lessonId;
+    state.checking = true;
     var finish = el('libraryAttachFinish');
     if (finish) {
       finish.disabled = true;
@@ -775,6 +815,7 @@
     var needsPdfCheck = plan.hasMainPdf;
     var needsVideoCheck = plan.hasMainVideo;
     if (!needsPdfCheck && !needsVideoCheck) {
+      state.checking = false;
       if (finish) finish.textContent = 'Gắn vào bài';
       setStepChrome();
       doBindMany();
@@ -782,6 +823,11 @@
     }
 
     fetchContentSummary().then(function (summary) {
+      if (!state.open || generation !== state.requestGeneration ||
+          String(classId) !== String(state.classId) ||
+          String(sectionId) !== String(state.sectionId) ||
+          String(lessonId) !== String(state.lessonId)) return;
+      state.checking = false;
       if (finish) finish.textContent = 'Gắn vào bài';
       setStepChrome();
 
@@ -803,7 +849,9 @@
       }
 
       var bodyMsg = parts.join(' ');
-      function proceed() { doBindMany(); }
+      function proceed() {
+        if (generation === state.requestGeneration && state.open) doBindMany();
+      }
       if (window.KshModal && typeof window.KshModal.confirm === 'function') {
         window.KshModal.confirm({
           title: 'Thay thế nội dung?',
@@ -831,6 +879,8 @@
     state.classTotalPages = 0;
     state.classQ = '';
     state.binding = false;
+    state.checking = false;
+    state.requestGeneration += 1;
     state.plan = null;
   }
 
@@ -881,7 +931,9 @@
     // Ignore close while binding so partial loop is not abandoned mid-flight.
     if (state.binding) return;
     state.open = false;
+    state.requestGeneration += 1;
     state.binding = false;
+    state.checking = false;
     state.multi = false;
     state.plan = null;
     var modal = el('libraryAttachWizard');
@@ -896,7 +948,7 @@
   }
 
   function goNext() {
-    if (state.binding || !canAdvance()) return;
+    if (state.binding || state.checking || !canAdvance()) return;
     if (state.step === STEP_CLASS) state.step = STEP_SECTION;
     else if (state.step === STEP_SECTION) state.step = STEP_LESSON;
     else if (state.step === STEP_LESSON) state.step = finalStep();
@@ -904,7 +956,8 @@
   }
 
   function goBack() {
-    if (state.binding) return;
+    if (state.binding || state.checking) return;
+    state.requestGeneration += 1;
     if (state.step === STEP_SECTION) {
       state.step = STEP_CLASS;
       state.sectionId = null;

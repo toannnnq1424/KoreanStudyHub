@@ -74,10 +74,12 @@ public final class MessagingDtos {
      *
      * @param convId      conversation the message belongs to
      * @param senderName  the sender's display name
-     * @param snippet     short preview of the message body
+     * @param snippet     bounded preview for conversation lists and notifications
+     * @param fullBody    exact persisted body for an already-open conversation
      * @param unreadTotal the recipient's new total unread count
      */
-    public record PushPayload(Long convId, String senderName, String snippet, long unreadTotal) {
+    public record PushPayload(Long convId, String senderName, String snippet,
+                              String fullBody, long unreadTotal) {
     }
 
     /**

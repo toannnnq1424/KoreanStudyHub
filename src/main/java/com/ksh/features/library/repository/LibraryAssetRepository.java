@@ -4,10 +4,12 @@ import com.ksh.entities.LibraryAsset;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 
 /**
  * Spring Data repository for {@link LibraryAsset}. Soft-deleted rows are
@@ -17,6 +19,15 @@ public interface LibraryAssetRepository extends JpaRepository<LibraryAsset, Long
 
     /** Owner-scoped lookup; returns empty for other owners or soft-deleted rows. */
     Optional<LibraryAsset> findByIdAndOwnerId(Long id, Long ownerId);
+
+    /** Serializes reference creation against owner-scoped asset deletion. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT a FROM LibraryAsset a
+            WHERE a.id = :id AND a.ownerId = :ownerId
+            """)
+    Optional<LibraryAsset> findByIdAndOwnerIdForUpdate(@Param("id") Long id,
+                                                       @Param("ownerId") Long ownerId);
 
     /**
      * Lists the owner's assets with optional kind filter and case-insensitive

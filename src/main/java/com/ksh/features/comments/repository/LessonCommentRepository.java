@@ -4,6 +4,10 @@ import com.ksh.entities.Comment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,6 +21,16 @@ import java.util.List;
  * ROOT page query, by contrast, excludes deleted roots on purpose (see below).
  */
 public interface LessonCommentRepository extends JpaRepository<Comment, Long> {
+
+    /** Owner-scoped mutation lookup serialized across edit/delete/moderation. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT c FROM Comment c
+            WHERE c.id = :commentId AND c.lessonId = :lessonId
+            """)
+    java.util.Optional<Comment> findByIdAndLessonIdForUpdate(
+            @Param("commentId") Long commentId,
+            @Param("lessonId") Long lessonId);
 
     /**
      * Returns one page of APPROVED, NON-deleted ROOT comments (parent_id IS NULL)

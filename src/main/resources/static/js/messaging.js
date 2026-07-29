@@ -82,6 +82,27 @@
     if (errorEl) { errorEl.textContent = ''; errorEl.hidden = true; }
   }
 
+  function csrfHeaders() {
+    var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+    var token = meta('_csrf'), header = meta('_csrf_header');
+    if (token && header) headers[header] = token;
+    return headers;
+  }
+
+  function markOpenConversationRead() {
+    if (!openConvId || typeof window.fetch !== 'function') return Promise.resolve();
+    return fetch('/my/messages/' + encodeURIComponent(openConvId) + '/read', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: csrfHeaders()
+    }).then(function (response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    }).then(function (data) {
+      if (data && typeof data.count !== 'undefined') setBadge(data.count);
+    });
+  }
+
   if (composer && input && openConvId) {
     var sending = false;
     composer.addEventListener('submit', function (e) {
@@ -140,13 +161,9 @@
         if (typeof payload.unreadTotal !== 'undefined') setBadge(payload.unreadTotal);
         // If the pushed message belongs to the open thread, append + mark read.
         if (openConvId && String(payload.convId) === String(openConvId)) {
-          appendMessage(payload.snippet, false);
-          // Opening/being-in the thread means it is read; drop the badge again
-          // by asking the server for the fresh total (the message we just
-          // appended is unread server-side until the next open).
-          fetch('/my/messages/unread-count', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && typeof d.count !== 'undefined') setBadge(d.count); })
+          appendMessage(payload.fullBody, false);
+          // Persist read state before replacing the pushed badge total.
+          markOpenConversationRead()
             .catch(function () { /* badge stays as pushed total */ });
         }
       });

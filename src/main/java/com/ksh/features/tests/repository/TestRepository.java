@@ -3,18 +3,26 @@ package com.ksh.features.tests.repository;
 import com.ksh.features.tests.entity.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for {@link Test}. The entity's {@code @SQLRestriction("is_deleted
  * = 0")} already filters soft-deleted rows from every query below.
  */
 public interface TestRepository extends JpaRepository<Test, Long> {
+
+    /** Serializes mutations that can change an exam's question-bank shape. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Test t where t.id = :id")
+    Optional<Test> findByIdForUpdate(@Param("id") Long id);
 
     /** Published exams for the given classes (student list / readiness pool). */
     List<Test> findByClassIdInAndStatusOrderByUpdatedAtDesc(Collection<Long> classIds, String status);

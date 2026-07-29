@@ -2,10 +2,8 @@ package com.ksh.features.comments.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Comment;
-import com.ksh.entities.CommentModeration;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CommentPageView;
 import com.ksh.features.comments.dto.LessonCommentsDtos.CommentRow;
-import com.ksh.features.comments.repository.CommentModerationRepository;
 import com.ksh.features.comments.repository.LessonCommentRepository;
 import com.ksh.features.lessons.support.ClassAccessPolicy;
 import com.ksh.features.lessons.support.LessonAccessResolver;
@@ -51,21 +49,21 @@ public class LessonCommentsService {
             List.of(Comment.MODERATION_APPROVED, Comment.MODERATION_REJECTED);
 
     private final LessonCommentRepository commentRepository;
-    private final CommentModerationRepository moderationRepository;
     private final CommentThreadAssembler assembler;
     private final LessonAccessResolver lessonAccessResolver;
     private final ClassAccessPolicy accessPolicy;
+    private final CommentModerationWriter moderationWriter;
 
     public LessonCommentsService(LessonCommentRepository commentRepository,
-                                 CommentModerationRepository moderationRepository,
                                  CommentThreadAssembler assembler,
                                  LessonAccessResolver lessonAccessResolver,
-                                 ClassAccessPolicy accessPolicy) {
+                                 ClassAccessPolicy accessPolicy,
+                                 CommentModerationWriter moderationWriter) {
         this.commentRepository = commentRepository;
-        this.moderationRepository = moderationRepository;
         this.assembler = assembler;
         this.lessonAccessResolver = lessonAccessResolver;
         this.accessPolicy = accessPolicy;
+        this.moderationWriter = moderationWriter;
     }
 
     /**
@@ -142,7 +140,7 @@ public class LessonCommentsService {
     @Transactional
     public CommentRow editOwn(Long lessonId, Long commentId, Long userId, String rawContent) {
         ClassEntity clazz = authorize(lessonId, userId);
-        Comment comment = loadLiveComment(lessonId, commentId);
+        Comment comment = loadLiveCommentForUpdate(lessonId, commentId);
         if (!comment.getUserId().equals(userId)) {
             throw new AccessDeniedException("Not the comment author");
         }
@@ -151,14 +149,14 @@ public class LessonCommentsService {
         return assembler.singleRow(comment, clazz.getLecturerId(), userId);
     }
 
-    /** Soft-deletes a comment when the caller is its author or the owning lecturer. */
+    /** Soft-deletes a comment when the caller is its author or a class moderator. */
     @Transactional
-    public void delete(Long lessonId, Long commentId, Long userId) {
-        ClassEntity clazz = authorize(lessonId, userId);
-        Comment comment = loadLiveComment(lessonId, commentId);
+    public void delete(Long lessonId, Long commentId, Long userId, Role role) {
+        ClassEntity clazz = authorize(lessonId, userId, role);
+        Comment comment = loadLiveCommentForUpdate(lessonId, commentId);
         boolean owner = comment.getUserId().equals(userId);
-        boolean lecturer = clazz.getLecturerId().equals(userId);
-        if (!owner && !lecturer) {
+        boolean moderator = accessPolicy.isModerator(clazz, userId, role);
+        if (!owner && !moderator) {
             throw new AccessDeniedException("Not allowed to delete this comment");
         }
         comment.markDeleted();
@@ -189,8 +187,9 @@ public class LessonCommentsService {
 
     /**
      * Hides a comment (sets REJECTED) so students no longer see it. Requires the
-     * caller to be a moderator (owning lecturer / ADMIN / LEADER). Idempotent: a
-     * no-op when already hidden. Writes a {@code comment_moderation} audit row.
+     * caller to be a moderator (owning lecturer / ADMIN / in-department LEADER).
+     * Idempotent: a no-op when already hidden. Writes a
+     * {@code comment_moderation} audit row.
      *
      * @throws AccessDeniedException   when the caller is not a moderator (403)
      * @throws EntityNotFoundException when the comment is not in this lesson (404)
@@ -198,15 +197,7 @@ public class LessonCommentsService {
     @Transactional
     public void hide(Long lessonId, Long commentId, Long userId, Role role) {
         assertModerator(lessonId, userId, role);
-        Comment comment = loadLiveComment(lessonId, commentId);
-        // Idempotent: already hidden → succeed without a duplicate audit row.
-        if (Comment.MODERATION_REJECTED.equals(comment.getModerationStatus())) {
-            return;
-        }
-        comment.hide();
-        commentRepository.saveAndFlush(comment);
-        moderationRepository.save(CommentModeration.record(
-                commentId, userId, CommentModeration.ACTION_REJECTED));
+        moderationWriter.hide(lessonId, commentId, userId);
     }
 
     /**
@@ -219,15 +210,7 @@ public class LessonCommentsService {
     @Transactional
     public void unhide(Long lessonId, Long commentId, Long userId, Role role) {
         assertModerator(lessonId, userId, role);
-        Comment comment = loadLiveComment(lessonId, commentId);
-        // Idempotent: already visible → succeed without a duplicate audit row.
-        if (Comment.MODERATION_APPROVED.equals(comment.getModerationStatus())) {
-            return;
-        }
-        comment.unhide();
-        commentRepository.saveAndFlush(comment);
-        moderationRepository.save(CommentModeration.record(
-                commentId, userId, CommentModeration.ACTION_APPROVED));
+        moderationWriter.unhide(lessonId, commentId, userId);
     }
 
     // ── Bulk moderation (hide / unhide many) ───────────────────────────
@@ -238,8 +221,9 @@ public class LessonCommentsService {
 
     /**
      * Hides each comment, skipping cross-lesson/deleted ones. Not
-     * {@code @Transactional}: each single {@link #hide} runs in its own tx so one
-     * failing item never rolls back items already committed (partial success).
+     * {@code @Transactional}: without an ambient transaction, each
+     * {@link CommentModerationWriter#hide} call runs in its own transaction so
+     * one failing item never rolls back items already committed (partial success).
      * Callers should {@link #assertModerator} first so a non-moderator fails fast
      * with 403 rather than receiving a silent {@code BulkResult(0, N)}.
      */
@@ -304,20 +288,21 @@ public class LessonCommentsService {
 
     // ── Authorization ──────────────────────────────────────────────────
 
-    /** Participant-only access (create/edit/delete): no ADMIN/LEADER bypass. */
+    /** Participant-only access for create/edit: no ADMIN/LEADER bypass. */
     private ClassEntity authorize(Long lessonId, Long userId) {
         return authorize(lessonId, userId, null);
     }
 
     /**
      * Runs the shared lesson gates (live class, section, PUBLISHED) then admits
-     * the caller. ADMIN/LEADER bypass enrollment so they can view and moderate the
-     * thread; otherwise the owning lecturer or an ACTIVE-enrolled student passes.
-     * The lesson gates always run first, so ADMIN/LEADER gain nothing on a deleted
+     * the caller. ADMIN and in-department LEADER bypass enrollment so they can
+     * view and moderate the thread; otherwise the owning lecturer or an
+     * ACTIVE-enrolled student passes. The lesson gates always run first, so
+     * moderators gain nothing on a deleted
      * or unpublished lesson. Returns the live class.
      */
     private ClassEntity authorize(Long lessonId, Long userId, Role role) {
-        // Lesson gates first so ADMIN/LEADER gain nothing on a deleted/unpublished lesson.
+        // Lesson gates first so moderators gain nothing on a deleted/unpublished lesson.
         ClassEntity clazz = lessonAccessResolver.resolveByLesson(lessonId).clazz();
         accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
         return clazz;
@@ -329,6 +314,13 @@ public class LessonCommentsService {
                 .filter(c -> !c.isDeleted() && lessonId.equals(c.getLessonId()))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_COMMENT_NOT_FOUND));
         return comment;
+    }
+
+    /** Locks one live comment before an edit/delete mutation. */
+    private Comment loadLiveCommentForUpdate(Long lessonId, Long commentId) {
+        return commentRepository.findByIdAndLessonIdForUpdate(commentId, lessonId)
+                .filter(comment -> !comment.isDeleted())
+                .orElseThrow(() -> new EntityNotFoundException(MSG_COMMENT_NOT_FOUND));
     }
 
     /**

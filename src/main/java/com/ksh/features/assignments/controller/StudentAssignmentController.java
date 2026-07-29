@@ -6,8 +6,10 @@ import com.ksh.features.assignments.service.StudentAssignmentService;
 import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -33,6 +35,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping(PATH_CLASSES + "/{classId}" + PATH_ASSIGNMENTS)
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentAssignmentController {
 
     private final StudentAssignmentService assignmentService;

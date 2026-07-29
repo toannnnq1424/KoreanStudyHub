@@ -35,8 +35,8 @@ import static com.ksh.common.IConstant.CONTENT_TYPE_RICHTEXT;
  *       {@code @SQLRestriction} filters soft-deleted rows
  *       transparently — a missing row maps to 404.</li>
  *   <li>The caller must be admitted: an ACTIVE-enrolled student, OR the
- *       owning lecturer, OR an ADMIN/LEADER moderator (bypasses enrollment
- *       so they can open the discussion thread to moderate — design D7,
+ *       owning lecturer, OR an ADMIN / in-department LEADER moderator
+ *       (bypasses enrollment so they can open the discussion thread to moderate — design D7,
  *       mirroring {@code LessonCommentsService.authorize} D3). Any other
  *       caller (REMOVED / COMPLETED / non-enrolled non-moderator) → 404
  *       to avoid leaking class existence (see design D5, D6).</li>
@@ -72,12 +72,13 @@ public class StudentLessonsService {
 
     /**
      * Returns the lesson view for the given class, admitting an
-     * ACTIVE-enrolled student, the owning lecturer, or an ADMIN/LEADER
+     * ACTIVE-enrolled student, the owning lecturer, or an ADMIN /
+     * in-department LEADER
      * moderator.
      *
      * @param classId target class id
      * @param userId  authenticated user id
-     * @param role    the caller's role; ADMIN/LEADER bypass enrollment
+     * @param role    the caller's role; ADMIN and in-department LEADER bypass enrollment
      * @return populated {@link ClassLessonsView}; sections list is empty
      *         when the class has none, individual section lesson lists
      *         may be empty when nothing is PUBLISHED yet
@@ -92,7 +93,7 @@ public class StudentLessonsService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
 
-        // Gate 2: admit the caller. ADMIN/LEADER bypass enrollment so they can
+        // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment so they can
         // open the discussion thread to moderate; the owning lecturer passes
         // too; otherwise an ACTIVE enrollment is required. Any other caller
         // (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.

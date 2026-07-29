@@ -21,9 +21,13 @@
       <p class="detail-sub">Đóng góp câu hỏi vào ngân hàng chung của bộ môn. LEADER duyệt trước khi câu hỏi có thể được chèn vào bài test.</p>
     </div>
     <div class="qb-toolbar-actions">
-      <a class="create-btn" th:href="@{/lecturer/question-bank/new}">Thêm câu hỏi</a>
-      <a class="toolbar-secondary" th:href="@{/lecturer/question-bank/import/template}" download>Tải file mẫu</a>
-      <label class="toolbar-secondary qb-import-trigger" for="qb-import-file">Import Excel</label>
+      <a class="create-btn" th:if="${!emptyDepartment and !emptyCategories}"
+         th:href="@{/lecturer/question-bank/new}">Thêm câu hỏi</a>
+      <a class="toolbar-secondary" th:if="${!emptyDepartment and !emptyCategories}"
+         th:href="@{/lecturer/question-bank/import/template}" download>Tải file mẫu</a>
+      <label class="toolbar-secondary qb-import-trigger"
+             th:if="${!emptyDepartment and !emptyCategories}"
+             for="qb-import-file">Import Excel</label>
       <a class="toolbar-secondary" sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Quản lý &amp; duyệt</a>
     </div>
   </div>
@@ -32,9 +36,16 @@
     Bạn chưa được gán bộ môn nên chưa thể đóng góp câu hỏi cho ngân hàng bộ môn.
   </div>
 
+  <div th:if="${!emptyDepartment and emptyCategories}" class="admin-list-empty" role="status">
+    Chưa có danh mục môn học hoặc danh mục ngân hàng câu hỏi đang hoạt động.
+    <a sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Tạo danh mục riêng cho bộ môn.</a>
+    <span sec:authorize="!hasRole('LEADER')">Vui lòng liên hệ ADMIN hoặc trưởng bộ môn để mở danh mục trước khi thêm hoặc import câu hỏi.</span>
+  </div>
+
   <th:block th:if="${!emptyDepartment}">
-    <input id="qb-import-file" type="file" accept=".xlsx,.xls" hidden>
-    <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden>
+    <th:block th:if="${!emptyCategories}">
+      <input id="qb-import-file" type="file" accept=".xlsx,.xls" hidden>
+      <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden>
       <div class="qb-import-head">
         <div>
           <h2 class="detail-card-title">Xem trước import Excel</h2>
@@ -64,7 +75,8 @@
           <tbody id="qb-import-rows"></tbody>
         </table>
       </div>
-    </section>
+      </section>
+    </th:block>
 
     <section class="admin-list-panel qb-filter-panel">
       <form method="get" th:action="@{/lecturer/question-bank}" class="qb-filter-grid">

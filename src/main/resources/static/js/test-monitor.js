@@ -53,6 +53,9 @@
         var url = page.getAttribute('data-poll-url');
         var tbody = page.querySelector('#mnStudents');
         var countdownEl = page.querySelector('#mnCountdown');
+        var active = true;
+        var pollGeneration = 0;
+        var pollController = null;
 
         function setText(id, value) {
             var el = page.querySelector('#' + id);
@@ -102,10 +105,26 @@
         }
 
         function poll() {
-            fetch(url, { headers: { 'Accept': 'application/json' } })
+            pollGeneration += 1;
+            var requestGeneration = pollGeneration;
+            if (pollController) pollController.abort();
+            var controller = typeof window.AbortController === 'function'
+                ? new window.AbortController()
+                : null;
+            pollController = controller;
+
+            function isCurrentPoll() {
+                return active
+                    && requestGeneration === pollGeneration
+                    && (!controller || pollController === controller);
+            }
+
+            var requestInit = { headers: { 'Accept': 'application/json' } };
+            if (controller) requestInit.signal = controller.signal;
+            fetch(url, requestInit)
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
-                    if (!data) return;
+                    if (!data || !isCurrentPoll()) return;
                     setText('mnSubmitted', data.submittedCount);
                     setText('mnInProgress', data.inProgressCount);
                     setText('mnActive', data.activeCount);
@@ -114,8 +133,12 @@
                     tick();
                     renderStudents(data.students);
                 })
-                .catch(function () {
+                .catch(function (error) {
+                    if (!isCurrentPoll() || (error && error.name === 'AbortError')) return;
                     // A missed poll is non-fatal; the next interval retries.
+                })
+                .finally(function () {
+                    if (isCurrentPoll()) pollController = null;
                 });
         }
 
@@ -125,6 +148,12 @@
         var pollId = setInterval(poll, POLL_MS);
 
         return function teardown() {
+            active = false;
+            pollGeneration += 1;
+            if (pollController) {
+                pollController.abort();
+                pollController = null;
+            }
             clearInterval(tickId);
             clearInterval(pollId);
         };

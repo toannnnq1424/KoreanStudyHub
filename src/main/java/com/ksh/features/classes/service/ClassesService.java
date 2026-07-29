@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ import java.util.Objects;
  * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
  *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
- *   <li>LEADER and ADMIN can view all classes and edit/delete any class.</li>
+ *   <li>LEADER can view/edit/delete classes in their resolved department; ADMIN is global.</li>
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
@@ -57,16 +58,19 @@ public class ClassesService {
     private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
     private final ClassCreator creator;
+    private final ClassRoleAccessPolicy accessPolicy;
 
     public ClassesService(ClassRepository classRepository,
                           ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
                           ClassCodeGenerator codeGenerator,
                           InviteCodeService inviteCodeService,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          ClassRoleAccessPolicy accessPolicy) {
         this.classRepository = classRepository;
         this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
+        this.accessPolicy = accessPolicy;
         this.creator = new ClassCreator(classRepository, activityWriter,
                 codeGenerator, inviteCodeService, userRepository);
     }
@@ -87,9 +91,18 @@ public class ClassesService {
      */
     @Transactional(readOnly = true)
     public Page<ClassRow> listForUser(Long userId, Role role, Pageable pageable) {
-        Page<ClassEntity> page = role == Role.LECTURER
-                ? classRepository.findAllByLecturerId(userId, pageable)
-                : classRepository.findAllBy(pageable);
+        Page<ClassEntity> page;
+        if (role == Role.LECTURER) {
+            page = classRepository.findAllByLecturerId(userId, pageable);
+        } else if (role == Role.LEADER) {
+            page = accessPolicy.leaderDepartmentId(userId)
+                    .map(id -> classRepository.findAllByDepartmentId(id, pageable))
+                    .orElseGet(() -> Page.empty(pageable));
+        } else if (role == Role.ADMIN) {
+            page = classRepository.findAllBy(pageable);
+        } else {
+            page = Page.empty(pageable);
+        }
 
         List<ClassEntity> content = page.getContent();
         // List UI "Mã lớp" is the shareable 6-char invite CODE, not classes.code (5-char).
@@ -126,10 +139,22 @@ public class ClassesService {
         return loadEditable(id, userId, role);
     }
 
+    /** Locks an editable class so sibling append operations share one mutex row. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ClassEntity getEditableForUpdate(Long id, Long userId, Role role) {
+        ClassEntity entity = classRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!isEditableBy(entity, userId, role)) {
+            throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
+        return entity;
+    }
+
     /**
      * Loads a class for the detail view (members, board, ...). Applies the
      * same authorization as {@link #getEditable}: LECTURER may only access
-     * their own classes; LEADER and ADMIN may access any class. The viewable
+     * their own classes; LEADER may access classes in their resolved department,
+     * while ADMIN may access any class. The viewable
      * and editable code paths are kept separate so a future sprint can
      * relax the read-side rule (for example, allowing students enrolled in
      * a class to read the board) without touching the edit-side rule.
@@ -192,13 +217,12 @@ public class ClassesService {
 
     /**
      * Returns whether the caller is authorised to edit the given class.
-     * LEADER and ADMIN may edit any class; LECTURER may only edit classes they own.
+     * LEADER may edit classes in their resolved department; ADMIN may edit any
+     * class; LECTURER may only edit classes they own.
      */
     public boolean isEditableBy(ClassEntity clazz, Long userId, Role role) {
         if (role == null) return false;
-        return role == Role.ADMIN
-                || role == Role.LEADER
-                || (role == Role.LECTURER && clazz.getLecturerId().equals(userId));
+        return accessPolicy.canAccess(clazz, userId, role);
     }
 
     /** Loads the class and enforces the editable-by authorisation rule. */

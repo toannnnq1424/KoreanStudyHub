@@ -2,7 +2,9 @@ package com.ksh.features.classes.repository;
 
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -92,6 +94,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId AND e.classId = :classId")
     Optional<Enrollment> findByUserIdAndClassId(@Param("userId") Long userId,
                                                  @Param("classId") Long classId);
+
+    /** Serializes state-changing student operations on one class membership. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId AND e.classId = :classId")
+    Optional<Enrollment> findByUserIdAndClassIdForUpdate(@Param("userId") Long userId,
+                                                         @Param("classId") Long classId);
 
     /**
      * Returns all enrollments for the given user with the specified

@@ -1,11 +1,14 @@
 package com.ksh.features.admin.settings.controller;
 
+import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderDetail;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderForm;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.RevealKeyResult;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.TestResult;
+import com.ksh.features.admin.settings.service.AiLogQueryService;
 import com.ksh.features.admin.settings.service.AiProviderService;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,10 +20,12 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.ksh.common.IConstant.*;
 
@@ -54,11 +59,16 @@ import static com.ksh.common.IConstant.*;
 public class AiSettingsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_SETTINGS_AI;
+    private static final int HISTORY_PAGE_SIZE = 20;
+    private static final Set<String> VALID_DETAIL_TABS = Set.of(TAB_INFO, TAB_HISTORY);
 
     private final AiProviderService service;
+    private final AiLogQueryService logQueryService;
 
-    public AiSettingsController(AiProviderService service) {
+    public AiSettingsController(AiProviderService service,
+                                AiLogQueryService logQueryService) {
         this.service = service;
+        this.logQueryService = logQueryService;
     }
 
     /**
@@ -91,17 +101,34 @@ public class AiSettingsController {
      * when the id no longer exists.
      *
      * @param id provider identifier
+     * @param tab active detail tab; invalid values fall back to info
+     * @param page zero-based history page
      * @return the form view, or a redirect when the provider is gone
      */
     @GetMapping("/{id}/edit")
-    public String edit(@PathVariable Long id, Model model, RedirectAttributes ra) {
+    public String edit(@PathVariable Long id,
+                       @RequestParam(name = "tab", defaultValue = TAB_INFO) String tab,
+                       @RequestParam(name = "page", defaultValue = "0") int page,
+                       Model model,
+                       RedirectAttributes ra) {
+        Optional<AiProviderDetail> provider = service.findDetailById(id);
         Optional<AiProviderForm> form = service.loadForm(id);
-        if (form.isEmpty()) {
+        if (provider.isEmpty() || form.isEmpty()) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_AI_PROVIDER_NOT_FOUND);
             return REDIRECT_BASE;
         }
+
         model.addAttribute(ATTR_FORM, form.get());
         populateForm(model, MODE_EDIT);
+        model.addAttribute(ATTR_AI_PROVIDER, provider.get());
+
+        String activeTab = VALID_DETAIL_TABS.contains(tab) ? tab : TAB_INFO;
+        model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
+        if (TAB_HISTORY.equals(activeTab)) {
+            model.addAttribute(ATTR_ACTIVITIES_PAGE,
+                    logQueryService.listByProvider(
+                            id, PageRequest.of(Math.max(0, page), HISTORY_PAGE_SIZE)));
+        }
         return VIEW_SETTINGS_AI_FORM;
     }
 
@@ -134,7 +161,14 @@ public class AiSettingsController {
             result.rejectValue("apiKey", "required", MSG_AI_KEY_REQUIRED);
         }
         if (result.hasErrors()) {
-            populateForm(model, form.id() == null ? MODE_CREATE : MODE_EDIT);
+            String mode = form.id() == null ? MODE_CREATE : MODE_EDIT;
+            populateForm(model, mode);
+            if (MODE_EDIT.equals(mode)) {
+                service.findDetailById(form.id()).ifPresent(provider -> {
+                    model.addAttribute(ATTR_AI_PROVIDER, provider);
+                    model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
+                });
+            }
             return VIEW_SETTINGS_AI_FORM;
         }
 

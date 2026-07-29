@@ -6,16 +6,7 @@
 (function () {
   'use strict';
 
-  // ── Flash → toast on page load ─────────────────────────────────────
-  // Backend writes flash via RedirectAttributes. Template renders them
-  // into hidden #flash-data span; we read and fire iziToast here.
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
-    var ok = flashData.dataset.flashSuccess;
-    var err = flashData.dataset.flashError;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-  }
+  // Server flash payloads are drained centrally by notifications.js.
 
   // ── Sort ───────────────────────────────────────────────────────────
   // Supported keys: name-asc, name-desc, created-desc (default), created-asc, student-desc.

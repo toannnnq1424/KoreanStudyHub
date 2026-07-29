@@ -353,6 +353,7 @@ class LessonCommentsApiControllerTest {
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
+        entity.setDepartmentId(lecturer.getDepartmentId());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

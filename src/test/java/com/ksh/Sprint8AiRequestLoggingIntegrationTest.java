@@ -5,7 +5,6 @@ import com.ksh.entities.AiRequestLog;
 import com.ksh.features.admin.settings.repository.AiProviderRepository;
 import com.ksh.features.admin.settings.service.AiProviderService;
 import com.ksh.features.ai.client.AiClient;
-import com.ksh.features.ai.client.AiClientException;
 import com.ksh.features.ai.log.AiRequestLogRepository;
 import com.ksh.features.ai.log.AiRequestLogger;
 import org.junit.jupiter.api.AfterEach;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -57,8 +55,8 @@ class Sprint8AiRequestLoggingIntegrationTest {
 
     private static final String REAL_KEY = "sk-logging-test-abcdef123456";
 
-    /** Name that must never be contacted once a permanent failure has halted the chain. */
-    private static final String CANARY = "LogCanaryNeverCalled";
+    /** Provider used to prove that authentication failures also advance the fallback chain. */
+    private static final String AUTH_FALLBACK_PROVIDER = "LogAuthFallbackProvider";
 
     /**
      * Every provider name this class writes rows under.
@@ -69,7 +67,7 @@ class Sprint8AiRequestLoggingIntegrationTest {
      */
     private static final Set<String> FIXTURE_NAMES = Set.of(
             "LoggedProvider", "NoUsageProvider", "FlakyProvider", "HealthyProvider",
-            "BadKeyProvider", CANARY);
+            "BadKeyProvider", AUTH_FALLBACK_PROVIDER);
 
     @Autowired
     private AiProviderRepository repository;
@@ -245,16 +243,11 @@ class Sprint8AiRequestLoggingIntegrationTest {
         assertThat(logs.get(1).getStatus()).isEqualTo(AiRequestLog.STATUS_SUCCESS);
     }
 
-    /**
-     * A permanent failure logs the one attempt made and nothing for the halted remainder.
-     *
-     * <p>Guards against the log implying providers were contacted when they were not — the
-     * canary never receives a request, so it must never appear as a row.
-     */
+    /** An authentication failure is logged before the next configured provider succeeds. */
     @Test
-    void permanent_401_writes_a_single_failed_row_and_stops_the_chain() {
+    void authentication_failure_writes_a_failed_row_then_falls_back() {
         persist("BadKeyProvider", FIRST_URL);
-        persist(CANARY, SECOND_URL);
+        persist(AUTH_FALLBACK_PROVIDER, SECOND_URL);
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
@@ -262,21 +255,21 @@ class Sprint8AiRequestLoggingIntegrationTest {
 
         mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
                 .andRespond(withUnauthorizedRequest());
+        mockServer.expect(ExpectedCount.once(), requestTo(SECOND_URL + "/chat/completions"))
+                .andRespond(withSuccess("{\"choices\":[{\"message\":{\"content\":\"pong\"}}]}",
+                        MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.chat("hello", 5))
-                .isInstanceOf(AiClientException.class)
-                .hasMessageContaining("BadKeyProvider")
-                .hasMessageNotContaining(CANARY);
-
+        assertThat(client.chat("hello", 5)).isEqualTo("pong");
         mockServer.verify();
 
-        assertThat(fixtureLogs()).singleElement().satisfies(row -> {
-            assertThat(row.getProviderName()).isEqualTo("BadKeyProvider");
-            assertThat(row.getStatus()).isEqualTo(AiRequestLog.STATUS_FAILED);
-            assertThat(row.getErrorMessage()).isNotBlank();
-            // No usage is reported on a failure, so the token columns stay unknown.
-            assertThat(row.getTotalTokens()).isNull();
-        });
+        List<AiRequestLog> logs = fixtureLogs();
+        assertThat(logs).hasSize(2);
+        assertThat(logs.get(0).getProviderName()).isEqualTo("BadKeyProvider");
+        assertThat(logs.get(0).getStatus()).isEqualTo(AiRequestLog.STATUS_FAILED);
+        assertThat(logs.get(0).getErrorMessage()).isNotBlank();
+        assertThat(logs.get(0).getTotalTokens()).isNull();
+        assertThat(logs.get(1).getProviderName()).isEqualTo(AUTH_FALLBACK_PROVIDER);
+        assertThat(logs.get(1).getStatus()).isEqualTo(AiRequestLog.STATUS_SUCCESS);
     }
 
     /** The admin "test connection" button is a real call, so it logs under its own source. */

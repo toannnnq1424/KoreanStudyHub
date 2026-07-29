@@ -216,14 +216,27 @@
                 toast('error', 'Lưu bài test trước khi chèn câu hỏi từ ngân hàng.');
                 return;
             }
+            // Confirm before the snapshot insert, then freeze the whole panel.
+            // This prevents edits made after confirmation from being discarded
+            // by the success redirect.
+            if (window.KshDirtyFormGuard &&
+                    !window.KshDirtyFormGuard.beginMutation(true)) {
+                return;
+            }
             if (btn) btn.disabled = true;
             window.FcCommon.postJson(bankInsertUrl, { itemIds: [itemId] })
                 .then(function () {
                     toast('success', 'Đã chèn câu hỏi từ ngân hàng vào bài test.');
                     // Reload the info tab so the newly persisted question appears.
+                    if (window.KshDirtyFormGuard) {
+                        window.KshDirtyFormGuard.completeMutation();
+                    }
                     window.location.href = editUrl ? (editUrl + '?tab=info') : window.location.href;
                 })
                 .catch(function (err) {
+                    if (window.KshDirtyFormGuard) {
+                        window.KshDirtyFormGuard.cancelMutation();
+                    }
                     if (btn) btn.disabled = false;
                     toast('error', err.message || 'Không chèn được câu hỏi từ ngân hàng.');
                 });
@@ -301,16 +314,39 @@
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (submitting) return;
+            // Lock before asynchronous image rewriting so neither a second
+            // submit nor a late edit can diverge from the payload being saved.
+            if (window.KshDirtyFormGuard &&
+                    !window.KshDirtyFormGuard.beginMutation(false)) {
+                return;
+            }
+            submitting = true;
+            var btn = document.getElementById('lfSave');
+            if (btn) btn.disabled = true;
+
+            function cancelSubmission() {
+                submitting = false;
+                if (btn) btn.disabled = false;
+                if (window.KshDirtyFormGuard) {
+                    window.KshDirtyFormGuard.cancelMutation();
+                }
+            }
+
             // Convert any leftover data:image embeds before collecting/saving.
-            rewriteAllDataImages().then(function (ok) {
-                if (!ok) return;
+            Promise.resolve().then(rewriteAllDataImages).then(function (ok) {
+                if (!ok) {
+                    cancelSubmission();
+                    return;
+                }
                 var payload = collect();
                 if (mode.isMediaMode()) {
                     if (!payload.mediaType) {
+                        cancelSubmission();
                         toast('error', 'Vui lòng chọn loại media');
                         return;
                     }
                     if (!payload.mediaUrl) {
+                        cancelSubmission();
                         toast('error', 'Vui lòng nhập URL media');
                         return;
                     }
@@ -319,6 +355,7 @@
                     return window.LfQuill.isEmptyHtml(q.content);
                 });
                 if (emptyQ) {
+                    cancelSubmission();
                     toast('error', 'Nội dung câu hỏi không được để trống');
                     return;
                 }
@@ -328,6 +365,7 @@
                     });
                 });
                 if (emptyO) {
+                    cancelSubmission();
                     toast('error', 'Nội dung đáp án không được để trống');
                     return;
                 }
@@ -338,21 +376,26 @@
                     });
                 });
                 if (stillData) {
+                    cancelSubmission();
                     toast('error', 'Ảnh dán chưa tải lên xong. Dùng nút ảnh hoặc thử lại.');
                     return;
                 }
-                submitting = true;
-                var btn = document.getElementById('lfSave');
-                if (btn) btn.disabled = true;
                 window.FcCommon.postJson(form.getAttribute('data-save-url'), payload)
                     .then(function () {
+                        // The save is complete, so the following redirect must
+                        // not repeat the unsaved-change prompt.
+                        if (window.KshDirtyFormGuard) {
+                            window.KshDirtyFormGuard.completeMutation();
+                        }
                         window.location.href = form.getAttribute('data-list-url');
                     })
                     .catch(function (err) {
-                        submitting = false;
-                        if (btn) btn.disabled = false;
+                        cancelSubmission();
                         toast('error', err.message || 'Lưu bài test thất bại.');
                     });
+            }).catch(function (err) {
+                cancelSubmission();
+                toast('error', err.message || 'Không xử lý được ảnh trong bài test.');
             });
         });
 
@@ -368,6 +411,13 @@
         }
         mode.syncDuration();
         builder.refreshEmptyHint();
+
+        // Hydration creates the dynamic question controls and Quill roots.
+        // Capture the baseline only after that work, and only if this is still
+        // the live panel (an older AJAX response may have been superseded).
+        if (window.KshDirtyFormGuard && document.documentElement.contains(form)) {
+            window.KshDirtyFormGuard.markClean();
+        }
     }
 
     window.LfForm = { mount: mount };

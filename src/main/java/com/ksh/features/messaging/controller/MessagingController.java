@@ -158,6 +158,14 @@ public class MessagingController {
         return Map.of("count", messagingService.unreadCount(user.getId()));
     }
 
+    /** Marks an owned open conversation read and returns the fresh badge total. */
+    @PostMapping("/{convId}/read")
+    @ResponseBody
+    public Map<String, Long> markRead(@PathVariable Long convId,
+                                      @AuthenticationPrincipal KshUserDetails user) {
+        return Map.of("count", messagingService.markConversationRead(user.getId(), convId));
+    }
+
     /** Small JSON body for the fetch send path (ok + the stored message data). */
     private static Map<String, Object> sendResultBody(SendResult result) {
         Map<String, Object> data = new LinkedHashMap<>();

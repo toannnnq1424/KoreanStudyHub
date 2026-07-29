@@ -10,6 +10,7 @@ import com.ksh.features.lessons.dto.LessonDtos.LessonForm;
 import com.ksh.features.lessons.dto.LessonDtos.LessonRow;
 import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.library.service.LibraryService;
+import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LessonVideoStorageService;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,7 +42,8 @@ import static com.ksh.entities.LibraryAsset.KIND_VIDEO;
  *
  * <p>Every mutating method enforces ownership via
  * {@link ClassesService#getEditable}: a LECTURER may only manage lessons
- * inside classes they own; LEADER and ADMIN may manage any class. The
+ * inside classes they own; LEADER may manage classes in their resolved
+ * department and ADMIN may manage any class. The
  * section↔class binding is verified through
  * {@link LessonsReorderService#verifySectionBelongsToClass}.
  *
@@ -109,7 +111,7 @@ public class LessonsService {
                             String status, String contentHtmlRaw,
                             Long userId, Role role) {
         ClassEntity clazz = classesService.getEditable(classId, userId, role);
-        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        reorderService.lockSectionForUpdate(sectionId, classId);
 
         short nextOrder = (short) (lessonRepository.findMaxDisplayOrder(sectionId) + 1);
         Lesson lesson = new Lesson(sectionId, title, nextOrder, userId);
@@ -227,7 +229,9 @@ public class LessonsService {
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
                 && !lesson.hasLibraryVideo();
         if (oneOffUploadVideo && lesson.getVideoUrl() != null) {
-            videoStorageService.delete(lesson.getVideoUrl());
+            String deletedVideoKey = lesson.getVideoUrl();
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> videoStorageService.delete(deletedVideoKey));
         }
         // Release library video reference before soft-delete so delete-guard
         // counts stay accurate for the library asset.
@@ -271,7 +275,9 @@ public class LessonsService {
             lesson.setVideoLibraryAssetId(null);
         } else if (VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
                 && lesson.getVideoUrl() != null) {
-            videoStorageService.delete(lesson.getVideoUrl());
+            String replacedVideoKey = lesson.getVideoUrl();
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> videoStorageService.delete(replacedVideoKey));
         }
         lesson.setVideoProvider(provider);
         lesson.setVideoUrl(url);
@@ -289,6 +295,8 @@ public class LessonsService {
     @Transactional
     public Lesson setUploadedVideo(Long classId, Long sectionId, Long lessonId,
                                    String relativePath, Long userId, Role role) {
+        StorageTransactionLifecycle.deleteOnRollback(
+                () -> videoStorageService.delete(relativePath));
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
@@ -298,7 +306,9 @@ public class LessonsService {
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
                 && lesson.getVideoUrl() != null
                 && !lesson.getVideoUrl().equals(relativePath)) {
-            videoStorageService.delete(lesson.getVideoUrl());
+            String replacedVideoKey = lesson.getVideoUrl();
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> videoStorageService.delete(replacedVideoKey));
         }
         lesson.setVideoLibraryAssetId(null);
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
@@ -321,7 +331,7 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
-        LibraryAsset asset = libraryService.getOwnedAsset(userId, assetId);
+        LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_VIDEO.equals(asset.getKind())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
         }
@@ -329,7 +339,9 @@ public class LessonsService {
         if (!lesson.hasLibraryVideo()
                 && VIDEO_PROVIDER_UPLOAD.equals(lesson.getVideoProvider())
                 && lesson.getVideoUrl() != null) {
-            videoStorageService.delete(lesson.getVideoUrl());
+            String replacedVideoKey = lesson.getVideoUrl();
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> videoStorageService.delete(replacedVideoKey));
         }
         lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
         lesson.setVideoLibraryAssetId(asset.getId());

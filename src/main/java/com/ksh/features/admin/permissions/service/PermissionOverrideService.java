@@ -1,5 +1,6 @@
 package com.ksh.features.admin.permissions.service;
 
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.Permission;
 import com.ksh.entities.PermissionActivity;
 import com.ksh.entities.User;
@@ -133,7 +134,7 @@ public class PermissionOverrideService {
     public void createOrReplace(OverrideForm form, Long actorId) {
         validate(form);
         Permission permission = requirePermission(form.featureKey());
-        requireUser(form.userId());
+        lockUser(form.userId());
 
         Optional<UserPermissionOverride> existing =
                 overrideRepository.findByUserIdAndPermissionId(form.userId(), permission.getId());
@@ -152,7 +153,7 @@ public class PermissionOverrideService {
 
         auditWriter.writeOverrideChange(auditType, form.userId(), form.featureKey(),
                 form.overrideType(), form.reason(), actorId);
-        permissionResolver.evictUser(form.userId());
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(form.userId()));
     }
 
     /**
@@ -163,6 +164,9 @@ public class PermissionOverrideService {
      */
     @Transactional
     public void deactivate(Long overrideId, Long actorId) {
+        Long targetUserId = overrideRepository.findUserIdById(overrideId)
+                .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_OVERRIDE));
+        lockUser(targetUserId);
         UserPermissionOverride override = overrideRepository.findById(overrideId)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_OVERRIDE));
         override.deactivate();
@@ -172,7 +176,7 @@ public class PermissionOverrideService {
                 .orElse(null);
         auditWriter.writeOverrideChange(PermissionActivity.TYPE_OVERRIDE_DEACTIVATED,
                 override.getUserId(), featureKey, null, override.getReason(), actorId);
-        permissionResolver.evictUser(override.getUserId());
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(override.getUserId()));
     }
 
     /** Rejects a blank reason and any type outside {GRANT, REVOKE}. */
@@ -219,9 +223,11 @@ public class PermissionOverrideService {
     }
 
     /** Ensures the override targets a real user before a row is written. */
-    private void requireUser(Long userId) {
-        if (userId == null || !userRepository.existsById(userId)) {
+    private User lockUser(Long userId) {
+        if (userId == null) {
             throw new NoSuchElementException(MSG_UNKNOWN_USER + userId);
         }
+        return userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_USER + userId));
     }
 }

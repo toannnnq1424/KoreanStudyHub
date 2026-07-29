@@ -51,6 +51,9 @@ public interface ClassInviteCodeRepository extends JpaRepository<ClassInviteCode
      */
     Optional<ClassInviteCode> findByCode(String code);
 
+    /** Preflight uniqueness check used before the single transactional insert. */
+    boolean existsByCode(String code);
+
     /**
      * Pessimistic-locked variant of the active-token lookup.
      * Acquires {@code SELECT ... FOR UPDATE} on the matched row so

@@ -7,6 +7,7 @@ import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.QuestionOption;
 import com.ksh.features.tests.repository.QuestionOptionRepository;
 import com.ksh.features.tests.repository.QuestionRepository;
+import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestResponseRepository;
 import org.springframework.stereotype.Service;
 
@@ -28,13 +29,16 @@ public class ExamQuestionBankWriter {
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository optionRepository;
     private final TestResponseRepository responseRepository;
+    private final TestAttemptRepository attemptRepository;
 
     public ExamQuestionBankWriter(QuestionRepository questionRepository,
                                   QuestionOptionRepository optionRepository,
-                                  TestResponseRepository responseRepository) {
+                                  TestResponseRepository responseRepository,
+                                  TestAttemptRepository attemptRepository) {
         this.questionRepository = questionRepository;
         this.optionRepository = optionRepository;
         this.responseRepository = responseRepository;
+        this.attemptRepository = attemptRepository;
     }
 
     /** True when any current question already has a student response. */
@@ -43,6 +47,14 @@ public class ExamQuestionBankWriter {
         if (existing.isEmpty()) return false;
         return responseRepository.existsByQuestionIdIn(
                 existing.stream().map(Question::getId).toList());
+    }
+
+    /**
+     * True once a student has started the exam. Question-bank shape must stay stable from
+     * that moment, even before the first answer is submitted.
+     */
+    public boolean hasStudentActivity(Long testId) {
+        return attemptRepository.existsByTestId(testId) || hasStudentResponses(testId);
     }
 
     /**
@@ -116,34 +128,70 @@ public class ExamQuestionBankWriter {
             throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
         }
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(existing);
+        validateLockedGradingContract(existing, optionsByQuestion, questions);
         for (int i = 0; i < existing.size(); i++) {
             Question q = existing.get(i);
             QuestionForm qf = questions.get(i);
-            // Require stable ids when the bank is locked (client must round-trip them).
-            if (qf.id() != null && !qf.id().equals(q.getId())) {
-                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-            }
             List<QuestionOption> opts = optionsByQuestion.getOrDefault(q.getId(), List.of());
-            List<OptionForm> optForms = qf.options() == null ? List.of() : qf.options();
-            if (opts.size() != optForms.size()) {
-                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-            }
-            q.updateContent(defaultQuestionType(qf.type()),
+            List<OptionForm> optForms = qf.options();
+            // Only display text may change after an attempt starts. Type, points,
+            // answer key, ids and shape are grading history and stay immutable.
+            q.updateContent(q.getQuestionType(),
                     HtmlSanitizer.sanitize(qf.content()),
                     trimToNull(qf.explanation()),
-                    qf.points(),
+                    q.getPoints(),
                     i + 1);
             questionRepository.save(q);
             for (int j = 0; j < opts.size(); j++) {
                 QuestionOption o = opts.get(j);
                 OptionForm of = optForms.get(j);
-                if (of.id() != null && !of.id().equals(o.getId())) {
-                    throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-                }
-                o.updateContent(HtmlSanitizer.sanitize(of.content()), of.correct(), j + 1);
+                o.updateContent(
+                        HtmlSanitizer.sanitize(of.content()),
+                        o.isCorrect(),
+                        j + 1);
                 optionRepository.save(o);
             }
         }
+    }
+
+    /**
+     * Validates the complete locked bank before mutating any managed entity.
+     * This prevents a late option mismatch from leaving partially changed state
+     * when the writer is reused outside the normal transactional service.
+     */
+    private static void validateLockedGradingContract(
+            List<Question> existing,
+            Map<Long, List<QuestionOption>> optionsByQuestion,
+            List<QuestionForm> questions) {
+        for (int i = 0; i < existing.size(); i++) {
+            Question question = existing.get(i);
+            QuestionForm form = questions.get(i);
+            if ((form.id() != null && !form.id().equals(question.getId()))
+                    || !defaultQuestionType(form.type()).equals(question.getQuestionType())
+                    || !sameNumber(form.points(), question.getPoints())) {
+                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+            }
+
+            List<QuestionOption> options =
+                    optionsByQuestion.getOrDefault(question.getId(), List.of());
+            List<OptionForm> optionForms =
+                    form.options() == null ? List.of() : form.options();
+            if (options.size() != optionForms.size()) {
+                throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+            }
+            for (int j = 0; j < options.size(); j++) {
+                QuestionOption option = options.get(j);
+                OptionForm optionForm = optionForms.get(j);
+                if ((optionForm.id() != null && !optionForm.id().equals(option.getId()))
+                        || optionForm.correct() != option.isCorrect()) {
+                    throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+                }
+            }
+        }
+    }
+
+    private static boolean sameNumber(java.math.BigDecimal left, java.math.BigDecimal right) {
+        return left != null && right != null && left.compareTo(right) == 0;
     }
 
     private static String defaultQuestionType(String type) {

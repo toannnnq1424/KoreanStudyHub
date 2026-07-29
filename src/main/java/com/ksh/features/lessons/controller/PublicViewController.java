@@ -53,25 +53,29 @@ public class PublicViewController {
         try {
             handle = tokenService.resolve(token);
         } catch (EntityNotFoundException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return protectedResponse(HttpStatus.NOT_FOUND);
+        } catch (RuntimeException ex) {
+            log.error("Failed to resolve a public attachment token");
+            return protectedResponse(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         StoredObject obj;
         try {
             if (!objectStorage.exists(handle.storageKey())) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return protectedResponse(HttpStatus.NOT_FOUND);
             }
             obj = objectStorage.open(handle.storageKey());
         } catch (IOException ex) {
-            log.warn("Public view token resolved to missing object: {}", handle.storageKey());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            log.warn("Public view token resolved to a missing object");
+            return protectedResponse(HttpStatus.NOT_FOUND);
         } catch (RuntimeException ex) {
-            log.error("Failed to read attachment object {}", handle.storageKey(), ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("Failed to read an attachment object");
+            return protectedResponse(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         ContentDisposition disposition = ContentDisposition.inline()
                 .filename(safeFilename(handle.originalFilename()), StandardCharsets.UTF_8)
                 .build();
         HttpHeaders headers = new HttpHeaders();
+        applySensitiveResponseHeaders(headers);
         headers.setContentDisposition(disposition);
         headers.setContentType(parseMime(handle.mimeType()));
         if (obj.contentLength() >= 0) {
@@ -82,6 +86,17 @@ public class PublicViewController {
                 "frame-ancestors https://view.officeapps.live.com");
         return new ResponseEntity<>(new StoredObjectResource(obj, handle.storageKey()),
                 headers, HttpStatus.OK);
+    }
+
+    private static ResponseEntity<Resource> protectedResponse(HttpStatus status) {
+        HttpHeaders headers = new HttpHeaders();
+        applySensitiveResponseHeaders(headers);
+        return new ResponseEntity<>(null, headers, status);
+    }
+
+    private static void applySensitiveResponseHeaders(HttpHeaders headers) {
+        headers.setCacheControl("private, no-store");
+        headers.set("Referrer-Policy", "no-referrer");
     }
 
     private static String safeFilename(String name) {

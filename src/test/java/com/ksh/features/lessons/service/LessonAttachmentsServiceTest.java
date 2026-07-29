@@ -30,9 +30,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,7 +73,8 @@ class LessonAttachmentsServiceTest {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         otherLecturer = ensureUser("lecturer-other@ksh.edu.vn", "Lecturer Other", Role.LECTURER);
         student = ensureUser("student-attach@ksh.edu.vn", "Student A", Role.STUDENT);
-        clazz = saveClass("Attachments class", lecturer.getId(), "ATTCLS");
+        clazz = saveClass("Attachments class", lecturer.getId(),
+                "AT" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         LessonRow lesson = lessonsService.create(
@@ -123,7 +126,8 @@ class LessonAttachmentsServiceTest {
     }
 
     @Test
-    void delete_removes_row_and_on_disk_file() throws Exception {
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void delete_removes_row_and_on_disk_file_after_commit() throws Exception {
         LessonAttachmentRow row = attachmentsService.upload(
                 clazz.getId(), section.getId(), lessonId, somePdf(),
                 lecturer.getId(), Role.LECTURER);
