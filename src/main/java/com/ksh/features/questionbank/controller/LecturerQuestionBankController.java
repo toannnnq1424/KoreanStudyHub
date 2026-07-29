@@ -1,7 +1,6 @@
 package com.ksh.features.questionbank.controller;
 
 import com.ksh.features.questionbank.dto.QuestionBankItemForm;
-import com.ksh.features.questionbank.dto.QuestionBankViews.CategoryOption;
 import com.ksh.features.questionbank.service.QuestionBankItemService;
 import com.ksh.features.questionbank.service.QuestionBankValidationException;
 import com.ksh.security.Roles;
@@ -27,7 +26,6 @@ import static com.ksh.common.IConstant.ATTR_FORM;
 import static com.ksh.common.IConstant.ATTR_MODE;
 import static com.ksh.common.IConstant.ATTR_QB_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_QB_DETAIL;
-import static com.ksh.common.IConstant.ATTR_QB_EMPTY_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_QB_EMPTY_DEPARTMENT;
 import static com.ksh.common.IConstant.ATTR_QB_ITEMS;
 import static com.ksh.common.IConstant.ATTR_QB_QUERY;
@@ -63,22 +61,17 @@ public class LecturerQuestionBankController {
                        @RequestParam(name = "q", required = false) String q,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
-        boolean emptyDepartment = !itemService.hasDepartment(user.getId(), user.getRole());
-        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
-        if (emptyDepartment) {
-            model.addAttribute(ATTR_QB_ITEMS, List.of());
-            model.addAttribute(ATTR_QB_CATEGORIES, List.of());
-            model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, true);
-            model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-            model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
-            model.addAttribute(ATTR_QB_QUERY, q);
-            return VIEW_QB_LIST;
-        }
-        List<CategoryOption> categories = itemService.categoriesFor(user.getId(), user.getRole());
-        model.addAttribute(ATTR_QB_ITEMS,
-                itemService.list(user.getId(), user.getRole(), status, categoryId, null, q));
-        model.addAttribute(ATTR_QB_CATEGORIES, categories);
-        model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, categories.isEmpty());
+        // Department-less callers (typically ADMIN, which has no department_id)
+        // must not reach the item lookups: those require a department and would
+        // otherwise surface as a 500. The view already renders an empty state.
+        boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
+        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
+        model.addAttribute(ATTR_QB_ITEMS, hasDepartment
+                ? itemService.list(user.getId(), user.getRole(), status, categoryId, null, q)
+                : List.of());
+        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
+                ? itemService.categoriesFor(user.getId(), user.getRole())
+                : List.of());
         model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
         model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
         model.addAttribute(ATTR_QB_QUERY, q);
@@ -178,17 +171,14 @@ public class LecturerQuestionBankController {
     }
 
     private void populateForm(Model model, KshUserDetails user, String mode) {
+        // Same department guard as list(): skip the category lookup when the
+        // caller has no department so the form renders its empty state.
+        boolean hasDepartment = itemService.hasDepartment(user.getId(), user.getRole());
         model.addAttribute(ATTR_MODE, mode);
-        boolean emptyDepartment = !itemService.hasDepartment(user.getId(), user.getRole());
-        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
-        if (emptyDepartment) {
-            model.addAttribute(ATTR_QB_CATEGORIES, List.of());
-            model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, true);
-            return;
-        }
-        List<CategoryOption> categories = itemService.categoriesFor(user.getId(), user.getRole());
-        model.addAttribute(ATTR_QB_CATEGORIES, categories);
-        model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, categories.isEmpty());
+        model.addAttribute(ATTR_QB_CATEGORIES, hasDepartment
+                ? itemService.categoriesFor(user.getId(), user.getRole())
+                : List.of());
+        model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, !hasDepartment);
     }
 
     private static String redirectList() {
