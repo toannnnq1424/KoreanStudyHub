@@ -141,7 +141,7 @@ class LessonCommentsServiceTest {
         CommentRow root = service.create(lesson.getId(), student.getId(), "L1", null);
         CommentRow lvl2 = service.create(lesson.getId(), other.getId(), "L2 sẽ xoá", root.id());
         service.create(lesson.getId(), student.getId(), "L3 còn sống", lvl2.id());
-        service.delete(lesson.getId(), lvl2.id(), other.getId());
+        service.delete(lesson.getId(), lvl2.id(), other.getId(), Role.STUDENT);
 
         List<CommentRow> rows = listRoots(lesson.getId(), student.getId());
 
@@ -198,7 +198,7 @@ class LessonCommentsServiceTest {
     void author_deletes_own() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Xoá tôi", null);
 
-        service.delete(lesson.getId(), root.id(), student.getId());
+        service.delete(lesson.getId(), root.id(), student.getId(), Role.STUDENT);
 
         assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
     }
@@ -207,7 +207,7 @@ class LessonCommentsServiceTest {
     void lecturer_deletes_any() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Sinh viên viết", null);
 
-        service.delete(lesson.getId(), root.id(), lecturer.getId());
+        service.delete(lesson.getId(), root.id(), lecturer.getId(), Role.LECTURER);
 
         assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
     }
@@ -216,7 +216,8 @@ class LessonCommentsServiceTest {
     void other_student_delete_denied() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Của tôi", null);
 
-        assertThatThrownBy(() -> service.delete(lesson.getId(), root.id(), other.getId()))
+        assertThatThrownBy(() -> service.delete(
+                lesson.getId(), root.id(), other.getId(), Role.STUDENT))
                 .isInstanceOf(AccessDeniedException.class);
         assertThat(listRoots(lesson.getId(), student.getId())).hasSize(1);
     }
@@ -225,7 +226,7 @@ class LessonCommentsServiceTest {
     void deleted_root_drops_whole_thread() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Gốc bị xoá", null);
         service.create(lesson.getId(), other.getId(), "Trả lời còn sống", root.id());
-        service.delete(lesson.getId(), root.id(), student.getId());
+        service.delete(lesson.getId(), root.id(), student.getId(), Role.STUDENT);
 
         // Option A: a deleted root is excluded entirely; its replies go with it.
         assertThat(listRoots(lesson.getId(), student.getId())).isEmpty();
@@ -235,7 +236,7 @@ class LessonCommentsServiceTest {
     void deleted_leaf_reply_is_omitted() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Gốc", null);
         CommentRow reply = service.create(lesson.getId(), other.getId(), "Trả lời bị xoá", root.id());
-        service.delete(lesson.getId(), reply.id(), other.getId());
+        service.delete(lesson.getId(), reply.id(), other.getId(), Role.STUDENT);
 
         List<CommentRow> rows = listRoots(lesson.getId(), student.getId());
 
@@ -543,7 +544,7 @@ class LessonCommentsServiceTest {
     void deleted_root_excluded_from_page_and_count() {
         CommentRow root = service.create(lesson.getId(), student.getId(), "Gốc sẽ xoá", null);
         service.create(lesson.getId(), other.getId(), "Trả lời sống", root.id());
-        service.delete(lesson.getId(), root.id(), student.getId());
+        service.delete(lesson.getId(), root.id(), student.getId(), Role.STUDENT);
 
         CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 5);
 
@@ -558,7 +559,7 @@ class LessonCommentsServiceTest {
     void deleted_root_excluded_from_count() {
         service.create(lesson.getId(), student.getId(), "Gốc sống", null);
         CommentRow dead = service.create(lesson.getId(), student.getId(), "Gốc chết", null);
-        service.delete(lesson.getId(), dead.id(), student.getId());
+        service.delete(lesson.getId(), dead.id(), student.getId(), Role.STUDENT);
 
         CommentPageView page0 = service.listPage(lesson.getId(), student.getId(), Role.STUDENT,0, 5);
 

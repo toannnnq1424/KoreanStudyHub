@@ -2,9 +2,11 @@ package com.ksh.features.assignments.repository;
 
 import com.ksh.features.assignments.entity.AssignmentSubmission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +27,16 @@ public interface AssignmentSubmissionRepository extends JpaRepository<Assignment
      * @return the submission, or empty if none yet
      */
     Optional<AssignmentSubmission> findByAssignmentIdAndUserId(Long assignmentId, Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM AssignmentSubmission s WHERE s.assignmentId = :assignmentId AND s.userId = :userId")
+    Optional<AssignmentSubmission> findByAssignmentIdAndUserIdForUpdate(
+            @Param("assignmentId") Long assignmentId,
+            @Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM AssignmentSubmission s WHERE s.id = :id")
+    Optional<AssignmentSubmission> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Returns all submissions for a given assignment. Used by the lecturer's

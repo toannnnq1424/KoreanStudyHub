@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    KSH — Student classes behavior
-   - Flash → toast on page load (success / error / info)
    - Leave-class menu action gated by confirm modal
    - Auto-uppercase the join-code input as the user types
    - Copy class code to clipboard
@@ -10,16 +9,7 @@
 (function () {
   'use strict';
 
-  // ── Flash → toast on page load ─────────────────────────────────────
-  var flashData = document.getElementById('flash-data');
-  if (flashData && window.KshToast) {
-    var ok = flashData.dataset.flashSuccess;
-    var err = flashData.dataset.flashError;
-    var info = flashData.dataset.flashInfo;
-    if (ok) window.KshToast.success(ok);
-    if (err) window.KshToast.error(err);
-    if (info) window.KshToast.info(info);
-  }
+  // Server flash payloads are drained centrally by notifications.js.
 
   // ── Auto-uppercase the join code input ────────────────────────────
   var codeInput = document.getElementById('code');

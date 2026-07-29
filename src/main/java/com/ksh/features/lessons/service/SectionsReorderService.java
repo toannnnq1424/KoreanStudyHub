@@ -2,6 +2,7 @@ package com.ksh.features.lessons.service;
 
 import com.ksh.entities.Section;
 import com.ksh.entities.SectionActivity;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.security.Role;
@@ -41,13 +42,16 @@ public class SectionsReorderService {
     private static final short TEMP_ORDER_OFFSET = 1000;
 
     private final SectionRepository sectionRepository;
+    private final ClassRepository classRepository;
     private final ClassesService classesService;
     private final SectionActivityWriter activityWriter;
 
     public SectionsReorderService(SectionRepository sectionRepository,
+                                  ClassRepository classRepository,
                                   ClassesService classesService,
                                   SectionActivityWriter activityWriter) {
         this.sectionRepository = sectionRepository;
+        this.classRepository = classRepository;
         this.classesService = classesService;
         this.activityWriter = activityWriter;
     }
@@ -64,6 +68,8 @@ public class SectionsReorderService {
     public void reorder(Long classId, List<Long> orderedIds,
                         Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
+        classRepository.findByIdForUpdate(classId)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp học không tồn tại"));
         if (orderedIds == null) {
             throw new IllegalArgumentException("Danh sách thứ tự không được rỗng");
         }

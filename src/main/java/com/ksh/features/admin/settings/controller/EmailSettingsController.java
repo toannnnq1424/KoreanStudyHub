@@ -3,8 +3,11 @@ package com.ksh.features.admin.settings.controller;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.EmailSettingsForm;
 import com.ksh.features.admin.settings.dto.EmailSettingsDtos.TestResult;
 import com.ksh.features.admin.settings.service.EmailSettingsService;
+import com.ksh.features.mail.outbox.MailOutboxOperationsService;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,6 +39,9 @@ import static com.ksh.common.IConstant.*;
 @PreAuthorize("hasAuthority('PERM_system.smtp')")
 public class EmailSettingsController {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(EmailSettingsController.class);
+
     // ── Paths ─────────────────────────────────────────────────────
     private static final String URL_BASE      = "/admin/settings/email";
     private static final String REDIRECT_BASE = "redirect:" + URL_BASE;
@@ -45,14 +51,21 @@ public class EmailSettingsController {
 
     // ── Local model attribute keys ────────────────────────────────
     private static final String ATTR_DEFAULT_TEST_RECIPIENT = "defaultTestRecipient";
+    private static final String ATTR_MAIL_OUTBOX_SNAPSHOT = "mailOutboxSnapshot";
+    private static final String ATTR_MAIL_OUTBOX_SNAPSHOT_ERROR =
+            "mailOutboxSnapshotError";
 
     // ── Flash messages ────────────────────────────────────────────
     private static final String MSG_SETTINGS_SAVED = "Email settings saved.";
 
     private final EmailSettingsService service;
+    private final MailOutboxOperationsService outboxOperations;
 
-    public EmailSettingsController(EmailSettingsService service) {
+    public EmailSettingsController(
+            EmailSettingsService service,
+            MailOutboxOperationsService outboxOperations) {
         this.service = service;
+        this.outboxOperations = outboxOperations;
     }
 
     /**
@@ -74,6 +87,7 @@ public class EmailSettingsController {
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
         model.addAttribute(ATTR_DEFAULT_TEST_RECIPIENT,
                 principal != null ? principal.getUsername() : "");
+        populateOutboxSnapshot(model);
         return VIEW_SETTINGS_EMAIL;
     }
 
@@ -102,6 +116,7 @@ public class EmailSettingsController {
         if (result.hasErrors()) {
             model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
             model.addAttribute(ATTR_DEFAULT_TEST_RECIPIENT, principal.getUsername());
+            populateOutboxSnapshot(model);
             return VIEW_SETTINGS_EMAIL;
         }
         service.save(form, principal.getId());
@@ -122,5 +137,18 @@ public class EmailSettingsController {
     @ResponseBody
     public TestResult sendTest(@RequestParam("testRecipient") String testRecipient) {
         return service.sendTest(testRecipient);
+    }
+
+    private void populateOutboxSnapshot(Model model) {
+        try {
+            model.addAttribute(
+                    ATTR_MAIL_OUTBOX_SNAPSHOT,
+                    outboxOperations.snapshot());
+        } catch (RuntimeException ignored) {
+            // SMTP configuration remains available even when the operational
+            // read model cannot be loaded. Do not log message payloads or PII.
+            log.warn("mail_outbox_operational_snapshot_unavailable");
+            model.addAttribute(ATTR_MAIL_OUTBOX_SNAPSHOT_ERROR, true);
+        }
     }
 }

@@ -5,6 +5,7 @@ import com.ksh.entities.Lesson;
 import com.ksh.features.lessons.dto.LessonDtos.LessonForm;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
 import com.ksh.features.lessons.repository.LessonRepository;
+import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LessonAttachmentStorageService;
 import com.ksh.features.upload.LessonVideoStorageService;
 import org.springframework.stereotype.Service;
@@ -124,14 +125,16 @@ public class LessonContentTypeSwitcher {
             lessonRepository.clearPdfAttachmentId(previousPdfId);
             attachmentRepository.findById(previousPdfId).ifPresent(att -> {
                 if (!att.isLibraryBacked()) {
-                    attachmentStorage.delete(att.getStoredPath());
+                    StorageTransactionLifecycle.deleteAfterCommit(
+                            () -> attachmentStorage.delete(att.getStoredPath()));
                 }
                 attachmentRepository.delete(att);
             });
         }
         // Only wipe one-off upload video objects (never library blobs).
         if (previousVideoKey != null && !previousVideoKey.isBlank()) {
-            videoStorage.delete(previousVideoKey);
+            StorageTransactionLifecycle.deleteAfterCommit(
+                    () -> videoStorage.delete(previousVideoKey));
         }
     }
 

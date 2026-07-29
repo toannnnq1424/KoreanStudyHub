@@ -102,7 +102,7 @@ public class TestAttemptService {
      */
     @Transactional
     public TakeView startOrResume(Long testId, Long userId) {
-        Test test = accessResolver.requireAttemptable(testId, userId);
+        Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
         TestAttempt attempt = attemptRepository
                 .findFirstByTestIdAndUserIdAndStatusOrderByStartedAtDesc(
                         testId, userId, TestAttempt.STATUS_IN_PROGRESS)
@@ -113,7 +113,7 @@ public class TestAttemptService {
     /** Updates {@code last_activity_at} for a live attempt; owner-only. No-op when closed. */
     @Transactional
     public void heartbeat(Long attemptId, Long userId) {
-        TestAttempt attempt = accessResolver.requireOwnAttempt(attemptId, userId);
+        TestAttempt attempt = accessResolver.requireOwnAttemptForUpdate(attemptId, userId);
         if (attempt.isInProgress()) {
             attempt.touchActivity();
             attemptRepository.save(attempt);
@@ -127,7 +127,7 @@ public class TestAttemptService {
      */
     @Transactional
     public SubmitResult submit(Long attemptId, Long userId, SubmitRequest request) {
-        TestAttempt attempt = accessResolver.requireOwnAttempt(attemptId, userId);
+        TestAttempt attempt = accessResolver.requireOwnAttemptForUpdate(attemptId, userId);
         if (!attempt.isInProgress()) {
             return new SubmitResult(attempt.getTestId(), attempt.getId(), attempt.getStatus());
         }

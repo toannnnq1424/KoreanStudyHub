@@ -589,6 +589,7 @@ public interface IConstant {
     String ATTR_QB_SELECTED_CATEGORY_ID = "selectedCategoryId";
     String ATTR_QB_QUERY          = "query";
     String ATTR_QB_EMPTY_DEPARTMENT = "emptyDepartment";
+    String ATTR_QB_EMPTY_CATEGORIES = "emptyCategories";
     String ATTR_QB_EDIT_CATEGORY_ID = "editCategoryId";
     String ATTR_QB_DETAIL         = "detail";
     String MSG_LEADER_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
@@ -719,6 +720,7 @@ public interface IConstant {
     String VIEW_SETTINGS_AI_FORM = "admin/settings-ai-form";
 
     String ATTR_AI_PROVIDERS    = "providers";
+    String ATTR_AI_PROVIDER     = "provider";
     String ATTR_AI_ALL_DISABLED = "allDisabled";
 
     String MSG_AI_PROVIDER_CREATED   = "Đã thêm AI provider";

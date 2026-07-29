@@ -1,13 +1,14 @@
 package com.ksh;
 
 import com.ksh.entities.AiProvider;
+import com.ksh.entities.AiRequestLog;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderForm;
 import com.ksh.features.admin.settings.repository.AiProviderRepository;
 import com.ksh.features.admin.settings.service.AiProviderService;
 import com.ksh.features.ai.client.AiClient;
 import com.ksh.features.ai.client.AiClientException;
+import com.ksh.features.ai.log.AiRequestLogRepository;
 import com.ksh.features.ai.log.AiRequestLogger;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
@@ -62,11 +64,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the transport: the classification under test is exactly what happens to a real connection
  * failure, and a mock would assert the stub instead of the policy.
  *
- * <p>The two HTTP-status tests are the exception. A specific status code cannot be produced
+ * <p>The HTTP-status tests are the exception. A specific status code cannot be produced
  * by an unroutable host, so they bind {@code MockRestServiceServer} to the builder the
  * {@code AiClient} under test is constructed with. That is the only way to prove the
- * permanent/transient split — in particular that a 401 stops the chain before the next
- * provider is contacted at all.
+ * provider-scoped fallback policy, including the case where one provider rejects its own
+ * credentials while a later provider remains healthy.
  *
  * <p>Every test is {@code @Transactional} and rolled back, so no provider row survives —
  * including the {@code @BeforeEach} that empties the table to isolate each test from
@@ -92,7 +94,7 @@ class Sprint8AiSettingsIntegrationTest {
     private static final String FIRST_URL = "https://first.example.test/v1";
     private static final String SECOND_URL = "https://second.example.test/v1";
 
-    /** Name that must never appear in a failure message once the chain has halted. */
+    /** Second provider used by provider-specific rejection tests. */
     private static final String CANARY = "CanaryNeverCalled";
 
     /**
@@ -125,6 +127,9 @@ class Sprint8AiSettingsIntegrationTest {
     @Autowired
     private AiRequestLogger requestLogger;
 
+    @Autowired
+    private AiRequestLogRepository logRepository;
+
     /** Used to read committed rows outside this class's rolled-back test transaction. */
     @Autowired
     private DataSource dataSource;
@@ -152,10 +157,11 @@ class Sprint8AiSettingsIntegrationTest {
      * rollback of the surrounding test. They are the one thing the class-level
      * {@code @Transactional} does not clean up.
      *
-     * <p>Kept in {@code @AfterEach} rather than at the end of each test so it still runs
-     * when an assertion fails; that omission is how a previous change leaked committed
-     * rows into the developer database. Scoped to the fixture provider names so a real
-     * operator's log history is never destroyed by a local test run.
+     * <p>Kept in {@code @AfterTransaction} so it still runs when an assertion fails and,
+     * crucially, only after the test transaction has rolled back. Running the same delete
+     * from {@code @AfterEach} can scan an uncommitted fixture row and wait on this test's
+     * own lock until MySQL times out. Scoped to fixture provider names so a real operator's
+     * log history is never destroyed by a local test run.
      *
      * <p>Runs on its own JDBC connection, deliberately. Going through
      * {@code AiRequestLogRepository} cannot work here for two compounding reasons: the read joins
@@ -164,7 +170,7 @@ class Sprint8AiSettingsIntegrationTest {
      * rollback. Cleanup has to happen on the same terms as the write — its own
      * connection, committed.
      */
-    @AfterEach
+    @AfterTransaction
     void clearCommittedLogs() throws Exception {
         String placeholders = String.join(",",
                 Collections.nCopies(LOG_FIXTURE_PROVIDERS.size(), "?"));
@@ -212,7 +218,64 @@ class Sprint8AiSettingsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
                 .andExpect(model().attribute(ATTR_MODE, MODE_EDIT))
-                .andExpect(model().attributeExists(ATTR_FORM));
+                .andExpect(model().attribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO))
+                .andExpect(model().attributeExists(ATTR_FORM, ATTR_AI_PROVIDER))
+                .andExpect(content().string(containsString("id=\"tabPanel\"")))
+                .andExpect(content().string(containsString("/js/detail-tabs.js")));
+    }
+
+    @Test
+    @WithUserDetails("admin@ksh.edu.vn")
+    void edit_invalid_tab_falls_back_to_info() throws Exception {
+        AiProvider provider = persist("InvalidTab", true);
+
+        mockMvc.perform(get(URL_SETTINGS_AI + "/" + provider.getId() + "/edit")
+                        .param("tab", "not-a-tab"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO))
+                .andExpect(model().attributeDoesNotExist(ATTR_ACTIVITIES_PAGE));
+    }
+
+    @Test
+    @WithUserDetails("admin@ksh.edu.vn")
+    void edit_history_lists_only_the_selected_provider_and_clamps_negative_page()
+            throws Exception {
+        AiProvider selected = persist("HistorySelected", true);
+        AiProvider other = persist("HistoryOther", true);
+
+        AiRequestLog selectedLog = new AiRequestLog(
+                "HistorySelectedBeforeRename",
+                "history-model",
+                AiRequestLog.STATUS_SUCCESS,
+                AiRequestLogger.SOURCE_TEST_CONNECTION);
+        selectedLog.setProviderId(selected.getId());
+        selectedLog.setTotalTokens(17);
+        selectedLog.setDurationMs(42);
+        logRepository.saveAndFlush(selectedLog);
+
+        AiRequestLog otherLog = new AiRequestLog(
+                "HistoryOther",
+                "other-model",
+                AiRequestLog.STATUS_FAILED,
+                AiRequestLogger.SOURCE_TEST_CONNECTION);
+        otherLog.setProviderId(other.getId());
+        logRepository.saveAndFlush(otherLog);
+
+        var result = mockMvc.perform(get(URL_SETTINGS_AI + "/" + selected.getId() + "/edit")
+                        .param("tab", TAB_HISTORY)
+                        .param("page", "-4"))
+                .andExpect(status().isOk())
+                .andExpect(view().name(VIEW_SETTINGS_AI_FORM))
+                .andExpect(model().attribute(ATTR_ACTIVE_DETAIL_TAB, TAB_HISTORY))
+                .andExpect(model().attributeExists(ATTR_ACTIVITIES_PAGE))
+                .andExpect(content().string(containsString("HistorySelectedBeforeRename")))
+                .andExpect(content().string(not(containsString("HistoryOther"))))
+                .andReturn();
+
+        var history = (org.springframework.data.domain.Page<?>)
+                result.getModelAndView().getModel().get(ATTR_ACTIVITIES_PAGE);
+        assertThat(history.getNumber()).isZero();
+        assertThat(history.getContent()).hasSize(1);
     }
 
     @Test
@@ -502,16 +565,9 @@ class Sprint8AiSettingsIntegrationTest {
         assertThat(ordered.get(1).getDisplayOrder()).isEqualTo((short) 2);
     }
 
-    /**
-     * A rejected credential (401) must STOP the chain dead.
-     *
-     * <p>This is the most consequential rule in the feature. If 401 were ever reclassified
-     * as transient, one broken API key would be fired at every configured provider on every
-     * single call — burning paid quota and risking account lockout for repeated auth
-     * failures. The canary provider below must never be contacted.
-     */
+    /** A credential belongs to one provider; its 401 must not disable healthy fallbacks. */
     @Test
-    void permanent_401_halts_the_chain_and_never_contacts_the_next_provider() {
+    void provider_specific_401_continues_to_the_next_provider() {
         persist("BadKeyProvider", true, FIRST_URL);
         persist(CANARY, true, SECOND_URL);
 
@@ -519,19 +575,14 @@ class Sprint8AiSettingsIntegrationTest {
         MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
         AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
 
-        // Exactly one request is programmed. A second call has no expectation left and
-        // fails the exchange, and verify() below re-checks the recorded count.
         mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
                 .andRespond(withUnauthorizedRequest());
+        mockServer.expect(ExpectedCount.once(), requestTo(SECOND_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"message\":{\"content\":\"recovered\"}}]}",
+                        MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.chat("hello", 5))
-                .isInstanceOf(AiClientException.class)
-                .hasMessageContaining("BadKeyProvider")
-                // The decisive assertion: the second provider was never reached, so it
-                // cannot appear in the aggregated failure message.
-                .hasMessageNotContaining(CANARY);
-
-        // Fails if a second (unexpected) request was issued to the canary.
+        assertThat(client.chat("hello", 5)).isEqualTo("recovered");
         mockServer.verify();
     }
 
@@ -558,6 +609,101 @@ class Sprint8AiSettingsIntegrationTest {
 
         assertThat(client.chat("hello", 5)).isEqualTo("pong");
 
+        mockServer.verify();
+    }
+
+    @Test
+    void embedded_rate_limit_in_http_200_continues_to_the_next_provider() {
+        persist("FlakyProvider", true, FIRST_URL);
+        persist("HealthyProvider", true, SECOND_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andRespond(withSuccess("""
+                        {"choices":[{"finish_reason":"error",
+                        "error":{"code":429,"message":"rate limited"}}]}
+                        """, MediaType.APPLICATION_JSON));
+        mockServer.expect(ExpectedCount.once(), requestTo(SECOND_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"message\":{\"content\":\"recovered\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.chat("hello", 5)).isEqualTo("recovered");
+        mockServer.verify();
+    }
+
+    @Test
+    void embedded_provider_specific_400_does_not_block_a_healthy_provider() {
+        persist("BadKeyProvider", true, FIRST_URL);
+        persist(CANARY, true, SECOND_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andRespond(withSuccess("""
+                        {"choices":[{"finish_reason":"error",
+                        "error":{"code":400,"message":"model is unavailable"}}]}
+                        """, MediaType.APPLICATION_JSON));
+        mockServer.expect(ExpectedCount.once(), requestTo(SECOND_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"message\":{\"content\":\"fallback\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.chat("hello", 5)).isEqualTo("fallback");
+        mockServer.verify();
+    }
+
+    @Test
+    void feature_chat_sends_system_turn_and_explicit_non_streaming_json_contract() {
+        persist("HealthyProvider", true, FIRST_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers
+                        .header(org.springframework.http.HttpHeaders.ACCEPT,
+                                MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers
+                        .content().json("""
+                                {"model":"test-model","max_tokens":50,"stream":false,
+                                "messages":[
+                                  {"role":"system","content":"system rules"},
+                                  {"role":"user","content":"source material"}
+                                ]}
+                                """))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"message\":{\"content\":\"ok\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.chat("system rules", "source material", 50, 99L,
+                AiRequestLogger.SOURCE_QUESTION_GEN)).isEqualTo("ok");
+        mockServer.verify();
+    }
+
+    @Test
+    void oversized_provider_error_body_is_bounded_before_aggregation() {
+        persist("BadKeyProvider", true, FIRST_URL);
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer mockServer = MockRestServiceServer.bindTo(builder).build();
+        AiClient client = AiClient.withPreconfiguredTransport(repository, builder, requestLogger);
+
+        mockServer.expect(ExpectedCount.once(), requestTo(FIRST_URL + "/chat/completions"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                        .withStatus(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .body("x".repeat(50_000))
+                        .contentType(MediaType.TEXT_PLAIN));
+
+        assertThatThrownBy(() -> client.chat("hello", 5))
+                .isInstanceOf(AiClientException.class)
+                .satisfies(error -> assertThat(error.getMessage()).hasSizeLessThan(400));
         mockServer.verify();
     }
 

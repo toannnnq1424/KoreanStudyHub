@@ -106,7 +106,9 @@ public class StudentAssignmentService {
     @Transactional
     public void submit(Long classId, Long assignmentId, SubmitForm form, Long userId) {
         access.requireActiveEnrollment(classId, userId);
-        Assignment a = assignmentRepository.findByIdAndClassIdNotDeleted(assignmentId, classId)
+        // The stable assignment row serializes both first-time inserts (where
+        // no submission row exists to lock) and concurrent submit-vs-grade.
+        Assignment a = assignmentRepository.findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
         if (!AssignmentStatus.PUBLISHED.equals(a.getStatus())) {
             throw new IllegalStateException(MSG_ASSIGNMENT_INVALID_TRANSITION);
@@ -114,7 +116,7 @@ public class StudentAssignmentService {
 
         // Check existing submission.
         Optional<AssignmentSubmission> existing =
-                submissionRepository.findByAssignmentIdAndUserId(assignmentId, userId);
+                submissionRepository.findByAssignmentIdAndUserIdForUpdate(assignmentId, userId);
         if (existing.isPresent() && AssignmentStatus.SUB_GRADED.equals(existing.get().getStatus())) {
             throw new IllegalArgumentException(MSG_SUBMIT_AFTER_GRADED);
         }

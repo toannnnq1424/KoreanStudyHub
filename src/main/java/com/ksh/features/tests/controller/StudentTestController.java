@@ -7,6 +7,7 @@ import com.ksh.features.tests.dto.TestDtos.TakeView;
 import com.ksh.features.tests.service.TestAttemptService;
 import com.ksh.features.tests.service.TestCatalogService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -34,7 +35,7 @@ import static com.ksh.common.IConstant.VIEW_TEST_TAKE;
  */
 @Controller
 @RequestMapping(BASE_MY_TESTS)
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentTestController {
 
     private final TestCatalogService catalogService;

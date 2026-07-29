@@ -1,19 +1,12 @@
 /* Flashcards — shared helpers (KSH-5.x).
  *
  * Provides window.FcCommon: CSRF header lookup, a KshToast wrapper, and a JSON
- * fetch helper. Also drains #flash-data into toasts on page load so redirect
- * flash messages surface via KshToast (per project notification rule).
+ * fetch helper.
+ *
+ * Server flash payloads are drained centrally by notifications.js.
  */
 (function () {
     'use strict';
-
-    function ready(fn) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', fn);
-        } else {
-            fn();
-        }
-    }
 
     function toast(kind, message) {
         if (!message) return;
@@ -66,19 +59,6 @@
             });
     }
 
-    function drainFlash() {
-        var el = document.getElementById('flash-data');
-        if (!el) return;
-        var map = { 'data-flash-success': 'success', 'data-flash-error': 'error',
-            'data-flash-info': 'info', 'data-flash-warning': 'warning' };
-        Object.keys(map).forEach(function (attr) {
-            var val = el.getAttribute(attr);
-            if (val && val !== 'null') toast(map[attr], val);
-        });
-    }
-
     window.FcCommon = { toast: toast, csrfHeader: csrfHeader,
         postJson: postJson, postForm: postForm };
-
-    ready(drainFlash);
 })();

@@ -29,6 +29,7 @@ import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.features.library.repository.LibraryAssetRepository;
 import com.ksh.features.storage.ObjectStorage;
 import com.ksh.features.storage.StorageKeys;
+import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LibraryStorageService;
 import com.ksh.features.upload.LibraryStorageService.StoredLibraryFile;
 import com.ksh.security.Role;
@@ -314,7 +315,7 @@ public class LessonTemplateService {
                                                     Long sectionId, Long userId, Role role) {
         LessonTemplate template = getOwned(userId, templateId);
         classesService.getEditable(classId, userId, role);
-        reorderService.verifySectionBelongsToClass(sectionId, classId);
+        reorderService.lockSectionForUpdate(sectionId, classId);
 
         Lesson lesson = materializeDraft(sectionId, template.getTitle(),
                 template.getContentType(), userId);
@@ -324,7 +325,8 @@ public class LessonTemplateService {
         List<LessonTemplateAttachment> extras =
                 templateAttachmentRepository.findByTemplateIdOrderByDisplayOrderAsc(templateId);
         for (LessonTemplateAttachment extra : extras) {
-            LibraryAsset asset = libraryService.getOwnedAsset(userId, extra.getLibraryAssetId());
+            LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
+                    userId, extra.getLibraryAssetId());
             LessonAttachment row = new LessonAttachment(
                     saved.getId(), asset.getOriginalFilename(), asset.getStoredPath(),
                     asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
@@ -348,7 +350,7 @@ public class LessonTemplateService {
         Lesson source = lessonsService.getEditableLesson(
                 sourceClassId, sourceSectionId, sourceLessonId, userId, role);
         classesService.getEditable(targetClassId, userId, role);
-        reorderService.verifySectionBelongsToClass(targetSectionId, targetClassId);
+        reorderService.lockSectionForUpdate(targetSectionId, targetClassId);
 
         String type = source.getContentType() == null
                 ? CONTENT_TYPE_RICHTEXT : source.getContentType();
@@ -421,7 +423,8 @@ public class LessonTemplateService {
         if (VIDEO_PROVIDER_UPLOAD.equals(provider)) {
             LibraryAsset asset;
             if (lesson.hasLibraryVideo()) {
-                asset = libraryService.getOwnedAsset(ownerId, lesson.getVideoLibraryAssetId());
+                asset = libraryService.getOwnedAssetForUpdate(
+                        ownerId, lesson.getVideoLibraryAssetId());
             } else {
                 asset = promoteOneOffVideo(lesson, ownerId);
             }
@@ -442,7 +445,7 @@ public class LessonTemplateService {
             return;
         }
         if (CONTENT_TYPE_PDF.equals(type)) {
-            LibraryAsset asset = libraryService.getOwnedAsset(
+            LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
                     userId, template.getPdfLibraryAssetId());
             // Attachment row first so pdf_attachment_id CHECK can pass after type switch.
             LessonAttachment row = new LessonAttachment(
@@ -471,7 +474,7 @@ public class LessonTemplateService {
             return;
         }
         if (VIDEO_PROVIDER_UPLOAD.equals(provider)) {
-            LibraryAsset asset = libraryService.getOwnedAsset(
+            LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
                     userId, template.getVideoLibraryAssetId());
             lesson.switchContentTypeTo(CONTENT_TYPE_VIDEO);
             lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
@@ -519,7 +522,8 @@ public class LessonTemplateService {
             if (VIDEO_PROVIDER_UPLOAD.equals(provider)) {
                 LibraryAsset asset;
                 if (source.hasLibraryVideo()) {
-                    asset = libraryService.getOwnedAsset(userId, source.getVideoLibraryAssetId());
+                    asset = libraryService.getOwnedAssetForUpdate(
+                            userId, source.getVideoLibraryAssetId());
                 } else {
                     asset = promoteOneOffVideo(source, userId);
                 }
@@ -541,12 +545,14 @@ public class LessonTemplateService {
      */
     private LibraryAsset resolveOrPromoteDocument(LessonAttachment att, Long ownerId) {
         if (att.isLibraryBacked()) {
-            return libraryService.getOwnedAsset(ownerId, att.getLibraryAssetId());
+            return libraryService.getOwnedAssetForUpdate(ownerId, att.getLibraryAssetId());
         }
         try {
             String sourceKey = StorageKeys.requireSafeKey(att.getStoredPath());
             StoredLibraryFile stored = libraryStorage.copyFromKey(
                     sourceKey, ownerId, att.getOriginalFilename(), KIND_DOCUMENT);
+            StorageTransactionLifecycle.deleteOnRollback(
+                    () -> libraryStorage.delete(stored.storedPath()));
             LibraryAsset asset = new LibraryAsset(
                     ownerId, att.getOriginalFilename(), stored.originalFilename(),
                     stored.storedPath(), stored.mimeType(), stored.sizeBytes(), stored.kind());
@@ -569,6 +575,8 @@ public class LessonTemplateService {
             String filename = leafName(sourceKey);
             StoredLibraryFile stored = libraryStorage.copyFromKey(
                     sourceKey, ownerId, filename, KIND_VIDEO);
+            StorageTransactionLifecycle.deleteOnRollback(
+                    () -> libraryStorage.delete(stored.storedPath()));
             LibraryAsset asset = new LibraryAsset(
                     ownerId, filename, stored.originalFilename(),
                     stored.storedPath(), stored.mimeType(), stored.sizeBytes(), stored.kind());

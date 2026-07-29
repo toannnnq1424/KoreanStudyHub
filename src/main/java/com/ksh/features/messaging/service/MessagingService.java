@@ -27,6 +27,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -100,9 +102,7 @@ public class MessagingService {
         }
         Long lo = Math.min(meId, otherId);
         Long hi = Math.max(meId, otherId);
-        return conversationRepository.findByUserLoIdAndUserHiId(lo, hi)
-                .map(Conversation::getId)
-                .orElseGet(() -> conversationRepository.save(Conversation.between(meId, otherId)).getId());
+        return getOrCreateNormalizedConversation(lo, hi);
     }
 
     // ── Listing ─────────────────────────────────────────────────────────
@@ -206,16 +206,28 @@ public class MessagingService {
 
         // Get-or-create the student↔lecturer thread. The enrollment gate above
         // already proves eligibility, so we normalise the pair directly here.
-        Long convId = conversationRepository
-                .findByUserLoIdAndUserHiId(Math.min(meId, lecturerId), Math.max(meId, lecturerId))
-                .map(Conversation::getId)
-                .orElseGet(() -> conversationRepository.save(Conversation.between(meId, lecturerId)).getId());
+        Long convId = getOrCreateNormalizedConversation(
+                Math.min(meId, lecturerId), Math.max(meId, lecturerId));
 
         ConversationView conversation = openConversation(meId, convId, page);
         String lecturerName = userRepository.findById(lecturerId)
                 .map(User::getFullName).orElse(null);
         return new ClassMessagesView(clazz.getId(), clazz.getName(), clazz.getCode(),
                 lecturerName, conversation);
+    }
+
+    /**
+     * Serializes find-or-create on the lower participant's stable user row.
+     * Every caller for the same normalized pair locks the same row before
+     * checking the unique pair, so a concurrent creator observes the committed
+     * conversation instead of losing a unique-constraint race.
+     */
+    private Long getOrCreateNormalizedConversation(Long lo, Long hi) {
+        userRepository.findByIdForUpdate(lo)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return conversationRepository.findByUserLoIdAndUserHiId(lo, hi)
+                .map(Conversation::getId)
+                .orElseGet(() -> conversationRepository.save(Conversation.between(lo, hi)).getId());
     }
 
     // ── Sending (with STOMP push) ───────────────────────────────────────
@@ -269,6 +281,17 @@ public class MessagingService {
      */
     @Transactional(readOnly = true)
     public long unreadCount(Long meId) {
+        return messageRepository.countUnreadForUser(meId);
+    }
+
+    /**
+     * Marks the peer's unread messages in an owned conversation as read and
+     * returns the caller's authoritative total for refreshing all badges.
+     */
+    @Transactional
+    public long markConversationRead(Long meId, Long convId) {
+        requireParticipant(meId, convId);
+        messageRepository.markReadBulk(convId, meId, LocalDateTime.now());
         return messageRepository.countUnreadForUser(meId);
     }
 
@@ -329,9 +352,25 @@ public class MessagingService {
         Optional<User> sender = userRepository.findById(senderId);
         if (peer.isEmpty()) return;
         String senderName = sender.map(User::getFullName).orElse("");
-        PushPayload payload = new PushPayload(convId, senderName, snippet(body), peerUnread);
+        PushPayload payload = new PushPayload(
+                convId, senderName, snippet(body), body, peerUnread);
         // Route by the peer's email — matches the Spring Security principal name.
-        messagingTemplate.convertAndSendToUser(peer.get().getEmail(), "/queue/messages", payload);
+        Runnable push = () -> messagingTemplate.convertAndSendToUser(
+                peer.get().getEmail(), "/queue/messages", payload);
+        // The browser marks an active thread read as soon as this frame arrives.
+        // Publish only after commit so that request can see and update this row.
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            push.run();
+                        }
+                    });
+        } else {
+            push.run();
+        }
     }
 
     private static String snippet(String body) {

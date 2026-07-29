@@ -9,6 +9,7 @@ import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -76,7 +77,8 @@ public class LessonsReorderService {
     public void reorder(Long classId, Long sectionId, List<Long> orderedIds,
                         Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
-        verifySectionBelongsToClass(sectionId, classId);
+        sectionRepository.findByIdAndClassIdForUpdate(sectionId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_SECTION_NOT_FOUND));
         if (orderedIds == null) {
             throw new IllegalArgumentException("Danh sách thứ tự không được rỗng");
         }
@@ -116,6 +118,13 @@ public class LessonsReorderService {
         if (section.getId() == null) {
             throw new IllegalStateException("Section id missing after lookup");
         }
+    }
+
+    /** Locks the section row used as the mutex for all sibling lesson appends. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Section lockSectionForUpdate(Long sectionId, Long classId) {
+        return sectionRepository.findByIdAndClassIdForUpdate(sectionId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_SECTION_NOT_FOUND));
     }
 
     /** Writes one audit row per lesson whose position actually changed. */

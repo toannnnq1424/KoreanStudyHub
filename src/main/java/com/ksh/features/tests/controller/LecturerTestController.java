@@ -3,6 +3,7 @@ package com.ksh.features.tests.controller;
 import com.ksh.entities.ClassEntity;
 import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamHeader;
 import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -85,6 +87,9 @@ public class LecturerTestController {
     /** Page size for the "Lịch sử" tab (mirrors the admin user-detail history tab). */
     private static final int HISTORY_PAGE_SIZE = 20;
 
+    private static final String ATTR_SELECTED_CLASS_ID = "selectedClassId";
+    private static final String ATTR_TEST_RETURN_URL = "testReturnUrl";
+
     /** Whitelist of valid {@code tab} values; anything else falls back to {@code info}. */
     private static final Set<String> VALID_TABS =
             Set.of(TAB_INFO, TAB_MONITOR, TAB_SUBMISSIONS, TAB_HISTORY);
@@ -121,11 +126,21 @@ public class LecturerTestController {
 
     /** Renders the create form with a blank question builder. */
     @GetMapping("/new")
-    public String newForm(@AuthenticationPrincipal KshUserDetails user, Model model) {
+    public String newForm(@RequestParam(name = "classId", required = false) Long classId,
+                          @AuthenticationPrincipal KshUserDetails user, Model model) {
+        List<ClassOption> ledClasses = examService.ledClasses(user.getId());
+        Long selectedClassId = ledClasses.stream()
+                .map(ClassOption::id)
+                .filter(id -> id.equals(classId))
+                .findFirst()
+                .orElse(null);
+
         model.addAttribute(ATTR_EXAM_FORM, null);
-        model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(user.getId()));
+        model.addAttribute(ATTR_LED_CLASSES, ledClasses);
         model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
+        model.addAttribute(ATTR_SELECTED_CLASS_ID, selectedClassId);
+        model.addAttribute(ATTR_TEST_RETURN_URL, returnUrlForClass(selectedClassId));
         return VIEW_TEST_LECTURER_FORM;
     }
 
@@ -166,6 +181,7 @@ public class LecturerTestController {
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
+        model.addAttribute(ATTR_TEST_RETURN_URL, BASE_LECTURER_TESTS);
 
         // Left sidebar chrome: the class this exam belongs to (share box + class
         // nav), mirroring the class-detail layout. No class nav item maps to the
@@ -186,6 +202,12 @@ public class LecturerTestController {
                     monitorService.historyFor(id, userId, PageRequest.of(Math.max(0, page), HISTORY_PAGE_SIZE)));
         }
         return VIEW_TEST_LECTURER_FORM;
+    }
+
+    private static String returnUrlForClass(Long classId) {
+        return classId == null
+                ? BASE_LECTURER_TESTS
+                : "/lecturer/classes/" + classId + "/tests";
     }
 
     /**

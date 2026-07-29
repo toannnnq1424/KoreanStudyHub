@@ -8,12 +8,8 @@ import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.service.ClassActivityWriter;
 import com.ksh.features.classes.service.ClassesService;
 import jakarta.persistence.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.core.NestedExceptionUtils;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +24,8 @@ import java.util.Optional;
  * disables the previous active row (history retained) before
  * inserting a new active row. Token format/uniqueness is delegated
  * to {@link InviteTokenGenerator}; collisions on the unique index
- * {@code idx_ic_code} trigger an in-loop retry.
+ * {@code idx_ic_code} are avoided before the single flush so a constraint
+ * exception is never caught and retried inside a rollback-only transaction.
  *
  * <p>Authorization for regeneration is delegated to
  * {@link ClassesService#getEditable(Long, Long, Role)} — same
@@ -37,7 +34,6 @@ import java.util.Optional;
 @Service
 public class InviteCodeService {
 
-    private static final Logger log = LoggerFactory.getLogger(InviteCodeService.class);
 
     /** Cap on collision retries when generating CODE values. */
     static final int MAX_GENERATE_ATTEMPTS = 5;
@@ -205,29 +201,18 @@ public class InviteCodeService {
 
     private ClassInviteCode insertWithRetry(Long classId, String type, Long createdBy,
                                             TokenSupplier supplier) {
-        DataIntegrityViolationException last = null;
         for (int attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
             String code = supplier.next();
-            ClassInviteCode entity = new ClassInviteCode(classId, code, type, createdBy);
-            try {
-                return inviteRepository.saveAndFlush(entity);
-            } catch (DataIntegrityViolationException ex) {
-                if (!isCodeCollision(ex)) {
-                    throw ex;
-                }
-                last = ex;
-                log.warn("Invite-code collision on attempt {} for type {} (class {})",
-                        attempt, type, classId);
+            if (!inviteRepository.existsByCode(code)) {
+                // Flush exactly once. A truly concurrent collision is allowed
+                // to abort the whole transaction atomically; continuing after
+                // that exception would use a rollback-only persistence context.
+                return inviteRepository.saveAndFlush(
+                        new ClassInviteCode(classId, code, type, createdBy));
             }
         }
         throw new IllegalStateException(
-                "Không sinh được mã mời sau " + MAX_GENERATE_ATTEMPTS + " lần thử", last);
-    }
-
-    private boolean isCodeCollision(DataIntegrityViolationException ex) {
-        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
-        String msg = cause.getMessage();
-        return msg != null && msg.contains("idx_ic_code");
+                "Không sinh được mã mời sau " + MAX_GENERATE_ATTEMPTS + " lần thử");
     }
 
     private void validateType(String type) {

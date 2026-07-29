@@ -33,6 +33,13 @@
         var addBtn = document.getElementById('fcAddCard');
         var cardsUrl = '/api/flashcards/' + deckId + '/cards';
         var proceeding = false;
+        var saving = false;
+
+        function setSubmitDisabled(disabled) {
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (button) {
+                button.disabled = disabled;
+            });
+        }
 
         function rows() {
             return Array.prototype.slice.call(list.querySelectorAll('.fc-card-row'));
@@ -136,6 +143,7 @@
         form.addEventListener('submit', function (e) {
             if (proceeding) return; // real submit: let native POST run
             e.preventDefault();
+            if (saving) return;
 
             var title = document.getElementById('deckTitle');
             if (title && !title.value.trim()) {
@@ -149,13 +157,18 @@
             }
 
             // Save the card set, then submit the metadata form.
+            saving = true;
+            setSubmitDisabled(true);
             window.FcCommon.postJson(cardsUrl, { cards: collected.cards })
                 .then(function () {
                     proceeding = true;
+                    setSubmitDisabled(false);
                     if (typeof form.requestSubmit === 'function') form.requestSubmit();
                     else form.submit();
                 })
                 .catch(function (err) {
+                    saving = false;
+                    setSubmitDisabled(false);
                     toast('error', err.message || 'Lưu bộ thẻ thất bại');
                 });
         });

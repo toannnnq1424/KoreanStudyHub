@@ -8,6 +8,7 @@ import com.ksh.features.library.dto.LibraryDtos.LibraryPickerPage;
 import com.ksh.features.library.repository.LessonTemplateAttachmentRepository;
 import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.features.library.repository.LibraryAssetRepository;
+import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LibraryStorageService;
 import com.ksh.features.upload.LibraryStorageService.StoredLibraryFile;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -98,6 +100,8 @@ public class LibraryService {
     @Transactional
     public LibraryAssetRow upload(Long ownerId, MultipartFile file, String kind) throws IOException {
         StoredLibraryFile stored = storage.store(file, ownerId, kind);
+        StorageTransactionLifecycle.deleteOnRollback(
+                () -> storage.delete(stored.storedPath()));
         String title = stored.originalFilename();
         LibraryAsset asset = new LibraryAsset(
                 ownerId, title, stored.originalFilename(), stored.storedPath(),
@@ -122,7 +126,8 @@ public class LibraryService {
      */
     @Transactional
     public void delete(Long ownerId, Long assetId) {
-        LibraryAsset asset = getOwnedAsset(ownerId, assetId);
+        LibraryAsset asset = assetRepository.findByIdAndOwnerIdForUpdate(assetId, ownerId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_LIBRARY_ASSET_NOT_FOUND));
         long refs = countReferences(assetId);
         if (refs > 0) {
             throw new IllegalStateException(MSG_LIBRARY_ASSET_IN_USE);
@@ -130,7 +135,8 @@ public class LibraryService {
         // Soft-delete first so lists drop the row even if disk delete fails.
         asset.markDeleted();
         assetRepository.save(asset);
-        storage.delete(asset.getStoredPath());
+        StorageTransactionLifecycle.deleteAfterCommit(
+                () -> storage.delete(asset.getStoredPath()));
     }
 
     /**
@@ -140,6 +146,16 @@ public class LibraryService {
     @Transactional(readOnly = true)
     public LibraryAsset getOwnedAsset(Long ownerId, Long assetId) {
         return assetRepository.findByIdAndOwnerId(assetId, ownerId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_LIBRARY_ASSET_NOT_FOUND));
+    }
+
+    /**
+     * Locks an owned asset while a surrounding transaction creates a durable
+     * reference to it, serializing that bind against {@link #delete}.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public LibraryAsset getOwnedAssetForUpdate(Long ownerId, Long assetId) {
+        return assetRepository.findByIdAndOwnerIdForUpdate(assetId, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LIBRARY_ASSET_NOT_FOUND));
     }
 

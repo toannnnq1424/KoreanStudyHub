@@ -3,6 +3,7 @@ package com.ksh.features.lessons.support;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.service.ClassRoleAccessPolicy;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Component;
@@ -27,19 +28,23 @@ public class ClassAccessPolicy {
     private static final String NF_MSG = "Class not found or not accessible";
 
     private final EnrollmentRepository enrollmentRepository;
+    private final ClassRoleAccessPolicy classRoleAccessPolicy;
 
-    public ClassAccessPolicy(EnrollmentRepository enrollmentRepository) {
+    public ClassAccessPolicy(EnrollmentRepository enrollmentRepository,
+                             ClassRoleAccessPolicy classRoleAccessPolicy) {
         this.enrollmentRepository = enrollmentRepository;
+        this.classRoleAccessPolicy = classRoleAccessPolicy;
     }
 
     /** ADMIN and LEADER are privileged moderators across every class. */
-    public boolean isPrivileged(Role role) {
-        return role == Role.ADMIN || role == Role.LEADER;
+    public boolean isPrivileged(ClassEntity clazz, Long userId, Role role) {
+        return role == Role.ADMIN
+                || (role == Role.LEADER && classRoleAccessPolicy.canAccess(clazz, userId, role));
     }
 
     /** A moderator is the owning lecturer or any ADMIN/LEADER. */
     public boolean isModerator(ClassEntity clazz, Long userId, Role role) {
-        return clazz.getLecturerId().equals(userId) || isPrivileged(role);
+        return clazz.getLecturerId().equals(userId) || isPrivileged(clazz, userId, role);
     }
 
     /**
@@ -51,7 +56,7 @@ public class ClassAccessPolicy {
      */
     public void requireModeratorOrEnrolled(ClassEntity clazz, Long userId, Role role) {
         // ADMIN/LEADER may open any live class to moderate its lesson thread.
-        if (isPrivileged(role)) {
+        if (isPrivileged(clazz, userId, role)) {
             return;
         }
         boolean lecturer = clazz.getLecturerId().equals(userId);

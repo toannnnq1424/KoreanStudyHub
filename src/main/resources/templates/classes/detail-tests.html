@@ -19,7 +19,8 @@
   <main class="col">
     <div class="tst-toolbar">
       <h1 class="detail-title" style="margin:0">Bài test của lớp</h1>
-      <a class="tst-btn tst-btn-primary" th:href="@{/lecturer/tests/new}">Tạo bài test</a>
+      <a class="tst-btn tst-btn-primary"
+         th:href="@{/lecturer/tests/new(classId=${clazz.id})}">Tạo bài test</a>
     </div>
 
     <div class="tst-empty" th:if="${examsPage.totalElements == 0}">

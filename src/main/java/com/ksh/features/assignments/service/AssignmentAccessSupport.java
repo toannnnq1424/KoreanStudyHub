@@ -7,6 +7,7 @@ import com.ksh.features.assignments.repository.AssignmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.service.ClassRoleAccessPolicy;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Component;
@@ -29,15 +30,18 @@ public class AssignmentAccessSupport {
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
     private final ClassRepository classRepository;
+    private final ClassRoleAccessPolicy classAccessPolicy;
 
     public AssignmentAccessSupport(AssignmentRepository assignmentRepository,
                                    EnrollmentRepository enrollmentRepository,
                                    UserRepository userRepository,
-                                   ClassRepository classRepository) {
+                                   ClassRepository classRepository,
+                                   ClassRoleAccessPolicy classAccessPolicy) {
         this.assignmentRepository = assignmentRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.userRepository = userRepository;
         this.classRepository = classRepository;
+        this.classAccessPolicy = classAccessPolicy;
     }
 
     /**
@@ -47,9 +51,7 @@ public class AssignmentAccessSupport {
     public void requireEditableClass(Long classId, Long userId, Role role) {
         classRepository.findById(classId)
                 .filter(c -> !c.isDeleted())
-                .filter(c -> role == Role.LECTURER
-                        ? c.getLecturerId().equals(userId)
-                        : true) // LEADER and ADMIN may access any class
+                .filter(c -> classAccessPolicy.canAccess(c, userId, role))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
     }
 
