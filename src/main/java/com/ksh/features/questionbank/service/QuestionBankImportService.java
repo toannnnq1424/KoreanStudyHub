@@ -47,6 +47,7 @@ public class QuestionBankImportService {
     private static final String MSG_EMPTY_DEPARTMENT =
             "Bạn chưa được gán bộ môn để import câu hỏi cộng tác";
     private static final int MAX_PREVIEW_LENGTH = 80;
+    private static final int MAX_CATEGORY_HINTS = 5;
 
     private final UserRepository userRepository;
     private final QuestionBankAccessPolicy accessPolicy;
@@ -70,6 +71,22 @@ public class QuestionBankImportService {
         this.optionRepository = optionRepository;
         this.importParser = importParser;
         this.sessionStore = sessionStore;
+    }
+
+    /**
+     * Returns active category names for a workbook downloaded by the actor.
+     *
+     * <p>This deliberately reuses the same actor and department checks as preview
+     * so the generated sample cannot leak or reference another department's
+     * question-bank taxonomy.
+     */
+    @Transactional(readOnly = true)
+    public List<String> activeCategoryNamesForTemplate(Long userId, Role role) {
+        User actor = requireActor(userId, role);
+        requireDepartment(actor);
+        return categoryService.activeOptionsFor(actor).stream()
+                .map(CategoryOption::name)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -162,7 +179,7 @@ public class QuestionBankImportService {
         List<String> messages = new ArrayList<>();
         CategoryOption category = categories.get(normalizeKey(raw.categoryName()));
         if (category == null) {
-            messages.add("Danh mục không tồn tại hoặc đang bị ẩn");
+            messages.add(missingCategoryMessage(raw.categoryName(), categories));
         }
 
         String questionType = normalizeQuestionType(raw.questionType());
@@ -310,6 +327,33 @@ public class QuestionBankImportService {
             return "";
         }
         return QuestionBankImportParser.normalize(value);
+    }
+
+    private static String missingCategoryMessage(String requestedName,
+                                                 Map<String, CategoryOption> categories) {
+        String requested = blankToDash(preview(requestedName));
+        String prefix = "Danh mục \"" + requested
+                + "\" không tồn tại hoặc đang đóng trong ngân hàng câu hỏi bộ môn. ";
+        if (categories.isEmpty()) {
+            return prefix
+                    + "Hiện chưa có danh mục nào đang mở; hãy nhờ trưởng bộ môn tạo hoặc mở "
+                    + "danh mục trước khi import";
+        }
+
+        List<String> activeNames = new ArrayList<>();
+        for (CategoryOption category : categories.values()) {
+            if (!activeNames.contains(category.name())) {
+                activeNames.add(category.name());
+            }
+        }
+        List<String> hints = activeNames.stream()
+                .limit(MAX_CATEGORY_HINTS)
+                .map(name -> "\"" + preview(name) + "\"")
+                .toList();
+        int remaining = activeNames.size() - hints.size();
+        String more = remaining > 0 ? " (và " + remaining + " danh mục khác)" : "";
+        return prefix + "Hãy thay giá trị ở cột Danh mục bằng đúng một tên đang mở: "
+                + String.join(", ", hints) + more;
     }
 
     private static String preview(String value) {

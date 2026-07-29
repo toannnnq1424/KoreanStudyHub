@@ -16,8 +16,9 @@ class LeaderQuestionBankCatalogFrontendContractTest {
                 Path.of("src/main/resources/templates/questionbank/manage.html"));
 
         assertThat(template)
-                .contains("Chưa có danh mục riêng của bộ môn")
-                .contains("do ADMIN quản lý")
-                .contains("KSH sẽ tự tạo liên kết danh mục tương ứng");
+                .contains("Chưa có danh mục ngân hàng câu hỏi của bộ môn")
+                .contains("Hãy tạo và mở ít nhất một danh mục")
+                .doesNotContain("do ADMIN quản lý")
+                .doesNotContain("tự tạo liên kết danh mục tương ứng");
     }
 }

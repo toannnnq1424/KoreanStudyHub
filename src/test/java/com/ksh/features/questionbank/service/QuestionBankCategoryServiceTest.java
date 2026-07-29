@@ -1,9 +1,7 @@
 package com.ksh.features.questionbank.service;
 
 import com.ksh.entities.Department;
-import com.ksh.entities.Category;
 import com.ksh.entities.User;
-import com.ksh.features.admin.categories.repository.CategoryRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.leader.service.LeaderDepartmentResolver;
 import com.ksh.features.questionbank.dto.QuestionBankCategoryForm;
@@ -24,10 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,80 +32,46 @@ class QuestionBankCategoryServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final QuestionBankCategoryRepository categoryRepository = mock(QuestionBankCategoryRepository.class);
     private final QuestionBankItemRepository itemRepository = mock(QuestionBankItemRepository.class);
-    private final CategoryRepository courseCategoryRepository = mock(CategoryRepository.class);
     private final LeaderDepartmentResolver resolver = mock(LeaderDepartmentResolver.class);
     private final QuestionBankAccessPolicy accessPolicy = new QuestionBankAccessPolicy(resolver);
     private final QuestionBankCategoryService service = new QuestionBankCategoryService(
-            userRepository, accessPolicy, categoryRepository, itemRepository, courseCategoryRepository);
+            userRepository, accessPolicy, categoryRepository, itemRepository);
 
     @Test
-    void authoring_options_reuse_active_admin_top_level_categories_without_writing_on_get() {
+    void authoring_options_use_only_active_categories_owned_by_the_department() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
-        Category grammar = category(8L, "Ngữ pháp", null, true);
-        Category child = category(9L, "TOPIK I", 8L, true);
-        when(categoryRepository.findByDepartmentIdOrderByNameAsc(5L)).thenReturn(List.of());
-        when(courseCategoryRepository.findByParentIdIsNullOrderByNameAsc())
-                .thenReturn(List.of(grammar, child));
+        QuestionBankCategory grammar = new QuestionBankCategory(
+                5L, "Ngữ pháp", null, true, 11L);
+        setId(grammar, 3L);
+        when(categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(5L))
+                .thenReturn(List.of(grammar));
 
         List<CategoryOption> options = service.activeOptionsFor(lecturer);
 
-        assertThat(options).containsExactly(new CategoryOption(-8L, "Ngữ pháp", true));
-        verify(categoryRepository, never()).save(any());
+        assertThat(options).containsExactly(new CategoryOption(3L, "Ngữ pháp", true));
+        verify(categoryRepository).findByDepartmentIdAndActiveTrueOrderByNameAsc(5L);
     }
 
     @Test
-    void inactive_department_category_shadows_same_named_admin_category() {
+    void contribution_resolves_an_active_category_in_the_actor_department() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
-        QuestionBankCategory hidden = new QuestionBankCategory(
-                5L, "Ngữ pháp", null, false, 11L);
-        setId(hidden, 3L);
-        when(categoryRepository.findByDepartmentIdOrderByNameAsc(5L)).thenReturn(List.of(hidden));
-        when(courseCategoryRepository.findByParentIdIsNullOrderByNameAsc())
-                .thenReturn(List.of(category(8L, "Ngữ pháp", null, true)));
+        QuestionBankCategory category = new QuestionBankCategory(
+                5L, "Ngữ pháp", null, true, 11L);
+        setId(category, 21L);
+        when(categoryRepository.findByIdAndDepartmentId(21L, 5L))
+                .thenReturn(Optional.of(category));
 
-        assertThat(service.activeOptionsFor(lecturer)).isEmpty();
+        QuestionBankCategory resolved = service.resolveForContribution(21L, lecturer);
+
+        assertThat(resolved).isSameAs(category);
     }
 
     @Test
-    void contribution_lazily_mirrors_admin_category_into_actor_department() {
+    void contribution_rejects_a_legacy_admin_taxonomy_reference() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
-        Category grammar = category(8L, "Ngữ pháp", null, true);
-        QuestionBankCategory mirrored = new QuestionBankCategory(
-                5L, "Ngữ pháp", null, true, lecturer.getId());
-        setId(mirrored, 21L);
-        when(courseCategoryRepository.findById(8L)).thenReturn(Optional.of(grammar));
-        when(categoryRepository.findByDepartmentIdAndNameIgnoreCase(5L, "Ngữ pháp"))
-                .thenReturn(Optional.empty(), Optional.of(mirrored));
 
-        QuestionBankCategory resolved = service.resolveForContribution(-8L, lecturer);
-
-        assertThat(resolved.getId()).isEqualTo(21L);
-        assertThat(resolved.getDepartmentId()).isEqualTo(5L);
-        assertThat(resolved.getName()).isEqualTo("Ngữ pháp");
-        assertThat(resolved.getCreatedBy()).isEqualTo(10L);
-        assertThat(resolved.isActive()).isTrue();
-        verify(categoryRepository).insertAdminMirrorIfAbsent(
-                5L, "Ngữ pháp", null, lecturer.getId());
-    }
-
-    @Test
-    void repeated_contribution_reference_converges_on_one_department_mirror() {
-        User lecturer = user(Role.LECTURER, 10L, 5L);
-        Category grammar = category(8L, "Ngữ pháp", null, true);
-        QuestionBankCategory mirrored = new QuestionBankCategory(
-                5L, "Ngữ pháp", null, true, lecturer.getId());
-        setId(mirrored, 21L);
-        when(courseCategoryRepository.findById(8L)).thenReturn(Optional.of(grammar));
-        when(categoryRepository.findByDepartmentIdAndNameIgnoreCase(5L, "Ngữ pháp"))
-                .thenReturn(Optional.empty(), Optional.of(mirrored), Optional.of(mirrored));
-
-        QuestionBankCategory first = service.resolveForContribution(-8L, lecturer);
-        QuestionBankCategory second = service.resolveForContribution(-8L, lecturer);
-
-        assertThat(first.getId()).isEqualTo(21L);
-        assertThat(second.getId()).isEqualTo(21L);
-        verify(categoryRepository, times(1)).insertAdminMirrorIfAbsent(
-                5L, "Ngữ pháp", null, lecturer.getId());
+        assertThatThrownBy(() -> service.resolveForContribution(-8L, lecturer))
+                .isInstanceOf(QuestionBankValidationException.class);
     }
 
     @Test
@@ -219,15 +180,4 @@ class QuestionBankCategoryServiceTest {
         }
     }
 
-    private static Category category(Long id, String name, Long parentId, boolean active) {
-        try {
-            Category category = new Category(name, "category-" + id, parentId, null, active);
-            Field idField = Category.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(category, id);
-            return category;
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException(ex);
-        }
-    }
 }

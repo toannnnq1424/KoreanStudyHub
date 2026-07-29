@@ -12,6 +12,7 @@ import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,8 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -67,10 +70,54 @@ class QuestionBankImportControllerTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void template_download_ok() throws Exception {
-        mockMvc.perform(get("/lecturer/question-bank/import/template"))
+    void template_download_uses_an_active_actor_category_and_previews_without_errors() throws Exception {
+        MvcResult download = mockMvc.perform(get("/lecturer/question-bank/import/template"))
                 .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(XLSX_MIME));
+                .andExpect(content().contentTypeCompatibleWith(XLSX_MIME))
+                .andReturn();
+
+        byte[] workbookBytes = download.getResponse().getContentAsByteArray();
+        String sampleCategory;
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(workbookBytes))) {
+            sampleCategory = workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue();
+        }
+        List<String> activeCategoryNames =
+                categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(departmentId)
+                        .stream()
+                        .map(QuestionBankCategory::getName)
+                        .toList();
+        assertThat(activeCategoryNames).contains(sampleCategory);
+
+        MockMultipartFile downloadedTemplate = new MockMultipartFile(
+                "file", "question-bank-template.xlsx", XLSX_MIME, workbookBytes);
+        mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
+                        .file(downloadedTemplate)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.acceptedRows").value(2))
+                .andExpect(jsonPath("$.errorRows").value(0))
+                .andExpect(jsonPath("$.confirmable").value(true));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void template_download_uses_clear_placeholder_when_department_has_no_active_category() throws Exception {
+        List<QuestionBankCategory> categories =
+                categoryRepository.findByDepartmentIdOrderByNameAsc(departmentId);
+        categories.forEach(category -> category.updateDetails(
+                category.getName(), category.getDescription(), false));
+        categoryRepository.saveAllAndFlush(categories);
+
+        MvcResult download = mockMvc.perform(get("/lecturer/question-bank/import/template"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(XLSX_MIME))
+                .andReturn();
+
+        try (Workbook workbook = WorkbookFactory.create(
+                new ByteArrayInputStream(download.getResponse().getContentAsByteArray()))) {
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue())
+                    .contains("CHƯA CÓ DANH MỤC ĐANG MỞ", "TRƯỞNG BỘ MÔN");
+        }
     }
 
     @Test

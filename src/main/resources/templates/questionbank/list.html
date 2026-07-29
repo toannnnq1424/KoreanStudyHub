@@ -37,9 +37,9 @@
   </div>
 
   <div th:if="${!emptyDepartment and emptyCategories}" class="admin-list-empty" role="status">
-    Chưa có danh mục môn học hoặc danh mục ngân hàng câu hỏi đang hoạt động.
-    <a sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Tạo danh mục riêng cho bộ môn.</a>
-    <span sec:authorize="!hasRole('LEADER')">Vui lòng liên hệ ADMIN hoặc trưởng bộ môn để mở danh mục trước khi thêm hoặc import câu hỏi.</span>
+    Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn.
+    <a sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Tạo hoặc mở danh mục cho bộ môn.</a>
+    <span sec:authorize="!hasRole('LEADER')">Vui lòng liên hệ trưởng bộ môn để mở danh mục trước khi thêm hoặc import câu hỏi.</span>
   </div>
 
   <th:block th:if="${!emptyDepartment}">

@@ -10,7 +10,7 @@
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('question-bank')}"></header>
 
-<div class="qb-page detail-page">
+<div class="qb-page detail-page qb-detail-page">
   <span id="flash-data"
         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
         style="display:none;"></span>
@@ -27,7 +27,7 @@
   <h1 class="detail-page-title">Chi tiết câu hỏi</h1>
   <p class="detail-sub">Theo dõi nội dung, trạng thái duyệt, đáp án và lịch sử phê duyệt của câu hỏi trong ngân hàng bộ môn.</p>
 
-  <section class="detail-card">
+  <section class="detail-card qb-detail-card">
     <div class="detail-page-meta qb-meta-wrap">
       <span class="status-pill" th:text="${detail.questionType()}">MCQ</span>
       <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(detail.workflowStatus())}"
@@ -45,7 +45,8 @@
     </div>
 
     <div class="qb-option-list">
-      <div class="qb-option-row" th:each="option, stat : ${detail.options()}">
+      <div class="qb-option-row" th:each="option, stat : ${detail.options()}"
+           th:classappend="${option.correct()} ? ' is-correct'">
         <div class="qb-option-mark" th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</div>
         <div class="qb-option-body">
           <div class="qb-rich" th:utext="${option.content()}"></div>

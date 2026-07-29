@@ -2,8 +2,12 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 24px clamp(16px, 3vw, 32px) 2rem;
+  padding: 24px clamp(24px, 3vw, 36px) 2rem;
   box-sizing: border-box;
+}
+
+.qb-detail-page {
+  max-width: 960px;
 }
 
 .qb-toolbar,
@@ -182,6 +186,18 @@
   margin-top: 1rem;
 }
 
+.qb-import-panel .qb-import-head {
+  padding: 1rem 1.125rem 0;
+}
+
+.qb-import-panel .qb-import-summary {
+  padding-inline: 1.125rem;
+}
+
+.qb-import-panel .qb-import-empty {
+  padding: 0 1.125rem 1rem;
+}
+
 .qb-import-badge {
   border-radius: 999px;
   background: var(--color-primary-soft, #eff6ff);
@@ -307,6 +323,36 @@ a.stat-card:hover {
 .qb-option-body {
   display: grid;
   gap: 0.5rem;
+}
+
+.qb-detail-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.qb-detail-card .qb-option-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.qb-detail-card .qb-option-row {
+  align-items: start;
+  margin: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--color-border-soft, #e5e7eb);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.qb-detail-card .qb-option-row.is-correct {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.qb-detail-card .qb-option-body > .status-pill {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
 }
 
 .qb-option-mark,
