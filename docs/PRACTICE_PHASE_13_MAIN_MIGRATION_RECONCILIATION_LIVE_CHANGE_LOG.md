@@ -4,7 +4,7 @@ Date: `2026-07-29`
 
 Task: `PHASE_13_MAIN_MIGRATION_RECONCILIATION_GATE`
 
-Status: `READY_FOR_PHASE_VALIDATION`
+Status: `PHASE_13_MAIN_MIGRATION_RECONCILIATION_NO_GO`
 
 ## 1. Locked inputs
 
@@ -179,3 +179,59 @@ Git found no textual conflict. The stronger integrated audit then established:
 This closes static reconciliation only. Compile, focused/full tests, disposable
 fresh/upgrade Flyway, Hibernate/Tomcat startup, browser smoke and provider-call
 counts must all come from the one consolidated validation lifecycle below.
+
+## 7. Consolidated validation result — NO_GO
+
+The gate began on OpenJDK `17.0.19` and Maven `3.9.16`, with provider
+credentials empty and AI/STT/TTS plus all relevant background workers disabled.
+Five uniquely named MySQL 8.0 disposable catalogs were proved absent before
+creation. The tracked Maven wrapper has mode `100644`, so the initial
+`./mvnw` launcher probe returned permission denied before Maven executed; the
+same tracked wrapper was then invoked through `bash`, without changing its
+mode or repository bytes.
+
+The single clean package/compile succeeded:
+
+- Maven Enforcer accepted Java 17 and Maven 3.9;
+- 785 production sources compiled with `release 17`;
+- 328 test sources compiled;
+- tests were skipped for this package step;
+- `target/ksh-0.0.1-SNAPSHOT.jar` was built successfully.
+
+The focused selector then started on the fresh focus catalog. Flyway validated
+and applied exactly 62 successful migrations from V1 through V62, with zero
+failed migrations. The run discovered 559 tests and ended with zero assertion
+failures, 213 errors and zero skips. The errors collapse to one Spring context
+root cause:
+
+```text
+Error creating bean with name 'passwordResetTokenRetention'
+Failed to instantiate PasswordResetTokenRetention: No default constructor found
+Caused by: NoSuchMethodException: PasswordResetTokenRetention.<init>()
+```
+
+`PasswordResetTokenRetention` is a main-owned `@Component` with two
+constructors and no constructor selected for dependency injection. The
+integrated and `origin/main` blobs are identical at
+`a8375fb4353060c0b777deef2ac1f9b68cdde01b`; main commit
+`379c19236ea9c610ff4c854dc5791e93b9229d83` introduced the file. This is not a
+Flyway collision, Practice regression or same-file merge artifact.
+
+Correcting the bean would modify unrelated Auth production code outside the
+task's explicitly bounded migration/reference reconciliation allowance. The
+gate therefore stopped instead of guessing, patching main-owned Auth code or
+publishing stale/partial evidence. No full suite, upgrade rehearsal, standalone
+startup, browser smoke, push, PR or remote merge was attempted.
+
+Before cleanup, the focus catalog proved `62` successful Flyway rows, `0`
+failed rows and max version `62`; `ai_request_logs=0` and
+`practice_ai_request_audits=0`, so real provider counts are AI `0`, STT `0`,
+TTS `0`. All five gate-created catalogs were then dropped by exact name without
+Flyway clean or repair, and the final `information_schema` absence count was
+`0`. No temporary application server was started by this gate.
+
+Final decision:
+`PHASE_13_MAIN_MIGRATION_RECONCILIATION_NO_GO`. Remote feature and main remain
+untouched. Resume requires a separately authorized, reviewed correction to the
+main-owned Auth bean (or a newer green main containing that fix), followed by a
+fresh reconciliation and full validation lifecycle.
