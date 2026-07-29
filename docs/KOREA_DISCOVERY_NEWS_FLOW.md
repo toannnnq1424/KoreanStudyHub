@@ -22,7 +22,7 @@ source image URLs; image binaries are never copied into MySQL.
 The raw preview is admin-gated. Every detail page contains a prominent
 “Đọc bài gốc” link and a provenance block.
 
-After the V67 compaction migration, the discovery schema uses four tables:
+After the V72 compaction migration, the discovery schema uses four tables:
 `news_sources`, `news_articles`, `news_vocabularies` and
 `news_ingestion_runs`. Attachment metadata is inline JSON on `news_articles`,
 blacklist entries are article tombstones with `BLACKLISTED` status, and the
@@ -30,7 +30,7 @@ crawl lease uses MySQL `GET_LOCK()` rather than a lock table.
 
 ## Enabled sources
 
-The source rows are seeded by Flyway `V63`:
+The source rows are seeded by Flyway `V68`:
 
 | Code | Adapter | Scope |
 | --- | --- | --- |
