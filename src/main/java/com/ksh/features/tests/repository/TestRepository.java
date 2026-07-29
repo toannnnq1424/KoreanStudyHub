@@ -44,6 +44,18 @@ public interface TestRepository extends JpaRepository<Test, Long> {
                                     @Param("classIds") Collection<Long> classIds,
                                     Pageable pageable);
 
+    /**
+     * Exams attached to classes inside one LEADER department scope.
+     * The collection must be non-empty; callers use a sentinel when needed.
+     */
+    Page<Test> findByClassIdIn(Collection<Long> classIds, Pageable pageable);
+
+    /**
+     * Global ADMIN test-management list. PRACTICE rows stay out of the lecturer
+     * management area so this broader role does not change Practice ownership.
+     */
+    Page<Test> findByTypeNot(String type, Pageable pageable);
+
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);
 

@@ -1,7 +1,11 @@
 package com.ksh.features.admin.settings.repository;
 
 import com.ksh.entities.AiSystemPrompt;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,6 +20,11 @@ import java.util.Optional;
  */
 @Repository
 public interface AiSystemPromptRepository extends JpaRepository<AiSystemPrompt, Long> {
+
+    /** Serializes parity-style enabled-state toggles for one prompt row. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM AiSystemPrompt p WHERE p.id = :id")
+    Optional<AiSystemPrompt> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Returns every prompt, enabled or not, sorted for display.

@@ -4,6 +4,10 @@ import com.ksh.entities.ClassEntity;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.entities.UserFactory;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
+import com.ksh.features.admin.departments.service.DepartmentService;
+import com.ksh.features.admin.departments.service.DepartmentValidationException;
+import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.CreateUserForm;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
@@ -19,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Create + update operations for the {@code /admin/users} screen.
@@ -43,17 +48,23 @@ public class AdminUsersWriteService {
     private final AdminUsersGuard guard;
     private final AdminUsersAuditWriter auditWriter;
     private final ClassRepository classRepository;
+    private final DepartmentRepository departmentRepository;
+    private final SystemSettingsRepository systemSettingsRepository;
 
     public AdminUsersWriteService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
                                   AdminUsersGuard guard,
                                   AdminUsersAuditWriter auditWriter,
-                                  ClassRepository classRepository) {
+                                  ClassRepository classRepository,
+                                  DepartmentRepository departmentRepository,
+                                  SystemSettingsRepository systemSettingsRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
         this.auditWriter = auditWriter;
         this.classRepository = classRepository;
+        this.departmentRepository = departmentRepository;
+        this.systemSettingsRepository = systemSettingsRepository;
     }
 
     /**
@@ -92,8 +103,10 @@ public class AdminUsersWriteService {
      */
     @Transactional
     public List<String> update(Long id, EditUserForm form, Long actingUserId) {
+        lockLeaderAssignmentAnchor();
         User target = userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
+        requireLeaderAssignmentPreserved(target, form);
 
         // Self-role-change is forbidden.
         if (actingUserId != null && actingUserId.equals(target.getId())
@@ -170,6 +183,34 @@ public class AdminUsersWriteService {
     private static String normalizeEmail(String raw) {
         if (raw == null) return null;
         return raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * A user referenced by {@code departments.leader_user_id} must be reassigned
+     * or cleared from the Department screen before their role/department can be
+     * changed here. The shared anchor is acquired before the user row so this
+     * check cannot race the department assignment workflow or invert lock order.
+     */
+    private void requireLeaderAssignmentPreserved(User target, EditUserForm form) {
+        departmentRepository.findFirstByLeaderUserId(target.getId())
+                .ifPresent(department -> {
+                    boolean preserved = form.role() == Role.LEADER
+                            && Objects.equals(form.departmentId(), department.getId());
+                    if (!preserved) {
+                        throw new DepartmentValidationException(
+                                "Người dùng đang là trưởng bộ môn "
+                                        + department.getName()
+                                        + ". Hãy đổi hoặc gỡ trưởng bộ môn tại màn hình Bộ môn trước.");
+                    }
+                });
+    }
+
+    private void lockLeaderAssignmentAnchor() {
+        systemSettingsRepository.findBySettingKeyForUpdate(
+                        DepartmentService.LEADER_ASSIGNMENT_LOCK_SETTING_KEY)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Missing department leader assignment lock row: "
+                                + DepartmentService.LEADER_ASSIGNMENT_LOCK_SETTING_KEY));
     }
 
     private static Map<String, Object> snapshot(User u) {

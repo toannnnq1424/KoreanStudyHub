@@ -6,6 +6,7 @@ import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderForm;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.AiProviderRow;
 import com.ksh.features.admin.settings.dto.AiSettingsDtos.TestResult;
 import com.ksh.features.admin.settings.repository.AiProviderRepository;
+import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.ai.client.AiClient;
 import com.ksh.features.ai.log.AiRequestLogger;
 import org.slf4j.Logger;
@@ -43,11 +44,22 @@ public class AiProviderService {
     private static final String PING_MESSAGE = "ping";
     private static final int PING_MAX_TOKENS = 5;
 
+    /**
+     * V1 seeds this legacy placeholder and the multi-provider feature deliberately
+     * leaves it unused. It therefore provides a stable database row that exists even
+     * when {@code ai_providers} is empty.
+     */
+    private static final String ORDER_LOCK_SETTING_KEY = "ai.provider";
+
     private final AiProviderRepository repository;
+    private final SystemSettingsRepository systemSettingsRepository;
     private final AiClient aiClient;
 
-    public AiProviderService(AiProviderRepository repository, AiClient aiClient) {
+    public AiProviderService(AiProviderRepository repository,
+                             SystemSettingsRepository systemSettingsRepository,
+                             AiClient aiClient) {
         this.repository = repository;
+        this.systemSettingsRepository = systemSettingsRepository;
         this.aiClient = aiClient;
     }
 
@@ -138,9 +150,10 @@ public class AiProviderService {
     /**
      * Creates a provider, appending it to the end of the fallback chain.
      *
-     * <p>{@code display_order} is assigned as {@code max + 1}. Because deletes never
-     * renumber, that maximum only ever grows, so a freed slot in the middle stays free
-     * and no collision is possible; the unique key is the final guard.
+     * <p>The stable {@code system_settings.ai.provider} row is locked before reading
+     * {@code MAX(display_order)}. Unlike locking provider rows, this also serializes
+     * concurrent first inserts when {@code ai_providers} is empty. The lock order is
+     * always anchor, then ordered-provider read, then insert.
      *
      * @param form          submitted values, already validated
      * @param currentUserId admin performing the change, stamped on {@code updated_by}
@@ -153,6 +166,7 @@ public class AiProviderService {
                 form.model().trim(),
                 form.apiKey().trim());
         provider.setEnabled(form.enabled());
+        lockOrderingAnchor();
         provider.setDisplayOrder(nextDisplayOrder());
         provider.setUpdatedBy(currentUserId);
         repository.save(provider);
@@ -199,7 +213,7 @@ public class AiProviderService {
      */
     @Transactional
     public Optional<Boolean> toggleEnabled(Long id, Long currentUserId) {
-        return repository.findById(id).map(provider -> {
+        return repository.findByIdForUpdate(id).map(provider -> {
             provider.setEnabled(!provider.isEnabled());
             provider.setUpdatedBy(currentUserId);
             repository.save(provider);
@@ -260,6 +274,18 @@ public class AiProviderService {
     /** A blank field or the masked sentinel both mean "keep the stored key". */
     private static boolean hasNewKey(String submitted) {
         return submitted != null && !submitted.isBlank() && !MASKED.equals(submitted.trim());
+    }
+
+    /**
+     * Acquires the global provider-order mutex before any ordering read or write.
+     *
+     * <p>Failing closed is intentional: silently continuing when the V1 seed row is
+     * missing would reintroduce the race this lock exists to prevent.
+     */
+    private void lockOrderingAnchor() {
+        systemSettingsRepository.findBySettingKeyForUpdate(ORDER_LOCK_SETTING_KEY)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Missing AI provider ordering lock row: " + ORDER_LOCK_SETTING_KEY));
     }
 
     private Short nextDisplayOrder() {

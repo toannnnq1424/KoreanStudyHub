@@ -45,7 +45,7 @@ public final class QuestionBankViews {
     }
 
     public record ItemDetail(Long id, String questionType, String workflowStatus,
-                             String content, String explanation, String reviewNote,
+                             String content, String contentPreview, String explanation, String reviewNote,
                              String categoryName, String contributorName,
                              String reviewerName, LocalDateTime reviewedAt,
                              LocalDateTime approvedAt, LocalDateTime updatedAt,

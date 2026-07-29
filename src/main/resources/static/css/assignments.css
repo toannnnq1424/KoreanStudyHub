@@ -78,11 +78,17 @@
 }
 
 /* Assignment form */
+.assignment-form-panel {
+  padding: clamp(20px, 3vw, 32px);
+}
+
 .asgn-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-width: 720px;
+  gap: 24px;
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
 }
 
 .form-row {
@@ -150,8 +156,23 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  padding-top: 8px;
+  justify-content: flex-end;
+  padding-top: 20px;
   border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+@media (max-width: 720px) {
+  .assignment-form-panel {
+    padding: 18px;
+  }
+
+  .asgn-form {
+    gap: 20px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Submission detail card */
@@ -261,4 +282,142 @@
   text-align: left;
   max-width: 600px;
   margin: 16px auto 0;
+}
+
+/* Student assignment pages share the class learning sidebar. Keep that shell
+   full-height and give the assignment content its own readable column instead
+   of reusing the edge-to-edge lecturer table layout. */
+.student-assignment-page {
+  background: var(--shub-bg, #f5f6f8);
+}
+
+.student-assignment-layout {
+  min-height: calc(100vh - var(--header-height, 64px));
+  padding: 0;
+  gap: 0;
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: stretch;
+  background: var(--shub-bg, #f5f6f8);
+}
+
+.student-assignment-layout > .student-lessons-sidebar {
+  min-width: 0;
+  border-right: 1px solid var(--shub-border, #e6e8eb);
+}
+
+.student-assignment-main {
+  min-width: 0;
+  padding: 32px clamp(24px, 4vw, 56px) 56px;
+}
+
+.student-assignment-main > .detail-title,
+.student-assignment-main > .detail-topbar,
+.student-assignment-panel {
+  width: min(100%, 1000px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.student-assignment-main > .detail-title {
+  margin-bottom: 20px;
+  font-size: 24px;
+  line-height: 1.3;
+}
+
+.student-assignment-main > .detail-topbar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.student-assignment-main > .detail-topbar .detail-title {
+  min-width: min(100%, 320px);
+  font-size: 24px;
+  line-height: 1.3;
+}
+
+.student-assignment-panel {
+  padding: 28px;
+  border-radius: 14px;
+  overflow: visible;
+}
+
+.student-assignment-panel--table {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.student-assignment-panel--table .asgn-table {
+  min-width: 760px;
+}
+
+.student-assignment-page .asgn-table th,
+.student-assignment-page .asgn-table td {
+  padding: 14px 16px;
+}
+
+.student-assignment-page .asgn-meta {
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  border: 1px solid var(--shub-border, #e6e8eb);
+  border-radius: 10px;
+  background: #f8fafc;
+  line-height: 1.5;
+}
+
+.student-assignment-page .asgn-content-box {
+  margin-top: 22px;
+}
+
+.student-assignment-page .asgn-content-box h3 {
+  margin-bottom: 10px;
+}
+
+.student-assignment-page .asgn-content-text {
+  padding: 16px;
+  border-radius: 10px;
+}
+
+.student-assignment-page .asgn-submit-section {
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.student-assignment-page .asgn-feedback-card {
+  padding: 24px 12px 12px;
+}
+
+.student-assignment-page .asgn-score-display {
+  margin-bottom: 28px;
+}
+
+@media (max-width: 900px) {
+  .student-assignment-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .student-assignment-layout > .student-lessons-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--shub-border, #e6e8eb);
+  }
+
+  .student-assignment-main {
+    padding: 24px 18px 40px;
+  }
+}
+
+@media (max-width: 560px) {
+  .student-assignment-main {
+    padding: 20px 14px 32px;
+  }
+
+  .student-assignment-panel {
+    padding: 20px;
+  }
+
+  .student-assignment-main > .detail-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

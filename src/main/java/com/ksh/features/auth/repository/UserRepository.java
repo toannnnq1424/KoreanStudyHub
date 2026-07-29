@@ -268,6 +268,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     List<User> findByRoleInAndActiveTrueOrderByFullNameAsc(Collection<Role> roles);
 
+    /**
+     * All messageable accounts for a staff caller: active, unlocked,
+     * non-deleted (via {@code @SQLRestriction}) and excluding the caller.
+     */
+    List<User> findByActiveTrueAndLockedFalseAndIdNotOrderByFullNameAsc(Long excludedId);
+
+    /**
+     * Role-scoped messageable accounts for a student caller, with the same
+     * account-state and self-exclusion guarantees as the staff roster.
+     */
+    List<User> findByActiveTrueAndLockedFalseAndRoleInAndIdNotOrderByFullNameAsc(
+            Collection<Role> roles, Long excludedId);
+
     /** Active users in the given department and roles, ordered by name. */
     List<User> findByDepartmentIdAndRoleInAndActiveTrueOrderByFullNameAsc(Long departmentId,
                                                                           Collection<Role> roles);

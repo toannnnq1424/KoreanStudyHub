@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -119,6 +120,47 @@ class DualReadObjectStorageTest {
         assertThat(r2Side.exists("f/x.bin")).isFalse();
     }
 
+    @Test
+    void delete_surfacesBackendFailureInsteadOfSilentlyLeakingObject() throws Exception {
+        FailingDeleteLocal failingLocal =
+                new FailingDeleteLocal(localRoot.resolve("failing-delete"));
+        byte[] data = "leaked".getBytes(StandardCharsets.UTF_8);
+        failingLocal.put("f/leaked.bin", new ByteArrayInputStream(data),
+                "text/plain", data.length);
+        DualReadObjectStorage failingDual = new DualReadObjectStorage(
+                failingLocal, new LocalBackedR2(r2Side),
+                provider::get, r2Ready::get);
+
+        assertThatThrownBy(() -> failingDual.delete("f/leaked.bin"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("simulated");
+        assertThat(failingLocal.exists("f/leaked.bin")).isTrue();
+    }
+
+    @Test
+    void delete_failsClosedWhenR2IsActiveButUnavailable() {
+        provider.set(STORAGE_PROVIDER_R2);
+        r2Ready.set(false);
+
+        assertThatThrownBy(() -> dual.delete("f/unreachable.bin"))
+                .isInstanceOf(StorageNotConfiguredException.class)
+                .hasMessageContaining(MSG_STORAGE_R2_NOT_CONFIGURED);
+    }
+
+    @Test
+    void listKeys_unionsLocalAndR2WithoutDuplicates() throws Exception {
+        byte[] data = "staged".getBytes(StandardCharsets.UTF_8);
+        local.put("exams/staged-local.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+        r2Side.put("exams/staged-r2.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+        r2Side.put("exams/staged-local.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+
+        assertThat(dual.listKeys("exams/staged-"))
+                .containsExactly("exams/staged-local.png", "exams/staged-r2.png");
+    }
+
     /** R2 stand-in backed by a second local root (no AWS SDK). */
     private static final class LocalBackedR2 extends R2ObjectStorage {
         private final LocalObjectStorage backend;
@@ -157,6 +199,23 @@ class DualReadObjectStorageTest {
         @Override
         public void copy(String sourceKey, String destKey) throws IOException {
             backend.copy(sourceKey, destKey);
+        }
+
+        @Override
+        public List<String> listKeys(String prefix) throws IOException {
+            return backend.listKeys(prefix);
+        }
+    }
+
+    private static final class FailingDeleteLocal extends LocalObjectStorage {
+
+        FailingDeleteLocal(Path root) {
+            super(root);
+        }
+
+        @Override
+        public void delete(String key) throws IOException {
+            throw new IOException("simulated local delete failure for " + key);
         }
     }
 }

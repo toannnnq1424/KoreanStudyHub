@@ -2,7 +2,8 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 0 0 2rem;
+  padding: 24px clamp(16px, 3vw, 32px) 2rem;
+  box-sizing: border-box;
 }
 
 .qb-toolbar,
@@ -266,10 +267,18 @@ a.stat-card:hover {
 .qb-rich {
   line-height: 1.7;
   color: var(--color-text, #111827);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .qb-rich p:last-child {
   margin-bottom: 0;
+}
+
+.qb-rich pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
 }
 
 .qb-explanation,
@@ -443,9 +452,18 @@ a.stat-card:hover {
   flex-wrap: wrap;
 }
 
+.qb-review-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 .qb-inline-form {
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .link-button {
@@ -829,6 +847,10 @@ body.qb-modal-open {
 }
 
 @media (max-width: 1000px) {
+  .qb-review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .qb-inbox-list .admin-list-table-scroll {
     max-height: none;
   }
@@ -836,7 +858,7 @@ body.qb-modal-open {
 
 @media (max-width: 768px) {
   .qb-page {
-    padding-bottom: 1.5rem;
+    padding: 16px 14px 1.5rem;
   }
 
   .qb-modal-card {
@@ -865,6 +887,15 @@ body.qb-modal-open {
   .qb-row-actions,
   .qb-submit-bar {
     width: 100%;
+  }
+
+  .qb-inline-form {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .qb-inline-form .qb-inline-note {
+    flex: 1 1 100%;
   }
 
   .qb-toolbar-actions > *,

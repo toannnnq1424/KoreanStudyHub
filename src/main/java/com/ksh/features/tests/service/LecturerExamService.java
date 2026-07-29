@@ -19,11 +19,11 @@ import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.common.HtmlSanitizer;
 import com.ksh.features.tests.support.ExamFormValidator;
 import com.ksh.features.tests.support.TestAccessResolver;
+import com.ksh.features.upload.ExamImageStorageService;
 import com.ksh.security.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +54,7 @@ public class LecturerExamService {
     private final TakeViewBuilder takeViewBuilder;
     private final ExamQuestionBankWriter questionBankWriter;
     private final ExamQuestionBankPickerService questionBankPicker;
+    private final ExamImageStorageService examImageStorage;
 
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
@@ -62,7 +63,8 @@ public class LecturerExamService {
                                TestActivityWriter activityWriter,
                                TakeViewBuilder takeViewBuilder,
                                ExamQuestionBankWriter questionBankWriter,
-                               ExamQuestionBankPickerService questionBankPicker) {
+                               ExamQuestionBankPickerService questionBankPicker,
+                               ExamImageStorageService examImageStorage) {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
         this.classRepository = classRepository;
@@ -71,26 +73,37 @@ public class LecturerExamService {
         this.takeViewBuilder = takeViewBuilder;
         this.questionBankWriter = questionBankWriter;
         this.questionBankPicker = questionBankPicker;
-    }
-
-    /** One page of exams the lecturer owns (created or leads the class). */
-    @Transactional(readOnly = true)
-    public Page<LecturerExamRow> listOwned(Long userId, int page) {
-        List<Long> ledClassIds = ledClassIds(userId);
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
-                Sort.by(Sort.Direction.DESC, "updatedAt"));
-        return toRows(testRepository.findOwnedByLecturer(userId, ledClassIds, pageable));
+        this.examImageStorage = examImageStorage;
     }
 
     /**
-     * One page of exams belonging to a single class. Class-level authorization
-     * is the caller's responsibility: {@code ClassDetailController} gates the
-     * tests tab with {@code classesService.getViewable(...)} (LECTURER-owns /
-     * LEADER / ADMIN), mirroring every other class-detail tab. This method trusts
-     * that gate and only queries.
+     * One page of manageable exams: LECTURER owns/created, LEADER is limited
+     * to tests attached to classes in their department, and ADMIN is global
+     * for non-Practice test management.
      */
     @Transactional(readOnly = true)
-    public Page<LecturerExamRow> listForClass(Long classId, int page) {
+    public Page<LecturerExamRow> listOwned(Long userId, int page) {
+        Role role = accessResolver.managementRole(userId);
+        PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
+                Sort.by(Sort.Direction.DESC, "updatedAt"));
+        if (role == Role.ADMIN) {
+            return toRows(testRepository.findByTypeNot(Test.TYPE_PRACTICE, pageable));
+        }
+        List<Long> classIds = manageableClassIds(userId, role);
+        if (role == Role.LEADER) {
+            return toRows(testRepository.findByClassIdIn(classIds, pageable));
+        }
+        return toRows(testRepository.findOwnedByLecturer(userId, classIds, pageable));
+    }
+
+    /**
+     * One page of exams belonging to a single class. The service repeats the
+     * class authorization boundary so non-controller callers cannot turn this
+     * list method into a cross-department enumeration path.
+     */
+    @Transactional(readOnly = true)
+    public Page<LecturerExamRow> listForClass(Long classId, Long userId, Role role, int page) {
+        accessResolver.requireManageableClass(classId, userId, role);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
                 Sort.by(Sort.Direction.DESC, "updatedAt"));
         return toRows(testRepository.findByClassId(classId, pageable));
@@ -104,11 +117,12 @@ public class LecturerExamService {
                 t.getTotalQuestions() == null ? 0 : t.getTotalQuestions(), t.getEndAt()));
     }
 
-    /** Classes the lecturer leads (the exam class picker). */
+    /** Classes available to the actor under canonical role/class scope. */
     @Transactional(readOnly = true)
     public List<ClassOption> ledClasses(Long userId) {
+        Role role = accessResolver.managementRole(userId);
         List<ClassOption> options = new ArrayList<>();
-        for (ClassEntity c : classRepository.findAllByLecturerId(userId)) {
+        for (ClassEntity c : accessResolver.manageableClasses(userId, role)) {
             options.add(new ClassOption(c.getId(), c.getName()));
         }
         return options;
@@ -158,25 +172,67 @@ public class LecturerExamService {
     public Long save(Long userId, ExamForm form) {
         ExamFormValidator.validate(form);
         requireLeadsClass(userId, form.classId());
+        ExamForm claimedForm = claimStagedImages(userId, form);
 
-        boolean creating = form.id() == null;
+        boolean creating = claimedForm.id() == null;
         Test test = creating
-                ? new Test(userId, defaultType(form.type()))
-                : accessResolver.requireManageableForUpdate(form.id(), userId);
+                ? new Test(userId, defaultType(claimedForm.type()))
+                : accessResolver.requireManageableForUpdate(claimedForm.id(), userId);
         String previousStatus = creating ? null : test.getStatus();
-        applyFields(test, form);
+        applyFields(test, claimedForm);
         Test saved = testRepository.save(test);
 
         if (creating || !questionBankWriter.hasStudentActivity(saved.getId())) {
-            questionBankWriter.replaceQuestions(saved.getId(), form.questions());
+            questionBankWriter.replaceQuestions(saved.getId(), claimedForm.questions());
         } else {
-            questionBankWriter.updateQuestionContentsInPlace(saved.getId(), form.questions());
+            questionBankWriter.updateQuestionContentsInPlace(saved.getId(), claimedForm.questions());
         }
-        saved.setTotalQuestions(form.questions().size());
+        saved.setTotalQuestions(claimedForm.questions().size());
         testRepository.save(saved);
 
         recordSaveActivity(saved, userId, creating, previousStatus);
         return saved.getId();
+    }
+
+    /**
+     * Converts owner-bound staged image URLs to durable URLs inside the same
+     * transaction that persists the exam. One session deduplicates a URL reused
+     * across fields and registers storage compensation for rollback/commit.
+     */
+    private ExamForm claimStagedImages(Long userId, ExamForm form) {
+        ExamImageStorageService.ClaimSession claim = examImageStorage.beginClaim(userId);
+        List<QuestionForm> questions = form.questions().stream()
+                .map(question -> new QuestionForm(
+                        question.id(),
+                        question.type(),
+                        claim.claimIn(question.content()),
+                        claim.claimIn(question.explanation()),
+                        question.points(),
+                        question.options().stream()
+                                .map(option -> new OptionForm(
+                                        option.id(),
+                                        claim.claimIn(option.content()),
+                                        option.correct()))
+                                .toList()))
+                .toList();
+        return new ExamForm(
+                form.id(),
+                form.title(),
+                claim.claimIn(form.description()),
+                form.classId(),
+                form.type(),
+                form.status(),
+                form.timeMode(),
+                form.durationMinutes(),
+                form.startAt(),
+                form.endAt(),
+                form.passingScore(),
+                form.shuffleQuestions(),
+                form.shuffleOptions(),
+                form.mediaType(),
+                form.mediaUrl(),
+                questions,
+                form.questionBankLocked());
     }
 
     /**
@@ -188,7 +244,7 @@ public class LecturerExamService {
      */
     @Transactional
     public int insertFromBank(Long userId, Role role, Long testId, List<Long> itemIds) {
-        Test test = accessResolver.requireManageableForUpdate(testId, userId);
+        Test test = accessResolver.requireManageableForUpdate(testId, userId, role);
         if (itemIds == null || itemIds.isEmpty()) {
             throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
         }
@@ -271,17 +327,15 @@ public class LecturerExamService {
     }
 
     private void requireLeadsClass(Long userId, Long classId) {
-        boolean leads = classRepository.findById(classId)
-                .map(ClassEntity::getLecturerId).map(userId::equals).orElse(false);
-        if (!leads) {
-            throw new AccessDeniedException(TestAccessResolver.NF_MSG);
-        }
+        accessResolver.requireManageableClass(
+                classId, userId, accessResolver.managementRole(userId));
     }
 
-    private List<Long> ledClassIds(Long userId) {
-        List<Long> ids = new ArrayList<>();
-        classRepository.findAllByLecturerId(userId).forEach(c -> ids.add(c.getId()));
-        // Sentinel keeps the JPQL IN clause valid when the lecturer leads no class.
+    private List<Long> manageableClassIds(Long userId, Role role) {
+        List<Long> ids = new ArrayList<>(accessResolver.manageableClasses(userId, role).stream()
+                .map(ClassEntity::getId)
+                .toList());
+        // Sentinel keeps the JPQL IN clause valid when the actor has no class.
         if (ids.isEmpty()) ids.add(-1L);
         return ids;
     }

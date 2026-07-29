@@ -10,15 +10,16 @@
 
 | Field | Value |
 |---|---|
-| Audit status | PR #33 merged to `main` at `8b80e498`; phase-3 fixes are verified locally on `codex/audit-followup-phase3`; policy-dependent, deferred, and manual-UAT items remain explicitly open below |
+| Audit status | PR #33 merged to `main` at `8b80e498`; the current non-Practice follow-up group is remediated locally, with database-backed concurrency/full-suite verification still explicitly open below |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
-| Working branch observed | `codex/audit-followup-phase3` |
+| Working branch observed | `codex/e2e-assignment-messaging-fixes` |
 | ULP reference | `https://github.com/dikhamchua/ulp/tree/32d394c5f6d0818955455bc01f20633b66d594b5` |
 | ULP local snapshot used | `C:\Users\Admin\AppData\Local\Temp\ksh-ulp-32d394c5-20260729\ulp-32d394c5f6d0818955455bc01f20633b66d594b5` |
 | KSH root | `D:\Downloads\ksh` |
 | Comparison method | Path inventory, normalized namespace/branding comparison, semantic review, call-site tracing, and test-contract review |
 | Phase-3 verification | 15/15 focused database-free tests passed; `node --check` passed for `import-excel.js`; no full or DB-backed suite was run |
+| Current follow-up verification | `mvnw.cmd -q -DskipTests compile` and `git diff --check` passed; tests were not run per project-owner request, and real-database concurrency remains unchecked |
 | Last updated | 2026-07-29, Asia/Bangkok |
 | Primary constraint | Preserve the existing `/practice` foundation, AI configuration, and storage configuration |
 
@@ -82,8 +83,9 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | UX-TABS-001 | Medium | ULP’s loading lifecycle for exam AJAX tabs is safe to adapt selectively | [x] | [x] |
 | UX-TABS-002 | Medium | Generic ULP detail-tab redesign is a separate integration surface, not a bulk-copy candidate | [x] | [x] |
 | CONST-001 | Medium | Keep KSH constants and add enforcement; do not replace `IConstant` with ULP’s version | [x] | [x] |
-| TEST-ISO-001 | High | Tests currently use the default developer MySQL schema instead of an isolated test profile | [x] | [ ] External branch pending |
+| TEST-ISO-001 | High | Database-backed tests need disposable database and upload-storage isolation | [x] | [x] DB/profile + public uploads; [ ] V1 cross-schema migration review deferred |
 | CONTRIBUTOR-ID-001 | Low | Historic KSH commits are split across three verified GitHub identities | [x] | [x] Future commits pinned; [x] historic transfer declined |
+| CONTRIBUTOR-NAMDK-LINEAGE-001 | Low | Retired `feature/profile` commits need attribution without importing superseded code | [x] | [x] History-only `ours` merge; tree unchanged |
 | UX-DIRTY-001 | High | AJAX detail-tab navigation can discard unsaved form changes without warning | [x] | [x] Contract verified; browser UAT open |
 | CLASS-NAV-001 | Medium | Creating a test from a class loses class selection and returns to the global test list | [x] | [x] |
 | QB-IMPORT-001 | High | Question-bank Excel preview omits CSRF and returns 403 | [x] | [x] |
@@ -103,14 +105,14 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | FLASH-REVIEW-001 | High | Concurrent flashcard ratings could lose an SM-2 transition or collide on first insert | [x] | [x] |
 | LESSON-ORDER-001 | Medium | Concurrent section/lesson reorder could collide during temporary ordering | [x] | [x] |
 | IMPORT-STALE-001 | High | A stale student-import upload response can replace a newer preview/session | [x] | [x] |
-| DEPT-LEADER-CONC-001 | High | Concurrent leader reassignment can desynchronize department pointers and user role/department | [x] | [ ] Product policy required |
-| PROGRESS-TOGGLE-001 | Medium | Concurrent lesson-completion toggles can collide or lose parity | [x] | [x] Focused verification |
+| DEPT-LEADER-CONC-001 | High | Concurrent leader reassignment can desynchronize department pointers and user role/department | [x] One user leads at most one department | [x] Remediated; real-DB concurrency unchecked |
+| PROGRESS-TOGGLE-001 | Medium | Concurrent lesson-completion toggles can collide or lose parity | [x] Two serialized toggles cancel | [x] Focused verification |
 | MSG-REALTIME-001 | Medium | Realtime conversation bubbles use the truncated sidebar snippet | [x] | [x] |
 | MSG-READ-001 | Medium | A message received in an open conversation remains unread server-side | [x] | [x] |
 | COMMENT-DUPE-001 | Medium | Double-clicking root lesson-comment submit sends duplicate POSTs | [x] | [x] |
 | SECTION-DELETE-STATE-001 | Medium | Deleting the selected section leaves its lesson pane and client selection stale | [x] | [x] |
-| PUBLIC-VIEW-TOKEN-001 | Medium | Public attachment bearer tokens remain reusable plaintext database values | [x] | [ ] Token lifecycle redesign required |
-| MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] | [ ] Product policy required |
+| PUBLIC-VIEW-TOKEN-001 | Medium | Public attachment bearer tokens remain reusable plaintext database values | [x] Replacement semantics selected | [x] Remediated; focused tests not run |
+| MSG-RELATION-REVOKE-001 | Medium | Existing conversations survive enrollment/role revocation by deliberate D2 policy | [x] Superseded by global-directory policy | [x] Deliberate behavior |
 | LEADER-SCOPE-001 | Critical | Legacy class policies treat every LEADER as a global ADMIN across departments | [x] | [x] Focused verification |
 | STORAGE-TX-001 | Critical | DB rollback cannot compensate object-storage writes/deletes performed inside the transaction | [x] | [x] Focused verification |
 | CLASS-CODE-RETRY-001 | High | Class/invite collision retries continue inside a transaction poisoned by `saveAndFlush` | [x] | [x] |
@@ -129,10 +131,10 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | FLASHCARD-DECK-DUPE-001 | Medium | Double submit can persist a flashcard deck twice before native resubmit | [x] | [x] |
 | LESSON-FORM-DUPE-001 | High | Repeated lesson submit can upload or bind media more than once | [x] | [x] |
 | COMMENT-DELETE-SCOPE-001 | Medium | Department LEADER/ADMIN moderators could hide but not delete comments | [x] | [x] |
-| TEST-LEADER-SCOPE-001 | High | Test-management services do not honor department-scoped LEADER/global ADMIN class access | [x] | [ ] Next group |
-| EXAM-IMAGE-ORPHAN-001 | Medium | Unclaimed exam image uploads have no owner-bound staging lifecycle or cleanup | [x] | [ ] Design required |
-| GENERIC-TOGGLE-CONC-001 | Medium | Several admin parity toggles read and write state without serialization | [x] | [ ] Next group |
-| AI-PROVIDER-ORDER-CONC-001 | Medium | Concurrent AI provider creation can collide on global display order | [x] | [ ] Design required |
+| TEST-LEADER-SCOPE-001 | High | Test-management services do not honor department-scoped LEADER/global ADMIN class access | [x] | [x] Remediated; focused tests not run |
+| EXAM-IMAGE-ORPHAN-001 | Medium | Unclaimed exam image uploads have no owner-bound staging lifecycle or cleanup | [x] | [x] Remediated; focused tests not run |
+| GENERIC-TOGGLE-CONC-001 | Medium | Several admin parity toggles read and write state without serialization | [x] | [x] Remediated; real-DB concurrency unchecked |
+| AI-PROVIDER-ORDER-CONC-001 | Medium | Concurrent AI provider creation can collide on global display order | [x] | [x] Remediated; real-DB concurrency unchecked |
 
 ## 3. Scope reconciliation and source inventory
 
@@ -1149,31 +1151,31 @@ unrelated discovery inside another commit.
 ### NEW-20260729-003 — integration-test environment isolation
 
 - Severity: High
-- Status: [x] Confirmed; [ ] remediated on `main`; [x] risk documented
+- Status: [x] Confirmed; [x] database guard merged on `main`; [x] public upload
+  isolation added; [ ] cross-schema migration review deferred
 - Evidence:
-  - No `src/test/resources` directory or active isolated test profile exists.
-  - Spring test logs show the default profile and
-    `jdbc:mysql://localhost:3306/ksh_dba`.
+  - Commit `41dc2e49` added a high-precedence test datasource resource and an
+    `EnvironmentPostProcessor` that accepts only an explicit disposable
+    `ksh_test_<run_id>` catalog; `ksh_db`, `ksh_dba`, and shared `ksh_test`
+    catalogs fail closed.
+  - `src/test/resources/config/application.properties` now routes
+    `app.upload.dir` to `target/test-uploads` unless a caller supplies an
+    isolated `TEST_UPLOAD_DIR`.
 - Risk: integration tests may use default application datasource/Flyway
-  settings and mutate a developer database.
-- Disposition: pre-existing repository-wide infrastructure gap, not caused by
-  the ULP integration. New committed-row concurrency tests delete only their
-  exact rows in `finally`; other integration tests rely on transaction rollback.
-- Owner: external contributor on a not-yet-merged branch (per project owner);
-  this integration intentionally does not duplicate that work.
+  settings and mutate a developer database or developer-owned files. The
+  datasource and public-upload paths now fail closed or stay test-local.
+- Deferred boundary: V1 still contains a cross-schema
+  `CREATE DATABASE IF NOT EXISTS ksh_db`; changing or replacing that migration
+  is intentionally deferred with the project owner's migration freeze.
 - Confirmation steps:
-  - [x] Confirm current datasource resolution from Spring/Flyway logs.
-  - [ ] Prove tests use an isolated disposable database and isolated upload
-    directories.
-  - [ ] Add an explicit test profile if isolation is not already guaranteed by
-    the build environment.
-- Test/evidence: repeated local runs expose the default `ksh_dba` URL.
-  The unconstrained full suite reached 2,438 tests but failed with 54
-  connection errors after MySQL reported `Too many connections`; the same
-  source state passed all 2,439 tests when the process-local Hikari pool was
-  capped at 2 and the Spring test context cache at 8. This is mitigation
-  evidence, not proof of database isolation.
-- Commit:
+  - [x] Require an explicit disposable database URL and credentials.
+  - [x] Reject non-`ksh_test_<run_id>` database catalogs before context startup.
+  - [x] Isolate the shared public-object root from the developer `uploads`
+    directory.
+  - [ ] Review the V1 cross-schema statement in the dedicated migration phase.
+- Verification boundary: no focused/full test was run in this follow-up at the
+  project owner's request; the guard itself was previously merged on `main`.
+- Commit: `41dc2e49` (database guard); current follow-up (upload root)
 - PR:
 
 ### NEW-20260729-004 — Practice contract path separator on Windows
@@ -1324,6 +1326,47 @@ unrelated discovery inside another commit.
 - Owner: Codex root
 - Commit: N/A (repository-local Git configuration; not committed)
 - PR: N/A
+
+### CONTRIBUTOR-NAMDK-LINEAGE-001 — preserve genuine namdk24 history without a code rollback
+
+- Severity: Low for attribution; Critical if merged with the normal recursive
+  strategy.
+- Status: [x] Branch audited; [x] author mapping verified; [x] merged into
+  `main` with an unchanged tree; [ ] Contributors cache refresh observed
+- Evidence:
+  - `origin/feature/profile` had five commits not reachable from `main`: four
+    non-merge commits plus one merge commit, all authored as
+    `namdk24 <dokhacnamhda@gmail.com>`.
+  - GitHub rendered every commit author as a link to `/namdk24`, proving the
+    historic email is already associated with that account; logging into the
+    contributor account was not required.
+  - A normal merge would have re-opened all `/uploads/**`, removed login
+    throttling, weakened current Practice/LEADER route policy, and restored
+    superseded Question Bank/templates/tests.
+  - The password-change session-revocation idea is potentially useful, but its
+    implementation was coupled to those security regressions and therefore was
+    not imported. It requires a separate current-main port and review.
+- Decision:
+  - [x] Use Git's `ours` merge strategy, not the recursive strategy with
+    `-X ours`.
+  - [x] State explicitly in the merge message that the branch implementation
+    is superseded and intentionally not imported.
+  - [x] Keep the original branch commits and authors unchanged; do not create
+    synthetic or backdated commits.
+- Verification:
+  - Pre-merge `origin/main` tree:
+    `74fb84c5ddcf5cb36a4c3e12f4759e67c33c6959`.
+  - Merge commit tree:
+    `74fb84c5ddcf5cb36a4c3e12f4759e67c33c6959`.
+  - `git diff origin/main^..origin/main` is empty for the history-only merge,
+    while GitHub now reports that `main` contains all commits from
+    `feature/profile`.
+  - GitHub Contributors excludes merge commits, so the expected attribution
+    increase is the four genuine non-merge commits after its statistics cache
+    refreshes.
+- Owner: Codex root / repository owner account
+- Commit: `f2ae67f9eb77fc4119ec1b04bc47a05ccbd80e6a`
+- PR: existing PR #43 became fully contained by `main`
 
 ### UX-DIRTY-001 — AJAX tabs can discard unsaved form changes
 
@@ -1680,8 +1723,9 @@ unrelated discovery inside another commit.
     responses.
   - [x] Remove token/storage-key material from error logs.
 - Verification: `PublicViewControllerSecurityHeadersTest` passed 2/2.
-- Follow-up: plaintext bearer-token storage remains open as
-  `PUBLIC-VIEW-TOKEN-001`.
+- Follow-up: plaintext bearer-token storage was tracked and is now remediated
+  under `PUBLIC-VIEW-TOKEN-001`; focused tests for that later change were not
+  run per request.
 - Scope: no Practice, migration, or developer-password change.
 - Commit: `642a664a`
 
@@ -1729,19 +1773,34 @@ unrelated discovery inside another commit.
 - Scope: student Excel import only; no Practice or migration change.
 - Commit: `b3de78e2`
 
-### Untouched findings requiring a later decision or fix
+### Follow-up findings and resolved product decisions
 
 #### DEPT-LEADER-CONC-001 — department leader reassignment is not serialized
 
 - Severity: High
-- Status: [x] Finding confirmed; [ ] policy decided; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] policy decided; [x] remediated;
+  [ ] real-database concurrency/full-suite verification
 - Evidence: `DepartmentService.applyLeaderAssignment()` updates department and
   user rows through unlocked read/check/write sequences.
 - Risk: concurrent edits can leave multiple department pointers inconsistent
   with `users.department_id`, or demote a newly assigned leader.
-- Decision required: [ ] Can one user lead more than one department?
-- Proposed fix after decision: deterministically lock affected departments and
-  old/new user rows before validation and mutation.
+- Product decision: [x] one user may lead at most one department.
+- Remediation:
+  - [x] Acquire the stable `system_settings` row keyed by `ai.provider` as a
+    shared database anchor before department-leader mutations, including the
+    empty-department case; fail closed if that seeded row is missing.
+  - [x] Lock the target department and old/new users in deterministic order
+    before validating or mutating either side of the relationship.
+  - [x] Reject assigning a candidate already referenced as leader by another
+    department.
+  - [x] Treat a same-leader request as a repair operation: restore the user's
+    `LEADER` role and matching `department_id` when legacy drift is detected.
+  - [x] Make Admin user edits acquire the same anchor and reject a role or
+    department change while the user is still referenced as a department
+    leader; the operator must reassign/clear the department first.
+- Verification boundary: source-contract tests were added but not run at the
+  project owner's request. Compile/static integrity passed; multi-connection
+  lock behavior on a real database remains unchecked.
 
 #### PROGRESS-TOGGLE-001 — concurrent lesson-completion toggles lose parity
 
@@ -1750,8 +1809,8 @@ unrelated discovery inside another commit.
   [x] remediated; [x] focused verification
 - Evidence: `LearningProgressService.toggleCompletion()` performs an unlocked
   find-or-create/update on unique `(user_id, lesson_id)`.
-- Decision required: [ ] Should two concurrent toggles cancel each other, or
-  should the operation become an idempotent set-completed/set-incomplete API?
+- Product decision: [x] preserve toggle parity: two serialized toggles cancel
+  each other. Do not replace the operation with an idempotent set-state API.
 
 #### MSG-REALTIME-001 — realtime message body is truncated to sidebar snippet
 
@@ -1797,20 +1856,41 @@ unrelated discovery inside another commit.
 #### PUBLIC-VIEW-TOKEN-001 — public attachment tokens are stored as plaintext
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] design approved; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] design approved; [x] remediated;
+  [ ] focused/full-suite verification
 - Constraint: the current service reuses a live raw token to reconstruct its
   public URL, so a digest-only change cannot be made safely in place.
-- Decision required: [ ] Choose non-reuse/replacement semantics or encryption
-  with a managed key; do not add a migration during the current freeze.
+- Product decision: [x] use non-reuse/replacement semantics; do not add a
+  migration during the current freeze.
+- Remediation:
+  - [x] Generate a fresh 32-byte URL-safe bearer on every public-URL request,
+    revoke all previous live rows for that attachment, and persist only its
+    SHA-256 hexadecimal digest in the existing column.
+  - [x] Resolve new links by digest. Fall back to a raw database lookup only
+    when the submitted value exactly matches the legacy 32-character lowercase
+    hexadecimal token shape, so arbitrary new bearers cannot enter the legacy
+    lookup path.
+  - [x] Keep already-issued legacy URLs usable only through their normal
+    one-hour lifetime.
+  - [x] Use `noRollbackFor = EntityNotFoundException.class` so deletion of an
+    expired row is committed even though resolution finishes with a not-found
+    response.
+- Verification boundary: focused token tests were updated but not run at the
+  project owner's request; compile/static integrity passed.
 
 #### MSG-RELATION-REVOKE-001 — conversations persist after relationship revocation
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [ ] policy decided; [ ] remediated; [ ] verified
+- Status: [x] Finding confirmed; [x] policy decided; [x] closed as deliberate
+  behavior; [x] superseded by the accepted global-directory policy
 - Evidence: role/enrollment is checked at conversation creation; later
   open/send checks membership only.
-- Decision required: [ ] Retain deliberate D2 persistence, or revoke messaging
-  when the class relationship or role becomes invalid.
+- Product decision: [x] retain D2 conversation persistence. Messaging is now a
+  system directory rather than a class-relationship feature, so losing an
+  enrollment is not a revocation boundary for an existing conversation.
+- Related implementation: recipient discovery and conversation creation use
+  one role matrix, exclude self/inactive/locked/deleted accounts, and were
+  browser-checked separately under `MSG-RECIPIENT-ROSTER-001`.
 
 ### Phase 5 focused verification (2026-07-29)
 
@@ -2011,14 +2091,15 @@ unrelated discovery inside another commit.
   and release them only on abort/failure or guarded native resubmit.
 - [x] `COMMENT-DELETE-SCOPE-001`: use canonical moderator policy for deletion
   while preserving author deletion.
-- [ ] `TEST-LEADER-SCOPE-001`: confirmed; deferred to the next focused group
-  because it spans test controllers, resolver, listing, and exam services.
-- [ ] `EXAM-IMAGE-ORPHAN-001`: needs an owner-bound staged-upload/claim/expiry
-  design; transaction rollback alone cannot cover separate HTTP requests.
-- [ ] `GENERIC-TOGGLE-CONC-001`: confirmed in several admin toggle services;
-  schedule as a separate lock/desired-state group.
-- [ ] `AI-PROVIDER-ORDER-CONC-001`: needs a stable global ordering lock or an
-  ordering redesign, including the empty-table case.
+- [x] `TEST-LEADER-SCOPE-001`: apply the canonical role/class policy to direct
+  test access, global and class listings, class picker, save, and bank insertion.
+- [x] `EXAM-IMAGE-ORPHAN-001`: add owner-bound staged uploads, transactional
+  claim/compensation, durable URL rewriting, and scheduled expiry cleanup.
+- [x] `GENERIC-TOGGLE-CONC-001`: serialize Category, Department, AI Provider,
+  AI System Prompt, and department Question Bank category parity toggles with
+  pessimistic row locks.
+- [x] `AI-PROVIDER-ORDER-CONC-001`: lock a stable global settings anchor before
+  reading `MAX(display_order)` and inserting, including the empty-provider case.
 
 Verification:
 
@@ -2029,6 +2110,100 @@ Verification:
 - [x] No Practice, migration, developer-password, or user-owned config/template
   changes included.
 - [ ] Real-database lock behavior remains deferred by request.
+
+### Phase 6 follow-up implementation detail (2026-07-29)
+
+#### TEST-LEADER-SCOPE-001 — canonical role scope now covers test management
+
+- Severity: High
+- Status: [x] Finding confirmed; [x] remediated; [ ] focused/full-suite tests
+- Remediation:
+  - [x] Resolve the actor's current persisted role and reuse
+    `ClassRoleAccessPolicy` rather than treating creator/class ownership as a
+    substitute for ADMIN/LEADER policy.
+  - [x] Keep ADMIN global only for non-Practice test management, limit LEADER
+    to classes in their resolved department, and keep LECTURER on owned/created
+    tests and classes.
+  - [x] Apply the same boundary to the global list, per-class list, class
+    picker, direct get/update, save, and question-bank insertion.
+  - [x] Keep student-owned Practice tests isolated from elevated management
+    rules.
+- Verification boundary: `TestAccessResolverLeaderScopeTest` was added but not
+  run per request; Java compile and static diff checks passed.
+
+#### EXAM-IMAGE-ORPHAN-001 — owner-bound staged image lifecycle
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] design approved; [x] remediated;
+  [x] browser lifecycle verified; [ ] focused/full-suite tests
+- Remediation:
+  - [x] Bind each uploaded filename to the authenticated owner and creation
+    timestamp, and keep it under a flat `exams/staged-*` key compatible with
+    the existing public upload route.
+  - [x] Sanitize rich HTML before claim, inspect only canonical relative
+    `img[src]` values, and reject foreign-host, percent-encoded, non-image, or
+    residual staged references.
+  - [x] On transactional exam save, reject malformed, missing, expired,
+    future-dated, or other-owner staged URLs; copy each valid object to a fresh
+    durable key and rewrite exam/question/explanation/option HTML. Plain
+    `mediaUrl` is intentionally not interpreted as rich HTML.
+  - [x] Deduplicate repeated staged URLs within one save, delete the durable
+    copy on rollback, and delete the staged source only after commit.
+  - [x] Add storage-prefix listing to local, R2, and dual-read backends and
+    scheduled cleanup for abandoned staged images older than 24 hours.
+  - [x] Propagate/verify backend delete failure, retry failed cleanup in memory,
+    and serve staged responses with `Cache-Control: private, no-store`.
+- Browser evidence:
+  - Test `#97` was created with a staged source
+    `/uploads/exams/staged-3-1785321814407-….png`.
+  - Reopening edit after save showed a durable source
+    `/uploads/exams/d6c2e725-96f7-415b-85b5-82194816b250.png`; the staged URL
+    was no longer persisted in the form.
+- Residual operational boundary: the retry set is process-local. A JVM crash
+  between a failed object delete and the next cleanup loses that retry entry;
+  durable recovery needs an outbox/queue table and is deferred with the
+  migration freeze.
+- Verification boundary: `ExamImageStorageServiceTest` and storage contract
+  coverage were added/updated but not run per request; Java compile and static
+  diff checks passed.
+
+#### GENERIC-TOGGLE-CONC-001 — parity toggles are serialized
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated;
+  [ ] real-database concurrency/full-suite verification
+- Remediation:
+  - [x] Add `PESSIMISTIC_WRITE` lookup methods for Admin Category, Department,
+    AI Provider, AI System Prompt, and department Question Bank category rows.
+  - [x] Make every read-invert-save toggle use its locked lookup while retaining
+    parity semantics: two serialized toggles cancel.
+- Verification boundary: contract/unit tests were added or updated but not run
+  per request; multi-connection lock behavior remains unchecked.
+
+#### AI-PROVIDER-ORDER-CONC-001 — first and later inserts share one lock
+
+- Severity: Medium
+- Status: [x] Finding confirmed; [x] remediated;
+  [ ] real-database concurrency/full-suite verification
+- Remediation:
+  - [x] Lock the stable `system_settings.ai.provider` seed row before reading
+    provider order or inserting.
+  - [x] Fail closed when the anchor is absent, instead of silently reverting to
+    an unsafe `MAX(display_order) + 1` race.
+  - [x] Preserve the existing append-only display-order behavior while covering
+    concurrent first inserts into an empty provider table.
+- Verification boundary: `AiProviderOrderingConcurrencyContractTest` was
+  added but not run per request; multi-connection lock behavior remains
+  unchecked.
+
+Current follow-up verification:
+
+- [x] `.\mvnw.cmd -q -DskipTests compile` completed successfully.
+- [x] `git diff --check` completed successfully.
+- [x] No migration, demo-password, or `/practice` source/config/test path was
+  changed by this follow-up group.
+- [ ] Focused tests and the full suite were not run, per project-owner request.
+- [ ] Real-database multi-connection concurrency behavior remains unchecked.
 
 ### New issue template
 

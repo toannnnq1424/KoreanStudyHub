@@ -396,6 +396,7 @@ public interface IConstant {
     String MSG_EXAM_IMAGE_TOO_LARGE = "Ảnh vượt quá giới hạn 2MB";
     String MSG_EXAM_IMAGE_TYPE = "Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP";
     String MSG_EXAM_IMAGE_INVALID = "Nội dung file không phải ảnh hợp lệ";
+    String MSG_EXAM_IMAGE_STAGED_INVALID = "Ảnh tải lên không hợp lệ hoặc đã hết hạn";
     String MSG_QUESTION_CONTENT_BLANK = "Nội dung câu hỏi không được để trống";
     String MSG_OPTION_CONTENT_BLANK = "Nội dung đáp án không được để trống";
     String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";

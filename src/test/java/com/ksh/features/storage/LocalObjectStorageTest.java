@@ -66,6 +66,20 @@ class LocalObjectStorageTest {
     }
 
     @Test
+    void listKeys_filtersByFlatFilenamePrefix() throws Exception {
+        byte[] data = "image".getBytes(StandardCharsets.UTF_8);
+        storage.put("exams/staged-1-a.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+        storage.put("exams/final.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+        storage.put("avatars/staged-1-a.png",
+                new ByteArrayInputStream(data), "image/png", data.length);
+
+        assertThat(storage.listKeys("exams/staged-"))
+                .containsExactly("exams/staged-1-a.png");
+    }
+
+    @Test
     void rejectsPathTraversal() {
         assertThatThrownBy(() ->
                 storage.put("../etc/passwd", new ByteArrayInputStream(new byte[]{1}), "text/plain", 1))

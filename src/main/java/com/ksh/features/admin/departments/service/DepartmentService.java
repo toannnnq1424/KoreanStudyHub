@@ -5,16 +5,21 @@ import com.ksh.entities.DepartmentActivity;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
+import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
 import com.ksh.utils.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Write-side department mutations: create/update/toggle and leader assignment
@@ -29,17 +34,29 @@ public class DepartmentService {
     static final String MSG_LEADER_NOT_FOUND = "Không tìm thấy người dùng để gán trưởng bộ môn";
     static final String MSG_LEADER_INELIGIBLE =
             "Trưởng bộ môn phải là giảng viên hoặc trưởng bộ môn đang hoạt động";
+    static final String MSG_LEADER_ALREADY_ASSIGNED =
+            "Người dùng này đang là trưởng của một bộ môn khác";
+
+    /**
+     * V1 guarantees this legacy placeholder row and the multi-provider feature
+     * leaves its value unused. Locking it gives leader assignment a database
+     * mutex even when the departments table is empty, without a schema change.
+     */
+    public static final String LEADER_ASSIGNMENT_LOCK_SETTING_KEY = "ai.provider";
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
     private final DepartmentAuditWriter auditWriter;
+    private final SystemSettingsRepository systemSettingsRepository;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                              UserRepository userRepository,
-                             DepartmentAuditWriter auditWriter) {
+                             DepartmentAuditWriter auditWriter,
+                             SystemSettingsRepository systemSettingsRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.auditWriter = auditWriter;
+        this.systemSettingsRepository = systemSettingsRepository;
     }
 
     @Transactional
@@ -53,6 +70,9 @@ public class DepartmentService {
                 code,
                 StringUtils.blankToNull(form.description()),
                 form.active());
+        if (form.leaderUserId() != null) {
+            lockLeaderAssignmentAnchor();
+        }
         Department saved = departmentRepository.save(entity);
         auditWriter.write(saved.getId(), DepartmentActivity.TYPE_CREATED,
                 "Tạo bộ môn " + saved.getName() + " (" + saved.getCode() + ")",
@@ -67,7 +87,10 @@ public class DepartmentService {
 
     @Transactional
     public void update(Long id, DepartmentForm form, Long actorId) {
-        Department entity = departmentRepository.findById(id)
+        // The edit form can replace or clear a leader. Anchor first so every
+        // leader mutation follows one global lock order.
+        lockLeaderAssignmentAnchor();
+        Department entity = departmentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
         String code = normalizeCode(form.code());
         if (departmentRepository.existsByCodeAndIdNot(code, id)) {
@@ -105,7 +128,7 @@ public class DepartmentService {
 
     @Transactional
     public boolean toggleActive(Long id, Long actorId) {
-        Department entity = departmentRepository.findById(id)
+        Department entity = departmentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
         boolean now = entity.toggleActive();
         departmentRepository.save(entity);
@@ -125,7 +148,8 @@ public class DepartmentService {
      */
     @Transactional
     public void assignLeader(Long departmentId, Long leaderUserId, Long actorId) {
-        Department entity = departmentRepository.findById(departmentId)
+        lockLeaderAssignmentAnchor();
+        Department entity = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
         applyLeaderAssignment(entity, leaderUserId, actorId);
         departmentRepository.save(entity);
@@ -133,21 +157,40 @@ public class DepartmentService {
 
     private void applyLeaderAssignment(Department entity, Long newLeaderUserId, Long actorId) {
         Long oldLeaderId = entity.getLeaderUserId();
-        if (oldLeaderId != null && oldLeaderId.equals(newLeaderUserId)) {
-            return;
-        }
         if (oldLeaderId == null && newLeaderUserId == null) {
             return;
         }
 
+        Map<Long, User> affectedUsers = lockAffectedUsers(oldLeaderId, newLeaderUserId);
         String newLeaderEmail = null;
+        User candidate = null;
         if (newLeaderUserId != null) {
-            User candidate = userRepository.findById(newLeaderUserId)
+            candidate = Optional.ofNullable(affectedUsers.get(newLeaderUserId))
                     .orElseThrow(() -> new DepartmentValidationException(MSG_LEADER_NOT_FOUND));
             if (!candidate.isActive() || candidate.isDeleted()
                     || !DepartmentQueryService.LEADER_ELIGIBLE.contains(candidate.getRole())) {
                 throw new DepartmentValidationException(MSG_LEADER_INELIGIBLE);
             }
+            if (departmentRepository.existsByLeaderUserIdAndIdNot(
+                    newLeaderUserId, entity.getId())) {
+                throw new DepartmentValidationException(MSG_LEADER_ALREADY_ASSIGNED);
+            }
+        }
+
+        if (Objects.equals(oldLeaderId, newLeaderUserId)) {
+            // A nominal no-op still repairs/checks both sides of the invariant.
+            // This closes legacy drift where the department pointer survived an
+            // out-of-band user role/department edit.
+            if (candidate != null
+                    && (candidate.getRole() != Role.LEADER
+                    || !Objects.equals(candidate.getDepartmentId(), entity.getId()))) {
+                candidate.promoteToLeader(entity.getId());
+                userRepository.save(candidate);
+            }
+            return;
+        }
+
+        if (candidate != null) {
             candidate.promoteToLeader(entity.getId());
             userRepository.save(candidate);
             newLeaderEmail = candidate.getEmail();
@@ -157,9 +200,9 @@ public class DepartmentService {
         // Flush leader_user_id before demote check so DB no longer lists the old leader.
         departmentRepository.saveAndFlush(entity);
 
-        // Demote previous leader only when they leader no other department.
+        // Demote the previous leader only when they lead no other department.
         if (oldLeaderId != null && !oldLeaderId.equals(newLeaderUserId)) {
-            demoteIfNoLongerLeader(oldLeaderId);
+            demoteIfNoLongerLeader(affectedUsers.get(oldLeaderId));
         }
 
         if (entity.getId() != null) {
@@ -174,16 +217,47 @@ public class DepartmentService {
         }
     }
 
-    private void demoteIfNoLongerLeader(Long userId) {
-        if (departmentRepository.existsByLeaderUserId(userId)) {
+    /**
+     * Locks every affected user in ascending ID order after the global anchor
+     * and target department have been locked. Missing former leaders are
+     * tolerated (for legacy/soft-deleted data); a missing new leader is rejected
+     * by the caller before mutation.
+     */
+    private Map<Long, User> lockAffectedUsers(Long oldLeaderId, Long newLeaderUserId) {
+        List<Long> ids = Stream.of(oldLeaderId, newLeaderUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        Map<Long, User> locked = new HashMap<>();
+        for (Long id : ids) {
+            userRepository.findByIdForUpdate(id)
+                    .ifPresent(user -> locked.put(id, user));
+        }
+        return locked;
+    }
+
+    private void demoteIfNoLongerLeader(User user) {
+        if (user == null || departmentRepository.existsByLeaderUserId(user.getId())) {
             return;
         }
-        userRepository.findById(userId).ifPresent(user -> {
-            if (user.getRole() == Role.LEADER) {
-                user.demoteFromLeaderToLecturer();
-                userRepository.save(user);
-            }
-        });
+        if (user.getRole() == Role.LEADER) {
+            user.demoteFromLeaderToLecturer();
+            userRepository.save(user);
+        }
+    }
+
+    /**
+     * Serializes all leader-pointer and role/department mutations across app
+     * nodes. Failing closed is intentional: continuing without the V1 seed row
+     * would silently reintroduce the race.
+     */
+    private void lockLeaderAssignmentAnchor() {
+        systemSettingsRepository
+                .findBySettingKeyForUpdate(LEADER_ASSIGNMENT_LOCK_SETTING_KEY)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Missing department leader assignment lock row: "
+                                + LEADER_ASSIGNMENT_LOCK_SETTING_KEY));
     }
 
     /** Builds a map of changed identity fields for UPDATED audit metadata. */

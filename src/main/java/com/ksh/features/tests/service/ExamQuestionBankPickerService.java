@@ -15,7 +15,7 @@ import com.ksh.features.tests.dto.LecturerTestDtos.BankCategoryOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ksh.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
 import com.ksh.features.tests.entity.Test;
-import com.ksh.features.tests.repository.TestRepository;
+import com.ksh.features.tests.support.TestAccessResolver;
 import com.ksh.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -40,7 +40,7 @@ public class ExamQuestionBankPickerService {
 
     private final UserRepository userRepository;
     private final QuestionBankAccessPolicy accessPolicy;
-    private final TestRepository testRepository;
+    private final TestAccessResolver testAccessResolver;
     private final ClassRepository classRepository;
     private final QuestionBankCategoryRepository categoryRepository;
     private final QuestionBankItemRepository itemRepository;
@@ -48,14 +48,14 @@ public class ExamQuestionBankPickerService {
 
     public ExamQuestionBankPickerService(UserRepository userRepository,
                                          QuestionBankAccessPolicy accessPolicy,
-                                         TestRepository testRepository,
+                                         TestAccessResolver testAccessResolver,
                                          ClassRepository classRepository,
                                          QuestionBankCategoryRepository categoryRepository,
                                          QuestionBankItemRepository itemRepository,
                                          QuestionBankOptionRepository optionRepository) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
-        this.testRepository = testRepository;
+        this.testAccessResolver = testAccessResolver;
         this.classRepository = classRepository;
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
@@ -189,13 +189,18 @@ public class ExamQuestionBankPickerService {
     }
 
     private Long resolveAccessibleTestDepartment(User actor, Long testId) {
-        Test test = testRepository.findById(testId)
-                .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền dùng câu hỏi cộng tác"));
+        Test test = testAccessResolver.requireManageable(
+                testId, actor.getId(), actor.getRole());
         ClassEntity clazz = classRepository.findById(test.getClassId())
                 .orElseThrow(() -> new AccessDeniedException("Bạn không có quyền dùng câu hỏi cộng tác"));
         Long departmentId = clazz.getDepartmentId();
         if (departmentId == null) {
             return null;
+        }
+        // ADMIN may manage class exams globally, but the picker remains bound
+        // to the department that owns the selected test's class.
+        if (actor.getRole() == Role.ADMIN) {
+            return departmentId;
         }
         if (!accessPolicy.canAccessDepartment(actor, departmentId)) {
             throw new AccessDeniedException("Bạn không có quyền dùng câu hỏi cộng tác");

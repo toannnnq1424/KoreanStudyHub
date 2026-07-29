@@ -2,15 +2,20 @@ package com.ksh.features.tests.support;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
+import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.service.ClassRoleAccessPolicy;
 import com.ksh.features.tests.entity.Test;
 import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestRepository;
+import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Resolves a {@link Test} for a caller and enforces the exam authorization
@@ -20,9 +25,11 @@ import org.springframework.stereotype.Component;
  *   <li><b>Student</b> may take an exam iff it is PUBLISHED + not deleted + they
  *       are ACTIVE-enrolled in its class, OR they own the PRACTICE test.
  *       Otherwise 404 (existence never leaked).</li>
- *   <li><b>Lecturer</b> (role already gated by {@code @PreAuthorize}) may manage
- *       an exam iff {@code created_by == user} OR they lead the exam's class.
- *       A non-owner gets 403; a missing/deleted exam gets 404.</li>
+ *   <li><b>Test management</b> follows the canonical class policy: ADMIN is
+ *       global, LEADER is department-scoped, and LECTURER is owner-scoped.
+ *       A lecturer also retains access to an exam they created, matching the
+ *       pre-department behavior. Student-owned PRACTICE tests remain isolated
+ *       from these elevated class-management rules.</li>
  *   <li>Attempt/review access is strictly per-user.</li>
  * </ul>
  */
@@ -38,15 +45,21 @@ public class TestAccessResolver {
     private final TestAttemptRepository attemptRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
+    private final UserRepository userRepository;
+    private final ClassRoleAccessPolicy classAccessPolicy;
 
     public TestAccessResolver(TestRepository testRepository,
                               TestAttemptRepository attemptRepository,
                               EnrollmentRepository enrollmentRepository,
-                              ClassRepository classRepository) {
+                              ClassRepository classRepository,
+                              UserRepository userRepository,
+                              ClassRoleAccessPolicy classAccessPolicy) {
         this.testRepository = testRepository;
         this.attemptRepository = attemptRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
+        this.userRepository = userRepository;
+        this.classAccessPolicy = classAccessPolicy;
     }
 
     /**
@@ -81,32 +94,104 @@ public class TestAccessResolver {
     }
 
     /**
-     * Returns the exam if the acting lecturer owns it (created it or leads its
-     * class); a non-owner referencing an existing exam gets 403, a
+     * Returns the exam if the actor may manage it under their current persisted
+     * role. A denied actor referencing an existing exam gets 403, while a
      * missing/deleted exam gets 404.
      */
     public Test requireManageable(Long testId, Long userId) {
         Test test = loadOrNotFound(testId);
-        return requireManageable(test, userId);
+        return requireManageable(test, userId, managementRole(userId));
+    }
+
+    /**
+     * Role-aware variant for callers that already carry the authenticated role.
+     * The role is still evaluated by the canonical class policy.
+     */
+    public Test requireManageable(Long testId, Long userId, Role role) {
+        Test test = loadOrNotFound(testId);
+        return requireManageable(test, userId, role);
     }
 
     /**
      * Returns and locks an owned exam for a transaction that mutates its question bank.
      */
     public Test requireManageableForUpdate(Long testId, Long userId) {
+        return requireManageableForUpdate(testId, userId, managementRole(userId));
+    }
+
+    /** Role-aware locking variant for test-management mutations. */
+    public Test requireManageableForUpdate(Long testId, Long userId, Role role) {
         Test test = testRepository.findByIdForUpdate(testId)
                 .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
         if (test.isDeleted()) {
             throw new EntityNotFoundException(NF_MSG);
         }
-        return requireManageable(test, userId);
+        return requireManageable(test, userId, role);
     }
 
-    private Test requireManageable(Test test, Long userId) {
-        if (userId.equals(test.getCreatedBy()) || leadsClass(userId, test.getClassId())) {
+    private Test requireManageable(Test test, Long userId, Role role) {
+        // Do not broaden management of student-owned Practice data.
+        if (test.isPractice()) {
+            if (userId != null && userId.equals(test.getCreatedBy())) {
+                return test;
+            }
+            throw new AccessDeniedException(NF_MSG);
+        }
+        if (role == Role.ADMIN) {
             return test;
         }
+        // Preserve creator ownership for ordinary lecturer-authored exams.
+        if (role == Role.LECTURER && userId != null && userId.equals(test.getCreatedBy())) {
+            return test;
+        }
+        if (test.getClassId() != null) {
+            ClassEntity clazz = classRepository.findById(test.getClassId()).orElse(null);
+            if (clazz != null && classAccessPolicy.canAccess(clazz, userId, role)) {
+                return test;
+            }
+        }
         throw new AccessDeniedException(NF_MSG);
+    }
+
+    /**
+     * Current persisted management role. This fallback keeps non-MVC callers
+     * (including AI authoring) on the same policy without consulting a hidden
+     * Spring Security context.
+     */
+    public Role managementRole(Long userId) {
+        Role role = userRepository.findById(userId)
+                .map(user -> user.getRole())
+                .orElseThrow(() -> new AccessDeniedException(NF_MSG));
+        if (role != Role.LECTURER && role != Role.LEADER && role != Role.ADMIN) {
+            throw new AccessDeniedException(NF_MSG);
+        }
+        return role;
+    }
+
+    /** Classes available in the lecturer test picker/list for the supplied role. */
+    public List<ClassEntity> manageableClasses(Long userId, Role role) {
+        if (role == Role.ADMIN) {
+            return classRepository.findAllByOrderByCreatedAtDesc();
+        }
+        if (role == Role.LEADER) {
+            return classAccessPolicy.leaderDepartmentId(userId)
+                    .map(classRepository::findAllByDepartmentIdOrderByCreatedAtDesc)
+                    .orElseGet(List::of);
+        }
+        if (role == Role.LECTURER) {
+            return classRepository.findAllByLecturerIdOrderByCreatedAtDesc(userId);
+        }
+        return List.of();
+    }
+
+    /** Loads a class and enforces the same ADMIN/LEADER/LECTURER scope. */
+    public ClassEntity requireManageableClass(Long classId, Long userId, Role role) {
+        ClassEntity clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
+        if (!classAccessPolicy.canAccess(clazz, userId, role)) {
+            throw new AccessDeniedException(NF_MSG);
+        }
+        return clazz;
     }
 
     /** Returns the caller's own attempt; otherwise 404 (never leaks another user's). */
@@ -157,11 +242,4 @@ public class TestAccessResolver {
                 .orElse(false);
     }
 
-    private boolean leadsClass(Long userId, Long classId) {
-        if (classId == null) return false;
-        return classRepository.findById(classId)
-                .map(ClassEntity::getLecturerId)
-                .map(userId::equals)
-                .orElse(false);
-    }
 }

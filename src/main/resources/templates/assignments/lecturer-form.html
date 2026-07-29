@@ -23,7 +23,7 @@
       </h1>
     </div>
 
-    <section class="detail-panel">
+    <section class="detail-panel assignment-form-panel">
       <form th:if="${mode == 'create'}"
             th:action="@{/lecturer/classes/{id}/assignments(id=${classId})}"
             method="post" class="asgn-form">

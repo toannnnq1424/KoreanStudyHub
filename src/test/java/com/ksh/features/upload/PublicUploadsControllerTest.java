@@ -33,6 +33,8 @@ class PublicUploadsControllerTest {
         byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
         storage.put("avatars/pic.jpg", new ByteArrayInputStream(jpeg), "image/jpeg", jpeg.length);
         storage.put("exams/q.png", new ByteArrayInputStream(jpeg), "image/png", jpeg.length);
+        storage.put("exams/staged-1.png",
+                new ByteArrayInputStream(jpeg), "image/png", jpeg.length);
         storage.put("lessons/1/secret.pdf",
                 new ByteArrayInputStream("%PDF-".getBytes(StandardCharsets.UTF_8)),
                 "application/pdf", 5);
@@ -52,6 +54,18 @@ class PublicUploadsControllerTest {
     void servesExam() {
         ResponseEntity<?> resp = controller.serveRelativePath("exams/q.png");
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getHeaders().getCacheControl())
+                .isEqualTo("public, max-age=86400");
+    }
+
+    @Test
+    void stagedExamImageIsNeverStoredInSharedCaches() {
+        ResponseEntity<?> resp =
+                controller.serveRelativePath("exams/staged-1.png");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getHeaders().getCacheControl())
+                .isEqualTo("private, no-store");
     }
 
     @Test

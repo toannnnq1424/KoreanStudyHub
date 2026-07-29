@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -44,10 +45,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class MessagingIntegrationTest {
 
     private static final String STUDENT = "student@ksh.edu.vn";
-    // A lecturer owned by this test (teaches only the test class), so the gate's
-    // "shares a class" rule is deterministic — not entangled with seeded classes.
     private static final String LECTURER = "lecturer-msgtest@ksh.edu.vn";
+    private static final String SEEDED_LECTURER = "lecturer@ksh.edu.vn";
     private static final String OUTSIDER = "sv02@ksh.edu.vn";
+    private static final String ADMIN = "admin@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
@@ -62,10 +63,8 @@ class MessagingIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // A dedicated lecturer who teaches ONLY this test's class, so the OUTSIDER
-        // (enrolled elsewhere but never here) shares no class with them → the gate
-        // blocks reliably. Reusing the seed lecturer made 404 tests flaky because
-        // the outsider happened to share another seeded class.
+        // A dedicated lecturer and class keep the class-scoped messaging checks
+        // deterministic; global compose access no longer depends on enrollment.
         User lecturer = ensureLecturer();
         User student = userRepository.findByEmailIgnoreCase(STUDENT).orElseThrow();
         lecturerId = lecturer.getId();
@@ -75,7 +74,7 @@ class MessagingIntegrationTest {
         classId = clazz.getId();
         enroll(student, clazz);
 
-        // A pre-existing student↔lecturer thread (gate is satisfied by enrollment).
+        // A pre-existing student↔lecturer thread.
         convId = messagingService.getOrCreateConversation(studentId, Role.STUDENT, lecturerId);
     }
 
@@ -116,11 +115,40 @@ class MessagingIntegrationTest {
 
     @Test
     @WithUserDetails(OUTSIDER)
-    void ineligible_recipient_start_returns_404_no_leak() throws Exception {
-        // The outsider shares no class with this lecturer → gate blocks (404).
+    void student_can_reach_lecturer_without_shared_class() throws Exception {
         mockMvc.perform(post("/my/messages/new").with(csrf())
                         .param("to", String.valueOf(lecturerId)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/my/messages/*"));
+    }
+
+    @Test
+    @WithUserDetails(STUDENT)
+    void student_compose_lists_students_and_teachers_but_not_admins() throws Exception {
+        mockMvc.perform(get("/my/messages/new"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(OUTSIDER)))
+                .andExpect(content().string(containsString(LECTURER)))
+                .andExpect(content().string(not(containsString(ADMIN))));
+    }
+
+    @Test
+    @WithUserDetails(STUDENT)
+    void student_cannot_start_admin_conversation() throws Exception {
+        Long adminId = userRepository.findByEmailIgnoreCase(ADMIN).orElseThrow().getId();
+        mockMvc.perform(post("/my/messages/new").with(csrf())
+                        .param("to", String.valueOf(adminId)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithUserDetails(SEEDED_LECTURER)
+    void staff_can_start_conversation_with_any_active_role() throws Exception {
+        Long adminId = userRepository.findByEmailIgnoreCase(ADMIN).orElseThrow().getId();
+        mockMvc.perform(post("/my/messages/new").with(csrf())
+                        .param("to", String.valueOf(adminId)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/my/messages/*"));
     }
 
     // ── Sending ─────────────────────────────────────────────────────────

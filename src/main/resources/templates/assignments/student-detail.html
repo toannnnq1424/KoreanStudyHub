@@ -2,20 +2,22 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${assignment.title} + ' | ' + ${clazz.name}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
 </head>
-<body>
-<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+<body class="student-assignment-page">
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <span id="flash-data"
       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
       style="display:none;"></span>
 
-<div class="class-detail-layout">
-  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
+<div class="class-detail-layout student-assignment-layout">
+  <div th:replace="~{fragments/student-class-sidebar :: classSidebar('assignments', ${clazz.id}, ${clazz.name}, ${clazz.code}, ${null}, ~{}, ~{})}"></div>
 
-  <main class="col">
+  <main class="col student-assignment-main">
     <div class="detail-topbar">
       <a th:href="@{/classes/{id}/assignments(id=${classId})}" class="btn btn-outline btn-sm">
         &larr; Danh sách bài tập
@@ -23,7 +25,7 @@
       <h1 class="detail-title" th:text="${assignment.title}">Tên bài tập</h1>
     </div>
 
-    <section class="detail-panel">
+    <section class="detail-panel student-assignment-panel">
       <!-- Assignment info -->
       <div class="asgn-meta">
         <span>
