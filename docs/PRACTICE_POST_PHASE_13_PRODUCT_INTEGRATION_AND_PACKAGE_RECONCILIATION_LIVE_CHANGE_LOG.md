@@ -269,3 +269,35 @@ decision/evidence log is the third coherent slice. Publication remains gated on
 a fresh `origin/main` comparison, one push, a PR to `main`, complete
 diff/ancestry/excluded-path review and required checks. Merge only with
 `Create a merge commit`, then verify the remote main SHA/tree and stop.
+
+## 11. 2026-07-29 supersession note
+
+Sections 1-10 remain immutable evidence for the Post-Phase-13 package
+reconciliation snapshot. They are not rewritten by the later comprehensive
+Practice audit.
+
+The current audit implementation snapshot, still pending its own consolidated
+validation and publication, supersedes only the former forward-looking debt
+statements as follows:
+
+- `WritingMockEvaluatorService`, `WritingScoreMatrix`, the unused
+  `openai.transcription-model` binding and unused mock constructors/config
+  surfaces are removed after positive no-consumer proof;
+- Writing/Speaking current results now require exact Practice-private policy
+  bundle identities; old JSON remains explicitly legacy/unverified and cannot
+  authorize a current score or cache/reuse hit;
+- generic result/detail templates, parser ownership and duplicate Practice
+  assets/routes proven unreachable are removed; the established typed
+  Objective/Writing/Speaking UX remains unchanged;
+- current Writing suppresses independent evaluator `sample_answer` and retains
+  only submission-derived upgrade artifacts;
+- the schema authority advances by forward V63 for active/superseded R/L
+  explanation-binding history; applied V1-V62 remain untouched; and
+- Practice AI and the three Practice storage lifecycles remain separate from
+  Admin/global/common ownership. No provider/control-plane/storage unification
+  or credential/config cutover is introduced.
+
+The owning evidence journal is
+`docs/PRACTICE_COMPREHENSIVE_AUTHORITY_ASSESSMENT_CODE_ROUTE_SCHEMA_AUDIT_AND_DEAD_SURFACE_CLEANUP_LIVE_CHANGE_LOG.md`.
+This supersession note does not start Pre-14, Pre-15, Phase 15 or deferred
+Phase 14.

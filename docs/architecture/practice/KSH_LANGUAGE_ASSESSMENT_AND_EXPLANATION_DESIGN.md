@@ -2207,3 +2207,32 @@ sau đó và đóng final Korean-SME sign-off,
 golden/adversarial corpus, calibration, fairness và repeatability. Không gate
 nào được tuyên bố bao phủ toàn bộ tiếng Hàn, và Phase 13E không được tự nhận đã
 đóng một trong hai gate.
+
+## 23. Supersession overlay — comprehensive Practice audit 2026-07-29
+
+Phần 21-22 phía trên được giữ nguyên như bằng chứng thiết kế và trạng thái tại
+thời điểm viết. Snapshot triển khai của audit toàn diện hiện supersede các mô tả
+runtime cũ sau đây, nhưng vẫn đang chờ một validation unit hợp nhất:
+
+- `result-detail.html`, `rl-result-detail.html` và generic result/detail parser
+  không còn là owner hoạt động; ba typed presenter Objective R/L, Writing và
+  Speaking là owner duy nhất;
+- Writing hiện dùng bundle `KSH_WRITING_POLICY_BUNDLE_V2`, task-native
+  Q51/Q52 `/10`, Q53 `/30`, Q54 `/50`, typed diagnostic metadata và exact
+  evidence validation. JSON 1-9 chỉ còn ranh giới đọc lịch sử có nhãn, không
+  được nâng thành current score;
+- current Writing evaluator không tạo hoặc hiển thị `sample_answer`; learner
+  upgrade vẫn phải bắt nguồn từ submission. Lecturer reference vẫn là quyết
+  định sản phẩm riêng và không được giả lập bằng output của evaluator;
+- Speaking transcript-only dùng bundle
+  `KSH_SPEAKING_POLICY_BUNDLE_V1`; bốn tiêu chí ngôn ngữ có evidence từ
+  transcript, còn fluency và pronunciation/delivery tiếp tục null
+  `NOT_SCORABLE`;
+- R/L giữ typed explanation v3 và bổ sung forward V63 để một binding active có
+  thể được thay thế, trong khi row cũ được giữ ở trạng thái `SUPERSEDED`; và
+- instruction do KSH sở hữu đã được Việt/Hàn hóa, còn stable ID, enum và JSON
+  key tiếp tục giữ ASCII.
+
+Overlay này không phải Pre-14 hay Pre-15. Final Korean SME, corpus,
+calibration, fairness/repeatability, direct-audio và mọi destructive retained
+data/UAT action vẫn thuộc các gate đã ghi ở trên.
