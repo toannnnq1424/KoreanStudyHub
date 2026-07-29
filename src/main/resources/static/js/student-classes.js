@@ -59,8 +59,10 @@
 
   // ── Client-side search + sort over student class rows ─────────────
   var searchInput = document.getElementById('searchInput');
-  var rows = Array.prototype.slice.call(document.querySelectorAll('.student-class-row'));
-  var listContainer = document.querySelector('.class-list');
+  var listContainer = document.getElementById('active-class-list');
+  var rows = listContainer
+    ? Array.prototype.slice.call(listContainer.querySelectorAll('.student-class-row:not(.is-pending)'))
+    : [];
 
   function applyFilter() {
     if (!searchInput) return;
