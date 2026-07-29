@@ -192,6 +192,11 @@ class PracticeFunctionalUiContractTest {
                 "Câu 51 · 51번",
                 "Câu 54 · 54번");
         assertThat(template).doesNotContain(
+                "name=\"classId\"",
+                "classId=",
+                "Mọi lớp học",
+                "Lớp đang tham gia");
+        assertThat(template).doesNotContain(
                 "data-endpoint=@{/practice/catalog}");
         assertThat(cards).contains("card.testCount()");
         assertThat(cards).contains("card.completedTests()");
@@ -248,6 +253,12 @@ class PracticeFunctionalUiContractTest {
             throws IOException {
         String service = Files.readString(PRACTICE_SERVICE);
         String repository = Files.readString(PRACTICE_ATTEMPT_REPOSITORY);
+        int globalCatalogResumeStart = repository.indexOf(
+                "Resume candidate for the standalone public Practice catalogue");
+        int legacyClassAwareResumeStart = repository.indexOf(
+                "Legacy class-aware resume lookup retained", globalCatalogResumeStart);
+        String globalCatalogResume = repository.substring(
+                globalCatalogResumeStart, legacyClassAwareResumeStart);
         int reEvaluateStart = service.indexOf(
                 "public Long reEvaluate(Long attemptId, Long userId)");
         int questionEntry = service.indexOf(
@@ -294,16 +305,21 @@ class PracticeFunctionalUiContractTest {
                 "evaluateQuestion",
                 "gradeWritingSnapshot",
                 "saveAndFlush");
-        assertThat(repository).contains(
-                "findGlobalResumeCandidates",
+        assertThat(globalCatalogResume).contains(
+                "findGlobalCatalogResumeCandidates",
                 "a.user_id = :userId",
                 "s.status = 'PUBLISHED'",
                 "s.is_deleted = 0",
                 "s.scope = 'GLOBAL'",
-                "s.created_by = :userId",
-                "s.class_id IN (:activeClassIds)",
                 "COALESCE(a.submitted_at, a.updated_at, a.created_at) DESC",
-                "a.id DESC");
+                "a.id DESC")
+                .doesNotContain(
+                        "activeClassIds",
+                        "s.class_id",
+                        "s.created_by");
+        assertThat(repository).contains(
+                "Legacy class-aware resume lookup retained",
+                "findGlobalResumeCandidates");
     }
 
     @Test

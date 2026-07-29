@@ -139,7 +139,6 @@ public class PracticeController {
                         @RequestParam(value = "skill", defaultValue = "ALL") String skill,
                         @RequestParam(value = "writingTask", defaultValue = "ALL")
                         String writingTask,
-                        @RequestParam(value = "classId", required = false) Long classId,
                         @RequestParam(value = "batch", defaultValue = "0") int batch,
                         Model model) {
         model.addAttribute(
@@ -147,7 +146,7 @@ public class PracticeController {
                 catalogService.loadBatch(
                         user.getId(),
                         new PracticeCatalogQuery(
-                                search, skill, writingTask, classId, batch)));
+                                search, skill, writingTask, null, batch)));
         return PracticeViews.INDEX;
     }
 
@@ -157,7 +156,6 @@ public class PracticeController {
                                @RequestParam(value = "skill", defaultValue = "ALL") String skill,
                                @RequestParam(value = "writingTask", defaultValue = "ALL")
                                String writingTask,
-                               @RequestParam(value = "classId", required = false) Long classId,
                                @RequestParam(value = "batch", defaultValue = "1") int batch,
                                Model model) {
         model.addAttribute(
@@ -165,7 +163,7 @@ public class PracticeController {
                 catalogService.loadBatch(
                         user.getId(),
                         new PracticeCatalogQuery(
-                                search, skill, writingTask, classId, batch)));
+                                search, skill, writingTask, null, batch)));
         return PracticeViews.CATALOG_CARDS;
     }
 
