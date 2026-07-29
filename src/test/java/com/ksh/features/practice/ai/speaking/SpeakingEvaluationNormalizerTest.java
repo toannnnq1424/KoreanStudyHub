@@ -30,6 +30,12 @@ class SpeakingEvaluationNormalizerTest {
                 result.evaluatorCapability());
         assertEquals(SpeakingEvidenceMode.TRANSCRIPT_ONLY, result.evidenceMode());
         assertEquals(SpeakingContractTrust.CURRENT_VERIFIED, result.contractTrust());
+        assertEquals(
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                result.policyBundleId());
+        assertEquals(
+                SpeakingAssessmentPolicyBundle.fingerprint(),
+                result.policyBundleFingerprint());
         assertEquals(6, result.rubricScores().size());
         assertNull(score(result, SpeakingRubricCriterion.FLUENCY));
         assertNull(score(result, SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
@@ -177,11 +183,14 @@ class SpeakingEvaluationNormalizerTest {
 
     @Test
     void richSpeakingFeedbackContractNormalizesForFutureRendering() throws Exception {
-        SpeakingEvaluationResult result = normalizer.normalize(
-                objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()));
+        SpeakingEvaluationResult result = normalizer.normalize(richInput());
 
-        assertEquals("Clear answer with minor language issues.", result.overallSummary());
-        assertEquals("The learner introduces themself and stays on topic.", result.taskAchievementSummary());
+        assertEquals(
+                "Câu trả lời rõ ý và chỉ còn một số điểm ngôn ngữ cần chỉnh.",
+                result.overallSummary());
+        assertEquals(
+                "Học viên giới thiệu bản thân và bám đúng chủ đề.",
+                result.taskAchievementSummary());
         assertEquals(2, result.majorStrengths().size());
         assertEquals(2, result.majorNeedsImprovement().size());
         assertEquals(1, result.actionPlan().size());
@@ -366,6 +375,40 @@ class SpeakingEvaluationNormalizerTest {
         assertFalse(json.contains("providerSecret"));
     }
 
+    @Test
+    void missingOrMismatchedPolicyBundleCannotBecomeCurrent() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode missing =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        validInput().deepCopy();
+        missing.remove("policy_bundle_id");
+        com.fasterxml.jackson.databind.node.ObjectNode mismatched =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        validInput().deepCopy();
+        mismatched.put("policy_bundle_id", "STALE_BUNDLE");
+        com.fasterxml.jackson.databind.node.ObjectNode missingFingerprint =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        validInput().deepCopy();
+        missingFingerprint.remove("policy_bundle_fingerprint");
+        com.fasterxml.jackson.databind.node.ObjectNode mismatchedFingerprint =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        validInput().deepCopy();
+        mismatchedFingerprint.put(
+                "policy_bundle_fingerprint",
+                "0".repeat(64));
+
+        for (JsonNode input : java.util.List.of(
+                missing,
+                mismatched,
+                missingFingerprint,
+                mismatchedFingerprint)) {
+            SpeakingEvaluationResult result = normalizer.normalize(input);
+            assertThat(result.currentEvidenceContract()).isFalse();
+            assertThat(result.profileAvailable()).isFalse();
+            assertThat(result.contractTrust()).isEqualTo(
+                    SpeakingContractTrust.LEGACY_UNVERIFIED);
+        }
+    }
+
     private BigDecimal score(SpeakingEvaluationResult result, SpeakingRubricCriterion criterion) {
         return result.rubricScores().stream()
                 .filter(row -> row.criterion() == criterion)
@@ -386,30 +429,36 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     private JsonNode validInput() throws Exception {
-        return objectMapper.readTree("""
+        com.fasterxml.jackson.databind.node.ObjectNode input =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        objectMapper.readTree("""
                 {
                   "evaluation_status":"EVALUATED",
                   "source":"PROVIDER",
                   "model":"fake-evaluator",
                   "transcription_model":"fake-transcriber",
+                  "prompt_version":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
+                  "rubric_version":"speaking-rubric-v2-transcript-language-profile",
+                  "schema_version":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                  "policy_bundle_id":"KSH_SPEAKING_POLICY_BUNDLE_V1",
                   "audio_media_id":44,
                   "media_version":3,
                   "transcript":"저는 학교 갔어요",
                   "normalized_transcript":"저는 학교에 갔어요.",
                   "actually_heard_transcript":"저는 학교... 갔어요",
-                  "interpreted_intent":"The learner intended to say that they went to school.",
+                  "interpreted_intent":"Học viên muốn nói rằng mình đã đến trường.",
                   "intent_confidence":0.8,
                   "transcript_confidence":0.9,
                   "listener_burden":"LOW",
                   "overall_score":78,
-                  "level_label":"KSH internal practice level",
+                  "level_label":"Mức luyện tập nội bộ KSH",
                   "rubric_scores":[
-                    {"criterion":"CONTENT_TASK_FULFILLMENT","score":17,"feedback":"Relevant"},
-                    {"criterion":"GRAMMAR_SENTENCE_CONTROL","score":16,"feedback":"Mostly controlled"},
-                    {"criterion":"VOCABULARY_EXPRESSIONS","score":12,"feedback":"Adequate"},
-                    {"criterion":"COHERENCE_ORGANIZATION","score":12,"feedback":"Clear"},
-                    {"criterion":"FLUENCY","score":11,"feedback":"Some hesitation"},
-                    {"criterion":"PRONUNCIATION_DELIVERY","score":10,"feedback":"Advisory only"}
+                    {"criterion":"CONTENT_TASK_FULFILLMENT","score":17,"feedback":"Đúng trọng tâm"},
+                    {"criterion":"GRAMMAR_SENTENCE_CONTROL","score":16,"feedback":"Kiểm soát khá tốt"},
+                    {"criterion":"VOCABULARY_EXPRESSIONS","score":12,"feedback":"Đủ dùng"},
+                    {"criterion":"COHERENCE_ORGANIZATION","score":12,"feedback":"Rõ ràng"},
+                    {"criterion":"FLUENCY","score":11,"feedback":"Có một số chỗ ngập ngừng"},
+                    {"criterion":"PRONUNCIATION_DELIVERY","score":10,"feedback":"Chỉ tham khảo"}
                   ],
                   "evidence":[
                     {"source":"TRANSCRIPT","criterion":"GRAMMAR_SENTENCE_CONTROL","excerpt":"학교... 갔어요","confidence":0.9},
@@ -417,19 +466,32 @@ class SpeakingEvaluationNormalizerTest {
                     {"source":"PROMPT","criterion":"CONTENT_TASK_FULFILLMENT","excerpt":"task requirement","confidence":1},
                     {"source":"INTERPRETED_INTENT","criterion":"CONTENT_TASK_FULFILLMENT","excerpt":"intended meaning","confidence":0.8}
                   ],
-                  "findings":[{"category":"UNKNOWN_SAFE_CATEGORY","message":"Safe finding"}],
-                  "recommendations":["Keep practicing"],
+                  "findings":[{"category":"UNKNOWN_SAFE_CATEGORY","message":"Nhận xét an toàn"}],
+                  "recommendations":["Tiếp tục luyện tập"],
                   "upgraded_answer":"저는 학교에 갔어요.",
                   "sample_answer":"어제 학교에 갔어요.",
-                  "pronunciation_advisory":["Possible batchim issue"],
-                  "fluency_observations":["One long pause"],
+                  "pronunciation_advisory":["Có thể có vấn đề về 받침"],
+                  "fluency_observations":["Có một khoảng dừng dài"],
                   "retryable":false
                 }
                 """);
+        input.put(
+                "policy_bundle_fingerprint",
+                SpeakingAssessmentPolicyBundle.fingerprint());
+        return input;
     }
 
     private com.fasterxml.jackson.databind.node.ObjectNode richInput() throws Exception {
-        return (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(
+        com.fasterxml.jackson.databind.node.ObjectNode input =
+                (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(
                 OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson());
+        input.put("prompt_version", SpeakingPromptRules.PROMPT_VERSION);
+        input.put("rubric_version", SpeakingPromptRules.RUBRIC_VERSION);
+        input.put("schema_version", SpeakingPromptRules.SCHEMA_VERSION);
+        input.put("policy_bundle_id",
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        input.put("policy_bundle_fingerprint",
+                SpeakingAssessmentPolicyBundle.fingerprint());
+        return input;
     }
 }

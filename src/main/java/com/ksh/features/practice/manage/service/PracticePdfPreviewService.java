@@ -1,8 +1,6 @@
 package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.PracticePdfImportSession;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -12,8 +10,6 @@ import java.io.InputStream;
 
 @Service
 public class PracticePdfPreviewService {
-
-    private static final Logger log = LoggerFactory.getLogger(PracticePdfPreviewService.class);
 
     private final PracticePdfImportSessionService sessionService;
 

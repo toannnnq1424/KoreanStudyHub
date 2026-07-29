@@ -8,7 +8,8 @@ import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.practice.dto.PracticeDtos.ReadingListeningResultView;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScreenKind;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
@@ -19,6 +20,7 @@ import com.ksh.features.practice.repository.PracticeTestRepository;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
+import com.ksh.features.practice.result.PracticeResultDetailAssembler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,6 +45,7 @@ class Phase10AssessmentFlowIntegrationTest {
     @Autowired private PracticePublisherService publisherService;
     @Autowired private PracticePublishedVersionService publishedVersionService;
     @Autowired private PracticeService practiceService;
+    @Autowired private PracticeResultDetailAssembler resultDetailAssembler;
 
     @Test
     void singleScopePublishSnapshotSubmitScoreAndReadOnlyResultFlowIsVersionLocked() {
@@ -106,11 +109,16 @@ class Phase10AssessmentFlowIntegrationTest {
             assertThat(version.getAnswerSpecJson()).isEqualTo(question.getAnswerSpecJson());
         });
 
-        ReadingListeningResultView result = practiceService.getReadingListeningResult(
-                attemptId, student.getId());
-        assertThat(result.correctCount()).isEqualTo(1);
-        assertThat(result.groups()).singleElement().satisfies(group ->
-                assertThat(group.questions()).singleElement().satisfies(row ->
-                        assertThat(row.explanationJson()).isNull()));
+        var result = resultDetailAssembler.assemble(
+                attemptId, student.getId(), null);
+        assertThat(result.screenKind())
+                .isEqualTo(ResultDetailScreenKind.OBJECTIVE_DETAIL);
+        ObjectiveDetailPayload payload =
+                (ObjectiveDetailPayload) result.payload();
+        assertThat(payload.questions()).singleElement().satisfies(row -> {
+            assertThat(row.core().earnedPoints())
+                    .isEqualByComparingTo(BigDecimal.ONE);
+            assertThat(row.explanation().state()).isEqualTo("UNAVAILABLE");
+        });
     }
 }

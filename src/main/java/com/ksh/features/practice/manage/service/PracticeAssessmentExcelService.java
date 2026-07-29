@@ -24,13 +24,11 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1257,110 +1255,6 @@ public class PracticeAssessmentExcelService {
         }
         return values;
     }
-
-    private void manifestSheet(Workbook workbook, AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
-        Sheet sheet = workbook.createSheet("Manifest");
-        row(sheet, 0, "key", "value");
-        row(sheet, 1, "schemaVersion", SCHEMA_VERSION);
-        row(sheet, 2, "title", "Bộ đề KSH mẫu");
-        row(sheet, 3, "description", "");
-        autosize(sheet, 2);
-    }
-
-    private void instructionsSheet(Workbook workbook,
-                                   AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
-        Sheet sheet = workbook.createSheet("Instructions");
-        row(sheet, 0, "Mục", "Hướng dẫn");
-        row(sheet, 1, "Phạm vi", "Bộ đề luyện tập KSH với bốn kỹ năng Reading, Listening, Writing và Speaking.");
-        row(sheet, 2, "Quy trình", "Điền Sections -> Groups -> Questions -> OptionsAnswers, sau đó tải file lên để xem lỗi từng dòng trước khi tạo bản nháp.");
-        row(sheet, 3, "ID", "sectionId, groupId, questionId và các item ID phải ổn định, không trùng trong cùng phạm vi.");
-        row(sheet, 4, "SINGLE_CHOICE", "Mỗi phương án là một dòng OptionsAnswers; chỉ một dòng có isCorrect=TRUE.");
-        row(sheet, 5, "TRUE_FALSE_NOT_GIVEN", "Điền correctValue bằng TRUE, FALSE hoặc NOT_GIVEN.");
-        row(sheet, 6, "FILL_BLANK", "Mỗi ô trống dùng blankId; các đáp án chấp nhận ngăn cách bằng dấu | trong acceptedValues.");
-        row(sheet, 7, "ESSAY",
-                "Writing chỉ gồm Q51, Q52, Q53 và Q54; mỗi task xuất hiện đúng một lần với điểm 10, 10, 30, 50.");
-        row(sheet, 8, "SPEAKING", "Không nhập đáp án khách quan; hệ thống chấm theo luật Speaking nội bộ KSH.");
-        int rowIndex = 10;
-        row(sheet, rowIndex++, "Kỹ năng", "Dạng câu được phép");
-        for (Map.Entry<String, AssessmentAuthoringCatalogService.SkillAuthoringPolicy> entry
-                : template.skills().entrySet()) {
-            row(sheet, rowIndex++, entry.getKey(), String.join(", ", entry.getValue().questionTypes()));
-        }
-        sheet.setColumnWidth(0, 24 * 256);
-        sheet.setColumnWidth(1, 110 * 256);
-        sheet.createFreezePane(0, 1);
-    }
-
-    private void sectionsSheet(Workbook workbook, AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
-        Sheet sheet = workbook.createSheet("Sections");
-        row(sheet, 0, "sectionId", "title", "skill", "durationMinutes");
-        int index = 1;
-        for (Map.Entry<String, AssessmentAuthoringCatalogService.SkillAuthoringPolicy> entry : template.skills().entrySet()) {
-            row(sheet, index++, "section-" + entry.getKey().toLowerCase(Locale.ROOT),
-                    SKILL_TITLES.getOrDefault(entry.getKey(), entry.getKey()), entry.getKey(),
-                    entry.getValue().durationMinutes());
-        }
-        addListValidation(sheet, 2, template.skills().keySet().toArray(String[]::new));
-        autosize(sheet, 4);
-    }
-
-    private void groupsSheet(Workbook workbook) {
-        Sheet sheet = workbook.createSheet("Groups");
-        row(sheet, 0, "groupId", "sectionId", "label", "instruction", "stimulusType",
-                "passageText", "transcriptText", "audioUrl", "imageUrl");
-        autosize(sheet, 9);
-    }
-
-    private void questionsSheet(Workbook workbook, AssessmentAuthoringCatalogService.ExamTemplatePolicy template) {
-        Sheet sheet = workbook.createSheet("Questions");
-        row(sheet, 0, "questionId", "groupId", "questionNo", "questionType", "prompt", "points",
-                "explanationVi", "essayTaskType", "prepTimeSeconds", "responseTimeSeconds");
-        String[] types = template.skills().values().stream()
-                .flatMap(policy -> policy.questionTypes().stream())
-                .distinct()
-                .toArray(String[]::new);
-        addListValidation(sheet, 3, types);
-        autosize(sheet, 10);
-    }
-
-    private void optionsAnswersSheet(Workbook workbook) {
-        Sheet sheet = workbook.createSheet("OptionsAnswers");
-        row(sheet, 0, "questionId", "optionId", "optionText", "isCorrect", "correctValue",
-                "blankId", "blankPrompt", "acceptedValues");
-        addListValidation(sheet, 3, new String[]{"TRUE", "FALSE"});
-        autosize(sheet, 8);
-    }
-
-    private static void addListValidation(Sheet sheet, int column, String[] values) {
-        if (values == null || values.length == 0) return;
-        org.apache.poi.ss.usermodel.DataValidationHelper helper = sheet.getDataValidationHelper();
-        org.apache.poi.ss.usermodel.DataValidationConstraint constraint =
-                helper.createExplicitListConstraint(values);
-        org.apache.poi.ss.util.CellRangeAddressList cells =
-                new org.apache.poi.ss.util.CellRangeAddressList(1, 1000, column, column);
-        org.apache.poi.ss.usermodel.DataValidation validation = helper.createValidation(constraint, cells);
-        validation.setShowErrorBox(true);
-        validation.createErrorBox("Giá trị không hợp lệ", "Hãy chọn một giá trị trong danh sách của template.");
-        sheet.addValidationData(validation);
-    }
-
-    private static void row(Sheet sheet, int index, Object... values) {
-        Row row = sheet.createRow(index);
-        for (int column = 0; column < values.length; column++) {
-            Cell cell = row.createCell(column);
-            Object value = values[column];
-            if (value instanceof Number number) cell.setCellValue(number.doubleValue());
-            else cell.setCellValue(value == null ? "" : value.toString());
-        }
-    }
-
-    private static void autosize(Sheet sheet, int columns) {
-        for (int column = 0; column < columns; column++) sheet.autoSizeColumn(column);
-    }
-
-    private static final Map<String, String> SKILL_TITLES = Map.of(
-            "READING", "Phần Đọc", "LISTENING", "Phần Nghe",
-            "WRITING", "Phần Viết", "SPEAKING", "Phần Nói");
 
     private static ScoringPolicyCode scoringPolicy(CanonicalQuestionType type) {
         return switch (type) {

@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 @Table(name = "question_version_explanation_bindings")
 public class QuestionVersionExplanationBinding {
 
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_SUPERSEDED = "SUPERSEDED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,8 +32,14 @@ public class QuestionVersionExplanationBinding {
     @Column(nullable = false, length = 64, columnDefinition = "CHAR(64)")
     private String fingerprint;
 
+    @Column(name = "binding_status", nullable = false, length = 20)
+    private String bindingStatus;
+
     @Column(name = "bound_at", insertable = false, updatable = false)
     private LocalDateTime boundAt;
+
+    @Column(name = "superseded_at")
+    private LocalDateTime supersededAt;
 
     protected QuestionVersionExplanationBinding() {
     }
@@ -40,5 +49,7 @@ public class QuestionVersionExplanationBinding {
     public Long getArtifactId() { return artifactId; }
     public String getExplanationLanguage() { return explanationLanguage; }
     public String getFingerprint() { return fingerprint; }
+    public String getBindingStatus() { return bindingStatus; }
     public LocalDateTime getBoundAt() { return boundAt; }
+    public LocalDateTime getSupersededAt() { return supersededAt; }
 }

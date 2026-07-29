@@ -11,6 +11,7 @@ import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
+import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.HeatmapCell;
@@ -54,7 +55,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -78,12 +78,10 @@ public class PracticeProgressService {
     private static final String OBJECTIVE_PROFILE = "OBJECTIVE_EARNED_OVER_POSSIBLE_V1";
     private static final String DURATION_PROFILE = "ELAPSED_WALL_CLOCK_1_TO_239_MINUTES_V1";
     private static final String WRITING_TASK_NATIVE_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
+    private static final String WRITING_EVALUATION_ENGINE =
+            "KSH_WRITING_EVALUATOR_V2";
     private static final String WRITING_TASK_COHORT_PROFILE =
             "WRITING_TASK_COHORTS_ONLY_V1";
-    private static final Set<String> ELIGIBLE_WRITING_STATUSES =
-            Set.of("EVALUATED", "INVALID_LEARNER_RESPONSE");
-    private static final Set<String> ELIGIBLE_WRITING_SOURCES =
-            Set.of("PROVIDER", "CACHE", "BACKEND_RULE");
     private static final List<String> SKILLS =
             List.of("READING", "LISTENING", "WRITING", "SPEAKING");
     private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
@@ -1146,17 +1144,23 @@ public class PracticeProgressService {
         }
         if ("LEGACY_EVALUATED".equals(value.evaluationStatus())
                 || "LEGACY".equals(value.evaluationSource())
-                || "LEGACY_BAND_V1".equals(value.scoringContract())
+                || WritingFeedbackCompatibilityReader.LEGACY_SCORING_CONTRACT
+                .equals(value.scoringContract())
                 || value.scoringContract() == null
-                || value.scoringContract().isBlank()) {
+                || value.scoringContract().isBlank()
+                || !WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
+                value.policyBundleId())) {
             return WritingEvidence.excluded(
                     ProgressExclusionReason.WRITING_LEGACY_SCORE_EVIDENCE);
         }
-        if (!ELIGIBLE_WRITING_STATUSES.contains(value.evaluationStatus())
-                || !ELIGIBLE_WRITING_SOURCES.contains(value.evaluationSource())
+        if (!hasExactCurrentWritingScoreShape(entry)) {
+            return WritingEvidence.excluded(
+                    ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED);
+        }
+        if (!WritingAssessmentPolicyBundle
+                .hasExactCurrentScoreProvenance(value)
                 || !WRITING_TASK_NATIVE_CONTRACT.equals(value.scoringContract())
-                || value.engine() == null
-                || value.engine().isBlank()) {
+                || !WRITING_EVALUATION_ENGINE.equals(value.engine())) {
             return WritingEvidence.excluded(
                     ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED);
         }
@@ -1169,7 +1173,7 @@ public class PracticeProgressService {
                     ProgressExclusionReason.WRITING_MAXIMUM_MISMATCH);
         }
 
-        String policyBundleId = blankToNull(value.policyBundleId());
+        String policyBundleId = value.policyBundleId();
         String profileId = "WRITING:"
                 + value.scoringContract()
                 + ":"
@@ -1180,6 +1184,23 @@ public class PracticeProgressService {
                 value.rawScoreMax().stripTrailingZeros(),
                 profileId,
                 policyBundleId);
+    }
+
+    private static boolean hasExactCurrentWritingScoreShape(JsonNode entry) {
+        return entry != null
+                && entry.isObject()
+                && entry.path("task_type").isTextual()
+                && entry.path("engine").isTextual()
+                && entry.path("scoring_contract").isTextual()
+                && entry.path("policy_bundle_id").isTextual()
+                && entry.path("evaluation_status").isTextual()
+                && entry.path("evaluation_source").isTextual()
+                && entry.path("evaluation_reason").isTextual()
+                && entry.path("evaluation_retryable").isBoolean()
+                && entry.path("score_available").isBoolean()
+                && entry.path("score_available").asBoolean()
+                && entry.path("raw_score").isNumber()
+                && entry.path("raw_score_max").isNumber();
     }
 
     private ProgressCoverage coverageFromReasons(
@@ -1207,10 +1228,6 @@ public class PracticeProgressService {
             ProgressExclusionReason reason
     ) {
         reasons.merge(reason, 1L, Long::sum);
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
     }
 
     private ProgressNumericFact unavailableComparison(

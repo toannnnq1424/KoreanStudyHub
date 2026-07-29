@@ -30,10 +30,26 @@ public class SpeakingEvaluationPromptBuilder {
     }
 
     public String userPayload(SpeakingEvaluationRequest request) {
+        try {
+            return objectMapper.writeValueAsString(userPayloadObject(request));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Could not build speaking evaluator payload.", ex);
+        }
+    }
+
+    public Map<String, Object> userPayloadObject(
+            SpeakingEvaluationRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("skill_type", "SPEAKING");
         payload.put("platform", "KSH Korean Study Hub");
-        payload.put("score_policy", "Transcript-grounded KSH language profile only; holistic Speaking score unavailable.");
+        payload.put("score_policy",
+                "Chỉ lập hồ sơ ngôn ngữ KSH dựa trên bản chép lời; không có điểm Speaking tổng thể.");
+        payload.put("policy_bundle_id", request.policyBundleId());
+        payload.put(
+                "policy_bundle_fingerprint",
+                SpeakingAssessmentPolicyBundle.fingerprint());
+        payload.put("policy_bundle_components",
+                SpeakingAssessmentPolicyBundle.components());
         payload.put("task", map(
                 "attempt_id", request.attemptId(),
                 "question_id", request.questionId(),
@@ -85,7 +101,10 @@ public class SpeakingEvaluationPromptBuilder {
                 request.promptContextFingerprint(),
                 "prompt_context_contract_identity",
                 request.promptContextContractIdentity(),
-                "evidence_contract_version", request.evidenceContractVersion()));
+                "evidence_contract_version", request.evidenceContractVersion(),
+                "policy_bundle_id", request.policyBundleId(),
+                "policy_bundle_fingerprint",
+                SpeakingAssessmentPolicyBundle.fingerprint()));
         payload.put("allowed_evidence_sources", Arrays.stream(SpeakingEvidenceSource.values())
                 .filter(SpeakingEvidenceSource::transcriptLanguageGrounding)
                 .map(Enum::name)
@@ -93,12 +112,9 @@ public class SpeakingEvaluationPromptBuilder {
         payload.put("allowed_rubric", rubricRows());
         payload.put("allowed_subcriteria", Arrays.stream(subcriterionIds()).toList());
         payload.put("pre_evaluation_signals", ruleSignals(request));
-        payload.put("required_output", "Return strict JSON matching response_format. Use snake_case fields.");
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Could not build speaking evaluator payload.", ex);
-        }
+        payload.put("required_output",
+                "Trả về JSON nghiêm ngặt đúng response_format; giữ nguyên tên trường snake_case.");
+        return payload;
     }
 
     public Map<String, Object> responseFormat(SpeakingEvaluationRequest request) {

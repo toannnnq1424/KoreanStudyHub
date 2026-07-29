@@ -12,7 +12,9 @@ import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.manage.controller.PracticePdfImportApiController;
 import com.ksh.features.practice.manage.service.*;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.preferences.PracticeKoreanFontPreferenceService;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
+import com.ksh.security.AuthenticatedUserIdResolver;
 import com.ksh.security.KshUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,6 +108,12 @@ class PracticePdfImportApiControllerTest {
 
     @MockitoBean
     private NotificationService notificationService;
+
+    @MockitoBean
+    private AuthenticatedUserIdResolver authenticatedUserIdResolver;
+
+    @MockitoBean
+    private PracticeKoreanFontPreferenceService koreanFontPreferenceService;
 
     private KshUserDetails lecturerUser;
 

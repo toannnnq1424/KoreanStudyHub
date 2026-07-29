@@ -26,6 +26,18 @@
       </svg>
       <span class="pi-nav-text">Tiến độ</span>
     </a>
+
+    <a sec:authorize="hasRole('STUDENT')"
+       th:href="@{/practice/preferences}"
+       class="pi-nav-item"
+       th:classappend="${activeItem == 'preferences'} ? 'active'"
+       th:attr="aria-current=${activeItem == 'preferences'} ? 'page' : null">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M4 20h16M7 17 12 4l5 13M8.5 13h7"/>
+      </svg>
+      <span class="pi-nav-text">Kiểu chữ Hàn</span>
+    </a>
     
     <!-- Quản lý đề (Chỉ dành cho Giảng viên) -->
     <a sec:authorize="hasRole('LECTURER')" th:href="@{/practice/manage}" class="pi-nav-item"

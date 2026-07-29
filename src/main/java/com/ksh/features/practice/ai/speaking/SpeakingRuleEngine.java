@@ -4,6 +4,7 @@ import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscription
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -13,7 +14,14 @@ import java.util.regex.Pattern;
 public class SpeakingRuleEngine {
     private static final List<String> DISCOURSE_MARKERS = List.of(
             "먼저", "그리고", "또한", "하지만", "그래서", "예를 들면", "마지막으로", "제 생각에는");
-    private static final Pattern HANGUL = Pattern.compile(".*[가-힣].*");
+    private static final Pattern HANGUL =
+            Pattern.compile(".*\\p{IsHangul}.*");
+    private static final Pattern POLITE_SENTENCE_ENDING = Pattern.compile(
+            "(?:요|니다|습니다|세요|십시오)(?=\\s*(?:[.!?。！？]|$))");
+    private static final Pattern CASUAL_SENTENCE_ENDING = Pattern.compile(
+            "(?:했어|거야|싶어|좋아|해|이야)(?=\\s*(?:[.!?。！？]|$))");
+    private static final Pattern CASUAL_SS_EO_SENTENCE_ENDING_NFD = Pattern.compile(
+            "\u11BB\u110B\u1165(?=\\s*(?:[.!?。！？]|$))");
 
     public SpeakingRuleAnalysis analyze(SpeakingTranscriptionResult transcription, boolean textFallback) {
         String transcript = normalize(transcription == null ? null : transcription.normalizedTranscript());
@@ -29,18 +37,18 @@ public class SpeakingRuleEngine {
         if (textFallback) {
             signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.INFO,
                     SpeakingRuleCategory.CONTENT, "TEXT_FALLBACK_TRANSCRIPT_ONLY",
-                    "Text fallback supplies language evidence only; do not create any acoustic claim."));
+                    "Bản nhập chữ chỉ cung cấp bằng chứng ngôn ngữ; không tạo nhận định âm học."));
         }
         if (transcriptConfidence != null
                 && transcriptConfidence.compareTo(new BigDecimal("0.50")) < 0) {
             signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.INFO,
                     SpeakingRuleCategory.CONTENT, "LOW_TRANSCRIPT_CONFIDENCE",
-                    "The transcript is uncertain; confidence is provenance, not scoring or acoustic evidence."));
+                    "Bản chép lời có độ tin cậy thấp; chỉ số này là dữ liệu nguồn, không phải bằng chứng chấm điểm hay âm học."));
         }
         if (transcript == null || !HANGUL.matcher(transcript).matches()) {
-            signals.add(signal(SpeakingRuleSeverity.HIGH, SpeakingRuleAction.NEEDS_IMPROVEMENT,
+            signals.add(signal(SpeakingRuleSeverity.HIGH, SpeakingRuleAction.SUGGESTION,
                     SpeakingRuleCategory.CONTENT, "NO_KOREAN_TRANSCRIPT",
-                    "Transcript has no Korean evidence or is empty."));
+                    "Bản chép lời trống hoặc chưa có bằng chứng tiếng Hàn; cần kiểm tra trước khi đánh giá."));
             return new SpeakingRuleAnalysis(signals);
         }
         mixedRegister(transcript, signals);
@@ -49,12 +57,16 @@ public class SpeakingRuleEngine {
     }
 
     private void mixedRegister(String transcript, List<SpeakingRuleSignal> signals) {
-        boolean polite = containsAny(transcript, "요", "습니다", "니다", "세요");
-        boolean casual = containsAny(transcript, "해.", "했어", "야.", "거야", "싶어", "좋아");
+        boolean polite = POLITE_SENTENCE_ENDING.matcher(transcript).find();
+        boolean casual = CASUAL_SENTENCE_ENDING.matcher(transcript).find()
+                || CASUAL_SS_EO_SENTENCE_ENDING_NFD.matcher(
+                Normalizer.normalize(
+                        transcript,
+                        Normalizer.Form.NFD)).find();
         if (polite && casual) {
-            signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.NEEDS_IMPROVEMENT,
+            signals.add(signal(SpeakingRuleSeverity.MEDIUM, SpeakingRuleAction.SUGGESTION,
                     SpeakingRuleCategory.REGISTER, "MIXED_REGISTER_ENDINGS",
-                    "Mixed polite and casual ending style detected; evaluate register consistency."));
+                    "Có tín hiệu đuôi câu kính ngữ và thân mật cùng xuất hiện; hãy kiểm tra tính nhất quán của lối nói."));
         }
     }
 
@@ -62,28 +74,59 @@ public class SpeakingRuleEngine {
         if (transcript.length() < 80) {
             return;
         }
-        boolean hasMarker = DISCOURSE_MARKERS.stream().anyMatch(transcript::contains);
+        boolean hasMarker = DISCOURSE_MARKERS.stream()
+                .anyMatch(marker -> containsBoundedPhrase(
+                        transcript, marker));
         if (!hasMarker) {
             signals.add(signal(SpeakingRuleSeverity.LOW, SpeakingRuleAction.SUGGESTION,
                     SpeakingRuleCategory.COHERENCE, "NO_DISCOURSE_MARKERS",
-                    "Long answer has no common discourse markers; evaluate organization carefully."));
+                    "Câu trả lời dài chưa có dấu hiệu từ nối diễn ngôn phổ biến; hãy xem xét tổ chức ý một cách thận trọng."));
         }
     }
 
-    private static boolean containsAny(String transcript, String... values) {
-        for (String value : values) {
-            if (transcript.contains(value)) {
+    private static boolean containsBoundedPhrase(
+            String transcript,
+            String marker
+    ) {
+        int fromIndex = 0;
+        while (fromIndex <= transcript.length() - marker.length()) {
+            int index = transcript.indexOf(marker, fromIndex);
+            if (index < 0) {
+                return false;
+            }
+            int afterIndex = index + marker.length();
+            boolean leftBoundary = index == 0
+                    || !lexicalContinuation(
+                    transcript.codePointBefore(index));
+            boolean rightBoundary = afterIndex == transcript.length()
+                    || !lexicalContinuation(
+                    transcript.codePointAt(afterIndex));
+            if (leftBoundary && rightBoundary) {
                 return true;
             }
+            fromIndex = index + Character.charCount(
+                    transcript.codePointAt(index));
         }
         return false;
+    }
+
+    private static boolean lexicalContinuation(int codePoint) {
+        int type = Character.getType(codePoint);
+        return Character.isLetterOrDigit(codePoint)
+                || codePoint == '_'
+                || type == Character.NON_SPACING_MARK
+                || type == Character.COMBINING_SPACING_MARK
+                || type == Character.CONNECTOR_PUNCTUATION;
     }
 
     private static String normalize(String value) {
         if (value == null) {
             return null;
         }
-        String normalized = value.trim().replaceAll("\\s+", " ");
+        String normalized = Normalizer.normalize(
+                value, Normalizer.Form.NFC)
+                .trim()
+                .replaceAll("\\s+", " ");
         return normalized.isBlank() ? null : normalized.toLowerCase(Locale.ROOT);
     }
 

@@ -13,14 +13,12 @@ class OpenAiPropertiesTest {
         OpenAiProperties tooWide = new OpenAiProperties(
                 "",
                 "model",
-                "transcription",
                 "https://provider.invalid",
                 Duration.ofMinutes(5),
                 Duration.ofHours(1));
         OpenAiProperties tooNarrow = new OpenAiProperties(
                 "",
                 "model",
-                "transcription",
                 "https://provider.invalid",
                 Duration.ZERO,
                 Duration.ZERO);

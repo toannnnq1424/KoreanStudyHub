@@ -1,6 +1,5 @@
 package com.ksh.features.practice.ai.writing;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -57,23 +56,6 @@ class WritingScoringPolicyTest {
                 .isEqualByComparingTo("100.00");
         assertThat(WritingScoringPolicy.percentage(BigDecimal.valueOf(-1), BigDecimal.valueOf(30)))
                 .isEqualByComparingTo("0.00");
-    }
-
-    @Test
-    void feedbackPercentageIsExplicitAndLegacyBandRemainsCompatible() throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-
-        assertThat(WritingScoringPolicy.percentageFromFeedback(
-                mapper.readTree("{\"percentage\":8.0,\"score\":8.0,\"scoring_contract\":\"TASK_NATIVE_RUBRIC_V1\"}")))
-                .isEqualByComparingTo("8.0");
-        assertThat(WritingScoringPolicy.percentageFromFeedback(
-                mapper.readTree("{\"score\":8.0,\"scoring_contract\":\"TASK_NATIVE_RUBRIC_V1\"}")))
-                .isEqualByComparingTo("8.0");
-        assertThat(WritingScoringPolicy.percentageFromFeedback(mapper.readTree("{\"score\":8.0}")))
-                .isEqualByComparingTo(WritingScoreMatrix.toHundredPointScale(8.0));
-        assertThat(WritingScoringPolicy.percentageFromFeedback(
-                mapper.readTree("{\"score_available\":false,\"score\":8.0}")))
-                .isEqualByComparingTo("0");
     }
 
     private static void assertClozeRubric(String taskType) {

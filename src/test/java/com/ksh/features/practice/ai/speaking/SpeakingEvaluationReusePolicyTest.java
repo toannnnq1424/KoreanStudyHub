@@ -98,6 +98,48 @@ class SpeakingEvaluationReusePolicyTest {
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v2"), true).reuse()).isFalse();
+        assertThat(policy.decide(
+                stored,
+                SpeakingEvaluationIdentity.audio(
+                        1L, 2L, null, null, null,
+                        12L, 3L, "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        SpeakingPromptRules.PROMPT_VERSION,
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION,
+                        "STALE_BUNDLE"),
+                true).reuse()).isFalse();
+    }
+
+    @Test
+    void changedFullPolicyFingerprintForcesReevaluationWhenConciseVersionsMatch() {
+        SpeakingEvaluationResult stored = withPolicyBundleFingerprint(
+                result(
+                        SpeakingEvaluationStatus.EVALUATED,
+                        SpeakingEvaluationSource.PROVIDER,
+                        true,
+                        false,
+                        12L,
+                        3L,
+                        "gpt-4o-mini-transcribe",
+                        "models/gemini-2.5-flash",
+                        "speaking-eval-v1",
+                        "speaking-rubric-v1",
+                        "speaking-schema-v1",
+                        "저는 학생입니다."),
+                "0".repeat(64));
+        SpeakingEvaluationIdentity currentIdentity = audioIdentity(
+                1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
+                "models/gemini-2.5-flash", "speaking-eval-v1",
+                "speaking-rubric-v1", "speaking-schema-v1");
+
+        assertThat(stored.policyBundleId())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertThat(stored.policyBundleFingerprint())
+                .isNotEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
+        assertThat(stored.currentEvidenceContract()).isFalse();
+        assertThat(policy.decide(stored, currentIdentity, true).reuse())
+                .isFalse();
     }
 
     @Test
@@ -305,8 +347,7 @@ class SpeakingEvaluationReusePolicyTest {
                         "");
 
         assertThat(applicationProperties).contains(
-                "PRACTICE_SPEAKING_EVALUATOR_PROMPT_VERSION:"
-                        + SpeakingPromptRules.PROMPT_VERSION + "}");
+                "PRACTICE_SPEAKING_EVALUATOR_PROMPT_VERSION:}");
         assertThat(defaults.promptVersion())
                 .isEqualTo(SpeakingPromptRules.PROMPT_VERSION);
 
@@ -376,12 +417,17 @@ class SpeakingEvaluationReusePolicyTest {
                 promptVersion,
                 rubricVersion,
                 schemaVersion,
+                legacy ? null
+                        : SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 legacy ? SpeakingEvaluatorCapability.LEGACY_UNKNOWN
                         : SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 legacy ? SpeakingEvidenceMode.UNKNOWN : SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 legacy ? null : SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
                 legacy ? SpeakingContractTrust.LEGACY_UNVERIFIED
                         : SpeakingContractTrust.CURRENT_VERIFIED,
+                null,
+                null,
+                null,
                 mediaId,
                 mediaVersion,
                 actuallyHeardTranscript,
@@ -464,6 +510,7 @@ class SpeakingEvaluationReusePolicyTest {
                 result.promptVersion(),
                 result.rubricVersion(),
                 result.schemaVersion(),
+                result.policyBundleId(),
                 result.evaluatorCapability(),
                 result.evidenceMode(),
                 result.evidenceContractVersion(),
@@ -501,7 +548,63 @@ class SpeakingEvaluationReusePolicyTest {
                 result.pronunciationAdvisory(),
                 result.fluencyObservations(),
                 result.errorCategory(),
-                result.retryable());
+                result.retryable(),
+                result.policyBundleFingerprint());
+    }
+
+    private SpeakingEvaluationResult withPolicyBundleFingerprint(
+            SpeakingEvaluationResult result,
+            String policyBundleFingerprint
+    ) {
+        return new SpeakingEvaluationResult(
+                result.evaluationStatus(),
+                result.scoreAvailable(),
+                result.source(),
+                result.model(),
+                result.transcriptionModel(),
+                result.promptVersion(),
+                result.rubricVersion(),
+                result.schemaVersion(),
+                result.policyBundleId(),
+                result.evaluatorCapability(),
+                result.evidenceMode(),
+                result.evidenceContractVersion(),
+                result.contractTrust(),
+                result.questionVersionId(),
+                result.promptContextFingerprint(),
+                result.promptContextContractIdentity(),
+                result.audioMediaId(),
+                result.mediaVersion(),
+                result.transcript(),
+                result.normalizedTranscript(),
+                result.actuallyHeardTranscript(),
+                result.interpretedIntent(),
+                result.intentConfidence(),
+                result.transcriptConfidence(),
+                result.listenerBurden(),
+                result.overallScore(),
+                result.levelLabel(),
+                result.overallSummary(),
+                result.taskAchievementSummary(),
+                result.majorStrengths(),
+                result.majorNeedsImprovement(),
+                result.actionPlan(),
+                result.criterionFeedback(),
+                result.transcriptAnnotations(),
+                result.strengths(),
+                result.needsImprovement(),
+                result.confidenceNotes(),
+                result.rubricScores(),
+                result.findings(),
+                result.evidence(),
+                result.recommendations(),
+                result.upgradedAnswer(),
+                result.sampleAnswer(),
+                result.pronunciationAdvisory(),
+                result.fluencyObservations(),
+                result.errorCategory(),
+                result.retryable(),
+                policyBundleFingerprint);
     }
 
     private String currentPromptVersion(String value) {

@@ -16,7 +16,6 @@ import com.ksh.security.Roles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -338,15 +337,6 @@ public class PracticePdfImportApiController {
             assets = assetService.getLibraryAssets(user.getId());
         }
         return ResponseEntity.ok(assets.stream().map(AssetView::from).toList());
-    }
-
-    @GetMapping("/assets/{assetId}/content")
-    public ResponseEntity<Resource> getAssetContent(@PathVariable Long assetId,
-                                                    @AuthenticationPrincipal KshUserDetails user) throws Exception {
-        Resource fileResource = assetService.loadAssetResource(assetId, user.getId());
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(fileResource);
     }
 
     @PatchMapping("/assets/{assetId}")

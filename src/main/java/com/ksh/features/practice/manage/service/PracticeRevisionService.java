@@ -145,9 +145,4 @@ public class PracticeRevisionService {
         return "CUSTOM";
     }
 
-    private static String firstNonBlankOrNull(String first, String second) {
-        if (first != null && !first.isBlank()) return first;
-        if (second != null && !second.isBlank()) return second;
-        return null;
-    }
 }

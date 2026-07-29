@@ -2,7 +2,7 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.transport.TestPracticeStructuredGenerationPort;
 import com.ksh.features.practice.ai.media.AiImageEvidence;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentSkill;
@@ -304,11 +304,11 @@ class ReadingListeningTypedClientContractTest {
     }
 
     private ReadingListeningExplanationClient client() {
-        OpenAiProperties properties = mock(OpenAiProperties.class);
-        when(properties.baseUrl()).thenReturn("http://localhost");
-        when(properties.apiKey()).thenReturn("");
-        when(properties.evaluatorModel()).thenReturn("model");
-        return new ReadingListeningExplanationClient(properties, objectMapper);
+        return new ReadingListeningExplanationClient(
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "model"),
+                objectMapper);
     }
 
     private ExplanationContext singleChoiceContext() {
