@@ -38,12 +38,22 @@ DB_PASSWORD=your_password_here
 # Prod: dat URL that, vi du https://ksh.edu.vn
 #APP_BASE_URL=http://localhost:8080
 
-# ===== AI evaluator (OpenAI-compatible Gemini endpoint) =====
-# Lay API key tu https://makersuite.google.com/app/apikey
-OPENAI_API_KEY=your-gemini-api-key-here
-OPENAI_EVALUATOR_MODEL=models/gemini-2.5-flash
-OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
-OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+# ===== Writing AI evaluator (Vertex OpenAI-compatible endpoint) =====
+# VERTEX_ACCESS_TOKEN is a short-lived OAuth access token, not a durable API
+# key. Obtain a newly rotated value in the process environment; never paste it
+# into this file. Production refresh/ADC remains separate architecture work.
+openai.api-key=${VERTEX_ACCESS_TOKEN:}
+openai.base-url=${OPENAI_BASE_URL:https://aiplatform.googleapis.com/v1/projects/dii-cloudrun-demo-26-a7c9/locations/global/endpoints/openapi}
+openai.evaluator-model=${OPENAI_EVALUATOR_MODEL:google/gemini-3.5-flash}
+openai.connect-timeout=${OPENAI_CONNECT_TIMEOUT:5s}
+openai.read-timeout=${OPENAI_READ_TIMEOUT:60s}
+
+# Keep the observed 4096 budget until truncation is proven. These controls
+# affect Writing evaluation only and are explicit provider capabilities.
+openai.evaluator-max-output-tokens=${OPENAI_EVALUATOR_MAX_OUTPUT_TOKENS:4096}
+openai.evaluator-structured-output-enabled=${OPENAI_EVALUATOR_STRUCTURED_OUTPUT_ENABLED:true}
+openai.evaluator-reasoning-effort-enabled=${OPENAI_EVALUATOR_REASONING_EFFORT_ENABLED:false}
+openai.evaluator-reasoning-effort=${OPENAI_EVALUATOR_REASONING_EFFORT:}
 
 # ===== Lecturer Speaking prompt authoring (13C3; opt-in, provider-neutral) =====
 # This is NOT the learner-response transcription configuration.

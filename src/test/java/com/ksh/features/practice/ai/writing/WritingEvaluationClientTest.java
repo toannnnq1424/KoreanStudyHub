@@ -65,6 +65,107 @@ class WritingEvaluationClientTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void evaluatorRequestIncludesOnlyExplicitlyEnabledProviderCapabilities() {
+        OpenAiProperties enabled = properties(
+                "runtime-only",
+                "model",
+                8_192,
+                true,
+                true,
+                "low");
+        WritingEvaluationClient enabledClient =
+                new WritingEvaluationClient(
+                        enabled,
+                        objectMapper,
+                        normalizer,
+                        ruleEngine,
+                        mock(WritingEvaluationCacheService.class),
+                        mock(RestClient.class));
+
+        Map<String, Object> enabledRequest =
+                ReflectionTestUtils.invokeMethod(
+                        enabledClient,
+                        "buildProviderRequest",
+                        "system",
+                        "payload",
+                        null);
+
+        assertThat(enabledRequest)
+                .containsEntry("max_tokens", 8_192)
+                .containsEntry("reasoning_effort", "low")
+                .containsKey("response_format");
+
+        OpenAiProperties disabled = properties(
+                "runtime-only",
+                "model",
+                4_096,
+                false,
+                false,
+                "");
+        WritingEvaluationClient disabledClient =
+                new WritingEvaluationClient(
+                        disabled,
+                        objectMapper,
+                        normalizer,
+                        ruleEngine,
+                        mock(WritingEvaluationCacheService.class),
+                        mock(RestClient.class));
+
+        Map<String, Object> disabledRequest =
+                ReflectionTestUtils.invokeMethod(
+                        disabledClient,
+                        "buildProviderRequest",
+                        "system",
+                        "payload",
+                        null);
+
+        assertThat(disabledRequest)
+                .containsEntry("max_tokens", 4_096)
+                .doesNotContainKeys(
+                        "reasoning_effort",
+                        "response_format");
+    }
+
+    @Test
+    void defaultCacheIdentityIsStableAndCapabilityChangesInvalidateIt() {
+        WritingEvaluationClient current =
+                new WritingEvaluationClient(
+                        properties("runtime-only", "model"),
+                        objectMapper,
+                        normalizer,
+                        ruleEngine,
+                        mock(WritingEvaluationCacheService.class),
+                        mock(RestClient.class));
+        WritingEvaluationClient changed =
+                new WritingEvaluationClient(
+                        properties(
+                                "runtime-only",
+                                "model",
+                                8_192,
+                                false,
+                                true,
+                                "low"),
+                        objectMapper,
+                        normalizer,
+                        ruleEngine,
+                        mock(WritingEvaluationCacheService.class),
+                        mock(RestClient.class));
+
+        String currentCacheSchema = ReflectionTestUtils.invokeMethod(
+                current, "cacheSchemaVersion");
+        String changedCacheSchema = ReflectionTestUtils.invokeMethod(
+                changed, "cacheSchemaVersion");
+
+        assertThat(currentCacheSchema)
+                .isEqualTo("v4.1:v6.0");
+        assertThat(changedCacheSchema)
+                .isNotEqualTo("v4.1:v6.0");
+        assertThat(changed.evaluationContractIdentity())
+                .isNotEqualTo(current.evaluationContractIdentity());
+    }
+
+    @Test
     void testEmptyInputIsDefinitelyInvalid() {
         var analysis = new WritingRuleEngine.RuleAnalysis("Q53", 0, "글자 수: 0자.", List.of());
         assertTrue(WritingEvaluationClient.isDefinitelyInvalid(null, analysis));
@@ -273,7 +374,8 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void testApiKeyEmptyCacheMissReturnsUnavailableAndDoesNotPersist() throws Exception {
+    void testApiKeyEmptyCacheMissFailsFastWithoutProviderOrCredentialLeak()
+            throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
@@ -286,14 +388,28 @@ class WritingEvaluationClientTest {
                 cacheService, mockEvaluator, restClient
         );
 
-        String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
+        String[] result = new String[1];
+        String logs = captureLogs(
+                WritingEvaluationClient.class,
+                () -> result[0] = client.evaluate(
+                        USER_ID,
+                        "Bài 53 viết",
+                        "한국어",
+                        false));
 
-        JsonNode root = objectMapper.readTree(result);
+        JsonNode root = objectMapper.readTree(result[0]);
         assertEquals("EVALUATION_UNAVAILABLE", root.path("evaluation_status").asText());
         assertEquals("MISSING_API_KEY", root.path("evaluation_reason").asText());
         assertFalse(root.path("evaluation_retryable").asBoolean(true));
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
+        assertThat(logs)
+                .contains(
+                        "operation=provider-preflight",
+                        "reason=MISSING_API_KEY")
+                .doesNotContain(
+                        "Authorization",
+                        "learner_answer");
         verifyNoInteractions(mockEvaluator, restClient);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
@@ -488,7 +604,9 @@ class WritingEvaluationClientTest {
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
                 cacheService, mock(WritingMockEvaluatorService.class),
-                setupMockRestClient("{\"choices\":[{\"message\":{\"content\":\"not-json\"}}]}", new AtomicInteger())
+                setupMockRestClient(
+                        "Provider preface {} provider suffix",
+                        new AtomicInteger())
         );
 
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet",
@@ -499,6 +617,71 @@ class WritingEvaluationClientTest {
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void lengthFinishReasonBecomesRetryableTruncationWithoutScore()
+            throws Exception {
+        WritingEvaluationCacheService cacheService =
+                mock(WritingEvaluationCacheService.class);
+        when(cacheService.get(
+                any(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(Optional.empty());
+        String envelope = objectMapper.writeValueAsString(Map.of(
+                "id", "safe-request-id",
+                        "choices", List.of(Map.of(
+                        "finish_reason", "length",
+                        "message", Map.of(
+                                "content",
+                                "{\"summary\":\"PRIVATE_PROVIDER_CONTENT")))));
+        AtomicInteger calls = new AtomicInteger();
+        WritingEvaluationClient client =
+                new WritingEvaluationClient(
+                        properties("runtime-only", "model"),
+                        objectMapper,
+                        normalizer,
+                        ruleEngine,
+                        cacheService,
+                        mock(WritingMockEvaluatorService.class),
+                        setupRawRestClient(envelope, calls));
+
+        String[] rawResult = new String[1];
+        String logs = captureLogs(
+                WritingEvaluationClient.class,
+                () -> rawResult[0] = client.evaluate(
+                        USER_ID,
+                        "Bai 53 viet",
+                        "LEARNER_PRIVATE_ANSWER 한국어",
+                        false,
+                        WritingTaskType.Q53));
+        JsonNode result = objectMapper.readTree(rawResult[0]);
+
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(logs)
+                .contains(
+                        "reason=PROVIDER_OUTPUT_TRUNCATED",
+                        "finishReason=length",
+                        "contentLength=",
+                        "requestId=safe-request-id")
+                .doesNotContain(
+                        "PRIVATE_PROVIDER_CONTENT",
+                        "LEARNER_PRIVATE_ANSWER",
+                        "runtime-only",
+                        "Authorization");
+        assertThat(result.path("evaluation_status").asText())
+                .isEqualTo("EVALUATION_CONTRACT_FAILED");
+        assertThat(result.path("evaluation_reason").asText())
+                .isEqualTo("PROVIDER_OUTPUT_TRUNCATED");
+        assertThat(result.path("evaluation_retryable").asBoolean())
+                .isTrue();
+        assertThat(result.path("score_available").asBoolean())
+                .isFalse();
+        assertThat(result.has("raw_score")).isFalse();
+        verify(cacheService, never()).put(
+                any(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString(), anyString(),
+                anyString());
     }
 
     @Test
@@ -819,10 +1002,40 @@ class WritingEvaluationClientTest {
     }
 
     private OpenAiProperties properties(String apiKey, String model) {
+        return properties(
+                apiKey,
+                model,
+                4_096,
+                true,
+                false,
+                "");
+    }
+
+    private OpenAiProperties properties(
+            String apiKey,
+            String model,
+            int maxOutputTokens,
+            boolean structuredOutputEnabled,
+            boolean reasoningEffortEnabled,
+            String reasoningEffort) {
         OpenAiProperties properties = mock(OpenAiProperties.class);
         when(properties.evaluatorModel()).thenReturn(model);
         when(properties.apiKey()).thenReturn(apiKey);
+        when(properties.hasEvaluatorCredential())
+                .thenReturn(apiKey != null && !apiKey.isBlank());
         when(properties.baseUrl()).thenReturn("http://localhost");
+        when(properties.connectTimeout())
+                .thenReturn(Duration.ofSeconds(5));
+        when(properties.readTimeout())
+                .thenReturn(Duration.ofSeconds(60));
+        when(properties.evaluatorMaxOutputTokens())
+                .thenReturn(maxOutputTokens);
+        when(properties.evaluatorStructuredOutputEnabled())
+                .thenReturn(structuredOutputEnabled);
+        when(properties.evaluatorReasoningEffortEnabled())
+                .thenReturn(reasoningEffortEnabled);
+        when(properties.evaluatorReasoningEffort())
+                .thenReturn(reasoningEffort);
         return properties;
     }
 
@@ -913,6 +1126,20 @@ class WritingEvaluationClientTest {
     }
 
     private RestClient setupMockRestClient(String responseJson, AtomicInteger postCallCount) {
+        String envelope;
+        try {
+            envelope = "{\"choices\":[{\"message\":{\"content\":"
+                    + objectMapper.writeValueAsString(responseJson)
+                    + "}}]}";
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
+        return setupRawRestClient(envelope, postCallCount);
+    }
+
+    private RestClient setupRawRestClient(
+            String envelope,
+            AtomicInteger postCallCount) {
         RestClient restClient = mock(RestClient.class);
         RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
         RestClient.RequestBodySpec requestBodySpec = mock(RestClient.RequestBodySpec.class);
@@ -927,12 +1154,7 @@ class WritingEvaluationClientTest {
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.body(any(Class.class))).thenAnswer(inv -> {
             postCallCount.incrementAndGet();
-            try {
-                return "{\"choices\":[{\"message\":{\"content\":"
-                        + objectMapper.writeValueAsString(responseJson) + "}}]}";
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            return envelope;
         });
 
         return restClient;

@@ -37,6 +37,7 @@ public class WritingEvaluationClient {
     private final WritingEvaluationCacheService cacheService;
     private final PracticeAiMetrics metrics;
     private final AiQuestionImageResolver imageResolver;
+    private final WritingProviderResponseDecoder responseDecoder;
 
     public WritingEvaluationClient(OpenAiProperties properties,
             ObjectMapper objectMapper,
@@ -160,16 +161,22 @@ public class WritingEvaluationClient {
         this.cacheService = cacheService;
         this.imageResolver = imageResolver;
         this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
+        this.responseDecoder =
+                new WritingProviderResponseDecoder(objectMapper);
         if (restClient != null) {
             this.restClient = restClient;
         } else {
-            this.restClient = RestClient.builder()
+            RestClient.Builder builder = RestClient.builder()
                     .baseUrl(properties.baseUrl())
-                    .defaultHeader("Authorization", "Bearer " + properties.apiKey())
                     .requestFactory(requestFactory(
                             properties.connectTimeout(),
-                            properties.readTimeout()))
-                    .build();
+                            properties.readTimeout()));
+            if (properties.hasEvaluatorCredential()) {
+                builder.defaultHeader(
+                        "Authorization",
+                        "Bearer " + properties.apiKey());
+            }
+            this.restClient = builder.build();
         }
     }
 
@@ -185,6 +192,14 @@ public class WritingEvaluationClient {
                 properties.evaluatorModel(),
                 properties.connectTimeout().toString(),
                 properties.readTimeout().toString(),
+                "max-output-tokens="
+                        + properties.evaluatorMaxOutputTokens(),
+                "structured-output="
+                        + properties.evaluatorStructuredOutputEnabled(),
+                "reasoning-effort="
+                        + (properties.evaluatorReasoningEffortEnabled()
+                        ? properties.evaluatorReasoningEffort()
+                        : "disabled"),
                 "max-retries=5",
                 WritingPromptRules.PROMPT_VERSION,
                 WritingPromptRules.RUBRIC_VERSION,
@@ -255,8 +270,11 @@ public class WritingEvaluationClient {
         }
 
         // 3. Fail closed when provider credentials are unavailable
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+        if (!properties.hasEvaluatorCredential()) {
             long providerStart = PracticeAiMetrics.startNanos();
+            log.warn(
+                    "Writing AI evaluator configuration unavailable: operation=provider-preflight model={} reason=MISSING_API_KEY credentialSource=VERTEX_ACCESS_TOKEN_or_OPENAI_API_KEY",
+                    properties.evaluatorModel());
             String unavailable = normalizer.providerUnavailable(
                     "MISSING_API_KEY",
                     ruleAnalysis.taskType(),
@@ -276,12 +294,19 @@ public class WritingEvaluationClient {
                     prompt, learnerAnswer, ruleAnalysis, isReEvaluation, imageEvidence);
 
             response = callPass(
-                    "unified", systemPrompt, userPayload, imageEvidence, unifiedResponseFormat());
+                    "unified", systemPrompt, userPayload, imageEvidence);
             log.info("KSH writing evaluation unified call complete: taskType={}",
                     ruleAnalysis.taskType());
-        } catch (ProviderContractException ex) {
-            log.warn("Writing AI evaluation contract failed: operation=provider-contract model={} taskType={} reason={} exception={}",
-                    properties.evaluatorModel(), ruleAnalysis.taskType(), ex.reason(), exceptionCategory(ex));
+        } catch (WritingProviderResponseDecoder.DecodingException ex) {
+            log.warn(
+                    "Writing AI evaluation contract failed: operation=provider-contract provider=openai-compatible model={} taskType={} reason={} finishReason={} contentLength={} requestId={} exception={}",
+                    properties.evaluatorModel(),
+                    ruleAnalysis.taskType(),
+                    ex.reason(),
+                    ex.finishReason(),
+                    ex.contentLength(),
+                    ex.requestId(),
+                    exceptionCategory(ex));
             String failure = normalizer.contractFailure(ex.reason(), ruleAnalysis.taskType(), learnerAnswer);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return failure;
@@ -381,8 +406,22 @@ public class WritingEvaluationClient {
         return ex == null ? "unknown" : ex.getClass().getSimpleName();
     }
 
-    private static String cacheSchemaVersion() {
-        return WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":" + WritingPromptRules.EVALUATION_CONTRACT_VERSION;
+    private String cacheSchemaVersion() {
+        String base = WritingPromptRules.EVALUATION_SCHEMA_VERSION
+                + ":"
+                + WritingPromptRules.EVALUATION_CONTRACT_VERSION;
+        if (properties.evaluatorMaxOutputTokens() == 4096
+                && properties.evaluatorStructuredOutputEnabled()
+                && !properties.evaluatorReasoningEffortEnabled()) {
+            return base;
+        }
+        return base
+                + ":mt" + properties.evaluatorMaxOutputTokens()
+                + ":so" + (properties
+                .evaluatorStructuredOutputEnabled() ? "1" : "0")
+                + ":re" + (properties.evaluatorReasoningEffortEnabled()
+                ? properties.evaluatorReasoningEffort()
+                : "disabled");
     }
 
     // ---- Spam detection — task-aware ----
@@ -412,35 +451,42 @@ public class WritingEvaluationClient {
     private JsonNode callPass(String passName,
             String systemPrompt,
             String userPayload,
-            AiImageEvidence imageEvidence,
-            Map<String, Object> responseFormat) throws Exception {
+            AiImageEvidence imageEvidence) {
+        Map<String, Object> request = buildProviderRequest(
+                systemPrompt,
+                userPayload,
+                imageEvidence);
+
+        log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
+        String raw = callWithRetry(request);
+        return responseDecoder.decode(raw);
+    }
+
+    private Map<String, Object> buildProviderRequest(
+            String systemPrompt,
+            String userPayload,
+            AiImageEvidence imageEvidence) {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("model", properties.evaluatorModel());
         request.put("temperature", 0.0);
         request.put("top_p", 1.0);
-        request.put("max_tokens", 4096);
-        request.put("response_format", responseFormat);
+        request.put(
+                "max_tokens",
+                properties.evaluatorMaxOutputTokens());
+        if (properties.evaluatorStructuredOutputEnabled()) {
+            request.put(
+                    "response_format",
+                    unifiedResponseFormat());
+        }
+        if (properties.evaluatorReasoningEffortEnabled()) {
+            request.put(
+                    "reasoning_effort",
+                    properties.evaluatorReasoningEffort());
+        }
         request.put("messages", List.of(
                 message("system", systemPrompt),
                 message("user", multimodalContent(userPayload, imageEvidence))));
-
-        log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
-        String raw = callWithRetry(request);
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(raw);
-        } catch (Exception ex) {
-            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
-        }
-        String content = extractOutputText(root, raw);
-        if (content == null || content.isBlank()) {
-            throw new ProviderContractException("PROVIDER_EMPTY_RESPONSE");
-        }
-        try {
-            return objectMapper.readTree(content);
-        } catch (Exception ex) {
-            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
-        }
+        return request;
     }
 
     private String callWithRetry(Map<String, Object> request) {
@@ -629,34 +675,6 @@ public class WritingEvaluationClient {
         return responseFormat;
     }
 
-    private static String extractOutputText(JsonNode root, String raw) {
-        JsonNode choice = root.path("choices").path(0);
-        if (choice.path("message").hasNonNull("content")) {
-            return choice.path("message").path("content").asText();
-        }
-        if (root.hasNonNull("output_text")) {
-            return root.path("output_text").asText();
-        }
-        JsonNode output = root.path("output");
-        if (output.isArray()) {
-            StringBuilder builder = new StringBuilder();
-            for (JsonNode item : output) {
-                JsonNode content = item.path("content");
-                if (content.isArray()) {
-                    for (JsonNode contentItem : content) {
-                        if (contentItem.has("text")) {
-                            builder.append(contentItem.path("text").asText());
-                        }
-                    }
-                }
-            }
-            if (!builder.isEmpty()) {
-                return builder.toString();
-            }
-        }
-        return raw;
-    }
-
     private static List<Map<String, Object>> multimodalContent(
             String payload,
             AiImageEvidence imageEvidence
@@ -735,21 +753,4 @@ public class WritingEvaluationClient {
         return list;
     }
 
-    private static final class ProviderContractException extends RuntimeException {
-        private final String reason;
-
-        ProviderContractException(String reason) {
-            super(reason);
-            this.reason = reason;
-        }
-
-        ProviderContractException(String reason, Throwable cause) {
-            super(reason, cause);
-            this.reason = reason;
-        }
-
-        String reason() {
-            return reason;
-        }
-    }
 }
