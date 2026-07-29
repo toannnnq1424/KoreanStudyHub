@@ -18,6 +18,7 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultAttemptIdentity;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailDiagnosticFinding;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailFilterChip;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScreenKind;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScoreCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
@@ -196,15 +197,9 @@ class PracticeResultDetailContractTest {
 
     @Test
     void envelopeRejectsPayloadThatDoesNotMatchImmutableSkill() {
-        ObjectiveDetailPayload objective = new ObjectiveDetailPayload(
-                score(),
-                answers(),
-                feedback(),
-                new ObjectiveResultPayload(List.of()),
-                List.of(),
-                List.of(),
-                "DEFERRED_PRE_PHASE_14_REGISTRY",
-                "Chưa có registry construct đã duyệt.");
+        ObjectiveDetailPayload objective = mock(ObjectiveDetailPayload.class);
+        when(objective.screenKind()).thenReturn(
+                ResultDetailScreenKind.OBJECTIVE_DETAIL);
 
         assertThatThrownBy(() -> new PracticeResultDetailView(
                 identity("WRITING"), new ResultState("GRADED", "Đã chấm"), objective))
@@ -260,6 +255,7 @@ class PracticeResultDetailContractTest {
                 "형태·통사",
                 3,
                 "W_GRAMMAR_ERRORS",
+                "MORPHOLOGY_PARTICLES",
                 "Lỗi ngữ pháp",
                 "문법 오류",
                 3001,
@@ -274,10 +270,10 @@ class PracticeResultDetailContractTest {
                 "문법",
                 "Giải thích",
                 "교정",
-                null,
-                null,
-                null,
-                null))
+                "MINOR",
+                1,
+                BigDecimal.valueOf(0.9),
+                "DIRECT"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("incomplete");
 
@@ -821,7 +817,8 @@ class PracticeResultDetailContractTest {
                     case "SPEAKING" -> new SpeakingResultPayload(
                             score().unavailableView(), 0, 0, "UNAVAILABLE", "UNKNOWN",
                             "not available", List.of(), List.of(), List.of(), List.of(),
-                            List.of(), "LEGACY_UNKNOWN", null, "LEGACY_UNVERIFIED",
+                            List.of(), "LEGACY_UNKNOWN", null, null, null,
+                            "LEGACY_UNVERIFIED",
                             false, 0);
                     default -> throw new IllegalArgumentException(skill);
                 });

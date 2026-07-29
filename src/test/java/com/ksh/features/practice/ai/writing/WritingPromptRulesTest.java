@@ -12,7 +12,14 @@ class WritingPromptRulesTest {
                 .contains("allowed_rubric.scoring_criteria", "max_score", "backend tính",
                         "upgraded_answer", "upgraded_answer_annotated", "sentence_rewrites",
                         "correction phải sửa đúng lỗi", "Không bịa dữ kiện hoặc lập luận mới")
-                .doesNotContain("1.0-9.0", "FEW-SHOT CALIBRATION", "Bài mẫu khoảng", "max khoảng 4.0")
+                .doesNotContain(
+                        "1.0-9.0",
+                        "FEW-SHOT CALIBRATION",
+                        "Bài mẫu khoảng",
+                        "max khoảng 4.0",
+                        "TASK_METADATA",
+                        "NOT_OBSERVABLE",
+                        "Phạt nặng")
                 .contains("Không tạo bài mẫu độc lập", "Không tạo sample_answer");
     }
 

@@ -80,12 +80,12 @@ class PracticeSpeakingMediaUiResourceTest {
     @Test
     void resultPagesUseOwnerProtectedPlaybackPathWithoutUnsupportedClaims() throws IOException {
         String result = read("templates/practice/result.html");
-        String detail = read("templates/practice/result-detail.html");
+        String detail = read("templates/practice/result-detail-speaking.html");
         String speakingFragment = read("templates/practice/result/speaking.html");
 
         assertThat(result).contains("speakingMediaPlaybackEnabled", "practice/result/speaking");
         assertThat(speakingFragment).contains("speakingMediaPlaybackEnabled", "media.playbackPath()");
-        assertThat(detail).contains("speakingMediaPlaybackEnabled", "media.playbackPath()");
+        assertThat(detail).contains("playbackAvailable()", "playbackPath()");
         assertThat(result + detail + speakingFragment).doesNotContain(
                 "storageKey",
                 "contentHash",
@@ -97,7 +97,7 @@ class PracticeSpeakingMediaUiResourceTest {
     @Test
     void resultPagesDoNotRenderProviderOrPrivateStorageDiagnostics() throws IOException {
         String result = read("templates/practice/result.html");
-        String detail = read("templates/practice/result-detail.html");
+        String detail = read("templates/practice/result-detail-speaking.html");
         String speakingFragment = read("templates/practice/result/speaking.html");
         String writingFragment = read("templates/practice/result/writing.html");
 
@@ -121,7 +121,7 @@ class PracticeSpeakingMediaUiResourceTest {
     void privateLearnerMediaBoundaryDoesNotUsePublicUploadsRoute() throws IOException {
         String player = read("templates/practice/player-speaking.html");
         String result = read("templates/practice/result.html");
-        String detail = read("templates/practice/result-detail.html");
+        String detail = read("templates/practice/result-detail-speaking.html");
         String speakingFragment = read("templates/practice/result/speaking.html");
         String javascript = read("static/js/practice/player-speaking.js");
 

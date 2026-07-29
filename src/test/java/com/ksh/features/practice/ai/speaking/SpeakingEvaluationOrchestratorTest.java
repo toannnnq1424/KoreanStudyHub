@@ -43,6 +43,16 @@ class SpeakingEvaluationOrchestratorTest {
         assertThat(result.profileAvailable()).isTrue();
         assertEquals(SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 result.evaluatorCapability());
+        assertEquals(
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                result.policyBundleId());
+        assertEquals(
+                SpeakingAssessmentPolicyBundle.fingerprint(),
+                result.policyBundleFingerprint());
+        assertEquals(SpeakingPromptRules.PROMPT_VERSION,
+                result.promptVersion());
+        assertEquals(SpeakingPromptRules.SCHEMA_VERSION,
+                result.schemaVersion());
         assertEquals("models/gemini-2.5-flash", result.model());
         assertEquals(Long.valueOf(12), result.audioMediaId());
         assertThat(client.calls()).isEqualTo(1);
@@ -64,6 +74,10 @@ class SpeakingEvaluationOrchestratorTest {
         assertEquals(SpeakingEvaluationStatus.AUDIO_UNAVAILABLE, result.evaluationStatus());
         assertFalse(result.scoreAvailable());
         assertThat(result.currentEvidenceContract()).isTrue();
+        assertThat(result.policyBundleId()).isEqualTo(
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertThat(result.policyBundleFingerprint()).isEqualTo(
+                SpeakingAssessmentPolicyBundle.fingerprint());
         assertThat(client.calls()).isZero();
     }
 
@@ -151,8 +165,8 @@ class SpeakingEvaluationOrchestratorTest {
         JsonNode evaluation = objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()
                 .replace("\"evaluation_status\":\"EVALUATED\"", "\"evaluation_status\":\"TEXT_FALLBACK_EVALUATED\"")
                 .replace("\"source\":\"PROVIDER\"", "\"source\":\"TEXT_FALLBACK\"")
-                .replace("\"score\":10,\"max_score\":15,\"feedback\":\"Advisory only\"",
-                        "\"score\":14,\"max_score\":15,\"feedback\":\"Not audio-grounded\""));
+                .replace("\"score\":10,\"max_score\":15,\"feedback\":\"Chỉ tham khảo\"",
+                        "\"score\":14,\"max_score\":15,\"feedback\":\"Không dựa trên bằng chứng âm thanh\""));
 
         SpeakingEvaluationResult result = orchestrator(FakeClient.success(evaluation))
                 .evaluate(input(transcription(SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED, null), true));

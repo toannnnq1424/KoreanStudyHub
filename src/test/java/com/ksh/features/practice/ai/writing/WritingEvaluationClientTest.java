@@ -6,6 +6,9 @@ import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.ai.media.AiImageEvidence;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
+import com.ksh.features.practice.ai.transport.TestPracticeStructuredGenerationPort;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -15,7 +18,6 @@ import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -35,35 +37,6 @@ class WritingEvaluationClientTest {
     private final WritingEvaluationNormalizer normalizer = new WritingEvaluationNormalizer(objectMapper);
 
     private static final Long USER_ID = 42L;
-    private static final String MOCK_JSON_TEMPLATE = "{" +
-            "\"task_type\":\"Q53\"," +
-            "\"student_text\":\"%s\"," +
-            "\"summary\":\"[MOCK_EVALUATION] Mocked fallback\"," +
-            "\"rubric_scores\":[" +
-            "  {\"name\":\"Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)\",\"score\":4.0,\"feedback\":\"\"}," +
-            "  {\"name\":\"Cấu trúc & Bố cục đoạn văn (글의 전개 구조)\",\"score\":4.0,\"feedback\":\"\"}," +
-            "  {\"name\":\"Sử dụng ngôn ngữ & Quy tắc chính tả (언어 사용)\",\"score\":4.0,\"feedback\":\"\"}" +
-            "]," +
-            "\"strengths\":[]," +
-            "\"needs_improvement\":[]," +
-            "\"upgraded_answer\":\"\"," +
-            "\"upgraded_answer_annotated\":\"\"," +
-            "\"sample_answer\":\"\"," +
-            "\"sentence_rewrites\":[]" +
-            "}";
-
-    @Test
-    void writingTransportCarriesConfiguredConnectAndReadTimeouts() {
-        var factory = WritingEvaluationClient.requestFactory(
-                Duration.ofMillis(2_500),
-                Duration.ofSeconds(47));
-
-        assertThat(ReflectionTestUtils.getField(factory, "connectTimeout"))
-                .isEqualTo(2_500);
-        assertThat(ReflectionTestUtils.getField(factory, "readTimeout"))
-                .isEqualTo(47_000);
-    }
-
     @Test
     void testEmptyInputIsDefinitelyInvalid() {
         var analysis = new WritingRuleEngine.RuleAnalysis("Q53", 0, "글자 수: 0자.", List.of());
@@ -82,11 +55,11 @@ class WritingEvaluationClientTest {
     @Test
     void deterministicBlankReturnsInvalidRawZeroWithoutProviderCacheOrMock() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        RestClient restClient = mock(RestClient.class);
+        TestPracticeStructuredGenerationPort port =
+                structuredPort("{}", new AtomicInteger());
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, restClient
+                cacheService, port
         );
 
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet", "   ", false, WritingTaskType.Q53));
@@ -98,7 +71,7 @@ class WritingEvaluationClientTest {
         assertEquals(0.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         assertTrue(root.path("summary").asText().startsWith("[INVALID_LEARNER_RESPONSE]"));
-        verifyNoInteractions(restClient, mockEvaluator);
+        assertThat(port.calls()).isZero();
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
@@ -106,11 +79,11 @@ class WritingEvaluationClientTest {
     @Test
     void deterministicNoHangulReturnsInvalidRawZeroWithoutProviderCacheOrMock() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        RestClient restClient = mock(RestClient.class);
+        TestPracticeStructuredGenerationPort port =
+                structuredPort("{}", new AtomicInteger());
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, restClient
+                cacheService, port
         );
 
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 51 viet", "hello world 123", false, WritingTaskType.Q51));
@@ -121,7 +94,7 @@ class WritingEvaluationClientTest {
         assertTrue(root.path("score_available").asBoolean(false));
         assertEquals(0.0, root.path("raw_score").asDouble());
         assertEquals(10.0, root.path("raw_score_max").asDouble());
-        verifyNoInteractions(restClient, mockEvaluator);
+        assertThat(port.calls()).isZero();
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
@@ -130,6 +103,11 @@ class WritingEvaluationClientTest {
     void testValidKoreanNotInvalid() {
         var analysis = new WritingRuleEngine.RuleAnalysis("Q53", 10, "OK: 글자 수 250자.", List.of());
         assertFalse(WritingEvaluationClient.isDefinitelyInvalid("한국어를 공부합니다", analysis));
+        assertFalse(WritingEvaluationClient.isDefinitelyInvalid(
+                java.text.Normalizer.normalize(
+                        "한국어를 공부합니다",
+                        java.text.Normalizer.Form.NFD),
+                analysis));
     }
 
     @Test
@@ -181,27 +159,49 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-        assertEquals("v5.0", WritingPromptRules.PROMPT_VERSION);
-        assertEquals("v4.1", WritingPromptRules.RUBRIC_VERSION);
-        assertEquals("v4.1", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+        assertEquals("v6.0", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v4.2", WritingPromptRules.RUBRIC_VERSION);
+        assertEquals("v5.0", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void writingProviderContentIncludesGovernedQuestionImage() {
-        WritingEvaluationClient client = new WritingEvaluationClient(
-                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                mock(WritingEvaluationCacheService.class), mock(WritingMockEvaluatorService.class),
-                mock(RestClient.class));
+    void writingStructuredPortCarriesGovernedQuestionImage() {
         AiImageEvidence image = new AiImageEvidence(
                 4L, "image/jpeg", "data:image/jpeg;base64,anBn", "image-sha", 3);
+        TestPracticeStructuredGenerationPort port = structuredPort(
+                aiResponse(),
+                new AtomicInteger());
+        com.ksh.features.practice.ai.media.AiQuestionImageResolver resolver =
+                mock(com.ksh.features.practice.ai.media.AiQuestionImageResolver.class);
+        when(resolver.resolve("image-ref", USER_ID))
+                .thenReturn(Optional.of(image));
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"),
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                new WritingTaskResolver(),
+                mock(WritingEvaluationCacheService.class),
+                resolver,
+                PracticeAiMetrics.noop(),
+                port);
 
-        List<Map<String, Object>> content = ReflectionTestUtils.invokeMethod(
-                client, "multimodalContent", "{\"task\":\"Q53\"}", image);
+        client.evaluate(
+                USER_ID,
+                "Bài 53 viết",
+                "한국어를 공부합니다",
+                false,
+                WritingTaskType.Q53,
+                "image-ref");
 
-        assertThat(content).hasSize(2);
-        assertThat(content.get(1).toString())
-                .contains("image_url", "data:image/jpeg;base64,anBn", "high");
+        assertThat(port.lastRequest().images()).singleElement()
+                .satisfies(evidence -> {
+                    assertThat(evidence.role()).isEqualTo("QUESTION_IMAGE");
+                    assertThat(evidence.sha256()).isEqualTo("image-sha");
+                    assertThat(evidence.dataUrl())
+                            .isEqualTo("data:image/jpeg;base64,anBn");
+                    assertThat(evidence.detail()).isEqualTo("high");
+                });
     }
 
     @Test
@@ -219,7 +219,54 @@ class WritingEvaluationClientTest {
         assertTrue(q54.contains("W_CLEAR_THESIS_OR_MAIN_IDEA"));
         assertFalse(q54.contains("W_Q53_DATA_FLOW_ISSUES"));
         assertTrue(WritingEvaluationClient.allowedRubric("Q53").stream()
-                .allMatch(row -> row.containsKey("category") && row.containsKey("evidenceScopes")));
+                .allMatch(row -> row.containsKey("category")
+                        && row.containsKey("allowedSubtypes")
+                        && row.containsKey("exactScoringCriterionId")
+                        && row.containsKey("evidenceScopes")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void strictFindingSchemaAndEvaluationIdentityCarryTheCompletePolicyBundle() {
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"),
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                mock(WritingEvaluationCacheService.class),
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "model"));
+
+        Map<String, Object> schema = ReflectionTestUtils.invokeMethod(
+                client, "unifiedSchema");
+        Map<String, Object> properties =
+                (Map<String, Object>) schema.get("properties");
+        Map<String, Object> strengths =
+                (Map<String, Object>) properties.get("strengths");
+        Map<String, Object> finding =
+                (Map<String, Object>) strengths.get("items");
+        assertThat((List<String>) finding.get("required"))
+                .contains(
+                        "subtype", "scoringCriterionId", "impact",
+                        "frequency", "confidence", "observability");
+        Map<String, Object> findingProperties =
+                (Map<String, Object>) finding.get("properties");
+        assertThat((List<String>) ((Map<String, Object>)
+                findingProperties.get("evidenceScope")).get("enum"))
+                .containsExactly("TEXT_SPAN", "WHOLE_ANSWER");
+        assertThat((List<String>) ((Map<String, Object>)
+                findingProperties.get("observability")).get("enum"))
+                .containsExactly("DIRECT", "INFERRED_BOUNDED");
+        assertThat(client.evaluationContractIdentity())
+                .contains(
+                        WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                        WritingAssessmentPolicyBundle.NORMALIZER_VERSION,
+                        WritingDiagnosticContract.VERSION)
+                .hasSizeGreaterThan(500)
+                .hasSizeLessThanOrEqualTo(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                .MAX_EVALUATION_CONTRACT_IDENTITY_LENGTH);
     }
 
     @Test
@@ -230,16 +277,14 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.of(cachedValue));
 
         OpenAiProperties properties = properties("", "model");
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         WritingEvaluationClient client = new WritingEvaluationClient(
-                properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, setupMockRestClient("{}", new AtomicInteger())
+                properties, objectMapper, normalizer, ruleEngine, cacheService, structuredPort("{}", new AtomicInteger())
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
         assertTrue(result.contains("\"student_text\":\"한국어\""));
         assertTrue(result.contains("\"score\":80.0"));
-        verifyNoInteractions(mockEvaluator);
     }
 
     @Test
@@ -248,11 +293,9 @@ class WritingEvaluationClientTest {
         String cachedValue = cachedProviderResult("Q53");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
-
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, setupMockRestClient("{}", new AtomicInteger())
+                cacheService, structuredPort("{}", new AtomicInteger())
         );
 
         String learnerAnswer = "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4";
@@ -268,22 +311,22 @@ class WritingEvaluationClientTest {
                 root.path("evaluation_origin_source").asText());
         assertEquals("NONE", root.path("evaluation_reason").asText());
         assertTrue(root.path("score_available").asBoolean(false));
-        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
-    void testApiKeyEmptyCacheMissReturnsUnavailableAndDoesNotPersist() throws Exception {
+    void providerDisabledCacheMissReturnsUnavailableAndDoesNotPersist() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
         OpenAiProperties properties = properties("", "model");
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
-        RestClient restClient = mock(RestClient.class);
+        TestPracticeStructuredGenerationPort port =
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "model");
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties, objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, restClient
+                cacheService, port
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -294,7 +337,7 @@ class WritingEvaluationClientTest {
         assertFalse(root.path("evaluation_retryable").asBoolean(true));
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
-        verifyNoInteractions(mockEvaluator, restClient);
+        assertThat(port.calls()).isZero();
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -304,10 +347,8 @@ class WritingEvaluationClientTest {
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
         OpenAiProperties properties = properties("valid-key", "model");
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
         WritingEvaluationClient client = new WritingEvaluationClient(
-                properties, objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, throwingRestClient()
+                properties, objectMapper, normalizer, ruleEngine, cacheService, throwingPort()
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -318,7 +359,6 @@ class WritingEvaluationClientTest {
         assertFalse(root.path("evaluation_retryable").asBoolean(true));
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
-        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -330,11 +370,9 @@ class WritingEvaluationClientTest {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, learnerAnswer));
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("SECRET_API_KEY_VALUE", "safe-model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, httpErrorRestClient(providerBody)
+                cacheService, httpErrorPort(providerBody)
         );
 
         String logs = captureLogs(WritingEvaluationClient.class, () ->
@@ -363,8 +401,7 @@ class WritingEvaluationClientTest {
                 normalizer,
                 ruleEngine,
                 cacheService,
-                mock(WritingMockEvaluatorService.class),
-                httpErrorRestClient("permanent bad request"));
+                httpErrorPort("permanent bad request"));
 
         JsonNode root = objectMapper.readTree(client.evaluate(
                 USER_ID,
@@ -395,34 +432,35 @@ class WritingEvaluationClientTest {
                 any(), anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        RestClient restClient = mock(RestClient.class);
+        TestPracticeStructuredGenerationPort port =
+                TestPracticeStructuredGenerationPort.throwing(
+                        "openai-primary",
+                        "model",
+                        new com.ksh.features.practice.ai.transport
+                                .PracticeAiContractException(
+                                        "EVALUATION_INTERRUPTED",
+                                        false));
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"),
                 objectMapper,
                 normalizer,
                 ruleEngine,
                 cacheService,
-                mock(WritingMockEvaluatorService.class),
-                restClient);
+                port);
 
-        Thread.currentThread().interrupt();
-        try {
-            RuntimeException interrupted = assertThrows(
-                    RuntimeException.class,
-                    () -> client.evaluate(
-                            USER_ID,
-                            "Bài 53 viết",
-                            "한국어를 공부합니다",
-                            false,
-                            WritingTaskType.Q53));
+        RuntimeException interrupted = assertThrows(
+                RuntimeException.class,
+                () -> client.evaluate(
+                        USER_ID,
+                        "Bài 53 viết",
+                        "한국어를 공부합니다",
+                        false,
+                        WritingTaskType.Q53));
 
-            assertEquals(
-                    "Writing evaluation was interrupted.",
-                    interrupted.getMessage());
-            verifyNoInteractions(restClient);
-        } finally {
-            Thread.interrupted();
-        }
+        assertEquals(
+                "Writing evaluation was interrupted.",
+                interrupted.getMessage());
+        assertThat(port.calls()).isEqualTo(1);
     }
 
     @Test
@@ -432,11 +470,9 @@ class WritingEvaluationClientTest {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, learnerAnswer));
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("SECRET_API_KEY_VALUE", "safe-model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, resourceAccessErrorRestClient("PRIVATE_PROVIDER_RESPONSE " + prompt + " " + learnerAnswer)
+                cacheService, resourceAccessErrorPort("PRIVATE_PROVIDER_RESPONSE " + prompt + " " + learnerAnswer)
         );
 
         String logs = captureLogs(WritingEvaluationClient.class, () ->
@@ -459,7 +495,7 @@ class WritingEvaluationClientTest {
         AtomicInteger callCount = new AtomicInteger(0);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+                cacheService, structuredPort(aiResponse(), callCount)
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어를 공부합니다", false);
@@ -468,7 +504,7 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v5.0"), eq("v4.1"), eq("v4.1:v6.0"), payload.capture());
+                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), payload.capture());
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
         assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
@@ -478,6 +514,9 @@ class WritingEvaluationClientTest {
         assertTrue(cached.path("score_available").asBoolean(false));
         assertTrue(cached.path("raw_score").isNumber());
         assertTrue(cached.path("raw_score_max").isNumber());
+        assertEquals(
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                cached.path("policy_bundle_id").asText());
     }
 
     @Test
@@ -487,15 +526,23 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.empty());
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class),
-                setupMockRestClient("{\"choices\":[{\"message\":{\"content\":\"not-json\"}}]}", new AtomicInteger())
+                cacheService,
+                TestPracticeStructuredGenerationPort.throwing(
+                        "openai-primary",
+                        "model",
+                        new com.ksh.features.practice.ai.transport
+                                .PracticeAiContractException(
+                                        "PROVIDER_MALFORMED_STRUCTURED_OUTPUT",
+                                        false))
         );
 
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet",
                 "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4", false, WritingTaskType.Q53));
 
         assertEquals("EVALUATION_CONTRACT_FAILED", root.path("evaluation_status").asText());
-        assertEquals("PROVIDER_CONTRACT_INVALID", root.path("evaluation_reason").asText());
+        assertEquals(
+                "PROVIDER_MALFORMED_STRUCTURED_OUTPUT",
+                root.path("evaluation_reason").asText());
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
@@ -508,7 +555,7 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.empty());
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), new AtomicInteger())
+                cacheService, structuredPort(aiResponse(), new AtomicInteger())
         );
 
         String result = client.evaluate(USER_ID, "Bài 51 điền chỗ trống", "한국어를 공부합니다", false,
@@ -518,7 +565,7 @@ class WritingEvaluationClientTest {
         assertEquals("Q53", root.path("task_type").asText());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v5.0"), eq("v4.1"), eq("v4.1:v6.0"), anyString());
+                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), anyString());
     }
 
     @Test
@@ -527,10 +574,9 @@ class WritingEvaluationClientTest {
         String cachedValue = cachedProviderResult("Q52");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q52"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, setupMockRestClient("{}", new AtomicInteger())
+                cacheService, structuredPort("{}", new AtomicInteger())
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 biểu đồ", "있다", false, WritingTaskType.Q52);
@@ -538,14 +584,13 @@ class WritingEvaluationClientTest {
 
         assertEquals("Q52", root.path("task_type").asText());
         assertEquals(10.0, root.path("raw_score_max").asDouble());
-        verifyNoInteractions(mockEvaluator);
     }
 
     @Test
     void explicitMetadataControlsSpamShortcutProfile() throws Exception {
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                mock(WritingEvaluationCacheService.class), mock(WritingMockEvaluatorService.class), throwingRestClient()
+                mock(WritingEvaluationCacheService.class), throwingPort()
         );
 
         String result = client.evaluate(USER_ID, "Bài viết chung", "asdf", false, WritingTaskType.Q54);
@@ -560,11 +605,9 @@ class WritingEvaluationClientTest {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, throwingRestClient()
+                cacheService, throwingPort()
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 biểu đồ", "한국어", false, WritingTaskType.Q54);
@@ -576,7 +619,6 @@ class WritingEvaluationClientTest {
         assertFalse(root.path("score_available").asBoolean(true));
         assertFalse(root.has("raw_score"));
         assertFalse(root.has("raw_score_max"));
-        verifyNoInteractions(mockEvaluator);
     }
 
     @Test
@@ -585,7 +627,7 @@ class WritingEvaluationClientTest {
         AtomicInteger callCount = new AtomicInteger(0);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+                cacheService, structuredPort(aiResponse(), callCount)
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어를 공부합니다", true);
@@ -594,17 +636,15 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v5.0"), eq("v4.1"), eq("v4.1:v6.0"), anyString());
+                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), anyString());
     }
 
     @Test
     void testReEvaluateFailureDoesNotOverwriteOldCache() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mockEvaluator, throwingRestClient()
+                cacheService, throwingPort()
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", true);
@@ -612,7 +652,6 @@ class WritingEvaluationClientTest {
         assertTrue(result.contains("\"evaluation_status\":\"EVALUATION_UNAVAILABLE\""));
         assertTrue(result.contains("\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\""));
         assertFalse(result.contains("\"raw_score\""));
-        verifyNoInteractions(mockEvaluator);
         verify(cacheService, never()).put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
@@ -624,7 +663,7 @@ class WritingEvaluationClientTest {
         AtomicInteger callCount = new AtomicInteger(0);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+                cacheService, structuredPort(aiResponse(), callCount)
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -642,7 +681,7 @@ class WritingEvaluationClientTest {
                 .put(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), new AtomicInteger())
+                cacheService, structuredPort(aiResponse(), new AtomicInteger())
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -658,7 +697,7 @@ class WritingEvaluationClientTest {
         AtomicInteger callCount = new AtomicInteger(0);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+                cacheService, structuredPort(aiResponse(), callCount)
         );
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
@@ -666,7 +705,7 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v5.0"), eq("v4.1"), eq("v4.1:v6.0"));
+                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"));
     }
 
     @Test
@@ -679,7 +718,7 @@ class WritingEvaluationClientTest {
         AtomicInteger callCount = new AtomicInteger(0);
         WritingEvaluationClient client = new WritingEvaluationClient(
                 properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
-                cacheService, mock(WritingMockEvaluatorService.class), setupMockRestClient(aiResponse(), callCount)
+                cacheService, structuredPort(aiResponse(), callCount)
         );
 
         String result = client.evaluate(USER_ID, "Bai 53 viet",
@@ -691,14 +730,19 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void testOldOverloadBypassesPersistentCacheScope() {
+    void convenienceEvaluateOverloadBypassesPersistentCacheScope() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(isNull(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
         WritingEvaluationClient client = new WritingEvaluationClient(
-                properties("", "model"), objectMapper, normalizer, ruleEngine, cacheService, mockEvaluator, null
+                properties("", "model"),
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                cacheService,
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "model")
         );
 
         String result = client.evaluate("Bài 53 viết", "한국어", false);
@@ -716,8 +760,7 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.of(cachedValue));
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         WritingEvaluationClient client = clientWithMetrics(
-                properties("", "model"), cacheService, mock(WritingMockEvaluatorService.class),
-                setupMockRestClient("{}", new AtomicInteger()), registry);
+                properties("", "model"), cacheService, structuredPort("{}", new AtomicInteger()), registry);
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
@@ -726,19 +769,20 @@ class WritingEvaluationClientTest {
     }
 
     @Test
-    void missingApiKeyRecordsOneProviderFailureMetric() {
+    void providerDisabledRecordsOneProviderFailureMetric() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         when(cacheService.get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        WritingMockEvaluatorService mockEvaluator = mock(WritingMockEvaluatorService.class);
-        when(mockEvaluator.evaluate(any(), any(), any(), any())).thenReturn(String.format(MOCK_JSON_TEMPLATE, "한국어"));
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         WritingEvaluationClient client = clientWithMetrics(
-                properties("", "model"), cacheService, mockEvaluator, null, registry);
+                properties("", "model"),
+                cacheService,
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "model"),
+                registry);
 
         client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
-
-        verifyNoInteractions(mockEvaluator);
         assertEquals(1.0, registry.counter(PracticeAiMetrics.PROVIDER_OPERATIONS,
                 "feature", "writing", "outcome", "failure").count());
         assertEquals(1L, registry.timer(PracticeAiMetrics.PROVIDER_DURATION,
@@ -752,8 +796,7 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.empty());
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         WritingEvaluationClient client = clientWithMetrics(
-                properties("valid-key", "model"), cacheService, mock(WritingMockEvaluatorService.class),
-                setupMockRestClient(aiResponse(), new AtomicInteger()), registry);
+                properties("valid-key", "model"), cacheService, structuredPort(aiResponse(), new AtomicInteger()), registry);
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어를 공부합니다", false);
 
@@ -771,8 +814,7 @@ class WritingEvaluationClientTest {
                 .thenReturn(Optional.of("{malformed"));
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         WritingEvaluationClient client = clientWithMetrics(
-                properties("valid-key", "model"), cacheService, mock(WritingMockEvaluatorService.class),
-                setupMockRestClient(aiResponse(), new AtomicInteger()), registry);
+                properties("valid-key", "model"), cacheService, structuredPort(aiResponse(), new AtomicInteger()), registry);
 
         client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
@@ -823,13 +865,14 @@ class WritingEvaluationClientTest {
         when(properties.evaluatorModel()).thenReturn(model);
         when(properties.apiKey()).thenReturn(apiKey);
         when(properties.baseUrl()).thenReturn("http://localhost");
+        when(properties.connectTimeout()).thenReturn(Duration.ofSeconds(5));
+        when(properties.readTimeout()).thenReturn(Duration.ofSeconds(60));
         return properties;
     }
 
     private WritingEvaluationClient clientWithMetrics(OpenAiProperties properties,
                                                       WritingEvaluationCacheService cacheService,
-                                                      WritingMockEvaluatorService mockEvaluator,
-                                                      RestClient restClient,
+                                                      PracticeStructuredGenerationPort port,
                                                       SimpleMeterRegistry registry) {
         return new WritingEvaluationClient(
                 properties,
@@ -838,9 +881,9 @@ class WritingEvaluationClientTest {
                 ruleEngine,
                 new WritingTaskResolver(),
                 cacheService,
-                mockEvaluator,
-                restClient,
-                new PracticeAiMetrics(registry));
+                null,
+                new PracticeAiMetrics(registry),
+                port);
     }
 
     private String aiResponse() {
@@ -862,80 +905,53 @@ class WritingEvaluationClientTest {
         """;
     }
 
-    private RestClient throwingRestClient() {
-        return new RestClient() {
-            @Override public RequestBodyUriSpec post() { throw new RuntimeException("API connection error"); }
-            @Override public RequestHeadersUriSpec<?> get() { return null; }
-            @Override public RequestHeadersUriSpec<?> head() { return null; }
-            @Override public RequestBodyUriSpec put() { return null; }
-            @Override public RequestBodyUriSpec patch() { return null; }
-            @Override public RequestHeadersUriSpec<?> delete() { return null; }
-            @Override public RequestHeadersUriSpec<?> options() { return null; }
-            @Override public RequestBodyUriSpec method(org.springframework.http.HttpMethod m) { return null; }
-            @Override public Builder mutate() { return null; }
-        };
+    private TestPracticeStructuredGenerationPort throwingPort() {
+        return TestPracticeStructuredGenerationPort.throwing(
+                "openai-primary",
+                "model",
+                new RuntimeException("API connection error"));
     }
 
-    private RestClient resourceAccessErrorRestClient(String message) {
-        return new RestClient() {
-            @Override public RequestBodyUriSpec post() { throw new org.springframework.web.client.ResourceAccessException(message); }
-            @Override public RequestHeadersUriSpec<?> get() { return null; }
-            @Override public RequestHeadersUriSpec<?> head() { return null; }
-            @Override public RequestBodyUriSpec put() { return null; }
-            @Override public RequestBodyUriSpec patch() { return null; }
-            @Override public RequestHeadersUriSpec<?> delete() { return null; }
-            @Override public RequestHeadersUriSpec<?> options() { return null; }
-            @Override public RequestBodyUriSpec method(org.springframework.http.HttpMethod m) { return null; }
-            @Override public Builder mutate() { return null; }
-        };
+    private TestPracticeStructuredGenerationPort resourceAccessErrorPort(
+            String message) {
+        return TestPracticeStructuredGenerationPort.throwing(
+                "openai-primary",
+                "safe-model",
+                new org.springframework.web.client.ResourceAccessException(
+                        message));
     }
 
-    private RestClient httpErrorRestClient(String responseBody) {
-        RestClient restClient = mock(RestClient.class);
-        RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
-        RestClient.RequestBodySpec requestBodySpec = mock(RestClient.RequestBodySpec.class);
-        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
-
-        when(restClient.post()).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any(Object.class))).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any(), any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.body(any(Class.class))).thenThrow(new org.springframework.web.client.HttpClientErrorException(
-                HttpStatus.BAD_REQUEST,
-                "Bad Request",
-                responseBody.getBytes(StandardCharsets.UTF_8),
-                StandardCharsets.UTF_8
-        ));
-        return restClient;
+    private TestPracticeStructuredGenerationPort httpErrorPort(
+            String responseBody) {
+        return TestPracticeStructuredGenerationPort.throwing(
+                "openai-primary",
+                "safe-model",
+                new org.springframework.web.client.HttpClientErrorException(
+                        HttpStatus.BAD_REQUEST,
+                        "Bad Request",
+                        responseBody.getBytes(StandardCharsets.UTF_8),
+                        StandardCharsets.UTF_8));
     }
 
-    private RestClient setupMockRestClient(String responseJson, AtomicInteger postCallCount) {
-        RestClient restClient = mock(RestClient.class);
-        RestClient.RequestBodyUriSpec requestBodyUriSpec = mock(RestClient.RequestBodyUriSpec.class);
-        RestClient.RequestBodySpec requestBodySpec = mock(RestClient.RequestBodySpec.class);
-        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
-
-        when(restClient.post()).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any(Object.class))).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any(), any())).thenReturn(requestBodySpec);
-        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.body(any(Class.class))).thenAnswer(inv -> {
-            postCallCount.incrementAndGet();
-            try {
-                return "{\"choices\":[{\"message\":{\"content\":"
-                        + objectMapper.writeValueAsString(responseJson) + "}}]}";
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        return restClient;
+    private TestPracticeStructuredGenerationPort structuredPort(
+            String responseJson,
+            AtomicInteger postCallCount) {
+        return TestPracticeStructuredGenerationPort.available(
+                "openai-primary",
+                "model",
+                request -> {
+                    postCallCount.incrementAndGet();
+                    try {
+                        return new PracticeStructuredGenerationResponse(
+                                objectMapper.readTree(responseJson),
+                                "openai-primary",
+                                "model",
+                                "stop",
+                                "writing-test");
+                    } catch (Exception exception) {
+                        throw new RuntimeException(exception);
+                    }
+                });
     }
 
     private static String captureLogs(Class<?> loggerClass, Runnable action) {

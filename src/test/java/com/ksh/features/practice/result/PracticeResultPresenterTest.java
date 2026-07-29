@@ -9,6 +9,7 @@ import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService;
+import com.ksh.features.practice.ai.speaking.SpeakingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
@@ -313,9 +314,12 @@ class PracticeResultPresenterTest {
                     "score_available": true,
                     "task_type": "Q51",
                     "scoring_contract": "TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine": "KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status": "EVALUATED",
                     "evaluation_source": "PROVIDER",
+                    "evaluation_reason": "NONE",
+                    "evaluation_retryable": false,
                     "rubric_scores": [
                       {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
                       {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":2,"maxScore":2},
@@ -331,9 +335,12 @@ class PracticeResultPresenterTest {
                     "score_available": true,
                     "task_type": "Q52",
                     "scoring_contract": "TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine": "KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status": "EVALUATED",
                     "evaluation_source": "PROVIDER",
+                    "evaluation_reason": "NONE",
+                    "evaluation_retryable": false,
                     "rubric_scores": [
                       {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
                       {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":1,"maxScore":2},
@@ -349,9 +356,12 @@ class PracticeResultPresenterTest {
                     "score_available": true,
                     "task_type": "Q53",
                     "scoring_contract": "TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine": "KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status": "EVALUATED",
                     "evaluation_source": "PROVIDER",
+                    "evaluation_reason": "NONE",
+                    "evaluation_retryable": false,
                     "summary_vi": "Bài viết hoàn thành đúng nhiệm vụ.",
                     "rubric_scores": [
                       {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":12,"feedback":"Đủ ý chính"},
@@ -359,8 +369,18 @@ class PracticeResultPresenterTest {
                       {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9,"feedback":"Diễn đạt phù hợp"}
                     ],
                     "strengths":[
-                      {"criterionId":"W_TASK_REQUIREMENT_COVERAGE","category":"Provider content","explanationVi":"Bao phủ đúng yêu cầu"},
-                      {"criterionId":"W_FORMAL_VOCABULARY_USAGE","category":"Provider vocabulary","explanationVi":"Dùng từ phù hợp"}
+                      {"criterionId":"W_TASK_REQUIREMENT_COVERAGE","category":"TASK",
+                       "evidenceScope":"WHOLE_ANSWER","subtype":"REQUIREMENT_COVERAGE",
+                       "scoringCriterionId":"W_CONTENT_TASK_ACHIEVEMENT",
+                       "impact":"MODERATE","frequency":1,"confidence":0.95,
+                       "observability":"INFERRED_BOUNDED","evidence":"",
+                       "explanationVi":"Bao phủ đúng yêu cầu","correction":""},
+                      {"criterionId":"W_FORMAL_VOCABULARY_USAGE","category":"VOCABULARY",
+                       "evidenceScope":"TEXT_SPAN","subtype":"WORD_CHOICE",
+                       "scoringCriterionId":"W_LANGUAGE_EXPRESSION",
+                       "impact":"MODERATE","frequency":1,"confidence":0.95,
+                       "observability":"DIRECT","evidence":"공식 표현",
+                       "explanationVi":"Dùng từ phù hợp","correction":""}
                     ]
                   },
                   "154": {
@@ -369,9 +389,12 @@ class PracticeResultPresenterTest {
                     "score_available": true,
                     "task_type": "Q54",
                     "scoring_contract": "TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine": "KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status": "EVALUATED",
                     "evaluation_source": "PROVIDER",
+                    "evaluation_reason": "NONE",
+                    "evaluation_retryable": false,
                     "rubric_scores": [
                       {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":16,"maxScore":20},
                       {"criterionId":"W_ORGANIZATION_COHERENCE","score":12,"maxScore":15},
@@ -386,7 +409,8 @@ class PracticeResultPresenterTest {
                 "WRITING",
                 List.of(q51, q52, q53, q54),
                 Map.of("151", "short answer", "152", "second short answer",
-                        "153", "long answer", "154", "longer answer"),
+                        "153", "정책 변화의 영향을 설명하는 공식 표현입니다.",
+                        "154", "공동체 변화에 관한 더 긴 답안입니다."),
                 attempt));
         WritingResultPayload payload = (WritingResultPayload) result.payload();
 
@@ -441,8 +465,10 @@ class PracticeResultPresenterTest {
                 {"153":{
                   "raw_score":24,"raw_score_max":30,"score_available":true,"task_type":"Q53",
                   "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                   "engine":"KSH_WRITING_EVALUATOR_V2",
                   "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE","evaluation_retryable":false,
                   "rubric_scores":[
                     {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":12},
                     {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9},
@@ -452,12 +478,18 @@ class PracticeResultPresenterTest {
                     {"criterionId":"W_SENTENCE_VARIETY","evidenceScope":"WHOLE_ANSWER",
                      "evidence":"","explanationVi":"Inactive legacy alias","correction":""},
                     {"criterionId":"W_LENGTH_REQUIREMENT_MET","evidenceScope":"WHOLE_ANSWER",
+                     "subtype":"TASK_LENGTH","scoringCriterionId":null,
+                     "impact":"MODERATE","frequency":1,"confidence":0.95,
+                     "observability":"INFERRED_BOUNDED",
                      "evidence":"","explanationVi":"Dung lượng phù hợp","correction":""},
                     {"criterionId":"W_LENGTH_REQUIREMENT_MET","evidenceScope":"WHOLE_ANSWER",
                      "evidence":"provider text","explanationVi":"Invalid whole-answer evidence","correction":""}
                   ],
                   "needs_improvement":[
                     {"criterionId":"W_GRAMMAR_ERRORS","evidenceScope":"TEXT_SPAN",
+                     "subtype":"MORPHOLOGY_PARTICLES","scoringCriterionId":"W_LANGUAGE_EXPRESSION",
+                     "impact":"MINOR","frequency":2,"confidence":0.97,
+                     "observability":"DIRECT",
                      "evidence":"문법 오류","explanationVi":"Cần sửa ngữ pháp","correction":"문법을 고칩니다"},
                     {"criterionId":"W_GRAMMAR_ERRORS","evidenceScope":"TEXT_SPAN",
                      "evidence":"không có trong bài","explanationVi":"Invalid evidence","correction":"교정"},
@@ -514,10 +546,14 @@ class PracticeResultPresenterTest {
             assertThat(detail.filterChips())
                     .extracting(chip -> chip.id())
                     .contains(finding.descriptorId());
-            assertThat(finding.impact()).isNull();
-            assertThat(finding.frequency()).isNull();
-            assertThat(finding.confidence()).isNull();
-            assertThat(finding.observability()).isNull();
+            assertThat(finding.subtype()).isNotBlank();
+            assertThat(finding.impact()).isIn(
+                    "MINOR", "MODERATE", "MAJOR", "BLOCKING");
+            assertThat(finding.frequency()).isPositive();
+            assertThat(finding.confidence())
+                    .isBetween(BigDecimal.ZERO, BigDecimal.ONE);
+            assertThat(finding.observability())
+                    .isIn("DIRECT", "INFERRED_BOUNDED");
             if (finding.parentCriterionId() == null) {
                 assertThat(finding.scoreEffect()).isEqualTo("DIAGNOSTIC_ONLY");
             } else {
@@ -644,8 +680,10 @@ class PracticeResultPresenterTest {
                   "151":{
                     "raw_score":8,"raw_score_max":10,"score_available":true,"task_type":"Q51",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine":"KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
                     "rubric_scores":[
                       {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
                       {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":2,"maxScore":2},
@@ -666,8 +704,10 @@ class PracticeResultPresenterTest {
                   "152":{
                     "raw_score":7,"raw_score_max":10,"score_available":true,"task_type":"Q52",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine":"KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
                     "rubric_scores":[
                       {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2,"maxScore":2},
                       {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":1,"maxScore":2},
@@ -710,7 +750,7 @@ class PracticeResultPresenterTest {
     }
 
     @Test
-    void writingDetailKeepsUpgradeProvenanceAndRewritesIsolatedToSelectedQuestion() {
+    void writingDetailKeepsLearnerUpgradeProvenanceAndIgnoresCurrentEvaluatorSample() {
         PracticeQuestionVersion q53 = writingQuestion(153L, 53, WritingTaskType.Q53);
         PracticeQuestionVersion q54 = writingQuestion(154L, 54, WritingTaskType.Q54);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
@@ -719,8 +759,10 @@ class PracticeResultPresenterTest {
                   "153":{
                     "raw_score":24,"raw_score_max":30,"score_available":true,"task_type":"Q53",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine":"KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
                     "rubric_scores":[
                       {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":12},
                       {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9},
@@ -736,8 +778,10 @@ class PracticeResultPresenterTest {
                   "154":{
                     "raw_score":40,"raw_score_max":50,"score_available":true,"task_type":"Q54",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "engine":"KSH_WRITING_EVALUATOR_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
                     "rubric_scores":[
                       {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":16,"maxScore":20},
                       {"criterionId":"W_ORGANIZATION_COHERENCE","score":12,"maxScore":15},
@@ -772,12 +816,16 @@ class PracticeResultPresenterTest {
                     assertThat(rewrite.original()).isEqualTo("문법 오류");
                     assertThat(rewrite.upgraded()).isEqualTo("문법 오류를 바로잡습니다");
                     assertThat(rewrite.reason()).isEqualTo("Diễn đạt rõ hành động sửa.");
-                });
-        assertThat(detail.upgrade().evaluatorSample().available()).isTrue();
+        });
+        assertThat(detail.upgrade().evaluatorSample().available()).isFalse();
+        assertThat(detail.upgrade().evaluatorSample().content()).isEmpty();
         assertThat(detail.upgrade().evaluatorSample().provenance())
-                .isEqualTo("EVALUATOR_GENERATED_NOT_TEACHER_REFERENCE");
+                .isEqualTo("NOT_PROVIDED_BY_CURRENT_EVALUATOR");
         assertThat(objectMapper.valueToTree(detail.upgrade()).toString())
-                .doesNotContain("선택하지 않은 답안", "teacherReference");
+                .doesNotContain(
+                        "선택하지 않은 답안",
+                        "평가기가 만든 참고 답안",
+                        "teacherReference");
     }
 
     @Test
@@ -875,6 +923,7 @@ class PracticeResultPresenterTest {
                   "scoring_contract":"LEGACY_BAND_V1",
                   "engine":"KSH_WRITING_EVALUATOR_V2",
                   "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE","evaluation_retryable":false,
                   "rubric_scores":[
                     {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":3,"maxScore":12},
                     {"criterionId":"W_ORGANIZATION_COHERENCE","score":3,"maxScore":9},
@@ -893,6 +942,23 @@ class PracticeResultPresenterTest {
                     {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9}
                   ],
                   "upgraded_answer":"잘못된 유형 산출물"
+                }}
+                """,
+                """
+                {"153":{
+                  "raw_score":24,"raw_score_max":30,"score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"STALE_WRITING_BUNDLE",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE","evaluation_retryable":false,
+                  "rubric_scores":[
+                    {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":12},
+                    {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9},
+                    {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9}
+                  ],
+                  "upgraded_answer":"오래된 정책 산출물"
                 }}
                 """);
 
@@ -977,6 +1043,196 @@ class PracticeResultPresenterTest {
     }
 
     @Test
+    void currentDeterministicInvalidWritingAnswerKeepsAuthoritativeZeroScoreReady() {
+        PracticeQuestionVersion question =
+                writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{
+                  "raw_score":0,"raw_score_max":30,"score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"INVALID_LEARNER_RESPONSE",
+                  "evaluation_source":"BACKEND_RULE",
+                  "evaluation_reason":"BLANK_ANSWER",
+                  "evaluation_retryable":false,
+                  "rubric_scores":[
+                    {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":0,"maxScore":12},
+                    {"criterionId":"W_ORGANIZATION_COHERENCE","score":0,"maxScore":9},
+                    {"criterionId":"W_LANGUAGE_EXPRESSION","score":0,"maxScore":9}
+                  ]}}
+                """);
+
+        PracticeResultPresenter.Presentation result =
+                writingPresenter().present(context(
+                        "WRITING",
+                        List.of(question),
+                        Map.of("153", "가"),
+                        attempt));
+        WritingResultPayload payload =
+                (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("READY");
+        assertThat(result.answers().scoredDenominator()).isEqualTo(1);
+        assertThat(result.answers().pending()).isZero();
+        assertThat(result.answers().unscorable()).isZero();
+        assertThat(payload.tasks()).singleElement().satisfies(task -> {
+            assertThat(task.feedback().state()).isEqualTo("READY");
+            assertThat(task.score().available()).isTrue();
+            assertThat(task.score().pointsDisplay()).isEqualTo("0/30");
+            assertThat(task.officialCriteria()).hasSize(3);
+        });
+    }
+
+    @Test
+    void staleDeterministicInvalidReasonCannotAuthorizeReadyWritingScore() {
+        PracticeQuestionVersion question =
+                writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{
+                  "raw_score":0,"raw_score_max":30,"score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"INVALID_LEARNER_RESPONSE",
+                  "evaluation_source":"BACKEND_RULE",
+                  "evaluation_reason":"EMPTY_OR_TOO_SHORT",
+                  "evaluation_retryable":false}}
+                """);
+
+        PracticeResultPresenter.Presentation result =
+                writingPresenter().present(context(
+                        "WRITING",
+                        List.of(question),
+                        Map.of("153", "가"),
+                        attempt));
+        WritingResultPayload payload =
+                (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(result.answers().scoredDenominator()).isZero();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.tasks()).singleElement().satisfies(task -> {
+            assertThat(task.feedback().state()).isEqualTo("FAILED");
+            assertThat(task.score().available()).isFalse();
+            assertThat(task.officialCriteria()).isEmpty();
+        });
+    }
+
+    @Test
+    void retryableProviderEnvelopeCannotAuthorizeReadyWritingScore() {
+        PracticeQuestionVersion question =
+                writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{
+                  "raw_score":20,"raw_score_max":30,"score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"EVALUATED",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE",
+                  "evaluation_retryable":true}}
+                """);
+
+        PracticeResultPresenter.Presentation result =
+                writingPresenter().present(context(
+                        "WRITING",
+                        List.of(question),
+                        Map.of("153", "한국어 답안"),
+                        attempt));
+        WritingResultPayload payload =
+                (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(result.answers().scoredDenominator()).isZero();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(result.score().available()).isFalse();
+        assertThat(payload.tasks()).singleElement().satisfies(task -> {
+            assertThat(task.feedback().state())
+                    .isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(task.score().available()).isFalse();
+            assertThat(task.officialCriteria()).isEmpty();
+        });
+    }
+
+    @Test
+    void missingOrMistypedWritingProvenanceCannotAuthorizeScoreDetailOrUpgrade() {
+        PracticeQuestionVersion question =
+                writingQuestion(153L, 53, WritingTaskType.Q53);
+        String exactCurrent = """
+                {"153":{
+                  "raw_score":20,"raw_score_max":30,"score_available":true,
+                  "task_type":"Q53",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                  "engine":"KSH_WRITING_EVALUATOR_V2",
+                  "evaluation_status":"EVALUATED",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE",
+                  "evaluation_retryable":false,
+                  "rubric_scores":[
+                    {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":8,"maxScore":12},
+                    {"criterionId":"W_ORGANIZATION_COHERENCE","score":6,"maxScore":9},
+                    {"criterionId":"W_LANGUAGE_EXPRESSION","score":6,"maxScore":9}
+                  ],
+                  "upgraded_answer":"검증되지 않은 업그레이드"}}
+                """;
+        List<String> malformedProvenance = List.of(
+                exactCurrent.replace(
+                        "\"evaluation_reason\":\"NONE\",", ""),
+                exactCurrent.replace(
+                        "\"evaluation_reason\":\"NONE\"",
+                        "\"evaluation_reason\":7"),
+                exactCurrent.replace(
+                        "\"evaluation_retryable\":false,", ""),
+                exactCurrent.replace(
+                        "\"evaluation_retryable\":false",
+                        "\"evaluation_retryable\":\"false\""));
+
+        for (String storedFeedback : malformedProvenance) {
+            PracticeAttempt attempt = mock(PracticeAttempt.class);
+            when(attempt.getAiFeedbackJson()).thenReturn(storedFeedback);
+            WritingResultPresenter presenter = writingPresenter();
+            PracticeResultContext context = context(
+                    "WRITING",
+                    List.of(question),
+                    Map.of("153", "한국어 답안"),
+                    attempt);
+
+            PracticeResultPresenter.Presentation presentation =
+                    presenter.present(context);
+            WritingResultPayload payload =
+                    (WritingResultPayload) presentation.payload();
+            WritingDetailPayload detail =
+                    (WritingDetailPayload) presenter.presentDetail(
+                            context,
+                            overview("WRITING", presentation),
+                            153L);
+
+            assertThat(presentation.feedback().state())
+                    .isEqualTo("UNAVAILABLE");
+            assertThat(presentation.score().available()).isFalse();
+            assertThat(payload.tasks()).singleElement().satisfies(task -> {
+                assertThat(task.feedback().state())
+                        .isEqualTo("LEGACY_UNVERIFIED");
+                assertThat(task.score().available()).isFalse();
+                assertThat(task.officialCriteria()).isEmpty();
+            });
+            assertThat(detail.scoreCriteria()).isEmpty();
+            assertThat(detail.upgrade().learnerDerivedUpgrade().available())
+                    .isFalse();
+        }
+    }
+
+    @Test
     void writingUnavailableFeedbackDoesNotFabricateScoreRubricOrDiagnostics() {
         PracticeQuestionVersion question = writingQuestion(154L, 54, WritingTaskType.Q54);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
@@ -1009,8 +1265,10 @@ class PracticeResultPresenterTest {
         when(attempt.getAiFeedbackJson()).thenReturn("""
                 {"153":{"raw_score":24,"raw_score_max":30,"score_available":true,
                   "task_type":"Q53","scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                   "engine":"KSH_WRITING_EVALUATOR_V2",
                   "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE","evaluation_retryable":false,
                   "rubric_scores":[
                     {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10,"maxScore":10},
                     {"criterionId":"W_ORGANIZATION_COHERENCE","score":7,"maxScore":9},
@@ -1114,9 +1372,11 @@ class PracticeResultPresenterTest {
                       "evidenceMode":"TRANSCRIPT_ONLY",
                       "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                       "contractTrust":"CURRENT_VERIFIED",
-                      "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                      "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                       "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                      "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                      "policyBundleFingerprint":"%s",
                       "actuallyHeardTranscript":"first transcript",
                       "overallSummary":"Ý chính rõ và đúng chủ đề.",
                       "actionPlan":[
@@ -1137,9 +1397,11 @@ class PracticeResultPresenterTest {
                       "evidenceMode":"TRANSCRIPT_ONLY",
                       "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                       "contractTrust":"CURRENT_VERIFIED",
-                      "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                      "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                       "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                      "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                      "policyBundleFingerprint":"%s",
                       "actuallyHeardTranscript":"second transcript",
                       "overallSummary":"Diễn đạt phù hợp và có tiến bộ.",
                       "rubricScores":[
@@ -1153,7 +1415,9 @@ class PracticeResultPresenterTest {
                     }
                   }
                 }
-                """);
+                """.formatted(
+                        SpeakingAssessmentPolicyBundle.fingerprint(),
+                        SpeakingAssessmentPolicyBundle.fingerprint()));
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
                 new SpeakingFeedbackCompatibilityReader(),
@@ -1191,6 +1455,10 @@ class PracticeResultPresenterTest {
         assertThat(payload.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
         assertThat(payload.evaluatorCapability()).isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
         assertThat(payload.contractTrust()).isEqualTo("CURRENT_VERIFIED");
+        assertThat(payload.policyBundleId())
+                .isEqualTo("KSH_SPEAKING_POLICY_BUNDLE_V1");
+        assertThat(payload.policyBundleFingerprint())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
         assertThat(payload.profileState()).isEqualTo("READY");
         assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(payload.holisticScore().available()).isFalse();
@@ -1240,9 +1508,11 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "actuallyHeardTranscript":"저는 학교에 가요 그리고 친구를 만나요",
                     "rubricScores":[
                       {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
@@ -1274,7 +1544,7 @@ class PracticeResultPresenterTest {
                     ]
                   }}
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
                 new SpeakingFeedbackCompatibilityReader(),
@@ -1546,9 +1816,11 @@ class PracticeResultPresenterTest {
                       "evidenceMode":"TRANSCRIPT_ONLY",
                       "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                       "contractTrust":"CURRENT_VERIFIED",
-                      "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                      "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                       "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                      "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                      "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                      "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                      "policyBundleFingerprint":"%s",
                       "actuallyHeardTranscript":"ready transcript",
                       "rubricScores":[
                         {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
@@ -1562,7 +1834,7 @@ class PracticeResultPresenterTest {
                     "202":{"evaluationStatus":"PROCESSING"}
                   }
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
@@ -1604,16 +1876,18 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "actuallyHeardTranscript":"들은 문장",
                     "transcriptConfidence":0.31,
                     "rubricScores":[],
                     "criterionFeedback":[]
                   }}
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
@@ -1639,6 +1913,10 @@ class PracticeResultPresenterTest {
         assertThat(payload.evidenceContractVersion())
                 .isEqualTo("speaking-evidence-v1-transcript-language-only");
         assertThat(payload.contractTrust()).isEqualTo("CURRENT_VERIFIED");
+        assertThat(payload.policyBundleId())
+                .isEqualTo("KSH_SPEAKING_POLICY_BUNDLE_V1");
+        assertThat(payload.policyBundleFingerprint())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
         assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(payload.holisticScore().available()).isFalse();
         assertThat(payload.profileTitle()).isEqualTo("Bản chép lời có độ tin cậy thấp");
@@ -1677,9 +1955,11 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "actuallyHeardTranscript":"들은 문장",
                     "transcriptConfidence":0.31,
                     "rubricScores":[],
@@ -1690,7 +1970,7 @@ class PracticeResultPresenterTest {
                     "summary_vi":"Bản sao lịch sử chỉ để đọc."
                   }}
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
                 new SpeakingFeedbackCompatibilityReader(),
@@ -1758,6 +2038,8 @@ class PracticeResultPresenterTest {
         assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
         assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
         assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
+        assertThat(payload.policyBundleId()).isNull();
+        assertThat(payload.policyBundleFingerprint()).isNull();
         assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(payload.criteria()).allSatisfy(criterion -> {
             assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
@@ -1780,12 +2062,14 @@ class PracticeResultPresenterTest {
                 }}}
                 """);
 
-        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
+        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
                 new SpeakingFeedbackCompatibilityReader(),
                 new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
-                "SPEAKING", List.of(question), Map.of("201", "legacy transcript"), attempt));
+                new WritingFeedbackViewMapper());
+        PracticeResultContext legacyContext = context(
+                "SPEAKING", List.of(question), Map.of("201", "legacy transcript"), attempt);
+        PracticeResultPresenter.Presentation result = presenter.present(legacyContext);
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
         assertThat(result.score().available()).isFalse();
@@ -1795,6 +2079,8 @@ class PracticeResultPresenterTest {
         assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
         assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
         assertThat(payload.evidenceContractVersion()).isNull();
+        assertThat(payload.policyBundleId()).isNull();
+        assertThat(payload.policyBundleFingerprint()).isNull();
         assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
         assertThat(payload.criteria()).allSatisfy(criterion -> {
@@ -1804,6 +2090,12 @@ class PracticeResultPresenterTest {
             assertThat(criterion.percentage()).isNull();
             assertThat(criterion.scoreDisplay()).isNull();
         });
+        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
+                legacyContext, overview("SPEAKING", result), 201L);
+        assertThat(detail.evidence().transcriptText()).isBlank();
+        assertThat(detail.transcriptSegments())
+                .extracting(SpeakingTextSegment::text)
+                .containsExactly("");
     }
 
     @Test
@@ -1837,6 +2129,8 @@ class PracticeResultPresenterTest {
         assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
         assertThat(payload.evidenceContractVersion()).isNull();
         assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.policyBundleId()).isNull();
+        assertThat(payload.policyBundleFingerprint()).isNull();
         assertThat(payload.criteria()).allSatisfy(criterion -> {
             assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
             assertThat(criterion.score()).isNull();
@@ -1889,13 +2183,15 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "rubricScores":[]
                   }}
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
@@ -1988,9 +2284,11 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "actuallyHeardTranscript":"current transcript",
                     "rubricScores":[
                       {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
@@ -2006,7 +2304,7 @@ class PracticeResultPresenterTest {
                     "summary_vi":"Bản sao lịch sử chỉ để đọc."
                   }}
                 }
-                """);
+                """.formatted(SpeakingAssessmentPolicyBundle.fingerprint()));
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
@@ -2024,6 +2322,10 @@ class PracticeResultPresenterTest {
         assertThat(payload.contractTrust()).isEqualTo("MIXED_WITH_LEGACY_UNVERIFIED");
         assertThat(payload.evaluatorCapability())
                 .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(payload.policyBundleId())
+                .isEqualTo("KSH_SPEAKING_POLICY_BUNDLE_V1");
+        assertThat(payload.policyBundleFingerprint())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
         assertThat(payload.profileState()).isEqualTo("PARTIAL");
         assertThat(payload.criteria().stream().filter(SpeakingCriterionResult::scored))
                 .hasSize(4)
@@ -2257,9 +2559,12 @@ class PracticeResultPresenterTest {
                   "score_available":true,
                   "task_type":"Q53",
                   "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                   "engine":"KSH_WRITING_EVALUATOR_V2",
                   "evaluation_status":"EVALUATED",
                   "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"NONE",
+                  "evaluation_retryable":false,
                   "rubric_scores":[
                     {
                       "criterionId":"W_CONTENT_TASK_ACHIEVEMENT",
@@ -2307,9 +2612,11 @@ class PracticeResultPresenterTest {
                     "evidenceMode":"TRANSCRIPT_ONLY",
                     "evidenceContractVersion":"speaking-evidence-v1-transcript-language-only",
                     "contractTrust":"CURRENT_VERIFIED",
-                    "promptVersion":"speaking-eval-v4-immutable-context-transcript-language-only",
+                    "promptVersion":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
                     "rubricVersion":"speaking-rubric-v2-transcript-language-profile",
-                    "schemaVersion":"speaking-schema-v2-partial-language-profile",
+                    "schemaVersion":"speaking-schema-v3-policy-bundle-partial-language-profile",
+                    "policyBundleId":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                    "policyBundleFingerprint":"%s",
                     "actuallyHeardTranscript":"%s",
                     "rubricScores":[
                       {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":16,"maxScore":20,"availability":"SCORED"},
@@ -2322,7 +2629,10 @@ class PracticeResultPresenterTest {
                     "transcriptAnnotations":%s
                   }}
                 }
-                """.formatted(transcript, transcriptAnnotations);
+                """.formatted(
+                        SpeakingAssessmentPolicyBundle.fingerprint(),
+                        transcript,
+                        transcriptAnnotations);
     }
 
     private static PracticeAttemptResultView overview(

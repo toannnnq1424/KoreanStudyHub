@@ -7,7 +7,6 @@ import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionClient;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionMediaResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
-import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContextService;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
@@ -116,6 +115,10 @@ class SpeakingEvaluationApplicationServiceTest {
         assertThat(evaluation.result().promptContextContractIdentity())
                 .isEqualTo(SpeakingPromptEvaluationContextService
                         .LEGACY_CONTRACT_IDENTITY);
+        assertThat(evaluation.result().policyBundleId()).isEqualTo(
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertThat(evaluation.result().policyBundleFingerprint()).isEqualTo(
+                SpeakingAssessmentPolicyBundle.fingerprint());
         assertThat(fixture.transcriptionCalls.get()).isEqualTo(1);
         assertThat(fixture.evaluationClient.calls()).isEqualTo(1);
     }
@@ -502,6 +505,7 @@ class SpeakingEvaluationApplicationServiceTest {
                 SpeakingPromptRules.PROMPT_VERSION,
                 SpeakingPromptRules.RUBRIC_VERSION,
                 SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,

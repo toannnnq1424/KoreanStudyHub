@@ -88,12 +88,17 @@ class SpeakingFeedbackCompatibilityReaderTest {
 
     @Test
     void stalePromptRubricOrSchemaVersionFailsClosed() {
-        for (String field : List.of("promptVersion", "rubricVersion", "schemaVersion")) {
+        for (String field : List.of(
+                "promptVersion", "rubricVersion", "schemaVersion",
+                "policyBundleId", "policyBundleFingerprint")) {
             ObjectNode stored = storedCurrentResult();
             stored.put(field, "stale-" + field);
 
             assertLegacyUnverifiedWithoutScores(reader.read(stored));
         }
+        ObjectNode missingFingerprint = storedCurrentResult();
+        missingFingerprint.remove("policyBundleFingerprint");
+        assertLegacyUnverifiedWithoutScores(reader.read(missingFingerprint));
     }
 
     @Test
@@ -301,10 +306,14 @@ class SpeakingFeedbackCompatibilityReaderTest {
                 SpeakingPromptRules.PROMPT_VERSION,
                 SpeakingPromptRules.RUBRIC_VERSION,
                 SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
                 SpeakingContractTrust.CURRENT_VERIFIED,
+                null,
+                null,
+                null,
                 44L,
                 5L,
                 "들은 문장",

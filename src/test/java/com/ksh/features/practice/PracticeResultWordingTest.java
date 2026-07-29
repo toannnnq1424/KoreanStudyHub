@@ -15,57 +15,7 @@ class PracticeResultWordingTest {
 
     private static final Path RESOURCE_ROOT = Path.of("src", "main", "resources");
 
-    @Test
-    void resultDetailUsesNeutralWritingTaskScoreLabel() throws IOException {
-        String html = readResource("templates/practice/result-detail.html");
 
-        assertFalse(html.contains("'Task Score'"));
-        assertFalse(html.contains(">Task Score<"));
-        assertFalse(html.contains("Điểm đánh giá câu viết"));
-        assertTrue(html.contains("Điểm bài làm"));
-        assertTrue(html.contains("r.maxScore || 10"));
-        assertFalse(html.contains("rubricValue / 10.0"));
-    }
-
-    @Test
-    void resultDetailUsesBackendSpeakingRowsWithoutBrowserOwnedAcousticTaxonomy() throws IOException {
-        String html = readResource("templates/practice/result-detail.html");
-
-        assertTrue(html.contains("Sao chép"));
-        assertFalse(html.contains(">Copy<"));
-        assertFalse(html.contains("Đã copy"));
-        assertFalse(html.contains("<strong>Evidence</strong>"));
-        assertTrue(html.contains("Hoàn tất"));
-        assertEquals(5, countOccurrences(html, "class=\"prd-tab-btn"));
-        assertTrue(html.contains("data-tab=\"overview\""));
-        assertTrue(html.contains("data-tab=\"strengths\""));
-        assertTrue(html.contains("data-tab=\"needs\""));
-        assertTrue(html.contains("data-tab=\"upgrade\""));
-        assertTrue(html.contains("data-tab=\"sample\""));
-        assertFalse(html.contains("data-tab=\"criterion-"));
-        assertFalse(html.contains("data-speaking-criterion"));
-        assertFalse(html.contains("renderSpeakingCriterionPanel"));
-        assertFalse(html.contains("SPEAKING_TRANSCRIPT_CRITERIA"));
-        assertFalse(html.contains("SPEAKING_ACOUSTIC_CRITERIA"));
-        assertFalse(html.contains("SPEAKING_CRITERION_LABELS"));
-        assertFalse(html.contains("S_CONTENT_TASK_FULFILLMENT"));
-        assertFalse(html.contains("S_FLUENCY"));
-        assertFalse(html.contains("S_PRONUNCIATION_DELIVERY"));
-        assertFalse(html.contains("NOT_SCORABLE"));
-        assertTrue(html.contains("speakingScoredRubricRows()"));
-        assertTrue(html.contains("field(aiData, 'profile_available', 'profileAvailable') === true"));
-        assertTrue(html.contains("row.availability === 'SCORED'"));
-        assertTrue(html.contains("Number.isFinite(score)"));
-        assertTrue(html.contains("Number.isFinite(maxScore)"));
-        assertTrue(html.contains("firstValue(r.name, 'Tiêu chí hồ sơ')"));
-        assertFalse(html.contains("r.displayName"));
-        assertFalse(html.contains("r.criterionId"));
-        assertEquals(1, countOccurrences(html,
-                "Hồ sơ này chỉ dựa trên bản chép lời; không đánh giá độ lưu loát, phát âm hoặc đặc tính âm thanh."));
-        assertTrue(html.contains("Bài nói nâng cấp"));
-        assertFalse(html.contains("const status = field(aiData, 'evaluation_status', 'evaluationStatus')"));
-        assertFalse(html.contains("[status, summary"));
-    }
 
     @Test
     void resultOverviewUsesCanonicalScoreSummary() throws IOException {
@@ -161,7 +111,8 @@ class PracticeResultWordingTest {
         String facts = readResource("templates/practice/fragments/progress-facts.html");
         String js = readResource("static/js/practice-progress.js");
 
-        assertTrue(html.contains("Hồ sơ học tập · 학습 기록"));
+        assertTrue(html.contains("Hồ sơ học tập"));
+        assertFalse(html.contains("학습 기록"));
         assertTrue(html.contains("alt=\"Ảnh đại diện\""));
         assertFalse(html.contains("Learning Profile"));
         assertFalse(html.contains("alt=\"Avatar\""));
@@ -176,7 +127,8 @@ class PracticeResultWordingTest {
         assertTrue(html.contains("Dữ kiện 7 ngày theo kỹ năng"));
         assertTrue(html.contains(
                 "Không gọi giá trị thiếu so sánh là “không đổi”."));
-        assertTrue(html.contains("Chưa có đủ mẫu so sánh · 비교 표본 부족"));
+        assertTrue(html.contains("Chưa có đủ mẫu so sánh"));
+        assertFalse(html.contains("비교 표본 부족"));
         assertFalse(html.contains("bài tuần này"));
         assertFalse(html.contains("cải thiện kết quả"));
         assertFalse(html.contains("Bài đã được chấm điểm"));
@@ -198,9 +150,11 @@ class PracticeResultWordingTest {
         assertTrue(html.contains("metric.scoreFact().profileId()"));
         assertFalse(html.contains("metric.scoreFact().profile()"));
         assertTrue(facts.contains("SPEAKING_NUMERIC_AGGREGATION_NOT_SUPPORTED"));
-        assertTrue(facts.contains("표본 규모, 최신성, 범위만 요약"));
-        assertTrue(facts.contains("검증되지 않은 이전 데이터"));
-        assertTrue(facts.contains("일부 잘림"));
+        assertTrue(facts.contains(
+                "chỉ tóm tắt quy mô mẫu, độ mới và độ phủ"));
+        assertTrue(facts.contains("Dữ liệu cũ chưa xác minh"));
+        assertTrue(facts.contains("đã cắt bớt nguồn"));
+        assertFalse(facts.matches("(?s).*[가-힣].*"));
         assertTrue(js.contains(
                 "metric.skill === 'READING' || metric.skill === 'LISTENING'"));
         assertFalse(js.contains("metric.skill === 'WRITING'"));

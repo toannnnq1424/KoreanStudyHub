@@ -25,7 +25,7 @@ class WritingRuleEngineTest {
                 "Q53");
 
         assertEquals("Q53", analysis.taskType());
-        assertTrue(analysis.charCountWarning().contains("OK"));
+        assertTrue(analysis.charCountWarning().contains("nằm trong phạm vi"));
     }
 
     @Test
@@ -35,7 +35,7 @@ class WritingRuleEngineTest {
                 "가".repeat(250));
 
         assertEquals("Q54", analysis.taskType());
-        assertTrue(analysis.charCountWarning().contains("CRITICAL"));
+        assertTrue(analysis.charCountWarning().contains("thấp hơn đáng kể"));
     }
 
     @Test
@@ -46,7 +46,7 @@ class WritingRuleEngineTest {
         
         List<WritingRuleEngine.RuleViolation> violations = analysis.ruleViolations();
         assertTrue(violations.stream().anyMatch(v -> "진짜".equals(v.evidence())));
-        assertTrue(violations.stream().anyMatch(v -> "그리고".equals(v.evidence())));
+        assertTrue(violations.stream().noneMatch(v -> "그리고".equals(v.evidence())));
         assertTrue(violations.stream().anyMatch(v -> "했어요".equals(v.evidence())));
     }
 
@@ -54,7 +54,7 @@ class WritingRuleEngineTest {
     void severityModelClassifiesAuditedTerms() {
         WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
                 "Câu 54",
-                "근데 진짜 되게 엄청 해요 했어요 있어요 없어요 예요 이에요 어떤 것 같아요 같아요 좀 한테 이랑 랑 그리고 하고",
+                "근데 진짜 되게 엄청 해요 했어요 있어요 없어요 예요 이에요 어떤 것 같아요 같아요 좀 한테 이랑 그리고 하고",
                 "Q54");
 
         List<WritingRuleEngine.RuleViolation> violations = analysis.ruleViolations();
@@ -73,9 +73,8 @@ class WritingRuleEngineTest {
         assertSeverity(violations, "좀", WritingRuleEngine.RuleSeverity.MEDIUM);
         assertSeverity(violations, "한테", WritingRuleEngine.RuleSeverity.MEDIUM);
         assertSeverity(violations, "이랑", WritingRuleEngine.RuleSeverity.MEDIUM);
-        assertSeverity(violations, "랑", WritingRuleEngine.RuleSeverity.MEDIUM);
-        assertSeverity(violations, "그리고", WritingRuleEngine.RuleSeverity.LOW);
-        assertSeverity(violations, "하고", WritingRuleEngine.RuleSeverity.LOW);
+        assertTrue(violations.stream().noneMatch(v -> "그리고".equals(v.evidence())));
+        assertTrue(violations.stream().noneMatch(v -> "하고".equals(v.evidence())));
     }
 
     @Test
@@ -96,33 +95,30 @@ class WritingRuleEngineTest {
     }
 
     @Test
-    void q53AndQ54TreatHighAndMediumAsHardButLowAsSuggestions() {
+    void everyDeterministicSignalRemainsAdvisory() {
         for (String taskType : List.of("Q53", "Q54")) {
             WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
                     "Prompt",
-                    "진짜 좀 그리고 하고",
+                    "진짜 좀",
                     taskType);
 
-            assertAction(analysis.ruleViolations(), "진짜", WritingRuleEngine.RuleAction.NEEDS_IMPROVEMENT);
-            assertAction(analysis.ruleViolations(), "좀", WritingRuleEngine.RuleAction.NEEDS_IMPROVEMENT);
-            assertAction(analysis.ruleViolations(), "그리고", WritingRuleEngine.RuleAction.SUGGESTION);
-            assertAction(analysis.ruleViolations(), "하고", WritingRuleEngine.RuleAction.SUGGESTION);
+            assertAction(analysis.ruleViolations(), "진짜", WritingRuleEngine.RuleAction.SUGGESTION);
+            assertAction(analysis.ruleViolations(), "좀", WritingRuleEngine.RuleAction.SUGGESTION);
         }
     }
 
     @Test
-    void q51AndQ52AvoidLowAndMediumEssayStyleFalsePositiveRules() {
+    void q51AndQ52SignalsAreAdvisoryOnly() {
         for (String taskType : List.of("Q51", "Q52")) {
             WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
                     "Prompt",
-                    "그리고 하고 좀 한테 이랑 랑 해요",
+                    "그리고 하고 좀 한테 이랑 사랑 해요",
                     taskType);
 
             assertTrue(analysis.ruleViolations().stream().noneMatch(v -> "그리고".equals(v.evidence())));
             assertTrue(analysis.ruleViolations().stream().noneMatch(v -> "하고".equals(v.evidence())));
-            assertTrue(analysis.ruleViolations().stream().noneMatch(v -> "좀".equals(v.evidence())));
-            assertTrue(analysis.ruleViolations().stream().noneMatch(v -> "한테".equals(v.evidence())));
-            assertAction(analysis.ruleViolations(), "해요", WritingRuleEngine.RuleAction.NEEDS_IMPROVEMENT);
+            assertTrue(analysis.ruleViolations().stream().noneMatch(v -> "랑".equals(v.evidence())));
+            assertAction(analysis.ruleViolations(), "해요", WritingRuleEngine.RuleAction.SUGGESTION);
         }
     }
 
@@ -130,43 +126,62 @@ class WritingRuleEngineTest {
     void generalIsSofterThanEssayTasks() {
         WritingRuleEngine.RuleAnalysis analysis = ruleEngine.analyze(
                 "General prompt",
-                "진짜 좀 그리고 하고",
+                "진짜 좀",
                 "GENERAL");
 
-        assertAction(analysis.ruleViolations(), "진짜", WritingRuleEngine.RuleAction.NEEDS_IMPROVEMENT);
+        assertAction(analysis.ruleViolations(), "진짜", WritingRuleEngine.RuleAction.SUGGESTION);
         assertAction(analysis.ruleViolations(), "좀", WritingRuleEngine.RuleAction.SUGGESTION);
-        assertAction(analysis.ruleViolations(), "그리고", WritingRuleEngine.RuleAction.SUGGESTION);
-        assertAction(analysis.ruleViolations(), "하고", WritingRuleEngine.RuleAction.SUGGESTION);
+    }
+
+    @Test
+    void normalConnectorsEmbeddedSyllablesAndDecomposedHangulDoNotCreateHardFindings() {
+        WritingRuleEngine.RuleAnalysis normal = ruleEngine.analyze(
+                "Prompt",
+                "사랑을 이야기하고 그리고 결론을 쓴다.",
+                "Q54");
+        assertTrue(normal.ruleViolations().isEmpty());
+
+        WritingRuleEngine.RuleAnalysis decomposed = ruleEngine.analyze(
+                "Prompt",
+                java.text.Normalizer.normalize(
+                        "진짜 그렇다.", java.text.Normalizer.Form.NFD),
+                "Q54");
+        assertEquals(1, decomposed.ruleViolations().size());
+        assertEquals(
+                WritingRuleEngine.RuleAction.SUGGESTION,
+                decomposed.ruleViolations().get(0).action());
     }
 
     @Test
     void testBuildCharCountWarningQ53() {
         WritingRuleEngine.RuleAnalysis analysisShort = ruleEngine.analyze("Câu 53", "가".repeat(100));
-        assertTrue(analysisShort.charCountWarning().contains("CRITICAL"));
+        assertTrue(analysisShort.charCountWarning().contains("thấp hơn đáng kể"));
 
         WritingRuleEngine.RuleAnalysis analysisWarning = ruleEngine.analyze("Câu 53", "가".repeat(180));
-        assertTrue(analysisWarning.charCountWarning().contains("WARNING"));
+        assertTrue(analysisWarning.charCountWarning().contains("thấp hơn phạm vi"));
 
         WritingRuleEngine.RuleAnalysis analysisOk = ruleEngine.analyze("Câu 53", "가".repeat(250));
-        assertTrue(analysisOk.charCountWarning().contains("OK"));
+        assertTrue(analysisOk.charCountWarning().contains("nằm trong phạm vi"));
 
         WritingRuleEngine.RuleAnalysis analysisLong = ruleEngine.analyze("Câu 53", "가".repeat(380));
-        assertTrue(analysisLong.charCountWarning().contains("WARNING"));
+        assertTrue(analysisLong.charCountWarning().contains("vượt đáng kể"));
+        assertFalse(analysisLong.charCountWarning().contains("-10"));
     }
 
     @Test
     void testBuildCharCountWarningQ54() {
         WritingRuleEngine.RuleAnalysis analysisShort = ruleEngine.analyze("Câu 54", "가".repeat(300));
-        assertTrue(analysisShort.charCountWarning().contains("CRITICAL"));
+        assertTrue(analysisShort.charCountWarning().contains("thấp hơn đáng kể"));
 
         WritingRuleEngine.RuleAnalysis analysisWarning = ruleEngine.analyze("Câu 54", "가".repeat(500));
-        assertTrue(analysisWarning.charCountWarning().contains("WARNING"));
+        assertTrue(analysisWarning.charCountWarning().contains("thấp hơn phạm vi"));
 
         WritingRuleEngine.RuleAnalysis analysisOk = ruleEngine.analyze("Câu 54", "가".repeat(650));
-        assertTrue(analysisOk.charCountWarning().contains("OK"));
+        assertTrue(analysisOk.charCountWarning().contains("nằm trong phạm vi"));
 
         WritingRuleEngine.RuleAnalysis analysisLong = ruleEngine.analyze("Câu 54", "가".repeat(800));
-        assertTrue(analysisLong.charCountWarning().contains("WARNING"));
+        assertTrue(analysisLong.charCountWarning().contains("vượt đáng kể"));
+        assertFalse(analysisLong.charCountWarning().contains("-15"));
     }
 
     private static void assertSeverity(List<WritingRuleEngine.RuleViolation> violations,
