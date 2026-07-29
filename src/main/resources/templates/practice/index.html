@@ -5,8 +5,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-catalog.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-flow-polish.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body practice-flow-home">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
 
 <div class="pi-container">
@@ -21,16 +22,28 @@
             <h1 id="pc-library-title">Khám phá kho bài</h1>
             <p>Chọn bộ đề, bài test và kỹ năng phù hợp với mục tiêu hôm nay.</p>
           </div>
-          <form sec:authorize="hasRole('LECTURER')"
-                method="post" th:action="@{/practice/manage/create}">
-            <button class="pc-primary-action" type="submit">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round">
-                <path d="M12 5v14M5 12h14"/>
+          <div class="pc-page-actions">
+            <a class="pc-font-settings-link"
+               sec:authorize="hasRole('STUDENT')"
+               th:href="@{/practice/preferences}"
+               aria-label="Chọn kiểu chữ cho nội dung học tiếng Hàn">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M4 19 9.5 5h1L16 19M6 14h8M16 9h4M18 9v10"/>
               </svg>
-              Biên soạn đề
-            </button>
-          </form>
+              Kiểu chữ Hàn
+            </a>
+            <form sec:authorize="hasRole('LECTURER')"
+                  method="post" th:action="@{/practice/manage/create}">
+              <button class="pc-primary-action" type="submit">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Biên soạn đề
+              </button>
+            </form>
+          </div>
         </header>
 
         <th:block th:with="resume=${catalog.globalResume()}">
@@ -104,7 +117,7 @@
               Nói
             </a>
           </nav>
-          <nav class="pc-skill-filter" th:if="${catalog.skill() == 'WRITING'}"
+          <nav class="pc-skill-filter pc-skill-filter--tasks" th:if="${catalog.skill() == 'WRITING'}"
                aria-label="Lọc theo tác vụ Viết">
             <a class="pc-skill-pill"
                th:classappend="${catalog.writingTask() == 'ALL'} ? ' is-active'"
@@ -244,16 +257,16 @@
 
         <section class="pc-side-section" sec:authorize="hasRole('STUDENT')">
           <div class="pc-side-section-heading">
-            <h2>Tiến độ của tôi</h2>
-            <a th:href="@{/practice/progress}">Xem chi tiết</a>
+            <h2>Kho bài hiện tại</h2>
+            <a th:href="@{/practice/progress}">Xem tiến độ</a>
           </div>
           <dl class="pc-real-summary">
             <div>
-              <dt>Bộ đề tìm thấy</dt>
+              <dt>Tổng bộ đề công khai</dt>
               <dd th:text="${catalog.totalElements()}">0</dd>
             </div>
             <div>
-              <dt>Bộ đề trên trang</dt>
+              <dt>Đang hiển thị</dt>
               <dd th:text="${#lists.size(catalog.items())}">0</dd>
             </div>
           </dl>

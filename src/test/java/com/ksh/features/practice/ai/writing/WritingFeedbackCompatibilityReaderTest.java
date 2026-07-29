@@ -106,12 +106,12 @@ class WritingFeedbackCompatibilityReaderTest {
     }
 
     @Test
-    void generatedEntryKeepsCurrentClampBehaviorForOutOfRangeRawScore() throws Exception {
+    void generatedEntryRejectsOutOfRangeRawScoreInsteadOfClamping() throws Exception {
         JsonNode negative = objectMapper.readTree("{\"raw_score\":-1,\"raw_score_max\":10}");
         JsonNode aboveMax = objectMapper.readTree("{\"raw_score\":11,\"raw_score_max\":10}");
 
-        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_CURRENT, reader.parseGeneratedEntry(negative).status());
-        assertEquals(WritingFeedbackCompatibilityReader.Status.VALID_CURRENT, reader.parseGeneratedEntry(aboveMax).status());
+        assertEquals(WritingFeedbackCompatibilityReader.Status.MALFORMED, reader.parseGeneratedEntry(negative).status());
+        assertEquals(WritingFeedbackCompatibilityReader.Status.MALFORMED, reader.parseGeneratedEntry(aboveMax).status());
     }
 
     @Test

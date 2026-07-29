@@ -69,6 +69,7 @@ public class SpeakingEvaluationNormalizer {
                     defaultText(input, "prompt_version", PROMPT_VERSION),
                     defaultText(input, "rubric_version", RUBRIC_VERSION),
                     defaultText(input, "schema_version", SCHEMA_VERSION),
+                    text(input, "policy_bundle_id"),
                     SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                     SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                     SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
@@ -108,7 +109,8 @@ public class SpeakingEvaluationNormalizer {
                     List.of(),
                     List.of(),
                     null,
-                    input.path("retryable").asBoolean(false));
+                    input.path("retryable").asBoolean(false),
+                    text(input, "policy_bundle_fingerprint"));
         } catch (RuntimeException ex) {
             return contractFailure("PROVIDER_CONTRACT_INVALID");
         }
@@ -147,10 +149,14 @@ public class SpeakingEvaluationNormalizer {
         return new SpeakingEvaluationResult(
                 status, false, source, null, null,
                 PROMPT_VERSION, RUBRIC_VERSION, SCHEMA_VERSION,
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
                 SpeakingContractTrust.CURRENT_VERIFIED,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -181,7 +187,8 @@ public class SpeakingEvaluationNormalizer {
                 List.of(),
                 List.of(),
                 errorCategory,
-                retryable);
+                retryable,
+                SpeakingAssessmentPolicyBundle.fingerprint());
     }
 
     private List<SpeakingEvaluationResult.RubricScore> rubrics(JsonNode array) {

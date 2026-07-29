@@ -9,12 +9,17 @@ import java.util.List;
 import java.util.Set;
 
 public enum SpeakingRubricCriterion {
-    CONTENT_TASK_FULFILLMENT("S_CONTENT_TASK_FULFILLMENT", "Content / Task Fulfillment", 20),
-    GRAMMAR_SENTENCE_CONTROL("S_GRAMMAR_SENTENCE_CONTROL", "Grammar & Sentence Control", 20),
-    VOCABULARY_EXPRESSIONS("S_VOCABULARY_EXPRESSIONS", "Vocabulary & Expressions", 15),
-    COHERENCE_ORGANIZATION("S_COHERENCE_ORGANIZATION", "Coherence & Organization", 15),
-    FLUENCY("S_FLUENCY", "Fluency", 15),
-    PRONUNCIATION_DELIVERY("S_PRONUNCIATION_DELIVERY", "Pronunciation & Delivery", 15);
+    CONTENT_TASK_FULFILLMENT(
+            "S_CONTENT_TASK_FULFILLMENT", "Nội dung / Hoàn thành nhiệm vụ", 20),
+    GRAMMAR_SENTENCE_CONTROL(
+            "S_GRAMMAR_SENTENCE_CONTROL", "Ngữ pháp / Kiểm soát câu", 20),
+    VOCABULARY_EXPRESSIONS(
+            "S_VOCABULARY_EXPRESSIONS", "Từ vựng / Biểu đạt", 15),
+    COHERENCE_ORGANIZATION(
+            "S_COHERENCE_ORGANIZATION", "Mạch lạc / Tổ chức ý", 15),
+    FLUENCY("S_FLUENCY", "Độ lưu loát", 15),
+    PRONUNCIATION_DELIVERY(
+            "S_PRONUNCIATION_DELIVERY", "Phát âm / Cách thể hiện", 15);
 
     private final String id;
     private final String label;

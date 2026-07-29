@@ -5,10 +5,10 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v5.0";
-    public static final String RUBRIC_VERSION = "v4.1";
-    public static final String EVALUATION_SCHEMA_VERSION = "v4.1";
-    public static final String EVALUATION_CONTRACT_VERSION = "v6.0";
+    public static final String PROMPT_VERSION = "v6.0";
+    public static final String RUBRIC_VERSION = "v4.2";
+    public static final String EVALUATION_SCHEMA_VERSION = "v5.0";
+    public static final String EVALUATION_CONTRACT_VERSION = "v7.0";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
@@ -18,7 +18,7 @@ public final class WritingPromptRules {
     // --- Sentence-completion rubrics (Q51, Q52) ---
     public static final String RUBRIC_Q51_52_CONTENT = "Hoàn thành đúng nội dung & ngữ cảnh (내용의 적절성)";
     public static final String RUBRIC_Q51_52_GRAMMAR = "Ngữ pháp & cấu trúc câu (문법 및 문장 구성)";
-    public static final String RUBRIC_Q51_52_VOCAB = "Từ vựng, register & tính tự nhiên (어휘 및 자연스러움)";
+    public static final String RUBRIC_Q51_52_VOCAB = "Từ vựng, văn phong & tính tự nhiên (어휘 및 자연스러움)";
 
     private WritingPromptRules() {
     }
@@ -66,8 +66,8 @@ public final class WritingPromptRules {
                 - Bao phủ đầy đủ các yêu cầu / bullet của đề không.
                 - Có phát triển ý bằng lý do, giải thích, ví dụ hoặc dữ kiện phù hợp không.
                 - Có đi lạc đề, lặp đề, viết lan man, hoặc thiếu trọng tâm không.
-                - Có giữ đúng dạng bài của taskType không.
-                - Nếu request có ảnh câu hỏi nội bộ, phải đọc ảnh đó như nguồn đề bài có thẩm quyền cùng với prompt.
+                - Có giữ đúng dạng bài được chỉ định trong task_type không.
+                - Nếu yêu cầu có ảnh câu hỏi nội bộ, phải đọc ảnh đó như nguồn đề bài có thẩm quyền cùng với nội dung câu hỏi.
                 - Chỉ dùng dữ kiện nhìn thấy rõ trong ảnh; không tự bịa nhãn, số liệu, xu hướng hoặc yêu cầu bị che khuất.
 
                 [ĐÁNH GIÁ VĂN PHONG / REGISTER]
@@ -109,10 +109,14 @@ public final class WritingPromptRules {
                 - Mỗi finding phải dùng evidenceScope được liệt kê trong allowed_rubric.
                 - TEXT_SPAN: evidence PHẢI là chuỗi con CHÍNH XÁC trong learner_answer và không được rỗng.
                 - WHOLE_ANSWER: evidence phải là chuỗi rỗng; finding đánh giá toàn bài và không tạo highlight giả.
-                - TASK_METADATA: chỉ dùng khi allowed_rubric cho phép và payload có metadata có thẩm quyền.
                 - strengths correction luôn là chuỗi rỗng "".
-                - needs_improvement correction bắt buộc là từ/câu tiếng Hàn đã sửa chính xác.
+                - needs_improvement dùng TEXT_SPAN thì correction bắt buộc là từ/câu tiếng Hàn đã sửa chính xác; với WHOLE_ANSWER, correction có thể để rỗng nếu không có một đoạn sửa cục bộ trung thực.
                 - Chỉ dùng criterionId có trong allowed_rubric, không tự bịa ID.
+                - subtype phải thuộc allowedSubtypes của criterionId.
+                - scoringCriterionId phải khớp exactScoringCriterionId; nếu giá trị đó là null thì phải trả null, không đoán parent.
+                - impact chỉ dùng MINOR, MODERATE, MAJOR hoặc BLOCKING.
+                - frequency là số nguyên từ 1 trở lên; confidence là số từ 0 đến 1.
+                - observability chỉ dùng DIRECT hoặc INFERRED_BOUNDED và phải phù hợp evidenceScope.
                 - Quét tuần tự từ đầu đến cuối văn bản.
 
                 [STRENGTHS - WRITING]
@@ -142,18 +146,14 @@ public final class WritingPromptRules {
 
                 [BỘ LỌC KHẨU NGỮ ĐÃ PHÁT HIỆN BỞI JAVA]
                 Trường rule_violations là ngữ cảnh kỹ thuật, không tự quyết định điểm cuối.
-                Mỗi rule có severity và action:
-                - HIGH: vấn đề khẩu ngữ/register rõ; với Q53/Q54/GENERAL có thể tạo W_REGISTER_CONSISTENCY_ISSUES nếu evidence còn nguyên văn.
-                - MEDIUM: vấn đề mức vừa; Q53/Q54 có thể tạo needs_improvement, GENERAL nên xem là gợi ý mềm, Q51/Q52 không được phóng đại thành lỗi bài luận.
-                - LOW: chỉ là suggestion/soft note; đặc biệt "그리고" và "하고" không phải lỗi cứng mặc định.
-                Tạo finding cho rule_violations chỉ khi action=NEEDS_IMPROVEMENT, evidence vẫn là TEXT_SPAN chính xác, và lỗi thật sự phù hợp với task.
+                Mọi quy tắc cục bộ chỉ là tín hiệu tư vấn để bộ đánh giá kiểm tra lại, không phải phát hiện hay điểm.
+                Chỉ tạo phát hiện nếu bộ đánh giá tự xác minh được bằng chứng, phạm vi dạng bài, tiêu chí cha, loại con và mức ảnh hưởng theo contract.
                 Không lặp lại máy móc nhiều finding cho cùng một vấn đề deterministic; gộp hoặc giải thích ngắn gọn nếu cùng loại.
 
                 [QUY TẮC EVIDENCE — QUAN TRỌNG]
                 Backend chỉ tính start/end index cho TEXT_SPAN.
                 - TEXT_SPAN phải nguyên văn, không thêm/bớt ký tự hay khoảng trắng.
                 - WHOLE_ANSWER không có start/end và không được bịa đoạn trích.
-                - Không dùng TASK_METADATA khi payload không cung cấp metadata có thẩm quyền.
 
                 """ + taskDetailRules(taskType) + """
 
@@ -184,8 +184,8 @@ public final class WritingPromptRules {
                 Trả về JSON nghiêm ngặt gồm đúng các trường sau (KHÔNG trả score, raw_score, raw_score_max — backend tự tính):
                 - summary (string): nhận xét tổng quan
                 - rubric_scores (array): đúng tất cả tiêu chí trong allowed_rubric.scoring_criteria, mỗi phần tử có criterionId, name, score, maxScore, feedback
-                - strengths (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
-                - needs_improvement (array): mỗi phần tử có criterionId, evidenceScope, evidence, explanationVi, correction
+                - strengths (array): mỗi phần tử có criterionId, subtype, scoringCriterionId, evidenceScope, evidence, explanationVi, correction, impact, frequency, confidence, observability
+                - needs_improvement (array): mỗi phần tử có criterionId, subtype, scoringCriterionId, evidenceScope, evidence, explanationVi, correction, impact, frequency, confidence, observability
                 - upgraded_answer (string)
                 - upgraded_answer_annotated (string)
                 - sentence_rewrites (array): mỗi phần tử có original, upgraded, reason
@@ -204,7 +204,7 @@ public final class WritingPromptRules {
                     2. Ngữ pháp & cấu trúc câu (문법 및 문장 구성):
                        - Vĩ tố liên kết chính xác.
                        - Cấu trúc ngữ pháp đúng ngữ cảnh.
-                    3. Từ vựng, register & tính tự nhiên (어휘 및 자연스러움):
+                    3. Từ vựng, văn phong & tính tự nhiên (어휘 및 자연스러움):
                        - Từ vựng phù hợp văn cảnh.
                        - Văn phong tự nhiên, không gượng.
                     Không yêu cầu mở bài, thân bài, kết luận, bố cục đoạn văn tự do, số đoạn, hoặc từ nối nghị luận dài.""";
@@ -230,40 +230,40 @@ public final class WritingPromptRules {
                     - Đây là dạng điền chỗ trống trong bài viết TOPIK.
                     - Đánh giá sự hòa hợp nghĩa trước/sau chỗ trống và độ chính xác của vĩ tố liên kết.
                     - Điểm cao khi đáp án ngắn, tự nhiên, đúng logic, đúng văn phong.
-                    - KHÔNG yêu cầu bố cục mở/thân/kết (no essay organization/structure requirement).
+                    - KHÔNG yêu cầu bố cục mở/thân/kết như một bài luận.
                     - Tiêu chí chấm:
                       * Hoàn thành đúng nội dung & ngữ cảnh: Đánh giá câu trả lời phù hợp logic trước/sau chỗ trống.
                       * Ngữ pháp & cấu trúc câu: Đánh giá độ chính xác của vĩ tố liên kết và cấu trúc ngữ pháp.
-                      * Từ vựng, register & tính tự nhiên: Đánh giá từ vựng phù hợp ngữ cảnh, văn phong viết trang trọng.
+                      * Từ vựng, văn phong & tính tự nhiên: Đánh giá từ vựng phù hợp ngữ cảnh, văn phong viết trang trọng.
                     """;
             case "Q53" -> """
                     [YÊU CẦU CÂU 53 - BIỂU ĐỒ 200~300자]
-                    - Mô tả khách quan số liệu/xu hướng; không đưa ý kiến cá nhân (objective written style).
-                    - Chỉ đánh giá số liệu/xu hướng dựa trên dữ kiện hiển thị rõ trong prompt hoặc nguồn đề bài đã cung cấp.
+                    - Mô tả khách quan số liệu/xu hướng; không đưa ý kiến cá nhân, giữ văn phong viết khách quan.
+                    - Chỉ đánh giá số liệu/xu hướng dựa trên dữ kiện hiển thị rõ trong nội dung hoặc nguồn đề bài đã cung cấp.
                     - Không tự bịa dữ kiện, số liệu ngoài đề bài; không kết luận chắc chắn là "bịa/sai số liệu" nếu không có dữ liệu có thẩm quyền để đối chiếu.
-                    - Phạt nặng nếu dùng 나, 저, 생각한다, 느낀다 theo kiểu chủ quan.
+                    - Nếu 나, 저, 생각한다, 느낀다 tạo giọng chủ quan không phù hợp yêu cầu mô tả khách quan, hãy ghi nhận theo đúng bằng chứng và tiêu chí; không áp dụng mức phạt cứng.
                     - Ưu tiên cấu trúc ~에 따르면, ~ㄴ 것으로 나타났다, ~ㄹ 전망이다.
                     - Tiêu chí chấm:
-                      * Hoàn thành nhiệm vụ & Nội dung: Đánh giá độ bao phủ dữ liệu (data/task coverage) từ biểu đồ.
-                      * Cấu trúc & Bố cục đoạn văn: Đánh giá tính mạch lạc logic và cách sử dụng các từ nối chuyển ý (organization anchors).
-                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Đánh giá chính tả, cách chữ, từ vựng và cấu trúc viết trang trọng (language anchors).
+                      * Hoàn thành nhiệm vụ & Nội dung: Đánh giá mức bao phủ dữ liệu và yêu cầu từ biểu đồ.
+                      * Cấu trúc & Bố cục đoạn văn: Đánh giá tính mạch lạc logic và cách sử dụng các từ nối chuyển ý.
+                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Đánh giá chính tả, cách chữ, từ vựng và cấu trúc viết trang trọng.
                     """;
             case "Q54" -> """
                     [YÊU CẦU CÂU 54 - NGHỊ LUẬN 600~700자]
-                    - Bố cục mở-thân-kết rõ ràng (organization anchors).
-                    - Đánh giá mức độ trả lời các gợi ý/yêu cầu được viết rõ trong prompt; không thực hiện kiểm tra yêu cầu có cấu trúc nếu đề không cung cấp dữ liệu có thẩm quyền.
-                    - Nếu một ý gợi ý hiển thị rõ bị bỏ qua, nêu như hạn chế task coverage có căn cứ; tránh overclaim khi yêu cầu chỉ suy đoán.
-                    - Phải có luận điểm rõ ràng (thesis/argument coverage), phát triển ý kiến bằng lý do, giải thích hoặc ví dụ thực tế (reasons/examples/development).
+                    - Tổ chức lập luận theo trình tự phù hợp với yêu cầu hiển thị rõ trong đề.
+                    - Đánh giá mức độ trả lời các gợi ý/yêu cầu được viết rõ trong đề; không thực hiện kiểm tra yêu cầu có cấu trúc nếu đề không cung cấp dữ liệu có thẩm quyền.
+                    - Nếu một ý gợi ý hiển thị rõ bị bỏ qua, nêu như hạn chế bao phủ yêu cầu có căn cứ; không khẳng định quá mức khi yêu cầu chỉ là suy đoán.
+                    - Phải có luận điểm rõ ràng, phát triển ý kiến bằng lý do, giải thích hoặc ví dụ phù hợp khi đề yêu cầu.
                     - Cần lập luận chặt chẽ, liên kết logic và văn phong nghị luận trang trọng.
                     - Tiêu chí chấm:
-                      * Hoàn thành nhiệm vụ & Nội dung: Trả lời đầy đủ 3 câu hỏi gợi ý của đề bài và phát triển luận điểm thuyết phục.
-                      * Cấu trúc & Bố cục đoạn văn: Đầy đủ 3 phần mở-thân-kết, sử dụng từ nối chuyển đoạn logic.
-                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Sử dụng từ vựng trung-cao cấp phong phú, ngữ pháp phức tạp chính xác (language anchors).
+                      * Hoàn thành nhiệm vụ & Nội dung: Trả lời các gợi ý/yêu cầu thực sự hiển thị trong đề và phát triển luận điểm phù hợp.
+                      * Cấu trúc & Bố cục đoạn văn: Sắp xếp các phần theo trình tự lập luận phù hợp và dùng từ nối logic.
+                      * Sử dụng ngôn ngữ & Quy tắc chính tả: Sử dụng từ vựng trung-cao cấp phù hợp và ngữ pháp phức tạp chính xác.
                     """;
             default -> """
                     [YÊU CẦU BÀI VIẾT CHUNG]
                     - Đánh giá mạch lạc, chính tả, cách chữ, tính tự nhiên và độ phù hợp với đề.
-                    - Đây là bài viết chung (GENERAL), KHÔNG được tự ý ép thành câu hỏi mô tả biểu đồ Q53 hay câu nghị luận xã hội Q54 (no forcing into Q53 or Q54).
+                    - Đây là bài viết chung (GENERAL), KHÔNG được tự ý ép thành câu hỏi mô tả biểu đồ Q53 hay câu nghị luận xã hội Q54.
                     - Tiêu chí chấm:
                       * Hoàn thành nhiệm vụ & Nội dung: Đánh giá độ phù hợp với đề bài và ý tưởng.
                       * Cấu trúc & Bố cục đoạn văn: Đánh giá bố cục đoạn văn, sự mạch lạc giữa các câu.
@@ -274,15 +274,15 @@ public final class WritingPromptRules {
 
     static String taskDetailRules(String taskType) {
         if ("Q53".equals(taskType)) {
-            return "Với Q53, ưu tiên lỗi mô tả dữ liệu có thể xác minh từ prompt/source text; nếu thiếu dữ liệu có thẩm quyền, chỉ nêu hạn chế như diễn giải chưa được hỗ trợ thay vì khẳng định bịa/sai số liệu.";
+            return "Với Q53, ưu tiên lỗi mô tả dữ liệu có thể xác minh từ nội dung và nguồn đề; nếu thiếu dữ liệu có thẩm quyền, chỉ nêu hạn chế như diễn giải chưa được hỗ trợ thay vì khẳng định bịa/sai số liệu.";
         }
         if ("Q54".equals(taskType)) {
-            return "Với Q54, ưu tiên task coverage dựa trên gợi ý/yêu cầu hiển thị rõ, thiếu mở-thân-kết, liên kết yếu, khẩu ngữ và dung lượng không đạt; không overclaim structured requirement checking.";
+            return "Với Q54, ưu tiên mức bao phủ gợi ý/yêu cầu hiển thị rõ, trình tự lập luận, liên kết, văn phong và dung lượng; không khẳng định thiếu một cấu trúc cố định nếu đề không yêu cầu.";
         }
         if (isClozeTask(taskType)) {
             return "Với Q51/52, ưu tiên bắt lỗi hòa hợp nghĩa, vĩ tố liên kết, tiểu từ và ngữ pháp điền chỗ trống.";
         }
-        return "Với bài chung, quét lần lượt toàn bài theo từng tiêu chí, không bỏ sót lỗi có evidence.";
+        return "Với bài chung, quét lần lượt toàn bài theo từng tiêu chí, không bỏ sót lỗi có bằng chứng.";
     }
 
     static String taskUpgradeRules(String taskType) {

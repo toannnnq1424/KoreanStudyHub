@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.ai.transport.TestPracticeStructuredGenerationPort;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
@@ -9,8 +11,6 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,68 +20,60 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
     private final SpeakingEvaluationPromptBuilder promptBuilder = new SpeakingEvaluationPromptBuilder(objectMapper);
 
     @Test
-    @SuppressWarnings("unchecked")
-    void sendsFixedSchemaChatCompletionRequest() {
-        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
+    void sendsTypedFixedSchemaRequestThroughPracticePort() {
+        TestPracticeStructuredGenerationPort port = port();
         OpenAiCompatibleSpeakingEvaluationClient client = client(properties("secret-key",
                 "https://generativelanguage.googleapis.com/v1beta/openai",
-                "models/gemini-2.5-flash"), transport);
+                "models/gemini-2.5-flash"), port);
 
         client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
-        Map<String, Object> body = transport.body();
-        assertEquals("models/gemini-2.5-flash", body.get("model"));
-        assertThat(body.get("messages").toString())
-                .contains("system")
-                .contains("user")
-                .contains("KSH Korean Study Hub");
-        Map<String, Object> responseFormat = (Map<String, Object>) body.get("response_format");
-        assertEquals("json_schema", responseFormat.get("type"));
-        assertThat(responseFormat.toString()).contains("S_CONTENT_TASK_FULFILLMENT");
+        assertThat(port.lastRequest().operation())
+                .isEqualTo("speaking-transcript-evaluation");
+        assertThat(port.lastRequest().systemInstruction())
+                .contains("Korean Study Hub");
+        assertThat(port.lastRequest().responseSchema().toString())
+                .contains("S_CONTENT_TASK_FULFILLMENT");
+        assertThat(port.lastRequest().authority().strategyCode())
+                .isEqualTo("TRANSCRIPT_ONLY");
     }
 
     @Test
-    void sendsGovernedQuestionImageAsMultimodalContent() {
-        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(transport);
+    void sendsGovernedQuestionImageAsTypedEvidence() {
+        TestPracticeStructuredGenerationPort port = port();
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(port);
         AiImageEvidence image = new AiImageEvidence(
                 8L, "image/png", "data:image/png;base64,cG5n", "image-sha", 3);
 
         client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false, image));
 
-        assertThat(transport.body().get("messages").toString())
-                .contains("image_url", "data:image/png;base64,cG5n", "question_image")
-                .doesNotContain("image-sha")
-                .doesNotContain("audio_media_id", "media_version", "audio/webm");
+        assertThat(port.lastRequest().images()).singleElement()
+                .satisfies(evidence -> {
+                    assertThat(evidence.role()).isEqualTo("QUESTION_IMAGE");
+                    assertThat(evidence.dataUrl())
+                            .isEqualTo("data:image/png;base64,cG5n");
+                    assertThat(evidence.sha256()).isEqualTo("image-sha");
+                });
+        assertThat(port.lastRequest().input().toString())
+                .doesNotContain("audio/webm");
     }
 
     @Test
-    void usesSpeakingEvaluatorBaseUrlNotTranscriptionBaseUrl() {
-        OpenAiCompatibleSpeakingEvaluationClient client = client(properties("secret-key",
-                "https://generativelanguage.googleapis.com/v1beta/openai",
-                "models/gemini-2.5-flash"),
-                new CapturingTransport(envelope(validEvaluationJson()),
-                        "https://generativelanguage.googleapis.com/v1beta/openai"));
-
-        assertThat(client.transportBaseUrlForTest())
-                .isEqualTo("https://generativelanguage.googleapis.com/v1beta/openai")
-                .doesNotContain("audio/transcriptions")
-                .doesNotContain("api.openai.com/v1");
-    }
-
-    @Test
-    void missingApiKeyMapsEvaluationUnavailableWithoutProviderCall() {
-        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
+    void unavailableCapabilityMapsEvaluationUnavailableWithoutProviderCall() {
+        TestPracticeStructuredGenerationPort port =
+                TestPracticeStructuredGenerationPort.unavailable(
+                        "openai-primary",
+                        "assessment-model");
         OpenAiCompatibleSpeakingEvaluationClient client = client(properties("",
                 "https://generativelanguage.googleapis.com/v1beta/openai",
-                "models/gemini-2.5-flash"), transport);
+                "models/gemini-2.5-flash"), port);
 
         SpeakingEvaluationProviderResult result = client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
         assertEquals(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE, result.failureStatus());
         assertEquals("MISSING_API_KEY", result.errorCategory());
         assertThat(result.retryable()).isFalse();
-        assertThat(transport.calls()).isZero();
+        assertThat(port.calls()).isZero();
     }
 
     @Test
@@ -100,8 +92,11 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
 
     @Test
     void transportTimeoutMapsRetryableTrue() {
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(
-                new CapturingTransport(new ResourceAccessException("timeout")));
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(
+                TestPracticeStructuredGenerationPort.throwing(
+                        "openai-primary",
+                        "assessment-model",
+                        new ResourceAccessException("timeout")));
 
         SpeakingEvaluationProviderResult result = client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
@@ -111,20 +106,28 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
     }
 
     @Test
-    void malformedProviderEnvelopeMapsContractFailure() {
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(new CapturingTransport("not-json"));
+    void strictPortContractFailureMapsContractFailure() {
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(
+                TestPracticeStructuredGenerationPort.throwing(
+                        "openai-primary",
+                        "assessment-model",
+                        new PracticeAiContractException(
+                                "PROVIDER_MALFORMED_STRUCTURED_OUTPUT",
+                                false)));
 
         SpeakingEvaluationProviderResult result = client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
         assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED, result.failureStatus());
-        assertEquals("PROVIDER_MALFORMED_JSON", result.errorCategory());
+        assertEquals(
+                "PROVIDER_MALFORMED_STRUCTURED_OUTPUT",
+                result.errorCategory());
         assertThat(result.retryable()).isFalse();
     }
 
     @Test
     void providerContentJsonParsesToEvaluationJson() {
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(
-                new CapturingTransport(envelope(validEvaluationJson())));
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(
+                port());
 
         SpeakingEvaluationProviderResult result = client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
@@ -134,19 +137,19 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
     }
 
     @Test
-    void noRealProviderCallCanHappenWithFakeTransport() {
-        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(transport);
+    void noRealProviderCallCanHappenWithFakePort() {
+        TestPracticeStructuredGenerationPort port = port();
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(port);
 
         client.evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
-        assertThat(transport.calls()).isEqualTo(1);
+        assertThat(port.calls()).isEqualTo(1);
     }
 
     @Test
     void textChatClientRejectsReservedDirectAudioCapabilityWithoutCallingProvider() {
-        CapturingTransport transport = new CapturingTransport(envelope(validEvaluationJson()));
-        OpenAiCompatibleSpeakingEvaluationClient client = clientWithTransport(transport);
+        TestPracticeStructuredGenerationPort port = port();
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(port);
 
         SpeakingEvaluationProviderResult result = client.evaluate(requestWithCapability(
                 SpeakingEvaluatorCapability.AUDIO_DIRECT_FULL_RESERVED,
@@ -156,14 +159,80 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
         assertThat(result.success()).isFalse();
         assertThat(result.failureStatus()).isEqualTo(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED);
         assertThat(result.errorCategory()).isEqualTo("UNSUPPORTED_EVALUATOR_CAPABILITY");
-        assertThat(transport.calls()).isZero();
+        assertThat(port.calls()).isZero();
+    }
+
+    @Test
+    void stalePolicyBundleOrVersionCannotCallProvider() {
+        TestPracticeStructuredGenerationPort port = port();
+        OpenAiCompatibleSpeakingEvaluationClient client =
+                clientWithPort(port);
+        SpeakingEvaluationRequest base =
+                SpeakingEvaluationPromptBuilderTest.request(false);
+
+        SpeakingEvaluationProviderResult stale = client.evaluate(
+                new SpeakingEvaluationRequest(
+                        base.attemptId(), base.questionId(),
+                        base.questionVersionId(), base.promptContext(),
+                        base.promptContextFingerprint(),
+                        base.promptContextContractIdentity(),
+                        base.questionText(), base.targetLevel(),
+                        base.expectedAnswerGuidance(), base.imageEvidence(),
+                        base.audioMediaId(), base.mediaVersion(),
+                        base.mimeType(), base.byteSize(), base.durationMs(),
+                        base.transcriptionProvider(),
+                        base.transcriptionModel(), base.language(),
+                        base.transcript(), base.normalizedTranscript(),
+                        base.actuallyHeardTranscript(),
+                        base.interpretedIntent(),
+                        base.transcriptConfidence(), base.textFallback(),
+                        "stale-prompt", base.rubricVersion(),
+                        base.schemaVersion(), "STALE_BUNDLE",
+                        base.evaluatorCapability(), base.evidenceMode(),
+                        base.evidenceContractVersion()));
+
+        assertThat(stale.success()).isFalse();
+        assertThat(stale.failureStatus()).isEqualTo(
+                SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED);
+        assertThat(port.calls()).isZero();
+    }
+
+    @Test
+    void staleConfiguredPolicyVersionsCannotCallProvider() {
+        TestPracticeStructuredGenerationPort port = port();
+        SpeakingEvaluatorProperties staleProperties =
+                new SpeakingEvaluatorProperties(
+                        false,
+                        "openai-compatible",
+                        "https://generativelanguage.googleapis.com/v1beta/openai",
+                        "secret-key",
+                        "models/gemini-2.5-flash",
+                        Duration.ofSeconds(30),
+                        0,
+                        "stale-prompt",
+                        SpeakingPromptRules.RUBRIC_VERSION,
+                        SpeakingPromptRules.SCHEMA_VERSION);
+        OpenAiCompatibleSpeakingEvaluationClient client =
+                client(staleProperties, port);
+
+        SpeakingEvaluationProviderResult result = client.evaluate(
+                SpeakingEvaluationPromptBuilderTest.request(false));
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorCategory()).isEqualTo(
+                "STALE_EVALUATOR_POLICY_CONFIGURATION");
+        assertThat(port.calls()).isZero();
     }
 
     private void assertHttp(HttpStatus status, boolean retryable) {
         RuntimeException ex = status.is4xxClientError()
                 ? HttpClientErrorException.create(status, status.getReasonPhrase(), null, null, null)
                 : HttpServerErrorException.create(status, status.getReasonPhrase(), null, null, null);
-        SpeakingEvaluationProviderResult result = clientWithTransport(new CapturingTransport(ex))
+        SpeakingEvaluationProviderResult result = clientWithPort(
+                TestPracticeStructuredGenerationPort.throwing(
+                        "openai-primary",
+                        "assessment-model",
+                        ex))
                 .evaluate(SpeakingEvaluationPromptBuilderTest.request(false));
 
         assertEquals(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE, result.failureStatus());
@@ -188,20 +257,36 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                 base.transcript(), base.normalizedTranscript(), base.actuallyHeardTranscript(),
                 base.interpretedIntent(), base.transcriptConfidence(), base.textFallback(),
                 base.promptVersion(), base.rubricVersion(), base.schemaVersion(),
+                base.policyBundleId(),
                 capability, mode, evidenceVersion);
     }
 
-    private OpenAiCompatibleSpeakingEvaluationClient clientWithTransport(CapturingTransport transport) {
+    private OpenAiCompatibleSpeakingEvaluationClient clientWithPort(
+            TestPracticeStructuredGenerationPort port) {
         return client(properties("secret-key",
                 "https://generativelanguage.googleapis.com/v1beta/openai",
-                "models/gemini-2.5-flash"), transport);
+                "models/gemini-2.5-flash"), port);
     }
 
     private OpenAiCompatibleSpeakingEvaluationClient client(
             SpeakingEvaluatorProperties properties,
-            CapturingTransport transport
+            TestPracticeStructuredGenerationPort port
     ) {
-        return new OpenAiCompatibleSpeakingEvaluationClient(properties, promptBuilder, objectMapper, transport);
+        return new OpenAiCompatibleSpeakingEvaluationClient(
+                properties,
+                promptBuilder,
+                port);
+    }
+
+    private TestPracticeStructuredGenerationPort port() {
+        try {
+            return TestPracticeStructuredGenerationPort.available(
+                    "openai-primary",
+                    "assessment-model",
+                    objectMapper.readTree(validEvaluationJson()));
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private SpeakingEvaluatorProperties properties(String apiKey, String baseUrl, String model) {
@@ -239,34 +324,34 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                   "transcript_confidence":0.81,
                   "listener_burden":"LOW",
                   "overall_score":78,
-                  "level_label":"KSH internal",
-                  "overall_summary":"Clear answer with minor language issues.",
-                  "task_achievement_summary":"The learner introduces themself and stays on topic.",
-                  "major_strengths":["Relevant answer","Understandable main idea"],
-                  "major_needs_improvement":["Use particles more accurately","Add one specific example"],
+                  "level_label":"Mức luyện tập nội bộ KSH",
+                  "overall_summary":"Câu trả lời rõ ý và chỉ còn một số điểm ngôn ngữ cần chỉnh.",
+                  "task_achievement_summary":"Học viên giới thiệu bản thân và bám đúng chủ đề.",
+                  "major_strengths":["Câu trả lời đúng trọng tâm","Ý chính dễ hiểu"],
+                  "major_needs_improvement":["Dùng tiểu từ chính xác hơn","Bổ sung một ví dụ cụ thể"],
                   "confidence_notes":"Độ tin cậy đủ để phản hồi tổng quát, nhưng phát âm vẫn chỉ là gợi ý.",
                   "action_plan":[
-                    {"criterion_id":"S_GRAMMAR_SENTENCE_CONTROL","sub_criterion_id":"S_GRAMMAR_PARTICLES","title":"Particle drill","instruction":"Practice five self-introduction sentences with 은/는 and 이/가.","reason":"Particles affect clarity.","priority":"HIGH"},
-                    {"criterion_id":"S_FLUENCY","sub_criterion_id":"S_FLUENCY_CONTINUITY","title":"Timed speaking","instruction":"Speak for 30 seconds without stopping.","reason":"Build continuity.","priority":"MEDIUM"}
+                    {"criterion_id":"S_GRAMMAR_SENTENCE_CONTROL","sub_criterion_id":"S_GRAMMAR_PARTICLES","title":"Luyện tiểu từ","instruction":"Luyện năm câu tự giới thiệu với 은/는 và 이/가.","reason":"Tiểu từ ảnh hưởng đến độ rõ nghĩa.","priority":"HIGH"},
+                    {"criterion_id":"S_FLUENCY","sub_criterion_id":"S_FLUENCY_CONTINUITY","title":"Luyện nói có thời gian","instruction":"Nói liên tục trong 30 giây.","reason":"Rèn khả năng duy trì mạch nói.","priority":"MEDIUM"}
                   ],
                   "criterion_feedback":[
-                    {"criterion_id":"S_CONTENT_TASK_FULFILLMENT","display_name":"Content / Task Fulfillment","score":17,"max_score":20,"level_label":"Good","summary":"Relevant and on topic","strengths":["Answers the task"],"needs_improvement":["Add detail"],"subcriteria":[
-                      {"sub_criterion_id":"S_CONTENT_RELEVANCE","display_name":"Relevance","level_label":"Good","summary":"On topic","strengths":["Clear topic"],"needs_improvement":[]}
+                    {"criterion_id":"S_CONTENT_TASK_FULFILLMENT","display_name":"Nội dung và hoàn thành nhiệm vụ","score":17,"max_score":20,"level_label":"Tốt","summary":"Phù hợp và đúng chủ đề","strengths":["Đáp ứng yêu cầu"],"needs_improvement":["Bổ sung chi tiết"],"subcriteria":[
+                      {"sub_criterion_id":"S_CONTENT_RELEVANCE","display_name":"Mức độ liên quan","level_label":"Tốt","summary":"Đúng chủ đề","strengths":["Chủ đề rõ"],"needs_improvement":[]}
                     ]},
-                    {"criterion_id":"S_GRAMMAR_SENTENCE_CONTROL","display_name":"Grammar & Sentence Control","score":16,"max_score":20,"level_label":"Good","summary":"Mostly controlled","strengths":["Clear ending"],"needs_improvement":["Particles"],"subcriteria":[
-                      {"sub_criterion_id":"S_GRAMMAR_PARTICLES","display_name":"Particles","level_label":"Developing","summary":"Some particle control needed","strengths":[],"needs_improvement":["Drill 은/는"]}
+                    {"criterion_id":"S_GRAMMAR_SENTENCE_CONTROL","display_name":"Ngữ pháp và kiểm soát câu","score":16,"max_score":20,"level_label":"Tốt","summary":"Kiểm soát phần lớn cấu trúc","strengths":["Đuôi câu rõ"],"needs_improvement":["Tiểu từ"],"subcriteria":[
+                      {"sub_criterion_id":"S_GRAMMAR_PARTICLES","display_name":"Tiểu từ","level_label":"Đang phát triển","summary":"Cần kiểm soát tiểu từ tốt hơn","strengths":[],"needs_improvement":["Luyện 은/는"]}
                     ]},
-                    {"criterion_id":"S_VOCABULARY_EXPRESSIONS","display_name":"Vocabulary & Expressions","score":12,"max_score":15,"level_label":"Good","summary":"Adequate words","strengths":["Basic vocabulary"],"needs_improvement":["Add natural expression"],"subcriteria":[
-                      {"sub_criterion_id":"S_VOCAB_NATURAL_EXPRESSIONS","display_name":"Natural expressions","level_label":"Developing","summary":"Could sound more natural","strengths":[],"needs_improvement":["Memorize reusable phrases"]}
+                    {"criterion_id":"S_VOCABULARY_EXPRESSIONS","display_name":"Từ vựng và biểu đạt","score":12,"max_score":15,"level_label":"Tốt","summary":"Từ ngữ đủ dùng","strengths":["Từ vựng nền tảng phù hợp"],"needs_improvement":["Bổ sung cách diễn đạt tự nhiên"],"subcriteria":[
+                      {"sub_criterion_id":"S_VOCAB_NATURAL_EXPRESSIONS","display_name":"Biểu đạt tự nhiên","level_label":"Đang phát triển","summary":"Có thể diễn đạt tự nhiên hơn","strengths":[],"needs_improvement":["Ghi nhớ các cụm dùng lại được"]}
                     ]},
-                    {"criterion_id":"S_COHERENCE_ORGANIZATION","display_name":"Coherence & Organization","score":12,"max_score":15,"level_label":"Good","summary":"Easy to follow","strengths":["Logical order"],"needs_improvement":["Add connector"],"subcriteria":[
-                      {"sub_criterion_id":"S_COHERENCE_LOGICAL_FLOW","display_name":"Logical flow","level_label":"Good","summary":"Clear order","strengths":["No topic jump"],"needs_improvement":[]}
+                    {"criterion_id":"S_COHERENCE_ORGANIZATION","display_name":"Mạch lạc và tổ chức","score":12,"max_score":15,"level_label":"Tốt","summary":"Dễ theo dõi","strengths":["Trình tự hợp lý"],"needs_improvement":["Bổ sung từ nối"],"subcriteria":[
+                      {"sub_criterion_id":"S_COHERENCE_LOGICAL_FLOW","display_name":"Mạch logic","level_label":"Tốt","summary":"Trình tự rõ","strengths":["Không chuyển chủ đề đột ngột"],"needs_improvement":[]}
                     ]},
-                    {"criterion_id":"S_FLUENCY","display_name":"Fluency","score":11,"max_score":15,"level_label":"Developing","summary":"Some hesitation","strengths":["Continues speaking"],"needs_improvement":["Reduce pauses"],"subcriteria":[
-                      {"sub_criterion_id":"S_FLUENCY_HESITATION","display_name":"Hesitation","level_label":"Developing","summary":"Some hesitation","strengths":[],"needs_improvement":["Timed speaking"]}
+                    {"criterion_id":"S_FLUENCY","display_name":"Độ trôi chảy","score":11,"max_score":15,"level_label":"Đang phát triển","summary":"Có một số chỗ ngập ngừng","strengths":["Duy trì được lời nói"],"needs_improvement":["Giảm khoảng dừng"],"subcriteria":[
+                      {"sub_criterion_id":"S_FLUENCY_HESITATION","display_name":"Mức độ ngập ngừng","level_label":"Đang phát triển","summary":"Có một số chỗ ngập ngừng","strengths":[],"needs_improvement":["Luyện nói có thời gian"]}
                     ]},
-                    {"criterion_id":"S_PRONUNCIATION_DELIVERY","display_name":"Pronunciation & Delivery","score":10,"max_score":15,"level_label":"Advisory","summary":"Generally understandable","strengths":["Understandable"],"needs_improvement":["Possible clarity issue"],"subcriteria":[
-                      {"sub_criterion_id":"S_PRONUNCIATION_INTELLIGIBILITY","display_name":"Intelligibility","level_label":"Advisory","summary":"Understandable","strengths":["Low listener burden"],"needs_improvement":[]}
+                    {"criterion_id":"S_PRONUNCIATION_DELIVERY","display_name":"Phát âm và thể hiện","score":10,"max_score":15,"level_label":"Chỉ tham khảo","summary":"Nhìn chung có thể hiểu","strengths":["Có thể hiểu"],"needs_improvement":["Có thể còn điểm chưa rõ"],"subcriteria":[
+                      {"sub_criterion_id":"S_PRONUNCIATION_INTELLIGIBILITY","display_name":"Độ dễ hiểu","level_label":"Chỉ tham khảo","summary":"Có thể hiểu","strengths":["Gánh nặng nghe thấp"],"needs_improvement":[]}
                     ]}
                   ],
                   "transcript_annotations":[
@@ -279,83 +364,27 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                     {"criterion_id":"S_GRAMMAR_SENTENCE_CONTROL","sub_criterion_id":"S_GRAMMAR_PARTICLES","evidence_scope":"TEXT_SPAN","evidence":"학생 이에요","evidence_source":"TRANSCRIPT","explanation_vi":"Cần chỉnh cách nói tự nhiên hơn.","correction":"학생이에요"}
                   ],
                   "rubric_scores":[
-                    {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":17,"max_score":20,"feedback":"Relevant"},
-                    {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":16,"max_score":20,"feedback":"Controlled"},
-                    {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"max_score":15,"feedback":"Adequate"},
-                    {"criterion":"S_COHERENCE_ORGANIZATION","score":12,"max_score":15,"feedback":"Clear"},
-                    {"criterion":"S_FLUENCY","score":11,"max_score":15,"feedback":"Some hesitation"},
-                    {"criterion":"S_PRONUNCIATION_DELIVERY","score":10,"max_score":15,"feedback":"Advisory only"}
+                    {"criterion":"S_CONTENT_TASK_FULFILLMENT","score":17,"max_score":20,"feedback":"Đúng trọng tâm"},
+                    {"criterion":"S_GRAMMAR_SENTENCE_CONTROL","score":16,"max_score":20,"feedback":"Kiểm soát khá tốt"},
+                    {"criterion":"S_VOCABULARY_EXPRESSIONS","score":12,"max_score":15,"feedback":"Đủ dùng"},
+                    {"criterion":"S_COHERENCE_ORGANIZATION","score":12,"max_score":15,"feedback":"Rõ ràng"},
+                    {"criterion":"S_FLUENCY","score":11,"max_score":15,"feedback":"Có một số chỗ ngập ngừng"},
+                    {"criterion":"S_PRONUNCIATION_DELIVERY","score":10,"max_score":15,"feedback":"Chỉ tham khảo"}
                   ],
-                  "findings":[{"category":"REGISTER","message":"Ending is consistent","recommendation":"Keep 요 style"}],
+                  "findings":[{"category":"REGISTER","message":"Đuôi câu nhất quán","recommendation":"Duy trì văn phong 요"}],
                   "evidence":[
                     {"source":"TRANSCRIPT","criterion":"S_GRAMMAR_SENTENCE_CONTROL","excerpt":"학생이에요","confidence":0.8},
                     {"source":"PROMPT","criterion":"S_CONTENT_TASK_FULFILLMENT","excerpt":"자기소개","confidence":1}
                   ],
-                  "recommendations":["Keep practicing"],
+                  "recommendations":["Tiếp tục luyện tập"],
                   "upgraded_answer":"저는 학생이에요.",
                   "sample_answer":"안녕하세요. 저는 한국어를 공부하는 학생입니다.",
-                  "pronunciation_advisory":["possible clarity issue"],
-                  "fluency_observations":["short hesitation"],
+                  "pronunciation_advisory":["có thể còn điểm chưa rõ"],
+                  "fluency_observations":["có một khoảng ngập ngừng ngắn"],
                   "error_category":"",
                   "retryable":false
                 }
                 """;
     }
 
-    private String envelope(String content) {
-        try {
-            return "{\"choices\":[{\"message\":{\"content\":"
-                    + objectMapper.writeValueAsString(content)
-                    + "}}]}";
-        } catch (Exception ex) {
-            throw new IllegalStateException(ex);
-        }
-    }
-
-    private static class CapturingTransport implements OpenAiCompatibleSpeakingEvaluationClient.OpenAiCompatibleEvaluationTransport {
-        private final String response;
-        private final RuntimeException failure;
-        private final String baseUrl;
-        private final AtomicInteger calls = new AtomicInteger();
-        private Map<String, Object> body;
-
-        private CapturingTransport(String response) {
-            this(response, "https://generativelanguage.googleapis.com/v1beta/openai");
-        }
-
-        private CapturingTransport(String response, String baseUrl) {
-            this.response = response;
-            this.failure = null;
-            this.baseUrl = baseUrl;
-        }
-
-        private CapturingTransport(RuntimeException failure) {
-            this.response = null;
-            this.failure = failure;
-            this.baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
-        }
-
-        @Override
-        public String post(Map<String, Object> body) {
-            this.body = body;
-            calls.incrementAndGet();
-            if (failure != null) {
-                throw failure;
-            }
-            return response;
-        }
-
-        @Override
-        public String baseUrl() {
-            return baseUrl;
-        }
-
-        private Map<String, Object> body() {
-            return body;
-        }
-
-        private int calls() {
-            return calls.get();
-        }
-    }
 }

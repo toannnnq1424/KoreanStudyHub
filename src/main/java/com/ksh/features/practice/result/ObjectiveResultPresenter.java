@@ -23,8 +23,10 @@ import com.ksh.features.practice.dto.PracticeDtos.ObjectiveExplanation;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveFillBlankDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveImageEvidenceRef;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionResult;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionState;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveQuestionCore;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveQuestionDetail;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveResultGroup;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveSingleChoiceDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveSourceGroup;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveTextEvidenceRef;
@@ -157,40 +159,155 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 context.snapshot().setVersion().getMetadataJson());
         List<PracticeQuestionVersion> questions = context.snapshot().questions().stream()
                 .sorted(Comparator
-                        .comparing(PracticeQuestionVersion::getDisplayOrder)
+                        .comparing(
+                                PracticeQuestionVersion::getDisplayOrder,
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(
+                                PracticeQuestionVersion::getQuestionNo,
+                                Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(PracticeQuestionVersion::getId))
                 .toList();
-        Map<Long, PracticeQuestionGroupVersion> groupsById = context.snapshot().groups().stream()
-                .collect(Collectors.toMap(
-                        PracticeQuestionGroupVersion::getId,
-                        Function.identity()));
+        Map<Long, Integer> stableOrderByQuestionVersionId = new LinkedHashMap<>();
+        for (int index = 0; index < questions.size(); index++) {
+            stableOrderByQuestionVersionId.put(questions.get(index).getId(), index + 1);
+        }
+        List<ObjectiveResultGroup> groups = resultGroups(
+                context, questions, stableOrderByQuestionVersionId, optionLabelMode);
+        return new ObjectiveDetailPayload(
+                overview.score(),
+                overview.answers(),
+                overview.feedback(),
+                objective,
+                groups,
+                CONSTRUCT_REGISTRY_STATE,
+                CONSTRUCT_REGISTRY_NOTE);
+    }
+
+    private List<ObjectiveResultGroup> resultGroups(
+            PracticeResultContext context,
+            List<PracticeQuestionVersion> orderedQuestions,
+            Map<Long, Integer> stableOrderByQuestionVersionId,
+            String optionLabelMode) {
+        List<ObjectiveResultGroup> groups = new ArrayList<>();
+        List<PracticeQuestionGroupVersion> orderedGroups =
+                context.snapshot().groups().stream()
+                        .sorted(Comparator
+                                .comparing(
+                                        PracticeQuestionGroupVersion::getDisplayOrder,
+                                        Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(PracticeQuestionGroupVersion::getId))
+                        .toList();
+        java.util.Set<Long> knownGroupVersionIds = orderedGroups.stream()
+                .map(PracticeQuestionGroupVersion::getId)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<Long> danglingQuestionVersionIds = orderedQuestions.stream()
+                .filter(question -> question.getGroupVersionId() != null)
+                .filter(question -> !knownGroupVersionIds.contains(
+                        question.getGroupVersionId()))
+                .map(PracticeQuestionVersion::getId)
+                .toList();
+        if (!danglingQuestionVersionIds.isEmpty()) {
+            throw new IllegalStateException(
+                    "Objective Result Detail immutable group ownership is missing for "
+                            + "question versions " + danglingQuestionVersionIds + ".");
+        }
+        int nextFallbackOrder = 0;
+        for (PracticeQuestionGroupVersion group : orderedGroups) {
+            int groupOrder = nonNegativeOrder(
+                    group.getDisplayOrder(), nextFallbackOrder);
+            nextFallbackOrder = Math.max(nextFallbackOrder, groupOrder + 1);
+            List<PracticeQuestionVersion> groupQuestions = orderedQuestions.stream()
+                    .filter(question -> java.util.Objects.equals(
+                            group.getId(), question.getGroupVersionId()))
+                    .toList();
+            if (groupQuestions.isEmpty()) {
+                continue;
+            }
+            groups.add(resultGroup(
+                    context,
+                    group,
+                    groupQuestions,
+                    stableOrderByQuestionVersionId,
+                    optionLabelMode,
+                    groupOrder,
+                    group.getGroupLabel(),
+                    false));
+        }
+
+        List<PracticeQuestionVersion> legacyQuestions = orderedQuestions.stream()
+                .filter(question -> question.getGroupVersionId() == null)
+                .toList();
+        if (!legacyQuestions.isEmpty()) {
+            groups.add(resultGroup(
+                    context,
+                    null,
+                    legacyQuestions,
+                    stableOrderByQuestionVersionId,
+                    optionLabelMode,
+                    nextFallbackOrder,
+                    "Nhóm dữ liệu cũ chưa phân nhóm",
+                    true));
+        }
+        if (groups.isEmpty()) {
+            throw new IllegalStateException(
+                    "Objective Result Detail has no immutable question group ownership.");
+        }
+        return List.copyOf(groups);
+    }
+
+    private ObjectiveResultGroup resultGroup(
+            PracticeResultContext context,
+            PracticeQuestionGroupVersion group,
+            List<PracticeQuestionVersion> questions,
+            Map<Long, Integer> stableOrderByQuestionVersionId,
+            String optionLabelMode,
+            int groupOrder,
+            String groupLabel,
+            boolean legacyFallback) {
+        String sourceId = group == null
+                ? "objective-source-legacy-ungrouped"
+                : "objective-source-group-" + group.getId();
         List<ObjectiveQuestionDetail> details = new ArrayList<>();
         for (int index = 0; index < questions.size(); index++) {
             PracticeQuestionVersion question = questions.get(index);
             details.add(questionDetail(
                     context,
                     question,
-                    index + 1,
-                    sourceId(question),
+                    stableOrderByQuestionVersionId.get(question.getId()),
+                    group,
+                    groupOrder,
+                    nonNegativeOrder(question.getDisplayOrder(), index),
+                    groupLabel,
+                    sourceId,
                     optionLabelMode));
         }
-        List<ObjectiveSourceGroup> sourceGroups = sourceGroups(
-                context, questions, groupsById);
-        return new ObjectiveDetailPayload(
-                overview.score(),
-                overview.answers(),
-                overview.feedback(),
-                objective,
-                sourceGroups,
-                details,
-                CONSTRUCT_REGISTRY_STATE,
-                CONSTRUCT_REGISTRY_NOTE);
+        ObjectiveSourceGroup source = sourceGroup(
+                context,
+                group,
+                questions,
+                groupOrder,
+                groupLabel,
+                legacyFallback,
+                sourceId);
+        return new ObjectiveResultGroup(
+                legacyFallback ? "legacy-ungrouped" : "group-version-" + group.getId(),
+                group == null ? null : group.getId(),
+                group == null ? null : group.getGroupId(),
+                groupOrder,
+                groupLabel,
+                legacyFallback,
+                source,
+                details);
     }
 
     private ObjectiveQuestionDetail questionDetail(
             PracticeResultContext context,
             PracticeQuestionVersion question,
             int stableOrder,
+            PracticeQuestionGroupVersion group,
+            int groupOrder,
+            int questionOrder,
+            String groupLabel,
             String sourceId,
             String optionLabelMode) {
         CanonicalQuestionType type = typeResolver.resolve(question.getQuestionType());
@@ -216,6 +333,11 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 question.getQuestionId(),
                 question.getQuestionNo(),
                 stableOrder,
+                group == null ? null : group.getId(),
+                group == null ? null : group.getGroupId(),
+                groupOrder,
+                questionOrder,
+                groupLabel,
                 sourceId,
                 "objective-question-" + question.getId(),
                 question.getPrompt(),
@@ -267,6 +389,7 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             OptionRationale rationale = rationales.get(canonicalId);
             boolean selected = option.id().equals(learnerId);
             boolean correct = option.id().equals(officialId);
+            boolean revealed = !"PENDING_AI".equals(core.scoreState());
             options.add(new ObjectiveOptionResult(
                     option.id(),
                     optionLabel(index, optionLabelMode),
@@ -274,11 +397,8 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                     option.imageReference(),
                     selected,
                     correct,
-                    selected ? (correct ? "LEARNER_SELECTED_CORRECT" : "LEARNER_SELECTED_INCORRECT")
-                            : (correct ? "OFFICIAL_CORRECT" : "NOT_SELECTED"),
-                    rationale == null
-                            ? "Chưa có giải thích được kiểm chứng cho phương án này."
-                            : rationale.reasonVi(),
+                    optionState(selected, correct, revealed),
+                    rationale == null ? "" : rationale.reasonVi(),
                     rationale == null ? UNAVAILABLE_PROVENANCE : AI_PROVENANCE,
                     rationale == null ? List.of() : rationale.evidenceIds()));
         }
@@ -443,47 +563,40 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
         throw new IllegalArgumentException("Unsupported objective evidence subtype.");
     }
 
-    private List<ObjectiveSourceGroup> sourceGroups(
+    private ObjectiveSourceGroup sourceGroup(
             PracticeResultContext context,
+            PracticeQuestionGroupVersion group,
             List<PracticeQuestionVersion> questions,
-            Map<Long, PracticeQuestionGroupVersion> groupsById) {
-        Map<String, List<PracticeQuestionVersion>> bySource = new LinkedHashMap<>();
-        for (PracticeQuestionVersion question : questions) {
-            bySource.computeIfAbsent(sourceId(question), ignored -> new ArrayList<>())
-                    .add(question);
-        }
-        List<ObjectiveSourceGroup> sources = new ArrayList<>();
-        bySource.forEach((sourceId, sourceQuestions) -> {
-            PracticeQuestionVersion first = sourceQuestions.get(0);
-            PracticeQuestionGroupVersion group = first.getGroupVersionId() == null
-                    ? null
-                    : groupsById.get(first.getGroupVersionId());
-            boolean listening = "LISTENING".equals(context.attempt().getSkill());
-            boolean transcriptApproved = listening && transcriptApproved(group);
-            String provenance = sourceProvenance(group);
-            sources.add(new ObjectiveSourceGroup(
-                    sourceId,
-                    group == null ? null : group.getId(),
-                    group == null
-                            ? "Nguồn chung của phần thi"
-                            : group.getGroupLabel(),
-                    listening ? "LISTENING_AUDIO" : "READING_PASSAGE",
-                    group == null
-                            ? context.snapshot().sectionVersion().getInstructions()
-                            : group.getInstruction(),
-                    listening || group == null ? "" : group.getPassageText(),
-                    transcriptApproved ? group.getTranscriptText() : "",
-                    group == null ? "" : group.getImageUrl(),
-                    listening && group != null ? group.getAudioUrl() : "",
-                    provenance,
-                    transcriptApproved
-                            ? "Chỉ dùng để chứng minh nội dung ngôn ngữ; không dùng cho nhận định âm học."
-                            : "Không có bản chép lời được phê duyệt.",
-                    sourceQuestions.stream()
-                            .map(PracticeQuestionVersion::getId)
-                            .toList()));
-        });
-        return List.copyOf(sources);
+            int groupOrder,
+            String groupLabel,
+            boolean legacyFallback,
+            String sourceId) {
+        boolean listening = "LISTENING".equals(context.attempt().getSkill());
+        boolean transcriptApproved = listening && transcriptApproved(group);
+        return new ObjectiveSourceGroup(
+                sourceId,
+                group == null ? null : group.getId(),
+                group == null ? null : group.getGroupId(),
+                groupOrder,
+                groupLabel,
+                legacyFallback,
+                listening ? "LISTENING_AUDIO" : "READING_PASSAGE",
+                group == null
+                        ? context.snapshot().sectionVersion().getInstructions()
+                        : group.getInstruction(),
+                listening || group == null ? "" : group.getPassageText(),
+                transcriptApproved ? group.getTranscriptText() : "",
+                group == null ? "" : group.getImageUrl(),
+                listening && group != null ? group.getAudioUrl() : "",
+                legacyFallback
+                        ? "LEGACY_UNGROUPED_IMMUTABLE_SNAPSHOT"
+                        : sourceProvenance(group),
+                transcriptApproved
+                        ? "Chỉ dùng để chứng minh nội dung ngôn ngữ; không dùng cho nhận định âm học."
+                        : "Không có bản chép lời được phê duyệt.",
+                questions.stream()
+                        .map(PracticeQuestionVersion::getId)
+                        .toList());
     }
 
     private String sourceProvenance(PracticeQuestionGroupVersion group) {
@@ -543,10 +656,27 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                         question.getQuestionType(), rawAnswer, content);
     }
 
-    private static String sourceId(PracticeQuestionVersion question) {
-        return question.getGroupVersionId() == null
-                ? "objective-source-section"
-                : "objective-source-group-" + question.getGroupVersionId();
+    private static int nonNegativeOrder(Integer persistedOrder, int fallback) {
+        return persistedOrder == null || persistedOrder < 0
+                ? Math.max(0, fallback)
+                : persistedOrder;
+    }
+
+    private static ObjectiveOptionState optionState(
+            boolean selected,
+            boolean correct,
+            boolean revealed) {
+        if (!revealed) {
+            return selected
+                    ? ObjectiveOptionState.USER_SELECTED_PENDING
+                    : ObjectiveOptionState.UNSELECTED_PENDING;
+        }
+        if (correct) {
+            return ObjectiveOptionState.CORRECT;
+        }
+        return selected
+                ? ObjectiveOptionState.SELECTED_INCORRECT
+                : ObjectiveOptionState.UNSELECTED_INCORRECT;
     }
 
     private static String optionLabel(int index, String mode) {

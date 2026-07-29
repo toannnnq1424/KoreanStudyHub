@@ -284,7 +284,8 @@ public class PracticeController {
         if ("LISTENING".equals(section.getSkill())) {
             return PracticeRoutes.redirectToListeningPreflight(setId, testId, sectionId);
         }
-        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        Long attemptId = startRestartableAttempt(
+                setId, testId, sectionId, user.getId());
         return PracticeRoutes.redirectToAttempt(attemptId, mode);
     }
 
@@ -319,7 +320,8 @@ public class PracticeController {
                                              RedirectAttributes redirectAttributes) {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         requireListeningSection(setId, testId, sectionId);
-        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        Long attemptId = startRestartableAttempt(
+                setId, testId, sectionId, user.getId());
         try {
             practiceService.getAttemptListeningPreflightDelivery(attemptId, user.getId());
         } catch (IllegalArgumentException | IllegalStateException exception) {
@@ -358,7 +360,8 @@ public class PracticeController {
         learnerAccessService.requireVisiblePublishedSet(setId, user.getId());
         requireSpeakingSection(setId, testId, sectionId);
         requireSpeakingUploadEnabled();
-        Long attemptId = practiceService.startAttempt(setId, testId, sectionId, user.getId());
+        Long attemptId = startRestartableAttempt(
+                setId, testId, sectionId, user.getId());
         try {
             practiceService.getSpeakingPlayerDelivery(attemptId, user.getId());
         } catch (IllegalStateException | IllegalArgumentException exception) {
@@ -725,6 +728,39 @@ public class PracticeController {
             Long userId,
             HttpSession session,
             RedirectAttributes redirectAttributes) {
+        PracticeAttempt terminal =
+                finalizeExpiredAttemptState(attempt, userId);
+        return redirectForTerminalAttempt(
+                terminal, session, redirectAttributes, true);
+    }
+
+    private Long startRestartableAttempt(
+            Long setId,
+            Long testId,
+            Long sectionId,
+            Long userId) {
+        Long attemptId = practiceService.startAttempt(
+                setId, testId, sectionId, userId);
+        PracticeAttempt candidate = practiceService.getPracticeAttempt(
+                attemptId, userId);
+
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                candidate.getStatus())) {
+            return practiceService.startAttempt(
+                    setId, testId, sectionId, userId);
+        }
+        if (!candidate.isExpired(java.time.LocalDateTime.now())) {
+            return attemptId;
+        }
+
+        finalizeExpiredAttemptState(candidate, userId);
+        return practiceService.startAttempt(
+                setId, testId, sectionId, userId);
+    }
+
+    private PracticeAttempt finalizeExpiredAttemptState(
+            PracticeAttempt attempt,
+            Long userId) {
         try {
             if ("SPEAKING".equals(attempt.getSkill())) {
                 attemptDiscardService.discardForOwner(
@@ -748,8 +784,7 @@ public class PracticeController {
             throw new IllegalStateException(
                     "Expired attempt did not reach a terminal state.");
         }
-        return redirectForTerminalAttempt(
-                terminal, session, redirectAttributes, true);
+        return terminal;
     }
 
     private PracticeAttempt requireTerminalRaceWinner(

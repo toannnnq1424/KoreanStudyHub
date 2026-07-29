@@ -85,7 +85,13 @@ public class WritingFeedbackViewMapper {
                     text(item.get("severity")),
                     text(item.get("errorType")),
                     text(item.get("whyItIsGood")),
-                    text(item.get("topikTip"))
+                    text(item.get("topikTip")),
+                    text(item.get("subtype")),
+                    text(item.get("scoringCriterionId")),
+                    text(item.get("impact")),
+                    integer(item.get("frequency")),
+                    decimal(item.get("confidence")),
+                    text(item.get("observability"))
             ));
         }
         return List.copyOf(rows);

@@ -92,7 +92,8 @@ public class SpeakingEvaluationApplicationService {
                 && transcriptionProperties.apiKey() != null
                 && !transcriptionProperties.apiKey().isBlank()
                 && evaluatorProperties.apiKey() != null
-                && !evaluatorProperties.apiKey().isBlank();
+                && !evaluatorProperties.apiKey().isBlank()
+                && evaluatorVersionPinsCurrent();
     }
 
     public String evaluationContractIdentity() {
@@ -128,9 +129,19 @@ public class SpeakingEvaluationApplicationService {
                 evaluatorProperties.rubricVersion(),
                 evaluatorProperties.schemaVersion(),
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                SpeakingAssessmentPolicyBundle.identity(),
                 Boolean.toString(textFallbackEnabled));
         return "ksh-speaking-evaluation-v2|sha256|"
                 + sha256(canonicalContract);
+    }
+
+    private boolean evaluatorVersionPinsCurrent() {
+        return SpeakingPromptRules.PROMPT_VERSION.equals(
+                evaluatorProperties.promptVersion())
+                && SpeakingPromptRules.RUBRIC_VERSION.equals(
+                evaluatorProperties.rubricVersion())
+                && SpeakingPromptRules.SCHEMA_VERSION.equals(
+                evaluatorProperties.schemaVersion());
     }
 
     private static String sha256(String value) {
@@ -303,6 +314,9 @@ public class SpeakingEvaluationApplicationService {
                 identity.promptVersion() == null ? result.promptVersion() : identity.promptVersion(),
                 identity.rubricVersion() == null ? result.rubricVersion() : identity.rubricVersion(),
                 identity.schemaVersion() == null ? result.schemaVersion() : identity.schemaVersion(),
+                identity.policyBundleId() == null
+                        ? result.policyBundleId()
+                        : identity.policyBundleId(),
                 result.evaluatorCapability(),
                 result.evidenceMode(),
                 result.evidenceContractVersion(),
@@ -341,7 +355,10 @@ public class SpeakingEvaluationApplicationService {
                 result.pronunciationAdvisory(),
                 result.fluencyObservations(),
                 result.errorCategory(),
-                result.retryable());
+                result.retryable(),
+                identity.policyBundleFingerprint() == null
+                        ? result.policyBundleFingerprint()
+                        : identity.policyBundleFingerprint());
     }
 
     private boolean currentAudioIdentityMatches(EvaluationInput input, SpeakingEvaluationIdentity identity) {
@@ -365,6 +382,7 @@ public class SpeakingEvaluationApplicationService {
                 identity.promptVersion(),
                 identity.rubricVersion(),
                 identity.schemaVersion(),
+                identity.policyBundleId(),
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
@@ -402,7 +420,8 @@ public class SpeakingEvaluationApplicationService {
                 List.of(),
                 List.of(),
                 "STALE_AUDIO_IDENTITY",
-                true);
+                true,
+                identity.policyBundleFingerprint());
     }
 
     private SpeakingPromptEvaluationContextService.EvaluatorContext

@@ -278,6 +278,9 @@
   );
 
   if (objectiveShell) {
+    const groupPanels = Array.from(
+      objectiveShell.querySelectorAll('[data-objective-group-panel]')
+    );
     const questionPanels = Array.from(
       objectiveShell.querySelectorAll('[data-objective-question-panel]')
     );
@@ -289,6 +292,9 @@
     );
     const sourceLinks = Array.from(
       objectiveShell.querySelectorAll('[data-objective-source-link]')
+    );
+    const groupNavItems = Array.from(
+      objectiveShell.querySelectorAll('[data-objective-group-nav-item]')
     );
 
     function activeQuestionFromHash() {
@@ -303,9 +309,19 @@
 
       const questionId = questionPanel.dataset.objectiveQuestionId;
       const sourceId = questionPanel.dataset.objectiveSourceId;
+      const groupKey = questionPanel.dataset.objectiveGroupKey;
       const sourcePanel = sourcePanels.find(
         (panel) => panel.dataset.objectiveSourceId === sourceId
       );
+      const groupPanel = groupPanels.find(
+        (panel) => panel.dataset.objectiveGroupKey === groupKey
+      );
+
+      groupPanels.forEach((panel) => {
+        const active = panel === groupPanel;
+        panel.hidden = !active;
+        panel.classList.toggle('is-active', active);
+      });
 
       questionPanels.forEach((panel) => {
         const active = panel === questionPanel;
@@ -323,7 +339,7 @@
         const active = link.dataset.objectiveQuestionId === questionId;
         link.classList.toggle('is-active', active);
         if (active) {
-          link.setAttribute('aria-current', 'true');
+          link.setAttribute('aria-current', 'page');
         } else {
           link.removeAttribute('aria-current');
         }
@@ -333,10 +349,17 @@
         const active = link.dataset.objectiveSourceId === sourceId;
         link.classList.toggle('is-active', active);
         if (active) {
-          link.setAttribute('aria-current', 'true');
+          link.setAttribute('aria-current', 'location');
         } else {
           link.removeAttribute('aria-current');
         }
+      });
+
+      groupNavItems.forEach((item) => {
+        item.classList.toggle(
+          'is-active',
+          item.dataset.objectiveGroupKey === groupKey
+        );
       });
 
       objectiveShell.classList.toggle(
@@ -361,6 +384,13 @@
       }
     }
 
+    function activateObjectiveLinkFromKeyboard(event, questionPanel) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (!questionPanel) return;
+      event.preventDefault();
+      openObjectiveQuestion(questionPanel, true);
+    }
+
     questionLinks.forEach((link) => {
       link.addEventListener('click', (event) => {
         const questionPanel = questionPanels.find(
@@ -370,6 +400,13 @@
         if (!questionPanel) return;
         event.preventDefault();
         openObjectiveQuestion(questionPanel, true);
+      });
+      link.addEventListener('keydown', (event) => {
+        const questionPanel = questionPanels.find(
+          (panel) => panel.dataset.objectiveQuestionId
+            === link.dataset.objectiveQuestionId
+        );
+        activateObjectiveLinkFromKeyboard(event, questionPanel);
       });
     });
 
@@ -382,6 +419,13 @@
         if (!questionPanel) return;
         event.preventDefault();
         openObjectiveQuestion(questionPanel, true);
+      });
+      link.addEventListener('keydown', (event) => {
+        const questionPanel = questionPanels.find(
+          (panel) => panel.dataset.objectiveSourceId
+            === link.dataset.objectiveSourceId
+        );
+        activateObjectiveLinkFromKeyboard(event, questionPanel);
       });
     });
 

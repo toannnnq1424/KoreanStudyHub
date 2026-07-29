@@ -21,8 +21,8 @@ class SpeakingFeedbackViewMapperTest {
         assertNull(view.percentage());
         assertEquals(6, view.rubricScores().size());
         assertEquals(new BigDecimal("75.00"), view.rubricScores().get(0).percentage());
-        assertEquals("Overall summary", view.overallSummary());
-        assertEquals("Task achieved", view.taskAchievementSummary());
+        assertEquals("Tổng quan", view.overallSummary());
+        assertEquals("Đã đáp ứng nhiệm vụ", view.taskAchievementSummary());
         assertEquals("heard", view.actuallyHeardTranscript());
         assertNull(view.interpretedIntent());
         assertEquals("Sample", view.sampleAnswer());
@@ -183,10 +183,13 @@ class SpeakingFeedbackViewMapperTest {
                 SpeakingPromptRules.PROMPT_VERSION,
                 SpeakingPromptRules.RUBRIC_VERSION,
                 SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 capability, evidenceMode, evidenceContractVersion, trust,
+                null, null, null,
                 11L, 2L, null, null, "heard", "intent", BigDecimal.ONE,
-                BigDecimal.ONE, null, null, null, "Overall summary", "Task achieved",
-                List.of("Clear topic"), List.of("Add examples"), List.of(),
+                BigDecimal.ONE, null, null, null, "Tổng quan",
+                "Đã đáp ứng nhiệm vụ",
+                List.of("Đúng chủ đề"), List.of("Cần thêm ví dụ"), List.of(),
                 List.of(new SpeakingEvaluationResult.CriterionFeedback(
                         SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
                         "Provider-owned English heading",

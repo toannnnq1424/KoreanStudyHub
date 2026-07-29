@@ -226,6 +226,12 @@ ORDER BY binding_count;
 
 ### Binding integrity
 
+> **V63 supersession (current):** the pre-V63 singleton wording and duplicate
+> query retained below are historical evidence only. After V63, more than one
+> row for a question-version/language pair is expected when prior bindings have
+> been superseded. Keep using the fingerprint query, but do not use the old
+> duplicate-count query as a current incident gate.
+
 Both results should be zero. Foreign keys protect row existence; the fingerprint
 check protects the application-level content identity contract.
 
@@ -252,6 +258,35 @@ pre-14 target replaces it with append-only active/superseded binding history:
 exactly one compatible row may be active while prior rows remain auditable.
 Update this inspection query with the deployed status-column contract when
 that schema is implemented; do not guess a future column name in advance.
+
+#### Current V63 active/history checks
+
+V63 implements the deployed status-column contract. The current invariant is
+exactly one `ACTIVE` row per question-version/language pair; any number of
+`SUPERSEDED` rows may remain as required audit history.
+
+```sql
+SELECT
+  question_version_id,
+  explanation_language,
+  SUM(binding_status = 'ACTIVE') AS active_count,
+  SUM(binding_status = 'SUPERSEDED') AS superseded_count
+FROM question_version_explanation_bindings
+GROUP BY question_version_id, explanation_language
+HAVING active_count <> 1;
+```
+
+```sql
+SELECT COUNT(*) AS invalid_status_timestamp_count
+FROM question_version_explanation_bindings
+WHERE (binding_status = 'ACTIVE' AND superseded_at IS NOT NULL)
+   OR (binding_status = 'SUPERSEDED' AND superseded_at IS NULL);
+```
+
+The active-count query must return no rows and
+`invalid_status_timestamp_count` must be zero. A non-zero
+`superseded_count` is normal retained history, not a duplicate-binding
+incident.
 
 Do not print raw fingerprints while investigating a mismatch. Use row IDs in a
 restricted incident session.

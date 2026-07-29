@@ -12,6 +12,8 @@ import java.util.Map;
 @Component
 public class WritingFeedbackCompatibilityReader {
 
+    public static final String LEGACY_SCORING_CONTRACT = "LEGACY_BAND_V1";
+
     private final ObjectMapper objectMapper;
 
     public WritingFeedbackCompatibilityReader(ObjectMapper objectMapper) {
@@ -19,7 +21,7 @@ public class WritingFeedbackCompatibilityReader {
     }
 
     public EntryResult parseGeneratedEntry(JsonNode node) {
-        return parseEntry(node, false);
+        return parseEntry(node, true);
     }
 
     public EntryResult parseStoredEntry(JsonNode node) {

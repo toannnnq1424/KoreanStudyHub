@@ -240,15 +240,6 @@ final class ResultDetailDescriptorRegistry {
         return "Q51_52".equals(taskType) ? "Q51" : taskType;
     }
 
-    private static int writingTaskOrder(String taskType) {
-        return switch (normalizedTaskType(taskType)) {
-            case "Q51" -> 1_000;
-            case "Q52" -> 2_000;
-            case "Q53" -> 3_000;
-            case "Q54" -> 4_000;
-            default -> 5_000;
-        };
-    }
 
     private static boolean isClozeTask(String taskType) {
         String normalized = normalizedTaskType(taskType);

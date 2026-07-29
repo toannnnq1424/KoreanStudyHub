@@ -34,6 +34,8 @@ public final class PracticeRoutes {
     public static final String RESULT = "/attempts/{attemptId}/result";
     public static final String RESULT_DETAIL = "/attempts/{attemptId}/result/detail";
     public static final String PROGRESS = "/progress";
+    public static final String PREFERENCES = "/preferences";
+    public static final String KOREAN_FONT_PREFERENCE = "/preferences/korean-font";
 
     public static final String LEGACY_SET = "/{setId}";
     public static final String LEGACY_SET_DETAIL = "/{setId}/detail";

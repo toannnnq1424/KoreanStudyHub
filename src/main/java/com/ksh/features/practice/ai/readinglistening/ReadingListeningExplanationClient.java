@@ -2,21 +2,20 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -34,33 +33,22 @@ public class ReadingListeningExplanationClient {
     public static final String LEGACY_EXPLANATION_SCHEMA_VERSION = "v2";
     public static final String EXPLANATION_LANGUAGE = "vi";
 
-    private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
+    private final PracticeStructuredGenerationPort structuredGeneration;
 
     @Autowired
     public ReadingListeningExplanationClient(
-            OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            @Value("${app.practice.explanation-generation.provider-timeout:60s}") Duration providerTimeout) {
-        this.properties = properties;
+            PracticeStructuredGenerationPort structuredGeneration,
+            ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.baseUrl())
-                .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                .requestFactory(requestFactory(providerTimeout))
-                .build();
-    }
-
-    ReadingListeningExplanationClient(OpenAiProperties properties, ObjectMapper objectMapper) {
-        this(properties, objectMapper, Duration.ofSeconds(60));
+        this.structuredGeneration = structuredGeneration;
     }
 
     public String generate(
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         List<ExplanationImageEvidence> safeImages = images == null ? List.of() : List.copyOf(images);
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+        if (!providerAvailable()) {
             throw new ExplanationProviderException(
                     "PROVIDER_NOT_CONFIGURED", "AI provider key is not configured.", false);
         }
@@ -69,29 +57,21 @@ public class ReadingListeningExplanationClient {
                     "EVIDENCE_UNAVAILABLE", "No approved text or image evidence is available.", false);
         }
 
-        Map<String, Object> request = new LinkedHashMap<>();
-        request.put("model", properties.evaluatorModel());
-        request.put("temperature", 0.0);
-        request.put("response_format", responseFormat(context, safeImages));
-        request.put("messages", List.of(
-                message("system", systemPrompt(context.questionType())),
-                message("user", multimodalContent(userPayload(context, safeImages), safeImages))
-        ));
-
         log.info("[ReadingListeningAI] generate model={} skill={} type={}",
-                properties.evaluatorModel(), context.skill(), context.questionType());
-        String raw = callOnce(request, context.skill().name());
+                model(), context.skill(), context.questionType());
         try {
-            JsonNode root = objectMapper.readTree(raw);
-            String content = extractOutputText(root, raw);
-            String cleaned = cleanAndValidateJson(content, context, safeImages);
-            if (cleaned == null || cleaned.isBlank()) {
-                throw new ExplanationProviderException(
-                        "INVALID_PROVIDER_RESPONSE",
-                        "Provider response did not satisfy the explanation evidence contract.",
-                        true);
-            }
-            return cleaned;
+            return generateThroughStructuredPort(context, safeImages);
+        } catch (PracticeAiContractException exception) {
+            log.warn(
+                    "[ReadingListeningAI] structured provider failure category={} model={} skill={}",
+                    exception.category(),
+                    model(),
+                    context.skill());
+            throw new ExplanationProviderException(
+                    exception.category(),
+                    "Provider response failed the strict Practice transport contract.",
+                    exception.retryable(),
+                    exception);
         } catch (ExplanationProviderException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -132,7 +112,8 @@ public class ReadingListeningExplanationClient {
     }
 
     public String model() {
-        return properties.evaluatorModel();
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
     }
 
     public String promptVersion() {
@@ -147,7 +128,7 @@ public class ReadingListeningExplanationClient {
         return EXPLANATION_LANGUAGE;
     }
 
-    private String userPayload(
+    private Map<String, Object> userPayloadObject(
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -181,8 +162,15 @@ public class ReadingListeningExplanationClient {
         payload.put("teacherExplanation", context.teacherExplanation());
         payload.put("optionLabelMode", context.optionLabelMode());
         payload.put("explanationLanguage", context.explanationLanguage());
+        return payload;
+    }
+
+    private String userPayload(
+            ExplanationContext context,
+            List<ExplanationImageEvidence> images) {
         try {
-            return objectMapper.writeValueAsString(payload);
+            return objectMapper.writeValueAsString(
+                    userPayloadObject(context, images));
         } catch (Exception exception) {
             throw new ExplanationProviderException(
                     "INPUT_SERIALIZATION_FAILED",
@@ -190,6 +178,64 @@ public class ReadingListeningExplanationClient {
                     false,
                     exception);
         }
+    }
+
+    private boolean providerAvailable() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
+    }
+
+    private String generateThroughStructuredPort(
+            ExplanationContext context,
+            List<ExplanationImageEvidence> images) throws Exception {
+        List<PracticeStructuredGenerationRequest.ImageEvidence> imageInputs =
+                images.stream()
+                        .map(image -> new PracticeStructuredGenerationRequest.ImageEvidence(
+                                image.role(),
+                                image.evidence().sha256(),
+                                image.evidence().dataUrl(),
+                                "high"))
+                        .toList();
+        String authorityIdentity = String.join(
+                "|",
+                context.schemaVersion(),
+                "question=" + context.questionId(),
+                "questionVersion=" + context.questionVersionId(),
+                "skill=" + context.skill().name(),
+                "type=" + context.questionType().name());
+        PracticeStructuredGenerationRequest request =
+                new PracticeStructuredGenerationRequest(
+                        "reading-listening-explanation",
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                        new PracticeAiAuthoritySnapshot(
+                                EXPLANATION_SCHEMA_VERSION,
+                                EXPLANATION_PROMPT_VERSION,
+                                "TYPE_NATIVE_" + context.questionType().name(),
+                                EXPLANATION_SCHEMA_VERSION,
+                                authorityIdentity),
+                        PracticeModelCapabilityProfile.openAiAssessmentV1(),
+                        systemPrompt(context.questionType()),
+                        "",
+                        userPayloadObject(context, images),
+                        "rl_answer_explanation_"
+                                + context.questionType().name()
+                                        .toLowerCase(java.util.Locale.ROOT),
+                        schema(context, images),
+                        imageInputs,
+                        4096,
+                        "");
+        JsonNode output = structuredGeneration.generate(request).output();
+        String cleaned = cleanAndValidateJson(
+                objectMapper.writeValueAsString(output),
+                context,
+                images);
+        if (cleaned == null || cleaned.isBlank()) {
+            throw new ExplanationProviderException(
+                    "INVALID_PROVIDER_RESPONSE",
+                    "Provider response did not satisfy the explanation evidence contract.",
+                    false);
+        }
+        return cleaned;
     }
 
     private static String systemPrompt(CanonicalQuestionType questionType) {
@@ -758,79 +804,5 @@ public class ReadingListeningExplanationClient {
             values.add(node.asText().trim());
         }
         return List.copyOf(values);
-    }
-
-    private String callOnce(Map<String, Object> request, String skill) {
-        try {
-            return restClient.post()
-                    .uri("/chat/completions")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(String.class);
-        } catch (HttpStatusCodeException exception) {
-            int status = exception.getStatusCode().value();
-            log.warn("[ReadingListeningAI] provider HTTP failure status={} model={} skill={}",
-                    status, properties.evaluatorModel(), skill);
-            throw new ExplanationProviderException(
-                    "PROVIDER_HTTP_" + status,
-                    "Provider request failed with HTTP " + status + ".",
-                    retryableStatus(status),
-                    exception);
-        } catch (Exception exception) {
-            log.warn("[ReadingListeningAI] provider call failed skill={} exception={}",
-                    skill, exception.getClass().getSimpleName());
-            throw new ExplanationProviderException(
-                    "PROVIDER_TRANSPORT_ERROR",
-                    "Provider request could not be completed.",
-                    true,
-                    exception);
-        }
-    }
-
-    private static List<Map<String, Object>> multimodalContent(
-            String payload,
-            List<ExplanationImageEvidence> images) {
-        List<Map<String, Object>> content = new ArrayList<>();
-        content.add(Map.of("type", "text", "text", payload));
-        for (ExplanationImageEvidence image : images) {
-            content.add(Map.of(
-                    "type", "image_url",
-                    "image_url", Map.of(
-                            "url", image.evidence().dataUrl(),
-                            "detail", "high")));
-        }
-        return content;
-    }
-
-    private static Map<String, Object> message(String role, Object content) {
-        Map<String, Object> message = new LinkedHashMap<>();
-        message.put("role", role);
-        message.put("content", content);
-        return message;
-    }
-
-    private static String extractOutputText(JsonNode root, String raw) {
-        JsonNode choice = root.path("choices").path(0);
-        return choice.path("message").hasNonNull("content")
-                ? choice.path("message").path("content").asText()
-                : raw;
-    }
-
-    private static boolean retryableStatus(int status) {
-        return status == 408 || status == 425 || status == 429 || status >= 500;
-    }
-
-    private static SimpleClientHttpRequestFactory requestFactory(Duration timeout) {
-        if (timeout == null || timeout.isZero() || timeout.isNegative()
-                || timeout.compareTo(QuestionExplanationTaskTransactions.LEASE_DURATION) >= 0) {
-            throw new IllegalArgumentException(
-                    "Explanation provider timeout must be positive and shorter than the task lease");
-        }
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        int timeoutMs = Math.toIntExact(Math.min(timeout.toMillis(), Integer.MAX_VALUE));
-        factory.setConnectTimeout(timeoutMs);
-        factory.setReadTimeout(timeoutMs);
-        return factory;
     }
 }

@@ -166,10 +166,14 @@ public class SpeakingFeedbackCompatibilityReader {
                 value.promptVersion(),
                 value.rubricVersion(),
                 value.schemaVersion(),
+                value.policyBundleId(),
                 SpeakingEvaluatorCapability.LEGACY_UNKNOWN,
                 SpeakingEvidenceMode.UNKNOWN,
                 null,
                 SpeakingContractTrust.LEGACY_UNVERIFIED,
+                value.questionVersionId(),
+                value.promptContextFingerprint(),
+                value.promptContextContractIdentity(),
                 value.audioMediaId(),
                 value.mediaVersion(),
                 value.transcript(),
@@ -201,7 +205,8 @@ public class SpeakingFeedbackCompatibilityReader {
                 List.of(),
                 value.errorCategory() == null
                         ? "LEGACY_SPEAKING_CONTRACT_UNVERIFIED" : value.errorCategory(),
-                false);
+                false,
+                value.policyBundleFingerprint());
     }
 
     private boolean rawTypedRubricValuesAreSafe(JsonNode typed) {

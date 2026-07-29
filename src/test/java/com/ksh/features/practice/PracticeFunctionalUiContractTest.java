@@ -476,19 +476,24 @@ class PracticeFunctionalUiContractTest {
         assertThat(objective).contains(
                 "data-result-detail-kind=\"OBJECTIVE_DETAIL\"",
                 "resultDetail.payload().summary().breakdown()",
-                "resultDetail.payload().sourceGroups()",
-                "resultDetail.payload().questions()",
+                "resultDetail.payload().groups()",
+                "group.questions()",
+                "group.source()",
+                "data-objective-group-panel",
+                "data-objective-group-key",
                 "data-objective-question-type",
-                "Nguồn và bằng chứng gốc",
+                "Nhóm fallback có giới hạn",
                 "Đáp án người học",
                 "Đáp án chính thức",
                 "Giải thích của giáo viên",
                 "Lời giải AI",
                 "Dịch đoạn liên quan",
                 "Bản chép lời đã được phê duyệt",
-                "Phương án, trạng thái người học và lý do loại chọn",
+                "data-option-state",
+                "option.statusLabelVi()",
+                "Các phương án và trạng thái kết quả",
                 "Giá trị từng ô trống và đáp án được chấp nhận",
-                "Đối chiếu từng phương án",
+                "Câu trả lời của bạn",
                 "Giải mã từng ô trống",
                 "Kiểm chứng mệnh đề với nguồn",
                 "Đối chiếu mệnh đề với vùng thông tin đã kiểm chứng",
@@ -501,6 +506,8 @@ class PracticeFunctionalUiContractTest {
                 "tabindex=\"-1\"")
                 .doesNotContain(
                         "groupsJson", "JSON.parse", "questionsJson",
+                        "Phương án, trạng thái người học và lý do loại chọn",
+                        "Người học đã chọn", "Không chọn", "Vì sao loại",
                         "IELTS", "Band", "Task Response", "Lexical Resource",
                         "th:utext", "pageIndex()", "#strings.listJoin");
         assertThat(detailCss).contains(
@@ -510,9 +517,11 @@ class PracticeFunctionalUiContractTest {
                 ".prd-objective-inline-evidence article",
                 ".prd-objective-tfng-proof",
                 ".prd-objective-all-evidence",
-                ".prd-objective-answer-table tbody tr.is-correct",
-                ".prd-objective-answer-table tbody tr.is-incorrect",
-                ".prd-objective-answer-table > caption",
+                ".prd-objective-group-panel",
+                ".prd-objective-option.is-user_selected_pending",
+                ".prd-objective-option.is-correct",
+                ".prd-objective-option.is-selected_incorrect",
+                ".prd-objective-group-nav",
                 "max-width: 100%",
                 "@media (max-width: 980px)",
                 "@media (max-width: 640px)");
@@ -771,25 +780,25 @@ class PracticeFunctionalUiContractTest {
                 "Q51-Q54, hồ sơ/gói chính sách và mức tối đa khác nhau luôn ở các nhóm riêng",
                 "/practice(skill='WRITING',writingTask=${task.taskType()})");
         assertThat(facts).contains(
-                "Quy mô mẫu · 표본",
-                "적격 사실 ",
-                "Độ phủ nguồn · 소스 범위",
-                "적격 ",
-                "Khoảng quan sát · 관찰 기간",
-                "시작 시각 없음",
-                "종료 시각 없음",
-                "Chốt dữ liệu · 기준 시각",
-                "Nguồn giới hạn · 제한된 소스",
-                "반환 ",
-                "đã cắt bớt nguồn · 일부 잘림",
-                "Độ tin cậy nguồn · 자료 신뢰 근거",
+                "Quy mô mẫu:",
+                "dữ kiện đủ điều kiện / ",
+                "Độ phủ nguồn:",
+                "Khoảng quan sát:",
+                "Chưa có mốc bắt đầu",
+                "Chưa có mốc kết thúc",
+                "Chốt dữ liệu:",
+                "Nguồn giới hạn:",
+                "trả về ",
+                "đã cắt bớt nguồn",
+                "Độ tin cậy nguồn:",
                 "data-chart-failure-message",
-                "Thử tải biểu đồ lại · 차트 다시 불러오기",
+                "Thử tải biểu đồ lại",
                 "profile=${filter.profileId()}",
-                "표본 규모, 최신성, 범위만 요약",
-                "Dữ liệu cũ chưa xác minh · 검증되지 않은 이전 데이터",
-                "Thiếu khóa phiên bản bất biến · 불변 버전 잠금 불완전",
-                "Nói chỉ có hoạt động/hồ sơ/độ phủ; không có điểm tổng hợp · 말하기는 활동/프로필/범위만 제공하며 종합 점수는 없음");
+                "chỉ tóm tắt quy mô mẫu, độ mới và độ phủ",
+                "Dữ liệu cũ chưa xác minh",
+                "Thiếu khóa phiên bản bất biến",
+                "Nói chỉ có hoạt động/hồ sơ/độ phủ; không có điểm tổng hợp")
+                .doesNotContainPattern("[가-힣]");
         assertThat(progress).doesNotContain(
                 "currentLevel() == 'Chưa có dữ liệu điểm'",
                 "Lượt làm bài đã nộp",
@@ -842,17 +851,17 @@ class PracticeFunctionalUiContractTest {
                 "metric.scoreFact().denominator()",
                 "sourceFact(${metric.scoreFact()})",
                 "sourceFact(${point.scoreFact()})",
-                "Một phần · 부분 범위");
+                "· độ phủ một phần");
         assertThat(facts).contains(
                 "fact.partialCoverage()",
-                "Độ phủ một phần · 부분 범위",
+                "Độ phủ một phần:",
                 "hoạt động bị loại không được đổi thành 0",
-                "제외된 활동은 0점으로 바꾸지 않고",
-                "Điểm đạt / điểm có thể đạt · 획득 점수 / 가능 점수",
+                "Điểm đạt / điểm có thể đạt:",
                 "fact.numerator() != null && fact.denominator() != null",
                 "fact.numerator() + ' / ' + fact.denominator()",
-                "Độ phủ nguồn · 소스 범위",
-                "Khoảng quan sát · 관찰 기간");
+                "Độ phủ nguồn:",
+                "Khoảng quan sát:")
+                .doesNotContainPattern("[가-힣]");
         assertThat(progressJs).contains(
                 "function renderableNumericFact(fact)",
                 "fact.availability === 'AVAILABLE' || fact.availability === 'PARTIAL'",
@@ -994,7 +1003,8 @@ class PracticeFunctionalUiContractTest {
                 "aria-pressed",
                 "prefers-reduced-motion:reduce");
         assertThat(detailObjective).contains(
-                "data-label=\"Phương án\"",
+                "data-option-state",
+                "aria-label=${'Phương án '",
                 "data-label=\"Câu trả lời\"",
                 "data-label=\"Ràng buộc\"");
         assertThat(detailCss).contains(

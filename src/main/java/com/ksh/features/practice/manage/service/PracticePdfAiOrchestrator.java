@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeAiRequestAudit;
 import com.ksh.features.practice.ai.OpenAiProperties;
-import com.ksh.features.practice.manage.dto.AiDocumentImportRequest;
 import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -6,6 +6,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PracticeAttemptEvaluationJobTest {
 
@@ -138,5 +139,39 @@ class PracticeAttemptEvaluationJobTest {
                         now.plusMinutes(4),
                         now.plusMinutes(34)))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void componentCompleteContractIdentityFitsPersistenceBoundary() {
+        LocalDateTime now = LocalDateTime.of(
+                2026, 7, 30, 5, 47);
+        PracticeAttemptEvaluationJob job =
+                new PracticeAttemptEvaluationJob();
+        ReflectionTestUtils.setField(job, "attemptCount", 0);
+        ReflectionTestUtils.setField(job, "maxAttempts", 3);
+
+        String maximumIdentity = "i".repeat(
+                PracticeAttemptEvaluationJob
+                        .MAX_EVALUATION_CONTRACT_IDENTITY_LENGTH);
+        job.request(
+                PracticeAttemptEvaluationJob.OPERATION_SUBMIT,
+                null,
+                "a".repeat(64),
+                maximumIdentity,
+                7L,
+                now,
+                now.plusMinutes(30));
+
+        assertThat(job.getEvaluationContractIdentity())
+                .isEqualTo(maximumIdentity);
+        assertThatThrownBy(() -> job.request(
+                PracticeAttemptEvaluationJob.OPERATION_SUBMIT,
+                null,
+                "b".repeat(64),
+                maximumIdentity + "x",
+                7L,
+                now,
+                now.plusMinutes(30)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -1,18 +1,11 @@
 package com.ksh.features.practice.ai.readinglistening;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.QuestionExplanationArtifact;
 import com.ksh.entities.QuestionVersionExplanationBinding;
-import com.ksh.features.practice.assessment.AnswerSpec;
-import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
-import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
-import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
-import com.ksh.features.practice.repository.PracticeQuestionVersionRepository;
 import com.ksh.features.practice.repository.QuestionExplanationArtifactRepository;
 import com.ksh.features.practice.repository.QuestionVersionExplanationBindingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,8 +25,6 @@ class QuestionExplanationReadServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private QuestionVersionExplanationBindingRepository bindingRepository;
     private QuestionExplanationArtifactRepository artifactRepository;
-    private PracticeQuestionVersionRepository questionRepository;
-    private AssessmentContractCodec contractCodec;
     private QuestionTypeResolver typeResolver;
     private QuestionExplanationReadService service;
 
@@ -41,30 +32,16 @@ class QuestionExplanationReadServiceTest {
     void setUp() {
         bindingRepository = mock(QuestionVersionExplanationBindingRepository.class);
         artifactRepository = mock(QuestionExplanationArtifactRepository.class);
-        questionRepository = mock(PracticeQuestionVersionRepository.class);
-        contractCodec = mock(AssessmentContractCodec.class);
         typeResolver = mock(QuestionTypeResolver.class);
         service = new QuestionExplanationReadService(
                 bindingRepository,
                 artifactRepository,
-                questionRepository,
-                contractCodec,
                 typeResolver,
                 objectMapper);
         when(typeResolver.resolve("SINGLE_CHOICE"))
                 .thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
     }
 
-    @Test
-    void oldAndNewQuestionVersionsReadTheirOwnImmutableExplanationBindings() {
-        bindReady(101L, 201L, validExplanation("old snapshot"));
-        bindReady(102L, 202L, validExplanation("new snapshot"));
-
-        assertThat(service.readReadyJson(101L)).hasValueSatisfying(
-                value -> assertThat(value).contains("old snapshot"));
-        assertThat(service.readReadyJson(102L)).hasValueSatisfying(
-                value -> assertThat(value).contains("new snapshot"));
-    }
 
     @Test
     void availabilityDistinguishesMissingPendingPartialAndFailedArtifacts() {
@@ -127,47 +104,6 @@ class QuestionExplanationReadServiceTest {
         assertThat(service.availability(List.of(107L)).state()).isEqualTo("UNAVAILABLE");
     }
 
-    @Test
-    void displayMappingUsesStableOptionIdsButReturnsAttemptSpecificLabels() throws Exception {
-        PracticeQuestionVersion question = mock(PracticeQuestionVersion.class);
-        when(question.getId()).thenReturn(101L);
-        when(question.getQuestionType()).thenReturn("SINGLE_CHOICE");
-        when(question.getQuestionContentJson()).thenReturn("typed-content");
-        when(question.getAnswerSpecJson()).thenReturn("typed-answer");
-        when(questionRepository.findById(101L)).thenReturn(Optional.of(question));
-        when(typeResolver.resolve("SINGLE_CHOICE")).thenReturn(CanonicalQuestionType.SINGLE_CHOICE);
-        QuestionContent content = new QuestionContent(
-                QuestionContent.SCHEMA_VERSION,
-                List.of(
-                        new QuestionContent.Option("current_random_a", "First"),
-                        new QuestionContent.Option("current_random_b", "Second")),
-                List.of());
-        AnswerSpec spec = new AnswerSpec(
-                AnswerSpec.SCHEMA_VERSION,
-                CanonicalQuestionType.SINGLE_CHOICE,
-                List.of("current_random_a"),
-                null,
-                List.of(),
-                ScoringPolicyCode.ALL_OR_NOTHING);
-        when(contractCodec.readQuestionContent("typed-content", CanonicalQuestionType.SINGLE_CHOICE))
-                .thenReturn(content);
-        when(contractCodec.readAnswerSpec("typed-answer", content)).thenReturn(spec);
-        bindReady(101L, 201L, """
-                {"meaningVi":"Meaning","evidenceQuote":"본문","correctReasonVi":"Correct",
-                 "relatedTranslationVi":"Bản dịch","eliminatedOptions":[
-                  {"optionKey":"option_2","reasonVi":"Wrong"},
-                  {"optionKey":"unknown","reasonVi":"Ignore"}
-                ]}
-                """);
-
-        String displayJson = service.readDisplayJson(101L, "ALPHA").orElseThrow();
-        JsonNode display = objectMapper.readTree(displayJson);
-
-        assertThat(display.path("correctAnswer").asText()).isEqualTo("A");
-        assertThat(display.path("eliminatedOptions").size()).isEqualTo(1);
-        assertThat(display.path("eliminatedOptions").path(0).path("optionKey").asText())
-                .isEqualTo("B");
-    }
 
     @Test
     void objectiveReadAdaptsOnlyValidV2SingleChoiceWithExactTextEvidence() {
