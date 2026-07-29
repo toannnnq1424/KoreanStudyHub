@@ -2,7 +2,24 @@
 
 Recorded: `2026-07-27`
 
-Status: `PLANNED_MANDATORY_AFTER_PHASE_13_CLOSURE`
+Status: `IMPLEMENTED_AND_VALIDATED_AWAITING_PUBLICATION`
+
+> Current closure overlay (`2026-07-29`): the dedicated phase completed its
+> exact-main, multi-agent ownership audit and expanded modality/control-plane
+> comparison before implementation. The Admin/global AI plane supports
+> multiple ordered provider rows, but each row is one text-chat model and the
+> plane lacks per-capability/modality routing, immutable Practice contract
+> identity, modality-specific credentials/limits and Practice lifecycle,
+> privacy/retention and artifact correlation. Practice AI and Practice storage
+> therefore remain operationally separate. Only two orthogonal internal
+> ownership corrections were accepted: Practice-scoped 409/410 advice and a
+> byte-identical neutral Practice material-placement vocabulary. Java 17
+> validation is green at focused `230/230`, full `2631/2631`, Flyway V1-V62 and
+> real calls `AI=0`, `STT=0`, `TTS=0`. The complete matrix, classifications,
+> rollback map and evidence are in
+> `PRACTICE_POST_PHASE_13_PRODUCT_INTEGRATION_AND_PACKAGE_RECONCILIATION_LIVE_CHANGE_LOG.md`.
+> This overlay supersedes the planned-state wording below; historical phase
+> logs and applied migrations remain unchanged.
 
 ## 1. Decision and current boundary
 
