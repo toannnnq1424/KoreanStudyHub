@@ -183,7 +183,11 @@ class DetailTabsContractTest {
         assertThat(template)
                 .contains("id=\"lfBankPicker\"")
                 .contains("id=\"lfAiGenPanel\"")
-                .contains("data-dirty-guard=\"ignore\"");
+                .contains("data-dirty-guard=\"ignore\"")
+                .contains("${mode == 'create' or clazz == null} ? 'lf-no-sidebar'")
+                .contains("<th:block th:if=\"${mode == 'edit' and clazz != null}\">")
+                .contains("classSidebar(${clazz}, '')")
+                .doesNotContain("<aside th:if=\"${mode == 'edit' and clazz != null}\"");
 
         assertThat(read("static/js/test-lecturer-form.js"))
                 .contains("window.KshDirtyFormGuard.markClean()")

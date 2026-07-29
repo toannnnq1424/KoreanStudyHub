@@ -9,6 +9,7 @@
   <!-- Reuse the exam question authoring styles (.lf-panel/.lf-option/.tst-btn);
        loaded after question-bank.css so its .lf-* rules win the cascade. -->
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/ksh-combobox.css}">
   <link class="page-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
 <body>
@@ -49,7 +50,10 @@
       <div class="lf-grid">
         <div class="lf-field">
           <label class="lf-label" for="categoryId">Danh mục môn học</label>
-          <select class="lf-input" id="categoryId" th:field="*{categoryId}">
+          <select class="lf-input" id="categoryId" th:field="*{categoryId}" required
+                  data-combobox
+                  data-combobox-placeholder="Gõ tên danh mục để tìm…"
+                  data-combobox-empty="Không tìm thấy danh mục phù hợp">
             <option value="">— Chọn danh mục —</option>
             <option th:each="category : ${categories}" th:value="${category.id()}" th:text="${category.name()}">Danh mục</option>
           </select>
@@ -114,6 +118,7 @@
 <script th:src="@{/js/app.js}"></script>
 <!-- question-bank.js drains #flash-data into a toast after save/submit. -->
 <script th:src="@{/js/question-bank.js}"></script>
+<script th:src="@{/js/ksh-combobox.js}"></script>
 <script th:src="@{/js/question-bank-form.js}"></script>
 </body>
 </html>
