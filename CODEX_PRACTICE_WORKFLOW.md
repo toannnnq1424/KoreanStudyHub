@@ -5,6 +5,34 @@ Korean Study Hub — Feature `/practice`
 This file must be read before Codex performs any audit, implementation,
 stabilization, commit/push, or roadmap update task for this project.
 
+## Active Writing Vertex provider-contract hotfix overlay — 2026-07-29
+
+The narrow branch `codex/writing-vertex-provider-contract-hotfix` starts at
+exact `origin/main` SHA
+`bd4a127e5fe10d1ea238bb7621f483392a0ba8f7`. It owns only:
+
+- deterministic decoding of one complete JSON object from supported
+  OpenAI-compatible Writing response envelopes;
+- distinct output-truncation evidence from terminal provider metadata;
+- Writing-evaluator-only output, structured-output, and opt-in reasoning
+  configuration;
+- environment-only Vertex local configuration and missing-credential
+  diagnostics;
+- focused bounded-retry exhaustion proof with no fabricated score.
+
+The hotfix does not change Practice catalogue class independence, assessment
+semantics, Result/Detail UX, persistence schema, or phase status. It runs
+alongside a separate comprehensive Practice audit, will publish a review-only
+PR, and must stop for coordinated reconciliation instead of merging. The
+authoritative slice record is
+`docs/PRACTICE_WRITING_VERTEX_PROVIDER_CONTRACT_HOTFIX_LIVE_CHANGE_LOG.md`.
+
+Focused validation is `COMPLETE_FOCUSED_GATE_GREEN`: OpenJDK `17.0.19`
+package succeeded and the provider/decoder/config/cache/worker selector passed
+`106/106` with zero failures, errors, or skips. External Writing AI/STT/TTS
+calls were `0/0/0`; no database, migration, full-suite, browser, live-provider,
+OAuth-durability, or comprehensive-audit integration claim is made.
+
 ## Current Phase 13H overlay — 2026-07-28
 
 Phase 13G is `CLOSED_VERIFIED_MERGED`, not pending publication:
