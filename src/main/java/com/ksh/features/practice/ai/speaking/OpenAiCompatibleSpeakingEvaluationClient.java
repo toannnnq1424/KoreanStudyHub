@@ -1,49 +1,37 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluationClient {
-    private static final String PROVIDER = "openai-compatible";
-
     private final SpeakingEvaluatorProperties properties;
     private final SpeakingEvaluationPromptBuilder promptBuilder;
-    private final ObjectMapper objectMapper;
-    private final OpenAiCompatibleEvaluationTransport transport;
+    private final PracticeStructuredGenerationPort structuredGeneration;
 
     @Autowired
     public OpenAiCompatibleSpeakingEvaluationClient(
             SpeakingEvaluatorProperties properties,
             SpeakingEvaluationPromptBuilder promptBuilder,
-            ObjectMapper objectMapper
-    ) {
-        this(properties, promptBuilder, objectMapper, new RestClientEvaluationTransport(properties));
-    }
-
-    OpenAiCompatibleSpeakingEvaluationClient(
-            SpeakingEvaluatorProperties properties,
-            SpeakingEvaluationPromptBuilder promptBuilder,
-            ObjectMapper objectMapper,
-            OpenAiCompatibleEvaluationTransport transport
+            PracticeStructuredGenerationPort structuredGeneration
     ) {
         this.properties = properties;
         this.promptBuilder = promptBuilder;
-        this.objectMapper = objectMapper;
-        this.transport = transport;
+        this.structuredGeneration = structuredGeneration;
     }
 
     @Override
@@ -53,12 +41,21 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
             return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
                     "UNSUPPORTED_EVALUATOR_CAPABILITY", false, startNanos);
         }
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+        if (!currentPolicyConfiguration()) {
+            return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                    "STALE_EVALUATOR_POLICY_CONFIGURATION", false, startNanos);
+        }
+        if (!providerAvailable()) {
             return failure(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE, "MISSING_API_KEY", false, startNanos);
         }
         try {
-            String raw = callWithRetry(requestBody(request));
-            return parse(raw, startNanos);
+            return parseStructured(request, startNanos);
+        } catch (PracticeAiContractException ex) {
+            return failure(
+                    SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                    ex.category(),
+                    ex.retryable(),
+                    startNanos);
         } catch (HttpStatusCodeException ex) {
             return failure(SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE,
                     "PROVIDER_HTTP_ERROR", isRetryable(ex.getStatusCode()), startNanos);
@@ -71,69 +68,13 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
         }
     }
 
-    private Map<String, Object> requestBody(SpeakingEvaluationRequest request) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", properties.model());
-        body.put("temperature", 0.0);
-        body.put("top_p", 1.0);
-        body.put("max_tokens", 4096);
-        body.put("response_format", promptBuilder.responseFormat(request));
-        body.put("messages", List.of(
-                message("system", promptBuilder.systemPrompt(request)),
-                message("user", multimodalContent(request))));
-        return body;
-    }
-
-    private String callWithRetry(Map<String, Object> body) {
-        RuntimeException last = null;
-        for (int attempt = 0; attempt <= properties.maxRetries(); attempt++) {
-            requireEvaluationThreadActive();
-            try {
-                return transport.post(body);
-            } catch (HttpStatusCodeException ex) {
-                last = ex;
-                if (isRetryable(ex.getStatusCode()) && attempt < properties.maxRetries()) {
-                    continue;
-                }
-                throw ex;
-            } catch (ResourceAccessException ex) {
-                last = ex;
-                if (attempt < properties.maxRetries()) {
-                    continue;
-                }
-                throw ex;
-            }
-        }
-        throw last == null ? new ResourceAccessException("Speaking evaluator unavailable") : last;
-    }
-
-    private static void requireEvaluationThreadActive() {
-        if (Thread.currentThread().isInterrupted()) {
-            throw new IllegalStateException(
-                    "Speaking evaluation was interrupted.");
-        }
-    }
-
-    private SpeakingEvaluationProviderResult parse(String raw, long startNanos) {
-        JsonNode root;
-        try {
-            root = objectMapper.readTree(raw);
-        } catch (Exception ex) {
-            return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
-                    "PROVIDER_MALFORMED_JSON", false, startNanos);
-        }
-        String content = extractOutputText(root);
-        if (content == null || content.isBlank()) {
-            return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
-                    "PROVIDER_EMPTY_RESPONSE", false, startNanos);
-        }
-        try {
-            return SpeakingEvaluationProviderResult.success(
-                    objectMapper.readTree(content), PROVIDER, properties.model(), elapsedMillis(startNanos));
-        } catch (Exception ex) {
-            return failure(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
-                    "PROVIDER_MALFORMED_JSON", false, startNanos);
-        }
+    private boolean currentPolicyConfiguration() {
+        return SpeakingPromptRules.PROMPT_VERSION.equals(
+                properties.promptVersion())
+                && SpeakingPromptRules.RUBRIC_VERSION.equals(
+                properties.rubricVersion())
+                && SpeakingPromptRules.SCHEMA_VERSION.equals(
+                properties.schemaVersion());
     }
 
     private SpeakingEvaluationProviderResult failure(
@@ -143,52 +84,91 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
             long startNanos
     ) {
         return SpeakingEvaluationProviderResult.failure(
-                status, PROVIDER, properties.model(), errorCategory, retryable, elapsedMillis(startNanos));
+                status,
+                providerName(),
+                evaluatorModel(),
+                errorCategory,
+                retryable,
+                elapsedMillis(startNanos));
     }
 
-    private List<Map<String, Object>> multimodalContent(SpeakingEvaluationRequest request) {
-        java.util.ArrayList<Map<String, Object>> content = new java.util.ArrayList<>();
-        content.add(Map.of("type", "text", "text", promptBuilder.userPayload(request)));
-        if (request.imageEvidence() != null) {
-            content.add(Map.of(
-                    "type", "image_url",
-                    "image_url", Map.of(
-                            "url", request.imageEvidence().dataUrl(),
-                            "detail", "high")));
-        }
-        return content;
+    private SpeakingEvaluationProviderResult parseStructured(
+            SpeakingEvaluationRequest request,
+            long startNanos) {
+        Map<String, Object> responseFormat =
+                promptBuilder.responseFormat(request);
+        Map<String, Object> jsonSchema = nestedMap(
+                responseFormat,
+                "json_schema");
+        Map<String, Object> schema = nestedMap(jsonSchema, "schema");
+        List<PracticeStructuredGenerationRequest.ImageEvidence> images =
+                request.imageEvidence() == null
+                        ? List.of()
+                        : List.of(new PracticeStructuredGenerationRequest.ImageEvidence(
+                                "QUESTION_IMAGE",
+                                request.imageEvidence().sha256(),
+                                request.imageEvidence().dataUrl(),
+                                "high"));
+        String authorityIdentity = String.join(
+                "|",
+                "question=" + request.questionId(),
+                "questionVersion=" + request.questionVersionId(),
+                "context=" + request.promptContextContractIdentity(),
+                "policy=" + request.policyBundleId());
+        PracticeStructuredGenerationRequest structuredRequest =
+                new PracticeStructuredGenerationRequest(
+                        "speaking-transcript-evaluation",
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                        new PracticeAiAuthoritySnapshot(
+                                request.schemaVersion(),
+                                request.promptVersion(),
+                                "TRANSCRIPT_ONLY",
+                                request.evidenceContractVersion(),
+                                authorityIdentity),
+                        PracticeModelCapabilityProfile.openAiAssessmentV1(),
+                        promptBuilder.systemPrompt(request),
+                        "",
+                        promptBuilder.userPayloadObject(request),
+                        String.valueOf(jsonSchema.get("name")),
+                        schema,
+                        images,
+                        4096,
+                        "");
+        JsonNode output = structuredGeneration.generate(
+                structuredRequest).output();
+        return SpeakingEvaluationProviderResult.success(
+                output,
+                providerName(),
+                evaluatorModel(),
+                elapsedMillis(startNanos));
     }
 
-    private static Map<String, Object> message(String role, Object content) {
-        return Map.of("role", role, "content", content);
+    private boolean providerAvailable() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
     }
 
-    private static String extractOutputText(JsonNode root) {
-        JsonNode choice = root.path("choices").path(0);
-        if (choice.path("message").hasNonNull("content")) {
-            return choice.path("message").path("content").asText();
+    private String evaluatorModel() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
+    }
+
+    private String providerName() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).provider();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> nestedMap(
+            Map<String, Object> source,
+            String key) {
+        Object value = source.get(key);
+        if (!(value instanceof Map<?, ?> map)) {
+            throw new PracticeAiContractException(
+                    "INVALID_INTERNAL_RESPONSE_SCHEMA",
+                    false);
         }
-        if (root.hasNonNull("output_text")) {
-            return root.path("output_text").asText();
-        }
-        JsonNode output = root.path("output");
-        if (output.isArray()) {
-            StringBuilder builder = new StringBuilder();
-            for (JsonNode item : output) {
-                JsonNode content = item.path("content");
-                if (content.isArray()) {
-                    for (JsonNode contentItem : content) {
-                        if (contentItem.has("text")) {
-                            builder.append(contentItem.path("text").asText());
-                        }
-                    }
-                }
-            }
-            if (!builder.isEmpty()) {
-                return builder.toString();
-            }
-        }
-        return null;
+        return (Map<String, Object>) map;
     }
 
     private static boolean isRetryable(HttpStatusCode status) {
@@ -200,50 +180,4 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
         return Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
     }
 
-    String transportBaseUrlForTest() {
-        return transport.baseUrl();
-    }
-
-    interface OpenAiCompatibleEvaluationTransport {
-        String post(Map<String, Object> body);
-
-        String baseUrl();
-    }
-
-    private static class RestClientEvaluationTransport implements OpenAiCompatibleEvaluationTransport {
-        private final SpeakingEvaluatorProperties properties;
-        private final RestClient restClient;
-
-        private RestClientEvaluationTransport(SpeakingEvaluatorProperties properties) {
-            this.properties = properties;
-            this.restClient = RestClient.builder()
-                    .baseUrl(properties.baseUrl())
-                    .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                    .requestFactory(requestFactory(properties.timeout()))
-                    .build();
-        }
-
-        @Override
-        public String post(Map<String, Object> body) {
-            return restClient.post()
-                    .uri("/chat/completions")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
-        }
-
-        @Override
-        public String baseUrl() {
-            return properties.baseUrl();
-        }
-
-        private static SimpleClientHttpRequestFactory requestFactory(Duration timeout) {
-            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            int timeoutMs = Math.toIntExact(Math.min(timeout.toMillis(), Integer.MAX_VALUE));
-            factory.setConnectTimeout(timeoutMs);
-            factory.setReadTimeout(timeoutMs);
-            return factory;
-        }
-    }
 }

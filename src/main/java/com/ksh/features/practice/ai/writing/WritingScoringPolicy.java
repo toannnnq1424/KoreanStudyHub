@@ -1,7 +1,5 @@
 package com.ksh.features.practice.ai.writing;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -9,6 +7,7 @@ import java.util.List;
 public final class WritingScoringPolicy {
 
     public static final String PROFILE_ID = "KSH_INTERNAL_TASK_NATIVE_V1";
+    public static final String SCORING_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
 
     private WritingScoringPolicy() {
     }
@@ -33,26 +32,6 @@ public final class WritingScoringPolicy {
                 .divide(totalMaxScore, 2, RoundingMode.HALF_UP);
     }
 
-    public static BigDecimal percentageFromFeedback(JsonNode root) {
-        if (root == null || root.isMissingNode() || root.isNull()) {
-            return WritingScoreMatrix.toHundredPointScale(1.0);
-        }
-        if (root.has("score_available") && !root.path("score_available").asBoolean()) {
-            return BigDecimal.ZERO;
-        }
-        if (root.path("percentage").isNumber()) {
-            return clampPercentage(BigDecimal.valueOf(root.path("percentage").asDouble()));
-        }
-        double score = root.path("score").asDouble(root.path("overall_score").asDouble(1.0));
-        if (score <= 0.0) {
-            return BigDecimal.ZERO;
-        }
-        if ("TASK_NATIVE_RUBRIC_V1".equals(root.path("scoring_contract").asText()) || score > 9.0) {
-            return clampPercentage(BigDecimal.valueOf(score));
-        }
-        return WritingScoreMatrix.toHundredPointScale(score);
-    }
-
     private static List<WritingScoringCriterion> clozeCriteria() {
         return List.of(
                 criterion("W_CLOZE_BLANK_1_CONTEXT", "Ô 1 - Nội dung và ngữ cảnh", 2, 1),
@@ -74,10 +53,6 @@ public final class WritingScoringPolicy {
 
     private static WritingScoringCriterion criterion(String id, String name, int maxScore, int order) {
         return new WritingScoringCriterion(id, name, maxScore, order);
-    }
-
-    private static BigDecimal clampPercentage(BigDecimal percentage) {
-        return percentage.max(BigDecimal.ZERO).min(BigDecimal.valueOf(100));
     }
 
     private static String normalizeTaskType(String taskType) {

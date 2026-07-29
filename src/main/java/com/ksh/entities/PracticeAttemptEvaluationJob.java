@@ -15,6 +15,7 @@ import java.util.Objects;
 public class PracticeAttemptEvaluationJob {
 
     public static final int MAX_MANUAL_RETRY_REQUESTS = 2;
+    public static final int MAX_EVALUATION_CONTRACT_IDENTITY_LENGTH = 1024;
 
     public static final String OPERATION_SUBMIT = "SUBMIT";
     public static final String OPERATION_FULL_REEVALUATE = "FULL_REEVALUATE";
@@ -45,7 +46,7 @@ public class PracticeAttemptEvaluationJob {
     private String inputFingerprint;
 
     @Column(name = "evaluation_contract_identity", nullable = false,
-            length = 500)
+            length = MAX_EVALUATION_CONTRACT_IDENTITY_LENGTH)
     private String evaluationContractIdentity;
 
     @Column(name = "job_status", nullable = false, length = 24)
@@ -258,7 +259,10 @@ public class PracticeAttemptEvaluationJob {
     }
 
     private static String requireContractIdentity(String value) {
-        if (value == null || value.isBlank() || value.length() > 500) {
+        if (value == null
+                || value.isBlank()
+                || value.length()
+                > MAX_EVALUATION_CONTRACT_IDENTITY_LENGTH) {
             throw new IllegalArgumentException(
                     "Evaluation contract identity is invalid.");
         }

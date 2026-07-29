@@ -4,8 +4,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-flow-polish.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body practice-flow-set">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
 
 <div class="pi-container">
@@ -49,10 +50,6 @@
             <span>bài test, làm và lưu kết quả độc lập theo từng kỹ năng</span>
           </p>
         </div>
-
-        <button class="pd-icon-button" type="button" aria-label="Lưu bộ đề" title="Lưu bộ đề">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
-        </button>
       </section>
 
       <section class="pd-test-section" aria-labelledby="test-list-title">

@@ -7,17 +7,19 @@ import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.ai.media.AiImageEvidence;
 import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
+import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestClient;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Duration;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,37 +32,13 @@ public class WritingEvaluationClient {
 
     private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
     private final WritingEvaluationNormalizer normalizer;
     private final WritingRuleEngine ruleEngine;
     private final WritingTaskResolver taskResolver;
     private final WritingEvaluationCacheService cacheService;
     private final PracticeAiMetrics metrics;
     private final AiQuestionImageResolver imageResolver;
-
-    public WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                (RestClient) null, (AiQuestionImageResolver) null, PracticeAiMetrics.noop());
-    }
-
-    /**
-     * Source-compatible test seam retained while the unreachable mock fallback
-     * is removed from the live dependency graph.
-     */
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService ignoredMockEvaluatorService) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService);
-    }
+    private final PracticeStructuredGenerationPort structuredGeneration;
 
     @Autowired
     public WritingEvaluationClient(OpenAiProperties properties,
@@ -70,88 +48,8 @@ public class WritingEvaluationClient {
             WritingTaskResolver taskResolver,
             WritingEvaluationCacheService cacheService,
             AiQuestionImageResolver imageResolver,
-            PracticeAiMetrics metrics) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                null, imageResolver, metrics);
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingEvaluationCacheService cacheService,
-            RestClient restClient) {
-        this(properties, objectMapper, normalizer, ruleEngine, new WritingTaskResolver(),
-                cacheService, restClient, null, PracticeAiMetrics.noop());
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService ignoredMockEvaluatorService,
-            RestClient restClient) {
-        this(properties, objectMapper, normalizer, ruleEngine, cacheService, restClient);
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            RestClient restClient) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                restClient, null, PracticeAiMetrics.noop());
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService ignoredMockEvaluatorService,
-            RestClient restClient) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                restClient);
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            RestClient restClient,
-            PracticeAiMetrics metrics) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                restClient, null, metrics);
-    }
-
-    WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            WritingMockEvaluatorService ignoredMockEvaluatorService,
-            RestClient restClient,
-            PracticeAiMetrics metrics) {
-        this(properties, objectMapper, normalizer, ruleEngine, taskResolver, cacheService,
-                restClient, metrics);
-    }
-
-    private WritingEvaluationClient(OpenAiProperties properties,
-            ObjectMapper objectMapper,
-            WritingEvaluationNormalizer normalizer,
-            WritingRuleEngine ruleEngine,
-            WritingTaskResolver taskResolver,
-            WritingEvaluationCacheService cacheService,
-            RestClient restClient,
-            AiQuestionImageResolver imageResolver,
-            PracticeAiMetrics metrics) {
+            PracticeAiMetrics metrics,
+            PracticeStructuredGenerationPort structuredGeneration) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.normalizer = normalizer;
@@ -160,17 +58,25 @@ public class WritingEvaluationClient {
         this.cacheService = cacheService;
         this.imageResolver = imageResolver;
         this.metrics = metrics == null ? PracticeAiMetrics.noop() : metrics;
-        if (restClient != null) {
-            this.restClient = restClient;
-        } else {
-            this.restClient = RestClient.builder()
-                    .baseUrl(properties.baseUrl())
-                    .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                    .requestFactory(requestFactory(
-                            properties.connectTimeout(),
-                            properties.readTimeout()))
-                    .build();
-        }
+        this.structuredGeneration = structuredGeneration;
+    }
+
+    WritingEvaluationClient(OpenAiProperties properties,
+            ObjectMapper objectMapper,
+            WritingEvaluationNormalizer normalizer,
+            WritingRuleEngine ruleEngine,
+            WritingEvaluationCacheService cacheService,
+            PracticeStructuredGenerationPort structuredGeneration) {
+        this(
+                properties,
+                objectMapper,
+                normalizer,
+                ruleEngine,
+                new WritingTaskResolver(),
+                cacheService,
+                null,
+                PracticeAiMetrics.noop(),
+                structuredGeneration);
     }
 
     public String evaluate(String prompt, String learnerAnswer) {
@@ -181,14 +87,15 @@ public class WritingEvaluationClient {
         return String.join(
                 "|",
                 "ksh-writing-evaluation-v2",
-                properties.baseUrl(),
-                properties.evaluatorModel(),
+                transportIdentity(),
+                evaluatorModel(),
                 properties.connectTimeout().toString(),
                 properties.readTimeout().toString(),
                 "max-retries=5",
                 WritingPromptRules.PROMPT_VERSION,
                 WritingPromptRules.RUBRIC_VERSION,
-                cacheSchemaVersion());
+                cacheSchemaVersion(),
+                WritingAssessmentPolicyBundle.identity());
     }
 
     public String evaluate(String prompt, String learnerAnswer, boolean isReEvaluation) {
@@ -213,7 +120,7 @@ public class WritingEvaluationClient {
         String resolvedTaskType = taskResolver.resolve(explicitTaskType, prompt);
         WritingRuleEngine.RuleAnalysis ruleAnalysis = ruleEngine.analyze(prompt, learnerAnswer, resolvedTaskType);
         log.info("KSH writing evaluation started: model={}, taskType={}, charCount={}, violations={}, reEvaluation={}",
-                properties.evaluatorModel(), ruleAnalysis.taskType(), ruleAnalysis.characterCount(),
+                evaluatorModel(), ruleAnalysis.taskType(), ruleAnalysis.characterCount(),
                 ruleAnalysis.ruleViolations().size(), isReEvaluation);
 
         // 1. Deterministic spam short-circuit — task-aware
@@ -226,7 +133,7 @@ public class WritingEvaluationClient {
         if (!isReEvaluation) {
             try {
                 var cached = cacheService.get(userId, cachePrompt, learnerAnswer,
-                        ruleAnalysis.taskType(), properties.evaluatorModel(),
+                        ruleAnalysis.taskType(), evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         cacheSchemaVersion());
                 if (cached.isPresent()) {
@@ -255,7 +162,7 @@ public class WritingEvaluationClient {
         }
 
         // 3. Fail closed when provider credentials are unavailable
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+        if (!providerAvailable()) {
             long providerStart = PracticeAiMetrics.startNanos();
             String unavailable = normalizer.providerUnavailable(
                     "MISSING_API_KEY",
@@ -272,7 +179,7 @@ public class WritingEvaluationClient {
         try {
             String systemPrompt = WritingPromptRules.buildUnifiedPrompt(
                     ruleAnalysis.taskType(), isReEvaluation);
-            String userPayload = userPayload(
+            Map<String, Object> userPayload = userPayloadObject(
                     prompt, learnerAnswer, ruleAnalysis, isReEvaluation, imageEvidence);
 
             response = callPass(
@@ -281,7 +188,7 @@ public class WritingEvaluationClient {
                     ruleAnalysis.taskType());
         } catch (ProviderContractException ex) {
             log.warn("Writing AI evaluation contract failed: operation=provider-contract model={} taskType={} reason={} exception={}",
-                    properties.evaluatorModel(), ruleAnalysis.taskType(), ex.reason(), exceptionCategory(ex));
+                    evaluatorModel(), ruleAnalysis.taskType(), ex.reason(), exceptionCategory(ex));
             String failure = normalizer.contractFailure(ex.reason(), ruleAnalysis.taskType(), learnerAnswer);
             recordWritingProvider(PracticeAiMetrics.ProviderOutcome.FAILURE, providerStart);
             return failure;
@@ -292,7 +199,7 @@ public class WritingEvaluationClient {
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
             log.warn("Writing AI evaluation failed: operation=provider-call status={} model={} taskType={} retryable={} exception={}",
-                    status, properties.evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
+                    status, evaluatorModel(), ruleAnalysis.taskType(), isRetryable(status), exceptionCategory(ex));
             String unavailable = normalizer.providerUnavailable(
                     "PROVIDER_HTTP_ERROR",
                     ruleAnalysis.taskType(),
@@ -302,7 +209,7 @@ public class WritingEvaluationClient {
             return unavailable;
         } catch (org.springframework.web.client.ResourceAccessException ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=transport exception={}",
-                    properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
+                    evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
             String unavailable = normalizer.providerUnavailable(
                     "PROVIDER_TRANSPORT_ERROR",
                     ruleAnalysis.taskType(),
@@ -312,7 +219,7 @@ public class WritingEvaluationClient {
             return unavailable;
         } catch (Exception ex) {
             log.warn("Writing AI evaluation failed: operation=provider-call model={} taskType={} category=unexpected exception={}",
-                    properties.evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
+                    evaluatorModel(), ruleAnalysis.taskType(), exceptionCategory(ex));
             String unavailable = normalizer.providerUnavailable(
                     "PROVIDER_UNEXPECTED_ERROR",
                     ruleAnalysis.taskType(),
@@ -344,7 +251,7 @@ public class WritingEvaluationClient {
         if (normalizer.isCacheableAiResult(normalized)) {
             try {
                 cacheService.put(userId, cachePrompt, learnerAnswer,
-                        ruleAnalysis.taskType(), properties.evaluatorModel(),
+                        ruleAnalysis.taskType(), evaluatorModel(),
                         WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         cacheSchemaVersion(),
                         normalizer.sanitizeForCache(normalized));
@@ -361,7 +268,7 @@ public class WritingEvaluationClient {
                                   WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         try {
             cacheService.delete(userId, prompt, learnerAnswer,
-                    ruleAnalysis.taskType(), properties.evaluatorModel(),
+                    ruleAnalysis.taskType(), evaluatorModel(),
                     WritingPromptRules.PROMPT_VERSION, WritingPromptRules.RUBRIC_VERSION,
                         cacheSchemaVersion());
         } catch (Exception ex) {
@@ -398,114 +305,67 @@ public class WritingEvaluationClient {
         if (answer == null || answer.trim().isEmpty()) {
             return true;
         }
-        String trimmed = answer.trim();
+        String trimmed = Normalizer.normalize(
+                answer.trim(), Normalizer.Form.NFC);
         // No Hangul characters at all — definitely not a Korean writing answer
-        // Use (?s) flag so '.' matches newlines in multi-line answers
-        if (!trimmed.matches("(?s).*[가-힣].*")) {
-            return true;
-        }
-        return false;
+        return trimmed.codePoints()
+                .noneMatch(cp -> cp >= 0xAC00 && cp <= 0xD7A3);
     }
 
     // ---- Provider call ----
 
     private JsonNode callPass(String passName,
             String systemPrompt,
-            String userPayload,
+            Map<String, Object> userPayload,
             AiImageEvidence imageEvidence,
             Map<String, Object> responseFormat) throws Exception {
-        Map<String, Object> request = new LinkedHashMap<>();
-        request.put("model", properties.evaluatorModel());
-        request.put("temperature", 0.0);
-        request.put("top_p", 1.0);
-        request.put("max_tokens", 4096);
-        request.put("response_format", responseFormat);
-        request.put("messages", List.of(
-                message("system", systemPrompt),
-                message("user", multimodalContent(userPayload, imageEvidence))));
-
-        log.info("KSH writing evaluation pass '{}' request prepared: model={}", passName, properties.evaluatorModel());
-        String raw = callWithRetry(request);
-        JsonNode root;
         try {
-            root = objectMapper.readTree(raw);
-        } catch (Exception ex) {
-            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
-        }
-        String content = extractOutputText(root, raw);
-        if (content == null || content.isBlank()) {
-            throw new ProviderContractException("PROVIDER_EMPTY_RESPONSE");
-        }
-        try {
-            return objectMapper.readTree(content);
-        } catch (Exception ex) {
-            throw new ProviderContractException("PROVIDER_MALFORMED_JSON", ex);
-        }
-    }
-
-    private String callWithRetry(Map<String, Object> request) {
-        int maxRetries = 5;
-        long backoffMs = 3000;
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
-            requireEvaluationThreadActive();
-            try {
-                return restClient.post()
-                        .uri("/chat/completions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(request)
-                        .retrieve()
-                        .body(String.class);
-            } catch (HttpStatusCodeException ex) {
-                int status = ex.getStatusCode().value();
-                if (isRetryable(status) && attempt < maxRetries) {
-                    log.warn("Writing AI retry {}/{} after HTTP {}. Waiting {} ms.",
-                            attempt + 1, maxRetries, status, backoffMs);
-                    sleep(backoffMs);
-                    backoffMs = Math.min(backoffMs * 2, 30000);
-                    continue;
-                }
-                throw ex;
+            Map<String, Object> jsonSchema = nestedMap(
+                    responseFormat,
+                    "json_schema");
+            Map<String, Object> schema = nestedMap(
+                    jsonSchema,
+                    "schema");
+            List<PracticeStructuredGenerationRequest.ImageEvidence> images =
+                    imageEvidence == null
+                            ? List.of()
+                            : List.of(new PracticeStructuredGenerationRequest.ImageEvidence(
+                                    "QUESTION_IMAGE",
+                                    imageEvidence.sha256(),
+                                    imageEvidence.dataUrl(),
+                                    "high"));
+            PracticeStructuredGenerationRequest request =
+                    new PracticeStructuredGenerationRequest(
+                            "writing-evaluation-" + passName,
+                            PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                            new PracticeAiAuthoritySnapshot(
+                                    cacheSchemaVersion(),
+                                    WritingPromptRules.PROMPT_VERSION,
+                                    "TASK_NATIVE_WRITING",
+                                    WritingPromptRules.RUBRIC_VERSION,
+                                    WritingAssessmentPolicyBundle.identity()),
+                            PracticeModelCapabilityProfile.openAiAssessmentV1(),
+                            systemPrompt,
+                            "",
+                            userPayload,
+                            String.valueOf(jsonSchema.get("name")),
+                            schema,
+                            images,
+                            4096,
+                            "");
+            return structuredGeneration.generate(request).output();
+        } catch (PracticeAiContractException exception) {
+            if ("EVALUATION_INTERRUPTED".equals(exception.category())) {
+                throw new EvaluationInterruptedException(exception);
             }
+            throw new ProviderContractException(
+                    exception.category(),
+                    exception);
         }
-        throw new IllegalStateException("Max retries exceeded for writing evaluation.");
     }
 
     private static boolean isRetryable(int status) {
         return status == 429 || status == 500 || status == 502 || status == 503 || status == 504;
-    }
-
-    static SimpleClientHttpRequestFactory requestFactory(
-            Duration connectTimeout,
-            Duration readTimeout
-    ) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(timeoutMillis(connectTimeout, Duration.ofSeconds(5)));
-        factory.setReadTimeout(timeoutMillis(readTimeout, Duration.ofSeconds(60)));
-        return factory;
-    }
-
-    private static int timeoutMillis(Duration configured, Duration fallback) {
-        Duration resolved = configured == null ? fallback : configured;
-        long millis = resolved.toMillis();
-        if (millis <= 0) {
-            return Math.toIntExact(fallback.toMillis());
-        }
-        return Math.toIntExact(Math.min(millis, Integer.MAX_VALUE));
-    }
-
-    private static void sleep(long backoffMs) {
-        try {
-            Thread.sleep(backoffMs);
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw new EvaluationInterruptedException(interrupted);
-        }
-    }
-
-    private static void requireEvaluationThreadActive() {
-        if (Thread.currentThread().isInterrupted()) {
-            throw new EvaluationInterruptedException(null);
-        }
     }
 
     private static final class EvaluationInterruptedException
@@ -517,7 +377,7 @@ public class WritingEvaluationClient {
 
     // ---- Payload ----
 
-    private String userPayload(String prompt,
+    private Map<String, Object> userPayloadObject(String prompt,
             String learnerAnswer,
             WritingRuleEngine.RuleAnalysis ruleAnalysis,
             boolean isReEvaluation,
@@ -526,6 +386,8 @@ public class WritingEvaluationClient {
         payload.put("skill_type", "WRITING");
         payload.put("platform", "KSH Korean Study Hub");
         payload.put("level", "TOPIK");
+        payload.put("policy_bundle_id", WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        payload.put("policy_bundle_components", WritingAssessmentPolicyBundle.components());
         payload.put("prompt", prompt);
         payload.put("learner_answer", learnerAnswer == null ? "" : learnerAnswer);
         payload.put("task_type", ruleAnalysis.taskType());
@@ -546,11 +408,38 @@ public class WritingEvaluationClient {
         payload.put("allowed_rubric", Map.of(
                 "scoring_criteria", scoringCriteria(ruleAnalysis.taskType()),
                 "finding_criteria", allowedRubric(ruleAnalysis.taskType())));
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Could not build writing evaluator payload.", ex);
+        return payload;
+    }
+
+    private boolean providerAvailable() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
+    }
+
+    private String evaluatorModel() {
+        return structuredGeneration.identity(
+                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
+    }
+
+    private String transportIdentity() {
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+        return identity.provider()
+                + ":"
+                + identity.capabilityProfile().profileVersion();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> nestedMap(
+            Map<String, Object> source,
+            String key) {
+        Object value = source.get(key);
+        if (!(value instanceof Map<?, ?> map)) {
+            throw new ProviderContractException(
+                    "INVALID_INTERNAL_RESPONSE_SCHEMA");
         }
+        return (Map<String, Object>) map;
     }
 
     // ---- Rubric info ----
@@ -558,14 +447,21 @@ public class WritingEvaluationClient {
     static List<Map<String, Object>> allowedRubric(String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (WritingRubricCriterion criterion : WritingRubricCriterion.activeForTask(taskType)) {
-            rows.add(Map.of(
-                    "criterionId", criterion.id(),
-                    "vietnameseLabel", criterion.vietnameseLabel(),
-                    "koreanLabel", criterion.koreanLabel(),
-                    "polarity", criterion.polarity().name(),
-                    "category", criterion.category().name(),
-                    "evidenceScopes", criterion.evidenceScopes().stream().map(Enum::name).sorted().toList(),
-                    "rule", criterion.rule()));
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("criterionId", criterion.id());
+            row.put("vietnameseLabel", criterion.vietnameseLabel());
+            row.put("koreanLabel", criterion.koreanLabel());
+            row.put("polarity", criterion.polarity().name());
+            row.put("category", WritingDiagnosticContract.categoryCode(criterion));
+            row.put("allowedSubtypes",
+                    WritingDiagnosticContract.allowedSubtypes(criterion));
+            row.put("exactScoringCriterionId",
+                    WritingDiagnosticContract.expectedParentCriterionId(
+                            criterion, taskType));
+            row.put("evidenceScopes",
+                    criterion.evidenceScopes().stream().map(Enum::name).sorted().toList());
+            row.put("rule", criterion.rule());
+            rows.add(java.util.Collections.unmodifiableMap(row));
         }
         return rows;
     }
@@ -608,12 +504,21 @@ public class WritingEvaluationClient {
 
     private Map<String, Object> findingSchema() {
         return objectSchema(
-                list("criterionId", "evidenceScope", "evidence", "explanationVi", "correction"),
+                list("criterionId", "subtype", "scoringCriterionId",
+                        "evidenceScope", "evidence", "explanationVi", "correction",
+                        "impact", "frequency", "confidence", "observability"),
                 prop("criterionId", typed("string"),
-                        "evidenceScope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER", "TASK_METADATA"),
+                        "subtype", typed("string"),
+                        "scoringCriterionId", nullableString(),
+                        "evidenceScope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
                         "evidence", typed("string"),
                         "explanationVi", typed("string"),
-                        "correction", typed("string")));
+                        "correction", typed("string"),
+                        "impact", enumSchema("MINOR", "MODERATE", "MAJOR", "BLOCKING"),
+                        "frequency", integerSchema(1),
+                        "confidence", boundedNumberSchema(0.0, 1.0),
+                        "observability", enumSchema(
+                                "DIRECT", "INFERRED_BOUNDED")));
     }
 
     // ---- Schema helpers ----
@@ -695,6 +600,25 @@ public class WritingEvaluationClient {
     private static Map<String, Object> enumSchema(String... values) {
         Map<String, Object> node = typed("string");
         node.put("enum", List.of(values));
+        return node;
+    }
+
+    private static Map<String, Object> nullableString() {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("type", List.of("string", "null"));
+        return node;
+    }
+
+    private static Map<String, Object> integerSchema(int minimum) {
+        Map<String, Object> node = typed("integer");
+        node.put("minimum", minimum);
+        return node;
+    }
+
+    private static Map<String, Object> boundedNumberSchema(double minimum, double maximum) {
+        Map<String, Object> node = typed("number");
+        node.put("minimum", minimum);
+        node.put("maximum", maximum);
         return node;
     }
 

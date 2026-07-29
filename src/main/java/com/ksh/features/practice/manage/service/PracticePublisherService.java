@@ -789,9 +789,6 @@ public class PracticePublisherService {
         }
     }
 
-    private String mapUiTypeToDbType(String uiType) {
-        return questionTypeResolver.canonicalCode(uiType == null ? "SINGLE_CHOICE" : uiType);
-    }
 
     private QuestionContent resolveQuestionContent(JsonNode question,
                                                    CanonicalQuestionType type,

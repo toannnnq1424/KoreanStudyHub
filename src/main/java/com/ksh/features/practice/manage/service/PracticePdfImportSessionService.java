@@ -211,13 +211,6 @@ public class PracticePdfImportSessionService {
         }
     }
 
-    private String documentText(PracticeDraft draft, String field) {
-        try {
-            return objectMapper.readTree(draft.getDraftJson()).path("document").path(field).asText(null);
-        } catch (Exception exception) {
-            return null;
-        }
-    }
 
     private PracticeDraft authorizedDraft(Long draftId, Long actorId) {
         if (authorizationService == null) {

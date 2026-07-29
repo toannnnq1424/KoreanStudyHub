@@ -25,7 +25,7 @@
     } catch (error) {
       markChartFailure(
         shell,
-        'Không thể dựng lịch trực quan từ dữ kiện hiện tại · 현재 사실로 시각 캘린더를 만들 수 없습니다.'
+        'Không thể dựng lịch trực quan từ dữ kiện hiện tại.'
       );
     }
   }
@@ -67,7 +67,7 @@
     script.async = true;
     script.onload = renderAllCharts;
     script.onerror = () => markAllChartFailures(
-      'Không tải được thư viện biểu đồ · 차트 라이브러리를 불러오지 못했습니다.'
+      'Không tải được thư viện biểu đồ.'
     );
     document.head.appendChild(script);
   }
@@ -91,7 +91,7 @@
     } catch (error) {
       markChartFailure(
         shell,
-        'Không thể dựng biểu đồ từ dữ kiện hiện tại · 현재 사실로 차트를 만들 수 없습니다.'
+        'Không thể dựng biểu đồ từ dữ kiện hiện tại.'
       );
     }
   }
@@ -116,7 +116,7 @@
       status.hidden = false;
       const messageTarget = status.querySelector('[data-chart-failure-message]');
       const failureCopy = `CHART_ENHANCEMENT_UNAVAILABLE — ${message} `
-        + 'Bảng chuẩn vẫn dùng được · 표는 계속 사용할 수 있습니다.';
+        + 'Bảng chuẩn vẫn dùng được.';
       if (messageTarget) messageTarget.textContent = failureCopy;
     }
     const fallback = shell.querySelector('[data-chart-fallback]');
@@ -243,9 +243,24 @@
         plugins: {
           legend: { position: 'bottom' },
           tooltip: {
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            titleColor: '#172033',
+            bodyColor: '#475569',
+            borderColor: '#dbe5f4',
+            borderWidth: 1,
+            cornerRadius: 10,
+            padding: 12,
+            caretPadding: 10,
+            displayColors: true,
+            boxWidth: 10,
+            boxHeight: 10,
+            boxPadding: 5,
             callbacks: {
+              title() {
+                return '';
+              },
               label(context) {
-                return ` ${context.label}: ${context.raw} hoạt động`;
+                return ` ${context.label} · ${context.raw} hoạt động`;
               }
             }
           }

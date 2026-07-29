@@ -3,20 +3,23 @@
 <head th:replace="~{fragments/head :: head('Kết quả luyện tập | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-prep.css}">
 </head>
-<body class="practice-result-page">
+<body class="practice-result-page"
+      th:attr="data-result-skill=${result.identity().skill()}">
 <div class="pr-shell">
   <header class="pr-topbar">
     <a class="pr-back-link"
        th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
       <svg th:replace="~{practice/fragments/icons :: chevronLeft}"></svg>
-      Quay lại bài luyện
+      <span>Quay lại bài luyện</span>
     </a>
     <strong>Kết quả luyện tập</strong>
     <span class="pr-state" th:text="${result.state().label()}">Đã chấm</span>
   </header>
 
-  <main class="pr-main">
+  <main class="pr-main"
+        data-visual-acceptance="PREP_RESULT_OVERVIEW_AND_DETAIL">
     <section class="pr-lifecycle-notice"
              th:if="${result.state().code() == 'QUEUED'
                       or result.state().code() == 'PROCESSING'}"
@@ -77,6 +80,20 @@
           <div class="pr-score-unavailable" th:unless="${result.score().available()}">
             Chưa có điểm số khả dụng
           </div>
+        </div>
+        <span class="pr-baekho-celebration"
+              aria-hidden="true"></span>
+        <div class="pr-summary-answer-stats"
+             th:if="${result.payload().kind() == 'OBJECTIVE'}"
+             aria-label="Tóm tắt đáp án đã khóa">
+          <span class="is-correct">
+            <strong th:text="${result.answers().correct()}">0</strong>
+            <small>câu đúng</small>
+          </span>
+          <span class="is-incorrect">
+            <strong th:text="${result.answers().incorrect()}">0</strong>
+            <small>câu sai</small>
+          </span>
         </div>
       </div>
 

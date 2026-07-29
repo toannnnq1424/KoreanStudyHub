@@ -1,0 +1,631 @@
+/*
+ * The learner preference is a Korean-glyph preference, not a page-wide font.
+ * The 17 self-hosted assets are redistributable OFL webfonts. unicode-range
+ * and the [lang="ko"] scope keep Vietnamese UI glyphs on the normal KSH stack.
+ */
+@font-face {
+  font-family: "KSH Korean Nanum Myeongjo";
+  src:
+    local("Nanum Myeongjo"),
+    url("/fonts/practice-korean/nanum-myeongjo-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF,
+    U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "KSH Korean Nanum Gothic";
+  src:
+    local("Nanum Gothic"),
+    url("/fonts/practice-korean/nanum-gothic-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF,
+    U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "KSH Korean Gaegu";
+  src:
+    local("Gaegu"),
+    url("/fonts/practice-korean/gaegu-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF,
+    U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "KSH Korean Sunflower";
+  src:
+    local("Sunflower"),
+    url("/fonts/practice-korean/sunflower-medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  unicode-range:
+    U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF,
+    U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "KSH Korean Gugi";
+  src:
+    local("Gugi"),
+    url("/fonts/practice-korean/gugi-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF,
+    U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "KSH Korean Diphylleia";
+  src: local("Diphylleia"),
+    url("/fonts/practice-korean/diphylleia-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Gowun Batang";
+  src: local("Gowun Batang"),
+    url("/fonts/practice-korean/gowun-batang-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Noto Serif KR";
+  src: local("Noto Serif KR"),
+    url("/fonts/practice-korean/noto-serif-kr-variable.ttf") format("truetype");
+  font-style: normal; font-weight: 100 900; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Gothic A1";
+  src: local("Gothic A1"),
+    url("/fonts/practice-korean/gothic-a1-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Gowun Dodum";
+  src: local("Gowun Dodum"),
+    url("/fonts/practice-korean/gowun-dodum-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Orbit";
+  src: local("Orbit"),
+    url("/fonts/practice-korean/orbit-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Black And White Picture";
+  src: local("Black And White Picture"),
+    url("/fonts/practice-korean/black-and-white-picture-regular.ttf")
+      format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Poor Story";
+  src: local("Poor Story"),
+    url("/fonts/practice-korean/poor-story-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Single Day";
+  src: local("Single Day"),
+    url("/fonts/practice-korean/single-day-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Hi Melody";
+  src: local("Hi Melody"),
+    url("/fonts/practice-korean/hi-melody-regular.ttf") format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Nanum Gothic Coding";
+  src: local("Nanum Gothic Coding"),
+    url("/fonts/practice-korean/nanum-gothic-coding-regular.ttf")
+      format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "KSH Korean Nanum Pen Script";
+  src: local("Nanum Pen Script"),
+    url("/fonts/practice-korean/nanum-pen-script-regular.ttf")
+      format("truetype");
+  font-style: normal; font-weight: 400; font-display: swap;
+}
+
+:root[data-practice-korean-font="NANUM_MYEONGJO"] {
+  --practice-korean-learning-font:
+    "KSH Korean Nanum Myeongjo",
+    var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+:root[data-practice-korean-font="NANUM_GOTHIC"] {
+  --practice-korean-learning-font:
+    "KSH Korean Nanum Gothic",
+    var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+:root[data-practice-korean-font="GAEGU"] {
+  --practice-korean-learning-font:
+    "KSH Korean Gaegu",
+    var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+:root[data-practice-korean-font="SUNFLOWER"] {
+  --practice-korean-learning-font:
+    "KSH Korean Sunflower",
+    var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+:root[data-practice-korean-font="GUGI"] {
+  --practice-korean-learning-font:
+    "KSH Korean Gugi",
+    var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+:root[data-practice-korean-font="DIPHYLLEIA"] {
+  --practice-korean-learning-font: "KSH Korean Diphylleia", var(--font);
+}
+:root[data-practice-korean-font="GOWUN_BATANG"] {
+  --practice-korean-learning-font: "KSH Korean Gowun Batang", var(--font);
+}
+:root[data-practice-korean-font="NOTO_SERIF_KR"] {
+  --practice-korean-learning-font: "KSH Korean Noto Serif KR", var(--font);
+}
+:root[data-practice-korean-font="GOTHIC_A1"] {
+  --practice-korean-learning-font: "KSH Korean Gothic A1", var(--font);
+}
+:root[data-practice-korean-font="GOWUN_DODUM"] {
+  --practice-korean-learning-font: "KSH Korean Gowun Dodum", var(--font);
+}
+:root[data-practice-korean-font="ORBIT"] {
+  --practice-korean-learning-font: "KSH Korean Orbit", var(--font);
+}
+:root[data-practice-korean-font="BLACK_AND_WHITE_PICTURE"] {
+  --practice-korean-learning-font:
+    "KSH Korean Black And White Picture", var(--font);
+}
+:root[data-practice-korean-font="POOR_STORY"] {
+  --practice-korean-learning-font: "KSH Korean Poor Story", var(--font);
+}
+:root[data-practice-korean-font="SINGLE_DAY"] {
+  --practice-korean-learning-font: "KSH Korean Single Day", var(--font);
+}
+:root[data-practice-korean-font="HI_MELODY"] {
+  --practice-korean-learning-font: "KSH Korean Hi Melody", var(--font);
+}
+:root[data-practice-korean-font="NANUM_GOTHIC_CODING"] {
+  --practice-korean-learning-font:
+    "KSH Korean Nanum Gothic Coding", var(--font);
+}
+:root[data-practice-korean-font="NANUM_PEN_SCRIPT"] {
+  --practice-korean-learning-font:
+    "KSH Korean Nanum Pen Script", var(--font);
+}
+
+:root[data-practice-korean-font] [lang="ko"] {
+  font-family: var(--practice-korean-learning-font);
+  font-synthesis: none;
+}
+
+:root[data-practice-korean-size="LARGE"] [lang="ko"]:not(input):not(textarea):not(select):not(button):not([lang="ko"] [lang="ko"]) {
+  zoom: 1.15;
+}
+
+:root[data-practice-korean-size="EXTRA_LARGE"] [lang="ko"]:not(input):not(textarea):not(select):not(button):not([lang="ko"] [lang="ko"]) {
+  zoom: 1.3;
+}
+
+:root[data-practice-korean-size="LARGE"]
+  :is(input, textarea, select, button)[lang="ko"] {
+  font-size: max(1.15em, 17px);
+}
+
+:root[data-practice-korean-size="EXTRA_LARGE"]
+  :is(input, textarea, select, button)[lang="ko"] {
+  font-size: max(1.3em, 19px);
+}
+
+.pkf-choice[data-font-profile="NANUM_MYEONGJO"] .pkf-choice-sample {
+  font-family: "KSH Korean Nanum Myeongjo", serif;
+}
+
+.pkf-choice[data-font-profile="NANUM_GOTHIC"] .pkf-choice-sample {
+  font-family: "KSH Korean Nanum Gothic", sans-serif;
+}
+
+.pkf-choice[data-font-profile="GAEGU"] .pkf-choice-sample {
+  font-family: "KSH Korean Gaegu", sans-serif;
+}
+
+.pkf-choice[data-font-profile="SUNFLOWER"] .pkf-choice-sample {
+  font-family: "KSH Korean Sunflower", sans-serif;
+}
+
+.pkf-choice[data-font-profile="GUGI"] .pkf-choice-sample {
+  font-family: "KSH Korean Gugi", sans-serif;
+}
+
+.pkf-choice[data-font-profile="DIPHYLLEIA"] .pkf-choice-sample {
+  font-family: "KSH Korean Diphylleia", serif;
+}
+.pkf-choice[data-font-profile="GOWUN_BATANG"] .pkf-choice-sample {
+  font-family: "KSH Korean Gowun Batang", serif;
+}
+.pkf-choice[data-font-profile="NOTO_SERIF_KR"] .pkf-choice-sample {
+  font-family: "KSH Korean Noto Serif KR", serif;
+}
+.pkf-choice[data-font-profile="GOTHIC_A1"] .pkf-choice-sample {
+  font-family: "KSH Korean Gothic A1", sans-serif;
+}
+.pkf-choice[data-font-profile="GOWUN_DODUM"] .pkf-choice-sample {
+  font-family: "KSH Korean Gowun Dodum", sans-serif;
+}
+.pkf-choice[data-font-profile="ORBIT"] .pkf-choice-sample {
+  font-family: "KSH Korean Orbit", sans-serif;
+}
+.pkf-choice[data-font-profile="BLACK_AND_WHITE_PICTURE"] .pkf-choice-sample {
+  font-family: "KSH Korean Black And White Picture", sans-serif;
+}
+.pkf-choice[data-font-profile="POOR_STORY"] .pkf-choice-sample {
+  font-family: "KSH Korean Poor Story", sans-serif;
+}
+.pkf-choice[data-font-profile="SINGLE_DAY"] .pkf-choice-sample {
+  font-family: "KSH Korean Single Day", sans-serif;
+}
+.pkf-choice[data-font-profile="HI_MELODY"] .pkf-choice-sample {
+  font-family: "KSH Korean Hi Melody", cursive;
+}
+.pkf-choice[data-font-profile="NANUM_GOTHIC_CODING"] .pkf-choice-sample {
+  font-family: "KSH Korean Nanum Gothic Coding", monospace;
+}
+.pkf-choice[data-font-profile="NANUM_PEN_SCRIPT"] .pkf-choice-sample {
+  font-family: "KSH Korean Nanum Pen Script", cursive;
+}
+
+.pkf-settings {
+  box-sizing: border-box;
+  width: min(100% - 48px, 920px);
+  margin: 28px auto 72px;
+  color: #172033;
+}
+
+.pkf-heading,
+.pkf-form {
+  border: 1px solid #e2e9f5;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(48, 75, 126, .08);
+}
+
+.pkf-heading {
+  margin-bottom: 18px;
+  padding: 28px 32px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(85, 115, 255, .13), transparent 28%),
+    linear-gradient(135deg, #fff 0%, #f7f9ff 100%);
+}
+
+.pkf-eyebrow {
+  margin: 0 0 6px;
+  color: #315efb;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.pkf-heading h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  letter-spacing: -.04em;
+}
+
+.pkf-heading > p:last-child,
+.pkf-help,
+.pkf-preview-note {
+  color: #65738b;
+  line-height: 1.65;
+}
+
+.pkf-form {
+  padding: 28px 32px 32px;
+}
+
+.pkf-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pkf-form legend {
+  margin-bottom: 4px;
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.pkf-help {
+  margin: 0 0 18px;
+}
+
+.pkf-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.pkf-choice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid #dce4f1;
+  border-radius: 16px;
+  background: #fbfcff;
+  cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 154px;
+}
+
+.pkf-choice:has(input:checked) {
+  border-color: #315efb;
+  background: #f2f5ff;
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, .1);
+}
+
+.pkf-choice:focus-within {
+  outline: 3px solid rgba(49, 94, 251, .25);
+  outline-offset: 2px;
+}
+
+.pkf-choice input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #315efb;
+}
+
+.pkf-choice strong,
+.pkf-choice small {
+  display: block;
+}
+
+.pkf-choice-category {
+  display: inline-flex;
+  margin: 4px 0 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #315efb;
+  background: #edf2ff;
+  font-size: .68rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pkf-choice-sample {
+  display: block;
+  margin-top: 10px;
+  color: #182237;
+  font-size: 1.05rem;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+
+.pkf-size-fieldset {
+  margin-top: 26px !important;
+  padding-top: 24px !important;
+  border-top: 1px solid #e5eaf3 !important;
+}
+
+.pkf-size-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pkf-size-choice {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dce4f1;
+  border-radius: 14px;
+  background: #fbfcff;
+  cursor: pointer;
+}
+
+.pkf-size-choice:has(input:checked) {
+  border-color: #315efb;
+  color: #2048c7;
+  background: #f2f5ff;
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, .1);
+}
+
+.pkf-size-choice:focus-within {
+  outline: 3px solid rgba(49, 94, 251, .25);
+  outline-offset: 2px;
+}
+
+.pkf-size-choice input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 0;
+  accent-color: #315efb;
+}
+
+.pkf-size-choice strong,
+.pkf-size-choice small {
+  display: block;
+}
+
+.pkf-size-choice small {
+  margin-top: 2px;
+  color: #667085;
+}
+
+.pkf-choice small {
+  margin-top: 4px;
+  color: #6a778d;
+  line-height: 1.45;
+}
+
+.pkf-preview {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid #dce5f4;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(237, 243, 255, .9), rgba(250, 252, 255, .95));
+}
+
+.pkf-preview-top {
+  position: sticky;
+  z-index: 8;
+  top: 76px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: center;
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  background: rgba(247, 250, 255, .98);
+  box-shadow: 0 12px 28px rgba(39, 63, 111, .12);
+}
+
+.pkf-preview-top > div {
+  flex: 0 1 260px;
+}
+
+.pkf-preview-top [lang="ko"] {
+  flex: 1 1 440px;
+  margin: 0;
+}
+
+.pkf-preview-top .pkf-preview-note {
+  flex: 1 0 100%;
+}
+
+.pkf-preview h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.pkf-preview [lang="ko"] {
+  margin: 18px 0 8px;
+  color: #151c2d;
+  font-size: clamp(1.25rem, 3.5vw, 1.65rem);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.pkf-preview-note {
+  margin: 0;
+  font-size: .86rem;
+}
+
+.pkf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 22px;
+}
+
+.pkf-actions .btn,
+.pkf-actions .btn-ghost {
+  width: auto;
+  min-height: 44px;
+  padding: 11px 18px;
+}
+
+.pkf-alert {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid #a9dfbc;
+  border-radius: 12px;
+  color: #176a34;
+  background: #effbf3;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .pkf-preview-top {
+    top: 66px;
+    display: block;
+    margin-bottom: 18px;
+    padding: 11px 14px;
+    border-radius: 14px;
+  }
+
+  .pkf-preview-top h2,
+  .pkf-preview-top .pkf-preview-note {
+    display: none;
+  }
+
+  .pkf-preview-top .pkf-eyebrow {
+    margin-bottom: 2px;
+    font-size: .66rem;
+  }
+
+  .pkf-preview-top [lang="ko"] {
+    font-size: 1.08rem;
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 720px) {
+  .pkf-settings {
+    width: 100%;
+    margin: 0;
+    padding: 14px 14px 76px;
+  }
+
+  .pkf-heading,
+  .pkf-form {
+    padding: 22px 20px;
+    border-radius: 20px;
+  }
+
+  .pkf-choice-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .pkf-size-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .pkf-settings {
+    width: 100%;
+    margin: 0;
+  }
+
+  .pkf-heading,
+  .pkf-form,
+  .pkf-preview {
+    box-shadow: none;
+  }
+
+  .pkf-preview-top {
+    position: static;
+  }
+}

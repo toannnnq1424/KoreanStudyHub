@@ -32,11 +32,15 @@ public record SpeakingEvaluationRequest(
         String promptVersion,
         String rubricVersion,
         String schemaVersion,
+        String policyBundleId,
         SpeakingEvaluatorCapability evaluatorCapability,
         SpeakingEvidenceMode evidenceMode,
         String evidenceContractVersion
 ) {
     public SpeakingEvaluationRequest {
+        policyBundleId = policyBundleId == null || policyBundleId.isBlank()
+                ? null
+                : policyBundleId.trim();
         evaluatorCapability = evaluatorCapability == null
                 ? SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION
                 : evaluatorCapability;
@@ -83,7 +87,7 @@ public record SpeakingEvaluationRequest(
                 language, transcript, normalizedTranscript,
                 actuallyHeardTranscript, interpretedIntent,
                 transcriptConfidence, textFallback, promptVersion,
-                rubricVersion, schemaVersion,
+                rubricVersion, schemaVersion, null,
                 SpeakingEvaluatorCapability
                         .TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
@@ -120,7 +124,7 @@ public record SpeakingEvaluationRequest(
                 imageEvidence, audioMediaId, mediaVersion, mimeType, byteSize, durationMs,
                 transcriptionProvider, transcriptionModel, language, transcript, normalizedTranscript,
                 actuallyHeardTranscript, interpretedIntent, transcriptConfidence, textFallback,
-                promptVersion, rubricVersion, schemaVersion,
+                promptVersion, rubricVersion, schemaVersion, null,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
@@ -155,7 +159,7 @@ public record SpeakingEvaluationRequest(
                 null, audioMediaId, mediaVersion, mimeType, byteSize, durationMs,
                 transcriptionProvider, transcriptionModel, language, transcript, normalizedTranscript,
                 actuallyHeardTranscript, interpretedIntent, transcriptConfidence, textFallback,
-                promptVersion, rubricVersion, schemaVersion,
+                promptVersion, rubricVersion, schemaVersion, null,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
@@ -164,6 +168,15 @@ public record SpeakingEvaluationRequest(
     public boolean transcriptLanguageEvaluatorContract() {
         return evaluatorCapability == SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION
                 && evidenceMode == SpeakingEvidenceMode.TRANSCRIPT_ONLY
+                && java.util.Objects.equals(
+                SpeakingPromptRules.PROMPT_VERSION, promptVersion)
+                && java.util.Objects.equals(
+                SpeakingPromptRules.RUBRIC_VERSION, rubricVersion)
+                && java.util.Objects.equals(
+                SpeakingPromptRules.SCHEMA_VERSION, schemaVersion)
+                && java.util.Objects.equals(
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                policyBundleId)
                 && java.util.Objects.equals(
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION, evidenceContractVersion);
     }
@@ -202,6 +215,7 @@ public record SpeakingEvaluationRequest(
                 + ", promptVersion='" + promptVersion + '\''
                 + ", rubricVersion='" + rubricVersion + '\''
                 + ", schemaVersion='" + schemaVersion + '\''
+                + ", policyBundleId='" + policyBundleId + '\''
                 + ", evaluatorCapability=" + evaluatorCapability
                 + ", evidenceMode=" + evidenceMode
                 + ", evidenceContractVersion='" + evidenceContractVersion + '\''

@@ -2,7 +2,6 @@ package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.*;
 import com.ksh.features.practice.governance.PracticeAction;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class PracticeDraftService {

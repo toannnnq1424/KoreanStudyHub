@@ -1,6 +1,7 @@
 package com.ksh.features.practice.result;
 
 import com.ksh.features.practice.ai.writing.WritingRubricCriterion;
+import com.ksh.features.practice.ai.writing.WritingDiagnosticContract;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTarget;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTargetKind;
@@ -210,30 +211,7 @@ final class WritingDiagnosticDescriptorRegistry {
     }
 
     private static String categoryCode(WritingRubricCriterion criterion) {
-        if (criterion == WritingRubricCriterion.W_CLOZE_CONTEXT_FIT) {
-            return "TASK_CONTENT";
-        }
-        if (criterion == WritingRubricCriterion.W_CONNECTIVE_ENDING_ACCURACY
-                || criterion == WritingRubricCriterion.W_CLOZE_GRAMMAR_COMPATIBILITY) {
-            return "MORPHOSYNTAX";
-        }
-        if (criterion == WritingRubricCriterion.W_SENTENCE_COMPLETION_NATURALNESS) {
-            return "LEXICO_SEMANTIC";
-        }
-        if (criterion == WritingRubricCriterion.W_CLOZE_REGISTER_MATCH) {
-            return "SOCIOLINGUISTIC_PRAGMATIC";
-        }
-        return switch (criterion.category()) {
-            case CONTENT -> "TASK_CONTENT";
-            case ORGANIZATION -> "DISCOURSE";
-            case GRAMMAR -> "MORPHOSYNTAX";
-            case VOCABULARY, GENERAL_LANGUAGE -> "LEXICO_SEMANTIC";
-            case REGISTER -> "SOCIOLINGUISTIC_PRAGMATIC";
-            case SPELLING_SPACING -> "ORTHOGRAPHY";
-            case LENGTH, FORMAT -> "LENGTH_FORMAT";
-            case CLOZE -> throw new IllegalStateException(
-                    "Unmapped active cloze Writing criterion: " + criterion.id());
-        };
+        return WritingDiagnosticContract.categoryCode(criterion);
     }
 
     private static String longFormParent(String categoryCode) {

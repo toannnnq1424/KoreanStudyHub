@@ -50,6 +50,17 @@ public final class PracticeModelAttributes {
     public static final String ANALYTICS_JSON = "analyticsJson";
     public static final String PROGRESS_STATE = "progressState";
     public static final String PROGRESS_FILTER = "progressFilter";
+    public static final String KOREAN_FONT = "practiceKoreanFont";
+    public static final String KOREAN_FONT_OPTIONS = "practiceKoreanFontOptions";
+    public static final String KOREAN_FONT_SIZE = "practiceKoreanFontSize";
+    public static final String KOREAN_FONT_SIZE_OPTIONS =
+            "practiceKoreanFontSizeOptions";
+    public static final String KOREAN_FONT_SCHEMA_VERSION =
+            "practiceKoreanFontSchemaVersion";
+    public static final String KOREAN_FONT_ACCOUNT_ID =
+            "practiceKoreanFontAccountId";
+    public static final String KOREAN_FONT_CACHE_NAMESPACE =
+            "practiceKoreanFontCacheNamespace";
 
     private PracticeModelAttributes() {
     }

@@ -79,6 +79,7 @@ public class SpeakingEvaluationOrchestrator {
                 properties.promptVersion(),
                 properties.rubricVersion(),
                 properties.schemaVersion(),
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
                 SpeakingEvidenceMode.TRANSCRIPT_ONLY,
                 SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
@@ -101,6 +102,11 @@ public class SpeakingEvaluationOrchestrator {
         putAuthoritative(copy, "prompt_version", request.promptVersion());
         putAuthoritative(copy, "rubric_version", request.rubricVersion());
         putAuthoritative(copy, "schema_version", request.schemaVersion());
+        putAuthoritative(copy, "policy_bundle_id", request.policyBundleId());
+        putAuthoritative(
+                copy,
+                "policy_bundle_fingerprint",
+                SpeakingAssessmentPolicyBundle.fingerprint());
         putAuthoritative(copy, "evaluator_capability", request.evaluatorCapability().name());
         putAuthoritative(copy, "evidence_mode", request.evidenceMode().name());
         putAuthoritative(copy, "evidence_contract_version", request.evidenceContractVersion());

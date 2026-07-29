@@ -65,7 +65,8 @@
         <figure class="exam-source-figure" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
           <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
         </figure>
-        <div class="exam-passage exam-selectable" th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
+        <div class="exam-passage exam-selectable" lang="ko"
+             th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
              th:text="${g.passageText()}">Nội dung bài đọc</div>
       </article>
     </aside>
@@ -111,7 +112,8 @@
           </div>
         </div>
 
-        <div class="exam-example exam-selectable" th:if="${g.exampleBox() != null}">
+        <div class="exam-example exam-selectable" lang="ko"
+             th:if="${g.exampleBox() != null}">
           <strong>&lt;<span th:text="${g.exampleBox().label()}">보기</span>&gt;</strong>
           <p th:text="${g.exampleBox().content()}">Ví dụ</p>
           <ol th:if="${g.exampleBox().choices() != null}">
@@ -131,7 +133,7 @@
               </label>
             </div>
 
-            <p class="exam-question-prompt exam-selectable"
+            <p class="exam-question-prompt exam-selectable" lang="ko"
                th:if="${q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.prompt() != null and !#strings.isEmpty(q.prompt())}"
                th:text="${q.prompt()}">Câu hỏi</p>
 
@@ -164,7 +166,7 @@
                        th:value="${option.id()}"
                        th:checked="${savedAnswers.get(#strings.toString(q.id())) == option.id()}">
                 <span class="exam-option-key" th:text="${optionStat.count}">1</span>
-                <span class="exam-option-content exam-selectable">
+                <span class="exam-option-content exam-selectable" lang="ko">
                   <span th:text="${option.text()}">Phương án</span>
                   <img th:if="${option.imageReference() != null and !#strings.isEmpty(option.imageReference())}"
                        th:src="${option.imageReference()}" alt="Ảnh phương án">
@@ -180,13 +182,14 @@
 
             <div class="exam-fill-response" data-fill-question
                  th:if="${q.questionType() == 'FILL_BLANK' or q.questionType() == 'GAP_FILL'}">
-              <div class="exam-fill-template exam-selectable" th:text="${q.prompt()}">Điền vào chỗ trống</div>
+              <div class="exam-fill-template exam-selectable" lang="ko"
+                   th:text="${q.prompt()}">Điền vào chỗ trống</div>
               <div class="exam-fill-bank">
                 <label class="exam-fill-row" th:each="blank, blankStat : ${q.blankRows()}"
                        th:attr="data-blank-row=${blank.id()},data-blank-number=${blankStat.count}">
                   <span><b th:text="${blankStat.count}">1</b><span
                       th:text="${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}">Ô trống 1</span></span>
-                  <input type="text" class="exam-blank-input"
+                  <input type="text" class="exam-blank-input" lang="ko"
                          th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}"
                          autocomplete="off" spellcheck="false">
                 </label>
@@ -198,7 +201,7 @@
 
             <div class="exam-short-answer"
                  th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.questionType() != 'ESSAY' and q.questionType() != 'SPEAKING'}">
-              <input type="text" th:name="'answer_' + ${q.id()}"
+              <input type="text" lang="ko" th:name="'answer_' + ${q.id()}"
                      th:value="${savedAnswers.get(#strings.toString(q.id()))}"
                      placeholder="Nhập câu trả lời" autocomplete="off">
             </div>
