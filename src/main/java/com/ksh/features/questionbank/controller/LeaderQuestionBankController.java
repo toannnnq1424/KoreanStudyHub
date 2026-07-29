@@ -72,9 +72,9 @@ public class LeaderQuestionBankController {
     private final LeaderDepartmentResolver departmentResolver;
 
     public LeaderQuestionBankController(QuestionBankItemService itemService,
-                                      QuestionBankReviewService reviewService,
-                                      QuestionBankCategoryService categoryService,
-                                      LeaderDepartmentResolver departmentResolver) {
+                                        QuestionBankReviewService reviewService,
+                                        QuestionBankCategoryService categoryService,
+                                        LeaderDepartmentResolver departmentResolver) {
         this.itemService = itemService;
         this.reviewService = reviewService;
         this.categoryService = categoryService;
