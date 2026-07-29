@@ -438,8 +438,21 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (trustedTaskIdentity || !task.detailAvailable()) {
             return task;
         }
-        boolean legacyUnverified = task.feedback() != null
-                && "LEGACY_UNVERIFIED".equals(task.feedback().state());
+        ResultFeedbackAvailability closedFeedback = task.feedback();
+        String closedState = closedFeedback == null
+                ? ""
+                : normalize(closedFeedback.state());
+        boolean preservesClosedState = switch (closedState) {
+            case "PENDING", "FAILED", "UNAVAILABLE", "LEGACY_UNVERIFIED" -> true;
+            default -> false;
+        };
+        if (!preservesClosedState) {
+            closedFeedback = new ResultFeedbackAvailability(
+                    "UNAVAILABLE",
+                    "Không thể xác minh contract hiện hành của phản hồi",
+                    0,
+                    task.answered() ? 1 : 0);
+        }
         return new WritingTaskResult(
                 task.questionId(),
                 task.questionVersionId(),
@@ -449,13 +462,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 task.prompt(),
                 task.learnerAnswer(),
                 task.score() == null ? null : task.score().unavailableView(),
-                new ResultFeedbackAvailability(
-                        legacyUnverified ? "LEGACY_UNVERIFIED" : "UNAVAILABLE",
-                        legacyUnverified
-                                ? "Dữ liệu đánh giá cũ chỉ được nhận diện, không được tin làm kết quả"
-                                : "Không thể xác minh contract hiện hành của phản hồi",
-                        0,
-                        task.answered() ? 1 : 0),
+                closedFeedback,
                 null,
                 List.of(),
                 List.of(),

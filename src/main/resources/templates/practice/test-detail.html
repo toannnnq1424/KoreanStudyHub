@@ -47,7 +47,8 @@
       </div>
 
       <header class="pd-test-header">
-        <p class="pd-eyebrow" th:text="|Bài test ${selectedTest.displayOrder()}|">Bài test 1</p>
+        <p class="pd-eyebrow"
+           th:text="|Bài test ${selectedTest.displayOrder() != null ? selectedTest.displayOrder() + 1 : 1}|">Bài test 1</p>
         <h1 th:text="${selectedTest.title()}">Tên bài test</h1>
         <p th:text="${selectedTest.description() != null && !#strings.isEmpty(selectedTest.description()) ? selectedTest.description() : 'Chọn một kỹ năng để bắt đầu. Mỗi kỹ năng có lượt làm và kết quả độc lập.'}">
           Mô tả bài test.

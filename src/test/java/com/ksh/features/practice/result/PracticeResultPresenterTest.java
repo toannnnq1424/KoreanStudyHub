@@ -842,6 +842,14 @@ class PracticeResultPresenterTest {
 
         assertThat(pendingDetail.upgrade().learnerDerivedUpgrade().available()).isFalse();
         assertThat(pendingDetail.upgrade().evaluatorSample().available()).isFalse();
+        assertThat(pendingDetail.tasks()).singleElement().satisfies(task -> {
+            assertThat(task.feedback().state()).isEqualTo("PENDING");
+            assertThat(task.feedback().label())
+                    .doesNotContain("Không thể xác minh contract");
+            assertThat(task.score().available()).isFalse();
+            assertThat(task.officialCriteria()).isEmpty();
+        });
+        assertThat(pendingDetail.feedback().state()).isEqualTo("PENDING");
         assertThat(pendingDetail.diagnosticAvailability()).isEqualTo("FEEDBACK_UNAVAILABLE");
     }
 
