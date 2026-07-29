@@ -139,30 +139,117 @@
 
 ### QB-LEADER-CATALOG-001 — Trang LEADER báo rỗng dù giảng viên có danh mục
 
-- [x] Chốt hướng UX: giải thích cơ chế mirror lười, không tạo dữ liệu bằng GET.
-- [x] Xác minh lại bằng browser với `leader@ksh.edu.vn`.
+- [x] Xác định đây là taxonomy lai gây hiểu nhầm, không phải hai ngân hàng câu
+  hỏi độc lập.
+- [x] Chốt `question_bank_categories` là taxonomy canonical duy nhất cho ngân
+  hàng câu hỏi bộ môn.
 - Mức độ: Medium.
 - Luồng:
-  - `/lecturer/question-bank/new` hiển thị tám danh mục môn học do ADMIN quản
-    lý.
-  - `/leader/question-bank` lại hiển thị “Chưa có danh mục nào” và mời LEADER
-    tạo danh mục.
+  - `/lecturer/question-bank` từng ghép danh mục ADMIN với danh mục bộ môn nên
+    hiển thị tám mục toàn cục cộng với `namdk`.
+  - `/leader/question-bank` chỉ đọc danh mục bộ môn nên chỉ hiển thị `namdk`.
 - Phân tích code:
   - `question_bank_categories` vẫn quan trọng vì là taxonomy theo bộ môn và là
     đích khóa ngoại của `question_bank_items.category_id`.
-  - Danh mục ADMIN trên form giảng viên là reference âm tạm thời; service chỉ
-    mirror sang `question_bank_categories` khi câu hỏi/import được lưu.
-  - Vì vậy không nên drop bảng theo trạng thái hiện tại.
-- Vấn đề còn lại là UX: LEADER không thấy các danh mục ADMIN đang được giảng
-  viên nhìn thấy, nên màn hình tạo cảm giác hai hệ taxonomy không liên quan.
+  - Cầu nối ID âm/mirror lười làm bộ lọc giảng viên chứa lựa chọn chưa có câu
+    hỏi và nằm ngoài quyền mở/đóng trực tiếp của LEADER.
 - Bản sửa:
-  - Empty state nói rõ đây chỉ là danh mục riêng của bộ môn.
-  - Giảng viên vẫn dùng được taxonomy ADMIN; KSH chỉ tạo liên kết bộ môn khi lưu
-    câu hỏi đầu tiên.
+  - Giảng viên, import, review và bộ chọn câu hỏi của bài test đều dùng cùng ID
+    dương trong `question_bank_categories`.
+  - LEADER thấy cả mục active/inactive để quản lý; giảng viên chỉ thấy mục active
+    trong đúng bộ môn.
+  - `categories` của ADMIN tiếp tục là taxonomy nội dung/khóa học, không còn được
+    ghép vào ngân hàng câu hỏi.
+  - Các bản mirror đã tồn tại vẫn là dòng bộ môn hợp lệ và không mất dữ liệu.
   - Không drop `question_bank_categories`.
 - Bằng chứng hồi quy:
-  - `/leader/question-bank` hiển thị thông điệp mới, không còn ngụ ý giảng viên
-    không có danh mục và không có lỗi trang.
+  - Compile Java 17 thành công.
+  - `/lecturer/question-bank` chỉ còn hai danh mục bộ môn đang mở
+    `Kinh tế học` và `namdk`; không còn ID âm/danh mục ADMIN trộn vào.
+  - Câu hỏi `#81` dùng danh mục `Kinh tế học` và trang chi tiết mở bình thường.
+- Commit: `015c0fa7`.
+
+### QB-IMPORT-CATEGORY-002 — File mẫu dùng danh mục không tồn tại trong bộ môn
+
+- [x] Đã xác định nguyên nhân dữ liệu.
+- [x] Đã làm rõ thông báo validation và đồng bộ file mẫu theo danh mục ngân
+  hàng câu hỏi đang mở của bộ môn.
+- Mức độ: Medium.
+- Route: `/lecturer/question-bank`, khối `Xem trước import Excel`.
+- Hiện tượng:
+  - Hai dòng dùng `Giải tích 1` đều bị chặn với thông báo danh mục không tồn tại
+    hoặc đang bị ẩn.
+  - Preview hợp lệ bằng `0`, xác nhận import bị vô hiệu hóa và chưa ghi DB.
+- Nguyên nhân gốc:
+  - Import đối chiếu chính xác tên trong `question_bank_categories` đang mở của
+    đúng bộ môn.
+  - Browser QA hiện chỉ thấy `Kinh tế học` và `namdk`; `Giải tích 1` không phải
+    danh mục ngân hàng câu hỏi hợp lệ.
+  - File Excel mẫu cũ lại hard-code `Giải tích 1`, nên chính file mẫu có thể tự
+    tạo preview lỗi. Đây là lỗi hợp đồng mẫu, không phải corruption DB.
+- Bản sửa:
+  - Thông báo nêu tên danh mục lỗi, phân biệt danh mục ngân hàng câu hỏi bộ môn
+    và gợi ý tối đa năm danh mục đang mở để sửa cột Excel.
+  - Giữ nguyên exact-match và nguyên tắc preview không ghi DB.
+- Commit: `015c0fa7`.
+
+### QB-DETAIL-UI-001 — Chi tiết câu hỏi trải quá rộng và badge đáp án bị kéo dài
+
+- [x] Đã sửa CSS/markup.
+- [x] Đã Browser QA desktop 1280×720 và mobile 390×844.
+- Mức độ: Medium.
+- Route: `/lecturer/question-bank/81`.
+- Bản sửa:
+  - Giới hạn vùng đọc ở 960px và đặt nội dung trong card có padding.
+  - Tách từng đáp án thành row/card; đáp án đúng có nền nhẹ nhưng badge
+    `Đáp án đúng` giữ kích thước nội dung thay vì thành thanh xanh toàn hàng.
+- Bằng chứng:
+  - Desktop: page đúng 960px, card 888px; badge rộng 106px trong row 822px.
+  - Mobile: card rộng 347px trong viewport 390px; không tràn ngang.
+- Commit: `015c0fa7`.
+
+### CLASSES-STUDENT-LIST-UI-001 — `/my/classes` dùng nhầm grid sáu cột
+
+- [x] Đã sửa selector/layout và loại điều khiển không hoạt động.
+- [x] Đã Browser QA desktop 1280×720 và mobile 390×844.
+- Mức độ: High.
+- Nguyên nhân gốc:
+  - HTML đặt `class-page` và `my-classes-shell` trên cùng một `<main>`, nhưng CSS
+    dùng selector descendant `.class-page .my-classes-shell`.
+  - Quy tắc riêng không khớp, làm trang rơi về grid sáu cột của giảng viên dù
+    mỗi dòng học viên chỉ có bốn ô.
+- Bản sửa:
+  - Dùng selector same-element `.class-page.my-classes-shell`.
+  - Giữ gutter của shell; bổ sung semantic class cho giảng viên/ngày.
+  - Search/sort chỉ thao tác trong `#active-class-list`, không trộn các yêu cầu
+    tham gia đang chờ; bỏ `viewToggle` không có hành vi.
+- Bằng chứng:
+  - Desktop: shell có padding `22px 28px 28px`, header nằm từ x=29 đến x=1236,
+    không tràn ngang.
+  - Mobile: shell rộng 375px trong viewport 390px, không tràn ngang; empty state
+    và các control vẫn render bình thường.
+- Commit: `00a3728f`.
+
+### PRACTICE-CATALOG-CLASS-001 — Catalog `/practice` lẫn bộ lọc lớp học
+
+- [x] Đã bóc bộ lọc lớp khỏi catalog và resume công khai.
+- [x] Đã Browser QA route có legacy `classId` và xác nhận UI/link không truyền
+  tiếp tham số này.
+- Mức độ: Medium.
+- Quyết định phạm vi:
+  - `/practice` là kho luyện tập độc lập với class, nên catalog chỉ đọc các bộ
+    `GLOBAL` đã publish.
+  - Loại `classId`, danh sách “Mọi lớp học” và chỉ số “Lớp đang tham gia” khỏi
+    catalog.
+  - Resume trên catalog chỉ đọc attempt của bộ GLOBAL.
+  - Giữ nguyên schema `scope/class_id`, dữ liệu lịch sử, route direct legacy,
+    AI config, storage config và các workflow Practice ngoài catalog để không
+    phá tương thích.
+- Bằng chứng:
+  - `/practice?...&classId=1061` vẫn tải được nhưng không còn control
+    `name=classId`, chữ “Mọi lớp học” hay link tiếp tục mang `classId`.
+  - Trang chỉ hiển thị card GLOBAL và không tràn ngang.
+- Commit: `da166181`.
 
 ### HOME-ROLE-LEADER-001 — Trang chủ để trống vai trò LEADER
 
@@ -381,7 +468,8 @@
 - [x] Test theo lớp: `/lecturer/classes/2/tests` → form tạo mới giữ
   `classId=2` → Quay lại đúng `/lecturer/classes/2/tests`.
 - [x] Kho đề test toàn cục → form tạo mới → Quay lại đúng `/lecturer/tests`.
-- [x] Ngân hàng câu hỏi và form thêm câu hỏi tải đủ tám danh mục hiện hành.
+- [x] Ngân hàng câu hỏi và form thêm câu hỏi dùng đúng danh mục bộ môn đang mở;
+  tại thời điểm QA là `Kinh tế học` và `namdk`.
 - [x] 12 khu vực lớp `#2`: bảng tin, lịch, thành viên, vai trò, nhóm, bài tập,
   test, bảng điểm, tiến độ, bài giảng, tài liệu và cài đặt.
 - [x] Kho học liệu, kho mẫu bài giảng và form/lịch sử sửa bài giảng.
@@ -401,11 +489,14 @@
 - [x] Browser regression cho các lỗi đã sửa.
 - [x] 13/13 kiểm tra mục tiêu DB-free đạt; `node --check` và `git diff --check`
   đạt. Không chạy full suite theo yêu cầu.
-- [x] Nhóm follow-up hiện tại compile thành công bằng
-  `.\mvnw.cmd -q -DskipTests compile`; `git diff --check` đạt.
+- [x] Nhóm follow-up hiện tại compile cả main/test-source thành công bằng
+  `.\mvnw.cmd -q -DskipTests test-compile`; không thực thi test;
+  `git diff --check` đạt.
 - [ ] Không chạy test focused/full-suite cho nhóm follow-up hiện tại theo yêu
   cầu; hành vi khóa đồng thời trên kết nối DB thật vẫn chưa được xác minh.
 - [x] Server-log sweep cuối: không có `ERROR`, exception, 403 hay lỗi template
   mới; chỉ còn hai warning platform đã ghi ở trên.
-- [x] Giữ nguyên phạm vi loại trừ: mật khẩu demo `123456`, migration chain và
-  mọi thay đổi logic/cấu hình riêng của `/practice`.
+- [x] Giữ nguyên phạm vi loại trừ: mật khẩu demo `123456`, migration chain,
+  AI/storage/schema và các workflow riêng của Practice. Ngoại lệ sản phẩm được
+  yêu cầu trực tiếp trong đợt này chỉ là bóc liên kết lớp khỏi catalog
+  `/practice`; direct legacy và dữ liệu lịch sử vẫn được giữ nguyên.
