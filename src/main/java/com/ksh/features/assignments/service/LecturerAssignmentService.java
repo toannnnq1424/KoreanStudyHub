@@ -165,11 +165,12 @@ public class LecturerAssignmentService {
     public SubmissionDetail getSubmissionDetail(Long classId, Long assignmentId,
                                                 Long submissionId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
-        // Match the student's lock order (assignment, then submission) so a
-        // grade cannot be overwritten by a concurrent re-submit.
-        Assignment a = assignmentRepository.findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
+        // This is a read-only GET. Pessimistic write locks would issue
+        // SELECT ... FOR UPDATE and fail when MySQL enforces the read-only
+        // transaction declared on this method.
+        Assignment a = assignmentRepository.findByIdAndClassIdNotDeleted(assignmentId, classId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
-        AssignmentSubmission sub = submissionRepository.findByIdForUpdate(submissionId)
+        AssignmentSubmission sub = submissionRepository.findById(submissionId)
                 .filter(s -> s.getAssignmentId().equals(assignmentId))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
         Optional<AssignmentFeedback> fb = feedbackRepository.findBySubmissionId(submissionId);
@@ -192,8 +193,11 @@ public class LecturerAssignmentService {
     public void grade(Long classId, Long assignmentId, Long submissionId,
                       GradeForm form, Long graderId, Role role) {
         access.requireEditableClass(classId, graderId, role);
-        Assignment a = access.requireAssignment(classId, assignmentId);
-        AssignmentSubmission sub = submissionRepository.findById(submissionId)
+        // Match the student's lock order (assignment, then submission) so a
+        // concurrent re-submit cannot overwrite a grade in progress.
+        Assignment a = assignmentRepository.findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
+        AssignmentSubmission sub = submissionRepository.findByIdForUpdate(submissionId)
                 .filter(s -> s.getAssignmentId().equals(assignmentId))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
 
