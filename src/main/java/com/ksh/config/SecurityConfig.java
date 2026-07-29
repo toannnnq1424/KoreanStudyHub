@@ -2,15 +2,12 @@ package com.ksh.config;
 
 import com.ksh.security.Roles;
 import com.ksh.security.CustomOidcUserService;
-import com.ksh.security.LoginAttemptThrottle;
-import com.ksh.security.LoginThrottleFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -20,20 +17,19 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.AuthenticatedPrincipalOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
 /**
- * Security configuration for the KSH application.
+ * Security configuration for the ksh application.
  *
  * <ul>
  *   <li>Form login — always active.</li>
@@ -79,7 +75,7 @@ public class SecurityConfig {
      *
      * <p>Redirects the user to {@code /login?error=oauth_unregistered} when an
      * OAuth2 authentication attempt fails (e.g. the Google account is not yet
-     * registered in KSH, or Google sign-in is currently disabled in the admin
+     * registered in ksh, or Google sign-in is currently disabled in the admin
      * panel).</p>
      *
      * @return an {@link AuthenticationFailureHandler} that redirects to the login error page
@@ -88,30 +84,6 @@ public class SecurityConfig {
     public AuthenticationFailureHandler oauthFailureHandler() {
         return (request, response, exception) ->
                 response.sendRedirect("/login?error=oauth_unregistered");
-    }
-
-    @Bean
-    public AuthenticationFailureHandler formFailureHandler(
-            LoginAttemptThrottle throttle) {
-        SimpleUrlAuthenticationFailureHandler delegate =
-                new SimpleUrlAuthenticationFailureHandler("/login?error");
-        return (request, response, exception) -> {
-            throttle.recordFailure(
-                    request.getParameter("username"), request.getRemoteAddr());
-            delegate.onAuthenticationFailure(request, response, exception);
-        };
-    }
-
-    @Bean
-    public AuthenticationSuccessHandler formSuccessHandler(
-            LoginAttemptThrottle throttle) {
-        SavedRequestAwareAuthenticationSuccessHandler delegate =
-                new SavedRequestAwareAuthenticationSuccessHandler();
-        delegate.setDefaultTargetUrl("/");
-        return (request, response, authentication) -> {
-            throttle.recordSuccess(request.getParameter("username"));
-            delegate.onAuthenticationSuccess(request, response, authentication);
-        };
     }
 
     /**
@@ -143,13 +115,44 @@ public class SecurityConfig {
     }
 
     /**
+     * Tracks every authenticated HTTP session so a password change can revoke
+     * the user's other sessions.
+     *
+     * <p>Without a registry Spring Security keeps no handle on live sessions,
+     * which means a stolen session stays valid after the victim changes their
+     * password. {@code ChangePasswordController} expires the other entries via
+     * this bean; see {@link #httpSessionEventPublisher()} for the destruction
+     * half of the contract.</p>
+     *
+     * @return an in-memory session registry
+     */
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    /**
+     * Bridges servlet container session events onto the Spring application
+     * context so {@link SessionRegistryImpl} learns when a session is destroyed.
+     *
+     * <p>Without this publisher the registry would accumulate entries for
+     * sessions that have already timed out or been logged out.</p>
+     *
+     * @return the session event publisher
+     */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    /**
      * Configures the main {@link SecurityFilterChain} for the application.
      *
      * <p>Authorization rules:</p>
      * <ul>
-     *   <li>Static resources plus the controller-backed avatar/exam upload namespaces are public.</li>
+     *   <li>Static resources and upload paths are publicly accessible.</li>
      *   <li>{@code /login}, {@code /forgot-password}, and {@code /reset-password} are public.</li>
-     *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code LEADER}, or {@code ADMIN} role.</li>
+     *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code HEAD}, or {@code ADMIN} role.</li>
      *   <li>{@code /admin/**} requires the {@code ADMIN} role.</li>
      *   <li>All other requests require an authenticated user.</li>
      * </ul>
@@ -162,12 +165,7 @@ public class SecurityConfig {
      * @throws Exception if an error occurs while building the filter chain
      */
     @Bean
-    public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            LoginAttemptThrottle loginAttemptThrottle,
-            @Qualifier("formFailureHandler")
-            AuthenticationFailureHandler formFailureHandler,
-            AuthenticationSuccessHandler formSuccessHandler) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // Allow same-origin framing so the in-app PDF.js / docx
                 // viewer iframes render (default is DENY). See decision 0010.
@@ -177,20 +175,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
-                        // Raw upload routing is fail-closed. Only the two
-                        // controller-backed public namespaces are allowed;
-                        // Practice material must use its authorized controller.
-                        .requestMatchers(
-                                "/uploads/avatars/**",
-                                "/uploads/exams/**"
-                        ).permitAll()
-                        .requestMatchers("/uploads/**").denyAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
-                        .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
-                        .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
-                        .requestMatchers("/leader/**").hasRole(Roles.LEADER)
+                        .requestMatchers("/head/**").hasRole(Roles.LEADER)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         // WebSocket STOMP handshake rides the HTTP session; require auth.
                         .requestMatchers("/ws/**").authenticated()
@@ -211,8 +200,8 @@ public class SecurityConfig {
                         // Fallback "/" remains safe: when a user opens /login
                         // directly there is no saved request and they are sent
                         // to the home page as before.
-                        .successHandler(formSuccessHandler)
-                        .failureHandler(formFailureHandler)
+                        .defaultSuccessUrl("/", false)
+                        .failureUrl("/login?error")
                         .permitAll()
                 )
                 .logout(logout -> logout
@@ -231,9 +220,14 @@ public class SecurityConfig {
                         // class join.
                         .defaultSuccessUrl("/", false)
                 )
-                .addFilterBefore(
-                        new LoginThrottleFilter(loginAttemptThrottle),
-                        UsernamePasswordAuthenticationFilter.class)
+                // Register each authenticated session so a password change can
+                // expire the user's other sessions. No maximumSessions cap —
+                // concurrent logins stay allowed; we only need the handles.
+                .sessionManagement(session -> session
+                        .sessionConcurrency(concurrency -> concurrency
+                                .sessionRegistry(sessionRegistry())
+                        )
+                )
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's
                 // form rendering, after the response buffer has already been flushed —
