@@ -1,8 +1,8 @@
 package com.ksh.features.practice.manage.speaking;
 
 import com.ksh.entities.LecturerAsset;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
-import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
 import com.ksh.features.practice.manage.service.PracticeMaterialReferenceService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
@@ -30,8 +30,14 @@ import java.util.Set;
 @Service
 public class SpeakingPromptAssetService {
 
-    static final String ORIGINAL_PLACEMENT = "SPEAKING_PROMPT_ORIGINAL";
-    static final String GENERATED_PLACEMENT = "SPEAKING_PROMPT_TTS";
+    /** @deprecated use the neutral persisted vocabulary owner. */
+    @Deprecated(forRemoval = false)
+    static final String ORIGINAL_PLACEMENT =
+            PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL;
+    /** @deprecated use the neutral persisted vocabulary owner. */
+    @Deprecated(forRemoval = false)
+    static final String GENERATED_PLACEMENT =
+            PracticeMaterialPlacements.SPEAKING_PROMPT_TTS;
 
     private final LecturerAssetRepository assetRepository;
     private final PracticeMaterialReferenceRepository referenceRepository;
@@ -136,7 +142,7 @@ public class SpeakingPromptAssetService {
         materialReferenceService.unlinkDraft(
                 draftId,
                 assetId,
-                ORIGINAL_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                 questionClientId);
     }
 
@@ -178,7 +184,7 @@ public class SpeakingPromptAssetService {
                 .existsByAssetIdAndDraftIdAndPlacementAndReferenceKey(
                         assetId,
                         draftId,
-                        GENERATED_PLACEMENT,
+                        PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                         questionClientId)) {
             throw new AccessDeniedException(
                     "Audio AI không thuộc đúng câu hỏi của bản nháp.");
@@ -282,8 +288,8 @@ public class SpeakingPromptAssetService {
                     referenceRepository
                             .findDraftPlacementAndReferenceKeyForUpdate(
                                     draftId,
-                                    PracticeAssessmentExcelService
-                                            .EXCEL_SPEAKING_STAGING,
+                                    PracticeMaterialPlacements
+                                            .SPEAKING_PROMPT_EXCEL_STAGING,
                                     questionClientId);
             if (exact.size() != 1
                     || !Objects.equals(
@@ -300,18 +306,18 @@ public class SpeakingPromptAssetService {
         materialReferenceService.linkDraft(
                 draftId,
                 assetId,
-                ORIGINAL_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                 questionClientId,
                 null);
         retirePriorQuestionPlacementBindings(
                 draftId,
                 questionClientId,
-                ORIGINAL_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                 assetId);
         materialReferenceService.unlinkDraft(
                 draftId,
                 assetId,
-                PracticeAssessmentExcelService.EXCEL_SPEAKING_STAGING,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
                 questionClientId);
         return asset;
     }
@@ -436,12 +442,12 @@ public class SpeakingPromptAssetService {
                 lecturerAssetService.registerGeneratedDraftAudio(
                         candidate.delegate,
                         "Audio đề bài do AI tạo",
-                        GENERATED_PLACEMENT,
+                        PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                         candidate.questionClientId);
         retirePriorQuestionPlacementBindings(
                 candidate.draftId,
                 candidate.questionClientId,
-                GENERATED_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                 registered.getId());
         return registered;
     }
@@ -464,12 +470,12 @@ public class SpeakingPromptAssetService {
                 ownerId,
                 assetId,
                 "AI_TTS",
-                GENERATED_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                 questionClientId);
         retirePriorQuestionPlacementBindings(
                 draftId,
                 questionClientId,
-                GENERATED_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                 assetId);
     }
 
@@ -485,7 +491,7 @@ public class SpeakingPromptAssetService {
         retirePriorQuestionPlacementBindings(
                 draftId,
                 questionClientId,
-                GENERATED_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                 null);
     }
 
@@ -622,8 +628,8 @@ public class SpeakingPromptAssetService {
                 referenceRepository
                         .findByDraftIdAndPlacementAndReferenceKey(
                                 draftId,
-                                PracticeAssessmentExcelService
-                                        .EXCEL_SPEAKING_STAGING,
+                                PracticeMaterialPlacements
+                                        .SPEAKING_PROMPT_EXCEL_STAGING,
                                 questionClientId);
         if (exact.isEmpty()) {
             if (!required) {
@@ -674,7 +680,7 @@ public class SpeakingPromptAssetService {
                     .existsByAssetIdAndDraftIdAndPlacementAndReferenceKey(
                             assetId,
                             draftId,
-                            ORIGINAL_PLACEMENT,
+                            PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                             questionClientId)) {
             throw new AccessDeniedException(
                     "Audio đề bài không thuộc đúng câu hỏi của bản nháp.");

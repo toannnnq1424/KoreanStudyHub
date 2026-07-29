@@ -2,8 +2,8 @@ package com.ksh.features.practice.manage.speaking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
 import com.ksh.features.practice.manage.service.PracticeMaterialReferenceService;
-import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,7 +89,7 @@ public class SpeakingPromptLifecycleService {
         Set<Long> cleanupCandidates = new LinkedHashSet<>();
         for (com.ksh.entities.PracticeMaterialReference reference
                 : materialReferenceService.referencesForDraft(draftId)) {
-            if (PracticeAssessmentExcelService.EXCEL_SPEAKING_STAGING.equals(
+            if (PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING.equals(
                         reference.getPlacement())
                     && !Objects.equals(
                             retained.stagingAssetIds().get(
@@ -141,7 +141,7 @@ public class SpeakingPromptLifecycleService {
                 materialReferenceService.unlinkDraft(
                         source.getDraftId(),
                         source.getOriginalAudioAssetId(),
-                        SpeakingPromptAssetService.ORIGINAL_PLACEMENT,
+                        PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                         source.getQuestionClientId());
             }
             if (source.getGeneratedAudioAssetId() != null) {
@@ -149,7 +149,7 @@ public class SpeakingPromptLifecycleService {
                 materialReferenceService.unlinkDraft(
                         source.getDraftId(),
                         source.getGeneratedAudioAssetId(),
-                        SpeakingPromptAssetService.GENERATED_PLACEMENT,
+                        PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                         source.getQuestionClientId());
             }
         }
