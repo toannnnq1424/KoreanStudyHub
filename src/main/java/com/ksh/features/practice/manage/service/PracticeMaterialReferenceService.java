@@ -2,6 +2,8 @@ package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeMaterialReference;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
+import com.ksh.features.practice.manage.speaking.SpeakingPromptPublicationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.springframework.stereotype.Service;
@@ -13,7 +15,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import com.ksh.features.practice.manage.speaking.SpeakingPromptPublicationService;
 
 @Service
 public class PracticeMaterialReferenceService {
@@ -133,10 +134,7 @@ public class PracticeMaterialReferenceService {
     }
 
     private static boolean isSpeakingPromptPlacement(String placement) {
-        return "SPEAKING_PROMPT_ORIGINAL".equals(placement)
-                || "SPEAKING_PROMPT_TTS".equals(placement)
-                || PracticeAssessmentExcelService.EXCEL_SPEAKING_STAGING
-                    .equals(placement);
+        return PracticeMaterialPlacements.isSpeakingPrompt(placement);
     }
 
     @Transactional

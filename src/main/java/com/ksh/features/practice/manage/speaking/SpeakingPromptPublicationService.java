@@ -5,6 +5,7 @@ import com.ksh.entities.LecturerAsset;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.manage.material.PracticeMaterialPlacements;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.springframework.stereotype.Service;
@@ -190,7 +191,8 @@ public class SpeakingPromptPublicationService {
         }
         LecturerAsset asset = requireAsset(
                 draftId, ownerId, clientId, assetId,
-                SpeakingPromptAssetService.ORIGINAL_PLACEMENT, "MANUAL_UPLOAD");
+                PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
+                "MANUAL_UPLOAD");
         SpeakingPromptAiArtifact artifact = artifacts.get(source.getCurrentSttArtifactId());
         if (artifact == null
                 || !source.currentForArtifact(artifact)
@@ -256,7 +258,7 @@ public class SpeakingPromptPublicationService {
         return new Candidate(
                 draftId, clientId, source, source.getSourceRevision(),
                 source.getCurrentSttArtifactId(), null, assetId,
-                SpeakingPromptAssetService.ORIGINAL_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                 learnerContent, context);
     }
 
@@ -327,7 +329,7 @@ public class SpeakingPromptPublicationService {
         }
         LecturerAsset asset = requireAsset(
                 draftId, ownerId, clientId, assetId,
-                SpeakingPromptAssetService.GENERATED_PLACEMENT, "AI_TTS");
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS, "AI_TTS");
         SpeakingPromptAuthoringAiProperties.TtsConfig config =
                 selectedTtsConfig(question.path("speakingPromptAuthoring"));
         String expectedFingerprint =
@@ -367,7 +369,7 @@ public class SpeakingPromptPublicationService {
         return new Candidate(
                 draftId, clientId, source, source.getSourceRevision(),
                 null, artifact.getId(), assetId,
-                SpeakingPromptAssetService.GENERATED_PLACEMENT,
+                PracticeMaterialPlacements.SPEAKING_PROMPT_TTS,
                 learnerContent, context);
     }
 
