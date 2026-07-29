@@ -23,6 +23,7 @@ import static com.ksh.common.IConstant.ATTR_DECK;
 import static com.ksh.common.IConstant.ATTR_DUE_COUNT;
 import static com.ksh.common.IConstant.BASE_FLASHCARDS;
 import static com.ksh.common.IConstant.VIEW_FLASHCARD_FLIP;
+import static com.ksh.common.IConstant.VIEW_FLASHCARD_LEARNING;
 import static com.ksh.common.IConstant.VIEW_FLASHCARD_REVIEW;
 
 /**
@@ -73,6 +74,22 @@ public class FlashcardStudyController {
         model.addAttribute(ATTR_DUE_COUNT, due.size());
         model.addAttribute(ATTR_CARDS_JSON, toJson(due));
         return VIEW_FLASHCARD_REVIEW;
+    }
+
+    /**
+     * Client-only learning room. The server supplies the deck cards once; all
+     * game state, scoring and timers intentionally stay in the browser and do
+     * not create attempt/effort records.
+     */
+    @GetMapping("/{id}/learn")
+    public String learning(@PathVariable Long id,
+                           @AuthenticationPrincipal KshUserDetails user,
+                           Model model) {
+        DeckDetailView deck = deckService.getDetail(id, user.getId());
+        List<CardView> cards = studyService.getStudyCards(id, user.getId());
+        model.addAttribute(ATTR_DECK, deck);
+        model.addAttribute(ATTR_CARDS_JSON, toJson(cards));
+        return VIEW_FLASHCARD_LEARNING;
     }
 
     /** Serializes the card list to a JSON string for the data attribute. */

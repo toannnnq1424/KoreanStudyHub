@@ -49,6 +49,8 @@
 .fc-btn-primary:hover { background: #1d4ed8; }
 .fc-btn-secondary { background: #0d9488; color: #fff; }
 .fc-btn-secondary:hover { background: #0f766e; }
+.fc-btn-feature { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+.fc-btn-feature:hover { background: linear-gradient(135deg, #4338ca, #6d28d9); }
 .fc-btn-ghost { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
 .fc-btn-ghost:hover { background: #e5e7eb; }
 .fc-btn-danger { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }

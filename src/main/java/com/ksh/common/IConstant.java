@@ -312,6 +312,7 @@ public interface IConstant {
     String VIEW_FLASHCARD_DETAIL = "flashcards/deck-detail";
     String VIEW_FLASHCARD_FLIP   = "flashcards/flashcard-flip";
     String VIEW_FLASHCARD_REVIEW = "flashcards/flashcard-review";
+    String VIEW_FLASHCARD_LEARNING = "flashcards/flashcard-learning";
 
     // Model attribute keys.
     String ATTR_DECK          = "deck";

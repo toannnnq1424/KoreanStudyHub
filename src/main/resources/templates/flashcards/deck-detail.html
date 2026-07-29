@@ -45,6 +45,7 @@
 
     <!-- Study launchers -->
     <div class="fc-launchers" th:if="${deck.cardCount() > 0}">
+      <a class="fc-btn fc-btn-feature" th:href="@{|/my/flashcards/${deck.id()}/learn|}">Phòng luyện tập</a>
       <a class="fc-btn fc-btn-primary" th:href="@{|/my/flashcards/${deck.id()}/flip|}">Học lật thẻ</a>
       <a class="fc-btn fc-btn-secondary" th:href="@{|/my/flashcards/${deck.id()}/review|}">Ôn tập thông minh</a>
     </div>
