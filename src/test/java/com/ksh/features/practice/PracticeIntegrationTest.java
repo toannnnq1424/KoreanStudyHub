@@ -34,6 +34,10 @@ import com.ksh.features.practice.repository.QuestionExplanationGenerationTaskRep
 import com.ksh.features.practice.repository.QuestionVersionExplanationBindingRepository;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
+import com.ksh.features.practice.service.PracticeAttemptEvaluationJobTransactions;
+import com.ksh.features.practice.service.PracticeAttemptEvaluationOutcome;
+import com.ksh.features.practice.service.PracticeAttemptDeadlineProcessor;
+import com.ksh.features.practice.service.PracticeAttemptDeadlineTransactions;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticeDetailPageService;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
@@ -88,10 +92,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -119,6 +125,11 @@ class PracticeIntegrationTest {
     private PracticeAttemptRepository attemptRepository;
 
     @Autowired
+    private com.ksh.features.practice.repository
+            .PracticeAttemptEvaluationJobRepository
+            attemptEvaluationJobRepository;
+
+    @Autowired
     private PracticeTestRepository testRepository;
 
     @Autowired
@@ -141,6 +152,10 @@ class PracticeIntegrationTest {
 
     @Autowired
     private PracticeService practiceService;
+
+    @Autowired
+    private PracticeAttemptEvaluationJobTransactions
+            attemptEvaluationJobTransactions;
 
     @Autowired
     private PracticeProgressService progressService;
@@ -183,6 +198,10 @@ class PracticeIntegrationTest {
     private PracticeAttemptDiscardService attemptDiscardService;
 
     @Autowired
+    private PracticeAttemptDeadlineTransactions
+            attemptDeadlineTransactions;
+
+    @Autowired
     private PracticePublisherService publisherService;
 
     @Autowired
@@ -212,10 +231,18 @@ class PracticeIntegrationTest {
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private WritingEvaluationClient writingEvaluationClient;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.ksh.features.practice.ai.speaking
+            .SpeakingEvaluationClient speakingEvaluationClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.ksh.features.practice.ai.speaking.transcription
+            .SpeakingTranscriptionClient speakingTranscriptionClient;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private ReadingListeningExplanationClient readingListeningExplanationClient;
 
     private User student;
@@ -231,6 +258,8 @@ class PracticeIntegrationTest {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
 
         attemptRepository.deleteAll();
+        when(writingEvaluationClient.evaluationContractIdentity())
+                .thenReturn("ksh-writing-evaluation-test");
         when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
                 .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
         when(readingListeningExplanationClient.model()).thenReturn("test-rl-model");
@@ -501,13 +530,15 @@ class PracticeIntegrationTest {
         String insertHistory = """
                 INSERT INTO practice_attempts (
                     user_id, set_id, test_id, skill, section_id,
-                    status, analysis_status, started_at, created_at, updated_at
+                    status, analysis_status, started_at, deadline_at,
+                    created_at, updated_at
                 )
                 SELECT
                     ?, ?, ?, 'READING', ?,
                     'IN_PROGRESS', 'NOT_REQUESTED',
                     DATE_ADD('2026-01-01 00:00:00',
                         INTERVAL numbers.n SECOND),
+                    '2099-01-01 00:00:00',
                     DATE_ADD('2026-01-01 00:00:00',
                         INTERVAL numbers.n SECOND),
                     DATE_ADD('2026-01-01 00:00:00',
@@ -643,11 +674,37 @@ class PracticeIntegrationTest {
                 attemptRepository.findGlobalResumeCandidates(
                         student.getId(),
                         List.of(-1L),
+                        LocalDateTime.now(),
                         org.springframework.data.domain.PageRequest.of(0, 1));
 
         assertThat(candidates).singleElement().satisfies(candidate ->
                 assertThat(candidate.getAttemptId())
                         .isEqualTo(expectedNewestId));
+    }
+
+    @Test
+    void expiredAttemptIsExcludedFromGlobalAndSharedResumePolicy() {
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(),
+                defaultTest.getId(),
+                defaultSection.getId(),
+                student.getId());
+        PracticeAttempt attempt =
+                attemptRepository.findById(attemptId).orElseThrow();
+        attempt.setDeadlineAt(LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+
+        assertThat(attemptRepository.findGlobalResumeCandidates(
+                student.getId(),
+                List.of(-1L),
+                LocalDateTime.now(),
+                org.springframework.data.domain.PageRequest.of(0, 1)))
+                .isEmpty();
+        assertThat(new PracticeAttemptStatePolicy()
+                .resumeEligibility(attempt, true).rejection())
+                .isEqualTo(
+                        PracticeAttemptStatePolicy.ResumeRejection
+                                .DEADLINE_EXPIRED);
     }
 
     @Test
@@ -1033,6 +1090,7 @@ class PracticeIntegrationTest {
         PracticeAttempt attempt = attemptRepository.findAll().get(0);
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param("answer_" + question.getId(), "1"))
                 .andExpect(status().is3xxRedirection());
 
@@ -1100,6 +1158,7 @@ class PracticeIntegrationTest {
         String paramName = "answer_" + question.getId();
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param(paramName, "1"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
@@ -1331,6 +1390,7 @@ class PracticeIntegrationTest {
         String paramName = "answer_" + writingQuestion.getId();
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param(paramName, "Tôi học tiếng Hàn."))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
@@ -1343,7 +1403,7 @@ class PracticeIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Kết quả theo nhiệm vụ viết")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Chưa có điểm số khả dụng")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "Dữ liệu đánh giá cũ chỉ được nhận diện, không được dùng làm điểm")))
+                        "Đánh giá đang chạy ở nền")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Ô 1 - Nội dung và ngữ cảnh"))));
 
@@ -1361,7 +1421,7 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testWritingEvaluationRunsOutsideActiveTransaction() throws Exception {
+    void testWritingHttpSubmissionQueuesBeforeEvaluation() throws Exception {
         PracticeSet writingSet = setRepository.saveAndFlush(new PracticeSet(
                 "Writing Transaction Boundary",
                 "Desc",
@@ -1396,19 +1456,20 @@ class PracticeIntegrationTest {
                 .findFirst()
                 .orElseThrow();
 
-        final boolean[] evaluatorSawTransaction = {true};
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt"), anyString(), eq(false), any()))
-                .thenAnswer(invocation -> {
-                    evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
-                    return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
-                });
-
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param("answer_" + writingQuestion.getId(), "My writing answer"))
                 .andExpect(status().is3xxRedirection());
 
-        assertThat(evaluatorSawTransaction[0]).isFalse();
+        verify(writingEvaluationClient, never()).evaluate(
+                anyLong(), anyString(), anyString(), anyBoolean(), any());
+        PracticeAttempt queued = attemptRepository.findById(
+                attempt.getId()).orElseThrow();
+        assertThat(queued.getStatus()).isEqualTo(
+                PracticeAttempt.STATUS_SUBMITTED);
+        assertThat(queued.getAnalysisStatus()).isEqualTo(
+                PracticeAttempt.ANALYSIS_QUEUED);
     }
 
     @Test
@@ -1470,47 +1531,29 @@ class PracticeIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testPublishedLegacySpeakingEssayStillSubmitsAndRendersButReEvaluateFailsClosed() throws Exception {
+    void testPublishedLegacySpeakingEssaySubmitFailsClosedWithoutProvider() {
         NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
                 "Legacy Speaking Essay", false, true, "SPEAKING");
-        String submittedFeedback = "{\"score\":7.0,\"percentage\":77.78,\"summary_vi\":\"Legacy speaking essay\"}";
         try {
-            when(writingEvaluationClient.evaluate(
-                    eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
-                    .thenReturn(submittedFeedback);
+            assertThrows(IllegalStateException.class, () ->
+                    practiceService.submitAttempt(
+                            fixture.attemptId(),
+                            student.getId(),
+                            Map.of(
+                                    "answer_" + fixture.mcqQuestionId(), "1",
+                                    "answer_" + fixture.essayQuestionId(),
+                                    "Legacy essay answer")));
 
-            practiceService.submitAttempt(fixture.attemptId(), student.getId(), Map.of(
-                    "answer_" + fixture.mcqQuestionId(), "1",
-                    "answer_" + fixture.essayQuestionId(), "Legacy essay answer"));
-
-            PracticeAttempt submitted = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(objectMapper.readTree(submittedFeedback), objectMapper.readTree(submitted.getAiFeedbackJson()));
-            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
-                    .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail-speaking"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                            "data-result-detail-kind=\"SPEAKING_DETAIL\"")))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                            "Chi tiết kết quả Nói")));
-
-            assertThrows(
-                    PracticeAttemptStatePolicy
-                            .PracticeReEvaluationNotAllowedException.class,
-                    () -> practiceService.reEvaluate(
-                            fixture.attemptId(), student.getId()));
-
-            PracticeAttempt reEvaluated = attemptRepository.findById(fixture.attemptId()).orElseThrow();
+            PracticeAttempt preserved = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
             assertEquals(
-                    objectMapper.readTree(submittedFeedback),
-                    objectMapper.readTree(reEvaluated.getAiFeedbackJson()));
+                    PracticeAttempt.STATUS_IN_PROGRESS,
+                    preserved.getStatus());
+            assertNull(preserved.getScore());
+            assertNull(preserved.getAiFeedbackJson());
             verify(writingEvaluationClient, never()).evaluate(
-                    eq(student.getId()),
-                    eq(fixture.essayPrompt()),
-                    anyString(),
-                    eq(true),
-                    any());
+                    anyLong(), anyString(), anyString(), anyBoolean(), any());
         } finally {
             deleteNonWritingEssayAttemptFixture(fixture);
         }
@@ -2262,15 +2305,31 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void testManualDraftForLecturer() throws Exception {
-        // GET /practice/manage/create redirects to /practice/manage/drafts/{draftId}
+        com.ksh.entities.PracticeDraft emptyDraft = draftRepository.saveAndFlush(
+                new com.ksh.entities.PracticeDraft(
+                        "Nháp trống giữ nguyên",
+                        "",
+                        "GLOBAL",
+                        null,
+                        "DRAFT",
+                        lecturer.getId(),
+                        "{\"sections\":[]}"));
+        mockMvc.perform(get("/practice/manage"))
+                .andExpect(status().isOk());
+        assertThat(draftRepository.existsById(emptyDraft.getId())).isTrue();
+
         mockMvc.perform(get("/practice/manage/create"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/manage"));
+
+        mockMvc.perform(post("/practice/manage/create").with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("/practice/manage/drafts/*"));
 
-        // Check legacy manual redirect
+        // The legacy GET bookmark is read-only and returns to the dashboard.
         mockMvc.perform(get("/practice/manage/manual"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/manage/create"));
+                .andExpect(redirectedUrl("/practice/manage"));
     }
 
     @Test
@@ -2402,6 +2461,12 @@ class PracticeIntegrationTest {
 
         // 2. Edit existing set -> redirects to /practice/manage/drafts/{id}
         mockMvc.perform(get("/practice/manage/sets/" + publishedSet.getId() + "/edit"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        "/practice/sets/" + publishedSet.getId()));
+
+        mockMvc.perform(post("/practice/manage/sets/" + publishedSet.getId() + "/edit")
+                        .with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
         List<com.ksh.entities.PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(lecturer.getId());
@@ -2950,6 +3015,34 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
+    void expiredPlayerGetIsReadOnlyWhileServerDeadlineProcessingRemainsAuthoritative()
+            throws Exception {
+        Long attemptId = practiceService.startAttempt(
+                practiceSet.getId(),
+                defaultTest.getId(),
+                defaultSection.getId(),
+                student.getId());
+        PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
+        attempt.setDeadlineAt(LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+        clearInvocations(writingEvaluationClient, readingListeningExplanationClient);
+
+        mockMvc.perform(get("/practice/attempts/" + attemptId))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        "/practice/sets/" + practiceSet.getId()
+                                + "/tests/" + defaultTest.getId()))
+                .andExpect(flash().attribute(
+                        "info",
+                        org.hamcrest.Matchers.containsString("Đã hết giờ")));
+
+        PracticeAttempt unchanged = attemptRepository.findById(attemptId).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
+        verifyNoInteractions(writingEvaluationClient, readingListeningExplanationClient);
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
     void testDiscardAttempt() throws Exception {
         PracticeAttempt attempt = new PracticeAttempt(
                 student.getId(), practiceSet.getId(), defaultTest.getId(), "READING", defaultSection.getId());
@@ -2975,7 +3068,12 @@ class PracticeIntegrationTest {
                 .isEqualTo(discarded.getDiscardedAt());
 
         mockMvc.perform(get("/practice/attempts/" + attempt.getId()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        com.ksh.features.practice.web.PracticeRoutes
+                                .testDetailPath(
+                                        practiceSet.getId(),
+                                        defaultTest.getId())));
         mockMvc.perform(get("/practice/attempts/" + attempt.getId() + "/result"))
                 .andExpect(status().isNotFound());
         assertThat(detailPageService.buildSkillCards(
@@ -3058,6 +3156,7 @@ class PracticeIntegrationTest {
 
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param("answer_" + question.getId(), "1"))
                 .andExpect(status().is4xxClientError());
     }
@@ -3318,15 +3417,23 @@ class PracticeIntegrationTest {
         // Submit for Section A attempt
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(attempt.getLockVersion()))
                         .param("answer_" + qA.getId(), "Student Answer A"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/practice/attempts/" + attempt.getId() + "/result"));
 
-        // Verify attempt points are isolated:
-        // Total points should be 10.0 (Question A only), score = 8.0 (80% of 10.0) -> attempt score = 80.00%
-        PracticeAttempt gradedAttempt = attemptRepository.findById(attempt.getId()).orElseThrow();
-        assertEquals(0, gradedAttempt.getTotalPoints().compareTo(BigDecimal.valueOf(10.0)));
-        assertEquals(0, gradedAttempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+        // Queue-time denominator is frozen from Section A only. Provider work
+        // has not run inside the learner request.
+        PracticeAttempt queuedAttempt = attemptRepository.findById(
+                attempt.getId()).orElseThrow();
+        assertEquals(0, queuedAttempt.getTotalPoints().compareTo(
+                BigDecimal.valueOf(10.0)));
+        assertNull(queuedAttempt.getScore());
+        assertEquals(
+                PracticeAttempt.ANALYSIS_QUEUED,
+                queuedAttempt.getAnalysisStatus());
+        verify(writingEvaluationClient, never()).evaluate(
+                anyLong(), anyString(), anyString(), anyBoolean(), any());
     }
 
     @Test
@@ -3449,18 +3556,17 @@ class PracticeIntegrationTest {
     void testWritingSubmitAutosaveConflictReturnsHttp409AndKeepsAutosavedAnswers() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Autosave Conflict Writing", false);
         try {
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
-                .thenAnswer(invocation -> {
-                    practiceService.saveInProgressAnswers(
-                            fixture.attemptId(),
-                            student.getId(),
-                            Map.of("answer_" + fixture.questionId(), "Autosaved answer")
-                    );
-                    return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
-                });
+        Long staleVersion = attemptRepository.findById(
+                fixture.attemptId()).orElseThrow().getLockVersion();
+        practiceService.saveInProgressAnswers(
+                fixture.attemptId(),
+                student.getId(),
+                staleVersion,
+                Map.of("answer_" + fixture.questionId(), "Autosaved answer"));
 
         mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/submit")
                         .with(csrf())
+                        .param("expectedLockVersion", String.valueOf(staleVersion))
                         .param("answer_" + fixture.questionId(), "Submitted answer"))
                 .andExpect(status().isConflict())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Bài làm đã thay đổi")))
@@ -3472,6 +3578,8 @@ class PracticeIntegrationTest {
         assertEquals("IN_PROGRESS", attempt.getStatus());
         assertTrue(attempt.getAnswersJson().contains("Autosaved answer"));
         assertFalse(attempt.getAnswersJson().contains("Submitted answer"));
+        verify(writingEvaluationClient, never()).evaluate(
+                anyLong(), anyString(), anyString(), anyBoolean(), any());
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -3607,28 +3715,36 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testWritingQuestionReEvaluateEndpointUsesQuestionIdParameter() throws Exception {
+    void testWritingQuestionReEvaluateEndpointQueuesQuestionIdWithoutProviderCall() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Writing", true);
         try {
             String beforeAnswersJson = attemptRepository.findById(fixture.attemptId()).orElseThrow().getAnswersJson();
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any()))
-                    .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"target only\",\"rubric_scores\":[]}");
+            clearInvocations(writingEvaluationClient);
 
             mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
                             .with(csrf())
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail?questionId=" + fixture.questionId()))
-                    .andExpect(flash().attribute("success", "Đã chấm lại câu đã chọn."));
+                    .andExpect(flash().attribute(
+                            "success",
+                            "Đã xếp lịch chấm lại. Kết quả hiện tại được giữ nguyên cho đến khi có đánh giá mới."));
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals("GRADED", attempt.getStatus());
             assertEquals(beforeAnswersJson, attempt.getAnswersJson());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(90.00)));
-            JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
-            assertEquals("target only", feedback.get(String.valueOf(fixture.questionId())).path("summary").asText());
-            verify(writingEvaluationClient, times(1))
-                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any());
+            assertEquals(
+                    PracticeAttempt.ANALYSIS_QUEUED,
+                    attempt.getAnalysisStatus());
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            assertEquals(
+                    com.ksh.entities.PracticeAttemptEvaluationJob
+                            .OPERATION_QUESTION_REEVALUATE,
+                    job.getOperation());
+            assertEquals(fixture.questionId(), job.getTargetQuestionId());
+            verifyNoWritingEvaluationCall();
 
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
                             .param("questionId", String.valueOf(fixture.questionId())))
@@ -3725,19 +3841,26 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testWritingFullReEvaluateEndpointWithoutQuestionIdStillRedirectsOverview() throws Exception {
+    void testWritingFullReEvaluateEndpointQueuesWithoutProviderCallAndRedirectsOverview() throws Exception {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Full Reevaluate Regression UI", true);
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any()))
-                    .thenReturn("{\"raw_score\":9.0,\"raw_score_max\":10.0,\"summary\":\"full\",\"rubric_scores\":[]}");
+            clearInvocations(writingEvaluationClient);
 
             mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
                             .with(csrf()))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result"));
 
-            verify(writingEvaluationClient, times(1))
-                    .evaluate(eq(student.getId()), eq(fixture.prompt()), eq("Existing answer"), eq(true), any());
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId()))
+                    .get()
+                    .extracting(
+                            com.ksh.entities.PracticeAttemptEvaluationJob
+                                    ::getOperation)
+                    .isEqualTo(
+                            com.ksh.entities.PracticeAttemptEvaluationJob
+                                    .OPERATION_FULL_REEVALUATE);
+            verifyNoWritingEvaluationCall();
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -3799,42 +3922,119 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testWritingQuestionReEvaluateConflictRedirectsDetailWithFlashError() throws Exception {
-        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Conflict UI", true);
+    void testWritingQuestionReEvaluateDuplicateRequestIsIdempotent() throws Exception {
+        WritingAttemptFixture fixture = createWritingAttemptFixture("Question Reevaluate Idempotency UI", true);
         try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(true), any()))
-                    .thenAnswer(invocation -> {
-                        TransactionTemplate template = new TransactionTemplate(transactionManager);
-                        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                        template.execute(status -> {
-                            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-                            attempt.setAnswersJson("{\"" + fixture.questionId() + "\":\"Changed after snapshot\"}");
-                            attemptRepository.saveAndFlush(attempt);
-                            return null;
-                        });
-                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
-                    });
+            clearInvocations(writingEvaluationClient);
+            String endpoint =
+                    "/practice/attempts/" + fixture.attemptId()
+                            + "/re-evaluate";
+            mockMvc.perform(post(endpoint)
+                            .with(csrf())
+                            .param("questionId", String.valueOf(fixture.questionId())))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(flash().attributeExists("success"));
 
-            mockMvc.perform(post("/practice/attempts/" + fixture.attemptId() + "/re-evaluate")
+            mockMvc.perform(post(endpoint)
                             .with(csrf())
                             .param("questionId", String.valueOf(fixture.questionId())))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/practice/attempts/" + fixture.attemptId() + "/result/detail?questionId=" + fixture.questionId()))
-                    .andExpect(flash().attribute("error", "Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
+                    .andExpect(flash().attribute(
+                            "info",
+                            "Yêu cầu chấm lại đang được xử lý."));
 
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals("GRADED", attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
-            assertEquals(objectMapper.readTree(fixture.oldFeedbackJson()), objectMapper.readTree(attempt.getAiFeedbackJson()));
+            assertThat(attemptEvaluationJobRepository.count()).isEqualTo(1);
+            verifyNoWritingEvaluationCall();
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
 
-            mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail")
-                            .param("questionId", String.valueOf(fixture.questionId())))
-                    .andExpect(status().isOk())
-                    .andExpect(view().name("practice/result-detail-writing"))
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                            "data-result-detail-kind=\"WRITING_DETAIL\"")))
-                    .andExpect(content().string(org.hamcrest.Matchers.not(
-                            org.hamcrest.Matchers.containsString("raw_score"))));
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void writingManualReEvaluationHasLifetimeProviderCostQuota() {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Writing Manual Retry Quota", true);
+        try {
+            clearInvocations(writingEvaluationClient);
+            PracticeService.ReEvaluationRequestResult initial =
+                    practiceService.requestReEvaluation(
+                            fixture.attemptId(),
+                            fixture.questionId(),
+                            student.getId());
+            assertThat(initial.status()).isEqualTo("QUEUED");
+
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            job.markTerminal(
+                    com.ksh.entities.PracticeAttemptEvaluationJob
+                            .STATUS_SUCCEEDED,
+                    "{}",
+                    null,
+                    false,
+                    LocalDateTime.now());
+            attemptEvaluationJobRepository.saveAndFlush(job);
+
+            assertThat(practiceService.requestReEvaluation(
+                    fixture.attemptId(),
+                    fixture.questionId(),
+                    student.getId()).status())
+                    .isEqualTo("QUEUED");
+            job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            job.markTerminal(
+                    com.ksh.entities.PracticeAttemptEvaluationJob
+                            .STATUS_SUCCEEDED,
+                    "{}",
+                    null,
+                    false,
+                    LocalDateTime.now());
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    job,
+                    "lastRetryRequestedAt",
+                    LocalDateTime.now().minusMinutes(2));
+            attemptEvaluationJobRepository.saveAndFlush(job);
+
+            assertThat(practiceService.requestReEvaluation(
+                    fixture.attemptId(),
+                    fixture.questionId(),
+                    student.getId()).status())
+                    .isEqualTo("QUEUED");
+            job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            job.markTerminal(
+                    com.ksh.entities.PracticeAttemptEvaluationJob
+                            .STATUS_SUCCEEDED,
+                    "{}",
+                    null,
+                    false,
+                    LocalDateTime.now());
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    job,
+                    "lastRetryRequestedAt",
+                    LocalDateTime.now().minusMinutes(2));
+            attemptEvaluationJobRepository.saveAndFlush(job);
+
+            PracticeService.ReEvaluationRequestResult exhausted =
+                    practiceService.requestReEvaluation(
+                            fixture.attemptId(),
+                            fixture.questionId(),
+                            student.getId());
+            assertThat(exhausted.status())
+                    .isEqualTo("RETRY_LIMIT_REACHED");
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow()
+                    .getManualRetryCount())
+                    .isEqualTo(2);
+            verifyNoWritingEvaluationCall();
         } finally {
             deleteWritingAttemptFixture(fixture);
         }
@@ -4101,6 +4301,716 @@ class PracticeIntegrationTest {
                 """;
         return editLogRepository.saveAndFlush(new com.ksh.entities.PracticeEditLog(
                 setId, lecturer.getId(), title, "{}", snapshot, "{}", "QUESTIONS"));
+    }
+
+    @Test
+    void learnerAutosaveUsesCasWhitelistsQuestionsAndHydratesResume() {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Autosave CAS", false);
+        PracticeAttempt before = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        Long originalVersion = before.getLockVersion();
+
+        PracticeService.AttemptAnswerSaveResult saved =
+                practiceService.saveInProgressAnswers(
+                        fixture.attemptId(),
+                        student.getId(),
+                        originalVersion,
+                        Map.of(
+                                "answer_" + fixture.questionId(),
+                                "저는 한국어로 답합니다.",
+                                "answer_999999999",
+                                "foreign"));
+
+        assertThat(saved.lockVersion()).isGreaterThan(originalVersion);
+        assertThat(saved.answers())
+                .containsEntry(
+                        fixture.questionId().toString(),
+                        "저는 한국어로 답합니다.")
+                .doesNotContainKey("999999999");
+        PracticeService.AttemptPlayerView resumed =
+                practiceService.getAttemptPlayerView(
+                        fixture.attemptId(), student.getId());
+        assertThat(resumed.savedAnswers())
+                .containsEntry(
+                        fixture.questionId().toString(),
+                        "저는 한국어로 답합니다.");
+        assertThatThrownBy(() ->
+                practiceService.saveInProgressAnswers(
+                        fixture.attemptId(),
+                        student.getId(),
+                        originalVersion,
+                        Map.of(
+                                "answer_" + fixture.questionId(),
+                                "stale overwrite")))
+                .isInstanceOf(PracticeAttemptConflictException.class);
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void learnerAutosaveMultipartPutReturnsTypedSavedConflictAndDeadlineStates()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Autosave HTTP", false);
+        PracticeAttempt before = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        Long originalVersion = before.getLockVersion();
+        String path = "/practice/attempts/"
+                + fixture.attemptId() + "/answers";
+
+        mockMvc.perform(multipart(path)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .with(csrf())
+                        .param(
+                                "expectedLockVersion",
+                                String.valueOf(originalVersion))
+                        .param(
+                                "answer_" + fixture.questionId(),
+                                "HTTP 저장 답안")
+                        .param("answer_999999999", "foreign")
+                        .param("foreign_field", "ignored"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SAVED"))
+                .andExpect(jsonPath(
+                        "$.answers['"
+                                + fixture.questionId() + "']")
+                        .value("HTTP 저장 답안"))
+                .andExpect(jsonPath(
+                        "$.answers['999999999']")
+                        .doesNotExist());
+
+        mockMvc.perform(multipart(path)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .with(csrf())
+                        .param(
+                                "expectedLockVersion",
+                                String.valueOf(originalVersion))
+                        .param(
+                                "answer_" + fixture.questionId(),
+                                "stale overwrite"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("CONFLICT"));
+
+        PracticeAttempt current = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        current.setDeadlineAt(
+                LocalDateTime.now().minusSeconds(1));
+        current = attemptRepository.saveAndFlush(current);
+        Long expiredLockVersion = current.getLockVersion();
+
+        mockMvc.perform(multipart(path)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .with(csrf())
+                        .param(
+                                "expectedLockVersion",
+                                String.valueOf(expiredLockVersion))
+                        .param(
+                                "answer_" + fixture.questionId(),
+                                "late overwrite"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.status")
+                        .value("DEADLINE_EXPIRED"));
+    }
+
+    @Test
+    void writingSubmitPersistsQueuedJobBeforeAnyProviderCall() {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Async Submit", false);
+        PracticeAttempt before = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        clearInvocations(writingEvaluationClient);
+
+        Long submittedId = practiceService.submitAttempt(
+                fixture.attemptId(),
+                student.getId(),
+                Map.of(
+                        "answer_" + fixture.questionId(),
+                        "비동기 평가 답안"),
+                before.getLockVersion());
+
+        assertThat(submittedId).isEqualTo(fixture.attemptId());
+        PracticeAttempt submitted = attemptRepository
+                .findById(submittedId).orElseThrow();
+        assertThat(submitted.getStatus())
+                .isEqualTo(PracticeAttempt.STATUS_SUBMITTED);
+        assertThat(submitted.getAnalysisStatus())
+                .isEqualTo(PracticeAttempt.ANALYSIS_QUEUED);
+        assertThat(submitted.getAnswersJson())
+                .contains("비동기 평가 답안");
+        com.ksh.entities.PracticeAttemptEvaluationJob job =
+                attemptEvaluationJobRepository
+                        .findByAttemptId(submittedId)
+                        .orElseThrow();
+        assertThat(job.getJobStatus())
+                .isEqualTo(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                .STATUS_QUEUED);
+        assertThat(job.getEvaluationContractIdentity())
+                .isEqualTo("ksh-writing-evaluation-test");
+        verifyNoWritingEvaluationCall();
+    }
+
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void writingWorkerClaimsEvaluatesAndCommitsOutsideLearnerRequest()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Async Worker", false);
+        try {
+            PracticeAttempt before = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            final boolean[] evaluatorSawTransaction = {true};
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.prompt()),
+                    anyString(),
+                    eq(false),
+                    any()))
+                    .thenAnswer(invocation -> {
+                        evaluatorSawTransaction[0] =
+                                TransactionSynchronizationManager
+                                        .isActualTransactionActive();
+                        return "{\"raw_score\":8.0,"
+                                + "\"raw_score_max\":10.0,"
+                                + "\"rubric_scores\":[]}";
+                    });
+
+            practiceService.submitAttempt(
+                    fixture.attemptId(),
+                    student.getId(),
+                    Map.of(
+                            "answer_" + fixture.questionId(),
+                            "비동기 작업 답안"),
+                    before.getLockVersion());
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            var claim = attemptEvaluationJobTransactions.claim(
+                            job.getId(),
+                            "integration-worker",
+                            job.getNextAttemptAt())
+                    .orElseThrow();
+
+            PracticeAttemptEvaluationOutcome outcome =
+                    practiceService.evaluateClaimedAttempt(claim);
+            assertThat(attemptEvaluationJobTransactions.complete(
+                    claim,
+                    outcome,
+                    objectMapper.writeValueAsString(outcome),
+                    LocalDateTime.now())).isTrue();
+
+            assertThat(evaluatorSawTransaction[0]).isFalse();
+            PracticeAttempt completed = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            assertThat(completed.getStatus())
+                    .isEqualTo(PracticeAttempt.STATUS_GRADED);
+            assertThat(completed.getAnalysisStatus())
+                    .isEqualTo(PracticeAttempt.ANALYSIS_SUCCEEDED);
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow()
+                    .getJobStatus())
+                    .isEqualTo(
+                            com.ksh.entities
+                                    .PracticeAttemptEvaluationJob
+                                    .STATUS_SUCCEEDED);
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void writingTransientSubmitRetryKeepsResultPendingWithoutFailurePayload()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Async Retry Pending", false);
+        try {
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.prompt()),
+                    anyString(),
+                    eq(false),
+                    any()))
+                    .thenReturn("""
+                            {
+                              "evaluation_status":"EVALUATION_UNAVAILABLE",
+                              "evaluation_source":"PROVIDER",
+                              "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
+                              "evaluation_retryable":true,
+                              "score_available":false
+                            }
+                            """);
+            PracticeAttempt before = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            practiceService.submitAttempt(
+                    fixture.attemptId(),
+                    student.getId(),
+                    Map.of(
+                            "answer_" + fixture.questionId(),
+                            "재시도할 답안"),
+                    before.getLockVersion());
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            var claim = attemptEvaluationJobTransactions.claim(
+                            job.getId(),
+                            "integration-retry-worker",
+                            job.getNextAttemptAt())
+                    .orElseThrow();
+
+            PracticeAttemptEvaluationOutcome outcome =
+                    practiceService.evaluateClaimedAttempt(claim);
+            assertThat(outcome.terminalStatus())
+                    .isEqualTo(
+                            PracticeAttemptEvaluationOutcome.UNAVAILABLE);
+            assertThat(outcome.retryable()).isTrue();
+            assertThat(attemptEvaluationJobTransactions.complete(
+                    claim,
+                    outcome,
+                    objectMapper.writeValueAsString(outcome),
+                    LocalDateTime.now())).isTrue();
+
+            PracticeAttempt retrying = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            assertThat(retrying.getStatus())
+                    .isEqualTo(PracticeAttempt.STATUS_SUBMITTED);
+            assertThat(retrying.getAnalysisStatus())
+                    .isEqualTo(PracticeAttempt.ANALYSIS_QUEUED);
+            assertThat(retrying.getAiFeedbackJson()).isNull();
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow()
+                    .getJobStatus())
+                    .isEqualTo(
+                            com.ksh.entities
+                                    .PracticeAttemptEvaluationJob
+                                    .STATUS_RETRY_WAIT);
+            assertThat(resultAssembler.assemble(
+                    fixture.attemptId(), student.getId())
+                    .feedback().state())
+                    .isEqualTo("PENDING");
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void writingPermanentUnavailableCompletesWithoutAutomaticRetry()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Missing Writing Key", false);
+        try {
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.prompt()),
+                    anyString(),
+                    eq(false),
+                    any()))
+                    .thenReturn("""
+                            {
+                              "evaluation_status":"EVALUATION_UNAVAILABLE",
+                              "evaluation_source":"PROVIDER",
+                              "evaluation_reason":"MISSING_API_KEY",
+                              "evaluation_retryable":false,
+                              "score_available":false
+                            }
+                            """);
+            PracticeAttempt before = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            practiceService.submitAttempt(
+                    fixture.attemptId(),
+                    student.getId(),
+                    Map.of(
+                            "answer_" + fixture.questionId(),
+                            "키가 없어도 보존할 답안"),
+                    before.getLockVersion());
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            var claim = attemptEvaluationJobTransactions.claim(
+                            job.getId(),
+                            "integration-unavailable-worker",
+                            job.getNextAttemptAt())
+                    .orElseThrow();
+            PracticeAttemptEvaluationOutcome outcome =
+                    practiceService.evaluateClaimedAttempt(claim);
+
+            assertThat(outcome.retryable()).isFalse();
+            assertThat(attemptEvaluationJobTransactions.complete(
+                    claim,
+                    outcome,
+                    objectMapper.writeValueAsString(outcome),
+                    LocalDateTime.now())).isTrue();
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow()
+                    .getJobStatus())
+                    .isEqualTo(
+                            com.ksh.entities
+                                    .PracticeAttemptEvaluationJob
+                                    .STATUS_UNAVAILABLE);
+            PracticeAttempt terminal = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            assertThat(terminal.getAnalysisStatus())
+                    .isEqualTo(
+                            PracticeAttempt.ANALYSIS_UNAVAILABLE);
+            assertThat(terminal.getAnalysisErrorCode())
+                    .isEqualTo("MISSING_API_KEY");
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void writingQuestionRetryPreservesPreviousGradedFeedback()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Question Retry Preservation", true);
+        try {
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.prompt()),
+                    anyString(),
+                    eq(true),
+                    any()))
+                    .thenReturn("""
+                            {
+                              "evaluation_status":"EVALUATION_UNAVAILABLE",
+                              "evaluation_source":"PROVIDER",
+                              "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
+                              "evaluation_retryable":true,
+                              "score_available":false
+                            }
+                            """);
+            assertThat(practiceService.requestReEvaluation(
+                    fixture.attemptId(),
+                    fixture.questionId(),
+                    student.getId()).status())
+                    .isEqualTo("QUEUED");
+            var job = attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow();
+            var claim = attemptEvaluationJobTransactions.claim(
+                            job.getId(),
+                            "integration-question-retry-worker",
+                            job.getNextAttemptAt())
+                    .orElseThrow();
+            PracticeAttemptEvaluationOutcome outcome =
+                    practiceService.evaluateClaimedAttempt(claim);
+
+            assertThat(outcome.retryable()).isTrue();
+            assertThat(objectMapper.readTree(outcome.feedbackJson()))
+                    .isEqualTo(objectMapper.readTree(
+                            fixture.oldFeedbackJson()));
+            assertThat(attemptEvaluationJobTransactions.complete(
+                    claim,
+                    outcome,
+                    objectMapper.writeValueAsString(outcome),
+                    LocalDateTime.now())).isTrue();
+
+            PracticeAttempt preserved = attemptRepository
+                    .findById(fixture.attemptId()).orElseThrow();
+            assertThat(preserved.getStatus())
+                    .isEqualTo(PracticeAttempt.STATUS_GRADED);
+            assertThat(preserved.getAnalysisStatus())
+                    .isEqualTo(PracticeAttempt.ANALYSIS_QUEUED);
+            assertThat(objectMapper.readTree(
+                    preserved.getAiFeedbackJson()))
+                    .isEqualTo(objectMapper.readTree(
+                            fixture.oldFeedbackJson()));
+            assertThat(attemptEvaluationJobRepository
+                    .findByAttemptId(fixture.attemptId())
+                    .orElseThrow()
+                    .getJobStatus())
+                    .isEqualTo(
+                            com.ksh.entities
+                                    .PracticeAttemptEvaluationJob
+                                    .STATUS_RETRY_WAIT);
+        } finally {
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation =
+            org.springframework.transaction.annotation.Propagation
+                    .NOT_SUPPORTED)
+    void concurrentFirstWritingReEvaluationIsIdempotent()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Concurrent Durable Re-evaluation", true);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CyclicBarrier start = new CyclicBarrier(2);
+        try {
+            Callable<PracticeService.ReEvaluationRequestResult> request =
+                    () -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        return practiceService.requestReEvaluation(
+                                fixture.attemptId(),
+                                fixture.questionId(),
+                                student.getId());
+                    };
+            Future<PracticeService.ReEvaluationRequestResult> first =
+                    executor.submit(request);
+            Future<PracticeService.ReEvaluationRequestResult> second =
+                    executor.submit(request);
+
+            assertThat(List.of(
+                    first.get(10, TimeUnit.SECONDS).status(),
+                    second.get(10, TimeUnit.SECONDS).status()))
+                    .containsExactlyInAnyOrder(
+                            "QUEUED",
+                            "ALREADY_QUEUED");
+            assertThat(attemptEvaluationJobRepository.count())
+                    .isEqualTo(1);
+            verifyNoWritingEvaluationCall();
+        } finally {
+            executor.shutdownNow();
+            deleteWritingAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    void expiredSubmitUsesOnlyLastServerSavedAnswerSnapshot() {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Deadline", false);
+        PracticeAttempt attempt = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        attempt.setAnswersJson(
+                "{\"" + fixture.questionId()
+                        + "\":\"답안 저장됨\"}");
+        attempt.setDeadlineAt(
+                LocalDateTime.now().minusSeconds(1));
+        attempt = attemptRepository.saveAndFlush(attempt);
+        clearInvocations(writingEvaluationClient);
+
+        practiceService.submitAttempt(
+                fixture.attemptId(),
+                student.getId(),
+                Map.of(
+                        "answer_" + fixture.questionId(),
+                        "기한 후 변경"),
+                attempt.getLockVersion());
+
+        PracticeAttempt submitted = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        assertThat(submitted.getAnswersJson())
+                .contains("답안 저장됨")
+                .doesNotContain("기한 후 변경");
+        assertThat(submitted.getAnalysisStatus())
+                .isEqualTo(PracticeAttempt.ANALYSIS_QUEUED);
+        verifyNoWritingEvaluationCall();
+    }
+
+    @Test
+    void deadlineProcessorFinalizesClosedBrowserWritingAttemptFromServerSnapshot() {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Post13H Deadline Reconciler", false);
+        PracticeAttempt attempt = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        attempt.setAnswersJson(
+                "{\"" + fixture.questionId()
+                        + "\":\"닫힌 브라우저 저장 답안\"}");
+        attempt.setDeadlineAt(
+                LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+        clearInvocations(writingEvaluationClient);
+        PracticeAttemptDeadlineProcessor processor =
+                new PracticeAttemptDeadlineProcessor(
+                        attemptRepository,
+                        practiceService,
+                        attemptDiscardService,
+                        attemptDeadlineTransactions);
+
+        assertThat(processor.processExpired(10)).isEqualTo(1);
+
+        PracticeAttempt submitted = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        assertThat(submitted.getStatus())
+                .isEqualTo(PracticeAttempt.STATUS_SUBMITTED);
+        assertThat(submitted.getAnswersJson())
+                .contains("닫힌 브라우저 저장 답안");
+        assertThat(attemptEvaluationJobRepository
+                .findByAttemptId(fixture.attemptId()))
+                .get()
+                .extracting(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                ::getJobStatus)
+                .isEqualTo(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                .STATUS_QUEUED);
+        verifyNoWritingEvaluationCall();
+    }
+
+    @Test
+    void deadlineProcessorSkipsBackedOffPoisonRowAndFinalizesLaterAttempt() {
+        WritingAttemptFixture poison =
+                createWritingAttemptFixture(
+                        "Post13H Deadline Poison", false);
+        WritingAttemptFixture healthy =
+                createWritingAttemptFixture(
+                        "Post13H Deadline Healthy", false);
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            PracticeAttempt poisonedAttempt = attemptRepository
+                    .findById(poison.attemptId()).orElseThrow();
+            poisonedAttempt.setDeadlineAt(now.minusMinutes(2));
+            poisonedAttempt.recordDeadlineReconcileFailure(
+                    "MalformedSnapshotException", now);
+            attemptRepository.saveAndFlush(poisonedAttempt);
+
+            PracticeAttempt healthyAttempt = attemptRepository
+                    .findById(healthy.attemptId()).orElseThrow();
+            healthyAttempt.setAnswersJson(
+                    "{\"" + healthy.questionId()
+                            + "\":\"후속 저장 답안\"}");
+            healthyAttempt.setDeadlineAt(now.minusMinutes(1));
+            attemptRepository.saveAndFlush(healthyAttempt);
+            clearInvocations(writingEvaluationClient);
+            PracticeAttemptDeadlineProcessor processor =
+                    new PracticeAttemptDeadlineProcessor(
+                            attemptRepository,
+                            practiceService,
+                            attemptDiscardService,
+                            attemptDeadlineTransactions);
+
+            assertThat(processor.processExpired(10)).isEqualTo(1);
+
+            assertThat(attemptRepository
+                    .findById(poison.attemptId()).orElseThrow()
+                    .getStatus())
+                    .isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
+            assertThat(attemptRepository
+                    .findById(healthy.attemptId()).orElseThrow()
+                    .getStatus())
+                    .isEqualTo(PracticeAttempt.STATUS_SUBMITTED);
+            verifyNoWritingEvaluationCall();
+        } finally {
+            deleteWritingAttemptFixture(healthy);
+            deleteWritingAttemptFixture(poison);
+        }
+    }
+
+    @Test
+    void disabledSpeakingTerminalStateIsUnavailableNotPending() {
+        SpeakingAttemptFixture fixture =
+                createLegacySpeakingInProgressAttempt(
+                        "Post13H Disabled Speaking");
+        PracticeAttempt attempt = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        speakingMediaRepository.saveAndFlush(
+                PracticeSpeakingMedia.ready(
+                        fixture.attemptId(),
+                        fixture.questionId(),
+                        PracticeSpeakingStorageProvider.LOCAL,
+                        "test/disabled-"
+                                + java.util.UUID.randomUUID()
+                                + ".webm",
+                        "audio/webm",
+                        "webm",
+                        "opus",
+                        100L,
+                        1000L,
+                        "d".repeat(64)));
+        clearInvocations(
+                speakingEvaluationClient,
+                speakingTranscriptionClient);
+
+        practiceService.submitAttempt(
+                fixture.attemptId(),
+                student.getId(),
+                Map.of(
+                        "answer_" + fixture.questionId(),
+                        "AUDIO_SUBMITTED"),
+                attempt.getLockVersion());
+
+        PracticeAttempt terminal = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        assertThat(terminal.getAnalysisErrorCode())
+                .isEqualTo("SPEAKING_AI_DISABLED");
+        assertThat(terminal.getAnalysisStatus())
+                .isEqualTo(PracticeAttempt.ANALYSIS_UNAVAILABLE);
+        assertThat(PracticeAttemptStatePolicy.INSTANCE
+                .presentation(terminal, true)
+                .state())
+                .isEqualTo(
+                        PracticeAttemptStatePolicy.DisplayState.UNAVAILABLE);
+        assertThat(attemptEvaluationJobRepository
+                .findByAttemptId(fixture.attemptId()))
+                .get()
+                .extracting(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                ::getJobStatus)
+                .isEqualTo(
+                        com.ksh.entities.PracticeAttemptEvaluationJob
+                                .STATUS_UNAVAILABLE);
+
+        var result = resultAssembler.assemble(
+                fixture.attemptId(), student.getId());
+
+        assertThat(result.state().code())
+                .isEqualTo("UNAVAILABLE");
+        assertThat(result.feedback().state())
+                .isEqualTo("UNAVAILABLE");
+        assertThat(result.score().available()).isFalse();
+        verifyNoInteractions(
+                speakingEvaluationClient,
+                speakingTranscriptionClient);
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void discardedSpeakingAttemptRedirectsToTestDetailNotMissingResult()
+            throws Exception {
+        SpeakingAttemptFixture fixture =
+                createLegacySpeakingInProgressAttempt(
+                        "Post13H Discarded Speaking Route");
+        try {
+            attemptDiscardService.discardForOwner(
+                    fixture.attemptId(), student.getId());
+
+            mockMvc.perform(get(
+                            "/practice/attempts/"
+                                    + fixture.attemptId()))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl(
+                            com.ksh.features.practice.web
+                                    .PracticeRoutes.testDetailPath(
+                                            fixture.setId(),
+                                            fixture.testId())));
+        } finally {
+            deleteSpeakingAttemptFixture(fixture);
+        }
     }
 
     private WritingAttemptFixture createWritingAttemptFixture(String title, boolean graded) {
@@ -4454,6 +5364,7 @@ class PracticeIntegrationTest {
 
     private void deleteSpeakingAttemptFixture(SpeakingAttemptFixture fixture) {
         attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
+        attemptRepository.flush();
         deletePublishedVersionFixture(fixture.setId());
         questionRepository.findById(fixture.questionId()).ifPresent(questionRepository::delete);
         groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
@@ -4479,6 +5390,22 @@ class PracticeIntegrationTest {
             jdbc.update("DELETE FROM practice_set_versions WHERE published_version_id = ?", versionId);
             jdbc.update("DELETE FROM practice_published_versions WHERE id = ?", versionId);
         }
+    }
+
+    private void verifyNoWritingEvaluationCall() {
+        verify(writingEvaluationClient, never()).evaluate(
+                anyLong(),
+                anyString(),
+                anyString(),
+                anyBoolean(),
+                any(WritingTaskType.class));
+        verify(writingEvaluationClient, never()).evaluate(
+                anyLong(),
+                anyString(),
+                anyString(),
+                anyBoolean(),
+                any(WritingTaskType.class),
+                any());
     }
 
     private record SpeakingAttemptFixture(

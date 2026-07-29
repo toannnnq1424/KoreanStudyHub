@@ -8,6 +8,14 @@ import java.util.Locale;
 
 @Component
 public class SpeakingEvaluatorProperties {
+    private static final Duration DEFAULT_TIMEOUT =
+            Duration.ofSeconds(30);
+    private static final Duration MIN_TIMEOUT =
+            Duration.ofSeconds(1);
+    private static final Duration MAX_TIMEOUT =
+            Duration.ofMinutes(2);
+    private static final int MAX_RETRIES = 3;
+
     private final boolean enabled;
     private final String provider;
     private final String baseUrl;
@@ -36,8 +44,9 @@ public class SpeakingEvaluatorProperties {
         this.baseUrl = trimTrailingSlash(text(baseUrl, "https://generativelanguage.googleapis.com/v1beta/openai"));
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = text(model, "models/gemini-2.5-flash");
-        this.timeout = requirePositive(timeout, "timeout");
-        this.maxRetries = Math.max(0, maxRetries);
+        this.timeout = boundedTimeout(timeout);
+        this.maxRetries = Math.min(
+                MAX_RETRIES, Math.max(0, maxRetries));
         this.promptVersion = text(promptVersion, SpeakingEvaluationNormalizer.PROMPT_VERSION);
         this.rubricVersion = text(rubricVersion, SpeakingEvaluationNormalizer.RUBRIC_VERSION);
         this.schemaVersion = text(schemaVersion, SpeakingEvaluationNormalizer.SCHEMA_VERSION);
@@ -55,11 +64,20 @@ public class SpeakingEvaluatorProperties {
         return result;
     }
 
-    private static Duration requirePositive(Duration value, String label) {
-        if (value == null || value.isZero() || value.isNegative()) {
-            throw new IllegalArgumentException(label + " must be positive");
+    private static Duration boundedTimeout(Duration value) {
+        Duration candidate = value == null
+                ? DEFAULT_TIMEOUT
+                : value;
+        if (candidate.isZero() || candidate.isNegative()) {
+            throw new IllegalArgumentException(
+                    "timeout must be positive");
         }
-        return value;
+        if (candidate.compareTo(MIN_TIMEOUT) < 0) {
+            return MIN_TIMEOUT;
+        }
+        return candidate.compareTo(MAX_TIMEOUT) > 0
+                ? MAX_TIMEOUT
+                : candidate;
     }
 
     public boolean enabled() { return enabled; }

@@ -3,6 +3,8 @@ package com.ksh.features.auth.service;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.boot.convert.ApplicationConversionService;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.data.domain.Pageable;
 
 import java.time.Clock;
@@ -17,6 +19,22 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class PasswordResetTokenRetentionTest {
+
+    @Test
+    void springContextUsesTheValueBackedRuntimeConstructor() {
+        PasswordResetTokenRepository repository = mock(PasswordResetTokenRepository.class);
+
+        new ApplicationContextRunner()
+                .withInitializer(context -> context.getBeanFactory()
+                        .setConversionService(ApplicationConversionService.getSharedInstance()))
+                .withBean(PasswordResetTokenRepository.class, () -> repository)
+                .withUserConfiguration(PasswordResetTokenRetention.class)
+                .withPropertyValues(
+                        "app.auth.password-reset.retention.batch-size=250",
+                        "app.auth.password-reset.retention.age=P7D")
+                .run(context -> assertThat(context)
+                        .hasSingleBean(PasswordResetTokenRetention.class));
+    }
 
     @Test
     void cleanupDeletesOnlyOneConfiguredBoundedBatch() {

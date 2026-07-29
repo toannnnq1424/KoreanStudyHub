@@ -6,15 +6,14 @@ import com.ksh.features.comments.repository.CommentModerationRepository;
 import com.ksh.features.comments.repository.LessonCommentRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.ksh.common.IConstant.MSG_COMMENT_NOT_FOUND;
 
 /**
- * Executes one comment moderation transition in an independent transaction.
- * This bean boundary is intentional: bulk callers must not rely on
- * self-invoked {@code @Transactional} methods.
+ * Executes one comment moderation transition at a real proxy transaction
+ * boundary. Direct single-item calls join the service transaction, while the
+ * non-transactional bulk loop opens and commits one transaction per item.
  */
 @Service
 public class CommentModerationWriter {
@@ -28,7 +27,7 @@ public class CommentModerationWriter {
         this.moderationRepository = moderationRepository;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void hide(Long lessonId, Long commentId, Long actorId) {
         Comment comment = loadForUpdate(lessonId, commentId);
         if (Comment.MODERATION_REJECTED.equals(comment.getModerationStatus())) {
@@ -40,7 +39,7 @@ public class CommentModerationWriter {
                 commentId, actorId, CommentModeration.ACTION_REJECTED));
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void unhide(Long lessonId, Long commentId, Long actorId) {
         Comment comment = loadForUpdate(lessonId, commentId);
         if (Comment.MODERATION_APPROVED.equals(comment.getModerationStatus())) {

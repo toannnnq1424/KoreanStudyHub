@@ -20,6 +20,7 @@ import com.ksh.features.practice.dto.PracticeDtos.ProgressWritingTaskFilter;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskProgressSeam;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskScoreCohort;
 import com.ksh.features.practice.service.PracticeAttemptConflictException;
+import com.ksh.features.practice.service.PracticeAttemptDeadlineExpiredException;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeAttemptResumeNotAllowedException;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeReEvaluationNotAllowedException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
@@ -51,6 +52,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,6 +62,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -487,10 +490,22 @@ public class PracticeController {
                           HttpSession session,
                           RedirectAttributes redirectAttributes,
                           Model model) {
-        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        PracticeAttempt attempt = practiceService.getPracticeAttemptForRouting(
+                attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            log.info("[PracticeController] Attempt id={} is already submitted (status={}). Redirecting to result page.", attemptId, attempt.getStatus());
-            return PracticeRoutes.redirectToResult(attemptId);
+            log.info(
+                    "[PracticeController] Attempt id={} is already terminal (status={}).",
+                    attemptId,
+                    attempt.getStatus());
+            return redirectForTerminalAttempt(
+                    attempt, session, redirectAttributes, false);
+        }
+        if (attempt.isExpired(java.time.LocalDateTime.now())) {
+            redirectAttributes.addFlashAttribute(
+                    "info",
+                    "Đã hết giờ. Hệ thống đang hoàn tất bài từ các đáp án được lưu trước hạn.");
+            return PracticeRoutes.redirectToTestDetail(
+                    attempt.getSetId(), attempt.getTestId());
         }
         try {
             practiceService.requireCanonicalAttemptDelivery(
@@ -531,6 +546,9 @@ public class PracticeController {
                 throw new IllegalStateException("Không thể chuẩn bị dữ liệu Speaking.", exception);
             }
             model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+            model.addAttribute(
+                    PracticeModelAttributes.ATTEMPT_LOCK_VERSION,
+                    attempt.getLockVersion());
             model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, speakingDelivery.sectionTitle());
             model.addAttribute(PracticeModelAttributes.SPEAKING_INTERRUPT_ACTION,
                     PracticeRoutes.BASE + "/attempts/" + attemptId + "/interrupt");
@@ -565,6 +583,18 @@ public class PracticeController {
         model.addAttribute(PracticeModelAttributes.VIEW, playerView.view());
         model.addAttribute(PracticeModelAttributes.MODE, mode);
         model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
+        model.addAttribute(
+                PracticeModelAttributes.ATTEMPT_LOCK_VERSION,
+                playerView.lockVersion());
+        model.addAttribute(
+                PracticeModelAttributes.SAVED_ANSWERS,
+                playerView.savedAnswers());
+        model.addAttribute(
+                PracticeModelAttributes.ATTEMPT_DEADLINE_EPOCH_MS,
+                toEpochMilli(playerView.deadlineAt()));
+        model.addAttribute(
+                PracticeModelAttributes.SERVER_NOW_EPOCH_MS,
+                System.currentTimeMillis());
         
         model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_TITLE, delivery.title());
         model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_SKILL, delivery.skill());
@@ -579,23 +609,187 @@ public class PracticeController {
                 : PracticeViews.PLAYER;
     }
 
+    @PutMapping(PracticeRoutes.ATTEMPT_ANSWERS)
+    public org.springframework.http.ResponseEntity<?> saveAttemptAnswers(
+            @PathVariable Long attemptId,
+            @RequestParam("expectedLockVersion") Long expectedLockVersion,
+            @RequestParam Map<String, String> form,
+            @AuthenticationPrincipal KshUserDetails user) {
+        try {
+            PracticeService.AttemptAnswerSaveResult result =
+                    practiceService.saveInProgressAnswers(
+                            attemptId, user.getId(), expectedLockVersion, form);
+            return org.springframework.http.ResponseEntity.ok(
+                    new AttemptAnswersResponse(
+                            "SAVED",
+                            result.lockVersion(),
+                            result.savedAt(),
+                            result.deadlineAt(),
+                            result.answers(),
+                            null));
+        } catch (PracticeAttemptConflictException exception) {
+            PracticeAttempt currentAttempt =
+                    practiceService.getPracticeAttempt(
+                            attemptId, user.getId());
+            if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                    currentAttempt.getStatus())) {
+                return org.springframework.http.ResponseEntity
+                        .status(org.springframework.http.HttpStatus.CONFLICT)
+                        .body(new AttemptAnswersResponse(
+                                "CONFLICT",
+                                currentAttempt.getLockVersion(),
+                                null,
+                                currentAttempt.getDeadlineAt(),
+                                Map.of(),
+                                "Bài làm đã được nộp hoặc thay đổi ở một phiên khác."));
+            }
+            if (currentAttempt.isExpired(
+                    java.time.LocalDateTime.now())) {
+                return org.springframework.http.ResponseEntity
+                        .status(org.springframework.http.HttpStatus.GONE)
+                        .body(new AttemptAnswersResponse(
+                                "DEADLINE_EXPIRED",
+                                currentAttempt.getLockVersion(),
+                                null,
+                                currentAttempt.getDeadlineAt(),
+                                Map.of(),
+                                "Lượt làm bài đã hết thời gian."));
+            }
+            PracticeService.AttemptPlayerView current =
+                    practiceService.getAttemptPlayerView(
+                            attemptId, user.getId());
+            return org.springframework.http.ResponseEntity
+                    .status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(new AttemptAnswersResponse(
+                            "CONFLICT",
+                            current.lockVersion(),
+                            null,
+                            current.deadlineAt(),
+                            current.savedAnswers(),
+                            "Bài làm đã thay đổi ở một phiên khác. Vui lòng tải lại."));
+        } catch (PracticeAttemptDeadlineExpiredException exception) {
+            return org.springframework.http.ResponseEntity
+                    .status(org.springframework.http.HttpStatus.GONE)
+                    .body(new AttemptAnswersResponse(
+                            "DEADLINE_EXPIRED",
+                            null,
+                            null,
+                            exception.getDeadlineAt(),
+                            Map.of(),
+                            exception.getMessage()));
+        }
+    }
+
     @PostMapping(PracticeRoutes.ATTEMPT_SUBMIT)
     public String submitAttempt(@PathVariable Long attemptId,
                                 @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,
+                                @RequestParam("expectedLockVersion") Long expectedLockVersion,
                                 @RequestParam Map<String, String> form,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 HttpSession session,
                                 RedirectAttributes redirectAttributes) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
         if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.BAD_REQUEST, "Lượt làm bài đã được nộp hoặc chấm điểm.");
+            return redirectForTerminalAttempt(
+                    attempt, session, redirectAttributes, false);
         }
-        practiceService.submitAttempt(attemptId, user.getId(), form);
+        try {
+            practiceService.submitAttempt(
+                    attemptId, user.getId(), form, expectedLockVersion);
+        } catch (PracticeAttemptDeadlineExpiredException exception) {
+            PracticeAttempt current = practiceService
+                    .getPracticeAttempt(attemptId, user.getId());
+            if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                    current.getStatus())) {
+                return redirectForTerminalAttempt(
+                        current,
+                        session,
+                        redirectAttributes,
+                        true);
+            }
+            return finalizeExpiredAttempt(
+                    current, user.getId(), session, redirectAttributes);
+        } catch (PracticeAttemptConflictException
+                | IllegalStateException exception) {
+            PracticeAttempt current = requireTerminalRaceWinner(
+                    attemptId, user.getId(), exception);
+            return redirectForTerminalAttempt(
+                    current, session, redirectAttributes, false);
+        }
         clearSpeakingPreflight(session, attemptId);
         clearListeningPreflight(session, attemptId);
         redirectAttributes.addFlashAttribute("success", "Đã nộp bài luyện tập.");
         return PracticeRoutes.redirectToResult(attemptId);
+    }
+
+    private String finalizeExpiredAttempt(
+            PracticeAttempt attempt,
+            Long userId,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        try {
+            if ("SPEAKING".equals(attempt.getSkill())) {
+                attemptDiscardService.discardForOwner(
+                        attempt.getId(), userId);
+            } else {
+                practiceService.submitAttempt(
+                        attempt.getId(),
+                        userId,
+                        Map.of(),
+                        attempt.getLockVersion());
+            }
+        } catch (PracticeAttemptConflictException
+                | IllegalStateException exception) {
+            requireTerminalRaceWinner(
+                    attempt.getId(), userId, exception);
+        }
+        PracticeAttempt terminal = practiceService
+                .getPracticeAttempt(attempt.getId(), userId);
+        if (PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                terminal.getStatus())) {
+            throw new IllegalStateException(
+                    "Expired attempt did not reach a terminal state.");
+        }
+        return redirectForTerminalAttempt(
+                terminal, session, redirectAttributes, true);
+    }
+
+    private PracticeAttempt requireTerminalRaceWinner(
+            Long attemptId,
+            Long userId,
+            RuntimeException original) {
+        PracticeAttempt current = practiceService
+                .getPracticeAttempt(attemptId, userId);
+        if (PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                current.getStatus())) {
+            throw original;
+        }
+        return current;
+    }
+
+    private String redirectForTerminalAttempt(
+            PracticeAttempt attempt,
+            HttpSession session,
+            RedirectAttributes redirectAttributes,
+            boolean deadlineTransition) {
+        clearSpeakingPreflight(session, attempt.getId());
+        clearListeningPreflight(session, attempt.getId());
+        if (PracticeAttempt.STATUS_DISCARDED.equals(
+                attempt.getStatus())) {
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    deadlineTransition
+                            ? "Lượt Nói đã hết hạn và được hủy vì chưa hoàn tất bản ghi."
+                            : "Lượt làm bài này đã được hủy.");
+            return PracticeRoutes.redirectToTestDetail(
+                    attempt.getSetId(), attempt.getTestId());
+        }
+        if (deadlineTransition) {
+            redirectAttributes.addFlashAttribute(
+                    "info",
+                    "Đã hết giờ. Hệ thống đã nộp các đáp án được lưu trước hạn.");
+        }
+        return PracticeRoutes.redirectToResult(attempt.getId());
     }
 
     @PostMapping(PracticeRoutes.ATTEMPT_INTERRUPT)
@@ -645,16 +839,16 @@ public class PracticeController {
                                     @AuthenticationPrincipal KshUserDetails user,
                                     RedirectAttributes redirectAttributes) {
         try {
-            if (questionId == null) {
-                Long refreshedSubmissionId =
-                        practiceService.reEvaluate(attemptId, user.getId());
-                redirectAttributes.addFlashAttribute(
-                        "success", "Đã chấm lại bài viết bằng Audit Mode.");
-                return PracticeRoutes.redirectToResult(refreshedSubmissionId);
-            }
-            Long refreshedSubmissionId = practiceService.reEvaluateQuestion(attemptId, questionId, user.getId());
-            redirectAttributes.addFlashAttribute("success", "Đã chấm lại câu đã chọn.");
-            return redirectToResultDetail(refreshedSubmissionId, questionId);
+            PracticeService.ReEvaluationRequestResult result =
+                    practiceService.requestReEvaluation(
+                            attemptId, questionId, user.getId());
+            String flashKind = "QUEUED".equals(result.status())
+                    ? "success" : "info";
+            redirectAttributes.addFlashAttribute(
+                    flashKind, result.message());
+            return questionId == null
+                    ? PracticeRoutes.redirectToResult(attemptId)
+                    : redirectToResultDetail(attemptId, questionId);
         } catch (PracticeReEvaluationNotAllowedException ex) {
             redirectAttributes.addFlashAttribute("error", ex.getMessage());
             return questionId == null
@@ -670,6 +864,23 @@ public class PracticeController {
 
     private String redirectToResultDetail(Long attemptId, Long questionId) {
         return PracticeRoutes.redirectToResultDetail(attemptId, questionId);
+    }
+
+    private static Long toEpochMilli(java.time.LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        return value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    public record AttemptAnswersResponse(
+            String status,
+            Long lockVersion,
+            java.time.LocalDateTime savedAt,
+            java.time.LocalDateTime deadlineAt,
+            Map<String, String> answers,
+            String message
+    ) {
     }
 
     private PracticeSection requireSection(Long setId, Long testId, Long sectionId) {
@@ -1235,6 +1446,6 @@ public class PracticeController {
     @GetMapping(PracticeRoutes.MANAGE_MANUAL)
     @PreAuthorize(Roles.PREAUTH_LECTURER)
     public String manualFormRedirect() {
-        return "redirect:/practice/manage/create";
+        return "redirect:/practice/manage";
     }
 }

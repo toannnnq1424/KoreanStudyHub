@@ -24,8 +24,8 @@
     <p th:text="${resultDetail.payload().feedback().label()}">Giải thích đáp án đã sẵn sàng</p>
   </section>
 
-  <section class="prd-boundary-card" aria-labelledby="objective-breakdown-title">
-    <h2 id="objective-breakdown-title">Tổng quan theo dạng câu hỏi</h2>
+  <details class="prd-boundary-card prd-objective-breakdown">
+    <summary id="objective-breakdown-title">Tổng quan theo dạng câu hỏi</summary>
     <div class="prd-boundary-grid">
       <article class="prd-boundary-item"
                th:each="row : ${resultDetail.payload().summary().breakdown()}">
@@ -34,15 +34,18 @@
         <strong th:if="${row.pointsDisplay() != null}" th:text="${row.pointsDisplay()}">1/1</strong>
       </article>
     </div>
-  </section>
+  </details>
 
-  <nav class="prd-boundary-card prd-objective-nav"
+  <nav class="prd-boundary-card prd-objective-nav prd-question-rail"
        aria-label="Điều hướng nguồn và câu hỏi">
     <div>
       <h2>Nguồn đề</h2>
       <ul class="prd-objective-nav-list">
         <li th:each="source : ${resultDetail.payload().sourceGroups()}">
-          <a th:href="${'#' + source.sourceId()}" th:text="${source.label()}">Đoạn đọc 1</a>
+          <a th:href="${'#' + source.sourceId()}"
+             data-objective-source-link
+             th:attr="data-objective-source-id=${source.sourceId()}"
+             th:text="${source.label()}">Đoạn đọc 1</a>
         </li>
       </ul>
     </div>
@@ -51,6 +54,9 @@
       <ol class="prd-objective-nav-list">
         <li th:each="question : ${resultDetail.payload().questions()}">
           <a th:href="${'#' + question.core().anchorId()}"
+             data-objective-question-link
+             th:attr="data-objective-source-id=${question.core().sourceId()},
+                      data-objective-question-id=${question.core().anchorId()}"
              th:text="${'Câu ' + question.core().questionNo()}">Câu 1</a>
         </li>
       </ol>
@@ -63,14 +69,20 @@
       <article class="prd-objective-source"
                th:each="source : ${resultDetail.payload().sourceGroups()}"
                th:id="${source.sourceId()}"
+               data-objective-source-panel
+               th:attr="data-objective-source-id=${source.sourceId()},
+                        data-objective-source-empty=${!source.hasPassage()
+                          and !source.hasImage()
+                          and !source.hasAudio()
+                          and !source.hasApprovedTranscript()}"
+               th:classappend="${!source.hasPassage()
+                                and !source.hasImage()
+                                and !source.hasAudio()
+                                and !source.hasApprovedTranscript()}
+                               ? ' is-empty-source' : ''"
                tabindex="-1">
         <header>
           <h3 th:text="${source.label()}">Đoạn đọc 1</h3>
-          <p class="prd-objective-provenance">
-            <span th:text="${source.provenanceLabelVi()}">Nguồn đề đã xuất bản và khóa</span>
-            <span aria-hidden="true"> · </span>
-            <span lang="ko" th:text="${source.provenanceLabelKo()}">게시 후 잠긴 출제 자료</span>
-          </p>
         </header>
         <p class="prd-objective-instruction"
            th:if="${!source.instruction().isBlank()}"
@@ -83,24 +95,40 @@
           <img th:src="${source.imageUrl()}" alt="Hình ảnh thuộc nguồn đề đã khóa">
           <figcaption>Hình ảnh từ phiên bản đề bất biến</figcaption>
         </figure>
-        <audio th:if="${source.hasAudio()}"
-               controls
-               preload="metadata"
-               th:src="${source.audioUrl()}">
-          Trình duyệt không hỗ trợ phát âm thanh.
-        </audio>
-        <details th:if="${source.hasApprovedTranscript()}">
-          <summary>Bản chép lời đã được phê duyệt</summary>
+        <div class="prd-objective-audio-dock" th:if="${source.hasAudio()}">
+          <strong>Nghe lại nguồn âm thanh</strong>
+          <audio controls
+                 preload="metadata"
+                 aria-label="Nghe lại nguồn âm thanh của phần Nghe"
+                 th:src="${source.audioUrl()}">
+            Trình duyệt không hỗ trợ phát âm thanh.
+          </audio>
+        </div>
+        <section class="prd-objective-transcript"
+                 th:if="${source.hasApprovedTranscript()}"
+                 th:attr="aria-labelledby=${'approved-transcript-title-' + source.sourceId()}">
+          <h4 th:id="${'approved-transcript-title-' + source.sourceId()}">
+            Bản chép lời đã được phê duyệt
+          </h4>
           <p class="prd-objective-evidence-scope"
              th:text="${source.transcriptEvidenceScope()}">LINGUISTIC_CONTENT_ONLY</p>
           <div class="prd-objective-source-text"
                lang="ko"
                th:text="${source.transcriptText()}">대본</div>
-        </details>
+        </section>
         <p class="prd-objective-unavailable"
            th:if="${source.sourceKind() == 'LISTENING_AUDIO' and !source.hasApprovedTranscript()}">
           Không có bản chép lời được phê duyệt để dùng làm bằng chứng văn bản.
+          Bạn vẫn có thể nghe lại nguồn âm thanh nếu bản ghi đang khả dụng.
         </p>
+        <details class="prd-objective-source-technical">
+          <summary>Thông tin nguồn · 출처 정보</summary>
+          <p class="prd-objective-provenance">
+            <span th:text="${source.provenanceLabelVi()}">Nguồn đề đã xuất bản và khóa</span>
+            <span aria-hidden="true"> · </span>
+            <span lang="ko" th:text="${source.provenanceLabelKo()}">게시 후 잠긴 출제 자료</span>
+          </p>
+        </details>
       </article>
     </aside>
 
@@ -109,7 +137,10 @@
       <article class="prd-boundary-card prd-objective-question"
                th:each="question : ${resultDetail.payload().questions()}"
                th:id="${question.core().anchorId()}"
-               th:attr="data-objective-question-type=${question.questionType().name()}"
+               data-objective-question-panel
+               th:attr="data-objective-question-type=${question.questionType().name()},
+                        data-objective-question-id=${question.core().anchorId()},
+                        data-objective-source-id=${question.core().sourceId()}"
                tabindex="-1">
         <header class="prd-objective-question-header">
           <div>
@@ -121,30 +152,39 @@
                   th:text="${question.core().pointsDisplay()}">1/1</strong>
         </header>
 
-        <table class="prd-objective-provenance-table">
-          <caption>Nguồn gốc dữ liệu hiển thị</caption>
-          <tbody>
-          <tr>
-            <th scope="row">Đáp án người học</th>
-            <td th:text="${question.core().learnerAnswerProvenance()}">Learner answer</td>
-          </tr>
-          <tr>
-            <th scope="row">Đáp án chính thức</th>
-            <td th:text="${question.core().officialKeyProvenance()}">Official key</td>
-          </tr>
-          <tr>
-            <th scope="row">Giải thích của giáo viên</th>
-            <td th:text="${question.core().teacherExplanationProvenance()}">Teacher</td>
-          </tr>
-          <tr>
-            <th scope="row">Lời giải AI</th>
-            <td th:text="${question.explanation().aiArtifactProvenance()}">AI artifact</td>
-          </tr>
-          </tbody>
-        </table>
+        <details class="prd-objective-provenance-disclosure">
+          <summary>Nguồn gốc dữ liệu hiển thị · 표시 데이터 출처</summary>
+          <table class="prd-objective-provenance-table">
+            <caption>Nguồn gốc dữ liệu hiển thị</caption>
+            <tbody>
+            <tr>
+              <th scope="row">Đáp án người học</th>
+              <td th:text="${question.core().learnerAnswerProvenance()}">Learner answer</td>
+            </tr>
+            <tr>
+              <th scope="row">Đáp án chính thức</th>
+              <td th:text="${question.core().officialKeyProvenance()}">Official key</td>
+            </tr>
+            <tr>
+              <th scope="row">Giải thích của giáo viên</th>
+              <td th:text="${question.core().teacherExplanationProvenance()}">Teacher</td>
+            </tr>
+            <tr>
+              <th scope="row">Lời giải AI</th>
+              <td th:text="${question.explanation().aiArtifactProvenance()}">AI artifact</td>
+            </tr>
+            </tbody>
+          </table>
+        </details>
 
-        <section th:if="${question.questionType().name() == 'SINGLE_CHOICE'}"
+        <section class="prd-objective-answer-block prd-objective-choice-review"
+                 th:if="${question.questionType().name() == 'SINGLE_CHOICE'}"
                  aria-label="Kết quả trắc nghiệm một đáp án">
+          <header class="prd-objective-type-heading">
+            <p>Trắc nghiệm một đáp án</p>
+            <h4>Đối chiếu từng phương án</h4>
+            <span>Đáp án đúng, lựa chọn của bạn và lý do loại phương án được tách rõ.</span>
+          </header>
           <table class="prd-objective-answer-table">
             <caption>Phương án, trạng thái người học và lý do loại chọn</caption>
             <thead>
@@ -169,15 +209,56 @@
                 <span th:if="${option.correct()}">Đáp án đúng</span>
                 <span th:if="${!option.learnerSelected() and !option.correct()}">Không chọn</span>
               </td>
-              <td data-label="Giải thích"
-                  th:text="${option.rationaleVi()}">Lý do</td>
+              <td data-label="Giải thích">
+                <strong class="prd-objective-rationale-label"
+                        th:text="${option.correct()} ? 'Vì sao đúng' : 'Vì sao loại'">
+                  Vì sao loại
+                </strong>
+                <p th:text="${option.rationaleVi()}">Lý do</p>
+                <div class="prd-objective-inline-evidence"
+                     th:if="${!#lists.isEmpty(option.evidenceIds())}">
+                  <article th:each="evidence : ${question.explanation().evidenceRefs()}"
+                           th:if="${option.evidenceIds().contains(evidence.evidenceId())}">
+                    <header>
+                      <strong th:text="${evidence.kind().name() == 'TRANSCRIPT_SPAN'}
+                                       ? 'Đoạn nghe quyết định'
+                                       : (${evidence.kind().name() == 'IMAGE_REGION'}
+                                          ? 'Vùng hình ảnh quyết định'
+                                          : 'Vùng bài đọc quyết định')">
+                        Vùng bài đọc quyết định
+                      </strong>
+                      <span th:text="${evidence.purpose()}">Mục đích bằng chứng</span>
+                    </header>
+                    <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
+                                lang="ko"
+                                th:text="${evidence.exactQuoteKo()}">근거</blockquote>
+                    <p th:if="${evidence.kind().name() == 'IMAGE_REGION'}"
+                       th:text="${'Ảnh ' + evidence.imageIndex()
+                                  + ' · ' + evidence.regionMode()}">
+                      Ảnh 0 · WHOLE_IMAGE
+                    </p>
+                    <div class="prd-objective-inline-translation"
+                         th:each="translation : ${question.explanation().evidenceTranslations()}"
+                         th:if="${translation.evidenceId().equals(evidence.evidenceId())}">
+                      <strong>Dịch đoạn liên quan</strong>
+                      <span th:text="${translation.translationVi()}">Bản dịch đoạn liên quan</span>
+                    </div>
+                  </article>
+                </div>
+              </td>
             </tr>
             </tbody>
           </table>
         </section>
 
-        <section th:if="${question.questionType().name() == 'FILL_BLANK'}"
+        <section class="prd-objective-answer-block prd-objective-fill-review"
+                 th:if="${question.questionType().name() == 'FILL_BLANK'}"
                  aria-label="Kết quả điền từ">
+          <header class="prd-objective-type-heading">
+            <p>Điền vào chỗ trống</p>
+            <h4>Giải mã từng ô trống</h4>
+            <span>Đối chiếu đáp án, ngữ cảnh, ngữ pháp và giới hạn chấp nhận.</span>
+          </header>
           <table class="prd-objective-answer-table">
             <caption>Giá trị từng ô trống và đáp án được chấp nhận</caption>
             <thead>
@@ -208,14 +289,24 @@
                 <small th:text="${blank.normalizationPolicy()}">Quy tắc chuẩn hóa</small>
               </td>
               <td data-label="Ràng buộc">
-                <p th:if="${!blank.contextExplanationVi().isBlank()}"
-                   th:text="${blank.contextExplanationVi()}">Ngữ cảnh</p>
-                <p th:if="${!blank.semanticConstraintVi().isBlank()}"
-                   th:text="${blank.semanticConstraintVi()}">Ngữ nghĩa</p>
-                <p th:if="${!blank.grammarConstraintVi().isBlank()}"
-                   th:text="${blank.grammarConstraintVi()}">Ngữ pháp</p>
-                <p th:if="${!blank.registerConstraintVi().isBlank()}"
-                   th:text="${blank.registerConstraintVi()}">Sắc thái</p>
+                <dl class="prd-objective-blank-analysis">
+                  <div th:if="${!blank.contextExplanationVi().isBlank()}">
+                    <dt>Ngữ cảnh</dt>
+                    <dd th:text="${blank.contextExplanationVi()}">Ngữ cảnh</dd>
+                  </div>
+                  <div th:if="${!blank.semanticConstraintVi().isBlank()}">
+                    <dt>Ngữ nghĩa</dt>
+                    <dd th:text="${blank.semanticConstraintVi()}">Ngữ nghĩa</dd>
+                  </div>
+                  <div th:if="${!blank.grammarConstraintVi().isBlank()}">
+                    <dt>Ngữ pháp</dt>
+                    <dd th:text="${blank.grammarConstraintVi()}">Ngữ pháp</dd>
+                  </div>
+                  <div th:if="${!blank.registerConstraintVi().isBlank()}">
+                    <dt>Sắc thái</dt>
+                    <dd th:text="${blank.registerConstraintVi()}">Sắc thái</dd>
+                  </div>
+                </dl>
                 <p class="prd-objective-unavailable"
                    th:if="${blank.contextExplanationVi().isBlank()
                          and blank.semanticConstraintVi().isBlank()
@@ -223,6 +314,36 @@
                          and blank.registerConstraintVi().isBlank()}">
                   Chưa có phân tích ràng buộc được kiểm chứng.
                 </p>
+                <div class="prd-objective-inline-evidence"
+                     th:if="${!#lists.isEmpty(blank.evidenceIds())}">
+                  <article th:each="evidence : ${question.explanation().evidenceRefs()}"
+                           th:if="${blank.evidenceIds().contains(evidence.evidenceId())}">
+                    <header>
+                      <strong th:text="${evidence.kind().name() == 'TRANSCRIPT_SPAN'}
+                                       ? 'Cụm từ nghe chứa đáp án'
+                                       : (${evidence.kind().name() == 'IMAGE_REGION'}
+                                          ? 'Vùng hình ảnh chứa đáp án'
+                                          : 'Câu chứa đáp án')">
+                        Câu chứa đáp án
+                      </strong>
+                      <span th:text="${evidence.purpose()}">Mục đích bằng chứng</span>
+                    </header>
+                    <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
+                                lang="ko"
+                                th:text="${evidence.exactQuoteKo()}">근거</blockquote>
+                    <p th:if="${evidence.kind().name() == 'IMAGE_REGION'}"
+                       th:text="${'Ảnh ' + evidence.imageIndex()
+                                  + ' · ' + evidence.regionMode()}">
+                      Ảnh 0 · WHOLE_IMAGE
+                    </p>
+                    <div class="prd-objective-inline-translation"
+                         th:each="translation : ${question.explanation().evidenceTranslations()}"
+                         th:if="${translation.evidenceId().equals(evidence.evidenceId())}">
+                      <strong>Dịch đoạn liên quan</strong>
+                      <span th:text="${translation.translationVi()}">Bản dịch đoạn liên quan</span>
+                    </div>
+                  </article>
+                </div>
               </td>
             </tr>
             </tbody>
@@ -230,8 +351,13 @@
         </section>
 
         <section th:if="${question.questionType().name() == 'TRUE_FALSE_NOT_GIVEN'}"
-                 class="prd-objective-tfng"
+                 class="prd-objective-answer-block prd-objective-tfng"
                  aria-label="Kết quả đúng sai không có thông tin">
+          <header class="prd-objective-type-heading">
+            <p>Đúng / Sai / Không có thông tin</p>
+            <h4>Kiểm chứng mệnh đề với nguồn</h4>
+            <span>Phân biệt mệnh đề được xác nhận, bị nguồn phủ định hay hoàn toàn chưa được nêu.</span>
+          </header>
           <dl>
             <div>
               <dt>Mệnh đề</dt>
@@ -268,6 +394,53 @@
             <strong>Thông tin còn thiếu:</strong>
             <span th:text="${question.missingInformationVi()}">Chi tiết chưa được nêu.</span>
           </p>
+          <table class="prd-objective-tfng-proof"
+                 th:if="${question.explanation().ready()
+                       and !#lists.isEmpty(question.explanation().evidenceRefs())}">
+            <caption>Đối chiếu mệnh đề với vùng thông tin đã kiểm chứng</caption>
+            <thead>
+            <tr>
+              <th scope="col">Mệnh đề và kết luận</th>
+              <th scope="col">Vùng thông tin</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <th scope="row">
+                <span lang="ko" th:text="${question.claimKo()}">주장</span>
+                <strong th:text="${question.relationLabelVi()}">Trái với nguồn</strong>
+              </th>
+              <td>
+                <article th:each="evidence : ${question.explanation().evidenceRefs()}">
+                  <header>
+                    <strong th:text="${evidence.kind().name() == 'TRANSCRIPT_SPAN'}
+                                     ? 'Đoạn transcript liên quan'
+                                     : (${evidence.kind().name() == 'IMAGE_REGION'}
+                                        ? 'Vùng hình ảnh liên quan'
+                                        : 'Đoạn bài đọc liên quan')">
+                      Đoạn bài đọc liên quan
+                    </strong>
+                    <span th:text="${evidence.purpose()}">Mục đích bằng chứng</span>
+                  </header>
+                  <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
+                              lang="ko"
+                              th:text="${evidence.exactQuoteKo()}">근거</blockquote>
+                  <p th:if="${evidence.kind().name() == 'IMAGE_REGION'}"
+                     th:text="${'Ảnh ' + evidence.imageIndex()
+                                + ' · ' + evidence.regionMode()}">
+                    Ảnh 0 · WHOLE_IMAGE
+                  </p>
+                  <div class="prd-objective-inline-translation"
+                       th:each="translation : ${question.explanation().evidenceTranslations()}"
+                       th:if="${translation.evidenceId().equals(evidence.evidenceId())}">
+                    <strong>Dịch đoạn liên quan</strong>
+                    <span th:text="${translation.translationVi()}">Bản dịch đoạn liên quan</span>
+                  </div>
+                </article>
+              </td>
+            </tr>
+            </tbody>
+          </table>
           <div class="prd-objective-alternatives">
             <article th:each="alternative : ${question.alternatives()}">
               <h4>
@@ -281,49 +454,81 @@
           </div>
         </section>
 
-        <section class="prd-objective-explanation" aria-label="Lời giải và bằng chứng">
-          <h4>Giải thích</h4>
+        <section class="prd-objective-explanation"
+                 aria-label="Lời giải và bằng chứng"
+                 th:attr="data-explanation-type=${question.questionType().name()}">
+          <header class="prd-objective-explanation-heading">
+            <p class="prd-boundary-eyebrow">Lời giải theo dạng câu</p>
+            <h4 th:if="${question.questionType().name() == 'SINGLE_CHOICE'}">
+              Kết luận và bằng chứng chọn đáp án
+            </h4>
+            <h4 th:if="${question.questionType().name() == 'FILL_BLANK'}">
+              Dấu hiệu ngữ cảnh và vùng chứa đáp án
+            </h4>
+            <h4 th:if="${question.questionType().name() == 'TRUE_FALSE_NOT_GIVEN'}">
+              Đối chiếu mệnh đề và bằng chứng
+            </h4>
+          </header>
           <p class="prd-objective-unavailable"
              th:if="${!question.explanation().ready()}"
              th:text="${question.explanation().stateLabel()}">Chưa có lời giải</p>
-          <div th:if="${question.explanation().ready()}">
-            <p th:if="${!question.explanation().aiMeaningVi().isBlank()}"
-               th:text="${question.explanation().aiMeaningVi()}">Diễn giải</p>
-            <p th:if="${!question.explanation().correctReasonVi().isBlank()}">
-              <strong>Lý do đáp án đúng:</strong>
-              <span th:text="${question.explanation().correctReasonVi()}">Lý do</span>
-            </p>
-            <h5>Bằng chứng đã kiểm chứng</h5>
-            <ul class="prd-objective-evidence-list">
-              <li th:each="evidence : ${question.explanation().evidenceRefs()}">
-                <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
-                            lang="ko"
-                            th:text="${evidence.exactQuoteKo()}">근거</blockquote>
-                <dl th:if="${evidence.kind().name() == 'IMAGE_REGION'}">
-                  <div>
-                    <dt>Digest tài sản</dt>
-                    <dd th:text="${evidence.assetDigest()}">sha256</dd>
-                  </div>
-                  <div>
-                    <dt>Vị trí</dt>
-                    <dd th:text="${'Ảnh ' + evidence.imageIndex()
-                                   + ', ' + evidence.regionMode()}">Ảnh 0, WHOLE_IMAGE</dd>
-                  </div>
-                </dl>
-                <small th:text="${evidence.purpose()}">Mục đích bằng chứng</small>
-                <small th:text="${' · Mã ' + evidence.evidenceId()}"> · Mã e1</small>
-              </li>
-            </ul>
-            <details th:each="translation : ${question.explanation().evidenceTranslations()}">
-              <summary th:text="${translation.label()}">
-                Dịch đoạn liên quan
-              </summary>
-              <p th:text="${translation.translationVi()}">
-                Bản dịch đoạn liên quan
+          <div class="prd-objective-explanation-body"
+               th:if="${question.explanation().ready()}">
+            <div class="prd-objective-explanation-summary"
+                 th:if="${!question.explanation().aiMeaningVi().isBlank()
+                       or !question.explanation().correctReasonVi().isBlank()}">
+              <p th:if="${!question.explanation().aiMeaningVi().isBlank()}">
+                <strong>Diễn giải câu hỏi</strong>
+                <span th:text="${question.explanation().aiMeaningVi()}">Diễn giải</span>
               </p>
-              <small th:text="${'Gắn với bằng chứng ' + translation.evidenceId()}">
-                Gắn với bằng chứng e1
-              </small>
+              <p th:if="${!question.explanation().correctReasonVi().isBlank()}">
+                <strong>Lý do kết luận</strong>
+                <span th:text="${question.explanation().correctReasonVi()}">Lý do</span>
+              </p>
+            </div>
+            <details class="prd-objective-all-evidence"
+                     th:if="${!#lists.isEmpty(question.explanation().evidenceRefs())}">
+              <summary>Đối chiếu toàn bộ bằng chứng đã kiểm chứng</summary>
+              <ul class="prd-objective-evidence-list">
+                <li th:each="evidence : ${question.explanation().evidenceRefs()}"
+                    th:classappend="${evidence.kind().name() == 'TRANSCRIPT_SPAN'}
+                                    ? ' is-transcript-evidence'
+                                    : (${evidence.kind().name() == 'IMAGE_REGION'}
+                                       ? ' is-image-evidence'
+                                       : ' is-passage-evidence')">
+                  <header>
+                    <strong th:text="${evidence.kind().name() == 'TRANSCRIPT_SPAN'}
+                                     ? 'Đoạn transcript liên quan'
+                                     : (${evidence.kind().name() == 'IMAGE_REGION'}
+                                        ? 'Vùng hình ảnh liên quan'
+                                        : 'Vùng thông tin trong bài đọc')">
+                      Vùng thông tin trong bài đọc
+                    </strong>
+                    <span th:text="${evidence.purpose()}">Mục đích bằng chứng</span>
+                  </header>
+                  <blockquote th:if="${evidence.kind().name() != 'IMAGE_REGION'}"
+                              lang="ko"
+                              th:text="${evidence.exactQuoteKo()}">근거</blockquote>
+                  <dl th:if="${evidence.kind().name() == 'IMAGE_REGION'}">
+                    <div>
+                      <dt>Digest tài sản</dt>
+                      <dd th:text="${evidence.assetDigest()}">sha256</dd>
+                    </div>
+                    <div>
+                      <dt>Vị trí</dt>
+                      <dd th:text="${'Ảnh ' + evidence.imageIndex()
+                                     + ', ' + evidence.regionMode()}">Ảnh 0, WHOLE_IMAGE</dd>
+                    </div>
+                  </dl>
+                  <small th:text="${'Mã dẫn chứng ' + evidence.evidenceId()}">Mã dẫn chứng e1</small>
+                  <div class="prd-objective-inline-translation"
+                       th:each="translation : ${question.explanation().evidenceTranslations()}"
+                       th:if="${translation.evidenceId().equals(evidence.evidenceId())}">
+                    <strong>Dịch đoạn liên quan</strong>
+                    <span th:text="${translation.translationVi()}">Bản dịch đoạn liên quan</span>
+                  </div>
+                </li>
+              </ul>
             </details>
           </div>
         </section>
@@ -337,13 +542,14 @@
     </section>
   </div>
 
-  <aside class="prd-boundary-card prd-objective-registry-state" aria-labelledby="construct-state-title">
-    <h2 id="construct-state-title">Mô tả năng lực theo nhiệm vụ</h2>
+  <details class="prd-boundary-card prd-objective-registry-state">
+    <summary id="construct-state-title">Thông tin mô tả năng lực</summary>
     <p th:text="${resultDetail.payload().constructRegistryNote()}">
       Chưa hiển thị construct chip khi chưa có registry đã duyệt.
     </p>
     <p class="prd-objective-unavailable">Chưa khả dụng cho phiên bản này.</p>
-  </aside>
+  </details>
 </main>
+<script th:src="@{/js/practice-result.js}"></script>
 </body>
 </html>

@@ -26,7 +26,8 @@ import static com.ksh.common.IConstant.MSG_SECTION_NOT_FOUND;
  * so the publish state-transition concern is isolated from CRUD and
  * reorder. Authorization rules mirror {@link LessonsService} verbatim:
  * a LECTURER may only publish/unpublish lessons in classes they own,
- * LEADER and ADMIN may do so on any class; the targeted {@code sectionId}
+ * LEADER may do so in their resolved department and ADMIN may do so on any
+ * class; the targeted {@code sectionId}
  * must belong to {@code classId}.
  *
  * <p>Each transition is {@code @Transactional} and writes a single audit

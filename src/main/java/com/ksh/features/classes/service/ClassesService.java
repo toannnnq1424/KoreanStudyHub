@@ -33,7 +33,7 @@ import java.util.Objects;
  * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
  *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
- *   <li>LEADER and ADMIN can view all classes and edit/delete any class.</li>
+ *   <li>LEADER can view/edit/delete classes in their resolved department; ADMIN is global.</li>
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
@@ -153,7 +153,8 @@ public class ClassesService {
     /**
      * Loads a class for the detail view (members, board, ...). Applies the
      * same authorization as {@link #getEditable}: LECTURER may only access
-     * their own classes; LEADER and ADMIN may access any class. The viewable
+     * their own classes; LEADER may access classes in their resolved department,
+     * while ADMIN may access any class. The viewable
      * and editable code paths are kept separate so a future sprint can
      * relax the read-side rule (for example, allowing students enrolled in
      * a class to read the board) without touching the edit-side rule.
@@ -216,7 +217,8 @@ public class ClassesService {
 
     /**
      * Returns whether the caller is authorised to edit the given class.
-     * LEADER and ADMIN may edit any class; LECTURER may only edit classes they own.
+     * LEADER may edit classes in their resolved department; ADMIN may edit any
+     * class; LECTURER may only edit classes they own.
      */
     public boolean isEditableBy(ClassEntity clazz, Long userId, Role role) {
         if (role == null) return false;

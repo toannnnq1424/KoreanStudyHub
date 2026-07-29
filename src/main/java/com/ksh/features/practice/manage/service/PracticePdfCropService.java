@@ -23,9 +23,13 @@ public class PracticePdfCropService {
     private static final float DRAFT_RENDER_DPI = 180f; // Fine resolution for AI character recognition
 
     private final LecturerAssetService assetService;
+    private final PracticePdfAiLimits limits;
 
-    public PracticePdfCropService(LecturerAssetService assetService) {
+    public PracticePdfCropService(
+            LecturerAssetService assetService,
+            PracticePdfAiLimits limits) {
         this.assetService = assetService;
+        this.limits = limits;
     }
 
     public LecturerAsset cropRegion(String pdfPath, int pageNumber, double xRatio, double yRatio,
@@ -35,6 +39,7 @@ public class PracticePdfCropService {
         if (!file.exists()) {
             throw new java.io.FileNotFoundException("File PDF không tồn tại.");
         }
+        requireNormalizedBox(xRatio, yRatio, wRatio, hRatio);
 
         try (PDDocument doc = Loader.loadPDF(file)) {
             if (pageNumber < 1 || pageNumber > doc.getNumberOfPages()) {
@@ -42,10 +47,25 @@ public class PracticePdfCropService {
             }
 
             PDFRenderer renderer = new PDFRenderer(doc);
+            var cropBox = doc.getPage(pageNumber - 1).getCropBox();
+            double scale = DRAFT_RENDER_DPI / 72.0d;
+            long estimatedPixels = Math.round(
+                    cropBox.getWidth() * scale * cropBox.getHeight() * scale);
+            if (estimatedPixels <= 0L
+                    || estimatedPixels > limits.maxRenderedPagePixels()) {
+                throw new IllegalArgumentException(
+                        "Trang PDF vượt ngân sách render an toàn.");
+            }
             BufferedImage pageImage = renderer.renderImageWithDPI(pageNumber - 1, DRAFT_RENDER_DPI, ImageType.RGB);
 
             int imgWidth = pageImage.getWidth();
             int imgHeight = pageImage.getHeight();
+            long actualPixels = Math.multiplyExact(
+                    (long) imgWidth, (long) imgHeight);
+            if (actualPixels > limits.maxRenderedPagePixels()) {
+                throw new IllegalArgumentException(
+                        "Trang PDF vượt ngân sách pixel an toàn.");
+            }
 
             int x = (int) Math.round(xRatio * imgWidth);
             int y = (int) Math.round(yRatio * imgHeight);
@@ -79,6 +99,10 @@ public class PracticePdfCropService {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ImageIO.write(cropped, "png", baos);
             byte[] bytes = baos.toByteArray();
+            if (bytes.length > limits.maxImageBytes()) {
+                throw new IllegalArgumentException(
+                        "Ảnh crop vượt ngân sách kích thước an toàn.");
+            }
 
             // Save via LecturerAssetService
             String originalFilename = "crop_p" + pageNumber + "_r" + regionId + ".png";
@@ -101,6 +125,28 @@ public class PracticePdfCropService {
                         null
                 );
             }
+        }
+    }
+
+    private static void requireNormalizedBox(
+            double xRatio,
+            double yRatio,
+            double wRatio,
+            double hRatio) {
+        if (!Double.isFinite(xRatio)
+                || !Double.isFinite(yRatio)
+                || !Double.isFinite(wRatio)
+                || !Double.isFinite(hRatio)
+                || xRatio < 0.0d
+                || yRatio < 0.0d
+                || wRatio <= 0.0d
+                || hRatio <= 0.0d
+                || xRatio >= 1.0d
+                || yRatio >= 1.0d
+                || xRatio + wRatio > 1.000_001d
+                || yRatio + hRatio > 1.000_001d) {
+            throw new IllegalArgumentException(
+                    "Tọa độ crop PDF không hợp lệ.");
         }
     }
 }

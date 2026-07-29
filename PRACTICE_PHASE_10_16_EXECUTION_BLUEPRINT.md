@@ -2,6 +2,17 @@
 
 Korean Study Hub - Feature `/practice`
 
+Current-source overlay (`2026-07-28`, Phase 13H): Phase 13G is
+`CLOSED_VERIFIED_MERGED`. Its reviewed head is
+`68f3801214a741688499f9091f6821a03d5f8e0b`; PR #27 merged it into
+`feature/practice-reduce-scope` as `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`,
+and PR #28 merged the feature branch into `main` as
+`2549438c1a327b6932dc78d5284d7feaf5daf628`. All three trees were verified
+byte-identical and the four Phase 13G commits remain unsquashed. The active
+unit is now Phase 13H on
+`codex/practice-phase13h-stabilization-gate@2549438`; no Phase 13G publication
+action remains.
+
 ## 1. Mục đích và phạm vi
 
 Tài liệu này là bản đánh giá và định hướng triển khai chuyên sâu cho `/practice`
@@ -1428,7 +1439,8 @@ test evidence:
 
 ## 11. Kế hoạch Phase 13 - Learner Delivery, Results, Progress and UI/UX
 
-> **Current implementation status (`2026-07-28`):** Phase 13C3 đã
+> **Historical pre-publication status (`2026-07-28`, superseded by the Phase
+> 13H overlay above):** Phase 13C3 đã
 > `CLOSED_VERIFIED_MERGED`. Hai audit độc lập cuối cùng đều `ACCEPT` exact SHA
 > `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merge vào `main` bằng
 > merge commit `65328e9fae5201be2f154c90739bcb78f1034e4d`. Phase 13G hiện là
@@ -1438,7 +1450,8 @@ test evidence:
 > tách nhiều commit logic, push branch đúng một lần rồi dừng. Phase 13H và
 > browser/device/visual journey phải ở task riêng. Mọi current-status note cũ
 > bên dưới còn yêu cầu commit/push/audit 13C3 là lịch sử và không được chạy
-> lại.
+> lại. Phase 13G publication subsequently closed through PR #27 and PR #28;
+> this paragraph is retained only as pre-publication history.
 
 > **Current implementation status (`2026-07-27`):** Phase 13E và Phase 13F
 > đều `COMPLETE_FOCUSED_GATE_GREEN`; `13F-01..06` là

@@ -2,7 +2,9 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <th:block th:fragment="panel(result)">
-  <section class="pr-section pr-objective-overview" aria-labelledby="objective-overview-title">
+  <section id="result-analysis"
+           class="pr-section pr-objective-overview"
+           aria-labelledby="objective-overview-title">
     <div class="pr-section-heading">
       <div>
         <p class="pr-section-kicker">Hiệu suất kỹ năng</p>
@@ -59,8 +61,9 @@
         <thead>
         <tr>
           <th scope="col">Dạng câu hỏi</th>
-          <th scope="col">Tiến độ chấm</th>
-          <th scope="col">Trạng thái câu</th>
+          <th scope="col">Tổng</th>
+          <th scope="col">Đúng</th>
+          <th scope="col">Sai</th>
           <th scope="col">Điểm đạt được</th>
           <th scope="col">Tỷ lệ điểm</th>
         </tr>
@@ -69,18 +72,9 @@
         <tr th:each="row : ${result.payload().breakdown()}">
           <td data-label="Dạng câu hỏi">
             <strong class="pr-type-label" th:text="${row.label()}">Trắc nghiệm</strong>
-          </td>
-          <td data-label="Tiến độ chấm">
-            <span th:text="${row.answers().scoredLabel()}">10/10 câu đã chấm</span>
-          </td>
-          <td data-label="Trạng thái câu">
-            <ul class="pr-breakdown-states">
-              <li class="is-positive">
-                <strong th:text="${row.answers().correct()}">0</strong> đúng
-              </li>
-              <li class="is-negative">
-                <strong th:text="${row.answers().incorrect()}">0</strong> sai
-              </li>
+            <span class="pr-row-progress"
+                  th:text="${row.answers().scoredLabel()}">10/10 câu đã chấm</span>
+            <ul class="pr-breakdown-states" aria-label="Trạng thái bổ sung">
               <li class="is-caution" th:if="${row.answers().partial() > 0}">
                 <strong th:text="${row.answers().partial()}">0</strong> một phần
               </li>
@@ -94,6 +88,15 @@
                 <strong th:text="${row.answers().unscorable()}">0</strong> không thể chấm
               </li>
             </ul>
+          </td>
+          <td data-label="Tổng">
+            <strong th:text="${row.answers().total()}">10</strong>
+          </td>
+          <td data-label="Đúng" class="is-positive">
+            <strong th:text="${row.answers().correct()}">8</strong>
+          </td>
+          <td data-label="Sai" class="is-negative">
+            <strong th:text="${row.answers().incorrect()}">2</strong>
           </td>
           <td data-label="Điểm đạt được">
             <span th:if="${row.pointsDisplay() != null}"

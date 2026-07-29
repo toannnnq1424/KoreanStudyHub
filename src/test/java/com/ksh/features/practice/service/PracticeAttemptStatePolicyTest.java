@@ -119,6 +119,13 @@ class PracticeAttemptStatePolicyTest {
                         PracticeAttemptStatePolicy.ResumeRejection
                                 .INCOMPATIBLE_VERSION);
 
+        PracticeAttempt expired = attempt(33L, "READING", true);
+        expired.setDeadlineAt(LocalDateTime.now().minusSeconds(1));
+        assertThat(policy.resumeEligibility(expired, true).rejection())
+                .isEqualTo(
+                        PracticeAttemptStatePolicy.ResumeRejection
+                                .DEADLINE_EXPIRED);
+
         assertThat(policy.resumeEligibility(canonical, false).rejection())
                 .isEqualTo(
                         PracticeAttemptStatePolicy.ResumeRejection

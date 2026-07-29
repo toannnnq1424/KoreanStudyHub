@@ -286,9 +286,9 @@ class SectionsControllerIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void leader_can_create_section_in_lecturer_class() throws Exception {
-        // LEADER has org-wide editing authority, so this should succeed
-        // (proves the auth wiring uses isEditableBy, not lecturer-only).
+    void leader_can_create_section_in_same_department_lecturer_class() throws Exception {
+        // LEADER has department-scoped editing authority, so this succeeds for
+        // the seeded lecturer and leader that both belong to department 1.
         mockMvc.perform(post("/lecturer/classes/" + clazz.getId() + "/lessons/sections")
                         .with(csrf())
                         .param("title", "Section by LEADER"))
@@ -318,6 +318,9 @@ class SectionsControllerIntegrationTest {
     private ClassEntity saveClass(String name, Long lecturerId, String code) {
         ClassEntity entity = new ClassEntity(name, lecturerId, lecturerId,
                 null, null, null, 100);
+        userRepository.findById(lecturerId)
+                .map(User::getDepartmentId)
+                .ifPresent(entity::setDepartmentId);
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

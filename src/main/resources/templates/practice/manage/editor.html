@@ -37,7 +37,7 @@
 
   <div class="toolbar-right">
     <div class="toolbar-actions-scroll">
-    <a id="pdf-import-action" th:href="@{/practice/manage/import(draftId=${draft.id})}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
+    <a id="pdf-import-action" th:href="@{/practice/manage/import}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <span class="toolbar-action-label">Nhập lại từ PDF</span>
     </a>
@@ -2035,11 +2035,11 @@
                     qRow.className = `tree-row question-row ${isQActive ? 'active' : ''}`;
                     qRow.innerHTML = `
                       <div class="tree-row-content" role="button" tabindex="0"
-                           aria-label="Chọn câu ${q.questionNo}"
+                           aria-label="Chọn câu ${escapeHtml(q.questionNo)}"
                            onpointerdown="setStructurePanelOpen(true); this.focus()"
                            onclick="selectNode('question', ${sIdx}, ${gIdx}, ${qIdx})"
                            onkeydown="handleTreeRowKey(event, () => selectNode('question', ${sIdx}, ${gIdx}, ${qIdx}))">
-                        <div class="question-badge">${q.questionNo}</div>
+                        <div class="question-badge">${escapeHtml(q.questionNo)}</div>
                         <span class="tree-text-title" style="margin-left:4px;">Câu hỏi</span>
                         ${getQuestionStatusIcon(sIdx, gIdx, qIdx)}
                       </div>
@@ -2237,7 +2237,7 @@
         ? `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
           + `&testNo=${encodeURIComponent(section.testNo)}`
           + `&lessonCode=${encodeURIComponent(section.lessonCode)}`
-        : `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`;
+        : '/practice/manage/import';
     }
   }
 
@@ -2699,12 +2699,12 @@
         : String(q.prompt || '');
       card.innerHTML = `
         <div>
-          <strong style="color:var(--pp-text);">Câu ${q.questionNo}</strong>
-          <span style="margin-left:8px; font-size:0.78rem; padding:2px 8px; border-radius:6px; background:#f1f5f9; font-weight:600;">${getQuestionTypeLabel(q.questionType)}</span>
+          <strong style="color:var(--pp-text);">Câu ${escapeHtml(q.questionNo)}</strong>
+          <span style="margin-left:8px; font-size:0.78rem; padding:2px 8px; border-radius:6px; background:#f1f5f9; font-weight:600;">${escapeHtml(getQuestionTypeLabel(q.questionType))}</span>
           <p class="q-summary-prompt" style="margin:4px 0 0 0; font-size:0.8rem; color:var(--pp-text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(summaryPrompt || 'Chưa có tiêu đề câu hỏi')}</p>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-size:0.8rem; font-weight:600; color:var(--pp-accent); margin-right:8px;">${q.points || 2.0}đ</span>
+          <span style="font-size:0.8rem; font-weight:600; color:var(--pp-accent); margin-right:8px;">${escapeHtml(q.points || 2.0)}đ</span>
           <button onclick="moveQuestion(${sIdx}, ${gIdx}, ${qIdx}, -1, event)" class="tree-ellipsis-btn" title="Di chuyển lên">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
           </button>
@@ -3571,7 +3571,13 @@
     if (!hasSections) {
       if (confirm("Bản nháp này chưa có nội dung và sẽ bị xóa khi rời đi. Bạn có muốn thoát không?")) {
         window.isExitingEditor = true;
-        window.location.href = `/practice/manage/drafts/${DRAFT_ID}/exit`;
+        const deleteForm = document.getElementById('delete-draft-form');
+        if (deleteForm) {
+          deleteForm.submit();
+        } else {
+          window.isExitingEditor = false;
+          showEditorToast('Không thể hủy bản nháp an toàn. Vui lòng tải lại trang.', 'error');
+        }
       }
       return;
     }
@@ -3592,7 +3598,8 @@
         if (deleteForm) {
           deleteForm.submit();
         } else {
-          window.location.href = `/practice/manage/drafts/${DRAFT_ID}/exit`;
+          window.isExitingEditor = false;
+          showEditorToast('Không thể xóa bản nháp an toàn. Vui lòng tải lại trang.', 'error');
         }
       }
     }
@@ -4548,13 +4555,20 @@
     filtered.forEach(msg => {
       const card = document.createElement('div');
       card.className = `val-card ${msg.type.toLowerCase()}`;
-      card.innerHTML = `
-        <span class="val-card-icon">${msg.type === 'BLOCKING' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'}</span>
-        <div>
-          <div style="font-weight:700;">${msg.type === 'BLOCKING' ? 'Lỗi nghiêm trọng' : 'Cảnh báo'}</div>
-          <div>${msg.content}</div>
-        </div>
-      `;
+      const icon = document.createElement('span');
+      icon.className = 'val-card-icon';
+      icon.innerHTML = msg.type === 'BLOCKING'
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      const copy = document.createElement('div');
+      const heading = document.createElement('div');
+      heading.style.fontWeight = '700';
+      heading.textContent = msg.type === 'BLOCKING'
+        ? 'Lỗi nghiêm trọng' : 'Cảnh báo';
+      const content = document.createElement('div');
+      content.textContent = String(msg.content || '');
+      copy.append(heading, content);
+      card.append(icon, copy);
       
       const jumpToValidationTarget = () => {
         if (msg.sIdx !== null && msg.sIdx !== undefined) {
@@ -5101,7 +5115,7 @@
           ? 'Trình làm bài phần Nói sẽ phát âm thanh trước khi đếm giờ'
           : 'Trình làm bài phần Nói hiển thị văn bản rồi đếm giờ chuẩn bị';
         const playLimitHtml = requiresPromptPlayback
-          ? `<span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Phát tối đa: <strong>${presentation.promptPlayLimit} lần</strong></span>`
+          ? `<span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Phát tối đa: <strong>${escapeHtml(presentation.promptPlayLimit)} lần</strong></span>`
           : '';
         optionsHtml += `
           <div style="display:flex; flex-direction:column; gap:10px;">
@@ -5109,8 +5123,8 @@
             ${promptAudioHtml}
             <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.8rem; font-weight:600; color:#475569;">
               ${playLimitHtml}
-              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Chuẩn bị: <strong>${presentation.preparationSeconds ?? 0}s</strong></span>
-              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Thời gian nói: <strong>${presentation.responseSeconds ?? 0}s</strong></span>
+              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Chuẩn bị: <strong>${escapeHtml(presentation.preparationSeconds ?? 0)}s</strong></span>
+              <span style="display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Thời gian nói: <strong>${escapeHtml(presentation.responseSeconds ?? 0)}s</strong></span>
             </div>
           </div>
         `;
@@ -5126,8 +5140,8 @@
         : `<p style="margin:0 0 12px 0; font-size:0.9rem; font-weight:600; color:#1E293B; white-space:pre-wrap;">${escapeHtml(speakingPresentation ? speakingPresentation.promptText : (q.prompt || 'Chưa có tiêu đề câu hỏi'))}</p>`;
       qCard.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:8px;">
-          <h4 style="margin:0; font-size:0.95rem; font-weight:700; color:#315EFB;">Câu ${q.questionNo}</h4>
-          <span style="font-size:0.75rem; font-weight:700; background:#EFF6FF; color:#315EFB; padding:2px 8px; border-radius:4px;">${q.points} điểm</span>
+          <h4 style="margin:0; font-size:0.95rem; font-weight:700; color:#315EFB;">Câu ${escapeHtml(q.questionNo)}</h4>
+          <span style="font-size:0.75rem; font-weight:700; background:#EFF6FF; color:#315EFB; padding:2px 8px; border-radius:4px;">${escapeHtml(q.points)} điểm</span>
         </div>
         ${promptHtml}
         ${qImageHtml}

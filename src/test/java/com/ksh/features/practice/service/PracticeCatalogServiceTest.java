@@ -65,7 +65,7 @@ class PracticeCatalogServiceTest {
     @BeforeEach
     void setUpGlobalResumeDefault() {
         lenient().when(attemptRepository.findGlobalResumeCandidates(
-                anyLong(), anyList(), any()))
+                anyLong(), anyList(), any(LocalDateTime.class), any()))
                 .thenReturn(List.of());
         lenient().when(attemptRepository.findCatalogCompletedSections(
                         anyLong(), anyList()))
@@ -234,6 +234,15 @@ class PracticeCatalogServiceTest {
         queued.setAnalysisStatus(PracticeAttempt.ANALYSIS_PROCESSING);
         PracticeAttempt failed = completedAttempt(43L, speaking, false);
         failed.markAnalysisFailed("PROVIDER_UNAVAILABLE");
+        PracticeAttempt unavailable =
+                completedAttempt(44L, speaking, false);
+        unavailable.markAnalysisUnavailable(
+                BigDecimal.TEN,
+                "{}",
+                null,
+                "SPEAKING_AI_DISABLED",
+                false,
+                LocalDateTime.of(2026, 7, 29, 10, 0));
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
         when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
@@ -250,23 +259,31 @@ class PracticeCatalogServiceTest {
                 .thenReturn(
                         List.of(stateCandidate(41L, SET_ID, 2)),
                         List.of(stateCandidate(42L, SET_ID, 2)),
-                        List.of(stateCandidate(43L, SET_ID, 2)));
+                        List.of(stateCandidate(43L, SET_ID, 2)),
+                        List.of(stateCandidate(44L, SET_ID, 2)));
         when(attemptRepository.findAllById(anyList()))
                 .thenReturn(
                         List.of(graded),
                         List.of(queued),
-                        List.of(failed));
+                        List.of(failed),
+                        List.of(unavailable));
 
         PracticeCatalogQuery query =
                 new PracticeCatalogQuery("", "SPEAKING", "Q54", null, 0);
         PracticeCatalogBatch gradedBatch = service.loadBatch(USER_ID, query);
         PracticeCatalogBatch queuedBatch = service.loadBatch(USER_ID, query);
         PracticeCatalogBatch failedBatch = service.loadBatch(USER_ID, query);
+        PracticeCatalogBatch unavailableBatch =
+                service.loadBatch(USER_ID, query);
 
         assertThat(gradedBatch.items().get(0).stateLabel()).isEqualTo("Đã xử lý phản hồi");
         assertThat(gradedBatch.writingTask()).isEqualTo("ALL");
         assertThat(queuedBatch.items().get(0).stateLabel()).isEqualTo("Đang xử lý phản hồi");
         assertThat(failedBatch.items().get(0).stateLabel()).isEqualTo("Chưa thể xử lý phản hồi");
+        assertThat(unavailableBatch.items().get(0).state())
+                .isEqualTo("UNAVAILABLE");
+        assertThat(unavailableBatch.items().get(0).stateLabel())
+                .isEqualTo("Không khả dụng");
     }
 
     @Test
@@ -354,7 +371,10 @@ class PracticeCatalogServiceTest {
         when(classRepository.findAllById(List.of(15L)))
                 .thenReturn(List.of());
         when(attemptRepository.findGlobalResumeCandidates(
-                USER_ID, List.of(15L), PageRequest.of(0, 1)))
+                eq(USER_ID),
+                eq(List.of(15L)),
+                any(LocalDateTime.class),
+                eq(PageRequest.of(0, 1))))
                 .thenReturn(List.of(resume));
         when(setRepository.findLearnerVisiblePublished(
                 anyString(), anyString(), anyString(), eq(USER_ID),
@@ -511,7 +531,10 @@ class PracticeCatalogServiceTest {
         verify(sectionRepository)
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds);
         verify(attemptRepository).findGlobalResumeCandidates(
-                USER_ID, List.of(-1L), PageRequest.of(0, 1));
+                eq(USER_ID),
+                eq(List.of(-1L)),
+                any(LocalDateTime.class),
+                eq(PageRequest.of(0, 1)));
         verify(attemptRepository).findCatalogAttemptStateCandidates(
                 USER_ID, pageSetIds, PracticeAttempt.STATUS_DISCARDED);
         verify(attemptRepository).findAllById(stateAttemptIds);

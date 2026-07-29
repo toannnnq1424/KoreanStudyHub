@@ -108,13 +108,10 @@ public class WritingEvaluationNormalizer {
     public boolean isCacheableAiResult(String normalizedJson) {
         try {
             JsonNode root = objectMapper.readTree(normalizedJson);
-            return root != null
-                    && root.isObject()
-                    && "KSH_WRITING_EVALUATOR_V2".equals(root.path("engine").asText())
-                    && "EVALUATED".equals(root.path("evaluation_status").asText("EVALUATED"))
-                    && !"MOCK".equals(root.path("evaluation_source").asText(""))
-                    && root.path("raw_score").isNumber()
-                    && root.path("raw_score_max").isNumber();
+            return isTrustedProviderEvaluation(
+                    root,
+                    root == null ? null : root.path("task_type").asText(null),
+                    false);
         } catch (Exception ex) {
             return false;
         }
@@ -134,16 +131,19 @@ public class WritingEvaluationNormalizer {
         }
     }
 
-    public String rehydrateCachedResult(String cachedJson, String learnerAnswer) {
+    public String rehydrateCachedResult(String cachedJson, String learnerAnswer,
+                                        String expectedTaskType) {
         try {
             JsonNode root = objectMapper.readTree(cachedJson);
-            if (!root.isObject()) {
-                throw new IllegalArgumentException("Writing cache payload must be a JSON object.");
+            if (!isTrustedProviderEvaluation(root, expectedTaskType, true)) {
+                throw new IllegalArgumentException(
+                        "Writing cache payload does not match the current provider contract.");
             }
 
             String studentText = learnerAnswer == null ? "" : learnerAnswer;
             ObjectNode hydrated = ((ObjectNode) root).deepCopy();
             hydrated.put("student_text", studentText);
+            hydrated.put("evaluation_origin_source", "PROVIDER");
             hydrated.put("evaluation_source", "CACHE");
 
             ArrayNode strengths = filterFindingsForAnswer(hydrated.path("strengths"), studentText);
@@ -162,6 +162,105 @@ public class WritingEvaluationNormalizer {
         } catch (Exception ex) {
             throw new IllegalArgumentException("Writing cached result is malformed.", ex);
         }
+    }
+
+    public String rehydrateCachedResult(String cachedJson, String learnerAnswer) {
+        try {
+            JsonNode root = objectMapper.readTree(cachedJson);
+            return rehydrateCachedResult(
+                    cachedJson,
+                    learnerAnswer,
+                    root == null ? null : root.path("task_type").asText(null));
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Writing cached result is malformed.", ex);
+        }
+    }
+
+    private static boolean isTrustedProviderEvaluation(JsonNode root,
+                                                       String expectedTaskType,
+                                                       boolean requireSanitizedPayload) {
+        if (root == null || !root.isObject()
+                || expectedTaskType == null || expectedTaskType.isBlank()
+                || !"KSH_WRITING_EVALUATOR_V2".equals(root.path("engine").asText())
+                || !"EVALUATED".equals(root.path("evaluation_status").asText())
+                || !"PROVIDER".equals(root.path("evaluation_source").asText())
+                || !"NONE".equals(root.path("evaluation_reason").asText())
+                || !root.path("score_available").asBoolean(false)
+                || !"TASK_NATIVE_RUBRIC_V1".equals(root.path("scoring_contract").asText())
+                || !expectedTaskType.equals(root.path("task_type").asText())
+                || !root.path("score").isNumber()
+                || !root.path("overall_score").isNumber()
+                || !root.path("percentage").isNumber()
+                || !root.path("raw_score").isNumber()
+                || !root.path("raw_score_max").isNumber()
+                || (requireSanitizedPayload && root.has("student_text"))) {
+            return false;
+        }
+
+        WritingScoringRubric expectedRubric = WritingScoringPolicy.rubricFor(expectedTaskType);
+        JsonNode rubricScores = root.path("rubric_scores");
+        if (!rubricScores.isArray() || rubricScores.size() != expectedRubric.criteria().size()) {
+            return false;
+        }
+
+        Map<String, WritingScoringCriterion> expectedById = new java.util.HashMap<>();
+        for (WritingScoringCriterion criterion : expectedRubric.criteria()) {
+            expectedById.put(criterion.criterionId(), criterion);
+        }
+
+        java.util.Set<String> seenCriterionIds = new java.util.HashSet<>();
+        double rubricScoreSum = 0.0;
+        for (JsonNode rubricScore : rubricScores) {
+            if (!rubricScore.isObject()) {
+                return false;
+            }
+            String criterionId = rubricScore.path("criterionId").asText();
+            WritingScoringCriterion criterion = expectedById.get(criterionId);
+            if (criterion == null
+                    || !seenCriterionIds.add(criterionId)
+                    || !criterion.displayName().equals(rubricScore.path("name").asText())
+                    || !rubricScore.path("maxScore").isNumber()
+                    || Double.compare(
+                            rubricScore.path("maxScore").asDouble(),
+                            criterion.maxScore()) != 0
+                    || !rubricScore.path("score").isNumber()) {
+                return false;
+            }
+            double criterionScore = rubricScore.path("score").asDouble();
+            if (!Double.isFinite(criterionScore)
+                    || criterionScore < 0.0
+                    || criterionScore > criterion.maxScore()) {
+                return false;
+            }
+            rubricScoreSum += criterionScore;
+        }
+        if (seenCriterionIds.size() != expectedById.size()) {
+            return false;
+        }
+
+        double score = root.path("score").asDouble();
+        double overallScore = root.path("overall_score").asDouble();
+        double percentage = root.path("percentage").asDouble();
+        double rawScore = root.path("raw_score").asDouble();
+        double rawScoreMax = root.path("raw_score_max").asDouble();
+        double expectedRawScoreMax = expectedRubric.totalMaxScore();
+        double expectedRawScore = Math.round(rubricScoreSum * 100.0) / 100.0;
+        double expectedPercentage = Math.round(
+                rubricScoreSum / expectedRawScoreMax * 10_000.0) / 100.0;
+        return Double.isFinite(score)
+                && Double.isFinite(overallScore)
+                && Double.isFinite(percentage)
+                && Double.isFinite(rawScore)
+                && Double.isFinite(rawScoreMax)
+                && Double.compare(rawScoreMax, expectedRawScoreMax) == 0
+                && sameScoreValue(rawScore, expectedRawScore)
+                && sameScoreValue(score, expectedPercentage)
+                && sameScoreValue(overallScore, expectedPercentage)
+                && sameScoreValue(percentage, expectedPercentage);
+    }
+
+    private static boolean sameScoreValue(double actual, double expected) {
+        return Math.abs(actual - expected) < 0.000_000_1;
     }
 
     /**
@@ -285,12 +384,15 @@ public class WritingEvaluationNormalizer {
         }
     }
 
-    public String providerUnavailable(String reason, String taskType, String learnerAnswer) {
+    public String providerUnavailable(String reason,
+                                      String taskType,
+                                      String learnerAnswer,
+                                      boolean retryable) {
         return availabilityResult(
                 "EVALUATION_UNAVAILABLE",
                 "PROVIDER",
                 reason,
-                true,
+                retryable,
                 "Chua co danh gia AI kha dung - vui long cham lai.",
                 taskType,
                 learnerAnswer);

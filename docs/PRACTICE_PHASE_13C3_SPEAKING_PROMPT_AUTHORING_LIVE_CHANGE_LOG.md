@@ -25,7 +25,7 @@ Last updated: 2026-07-28
 - `PHASE_13F_PREREQUISITE = COMPLETE_FOCUSED_GATE_GREEN`
 - `BROWSER_QA = NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`
 - `LIVE_STT_TTS = NOT_RUN_NOT_APPROVED`
-- `CURRENT_REQUIRED_ACTION = PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN_THEN_SEPARATE_13H`
+- `CURRENT_REQUIRED_ACTION = PHASE_13H_IMPLEMENTATION_AND_CONSOLIDATED_GATE`
 - `PHASE_14 = DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`
 
 This correction is mandatory before Pre-15/Manual UAT and the later Phase 14,
@@ -2769,7 +2769,8 @@ Closure:
 - `LIVE_STT_TTS = NOT_RUN_NOT_APPROVED`; and
 - `CURRENT_REQUIRED_ACTION = PHASE_13G_COMPLETE_FOCUSED_GATE_GREEN_THEN_SEPARATE_13H`.
 
-Phase 13G subsequently completed its focused gate; its branch publication is a
-terminal transport step, not new 13C3 evidence. This closure still does not
-open 13H in the same task, browser/device journeys, provider smoke, Pre-14,
-Pre-15, Phase 15, deferred Phase 14 or compatibility cleanup.
+Phase 13G subsequently closed publication at exact head `68f3801`: PR #27
+merged it as `4f09dd9`, then PR #28 merged to `main` as `2549438`; the three
+trees were verified byte-identical. That publication is not new 13C3 evidence.
+The separate Phase 13H task is now open; provider smoke, post-Phase-13
+reconciliation, Pre-14, Pre-15, Phase 15 and deferred Phase 14 remain closed.

@@ -2,6 +2,7 @@ package com.ksh.features.practice.result;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
@@ -39,6 +40,7 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingSentenceRewriteView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import org.springframework.stereotype.Component;
 
@@ -108,7 +110,12 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             }
             JsonNode feedbackNode = feedbackNode(feedbackRoot, question.getQuestionId(), questions.size() == 1);
             WritingTaskResult task = isEssay(question)
-                    ? task(question, answer, feedbackNode, malformedStoredFeedback)
+                    ? task(
+                            question,
+                            answer,
+                            feedbackNode,
+                            malformedStoredFeedback,
+                            context.attempt().getAnalysisStatus())
                     : historicalObjectiveTask(question, answer);
             tasks.add(task);
             if (!answer.isBlank()) {
@@ -196,12 +203,16 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 .findFirst()
                 .orElse(null);
         List<WritingDiagnosticGroup> diagnosticGroups = List.of();
+        List<WritingTextSegment> learnerAnswerSegments = activeTask == null
+                ? List.of()
+                : plainLearnerAnswer(activeTask.learnerAnswer());
         WritingUpgradeView upgrade = null;
         DiagnosticAvailability diagnosticAvailability =
                 DiagnosticAvailability.noDetailTask();
         if (activeTask != null) {
             JsonNode selectedNode = strictQuestionFeedbackNode(
                     feedbackRoot, activeTask.questionId());
+            learnerAnswerSegments = learnerAnswerSegments(activeTask, selectedNode);
             upgrade = writingUpgrade(activeTask, selectedNode);
             String feedbackState = activeTask.feedback() == null
                     ? null
@@ -253,6 +264,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 activeTask == null ? overview.feedback() : activeTask.feedback(),
                 detailTasks,
                 activeQuestionId,
+                learnerAnswerSegments,
                 List.copyOf(scoreCriteria),
                 WritingScoringPolicy.PROFILE_ID,
                 WritingDiagnosticDescriptorRegistry.SEAM_ID,
@@ -266,6 +278,159 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 upgrade);
     }
 
+    private List<WritingTextSegment> learnerAnswerSegments(
+            WritingTaskResult task,
+            JsonNode feedbackNode
+    ) {
+        String learnerAnswer = task == null || task.learnerAnswer() == null
+                ? ""
+                : task.learnerAnswer();
+        List<WritingTextSegment> fallback = plainLearnerAnswer(learnerAnswer);
+        if (task == null
+                || task.clozeTask()
+                || task.feedback() == null
+                || !task.feedback().ready()
+                || !currentTaskContractMatches(task, feedbackNode)) {
+            return fallback;
+        }
+
+        WritingFeedbackView feedback;
+        try {
+            feedback = feedbackMapper.map(feedbackNode);
+        } catch (RuntimeException exception) {
+            return fallback;
+        }
+        JsonNode rawAnnotations = feedbackNode.get("annotations");
+        if (feedback == null
+                || rawAnnotations == null
+                || !rawAnnotations.isArray()
+                || rawAnnotations.isEmpty()
+                || rawAnnotations.size() != feedback.annotations().size()) {
+            return fallback;
+        }
+
+        List<ResolvedTextAnnotation> resolved = new ArrayList<>();
+        Set<String> annotationIds = new LinkedHashSet<>();
+        for (WritingAnnotationView annotation : feedback.annotations()) {
+            ResolvedTextAnnotation candidate = resolveTextAnnotation(
+                    task, learnerAnswer, annotation);
+            if (candidate == null || !annotationIds.add(candidate.annotationId())) {
+                return fallback;
+            }
+            resolved.add(candidate);
+        }
+        resolved.sort(Comparator
+                .comparingInt(ResolvedTextAnnotation::start)
+                .thenComparingInt(ResolvedTextAnnotation::end)
+                .thenComparing(ResolvedTextAnnotation::annotationId));
+
+        int previousEnd = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() < previousEnd) {
+                return fallback;
+            }
+            previousEnd = annotation.end();
+        }
+
+        List<WritingTextSegment> segments = new ArrayList<>();
+        int cursor = 0;
+        for (ResolvedTextAnnotation annotation : resolved) {
+            if (annotation.start() > cursor) {
+                segments.add(WritingTextSegment.plain(
+                        learnerAnswer.substring(cursor, annotation.start())));
+            }
+            segments.add(new WritingTextSegment(
+                    learnerAnswer.substring(annotation.start(), annotation.end()),
+                    true,
+                    annotation.annotationId(),
+                    annotation.polarity().name(),
+                    annotation.categoryCode(),
+                    annotation.criterionId(),
+                    annotation.explanationVi(),
+                    annotation.correctionKo(),
+                    annotation.featureId()));
+            cursor = annotation.end();
+        }
+        if (cursor < learnerAnswer.length()) {
+            segments.add(WritingTextSegment.plain(
+                    learnerAnswer.substring(cursor)));
+        }
+        return segments.isEmpty() ? fallback : List.copyOf(segments);
+    }
+
+    private static ResolvedTextAnnotation resolveTextAnnotation(
+            WritingTaskResult task,
+            String learnerAnswer,
+            WritingAnnotationView annotation
+    ) {
+        if (annotation == null
+                || annotation.id() == null || annotation.id().isBlank()
+                || annotation.start() == null || annotation.end() == null
+                || annotation.start() < 0
+                || annotation.end() <= annotation.start()
+                || annotation.end() > learnerAnswer.length()
+                || annotation.evidence() == null
+                || annotation.evidence().isBlank()
+                || annotation.explanationVi() == null
+                || annotation.explanationVi().isBlank()) {
+            return null;
+        }
+        ResultDetailPolarity polarity = switch (normalize(annotation.kind())) {
+            case "STRENGTH" -> ResultDetailPolarity.STRENGTH;
+            case "NEED", "NEEDS_IMPROVEMENT" ->
+                    ResultDetailPolarity.NEEDS_IMPROVEMENT;
+            default -> null;
+        };
+        WritingRubricCriterion criterion =
+                WritingRubricCriterion.parse(annotation.criterionId());
+        if (polarity == null
+                || criterion == null
+                || !criterion.activeForProvider()
+                || !criterion.appliesTo(task.taskType())
+                || !criterion.supports(
+                        WritingRubricCriterion.EvidenceScope.TEXT_SPAN)
+                || !criterion.polarity().name().equals(polarity.name())
+                || (polarity == ResultDetailPolarity.STRENGTH
+                && annotation.correction() != null
+                && !annotation.correction().isBlank())
+                || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                && (annotation.correction() == null
+                || annotation.correction().isBlank()))) {
+            return null;
+        }
+        String exactText = learnerAnswer.substring(
+                annotation.start(), annotation.end());
+        if (!exactText.equals(annotation.evidence())) {
+            return null;
+        }
+        WritingDiagnosticDescriptorRegistry.Resolution descriptor =
+                WritingDiagnosticDescriptorRegistry.resolve(
+                        criterion,
+                        task.taskType(),
+                        polarity,
+                        WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+        if (descriptor == null) {
+            return null;
+        }
+        return new ResolvedTextAnnotation(
+                annotation.start(),
+                annotation.end(),
+                annotation.id().trim(),
+                polarity,
+                descriptor.feature().category().code(),
+                criterion.canonicalId(),
+                annotation.explanationVi().trim(),
+                annotation.correction() == null
+                        || annotation.correction().isBlank()
+                        ? null
+                        : annotation.correction().trim(),
+                descriptor.id());
+    }
+
+    private static List<WritingTextSegment> plainLearnerAnswer(String learnerAnswer) {
+        return List.of(WritingTextSegment.plain(learnerAnswer));
+    }
+
     private static WritingTaskResult detailTask(
             WritingTaskResult task,
             boolean trustedTaskIdentity
@@ -273,8 +438,21 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (trustedTaskIdentity || !task.detailAvailable()) {
             return task;
         }
-        boolean legacyUnverified = task.feedback() != null
-                && "LEGACY_UNVERIFIED".equals(task.feedback().state());
+        ResultFeedbackAvailability closedFeedback = task.feedback();
+        String closedState = closedFeedback == null
+                ? ""
+                : normalize(closedFeedback.state());
+        boolean preservesClosedState = switch (closedState) {
+            case "PENDING", "FAILED", "UNAVAILABLE", "LEGACY_UNVERIFIED" -> true;
+            default -> false;
+        };
+        if (!preservesClosedState) {
+            closedFeedback = new ResultFeedbackAvailability(
+                    "UNAVAILABLE",
+                    "Không thể xác minh contract hiện hành của phản hồi",
+                    0,
+                    task.answered() ? 1 : 0);
+        }
         return new WritingTaskResult(
                 task.questionId(),
                 task.questionVersionId(),
@@ -284,13 +462,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 task.prompt(),
                 task.learnerAnswer(),
                 task.score() == null ? null : task.score().unavailableView(),
-                new ResultFeedbackAvailability(
-                        legacyUnverified ? "LEGACY_UNVERIFIED" : "UNAVAILABLE",
-                        legacyUnverified
-                                ? "Dữ liệu đánh giá cũ chỉ được nhận diện, không được tin làm kết quả"
-                                : "Không thể xác minh contract hiện hành của phản hồi",
-                        0,
-                        task.answered() ? 1 : 0),
+                closedFeedback,
                 null,
                 List.of(),
                 List.of(),
@@ -623,7 +795,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             PracticeQuestionVersion question,
             String learnerAnswer,
             JsonNode feedbackNode,
-            boolean malformedStoredFeedback) {
+            boolean malformedStoredFeedback,
+            String analysisStatus) {
         String taskType = taskType(question);
         WritingScoringRubric rubric = WritingScoringPolicy.rubricFor(taskType);
         boolean answered = learnerAnswer != null && !learnerAnswer.isBlank();
@@ -645,7 +818,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 usableFeedbackNode,
                 contract,
                 scoreContractReady,
-                score);
+                score,
+                analysisStatus);
         List<ResultRubricCriterion> visibleCriteria = availability.ready()
                 ? parsedCriteria
                 : List.of();
@@ -816,7 +990,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             JsonNode feedbackNode,
             WritingFeedbackCompatibilityReader.EntryResult contract,
             boolean scoreContractReady,
-            ResultScoreSummary score) {
+            ResultScoreSummary score,
+            String analysisStatus) {
         if (!answered) {
             return new ResultFeedbackAvailability(
                     "UNAVAILABLE", "Chưa có bài viết để đánh giá", 0, 0);
@@ -826,7 +1001,26 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     "FAILED", "Dữ liệu đánh giá bài viết không hợp lệ", 0, 1);
         }
         if (feedbackNode == null || !feedbackNode.isObject()) {
-            return new ResultFeedbackAvailability("PENDING", "Đang chờ đánh giá", 0, 1);
+            if (PracticeAttempt.ANALYSIS_QUEUED.equals(analysisStatus)
+                    || PracticeAttempt.ANALYSIS_PROCESSING.equals(
+                            analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "PENDING", "Đang chờ đánh giá", 0, 1);
+            }
+            if (PracticeAttempt.ANALYSIS_FAILED.equals(analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "FAILED", "Không thể hoàn tất đánh giá nhiệm vụ này", 0, 1);
+            }
+            if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(
+                    analysisStatus)) {
+                return new ResultFeedbackAvailability(
+                        "UNAVAILABLE",
+                        "Dịch vụ đánh giá hiện không khả dụng",
+                        0,
+                        1);
+            }
+            return new ResultFeedbackAvailability(
+                    "UNAVAILABLE", "Nhiệm vụ này chưa có đánh giá khả dụng", 0, 1);
         }
         String status = feedback == null ? null : feedback.evaluationStatus();
         String normalizedStatus = normalize(status);
@@ -1054,6 +1248,19 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     private record ResolvedDiagnostic(
             WritingDiagnosticDescriptorRegistry.Resolution definition,
             WritingDiagnosticFinding finding
+    ) {
+    }
+
+    private record ResolvedTextAnnotation(
+            int start,
+            int end,
+            String annotationId,
+            ResultDetailPolarity polarity,
+            String categoryCode,
+            String criterionId,
+            String explanationVi,
+            String correctionKo,
+            String featureId
     ) {
     }
 

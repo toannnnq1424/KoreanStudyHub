@@ -113,7 +113,7 @@ public class StudentLessonsController {
      * a progress write problem can never break lesson rendering (design D7a).
      *
      * <p>Only ACTIVE-enrolled students accrue progress. A moderator
-     * (ADMIN/LEADER or the owning lecturer, admitted via the widened D7 gate
+     * (ADMIN, in-department LEADER, or the owning lecturer, admitted via the widened D7 gate
      * but not enrolled) opens the lesson to moderate its thread, not to
      * learn — so skipping progress for them is expected, not an error, and
      * must not emit a WARN. Guarding by role here also spares the wasted

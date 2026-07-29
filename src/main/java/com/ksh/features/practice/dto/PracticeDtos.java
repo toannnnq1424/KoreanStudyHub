@@ -1,5 +1,6 @@
 package com.ksh.features.practice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -172,6 +173,7 @@ public final class PracticeDtos {
     public record PracticeQuestionBlankRow(String id, String prompt) {
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record PracticeQuestionRow(Long id, Integer questionNo,
                                       String questionType, String prompt,
                                       List<String> options,
@@ -224,6 +226,7 @@ public final class PracticeDtos {
         }
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record PracticeQuestionGroupRow(
         Long id,
         Long sectionId,
@@ -1947,10 +1950,65 @@ public final class PracticeDtos {
         }
     }
 
+    public record WritingTextSegment(
+            String text,
+            boolean annotated,
+            String annotationId,
+            String kind,
+            String categoryCode,
+            String criterionId,
+            String explanationVi,
+            String correctionKo,
+            String featureId
+    ) {
+        public WritingTextSegment {
+            if (text == null) {
+                throw new IllegalArgumentException(
+                        "Writing learner-answer segment text is required");
+            }
+            if (annotated) {
+                if (text.isEmpty()
+                        || annotationId == null || annotationId.isBlank()
+                        || kind == null
+                        || !Set.of("STRENGTH", "NEEDS_IMPROVEMENT").contains(kind)
+                        || categoryCode == null || categoryCode.isBlank()
+                        || criterionId == null || criterionId.isBlank()
+                        || explanationVi == null || explanationVi.isBlank()
+                        || featureId == null || featureId.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Annotated Writing learner-answer segment is incomplete");
+                }
+            } else if (annotationId != null
+                    || kind != null
+                    || categoryCode != null
+                    || criterionId != null
+                    || explanationVi != null
+                    || correctionKo != null
+                    || featureId != null) {
+                throw new IllegalArgumentException(
+                        "Plain Writing learner-answer segment cannot carry annotation metadata");
+            }
+        }
+
+        public static WritingTextSegment plain(String text) {
+            return new WritingTextSegment(
+                    text == null ? "" : text,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+    }
+
     public record WritingDetailPayload(
             ResultFeedbackAvailability feedback,
             List<WritingTaskResult> tasks,
             Long activeQuestionId,
+            List<WritingTextSegment> learnerAnswerSegments,
             List<ResultDetailScoreCriterion> scoreCriteria,
             String scoreProfileId,
             String diagnosticSeamId,
@@ -1984,6 +2042,7 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException("Writing Result Detail contract is incomplete");
             }
             tasks = immutableResultList(tasks);
+            learnerAnswerSegments = immutableResultList(learnerAnswerSegments);
             scoreCriteria = immutableResultList(scoreCriteria);
             diagnosticGroups = immutableResultList(diagnosticGroups);
             List<WritingTaskResult> immutableTasks = tasks;
@@ -1991,6 +2050,35 @@ public final class PracticeDtos {
                     activeQuestionId.equals(task.questionId()) && task.detailAvailable())) {
                 throw new IllegalArgumentException(
                         "Writing Result Detail question selection is outside the immutable attempt");
+            }
+            if (activeQuestionId == null) {
+                if (!learnerAnswerSegments.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Writing learner-answer segments require a selected task");
+                }
+            } else {
+                WritingTaskResult selected = immutableTasks.stream()
+                        .filter(task -> activeQuestionId.equals(task.questionId()))
+                        .findFirst()
+                        .orElseThrow();
+                String learnerAnswer = selected.learnerAnswer() == null
+                        ? ""
+                        : selected.learnerAnswer();
+                String reconstructedAnswer = learnerAnswerSegments.stream()
+                        .map(WritingTextSegment::text)
+                        .collect(java.util.stream.Collectors.joining());
+                boolean hasAnnotatedSegment = learnerAnswerSegments.stream()
+                        .anyMatch(WritingTextSegment::annotated);
+                if (learnerAnswerSegments.isEmpty()
+                        || !learnerAnswer.equals(reconstructedAnswer)
+                        || (learnerAnswerSegments.size() > 1
+                        && learnerAnswerSegments.stream()
+                                .anyMatch(segment -> segment.text().isEmpty()))
+                        || (!hasAnnotatedSegment && learnerAnswerSegments.size() != 1)
+                        || (selected.clozeTask() && hasAnnotatedSegment)) {
+                    throw new IllegalArgumentException(
+                            "Writing learner-answer segments must exactly preserve the selected answer");
+                }
             }
             if (scoreCriteria.stream().anyMatch(criterion ->
                     criterion.questionId() == null || immutableTasks.stream().noneMatch(task ->
@@ -2188,6 +2276,14 @@ public final class PracticeDtos {
                         "Writing evidence scope and availability are inconsistent");
             }
         }
+
+        public String descriptorId() {
+            String id = featureCode + "_" + applicability;
+            if (target.kind() == WritingDiagnosticTargetKind.BLANK) {
+                id += "_BLANK_" + target.blankIndex();
+            }
+            return id;
+        }
     }
 
     public record WritingDiagnosticChip(
@@ -2358,6 +2454,55 @@ public final class PracticeDtos {
         }
     }
 
+    public record SpeakingTextSegment(
+            String text,
+            boolean annotated,
+            String kind,
+            String descriptorId,
+            String featureId,
+            String explanationVi,
+            String correctionKo
+    ) {
+        public SpeakingTextSegment {
+            if (text == null) {
+                throw new IllegalArgumentException(
+                        "Speaking transcript segment text is required");
+            }
+            if (annotated) {
+                if (text.isEmpty()
+                        || kind == null
+                        || !Set.of("STRENGTH", "NEEDS_IMPROVEMENT").contains(kind)
+                        || descriptorId == null || descriptorId.isBlank()
+                        || featureId == null || featureId.isBlank()
+                        || explanationVi == null || explanationVi.isBlank()
+                        || ("STRENGTH".equals(kind) && correctionKo != null)
+                        || ("NEEDS_IMPROVEMENT".equals(kind)
+                        && (correctionKo == null || correctionKo.isBlank()))) {
+                    throw new IllegalArgumentException(
+                            "Annotated Speaking transcript segment is incomplete");
+                }
+            } else if (kind != null
+                    || descriptorId != null
+                    || featureId != null
+                    || explanationVi != null
+                    || correctionKo != null) {
+                throw new IllegalArgumentException(
+                        "Plain Speaking transcript segment cannot carry annotation metadata");
+            }
+        }
+
+        public static SpeakingTextSegment plain(String text) {
+            return new SpeakingTextSegment(
+                    text == null ? "" : text,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+    }
+
     public record SpeakingDetailPayload(
             ResultFeedbackAvailability feedback,
             List<SpeakingTaskDetail> tasks,
@@ -2370,6 +2515,7 @@ public final class PracticeDtos {
             String taskScoreState,
             List<ResultDetailScoreCriterion> scoreCriteria,
             SpeakingEvidenceView evidence,
+            List<SpeakingTextSegment> transcriptSegments,
             String diagnosticAvailability,
             String diagnosticScopeNoteVi,
             String diagnosticScopeNoteKo,
@@ -2398,6 +2544,7 @@ public final class PracticeDtos {
             }
             tasks = immutableResultList(tasks);
             scoreCriteria = immutableResultList(scoreCriteria);
+            transcriptSegments = immutableResultList(transcriptSegments);
             diagnosticGroups = immutableResultList(diagnosticGroups);
             List<ResultDetailDiagnosticFinding> allDiagnosticFindings =
                     diagnosticGroups.stream()
@@ -2421,7 +2568,7 @@ public final class PracticeDtos {
             }
             if (activeQuestionId == null) {
                 if (!scoreCriteria.isEmpty() || evidence != null || upgrade != null
-                        || !diagnosticGroups.isEmpty()) {
+                        || !transcriptSegments.isEmpty() || !diagnosticGroups.isEmpty()) {
                     throw new IllegalArgumentException(
                             "Speaking detail artifacts require a selected immutable task");
                 }
@@ -2469,6 +2616,30 @@ public final class PracticeDtos {
                     || upgrade == null || !activeQuestionId.equals(upgrade.questionId()))) {
                 throw new IllegalArgumentException(
                         "Speaking evidence and upgrade must belong to the selected immutable task");
+            }
+            if (activeQuestionId != null) {
+                String transcript = evidence.transcriptText() == null
+                        ? ""
+                        : evidence.transcriptText();
+                String reconstructedTranscript = transcriptSegments.stream()
+                        .map(SpeakingTextSegment::text)
+                        .collect(java.util.stream.Collectors.joining());
+                boolean hasAnnotatedSegment = transcriptSegments.stream()
+                        .anyMatch(SpeakingTextSegment::annotated);
+                if (transcriptSegments.isEmpty()
+                        || !transcript.equals(reconstructedTranscript)
+                        || (transcriptSegments.size() > 1
+                        && transcriptSegments.stream()
+                                .anyMatch(segment -> segment.text().isEmpty()))
+                        || (!hasAnnotatedSegment && transcriptSegments.size() != 1)
+                        || (hasAnnotatedSegment
+                        && (!evidence.transcriptAvailable()
+                        || !"TRANSCRIPT_ONLY".equals(evidenceMode)
+                        || !"TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION"
+                                .equals(evaluatorCapability)))) {
+                    throw new IllegalArgumentException(
+                            "Speaking transcript segments must exactly preserve current trusted evidence");
+                }
             }
             if (activeQuestionId != null
                     && !"DIRECT_AUDIO_AND_TRANSCRIPT".equals(evidenceMode)) {

@@ -28,6 +28,7 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingDiagnosticGroup;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingEvidenceView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTaskDetail;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingUpgradeView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnswerArtifact;
@@ -36,6 +37,9 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticFinding;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTarget;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticTargetKind;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
+import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
@@ -111,6 +115,7 @@ class PracticeResultDetailContractTest {
                 feedback(),
                 List.of(),
                 null,
+                List.of(),
                 List.of(),
                 WritingScoringPolicy.PROFILE_ID,
                 WritingDiagnosticDescriptorRegistry.SEAM_ID,
@@ -297,6 +302,92 @@ class PracticeResultDetailContractTest {
     }
 
     @Test
+    void writingLearnerAnswerSegmentContractRequiresExactConcatenation() {
+        WritingTaskResult selectedTask = new WritingTaskResult(
+                153L,
+                1153L,
+                53,
+                "Q53",
+                "Câu 53",
+                "Đề bài",
+                "abcdef",
+                score(),
+                feedback(),
+                null,
+                List.of(),
+                List.of(),
+                true);
+        WritingUpgradeView upgrade = new WritingUpgradeView(
+                153L,
+                new WritingAnswerArtifact(
+                        "",
+                        "UNAVAILABLE",
+                        "LEARNER_SUBMISSION_DERIVED_EVALUATOR_OUTPUT",
+                        "Bài nâng cấp",
+                        "개선 답안"),
+                List.of(),
+                new WritingAnswerArtifact(
+                        "",
+                        "UNAVAILABLE",
+                        "EVALUATOR_GENERATED_NOT_TEACHER_REFERENCE",
+                        "Bài tham khảo",
+                        "참고 답안"));
+        java.util.function.Function<List<WritingTextSegment>, WritingDetailPayload>
+                payloadWithSegments = segments -> new WritingDetailPayload(
+                        feedback(),
+                        List.of(selectedTask),
+                        153L,
+                        segments,
+                        List.of(),
+                        WritingScoringPolicy.PROFILE_ID,
+                        WritingDiagnosticDescriptorRegistry.SEAM_ID,
+                        WritingDiagnosticDescriptorRegistry.SEAM_STATE,
+                        WritingDiagnosticDescriptorRegistry.SCOPE_NOTE_VI,
+                        WritingDiagnosticDescriptorRegistry.SCOPE_NOTE_KO,
+                        "NO_VALIDATED_EVIDENCE",
+                        "Chưa có phát hiện được kiểm chứng.",
+                        "검증된 진단 항목이 없습니다.",
+                        List.of(),
+                        upgrade);
+        List<WritingTextSegment> exactSegments = List.of(
+                WritingTextSegment.plain("ab"),
+                new WritingTextSegment(
+                        "cd",
+                        true,
+                        "ann-1",
+                        "NEEDS_IMPROVEMENT",
+                        "MORPHOSYNTAX",
+                        "W_GRAMMAR_ERRORS",
+                        "Cần sửa",
+                        "교정",
+                        "W_GRAMMAR_ERRORS_WRITING_Q53"),
+                WritingTextSegment.plain("ef"));
+
+        WritingDetailPayload payload = payloadWithSegments.apply(exactSegments);
+
+        assertThat(payload.learnerAnswerSegments().stream()
+                .map(WritingTextSegment::text)
+                .collect(java.util.stream.Collectors.joining()))
+                .isEqualTo(selectedTask.learnerAnswer());
+        assertThatThrownBy(() -> payloadWithSegments.apply(
+                List.of(WritingTextSegment.plain("abc"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly preserve");
+        assertThatThrownBy(() -> new WritingTextSegment(
+                "plain",
+                false,
+                "fabricated",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot carry annotation metadata");
+    }
+
+    @Test
     void transcriptSpeakingBindsSixCanonicalRowsDiagnosticsAndChipsToSelectedQuestion() {
         List<ResultDetailScoreCriterion> criteria = speakingCriteria("TRANSCRIPT_ONLY");
         ResultDetailDescriptorRegistry.Definition particles =
@@ -410,6 +501,52 @@ class PracticeResultDetailContractTest {
     }
 
     @Test
+    void speakingTranscriptSegmentsMustExactlyPreserveTrustedEvidence() {
+        List<ResultDetailScoreCriterion> criteria =
+                speakingCriteria("TRANSCRIPT_ONLY");
+        List<SpeakingTextSegment> exactSegments = List.of(
+                SpeakingTextSegment.plain("증"),
+                new SpeakingTextSegment(
+                        "거",
+                        true,
+                        "NEEDS_IMPROVEMENT",
+                        "D_S_GRAMMAR_PARTICLES_NEEDS_IMPROVEMENT",
+                        "S_GRAMMAR_PARTICLES",
+                        "Cần sửa tiểu từ.",
+                        "교정"));
+
+        SpeakingDetailPayload payload = speakingDetailPayload(
+                "TRANSCRIPT_ONLY",
+                criteria,
+                List.of(),
+                List.of(),
+                exactSegments);
+
+        assertThat(payload.transcriptSegments().stream()
+                .map(SpeakingTextSegment::text)
+                .collect(java.util.stream.Collectors.joining()))
+                .isEqualTo(payload.evidence().transcriptText());
+        assertThatThrownBy(() -> speakingDetailPayload(
+                "TRANSCRIPT_ONLY",
+                criteria,
+                List.of(),
+                List.of(),
+                List.of(SpeakingTextSegment.plain("không khớp"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly preserve");
+        assertThatThrownBy(() -> new SpeakingTextSegment(
+                "plain",
+                false,
+                "STRENGTH",
+                null,
+                null,
+                null,
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot carry annotation metadata");
+    }
+
+    @Test
     void speakingDescriptorRegistryCoversTheBoundedSixteenKshSubcriteria() {
         Map<SpeakingRubricCriterion, List<String>> boundedSubcriteria = Map.of(
                 SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, List.of(
@@ -510,6 +647,21 @@ class PracticeResultDetailContractTest {
             List<ResultDetailDiagnosticFinding> findings,
             List<ResultDetailFilterChip> chips
     ) {
+        return speakingDetailPayload(
+                evidenceMode,
+                criteria,
+                findings,
+                chips,
+                List.of(SpeakingTextSegment.plain("증거")));
+    }
+
+    private static SpeakingDetailPayload speakingDetailPayload(
+            String evidenceMode,
+            List<ResultDetailScoreCriterion> criteria,
+            List<ResultDetailDiagnosticFinding> findings,
+            List<ResultDetailFilterChip> chips,
+            List<SpeakingTextSegment> transcriptSegments
+    ) {
         SpeakingDiagnosticGroup group = findings.isEmpty() && chips.isEmpty()
                 ? null
                 : new SpeakingDiagnosticGroup(
@@ -576,6 +728,7 @@ class PracticeResultDetailContractTest {
                         "TRANSCRIPT_ONLY".equals(evidenceMode)
                                 ? "NOT_SCORABLE"
                                 : "AVAILABLE_GOVERNED_DIRECT_AUDIO"),
+                transcriptSegments,
                 findings.isEmpty() ? "NO_VALIDATED_EVIDENCE" : "AVAILABLE",
                 "Phạm vi chẩn đoán Nói có giới hạn.",
                 "말하기 진단 범위는 제한됩니다.",

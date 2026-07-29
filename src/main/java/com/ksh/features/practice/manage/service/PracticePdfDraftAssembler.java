@@ -27,35 +27,47 @@ public class PracticePdfDraftAssembler {
     private final ObjectMapper objectMapper;
     private final PracticeDraftContractService draftContractService;
     private final PracticeAuthorizationService authorizationService;
+    private final PracticePdfAiGenerationService generationService;
 
     @Autowired
     public PracticePdfDraftAssembler(PracticeDraftRepository draftRepository,
                                      PracticePdfImportSessionService sessionService,
                                      ObjectMapper objectMapper,
                                      PracticeDraftContractService draftContractService,
-                                     PracticeAuthorizationService authorizationService) {
+                                     PracticeAuthorizationService authorizationService,
+                                     PracticePdfAiGenerationService generationService) {
         this.draftRepository = draftRepository;
         this.sessionService = sessionService;
         this.objectMapper = objectMapper;
         this.draftContractService = draftContractService;
         this.authorizationService = authorizationService;
+        this.generationService = generationService;
     }
 
     PracticePdfDraftAssembler(PracticeDraftRepository draftRepository,
                               PracticePdfImportSessionService sessionService,
                               ObjectMapper objectMapper) {
-        this(draftRepository, sessionService, objectMapper, null, null);
+        this(draftRepository, sessionService, objectMapper, null, null, null);
     }
 
     PracticePdfDraftAssembler(PracticeDraftRepository draftRepository,
                               PracticePdfImportSessionService sessionService,
                               ObjectMapper objectMapper,
                               PracticeDraftContractService draftContractService) {
-        this(draftRepository, sessionService, objectMapper, draftContractService, null);
+        this(draftRepository, sessionService, objectMapper, draftContractService, null, null);
     }
 
     @Transactional
     public PracticeDraft assembleAndSaveDraft(PracticePdfImportSession session, String aiRawJson, Long userId) {
+        return assembleAndSaveDraft(session, aiRawJson, userId, null);
+    }
+
+    @Transactional
+    public PracticeDraft assembleAndSaveDraft(
+            PracticePdfImportSession session,
+            String aiRawJson,
+            Long userId,
+            String generationClaimToken) {
         // Parse AI response to check structure
         JsonNode aiRoot;
         try {
@@ -136,9 +148,20 @@ public class PracticePdfDraftAssembler {
         draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
         PracticeDraft savedDraft = draftRepository.save(draft);
 
-        // Map draftId to import session
-        sessionService.updateDraftId(session.getId(), savedDraft.getId());
-        sessionService.updateStatus(session.getId(), "AI_COMPLETED");
+        // Persist the draft and generation result in one transaction. The
+        // legacy overload remains for non-controller tests/manual callers.
+        if (generationService != null
+                && generationClaimToken != null
+                && !generationClaimToken.isBlank()) {
+            generationService.complete(
+                    session.getId(),
+                    userId,
+                    generationClaimToken,
+                    savedDraft.getId());
+        } else {
+            sessionService.updateDraftId(session.getId(), savedDraft.getId());
+            sessionService.updateStatus(session.getId(), "AI_COMPLETED");
+        }
 
         log.info("[DraftAssembler] Assembled and saved draft id={} for session id={}", savedDraft.getId(), session.getId());
         return savedDraft;

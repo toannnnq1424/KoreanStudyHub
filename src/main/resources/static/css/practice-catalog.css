@@ -97,6 +97,8 @@
 .pc-primary-action {
   color: #fff;
   background: var(--pc-blue);
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .pc-primary-action:hover {

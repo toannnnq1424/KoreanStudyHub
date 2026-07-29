@@ -337,8 +337,8 @@ class LessonCommentsServiceTest {
     }
 
     @Test
-    void leader_not_enrolled_can_hide() {
-        User leader = ensureUser("comment-leader@ksh.edu.vn", "Comment Leader", Role.LEADER);
+    void same_department_leader_not_enrolled_can_hide() {
+        User leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
         CommentRow root = service.create(lesson.getId(), student.getId(), "Leader sẽ ẩn", null);
 
         service.hide(lesson.getId(), root.id(), leader.getId(), Role.LEADER);
@@ -613,6 +613,7 @@ class LessonCommentsServiceTest {
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
+        entity.setDepartmentId(lecturer.getDepartmentId());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

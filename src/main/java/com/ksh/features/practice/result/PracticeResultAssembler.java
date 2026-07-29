@@ -167,6 +167,24 @@ public class PracticeResultAssembler {
     }
 
     static ResultState resultState(PracticeAttempt attempt) {
+        if (PracticeAttempt.ANALYSIS_QUEUED.equals(
+                attempt.getAnalysisStatus())) {
+            return new ResultState("QUEUED", "Đang chờ chấm");
+        }
+        if (PracticeAttempt.ANALYSIS_PROCESSING.equals(
+                attempt.getAnalysisStatus())) {
+            return new ResultState("PROCESSING", "Đang chấm");
+        }
+        if (PracticeAttempt.ANALYSIS_UNAVAILABLE.equals(
+                attempt.getAnalysisStatus())) {
+            return new ResultState(
+                    "UNAVAILABLE", "Chưa thể đánh giá");
+        }
+        if (PracticeAttempt.ANALYSIS_FAILED.equals(
+                attempt.getAnalysisStatus())) {
+            return new ResultState(
+                    "FAILED", "Đánh giá thất bại");
+        }
         if (!PracticeAttempt.STATUS_GRADED.equals(attempt.getStatus())) {
             return new ResultState("SUBMITTED", "Đã nộp");
         }

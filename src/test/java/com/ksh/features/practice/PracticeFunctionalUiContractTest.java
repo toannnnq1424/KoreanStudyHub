@@ -5,6 +5,8 @@ import com.ksh.features.practice.web.PracticeMediaRoutes;
 import com.ksh.features.practice.web.PracticeModelAttributes;
 import com.ksh.features.practice.web.PracticeRoutes;
 import com.ksh.features.practice.web.PracticeViews;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -356,14 +358,11 @@ class PracticeFunctionalUiContractTest {
                 "không phải điểm hoặc chứng chỉ TOPIK chính thức",
                 "Thành phần tính điểm",
                 "Phân bổ điểm theo từng ô trống",
-                "không có điểm riêng và không cộng vào tổng điểm",
-                "Không tính điểm",
                 "task.evaluated()",
                 "th:case=\"'PENDING'\"",
                 "th:case=\"'FAILED'\"",
                 "th:case=\"'UNAVAILABLE'\"",
                 "th:tabindex=\"${status.first ? 0 : -1}\"",
-                "th:tabindex=\"${lensStatus.first ? 0 : -1}\"",
                 "<details class=\"pr-task-prompt\"",
                 "pr-task-prompt-preview",
                 "pr-task-prompt-full",
@@ -374,7 +373,9 @@ class PracticeFunctionalUiContractTest {
                 "Chưa có trang chi tiết cho nhiệm vụ này")
                 .doesNotContain(
                         "Task Response", "Lexical Resource", "IELTS", "Band descriptors",
-                        "criterion.band()", "lens.band()", "pr-scale", "th:hidden");
+                        "criterion.band()", "lens.band()", "pr-scale", "th:hidden",
+                        "pr-writing-lenses", "writing-lens-tab-",
+                        "Chẩn đoán để luyện tiếp");
         assertThat(speaking).contains(
                 "Phạm vi và độ tin cậy",
                 "Hồ sơ ngôn ngữ dựa trên bản chép lời",
@@ -471,25 +472,42 @@ class PracticeFunctionalUiContractTest {
                 "Bản chép lời đã được phê duyệt",
                 "Phương án, trạng thái người học và lý do loại chọn",
                 "Giá trị từng ô trống và đáp án được chấp nhận",
+                "Đối chiếu từng phương án",
+                "Giải mã từng ô trống",
+                "Kiểm chứng mệnh đề với nguồn",
+                "Đối chiếu mệnh đề với vùng thông tin đã kiểm chứng",
+                "Đoạn nghe quyết định",
+                "Cụm từ nghe chứa đáp án",
                 "Vì sao không phải",
                 "Digest tài sản",
                 "evidenceTranslations()",
-                "Gắn với bằng chứng",
+                "Đối chiếu toàn bộ bằng chứng đã kiểm chứng",
                 "tabindex=\"-1\"")
                 .doesNotContain(
                         "groupsJson", "JSON.parse", "questionsJson",
                         "IELTS", "Band", "Task Response", "Lexical Resource",
-                        "th:utext", "pageIndex()");
+                        "th:utext", "pageIndex()", "#strings.listJoin");
         assertThat(detailCss).contains(
                 ".prd-objective-layout",
                 ".prd-objective-nav-list a:focus-visible",
                 ".prd-objective-question:focus",
+                ".prd-objective-inline-evidence article",
+                ".prd-objective-tfng-proof",
+                ".prd-objective-all-evidence",
+                ".prd-objective-answer-table tbody tr.is-correct",
+                ".prd-objective-answer-table tbody tr.is-incorrect",
+                ".prd-objective-answer-table > caption",
+                "max-width: 100%",
                 "@media (max-width: 980px)",
                 "@media (max-width: 640px)");
         assertThat(writing).contains(
                 "data-result-detail-kind=\"WRITING_DETAIL\"",
                 "resultDetail.payload().scoreCriteria()",
                 "resultDetail.payload().diagnosticGroups()",
+                "resultDetail.payload().learnerAnswerSegments()",
+                "prd-writing-inline-annotation",
+                "segment.explanationVi()",
+                "segment.correctionKo()",
                 "group.strengthChips()",
                 "group.needsImprovementChips()",
                 "chip.labelVi()",
@@ -501,6 +519,8 @@ class PracticeFunctionalUiContractTest {
                 "task.feedback().stateLabelKo()",
                 "data-writing-diagnostic-filter",
                 "data-writing-feature",
+                "finding.descriptorId()",
+                "data-writing-filter-status",
                 "aria-pressed",
                 "data-result-tabs",
                 "role=\"tabpanel\"",
@@ -536,6 +556,12 @@ class PracticeFunctionalUiContractTest {
                 ".prd-writing-tab.is-active",
                 ".prd-writing-tab:focus-visible",
                 ".prd-writing-panel[hidden]",
+                ".prd-writing-inline-tooltip",
+                ".prd-inline-floating-tooltip",
+                ".prd-writing-score-card progress",
+                "grid-template-columns: minmax(140px, 1fr) minmax(72px, 0.32fr) minmax(160px, 0.9fr)",
+                ".prd-speaking-score-card > span",
+                "overflow-wrap: break-word",
                 "@media (max-width: 940px)");
         assertThat(tabsJs).contains(
                 "[data-result-tabs]",
@@ -548,11 +574,14 @@ class PracticeFunctionalUiContractTest {
                 "[data-writing-diagnostic-filter]",
                 "aria-pressed",
                 "finding.hidden",
-                "firstMatch.focus",
-                "firstMatch.scrollIntoView",
+                "resetDiagnosticState",
+                "positionAnnotationTooltip",
+                "cloneNode(true)",
                 "[data-speaking-diagnostic-filter]",
                 "dataset.speakingFeature")
-                .doesNotContain("JSON.parse", "JSON.stringify");
+                .doesNotContain(
+                        "JSON.parse", "JSON.stringify",
+                        "firstMatch.focus", "firstMatch.scrollIntoView");
         assertThat(speaking).contains(
                 "data-result-detail-kind=\"SPEAKING_DETAIL\"",
                 "data-speaking-active-question",
@@ -561,9 +590,23 @@ class PracticeFunctionalUiContractTest {
                 "data-speaking-acoustic-state",
                 "resultDetail.payload().scoreCriteria()",
                 "resultDetail.payload().diagnosticGroups()",
-                "resultDetail.payload().evidence().transcriptText()",
+                "resultDetail.payload().transcriptSegments()",
+                "prd-speaking-inline-annotation",
+                "th:if=\"${segment.annotated()}\"",
+                "th:text=\"${segment.text()}\"",
+                "segment.explanationVi()",
+                "segment.correctionKo()",
+                "data-speaking-feature=${segment.descriptorId()}",
+                "data-speaking-descriptor",
+                "data-speaking-subcriterion=${segment.featureId()}",
+                "data-speaking-kind",
+                "aria-describedby",
+                "role=\"tooltip\"",
+                "Câu trả lời văn bản cũ — không phải bản chép lời có thẩm quyền",
+                "!resultDetail.payload().evidence().transcriptAvailable()",
                 "resultDetail.payload().upgrade().learnerDerivedUpgrade()",
                 "data-speaking-diagnostic-filter",
+                "data-speaking-filter-status",
                 "Tổng quan",
                 "개요",
                 "Điểm mạnh",
@@ -576,8 +619,11 @@ class PracticeFunctionalUiContractTest {
                 .doesNotContain(
                         "questionsJson", "JSON.parse", "Content", "Coherence",
                         "holistic", "subtotal", "AUDIO_SUBMITTED",
-                        "S_FLUENCY_", "S_PRONUNCIATION_");
+                        "S_FLUENCY_", "S_PRONUNCIATION_", "th:utext",
+                        "resultDetail.payload().evidence().transcriptText()",
+                        "data-speaking-feature=${segment.featureId()}");
         assertThat(speaking.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(speaking.split("data-speaking-filter-status", -1)).hasSize(3);
         assertThat(detailCss).contains(
                 ".prd-speaking-tabs",
                 ".prd-speaking-panel[hidden]",
@@ -589,6 +635,7 @@ class PracticeFunctionalUiContractTest {
     @Test
     void dedicatedExamPlayersShareNavigationSafetyAndAdaptiveReadingContracts() throws IOException {
         String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
+        String testDetail = Files.readString(PRACTICE_TEMPLATES.resolve("test-detail.html"));
         String writingPlayer = Files.readString(PRACTICE_TEMPLATES.resolve("player-writing.html"));
         String js = Files.readString(EXAM_PLAYER_JS);
 
@@ -598,7 +645,17 @@ class PracticeFunctionalUiContractTest {
                 "data-long-source",
                 "data-exit-link",
                 "data-selection-highlight",
-                "data-selection-note");
+                "data-selection-note",
+                ">Đúng</span>",
+                ">Sai</span>",
+                ">Không có thông tin</span>",
+                "'Ô trống ' + blankStat.count");
+        assertThat(player).doesNotContain(
+                ">True</span>",
+                ">False</span>",
+                ">Not Given</span>");
+        assertThat(testDetail).contains(
+                "selectedTest.displayOrder() + 1");
         assertThat(writingPlayer).contains(
                 "player-writing.css",
                 "data-question-stage",
@@ -609,9 +666,9 @@ class PracticeFunctionalUiContractTest {
                 "layout-focus",
                 "layout-stacked",
                 "layout-split",
-                "configured <= 0",
-                "ksh-exam-timer:v2:${attemptId}",
-                "storedValue === null ? Number.NaN",
+                "player.dataset.deadlineEpochMs",
+                "player.dataset.serverNowEpochMs",
+                "deadlineSubmission = true",
                 "[data-exit-link]",
                 "'contextmenu', 'copy', 'cut', 'paste'",
                 "startRegion === endRegion");
@@ -792,6 +849,27 @@ class PracticeFunctionalUiContractTest {
     }
 
     @Test
+    void scoreTrendSourceFactResolvesPointBeforeFragmentReplacement() throws IOException {
+        String progress = Files.readString(PRACTICE_TEMPLATES.resolve("progress.html"));
+
+        var pointScopes = Jsoup.parse(progress)
+                .getElementsByTag("th:block")
+                .stream()
+                .filter(element -> "point : ${analytics.scoreTrend()}"
+                        .equals(element.attr("th:each")))
+                .toList();
+
+        assertThat(pointScopes).hasSize(1);
+        Element pointScope = pointScopes.get(0);
+        assertThat(pointScope.hasAttr("th:replace")).isFalse();
+        assertThat(pointScope.children()).hasSize(1);
+        Element sourceFactReplacement = pointScope.child(0);
+        assertThat(sourceFactReplacement.tagName()).isEqualTo("th:block");
+        assertThat(sourceFactReplacement.attr("th:replace"))
+                .contains("sourceFact(${point.scoreFact()})");
+    }
+
+    @Test
     void scoreTrendKeepsRepeatedSameSkillTimestampAsDistinctEventSlots() throws IOException {
         String progressJs = Files.readString(PRACTICE_PROGRESS_JS);
 
@@ -937,6 +1015,64 @@ class PracticeFunctionalUiContractTest {
         assertThat(PracticeFormFields.questionIdFromAnswerField("answer_66")).isEqualTo("66");
         assertThat(PracticeMediaRoutes.playbackPath(1L, 2L, 3L))
                 .isEqualTo("/practice/attempts/1/questions/2/speaking-media/3/content");
+    }
+
+    @Test
+    void post13hPlayerAndAuthoringIntegrityBoundariesAreExplicit()
+            throws IOException {
+        String player = Files.readString(
+                PRACTICE_TEMPLATES.resolve("player.html"));
+        String writing = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "player-writing.html"));
+        String playerJs = Files.readString(EXAM_PLAYER_JS);
+        String editor = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "manage/editor.html"));
+        String importWorkspace = Files.readString(
+                PRACTICE_TEMPLATES.resolve(
+                        "manage/import-workspace.html"));
+
+        assertThat(player).contains(
+                "data-deadline-epoch-ms",
+                "data-server-now-epoch-ms",
+                "data-room-timer",
+                "data-attempt-lock-version",
+                "savedAnswers.get");
+        assertThat(writing).contains(
+                "data-deadline-epoch-ms",
+                "data-room-timer",
+                "data-attempt-lock-version",
+                "savedAnswers.get");
+        assertThat(playerJs).contains(
+                "method: 'PUT'",
+                "/answers",
+                "expectedLockVersion",
+                "response.status === 409",
+                "response.status === 410",
+                "autosaveGeneration",
+                "autosavePersistedGeneration",
+                "maxAutosaveRetries",
+                "autosaveRetryExhausted",
+                "autosaveSubmitDrain",
+                "drainLatestAnswers",
+                "submissionPending",
+                "exitPending",
+                "flushLatestAnswers",
+                "window.location.assign(link.href)",
+                "player.dataset.deadlineEpochMs")
+                .doesNotContain("ksh-exam-timer");
+        assertThat(editor).contains(
+                "content.textContent = String(msg.content || '')")
+                .doesNotContain("<div>${msg.content}</div>");
+        assertThat(importWorkspace).contains(
+                "title.textContent = String(a.title",
+                "title.title = String(a.title",
+                "attach.addEventListener",
+                "remove.addEventListener")
+                .doesNotContain(
+                        "title=\"${a.title}\">${a.title}</div>",
+                        "onclick=\"associateAssetToSelectedRegion(${a.id})\"");
     }
 
     private static int countOccurrences(String text, String token) {

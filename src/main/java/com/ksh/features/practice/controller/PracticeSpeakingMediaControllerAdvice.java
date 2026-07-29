@@ -1,6 +1,7 @@
 package com.ksh.features.practice.controller;
 
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaErrorResponse;
+import com.ksh.features.practice.service.PracticeAttemptDeadlineExpiredException;
 import com.ksh.features.practice.service.audio.SpeakingAudioValidationCategory;
 import com.ksh.features.practice.service.audio.SpeakingAudioValidationException;
 import jakarta.persistence.EntityNotFoundException;
@@ -57,6 +58,15 @@ public class PracticeSpeakingMediaControllerAdvice {
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<SpeakingMediaErrorResponse> handleNotFound(EntityNotFoundException ex) {
         return error(HttpStatus.NOT_FOUND, "NOT_FOUND", MESSAGE_NOT_FOUND);
+    }
+
+    @ExceptionHandler(PracticeAttemptDeadlineExpiredException.class)
+    public ResponseEntity<SpeakingMediaErrorResponse> handleDeadline(
+            PracticeAttemptDeadlineExpiredException ex) {
+        return error(
+                HttpStatus.GONE,
+                "DEADLINE_EXPIRED",
+                "The server deadline for this speaking attempt has expired.");
     }
 
     @ExceptionHandler(IllegalStateException.class)

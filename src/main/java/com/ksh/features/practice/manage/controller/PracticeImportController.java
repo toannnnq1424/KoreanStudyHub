@@ -36,10 +36,19 @@ public class PracticeImportController {
                                       @RequestParam(value = "lessonCode", required = false) String lessonCode,
                                       @AuthenticationPrincipal KshUserDetails user,
                                       Model model) {
-        model.addAttribute("draftId", draftId);
-        PracticePdfImportSessionService.PdfImportStartContext targetContext =
-                importSessionService.resolveStartContext(draftId, testNo, lessonCode,
-                        user.getId());
+        Long effectiveDraftId = draftId;
+        PracticePdfImportSessionService.PdfImportStartContext targetContext;
+        try {
+            targetContext = importSessionService.resolveStartContext(
+                    draftId, testNo, lessonCode, user.getId());
+        } catch (IllegalArgumentException exception) {
+            effectiveDraftId = null;
+            targetContext = null;
+            model.addAttribute("pdfImportError", exception.getMessage()
+                    + " Hãy thêm phần Đọc, Nghe, Viết hoặc Nói trước khi liên kết tệp PDF;"
+                    + " hoặc tiếp tục nhập thành một bản nháp mới tại đây.");
+        }
+        model.addAttribute("draftId", effectiveDraftId);
         model.addAttribute("pdfImportContext", targetContext);
         
         // Fetch recent import sessions for the user to list on the right column

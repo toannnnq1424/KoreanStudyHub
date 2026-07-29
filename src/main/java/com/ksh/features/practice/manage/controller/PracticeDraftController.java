@@ -83,36 +83,14 @@ public class PracticeDraftController {
     }
 
     @GetMapping("/create")
+    public String createEmptyDraftGetFallback() {
+        return "redirect:/practice/manage";
+    }
+
+    @PostMapping("/create")
     public String createEmptyDraft(@AuthenticationPrincipal KshUserDetails user) {
         PracticeDraft draft = draftService.getOrCreateEmptyDraft(user.getId());
         return "redirect:/practice/manage/drafts/" + draft.getId();
-    }
-
-    @GetMapping("/drafts/{draftId}/exit")
-    public String exitDraft(@PathVariable("draftId") Long draftId,
-                            @AuthenticationPrincipal KshUserDetails user) {
-        try {
-            PracticeDraft draft = draftService.getDraft(draftId, user.getId());
-            String json = draft.getDraftJson();
-            boolean isEmpty = true;
-            if (json != null && !json.isBlank()) {
-                try {
-                    com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
-                    if (root.has("sections") && root.get("sections").isArray() && root.get("sections").size() > 0) {
-                        isEmpty = false;
-                    }
-                } catch (Exception e) {
-                    // ignore
-                }
-            }
-            if (isEmpty) {
-                draftService.deleteDraft(draftId, user.getId());
-                log.info("[DraftController] Deleted empty draft id={} on exit", draftId);
-            }
-        } catch (Exception e) {
-            log.error("[DraftController] Exit draft cleanup failed for draftId={}", draftId, e);
-        }
-        return "redirect:/practice/manage";
     }
 
     @GetMapping("/drafts/{draftId}")

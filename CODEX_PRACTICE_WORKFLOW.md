@@ -5,6 +5,35 @@ Korean Study Hub — Feature `/practice`
 This file must be read before Codex performs any audit, implementation,
 stabilization, commit/push, or roadmap update task for this project.
 
+## Current Phase 13H overlay — 2026-07-28
+
+Phase 13G is `CLOSED_VERIFIED_MERGED`, not pending publication:
+
+- reviewed Phase 13G head:
+  `68f3801214a741688499f9091f6821a03d5f8e0b`;
+- PR [#27](https://github.com/toannnnq1424/KoreanStudyHub/pull/27) merged that
+  head into `feature/practice-reduce-scope` as merge commit
+  `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`;
+- PR [#28](https://github.com/toannnnq1424/KoreanStudyHub/pull/28) merged the
+  feature branch into `main` as merge commit
+  `2549438c1a327b6932dc78d5284d7feaf5daf628`;
+- the trees at `68f3801`, `4f09dd9` and `2549438` were independently verified
+  byte-identical, and the four Phase 13G commits `74a3026`, `85c61ab`,
+  `81d78e8`, `68f3801` remain intact.
+
+The accepted Phase 13G evidence remains the corrected 56-path snapshot, three
+fresh `ACCEPT_STATIC` verdicts, JDK 17, `82/82`, fresh V56 proof
+`56/56/0/1/7`, cleanup absence `0` and PREP/KSH static image audit `52/52`.
+It still makes no full-suite, browser/device journey or provider claim.
+
+The active unit is now `PHASE_13H_STABILIZATION_VISUAL_JOURNEY_GATE` on
+`codex/practice-phase13h-stabilization-gate`, created from exact main merge SHA
+`2549438c1a327b6932dc78d5284d7feaf5daf628`. Phase 13H owns the canonical
+JDK-17/toolchain and dependency-security baseline, routed operational debts,
+static dead-surface proof and the consolidated automated/browser journey gate.
+It does not open post-Phase-13 package reconciliation, Pre-14, Pre-15, Phase 15
+or deferred Phase 14.
+
 ## Source of Truth Priority
 
 Use this priority:
@@ -3396,30 +3425,29 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-27 | Phase 14 Post-Manual-UAT Roadmap Deferral | PHASE_14_NOT_STARTED_BEFORE_PHASE_15 | DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING | documentation-only roadmap sidecar after the frozen 13C3 validation digest | User deprioritized Report an Error. Phase 14 retains its stable label and complete 14A-14F contract but moves after Phase 15 Manual UAT. Pre-14 and Pre-15 implementation, cleanup, assessment, schema, security, calibration, seed and release-readiness obligations remain mandatory and unchanged. No production/test/schema/Git action is claimed. | The initial Manual-UAT/release scope must explicitly exclude Report an Error. Deferred Phase 14 later gets its own consolidated validation and 14F feature-release gate. | Complete the active 13C3 validation on its already frozen digest; preserve this newer roadmap amendment when reconciling evidence, then continue the user-locked Phase 13 sequence. |
 | 2026-07-27 | Phase 13C3 Consolidated Validation And Gap Closure | UNION_SNAPSHOT_READY_FOR_PHASE_VALIDATION | CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH | working tree; validated isolated snapshot digest `d4063b1a2b77b3cdaa97534bd6be5ad02aaf61480a95e390f85aab4aa99485be` over 167 paths | JDK 17 `git diff --check` and clean production compile passed; the exact 53-class selector passed 497/497. A final evidence audit found two newly added authorization/material service tests had only been compiled, so one bounded three-class gap-closure selector passed 31/31. Fresh V1-V45 Flyway/Hibernate/authenticated Practice proof passed `45/45/0`, asserted five Speaking tables, 28 NO ACTION FKs and required lifecycle/storage identities, then dropped the disposable schema with absence `0`. Browser QA is `NOT_RUN_USER_DEFERRED_TO_END_OF_PHASE_13`; live STT/TTS is `NOT_RUN_NOT_APPROVED`. | The four validation-discovered authorization/material paths raise the exact ledger from 163 to 167. The validated code/UI/test delta was reconciled byte-for-byte while newer roadmap/JDK/CVE/Writing/dead-resource sidecars remain separate. The project-wide and Practice-specific AI/storage implementations both remain present and operational but separate; no current consumer redirection or commonization is authorized. | Create granular 13C3 commits and push once; only then run two fresh independent post-push audits on the pushed snapshot before 13G. |
 | 2026-07-28 | Phase 13C3 Corrected Exact-SHA Audit And Merge Closure | CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH | CLOSED_VERIFIED_MERGED | corrected remote SHA `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merge commit `65328e9fae5201be2f154c90739bcb78f1034e4d` | Both required fresh independent read-only audits returned `ACCEPT` for exact corrected SHA `420a9a9`; PR #26 then merged by merge commit without squashing the six Phase 13F commits or rewriting Phase 13C3 ancestry. No new browser/device/provider evidence is claimed. | Phase 13C3 is closed. Browser/device QA remains deferred to 13H/end-of-Phase-13, and live STT/TTS remains not approved. | Open only Phase 13G inventory/static implementation on a clean branch from merge SHA `65328e9`; preserve excluded paths and the untouched Pre-14 sidecar stash. |
-| 2026-07-28 | Phase 13G Responsive, Accessibility And Performance | PHASE_13G_INVENTORY_AND_STATIC_IMPLEMENTATION | COMPLETE_FOCUSED_GATE_GREEN | working tree | `65328e9fae5201be2f154c90739bcb78f1034e4d` | The full 56-path snapshot received three fresh `ACCEPT_STATIC` verdicts. The first consolidated run exposed one stale icon contract and four nested-Mockito test-helper errors; one grouped test-only correction and the permitted exact rerun passed `82/82` on JDK 17. Fresh MySQL V56 proof returned `56/56/0/1/7`, with cleanup absence `0`. No full suite, browser/device journey, standalone startup, Docker or provider call ran. | Bounded server pagination, ranked projection queries, realistic 10,000-attempt coverage, V56 indexes, exact Vietnamese/Korean UTF-8, local SVG icons, responsive reflow, focus/dialog/live-state accessibility and reduced motion are complete. PREP supplied IA evidence only; its brand/assets/CSS/API/IELTS taxonomy were rejected. Practice-specific and project-wide/Admin AI/storage remain operational and separate. | Publish the exact reviewed work as granular logic commits in one branch push, then stop this task. Phase 13H and browser/device QA require a separate task. |
+| 2026-07-28 | Phase 13G Responsive, Accessibility And Performance | COMPLETE_FOCUSED_GATE_GREEN | CLOSED_VERIFIED_MERGED | `68f3801214a741688499f9091f6821a03d5f8e0b`; PR #27 merge `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`; PR #28/main merge `2549438c1a327b6932dc78d5284d7feaf5daf628` | The full 56-path snapshot received three fresh `ACCEPT_STATIC` verdicts. The first consolidated run exposed one stale icon contract and four nested-Mockito test-helper errors; one grouped test-only correction and the permitted exact rerun passed `82/82` on JDK 17. Fresh MySQL V56 proof returned `56/56/0/1/7`, cleanup absence `0`, and PREP/KSH static image audit `52/52`. No full suite, browser/device journey, standalone startup, Docker or provider call ran. | The four Phase 13G commits `74a3026`, `85c61ab`, `81d78e8`, `68f3801` remain intact. The trees at the 13G head and both merge commits were verified byte-identical. Practice-specific and project-wide/Admin AI/storage remain operational and separate. | Open only the separate Phase 13H stabilization/visual/journey unit from exact main SHA `2549438`; do not rerun Phase 13G publication. |
+| 2026-07-28 | Phase 13H Stabilization, Visual And Journey Gate | PHASE_13G_CLOSED_VERIFIED_MERGED | IMPLEMENTATION_AUDIT_OPEN | branch `codex/practice-phase13h-stabilization-gate`; baseline `2549438c1a327b6932dc78d5284d7feaf5daf628` | Entry branch/HEAD/main/origin-main ancestry, untouched sidecar stash and excluded user paths were verified. Mandatory authority documents and the full stash patch were read before implementation. No consolidated Phase 13H validation is claimed yet. | Own reproducible Java 17, dated dependency/SBOM/reachability evidence, PRE-10..13, candidate COMP-20/dead-resource proof, migration validation safeguards and the final provider-disabled automated/browser/device journey matrix. | Complete read-only audits, freeze the 13H implementation inventory, implement once, declare `READY_FOR_PHASE_VALIDATION`, then execute one consolidated gate. |
 
 ## Current Required Next Action
 
-> **Current-source supersession (`2026-07-28`):** Phase 13C3 is
-> `CLOSED_VERIFIED_MERGED`. Both final audits accepted exact corrected SHA
-> `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merged as
-> `65328e9fae5201be2f154c90739bcb78f1034e4d`. The active branch is
-> `codex/practice-phase13g-responsive-a11y-performance`, created from that
-> exact main tip. Phase 13G is now `COMPLETE_FOCUSED_GATE_GREEN`: three fresh
-> static acceptances cover the corrected 56-path snapshot, and the exact
-> consolidated rerun passed `82/82` with fresh V56 proof `56/56/0/1/7` and
-> cleanup absence `0`. The only remaining action in this task is to publish
-> the reviewed work as granular logic commits in one branch push, then stop.
-> Phase 13H and browser/device/visual journeys require a separate task. All
-> older text in this section that instructs a 13C3 commit, push, audit or PR is
+> **Current-source supersession (`2026-07-28`, Phase 13H):** Phase 13G is
+> `CLOSED_VERIFIED_MERGED` at exact head `68f3801`; PR #27 merged as
+> `4f09dd9`, then PR #28 merged to `main` as `2549438`. Their trees were
+> verified byte-identical. The active branch is now
+> `codex/practice-phase13h-stabilization-gate`, created from exact main SHA
+> `2549438c1a327b6932dc78d5284d7feaf5daf628`. The current action is Phase 13H
+> implementation, one consolidated validation, granular commits and
+> publication through `feature/practice-reduce-scope` to `main` only after the
+> gate is green. Older instructions to publish Phase 13G or rerun 13C3 are
 > historical and must not be executed again.
 >
-> Phase 13G must keep Practice and project-wide/Admin AI/storage facilities
+> Phase 13H must keep Practice and project-wide/Admin AI/storage facilities
 > operational and separate; must not apply `stash@{0}`
-> (`pre14-sidecars-before-main-integration-20260727`); and must not stage or
-> modify `.java-version`, `.tmp-ksh-audio-generator.html`, `.tmp/`,
+> (`pre14-sidecars-before-main-integration-20260727`) wholesale; and must not
+> stage or modify `.tmp-ksh-audio-generator.html`, `.tmp/`,
 > `SEP490_G103_KoreanHub.drawio.xml`, `openspec-temp/` or
-> `scripts/docs/__pycache__/`.
+> `scripts/docs/__pycache__/`. The exact untracked `.java-version` bytes
+> `17\n` are conditionally owned by 13H as a repository Java-version guard.
 
 The original Phase 13D passed its consolidated JDK 17 validation, was committed
 as `bcc1467` and pushed. Practice Flyway versions were moved after main V24 in

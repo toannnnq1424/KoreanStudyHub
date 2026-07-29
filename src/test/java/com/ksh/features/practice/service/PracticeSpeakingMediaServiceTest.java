@@ -30,7 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.aop.support.AopUtils;
@@ -81,7 +81,7 @@ class PracticeSpeakingMediaServiceTest {
     @Autowired
     private PracticePublishedVersionService publishedVersionService;
 
-    @MockBean
+    @MockitoBean
     private PracticeSpeakingMediaCleanupProcessor cleanupProcessor;
 
     @Autowired
@@ -273,6 +273,33 @@ class PracticeSpeakingMediaServiceTest {
                 descriptor("discard-race-new.webm")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("before submit");
+        assertThat(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                PracticeSpeakingMediaStatus.READY)).isEmpty();
+    }
+
+    @Test
+    void serverDeadlineRejectsSpeakingUploadAndActivation() {
+        Fixture fixture = createSpeakingFixture("deadline-upload");
+        PracticeAttempt attempt = attemptRepository.findById(
+                fixture.attemptId()).orElseThrow();
+        attempt.setDeadlineAt(java.time.LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(attempt);
+
+        assertThatThrownBy(() -> service.validateUploadTargetForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId()))
+                .isInstanceOf(
+                        PracticeAttemptDeadlineExpiredException.class);
+        assertThatThrownBy(() -> service.activateValidatedMediaForOwner(
+                fixture.userId(),
+                fixture.attemptId(),
+                fixture.speakingQuestionId(),
+                descriptor("deadline-upload.webm")))
+                .isInstanceOf(
+                        PracticeAttemptDeadlineExpiredException.class);
         assertThat(mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),

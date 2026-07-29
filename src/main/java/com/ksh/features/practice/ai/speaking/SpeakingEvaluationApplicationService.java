@@ -11,7 +11,12 @@ import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContext
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class SpeakingEvaluationApplicationService {
@@ -78,7 +83,66 @@ public class SpeakingEvaluationApplicationService {
     }
 
     public boolean enabled() {
-        return transcriptionProperties.enabled() && evaluatorProperties.enabled();
+        return transcriptionProperties.enabled()
+                && evaluatorProperties.enabled()
+                && "openai".equals(
+                        transcriptionProperties.provider())
+                && "openai-compatible".equals(
+                        evaluatorProperties.provider())
+                && transcriptionProperties.apiKey() != null
+                && !transcriptionProperties.apiKey().isBlank()
+                && evaluatorProperties.apiKey() != null
+                && !evaluatorProperties.apiKey().isBlank();
+    }
+
+    public String evaluationContractIdentity() {
+        String canonicalContract = String.join(
+                "|",
+                "ksh-speaking-evaluation-v2",
+                Boolean.toString(transcriptionProperties.enabled()),
+                "transcription-api-key-present="
+                        + (transcriptionProperties.apiKey() != null
+                        && !transcriptionProperties.apiKey().isBlank()),
+                transcriptionProperties.provider(),
+                transcriptionProperties.baseUrl(),
+                transcriptionProperties.model(),
+                transcriptionProperties.language(),
+                Long.toString(transcriptionProperties.maxBytes()),
+                transcriptionProperties.timeout().toString(),
+                Integer.toString(transcriptionProperties.maxRetries()),
+                Boolean.toString(
+                        transcriptionProperties.includeLogprobs()),
+                transcriptionProperties.allowedMimeTypes().stream()
+                        .sorted()
+                        .collect(Collectors.joining(",")),
+                Boolean.toString(evaluatorProperties.enabled()),
+                "evaluator-api-key-present="
+                        + (evaluatorProperties.apiKey() != null
+                        && !evaluatorProperties.apiKey().isBlank()),
+                evaluatorProperties.provider(),
+                evaluatorProperties.baseUrl(),
+                evaluatorProperties.model(),
+                evaluatorProperties.timeout().toString(),
+                Integer.toString(evaluatorProperties.maxRetries()),
+                evaluatorProperties.promptVersion(),
+                evaluatorProperties.rubricVersion(),
+                evaluatorProperties.schemaVersion(),
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                Boolean.toString(textFallbackEnabled));
+        return "ksh-speaking-evaluation-v2|sha256|"
+                + sha256(canonicalContract);
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(
+                            value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 is required for evaluation contract identity.",
+                    exception);
+        }
     }
 
     public Evaluation evaluateQuestion(EvaluationInput input) {

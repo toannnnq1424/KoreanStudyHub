@@ -295,18 +295,22 @@ public class PracticePdfImportSessionService {
         }
         session.setSelectedStartPage(startPage);
         session.setSelectedEndPage(endPage);
-        session.setStatus("ANNOTATING");
-        session.setUpdatedAt(LocalDateTime.now());
+        session.markContentChanged(LocalDateTime.now());
         return sessionRepository.save(session);
     }
 
     @Transactional
     public PracticePdfImportSession saveState(Long id, Integer currentPage, Integer startPage, Integer endPage, String strategy, Long userId) {
         PracticePdfImportSession session = getSession(id, userId);
+        boolean contentChanged = false;
         if (currentPage != null && currentPage > 0 && currentPage <= session.getTotalPages()) {
             session.setCurrentPage(currentPage);
         }
         if (startPage != null && endPage != null && startPage <= endPage) {
+            contentChanged = !java.util.Objects.equals(
+                    session.getSelectedStartPage(), startPage)
+                    || !java.util.Objects.equals(
+                            session.getSelectedEndPage(), endPage);
             session.setSelectedStartPage(startPage);
             session.setSelectedEndPage(endPage);
         }
@@ -315,9 +319,15 @@ public class PracticePdfImportSessionService {
             if (!List.of("HYBRID", "REGION_ONLY", "FULL_SELECTED_PAGES").contains(normalizedStrategy)) {
                 throw new IllegalArgumentException("Chiến lược gửi AI không hợp lệ.");
             }
+            contentChanged = contentChanged
+                    || !normalizedStrategy.equals(session.getExtractionStrategy());
             session.setExtractionStrategy(normalizedStrategy);
         }
-        session.setUpdatedAt(LocalDateTime.now());
+        if (contentChanged) {
+            session.markContentChanged(LocalDateTime.now());
+        } else {
+            session.setUpdatedAt(LocalDateTime.now());
+        }
         return sessionRepository.save(session);
     }
 

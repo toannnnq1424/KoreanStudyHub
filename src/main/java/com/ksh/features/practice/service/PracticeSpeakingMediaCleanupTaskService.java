@@ -9,6 +9,7 @@ import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -20,25 +21,37 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class PracticeSpeakingMediaCleanupTaskService {
 
     private final PracticeSpeakingMediaCleanupTaskRepository repository;
     private final Clock clock;
+    private final java.time.Duration leaseDuration;
 
     @Autowired
     public PracticeSpeakingMediaCleanupTaskService(
             PracticeSpeakingMediaCleanupTaskRepository repository,
-            ObjectProvider<Clock> clockProvider) {
-        this(repository, clockProvider.getIfAvailable(Clock::systemUTC));
+            ObjectProvider<Clock> clockProvider,
+            @Value("${app.practice.speaking-media.cleanup-lease-duration:PT5M}")
+            java.time.Duration leaseDuration) {
+        this(repository, clockProvider.getIfAvailable(Clock::systemUTC), leaseDuration);
     }
 
     PracticeSpeakingMediaCleanupTaskService(
             PracticeSpeakingMediaCleanupTaskRepository repository,
             Clock clock) {
+        this(repository, clock, java.time.Duration.ofMinutes(5));
+    }
+
+    PracticeSpeakingMediaCleanupTaskService(
+            PracticeSpeakingMediaCleanupTaskRepository repository,
+            Clock clock,
+            java.time.Duration leaseDuration) {
         this.repository = repository;
         this.clock = clock;
+        this.leaseDuration = boundedLease(leaseDuration);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -102,32 +115,48 @@ public class PracticeSpeakingMediaCleanupTaskService {
         return repository.findDueTaskIds(now, PageRequest.of(0, limit));
     }
 
-    @Transactional
-    public PracticeSpeakingMediaCleanupStatus markCompleted(Long taskId, Long expectedLockVersion) {
-        PracticeSpeakingMediaCleanupTask task = load(taskId);
-        task.markCompleted(expectedLockVersion, now());
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<CleanupProcessingSnapshot> claimForProcessing(Long taskId) {
+        PracticeSpeakingMediaCleanupTask task = repository.findByIdForUpdate(taskId)
+                .orElse(null);
+        LocalDateTime claimedAt = now();
+        if (task == null || !task.isClaimable(claimedAt)) {
+            return Optional.empty();
+        }
+        String token = UUID.randomUUID().toString().replace("-", "");
+        task.claim(task.getLockVersion(), token, claimedAt.plus(leaseDuration));
+        repository.saveAndFlush(task);
+        return Optional.of(task.toProcessingSnapshot());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PracticeSpeakingMediaCleanupStatus markCompleted(
+            CleanupProcessingSnapshot claim) {
+        PracticeSpeakingMediaCleanupTask task = loadForClaim(claim);
+        task.markCompleted(
+                claim.lockVersion(), claim.claimToken(), now());
         return task.getStatus();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PracticeSpeakingMediaCleanupStatus markRetry(
-            Long taskId,
-            Long expectedLockVersion,
-            Long attemptCount,
+            CleanupProcessingSnapshot claim,
             PracticeSpeakingMediaCleanupErrorCode errorCode) {
-        PracticeSpeakingMediaCleanupTask task = load(taskId);
-        LocalDateTime nextAttemptAt = now().plus(backoff(attemptCount == null ? 0L : attemptCount));
-        task.markRetry(expectedLockVersion, errorCode, nextAttemptAt);
+        PracticeSpeakingMediaCleanupTask task = loadForClaim(claim);
+        LocalDateTime nextAttemptAt = now().plus(
+                backoff(claim.attemptCount() == null ? 0L : claim.attemptCount()));
+        task.markRetry(
+                claim.lockVersion(), claim.claimToken(), errorCode, nextAttemptAt);
         return task.getStatus();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PracticeSpeakingMediaCleanupStatus markTerminal(
-            Long taskId,
-            Long expectedLockVersion,
+            CleanupProcessingSnapshot claim,
             PracticeSpeakingMediaCleanupErrorCode errorCode) {
-        PracticeSpeakingMediaCleanupTask task = load(taskId);
-        task.markTerminal(expectedLockVersion, errorCode, now());
+        PracticeSpeakingMediaCleanupTask task = loadForClaim(claim);
+        task.markTerminal(
+                claim.lockVersion(), claim.claimToken(), errorCode, now());
         return task.getStatus();
     }
 
@@ -157,14 +186,22 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 .getId();
     }
 
-    private PracticeSpeakingMediaCleanupTask load(Long taskId) {
-        return repository.findById(taskId)
-                .orElseThrow(() -> new IllegalStateException("Cleanup task is unavailable."));
+    private PracticeSpeakingMediaCleanupTask loadForClaim(
+            CleanupProcessingSnapshot claim) {
+        if (claim == null || claim.taskId() == null) {
+            throw new IllegalArgumentException("Cleanup claim is required.");
+        }
+        return repository.findByIdForUpdate(claim.taskId())
+                .orElseThrow(() ->
+                        new IllegalStateException("Cleanup task is unavailable."));
     }
 
     private LocalDateTime now() {
         Instant instant = Instant.now(clock);
-        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+        // V31 persists cleanup scheduling columns as DATETIME(0). Keep enqueue
+        // and claim comparisons on that same precision so an immediate task
+        // cannot be rounded into the next second by MySQL.
+        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC).withNano(0);
     }
 
     private static java.time.Duration backoff(Long alreadyAttemptedCount) {
@@ -181,5 +218,18 @@ public class PracticeSpeakingMediaCleanupTaskService {
             return java.time.Duration.ofHours(6);
         }
         return java.time.Duration.ofHours(24);
+    }
+
+    private static java.time.Duration boundedLease(java.time.Duration configured) {
+        java.time.Duration candidate = configured == null
+                ? java.time.Duration.ofMinutes(5)
+                : configured;
+        if (candidate.compareTo(java.time.Duration.ofSeconds(30)) < 0) {
+            return java.time.Duration.ofSeconds(30);
+        }
+        if (candidate.compareTo(java.time.Duration.ofMinutes(30)) > 0) {
+            return java.time.Duration.ofMinutes(30);
+        }
+        return candidate;
     }
 }

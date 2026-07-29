@@ -87,6 +87,7 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
     private String callWithRetry(Map<String, Object> body) {
         RuntimeException last = null;
         for (int attempt = 0; attempt <= properties.maxRetries(); attempt++) {
+            requireEvaluationThreadActive();
             try {
                 return transport.post(body);
             } catch (HttpStatusCodeException ex) {
@@ -104,6 +105,13 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
             }
         }
         throw last == null ? new ResourceAccessException("Speaking evaluator unavailable") : last;
+    }
+
+    private static void requireEvaluationThreadActive() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new IllegalStateException(
+                    "Speaking evaluation was interrupted.");
+        }
     }
 
     private SpeakingEvaluationProviderResult parse(String raw, long startNanos) {

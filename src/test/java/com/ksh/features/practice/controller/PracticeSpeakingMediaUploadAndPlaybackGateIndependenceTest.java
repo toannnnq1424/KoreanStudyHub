@@ -5,7 +5,7 @@ import com.ksh.features.practice.service.SpeakingAudioUploadService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.ApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,10 +19,10 @@ class PracticeSpeakingMediaUploadAndPlaybackGateIndependenceTest {
     @Autowired
     private ApplicationContext applicationContext;
 
-    @MockBean
+    @MockitoBean
     private SpeakingAudioUploadService uploadService;
 
-    @MockBean
+    @MockitoBean
     private PracticeSpeakingMediaPlaybackService playbackService;
 
     @Test

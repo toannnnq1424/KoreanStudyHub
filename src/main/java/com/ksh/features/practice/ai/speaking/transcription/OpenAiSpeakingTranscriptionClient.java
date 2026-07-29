@@ -121,6 +121,7 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         RuntimeException lastRuntime = null;
         IOException lastIo = null;
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            requireEvaluationThreadActive();
             try {
                 MultiValueMap<String, Object> body = multipart(request);
                 return transport.post(body);
@@ -148,6 +149,13 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
             throw lastRuntime;
         }
         throw new ResourceAccessException("Transcription provider unavailable");
+    }
+
+    private static void requireEvaluationThreadActive() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new IllegalStateException(
+                    "Speaking transcription was interrupted.");
+        }
     }
 
     private SpeakingTranscriptionResult parse(String raw, SpeakingTranscriptionRequest request, long startNanos) {

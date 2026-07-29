@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -117,7 +118,8 @@ class LibraryServiceTest {
     }
 
     @Test
-    void delete_unreferenced_soft_deletes_and_removes_disk_file() throws Exception {
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void delete_unreferenced_soft_deletes_and_removes_disk_file_after_commit() throws Exception {
         LibraryAssetRow row = libraryService.upload(lecturer.getId(), somePdf("free.pdf"), null);
         LibraryAsset asset = assetRepository.findByIdAndOwnerId(row.id(), lecturer.getId()).orElseThrow();
         String key = asset.getStoredPath();

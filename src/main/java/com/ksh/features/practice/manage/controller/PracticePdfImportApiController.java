@@ -6,7 +6,10 @@ import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.PracticePdfPageExtraction;
+import com.ksh.features.practice.governance.PracticeAction;
+import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.manage.service.*;
+import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -15,9 +18,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +47,9 @@ public class PracticePdfImportApiController {
     private final PracticePdfAiPayloadBuilder payloadBuilder;
     private final PracticePdfAiOrchestrator aiOrchestrator;
     private final PracticePdfDraftAssembler draftAssembler;
+    private final PracticePdfAiGenerationService generationService;
+    private final PracticeDraftRepository draftRepository;
+    private final PracticeAuthorizationService authorizationService;
     private final PracticeImportDraftService importDraftService;
     private final PracticeImportSnapshotService snapshotService;
     private final PracticePdfPreviewService previewService;
@@ -54,6 +62,9 @@ public class PracticePdfImportApiController {
                                           PracticePdfAiPayloadBuilder payloadBuilder,
                                           PracticePdfAiOrchestrator aiOrchestrator,
                                           PracticePdfDraftAssembler draftAssembler,
+                                          PracticePdfAiGenerationService generationService,
+                                          PracticeDraftRepository draftRepository,
+                                          PracticeAuthorizationService authorizationService,
                                           PracticeImportDraftService importDraftService,
                                           PracticeImportSnapshotService snapshotService,
                                           PracticePdfPreviewService previewService) {
@@ -65,6 +76,9 @@ public class PracticePdfImportApiController {
         this.payloadBuilder = payloadBuilder;
         this.aiOrchestrator = aiOrchestrator;
         this.draftAssembler = draftAssembler;
+        this.generationService = generationService;
+        this.draftRepository = draftRepository;
+        this.authorizationService = authorizationService;
         this.importDraftService = importDraftService;
         this.snapshotService = snapshotService;
         this.previewService = previewService;
@@ -200,16 +214,42 @@ public class PracticePdfImportApiController {
     @PostMapping("/import-sessions/{sessionId}/generate")
     public ResponseEntity<?> generateDraft(@PathVariable Long sessionId,
                                            @AuthenticationPrincipal KshUserDetails user) {
-        // AI job is run in a separate transaction B. Failure doesn't rollback crops or session annotations
-        PracticePdfImportSession session = sessionService.getSession(sessionId, user.getId());
-        sessionService.updateStatus(sessionId, "PROCESSING");
+        // The short claim transaction commits before any crop/provider work. A
+        // duplicate request therefore cannot start a second provider call.
+        PracticePdfAiGenerationService.ClaimResult claim =
+                generationService.claim(sessionId, user.getId());
+        if (claim.outcome() == PracticePdfAiGenerationService.Outcome.COMPLETED) {
+            authorizationService.requireDraft(
+                    claim.completedDraftId(), user.getId(), PracticeAction.EDIT);
+            PracticeDraft completedDraft = draftRepository
+                    .findById(claim.completedDraftId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "PDF AI generation completed draft is unavailable."));
+            return ResponseEntity.ok(completedDraft);
+        }
+        if (claim.outcome() == PracticePdfAiGenerationService.Outcome.IN_PROGRESS) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "status", "PROCESSING",
+                    "message", "Yêu cầu tạo bản nháp đang được xử lý.",
+                    "leaseExpiresAt", claim.leaseExpiresAt()
+            ));
+        }
+
+        String claimToken = claim.claimToken();
+        PracticePdfImportSession session = claim.claimedSession();
+        if (session == null) {
+            throw new IllegalStateException(
+                    "PDF AI generation claim did not provide a fenced session.");
+        }
         try {
+            authorizeGenerationTarget(session, user.getId());
             PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo = payloadBuilder.buildPayload(session);
             List<ValidationError> blockingErrors = payloadInfo.validationErrors().stream()
                     .filter(err -> "ERROR".equalsIgnoreCase(err.severity()))
                     .toList();
             if (!blockingErrors.isEmpty()) {
-                sessionService.updateStatus(sessionId, "READY_FOR_AI");
+                generationService.release(
+                        sessionId, user.getId(), claimToken, "READY_FOR_AI");
                 return ResponseEntity.badRequest().body(Map.of(
                         "status", "FAILED_RETRYABLE",
                         "message", "Dữ liệu khoanh vùng chưa đủ an toàn để gửi AI.",
@@ -219,17 +259,50 @@ public class PracticePdfImportApiController {
             }
             String rawAiJson = aiOrchestrator.callAi(payloadInfo, sessionId, session.getExtractionStrategy());
             PracticeDraft draft = draftAssembler.assembleAndSaveDraft(
-                    session, rawAiJson, user.getId());
-            sessionService.updateStatus(sessionId, "AI_COMPLETED");
+                    session, rawAiJson, user.getId(), claimToken);
             return ResponseEntity.ok(draft);
+        } catch (AccessDeniedException e) {
+            releaseClaimIfOwned(
+                    sessionId, user.getId(), claimToken, "READY_FOR_AI");
+            throw e;
         } catch (Exception e) {
             log.error("[ImportApiController] AI Job analysis failed for sessionId={}", sessionId, e);
-            sessionService.updateStatus(sessionId, "AI_FAILED_RETRYABLE");
+            releaseClaimIfOwned(
+                    sessionId,
+                    user.getId(),
+                    claimToken,
+                    "AI_FAILED_RETRYABLE");
             return ResponseEntity.internalServerError().body(Map.of(
                     "status", "FAILED_RETRYABLE",
                     "message", "Phân tích AI thất bại. Vùng crop và bản nháp hiện tại vẫn được giữ nguyên.",
                     "error", "AI_PROCESSING_FAILED"
             ));
+        }
+    }
+
+    private void authorizeGenerationTarget(
+            PracticePdfImportSession session,
+            Long userId) {
+        if (session.getLinkedDraftId() != null) {
+            authorizationService.requireDraft(
+                    session.getLinkedDraftId(), userId, PracticeAction.EDIT);
+        } else {
+            authorizationService.requireGlobal(userId, PracticeAction.CREATE);
+        }
+    }
+
+    private void releaseClaimIfOwned(
+            Long sessionId,
+            Long userId,
+            String claimToken,
+            String nextStatus) {
+        try {
+            generationService.release(
+                    sessionId, userId, claimToken, nextStatus);
+        } catch (IllegalStateException lostClaim) {
+            log.warn(
+                    "[ImportApiController] generation claim no longer owned for sessionId={}",
+                    sessionId);
         }
     }
 
