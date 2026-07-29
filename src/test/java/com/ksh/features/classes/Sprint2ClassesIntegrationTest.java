@@ -82,7 +82,7 @@ class Sprint2ClassesIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void list_leader_sees_all() throws Exception {
+    void list_leader_sees_same_department_classes() throws Exception {
         saveClass("By-Lect", lecturer.getId(), "BYL01");
         saveClass("By-Leader", leader.getId(), "BYH01");
 
@@ -257,7 +257,7 @@ class Sprint2ClassesIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void edit_by_leader_succeeds_for_any_class() throws Exception {
+    void edit_by_leader_succeeds_for_same_department_class() throws Exception {
         ClassEntity entity = saveClass("Lect class", lecturer.getId(), "LCEDT");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
@@ -504,6 +504,9 @@ class Sprint2ClassesIntegrationTest {
 
     private ClassEntity saveClass(String name, Long lecturerId, String code) {
         ClassEntity e = new ClassEntity(name, lecturerId, lecturerId, null, null, null, 100);
+        userRepository.findById(lecturerId)
+                .map(User::getDepartmentId)
+                .ifPresent(e::setDepartmentId);
         e.setCode(code);
         try {
             return classRepository.saveAndFlush(e);

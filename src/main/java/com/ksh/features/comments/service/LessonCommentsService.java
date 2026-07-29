@@ -187,8 +187,9 @@ public class LessonCommentsService {
 
     /**
      * Hides a comment (sets REJECTED) so students no longer see it. Requires the
-     * caller to be a moderator (owning lecturer / ADMIN / LEADER). Idempotent: a
-     * no-op when already hidden. Writes a {@code comment_moderation} audit row.
+     * caller to be a moderator (owning lecturer / ADMIN / in-department LEADER).
+     * Idempotent: a no-op when already hidden. Writes a
+     * {@code comment_moderation} audit row.
      *
      * @throws AccessDeniedException   when the caller is not a moderator (403)
      * @throws EntityNotFoundException when the comment is not in this lesson (404)
@@ -220,8 +221,9 @@ public class LessonCommentsService {
 
     /**
      * Hides each comment, skipping cross-lesson/deleted ones. Not
-     * {@code @Transactional}: each single {@link #hide} runs in its own tx so one
-     * failing item never rolls back items already committed (partial success).
+     * {@code @Transactional}: without an ambient transaction, each
+     * {@link CommentModerationWriter#hide} call runs in its own transaction so
+     * one failing item never rolls back items already committed (partial success).
      * Callers should {@link #assertModerator} first so a non-moderator fails fast
      * with 403 rather than receiving a silent {@code BulkResult(0, N)}.
      */
@@ -293,13 +295,14 @@ public class LessonCommentsService {
 
     /**
      * Runs the shared lesson gates (live class, section, PUBLISHED) then admits
-     * the caller. ADMIN/LEADER bypass enrollment so they can view and moderate the
-     * thread; otherwise the owning lecturer or an ACTIVE-enrolled student passes.
-     * The lesson gates always run first, so ADMIN/LEADER gain nothing on a deleted
+     * the caller. ADMIN and in-department LEADER bypass enrollment so they can
+     * view and moderate the thread; otherwise the owning lecturer or an
+     * ACTIVE-enrolled student passes. The lesson gates always run first, so
+     * moderators gain nothing on a deleted
      * or unpublished lesson. Returns the live class.
      */
     private ClassEntity authorize(Long lessonId, Long userId, Role role) {
-        // Lesson gates first so ADMIN/LEADER gain nothing on a deleted/unpublished lesson.
+        // Lesson gates first so moderators gain nothing on a deleted/unpublished lesson.
         ClassEntity clazz = lessonAccessResolver.resolveByLesson(lessonId).clazz();
         accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
         return clazz;

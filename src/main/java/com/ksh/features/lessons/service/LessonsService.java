@@ -42,7 +42,8 @@ import static com.ksh.entities.LibraryAsset.KIND_VIDEO;
  *
  * <p>Every mutating method enforces ownership via
  * {@link ClassesService#getEditable}: a LECTURER may only manage lessons
- * inside classes they own; LEADER and ADMIN may manage any class. The
+ * inside classes they own; LEADER may manage classes in their resolved
+ * department and ADMIN may manage any class. The
  * section↔class binding is verified through
  * {@link LessonsReorderService#verifySectionBelongsToClass}.
  *

@@ -272,13 +272,13 @@ class AssignmentsIntegrationTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_gets_404_for_class_they_do_not_own() throws Exception {
+    void lecturer_gets_403_for_class_they_do_not_own() throws Exception {
         // Create a class owned by a different lecturer.
         User other = ensureUser("other2@ksh.edu.vn", "Other2", Role.LECTURER);
         ClassEntity otherClass = saveClass("Other class", other.getId(), "OTHS6");
 
         mockMvc.perform(get("/lecturer/classes/{id}/assignments", otherClass.getId()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
