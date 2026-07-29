@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="vi"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head(${article.title}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=Nanum+Myeongjo:wght@400;700;800&amp;family=Noto+Serif+KR:wght@400;500&amp;display=swap">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/discovery.css(v='4')}">
+</head>
+<body class="discovery-body"
+      th:classappend="${selectedLanguage == 'ko'} ? ' is-korean-mode' : ' is-vietnamese-mode'">
+<header th:replace="~{fragments/app-header :: appHeader('discover')}"></header>
+
+<nav class="discovery-language-strip" aria-label="Chế độ ngôn ngữ">
+  <div>
+    <span class="language-globe" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path>
+      </svg>
+    </span>
+    <span class="language-label">Chế độ đọc</span>
+    <a th:href="@{/discover/{slug}(slug=${article.slug},lang='ko')}"
+       th:classappend="${selectedLanguage == 'ko'} ? ' is-active' : ''"
+       th:attr="aria-current=${selectedLanguage == 'ko'} ? 'page' : null">
+      <strong lang="ko">한국어</strong>
+      <small>Chọn từ để học</small>
+    </a>
+    <a th:href="@{/discover/{slug}(slug=${article.slug},lang='vi')}"
+       th:classappend="${selectedLanguage == 'vi'} ? ' is-active' : ''"
+       th:attr="aria-current=${selectedLanguage == 'vi'} ? 'page' : null">
+      <strong>Tiếng Việt</strong>
+      <small>Nghĩa &amp; giao diện Việt</small>
+    </a>
+  </div>
+</nav>
+
+<main class="article-shell">
+  <nav class="article-breadcrumb" aria-label="Đường dẫn">
+    <a th:href="@{/discover(lang=${selectedLanguage})}">Khám phá</a>
+    <span>/</span>
+    <a th:href="@{/discover(category=${article.categorySlug},lang=${selectedLanguage})}"
+       th:text="${article.categoryLabel}">Văn hóa</a>
+  </nav>
+
+  <section class="source-ribbon" aria-label="Nguồn nguyên bản">
+    <div class="source-ribbon-brand">
+      <span class="source-ribbon-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+      </span>
+      <span>
+        <small>NGUỒN NGUYÊN BẢN</small>
+        <strong th:text="${article.sourceName}">Nguồn báo</strong>
+      </span>
+    </div>
+    <div class="source-ribbon-summary">
+      <strong th:text="${article.originalTitle}">Tiêu đề gốc</strong>
+      <span>
+        <span th:text="${article.languageLabel}">Tiếng Việt</span>
+        <span aria-hidden="true">·</span>
+        <time th:datetime="${article.publishedAt}" th:text="${article.displayDate}">29.07.2026</time>
+      </span>
+    </div>
+    <div class="source-ribbon-actions">
+      <button type="button" data-copy-current-url>
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Sao chép
+      </button>
+      <a th:href="${article.canonicalUrl}"
+         target="_blank" rel="noopener noreferrer nofollow">
+        Đọc bài gốc
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M7 17 17 7M8 7h9v9"></path>
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <section th:if="${article.containsKorean}"
+           class="vocab-learning-banner"
+           data-vocab-workbench
+           th:attr="data-article-id=${article.id}">
+    <span class="vocab-learning-glyph" aria-hidden="true">가</span>
+    <div>
+      <p class="discovery-kicker">KOREAN READING MODE</p>
+      <h2>Chọn một từ Hàn ngay trong bài</h2>
+      <p>Bôi đen từ hoặc cụm từ Hàn để tra nghĩa Việt và lưu vào kho flashcard cá nhân.</p>
+    </div>
+    <button type="button" data-vocab-open>
+      <span aria-hidden="true">＋</span>
+      Mở kho từ
+    </button>
+  </section>
+
+  <article class="article-layout">
+    <div class="article-main">
+      <header class="article-header" data-korean-reading-surface>
+        <div class="story-meta">
+          <span class="category-chip" th:text="${article.categoryLabel}">Văn hóa</span>
+          <span th:if="${article.vietnamRelated}" class="vietnam-chip">Liên quan Việt–Hàn</span>
+        </div>
+        <h1 class="article-title"
+            th:classappend="${selectedLanguage == 'ko' and article.koreanOriginal} ? ' discovery-korean-text' : ''"
+            th:text="${selectedLanguage == 'ko' and article.koreanOriginal ? article.originalTitle : article.title}">Tiêu đề bài viết</h1>
+        <p class="article-deck"
+           th:if="${article.excerpt != null and not (rawPreviewEnabled and article.sourceBodyHtml != null)}"
+           th:text="${article.excerpt}">Đoạn giới thiệu</p>
+        <div class="article-meta-line">
+          <span th:text="${article.sourceName}">Nguồn</span>
+          <span>·</span>
+          <time th:datetime="${article.publishedAt}" th:text="${article.displayDate}">29.07.2026</time>
+          <span>·</span>
+          <span th:text="${article.readMinutes + ' phút đọc'}">3 phút đọc</span>
+        </div>
+      </header>
+
+      <div class="article-cover story-art"
+           th:classappend="${' story-art--' + article.categorySlug + (article.imageUrl != null ? ' has-image' : '')}">
+        <img th:if="${article.imageUrl != null}"
+             class="story-art-image"
+             data-story-image
+             th:src="${article.imageUrl}"
+             alt=""
+             referrerpolicy="no-referrer"
+             fetchpriority="high"
+             decoding="async">
+        <span class="story-art-grid" aria-hidden="true"></span>
+        <span th:unless="${article.categorySlug == 'scholarship'}"
+              class="story-art-glyph" lang="ko" th:text="${article.glyph}">문</span>
+        <span th:if="${article.categorySlug == 'scholarship' and article.imageUrl == null}"
+              class="scholarship-source-cover" aria-hidden="true">
+          <small>STUDY IN KOREA</small>
+          <strong>GKS</strong>
+          <em>Official notice · NIIED</em>
+        </span>
+        <span class="article-cover-caption">
+          <small>KSH DISCOVERY</small>
+          <strong th:text="${article.categoryLabel}">Văn hóa</strong>
+        </span>
+      </div>
+
+      <section sec:authorize="hasRole('ADMIN')"
+               th:if="${rawPreviewEnabled and article.sourceBodyHtml != null}"
+               class="source-preview"
+               th:classappend="${' source-preview--' + article.sourceLayout}">
+        <div class="source-preview-gate">
+          <span>DEV · ADMIN ONLY</span>
+          <strong>Preview full ruột nguồn</strong>
+          <p>Chưa dùng để xuất bản production; nội dung và hình ảnh vẫn thuộc nguồn gốc.</p>
+        </div>
+        <header class="source-preview-header">
+          <div>
+            <p th:text="${article.sourceName}">Nguồn bài</p>
+            <h2>Nội dung nguyên bản</h2>
+          </div>
+          <dl>
+            <div th:if="${article.sourceAuthor != null}">
+              <dt>Tác giả</dt>
+              <dd th:text="${article.sourceAuthor}">Tác giả</dd>
+            </div>
+            <div>
+              <dt>Ngày đăng</dt>
+              <dd th:text="${article.displayDate}">29.07.2026</dd>
+            </div>
+            <div th:if="${article.sourceViewCount != null}">
+              <dt>Lượt xem nguồn</dt>
+              <dd th:text="${#numbers.formatInteger(article.sourceViewCount, 1, 'COMMA')}">1,000</dd>
+            </div>
+          </dl>
+        </header>
+        <div class="source-preview-reading">
+          <aside class="source-reading-rail" aria-label="Bố cục nội dung nguồn">
+            <p>ĐANG ĐỌC</p>
+            <ol>
+              <li>
+                <span>01</span>
+                <strong>Nội dung nguyên bản</strong>
+              </li>
+              <li>
+                <span>02</span>
+                <strong>Hình ảnh &amp; chú thích</strong>
+              </li>
+              <li th:if="${not article.attachments.isEmpty()}">
+                <span>03</span>
+                <strong>Tệp từ nguồn</strong>
+              </li>
+            </ol>
+            <small>
+              Bản xem trước dành cho quản trị viên. KSH giữ nguyên đường dẫn và quyền tác giả của nguồn.
+            </small>
+          </aside>
+          <div class="source-preview-body"
+               data-korean-reading-surface
+               th:utext="${article.sourceBodyHtml}">
+            Nội dung nguồn đã được làm sạch.
+          </div>
+        </div>
+        <section th:if="${not article.attachments.isEmpty()}" class="source-attachments">
+          <p class="discovery-kicker">FILE ĐÍNH KÈM TỪ NGUỒN</p>
+          <div>
+            <a th:each="attachment : ${article.attachments}"
+               th:href="${attachment.sourceUrl}"
+               target="_blank"
+               rel="noopener noreferrer nofollow">
+              <span aria-hidden="true">↓</span>
+              <strong th:text="${attachment.name}">Tệp đính kèm</strong>
+              <small th:text="${attachment.sizeLabel == null ? 'Tệp nguồn' : attachment.sizeLabel}">PDF</small>
+            </a>
+          </div>
+        </section>
+      </section>
+
+      <section class="article-editorial"
+               th:if="${not (rawPreviewEnabled and article.sourceBodyHtml != null)}"
+               aria-labelledby="editorial-heading">
+        <p class="discovery-kicker">TÓM LƯỢC NGUỒN</p>
+        <h2 id="editorial-heading">Điều đáng biết từ bản tin này</h2>
+        <p th:if="${article.excerpt != null}" class="article-lead"
+           th:text="${article.excerpt}">Tóm lược</p>
+        <div th:unless="${article.excerpt != null}" class="article-no-excerpt">
+          Nguồn không phát hành đoạn mô tả trong feed. KSH không tự suy diễn hoặc sao chép nội
+          dung; bạn có thể đọc nguyên bản bằng nút nguồn ở bên cạnh.
+        </div>
+
+        <div class="why-card">
+          <span aria-hidden="true">선</span>
+          <div>
+            <h3>Vì sao tin này xuất hiện?</h3>
+            <p th:if="${article.vietnamRelated}">
+              Tin có mối liên hệ trực tiếp với Việt Nam nên được gắn nhãn và xuất hiện trong tab Việt–Hàn riêng.
+            </p>
+            <p th:unless="${article.vietnamRelated}"
+               th:text="${'Nội dung thuộc chủ đề ' + article.categoryLabel.toLowerCase() + ', nằm trong phạm vi văn hóa phi chính trị mà KSH tuyển chọn.'}">
+              Nội dung phù hợp phạm vi.
+            </p>
+          </div>
+        </div>
+
+        <div class="editorial-boundary">
+          <h3>Ranh giới biên tập</h3>
+          <p>
+            Bản full nguồn ở trên chỉ mở cho quản trị viên trong giai đoạn phát triển. Trước production,
+            nội dung phải đi qua bước biên tập/AI, kiểm duyệt và chính sách bản quyền; đường dẫn gốc luôn được giữ lại.
+          </p>
+        </div>
+      </section>
+
+      <section th:if="${not article.vocabulary.isEmpty()}" class="article-vocab">
+        <div class="section-heading compact">
+          <div>
+            <p class="discovery-kicker">HỌC NHANH QUA TIN</p>
+            <h2>Từ Hàn nên ghi nhớ</h2>
+          </div>
+          <span>Đối chiếu nghĩa Việt bằng Open API</span>
+        </div>
+        <div class="article-vocab-grid">
+          <article th:each="word : ${article.vocabulary}">
+            <a th:href="${word.dictionaryUrl}" target="_blank" rel="noopener noreferrer">
+              <span lang="ko" th:text="${word.word}">문화</span>
+              <small th:if="${word.pronunciation != null}"
+                     th:text="${word.pronunciation}">mun-hwa</small>
+              <strong th:text="${word.meaningVi}">văn hóa</strong>
+              <em th:if="${word.partOfSpeech != null}" th:text="${word.partOfSpeech}">danh từ</em>
+            </a>
+            <button type="button"
+                    data-vocab-prefill
+                    th:attr="data-word=${word.word},
+                             data-pronunciation=${word.pronunciation},
+                             data-meaning=${word.meaningVi},
+                             data-part-of-speech=${word.partOfSpeech},
+                             data-dictionary-url=${word.dictionaryUrl}">
+              ＋ Lưu flashcard
+            </button>
+          </article>
+        </div>
+      </section>
+    </div>
+  </article>
+
+  <section th:if="${not article.related.isEmpty()}" class="related-section">
+    <div class="section-heading">
+      <div>
+        <p class="discovery-kicker">ĐỌC TIẾP</p>
+        <h2>Cùng chủ đề</h2>
+      </div>
+    </div>
+    <div class="related-grid">
+      <article th:each="story : ${article.related}">
+        <a class="related-art story-art"
+           th:classappend="${' story-art--' + story.categorySlug + (story.imageUrl != null ? ' has-image' : '')}"
+           th:href="@{/discover/{slug}(slug=${story.slug},lang=${selectedLanguage})}">
+          <img th:if="${story.imageUrl != null}"
+               class="story-art-image"
+               data-story-image
+               th:src="${story.imageUrl}"
+               alt=""
+               referrerpolicy="no-referrer"
+               loading="lazy"
+               decoding="async">
+          <span class="story-art-glyph" lang="ko" th:text="${story.glyph}">문</span>
+        </a>
+        <span class="category-chip" th:text="${story.categoryLabel}">Văn hóa</span>
+        <h3><a th:href="@{/discover/{slug}(slug=${story.slug},lang=${selectedLanguage})}"
+               th:classappend="${selectedLanguage == 'ko' and story.koreanOriginal} ? ' discovery-korean-text' : ''"
+               th:text="${selectedLanguage == 'ko' and story.koreanOriginal ? story.originalTitle : story.title}">Tiêu đề</a></h3>
+        <p th:text="${story.sourceName + ' · ' + story.displayDate}">Nguồn</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<button th:if="${article.containsKorean}"
+        type="button"
+        class="vocab-selection-action"
+        data-vocab-selection-action
+        hidden>
+  <span aria-hidden="true">가</span>
+  Tra nghĩa &amp; lưu
+</button>
+
+<aside th:if="${article.containsKorean}"
+       class="vocab-drawer"
+       data-vocab-drawer
+       th:attr="data-article-id=${article.id}"
+       hidden
+       aria-labelledby="vocab-drawer-heading">
+  <header>
+    <div>
+      <p class="discovery-kicker">KHO TỪ CỦA TÔI</p>
+      <h2 id="vocab-drawer-heading">Tạo flashcard từ bài đọc</h2>
+    </div>
+    <button type="button" data-vocab-close aria-label="Đóng kho từ">×</button>
+  </header>
+  <div class="vocab-drawer-word">
+    <span lang="ko" data-vocab-word>단어</span>
+    <small data-vocab-pronunciation-preview>Chọn một từ Hàn trong bài</small>
+  </div>
+  <p class="vocab-drawer-status" data-vocab-status>
+    Bôi đen từ Hàn, sau đó chọn “Tra nghĩa &amp; lưu”.
+  </p>
+  <form data-vocab-form>
+    <input type="hidden" data-vocab-word-input>
+    <input type="hidden" data-vocab-dictionary-url>
+    <label>
+      <span>Nghĩa tiếng Việt</span>
+      <textarea rows="3" maxlength="1000" data-vocab-meaning
+                placeholder="Nghĩa lấy từ Korean Basic Dictionary hoặc nhập thủ công"></textarea>
+    </label>
+    <div class="vocab-drawer-fields">
+      <label>
+        <span>Phát âm</span>
+        <input maxlength="180" data-vocab-pronunciation placeholder="예: 문화">
+      </label>
+      <label>
+        <span>Từ loại</span>
+        <input maxlength="80" data-vocab-part-of-speech placeholder="예: 명사">
+      </label>
+    </div>
+    <div class="vocab-drawer-actions">
+      <button type="submit" class="vocab-save-button" data-vocab-save disabled>
+        Lưu vào flashcard
+      </button>
+      <a href="#" target="_blank" rel="noopener noreferrer"
+         data-vocab-dictionary-link hidden>Mở từ điển ↗</a>
+    </div>
+  </form>
+  <a class="vocab-deck-link" href="/my/flashcards" data-vocab-deck-link>
+    Xem toàn bộ kho flashcard →
+  </a>
+</aside>
+
+<footer class="discovery-footer">
+  <span>KSH · Korea Discovery</span>
+  <p>Luôn đọc nguồn gốc trước khi trích dẫn hoặc chia sẻ thông tin.</p>
+</footer>
+
+<script th:src="@{/js/discovery.js(v='4')}" defer></script>
+</body>
+</html>
