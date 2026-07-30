@@ -121,11 +121,16 @@ public class LessonsController {
         }
         try {
             lessonsService.create(classId, sectionId,
-                    form.title().trim(), form.status(), form.contentHtml(),
+                    new LessonForm(form.title().trim(), form.status(),
+                            form.contentHtml(), form.effectiveContentType(),
+                            form.videoUrl(), form.videoProvider()),
                     user.getId(), user.getRole());
         } catch (RuntimeException ex) {
+            String failureTarget = ex instanceof IllegalArgumentException
+                    ? lessonsBaseUrl(classId, sectionId)
+                    : lessonsTabUrl(classId, sectionId);
             return MutationFailureHandler.handle(ex,
-                    lessonsTabUrl(classId, sectionId), ra,
+                    failureTarget, ra,
                     MSG_LESSON_CREATE_FAILED, log,
                     "Failed to create lesson in class " + classId
                             + " / section " + sectionId);
@@ -218,8 +223,11 @@ public class LessonsController {
             lessonsService.update(classId, sectionId, lessonId,
                     trimmed, user.getId(), user.getRole());
         } catch (RuntimeException ex) {
+            String failureTarget = ex instanceof IllegalArgumentException
+                    ? lessonEditUrl(classId, sectionId, lessonId)
+                    : lessonsTabUrl(classId, sectionId);
             return MutationFailureHandler.handle(ex,
-                    lessonsTabUrl(classId, sectionId), ra,
+                    failureTarget, ra,
                     MSG_LESSON_UPDATE_FAILED, log,
                     "Failed to update lesson " + lessonId + " in class " + classId);
         }

@@ -55,6 +55,10 @@ public final class MutationFailureHandler {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, notFound.getMessage());
             return "redirect:" + redirectTarget;
         }
+        if (ex instanceof IllegalArgumentException validation) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, validation.getMessage());
+            return "redirect:" + redirectTarget;
+        }
         logger.error(logTemplate, appendThrowable(logArgs, ex));
         ra.addFlashAttribute(ATTR_FLASH_ERROR, userMessage);
         return "redirect:" + redirectTarget;
