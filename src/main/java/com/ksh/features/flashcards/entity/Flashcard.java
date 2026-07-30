@@ -36,6 +36,15 @@ public class Flashcard {
     @Column(name = "back_text", nullable = false, columnDefinition = "TEXT")
     private String backText;
 
+    @Column(name = "front_image", length = 500)
+    private String frontImage;
+
+    @Column(name = "back_image", length = 500)
+    private String backImage;
+
+    @Column(name = "alternatives_json", columnDefinition = "TEXT")
+    private String alternativesJson;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -83,6 +92,16 @@ public class Flashcard {
         this.sortOrder = sortOrder;
     }
 
+    public void updateRich(String frontText, String backText, String frontImage,
+                           String backImage, String alternativesJson, int sortOrder) {
+        this.frontText = frontText;
+        this.backText = backText;
+        this.frontImage = frontImage;
+        this.backImage = backImage;
+        this.alternativesJson = alternativesJson;
+        this.sortOrder = sortOrder;
+    }
+
     public Long getId() {
         return id;
     }
@@ -98,6 +117,12 @@ public class Flashcard {
     public String getBackText() {
         return backText;
     }
+
+    public String getFrontImage() { return frontImage; }
+
+    public String getBackImage() { return backImage; }
+
+    public String getAlternativesJson() { return alternativesJson; }
 
     public int getSortOrder() {
         return sortOrder;

@@ -177,12 +177,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
-                        // Raw upload routing is fail-closed. Only the two
-                        // controller-backed public namespaces are allowed;
+                        // Raw upload routing is fail-closed. Only the
+                        // controller-backed public image namespaces are allowed;
                         // Practice material must use its authorized controller.
                         .requestMatchers(
                                 "/uploads/avatars/**",
-                                "/uploads/exams/**"
+                                "/uploads/exams/**",
+                                "/uploads/flashcards/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()

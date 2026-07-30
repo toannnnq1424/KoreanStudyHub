@@ -5,8 +5,11 @@ import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.dto.FlashcardDtos.ClassOption;
+import com.ksh.features.flashcards.dto.FlashcardDtos.CardItem;
+import com.ksh.features.flashcards.dto.FlashcardDtos.CardView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckDetailView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
+import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSaveResult;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSummary;
 import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
@@ -38,19 +41,22 @@ public class DeckService {
     private final DeckSummaryAssembler assembler;
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
+    private final CardService cardService;
 
     public DeckService(FlashcardDeckRepository deckRepository,
                        FlashcardRepository cardRepository,
                        DeckAccessResolver accessResolver,
                        DeckSummaryAssembler assembler,
                        EnrollmentRepository enrollmentRepository,
-                       ClassRepository classRepository) {
+                       ClassRepository classRepository,
+                       CardService cardService) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.accessResolver = accessResolver;
         this.assembler = assembler;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
+        this.cardService = cardService;
     }
 
     /** Creates a new PRIVATE deck owned by the caller; returns its id. */
@@ -59,6 +65,15 @@ public class DeckService {
         FlashcardDeck deck = new FlashcardDeck(ownerId, form.title().trim(),
                 trimToNull(form.description()));
         return deckRepository.save(deck).getId();
+    }
+
+    /** Atomically creates a deck and returns its ordered persisted cards. */
+    @Transactional
+    public DeckSaveResult createDeckWithCards(Long ownerId, DeckForm form, List<CardItem> items) {
+        Long deckId = createDeck(ownerId, form);
+        List<CardView> cards = cardService.replaceCards(deckId, ownerId,
+                items == null ? List.of() : items);
+        return new DeckSaveResult(deckId, cards);
     }
 
     /** Updates a deck's metadata; owner-only. */
@@ -90,9 +105,10 @@ public class DeckService {
                 : classRepository.findById(deck.getClassId())
                         .map(ClassEntity::getName).orElse(null);
         List<ClassOption> shareClasses = resolved.isOwner() ? shareableClasses(userId) : List.of();
+        String ownerName = assembler.toSummaries(List.of(deck), userId).get(0).ownerName();
         return new DeckDetailView(deck.getId(), deck.getTitle(), deck.getDescription(),
                 count, resolved.isOwner(), deck.isShared(), deck.getClassId(),
-                className, shareClasses);
+                className, shareClasses, ownerName);
     }
 
     /**

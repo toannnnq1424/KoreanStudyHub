@@ -1,6 +1,9 @@
 package com.ksh.features.flashcards.controller;
 
 import com.ksh.features.flashcards.dto.FlashcardDtos;
+import com.ksh.features.flashcards.dto.FlashcardDtos.CreateDeckRequest;
+import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
+import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSaveResult;
 import com.ksh.features.flashcards.dto.FlashcardDtos.ImportResult;
 import com.ksh.features.flashcards.dto.FlashcardDtos.ImportedCardRow;
 import com.ksh.features.flashcards.dto.FlashcardDtos.ReviewRatingRequest;
@@ -9,7 +12,10 @@ import com.ksh.features.flashcards.dto.FlashcardDtos.SaveCardsRequest;
 import com.ksh.features.flashcards.imports.FlashcardImportParser;
 import com.ksh.features.flashcards.imports.FlashcardImportTemplate;
 import com.ksh.features.flashcards.service.CardService;
+import com.ksh.features.flashcards.service.DeckService;
 import com.ksh.features.flashcards.service.SmartReviewService;
+import com.ksh.features.flashcards.service.FlashcardImageStorageService;
+import com.ksh.features.flashcards.repository.FlashcardRepository;
 import com.ksh.features.flashcards.support.DeckAccessResolver;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -67,17 +73,72 @@ public class FlashcardApiController {
     private final DeckAccessResolver accessResolver;
     private final FlashcardImportParser importParser;
     private final FlashcardImportTemplate importTemplate;
+    private final FlashcardImageStorageService imageStorage;
+    private final FlashcardRepository cardRepository;
+    private final DeckService deckService;
 
     public FlashcardApiController(CardService cardService,
                                   SmartReviewService smartReviewService,
                                   DeckAccessResolver accessResolver,
                                   FlashcardImportParser importParser,
-                                  FlashcardImportTemplate importTemplate) {
+                                  FlashcardImportTemplate importTemplate,
+                                  FlashcardImageStorageService imageStorage,
+                                  FlashcardRepository cardRepository,
+                                  DeckService deckService) {
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
         this.accessResolver = accessResolver;
         this.importParser = importParser;
         this.importTemplate = importTemplate;
+        this.imageStorage = imageStorage;
+        this.cardRepository = cardRepository;
+        this.deckService = deckService;
+    }
+
+    /**
+     * Creates a deck and its initial cards without navigating away. The ordered
+     * card ids let the editor upload locally-previewed images only after the
+     * card rows exist.
+     */
+    @PostMapping(value = "/decks", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createDeck(@RequestBody CreateDeckRequest req,
+                                        @AuthenticationPrincipal KshUserDetails user) {
+        try {
+            validateDeckRequest(req);
+            List<FlashcardDtos.CardItem> items = req.cards() == null ? List.of() : req.cards();
+            DeckSaveResult saved = deckService.createDeckWithCards(user.getId(),
+                    new DeckForm(req.title().trim(), req.description()), items);
+            return ResponseEntity.ok(AjaxResult.success(saved));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to create flashcard deck", ex);
+            return internalError();
+        }
+    }
+
+    @PostMapping(value = "/cards/{cardId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadImage(@PathVariable Long cardId,
+                                         @RequestParam("side") String side,
+                                         @RequestParam("file") MultipartFile file,
+                                         @AuthenticationPrincipal KshUserDetails user) {
+        try {
+            // Resolve ownership before accepting bytes into object storage.
+            var card = cardRepository.findById(cardId)
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy thẻ"));
+            accessResolver.requireOwner(card.getDeckId(), user.getId());
+            String url = imageStorage.store(cardId, side, file);
+            cardService.setImage(cardId, user.getId(), side, url);
+            return ResponseEntity.ok(AjaxResult.success(url));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (IOException ex) {
+            return internalError();
+        }
     }
 
     /** Replaces the deck's cards with the submitted set; owner-only. */
@@ -87,8 +148,8 @@ public class FlashcardApiController {
                                        @AuthenticationPrincipal KshUserDetails user) {
         try {
             List<FlashcardDtos.CardItem> items = req.cards() == null ? List.of() : req.cards();
-            cardService.replaceCards(deckId, user.getId(), items);
-            return ResponseEntity.ok(AjaxResult.success());
+            return ResponseEntity.ok(AjaxResult.success(
+                    cardService.replaceCards(deckId, user.getId(), items)));
         } catch (IllegalArgumentException ex) {
             return badRequest(ex.getMessage());
         } catch (AccessDeniedException ex) {
@@ -126,6 +187,19 @@ public class FlashcardApiController {
      * Does NOT persist — the JS appends the rows and the existing save flow
      * commits them once the user confirms.
      */
+    @PostMapping(value = "/import-preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> previewExcel(@RequestParam("file") MultipartFile file) {
+        try {
+            List<ImportedCardRow> rows = importParser.parse(file);
+            return ResponseEntity.ok(AjaxResult.success(new ImportResult(rows, rows.size())));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to preview flashcard Excel import", ex);
+            return internalError();
+        }
+    }
+
     @PostMapping(value = "/{deckId}/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> importExcel(@PathVariable Long deckId,
                                          @RequestParam("file") MultipartFile file,
@@ -159,6 +233,18 @@ public class FlashcardApiController {
         } catch (IOException ex) {
             log.error("Failed to generate flashcard import template", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private static void validateDeckRequest(CreateDeckRequest req) {
+        if (req == null || req.title() == null || req.title().isBlank()) {
+            throw new IllegalArgumentException("Tiêu đề không được để trống");
+        }
+        if (req.title().trim().length() > 300) {
+            throw new IllegalArgumentException("Tiêu đề tối đa 300 ký tự");
+        }
+        if (req.description() != null && req.description().length() > 2000) {
+            throw new IllegalArgumentException("Mô tả tối đa 2000 ký tự");
         }
     }
 }
