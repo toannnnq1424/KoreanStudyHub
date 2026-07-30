@@ -22,8 +22,9 @@
 
         <h1 class="detail-title">Danh mục System Prompt</h1>
         <p class="detail-sub">Quản lý system message dùng lại ở cấp hệ thống.
-            Hiện luồng sinh câu hỏi đã nối với prompt <code>AI_QUESTION_GENERATOR</code>;
-            các prompt khác chỉ có hiệu lực khi một luồng nghiệp vụ tham chiếu đúng tên.</p>
+            Hiện luồng sinh câu hỏi dùng <code>AI_QUESTION_GENERATOR</code> và Korea Discovery
+            dùng <code>DISCOVERY_NEWS_EDITOR</code>; prompt khác chỉ có hiệu lực khi một luồng
+            nghiệp vụ tham chiếu đúng tên.</p>
 
         <!-- Flash → toast on page load (admin.js drains this node). -->
         <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
@@ -139,9 +140,9 @@
 
             <div class="ai-prompt-runtime-note" role="note">
                 <strong>Runtime đang hỗ trợ</strong>
-                <span>Luồng sinh câu hỏi đọc prompt đang bật có tên chính xác
-                    <code>AI_QUESTION_GENERATOR</code>. Các tên khác hiện chỉ được lưu trong danh mục,
-                    chưa tự động gắn với AI provider hoặc màn hình nghiệp vụ.</span>
+                <span>Luồng sinh câu hỏi đọc <code>AI_QUESTION_GENERATOR</code>; pipeline Korea Discovery
+                    đọc <code>DISCOVERY_NEWS_EDITOR</code>. Cả hai dùng chuỗi AI provider đang bật theo
+                    thứ tự fallback. Các tên khác chưa tự động gắn với màn hình nghiệp vụ.</span>
             </div>
 
             <form th:action="@{/admin/settings/ai/prompts}" method="post"

@@ -215,10 +215,10 @@ public class DiscoveryService {
         return new ArticleDetail(
                 article.getId(),
                 article.getSlug(),
-                article.getDisplayTitle(),
+                effectiveTitle(article),
                 article.getOriginalTitle(),
                 containsKorean(article.getOriginalTitle()),
-                article.getSourceExcerpt(),
+                effectiveExcerpt(article),
                 article.getCategory(),
                 article.getCategory().getLabel(),
                 article.getCategory().getSlug(),
@@ -227,6 +227,7 @@ public class DiscoveryService {
                 article.getImageUrl(),
                 article.getCanonicalUrl(),
                 article.getSourceBodyHtml(),
+                article.getAiEditorialBody(),
                 article.getSourceLayout() == null
                         ? "curated"
                         : article.getSourceLayout().getCssClass(),
@@ -248,10 +249,10 @@ public class DiscoveryService {
         return new StoryCard(
                 article.getId(),
                 article.getSlug(),
-                article.getDisplayTitle(),
+                effectiveTitle(article),
                 article.getOriginalTitle(),
                 containsKorean(article.getOriginalTitle()),
-                article.getSourceExcerpt(),
+                effectiveExcerpt(article),
                 article.getCategory(),
                 article.getCategory().getLabel(),
                 article.getCategory().getSlug(),
@@ -261,7 +262,7 @@ public class DiscoveryService {
                 article.getPublishedAt(),
                 article.getPublishedAt().format(DISPLAY_DATE),
                 article.getVietnamRelevance() > 0,
-                readMinutes(article.getSourceExcerpt())
+                readMinutes(effectiveExcerpt(article))
         );
     }
 
@@ -273,6 +274,20 @@ public class DiscoveryService {
                 vocabulary.getPartOfSpeech(),
                 vocabulary.getDictionaryUrl()
         );
+    }
+
+    private static String effectiveTitle(NewsArticle article) {
+        return hasText(article.getAiEditorialTitle())
+                ? article.getAiEditorialTitle() : article.getDisplayTitle();
+    }
+
+    private static String effectiveExcerpt(NewsArticle article) {
+        return hasText(article.getAiEditorialExcerpt())
+                ? article.getAiEditorialExcerpt() : article.getSourceExcerpt();
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static List<StoryCard> slice(List<StoryCard> cards, int from, int to) {

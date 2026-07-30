@@ -218,12 +218,14 @@
       </section>
 
       <section class="article-editorial"
-               th:if="${not (rawPreviewEnabled and article.sourceBodyHtml != null)}"
+               th:if="${article.editorialBody != null or not (rawPreviewEnabled and article.sourceBodyHtml != null)}"
                aria-labelledby="editorial-heading">
         <p class="discovery-kicker">TÓM LƯỢC NGUỒN</p>
         <h2 id="editorial-heading">Điều đáng biết từ bản tin này</h2>
         <p th:if="${article.excerpt != null}" class="article-lead"
            th:text="${article.excerpt}">Tóm lược</p>
+        <div th:if="${article.editorialBody != null}" class="article-ai-editorial-body"
+             th:text="${article.editorialBody}">Nội dung biên tập AI.</div>
         <div th:unless="${article.excerpt != null}" class="article-no-excerpt">
           Nguồn không phát hành đoạn mô tả trong feed. KSH không tự suy diễn hoặc sao chép nội
           dung; bạn có thể đọc nguyên bản bằng nút nguồn ở bên cạnh.
@@ -245,7 +247,11 @@
 
         <div class="editorial-boundary">
           <h3>Ranh giới biên tập</h3>
-          <p>
+          <p th:if="${article.editorialBody != null}">
+            Đây là bản biên tập do AI tạo từ nội dung nguồn và cần được người quản trị kiểm duyệt trước khi phát hành.
+            KSH luôn giữ đường dẫn gốc để đối chiếu.
+          </p>
+          <p th:unless="${article.editorialBody != null}">
             Bản full nguồn ở trên chỉ mở cho quản trị viên trong giai đoạn phát triển. Trước production,
             nội dung phải đi qua bước biên tập/AI, kiểm duyệt và chính sách bản quyền; đường dẫn gốc luôn được giữ lại.
           </p>

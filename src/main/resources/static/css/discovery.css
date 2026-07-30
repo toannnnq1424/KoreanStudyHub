@@ -2066,6 +2066,14 @@ a.story-art:hover .story-art-image {
   line-height: 1.8;
 }
 
+.article-ai-editorial-body {
+  margin-top: 24px;
+  color: #3f4f67;
+  font-size: 15px;
+  line-height: 1.85;
+  white-space: pre-line;
+}
+
 .article-no-excerpt {
   padding: 20px;
   border: 1px dashed #c7d2e5;

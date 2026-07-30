@@ -38,6 +38,8 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                     :query IS NULL
                     OR LOWER(article.displayTitle) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(COALESCE(article.sourceExcerpt, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(article.aiEditorialTitle, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(article.aiEditorialExcerpt, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                   )
             ORDER BY article.rankScore DESC, article.publishedAt DESC, article.id DESC
             """)
@@ -56,6 +58,8 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
                     :query IS NULL
                     OR LOWER(article.displayTitle) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(COALESCE(article.sourceExcerpt, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(article.aiEditorialTitle, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(article.aiEditorialExcerpt, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                   )
             ORDER BY article.rankScore DESC, article.publishedAt DESC, article.id DESC
             """)
@@ -89,6 +93,17 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             ORDER BY article.rankScore DESC, article.publishedAt DESC, article.id DESC
             """)
     List<NewsArticle> findVocabularyCandidates(Pageable pageable);
+
+    @Query("""
+            SELECT article
+            FROM NewsArticle article
+            WHERE article.status = com.ksh.features.discovery.entity.NewsArticleStatus.PUBLISHED
+              AND article.aiGeneratedAt IS NULL
+              AND article.sourceBodyText IS NOT NULL
+              AND LENGTH(article.sourceBodyText) > 80
+            ORDER BY article.rankScore DESC, article.publishedAt DESC, article.id DESC
+            """)
+    List<NewsArticle> findAiEditorialCandidates(Pageable pageable);
 
     long countByStatus(NewsArticleStatus status);
 
