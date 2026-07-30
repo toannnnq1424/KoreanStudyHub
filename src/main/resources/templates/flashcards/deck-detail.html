@@ -53,9 +53,17 @@
         <span class="fc-mode-icon fc-mode-match"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="m15 4 6 6M21 4l-6 6M3 16h6"/></svg></span>
         <span>Ghép cặp</span>
       </a>
-      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/blocks|}">
-        <span class="fc-mode-icon fc-mode-blocks"><svg viewBox="0 0 24 24"><path d="m12 2 4 2.3v4.5L12 11 8 8.8V4.3Z"/><path d="m6 12 4 2.3v4.5L6 21l-4-2.2v-4.5Z"/><path d="m18 12 4 2.3v4.5L18 21l-4-2.2v-4.5Z"/></svg></span>
-        <span>Khối từ</span>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/tiles|}">
+        <span class="fc-mode-icon fc-mode-tiles"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="8.5" y="14" width="7" height="7" rx="1.5"/><path d="m10 7 4 10"/><path d="m14 7-4 10"/></svg></span>
+        <span>Xếp âm tiết</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/word-search|}">
+        <span class="fc-mode-icon fc-mode-word-search"><svg viewBox="0 0 24 24"><path d="M4 4h12v12H4z"/><path d="M8 4v12M12 4v12M4 8h12M4 12h12"/><circle cx="16.5" cy="16.5" r="3.5"/><path d="m19 19 2 2"/></svg></span>
+        <span>Săn chữ Hàn</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/word-connect|}">
+        <span class="fc-mode-icon fc-mode-word-connect"><svg viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="11" cy="18" r="2.5"/><path d="m8.3 7.2 7.2.6M7.2 9.2l2.7 6.5M16.7 10l-4.2 5.8"/></svg></span>
+        <span>Nối âm tiết</span>
       </a>
       <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/blast|}">
         <span class="fc-mode-icon fc-mode-blast"><svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.2-2 4-2 4s2.8-.5 4-2"/><path d="M9 15 4 10l4-1 3-5c3-2 6-2 9-2 0 3 0 6-2 9l-5 3-1 4Z"/><circle cx="15" cy="7" r="1.5"/><path d="m9 18-3 3"/></svg></span>
