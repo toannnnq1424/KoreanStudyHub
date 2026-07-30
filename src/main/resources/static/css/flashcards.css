@@ -257,10 +257,11 @@
 .fc-term-row { display: grid; grid-template-columns: minmax(0,1fr) 1px minmax(0,1fr) 34px; align-items: center; min-height: 88px; padding: 14px 16px; border-radius: 9px; background: #fff; box-shadow: 0 2px 7px rgba(39,50,74,.08); }
 .fc-term-row-with-image { min-height: 194px; padding-top: 22px; padding-bottom: 22px; }
 .fc-term-cell { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 18px; color: #3c455a; font-size: 15px; line-height: 1.45; }
+.fc-term-cell > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .fc-term-front { font-family: "Nanum Myeongjo", "Noto Serif KR", serif; font-size: 17px; }
 .fc-term-cell img { width: 54px; height: 54px; border-radius: 7px; object-fit: cover; }
 .fc-term-row-with-image .fc-term-cell { gap: 18px; }
-.fc-term-image-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 220px; height: 146px; flex: 0 0 220px; padding: 4px; overflow: hidden; border: 1px solid #e0e5ee; border-radius: 9px; background: #f8f9fc; cursor: zoom-in; }
+.fc-term-image-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 220px; max-width: 100%; height: 146px; flex: 0 1 220px; padding: 4px; overflow: hidden; border: 1px solid #e0e5ee; border-radius: 9px; background: #f8f9fc; cursor: zoom-in; }
 .fc-term-image-button img { width: 100%; height: 100%; border-radius: 6px; object-fit: contain; transition: transform .2s ease; }
 .fc-term-image-button:hover img { transform: scale(1.025); }
 .fc-term-image-zoom { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(31,40,62,.82); color: #fff; opacity: .84; transition: opacity .18s, transform .18s; }
@@ -300,6 +301,36 @@
 .fc-share-form label { color: var(--fc-muted); font-size: 13px; }
 .is-hidden { display: none !important; }
 
+@media (max-width: 900px) {
+    .fc-term-row-with-image {
+        grid-template-columns: minmax(0,1fr) 34px;
+        gap: 12px 10px;
+        min-height: 0;
+        padding: 18px;
+    }
+    .fc-term-row-with-image .fc-term-cell {
+        grid-column: 1;
+        padding: 0;
+    }
+    .fc-term-row-with-image .fc-term-separator {
+        grid-column: 1;
+        width: 100%;
+        height: 1px;
+    }
+    .fc-term-row-with-image .fc-term-edit {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        align-self: center;
+    }
+    .fc-term-row-with-image .fc-term-image-button {
+        width: min(220px,45%);
+        max-width: 45%;
+        height: auto;
+        aspect-ratio: 3 / 2;
+        flex: 0 1 220px;
+    }
+}
+
 @media (max-width: 600px) {
     .fc-page { padding: 26px 16px 56px; }
     .fc-toolbar { align-items: flex-start; flex-direction: column; gap: 14px; }
@@ -331,7 +362,7 @@
     .fc-complete-ring { width: 96px; height: 96px; }
     .fc-complete-check { inset: 28px; width: 40px; height: 40px; }
     .fc-term-row { grid-template-columns: 1fr; gap: 12px; padding: 18px; }
-    .fc-term-image-button { width: 130px; height: 86px; flex-basis: 130px; }
+    .fc-term-row-with-image .fc-term-image-button { width: min(160px,45%); max-width: 45%; height: auto; flex-basis: 160px; }
     .fc-image-viewer { padding: 68px 14px 42px; }
     .fc-image-viewer-stage { width: 96vw; height: 76vh; padding: 8px; }
     .fc-term-separator { width: 100%; height: 1px; }
