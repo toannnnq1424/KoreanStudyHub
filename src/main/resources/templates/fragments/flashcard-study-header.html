@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<header th:fragment="studyHeader(deck, activeMode, showAudio)" class="fc-study-header">
+  <div class="fc-study-header-side">
+    <details class="fc-study-mode-picker">
+      <summary class="fc-study-current-mode" aria-label="Mở danh sách cách học">
+        <span class="fc-mode-icon"
+              th:classappend="${' fc-mode-' + activeMode}"
+              aria-hidden="true">
+          <svg th:if="${activeMode == 'flip'}" viewBox="0 0 24 24"><rect x="4" y="3" width="15" height="14" rx="2"/><path d="M8 21h10a2 2 0 0 0 2-2V8"/></svg>
+          <svg th:if="${activeMode == 'learn'}" viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A7 7 0 1 1 15.5 14.5C14.6 15.2 14 16 14 17h-4c0-1-.6-1.8-1.5-2.5Z"/></svg>
+          <svg th:if="${activeMode == 'test'}" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+          <svg th:if="${activeMode == 'match'}" viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="m15 4 6 6M21 4l-6 6M3 16h6"/></svg>
+          <svg th:if="${activeMode == 'blocks'}" viewBox="0 0 24 24"><path d="m12 2 4 2.3v4.5L12 11 8 8.8V4.3Z"/><path d="m6 12 4 2.3v4.5L6 21l-4-2.2v-4.5Z"/><path d="m18 12 4 2.3v4.5L18 21l-4-2.2v-4.5Z"/></svg>
+          <svg th:if="${activeMode == 'blast'}" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.2-2 4-2 4s2.8-.5 4-2"/><path d="M9 15 4 10l4-1 3-5c3-2 6-2 9-2 0 3 0 6-2 9l-5 3-1 4Z"/><circle cx="15" cy="7" r="1.5"/><path d="m9 18-3 3"/></svg>
+        </span>
+        <span class="fc-study-mode-name"
+              th:text="${activeMode == 'flip'} ? 'Lật thẻ' :
+                       (${activeMode == 'learn'} ? 'Học' :
+                       (${activeMode == 'test'} ? 'Kiểm tra' :
+                       (${activeMode == 'match'} ? 'Ghép cặp' :
+                       (${activeMode == 'blocks'} ? 'Khối từ' : 'Bắn từ'))))">Học</span>
+        <svg class="fc-study-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+      </summary>
+
+      <nav class="fc-study-mode-menu" aria-label="Chọn cách học">
+        <a th:href="@{|/my/flashcards/${deck.id()}/flip|}" th:classappend="${activeMode == 'flip'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-flip"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="15" height="14" rx="2"/><path d="M8 21h10a2 2 0 0 0 2-2V8"/></svg></span>
+          <span>Lật thẻ</span>
+        </a>
+        <a th:href="@{|/my/flashcards/${deck.id()}/learn|}" th:classappend="${activeMode == 'learn'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-learn"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A7 7 0 1 1 15.5 14.5C14.6 15.2 14 16 14 17h-4c0-1-.6-1.8-1.5-2.5Z"/></svg></span>
+          <span>Học</span>
+        </a>
+        <a th:href="@{|/my/flashcards/${deck.id()}/test|}" th:classappend="${activeMode == 'test'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-test"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg></span>
+          <span>Kiểm tra</span>
+        </a>
+        <a th:href="@{|/my/flashcards/${deck.id()}/match|}" th:classappend="${activeMode == 'match'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-match"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="m15 4 6 6M21 4l-6 6M3 16h6"/></svg></span>
+          <span>Ghép cặp</span>
+        </a>
+        <a th:href="@{|/my/flashcards/${deck.id()}/blocks|}" th:classappend="${activeMode == 'blocks'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-blocks"><svg viewBox="0 0 24 24"><path d="m12 2 4 2.3v4.5L12 11 8 8.8V4.3Z"/><path d="m6 12 4 2.3v4.5L6 21l-4-2.2v-4.5Z"/><path d="m18 12 4 2.3v4.5L18 21l-4-2.2v-4.5Z"/></svg></span>
+          <span>Khối từ</span>
+        </a>
+        <a th:href="@{|/my/flashcards/${deck.id()}/blast|}" th:classappend="${activeMode == 'blast'} ? 'is-active'">
+          <span class="fc-mode-icon fc-mode-blast"><svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.2-2 4-2 4s2.8-.5 4-2"/><path d="M9 15 4 10l4-1 3-5c3-2 6-2 9-2 0 3 0 6-2 9l-5 3-1 4Z"/><circle cx="15" cy="7" r="1.5"/><path d="m9 18-3 3"/></svg></span>
+          <span>Bắn từ</span>
+        </a>
+      </nav>
+    </details>
+  </div>
+
+  <details th:if="${activeMode == 'match' and matchSessionTitle != null}"
+           class="fc-study-deck-session">
+    <summary class="fc-study-deck-name fc-study-deck-session-summary">
+      <span th:text="${matchSessionTitle}">Ghép nhiều bộ</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+    </summary>
+    <div class="fc-study-deck-session-menu">
+      <span>Nguồn thẻ trong phiên</span>
+      <div th:each="sessionDeck : ${matchSessionDecks}">
+        <strong th:text="${sessionDeck.title()}">Tên bộ thẻ</strong>
+        <small th:text="${sessionDeck.cardCount() + ' thuật ngữ'}">0 thuật ngữ</small>
+      </div>
+    </div>
+  </details>
+
+  <strong th:if="${activeMode != 'test' and matchSessionTitle == null}" class="fc-study-deck-name"
+          th:text="${deck.title()}">Tên bộ thẻ</strong>
+
+  <div th:if="${activeMode == 'test'}" class="fc-test-header-progress" aria-live="polite">
+    <strong id="fcTestHeaderCount">0 / 0</strong>
+    <span aria-hidden="true"><i></i><i></i><i></i></span>
+  </div>
+
+  <div class="fc-study-header-side fc-study-header-actions">
+    <button th:if="${showAudio and activeMode != 'test'}" type="button" class="fc-header-icon" id="fcGlobalAudio" aria-label="Nghe phát âm">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>
+    </button>
+    <span th:if="${showAudio and activeMode != 'test'}" class="fc-header-score" title="Điểm phiên học">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+      <span id="fcSessionScore">0</span>
+    </span>
+    <button th:if="${activeMode == 'test'}" type="button" class="fc-print-test-button" id="fcPrintTest">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <span>In bài kiểm tra</span>
+    </button>
+    <a class="fc-header-icon" th:href="@{|/my/flashcards/${deck.id()}|}" aria-label="Đóng chế độ học">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+    </a>
+  </div>
+</header>
+</body>
+</html>

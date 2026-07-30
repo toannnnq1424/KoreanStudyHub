@@ -14,8 +14,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import static com.ksh.common.IConstant.ATTR_CARDS_JSON;
@@ -84,10 +87,34 @@ public class FlashcardStudyController {
     @GetMapping("/{id}/{mode:learn|test|match|blast|blocks}")
     public String learning(@PathVariable Long id,
                            @PathVariable String mode,
+                           @RequestParam(name = "mix", required = false) List<Long> mixedDeckIds,
                            @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
         DeckDetailView deck = deckService.getDetail(id, user.getId());
-        List<CardView> cards = studyService.getStudyCards(id, user.getId());
+        List<CardView> cards = new ArrayList<>(studyService.getStudyCards(id, user.getId()));
+        if ("match".equals(mode)) {
+            LinkedHashSet<Long> selectedIds = new LinkedHashSet<>();
+            selectedIds.add(id);
+            if (mixedDeckIds != null) {
+                mixedDeckIds.stream()
+                        .filter(deckId -> deckId != null && !deckId.equals(id))
+                        .limit(7)
+                        .forEach(selectedIds::add);
+            }
+            selectedIds.stream().skip(1)
+                    .forEach(deckId -> cards.addAll(studyService.getStudyCards(deckId, user.getId())));
+            var studyDeckOptions = deckService.listStudyDeckOptions(user.getId());
+            model.addAttribute("matchDeckOptionsJson", toJson(studyDeckOptions));
+            model.addAttribute("matchSelectedDeckIdsJson", toJson(selectedIds));
+            if (selectedIds.size() > 1) {
+                var sessionDecks = studyDeckOptions.stream()
+                        .filter(summary -> selectedIds.contains(summary.id()))
+                        .toList();
+                model.addAttribute("matchSessionDecks", sessionDecks);
+                model.addAttribute("matchSessionTitle",
+                        "Ghép " + sessionDecks.size() + " bộ · " + cards.size() + " thuật ngữ");
+            }
+        }
         model.addAttribute(ATTR_DECK, deck);
         model.addAttribute(ATTR_CARDS_JSON, toJson(cards));
         model.addAttribute("activeMode", mode);
@@ -95,9 +122,9 @@ public class FlashcardStudyController {
     }
 
     /** Serializes the card list to a JSON string for the data attribute. */
-    private String toJson(List<CardView> cards) {
+    private String toJson(Object value) {
         try {
-            return objectMapper.writeValueAsString(cards);
+            return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
             // Defensive: an empty array keeps the client renderer safe.
             return "[]";

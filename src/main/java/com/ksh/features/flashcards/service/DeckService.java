@@ -130,6 +130,24 @@ public class DeckService {
     }
 
     /**
+     * All decks the caller may use in an in-browser mixed study session.
+     * This deliberately reuses the existing OWNER / SHARED visibility model:
+     * no cross-user private deck is exposed and no session rows are persisted.
+     */
+    @Transactional(readOnly = true)
+    public List<DeckSummary> listStudyDeckOptions(Long userId) {
+        List<FlashcardDeck> viewable = new ArrayList<>(
+                deckRepository.findByOwnerIdOrderByUpdatedAtDesc(userId));
+        List<Long> classIds = activeClassIds(userId);
+        if (!classIds.isEmpty()) {
+            viewable.addAll(deckRepository
+                    .findByVisibilityAndClassIdInAndOwnerIdNotOrderByUpdatedAtDesc(
+                            FlashcardDeck.VISIBILITY_SHARED, classIds, userId));
+        }
+        return assembler.toSummaries(viewable, userId);
+    }
+
+    /**
      * One page of the caller's own decks as a {@code Page<DeckSummary>},
      * newest-first. The deck page is fetched with the paging query, then its
      * content is batch-assembled into summaries and re-wrapped preserving the
