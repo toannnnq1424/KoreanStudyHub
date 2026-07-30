@@ -28,6 +28,9 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationFa
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -142,6 +145,16 @@ public class SecurityConfig {
         return new AuthenticatedPrincipalOAuth2AuthorizedClientRepository(authorizedClientService);
     }
 
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
     /**
      * Configures the main {@link SecurityFilterChain} for the application.
      *
@@ -233,6 +246,9 @@ public class SecurityConfig {
                         // class join.
                         .defaultSuccessUrl("/", false)
                 )
+                .sessionManagement(session -> session
+                        .sessionConcurrency(concurrency -> concurrency
+                                .sessionRegistry(sessionRegistry())))
                 .addFilterBefore(
                         new LoginThrottleFilter(loginAttemptThrottle),
                         UsernamePasswordAuthenticationFilter.class)
