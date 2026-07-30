@@ -32,10 +32,17 @@
             return (String(value || '').match(/[\uac00-\ud7a3]/g) || []).length;
         }
         function gameClue(value) {
-            var text = String(value || '').replace(/\s+/g, ' ').trim();
+            var text = String(value || '').normalize('NFC').replace(/\s+/g, ' ').trim();
             var separator = text.indexOf(' — ');
             if (separator > 0) text = text.slice(0, separator).trim();
-            return text.length > 120 ? text.slice(0, 117).trimEnd() + '…' : text;
+            var graphemes;
+            if (window.Intl && typeof window.Intl.Segmenter === 'function') {
+                graphemes = Array.from(new window.Intl.Segmenter('vi', { granularity: 'grapheme' })
+                    .segment(text), function (part) { return part.segment; });
+            } else {
+                graphemes = Array.from(text);
+            }
+            return graphemes.length > 120 ? graphemes.slice(0, 117).join('').trimEnd() + '…' : text;
         }
         function toHangulEntry(card) {
             var front = String(card.front || '').trim().normalize('NFC');
