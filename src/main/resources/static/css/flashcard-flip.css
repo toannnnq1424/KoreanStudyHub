@@ -58,7 +58,7 @@
 .fc-flip-face-head { display: flex; align-items: center; justify-content: space-between; align-self: start; color: #8b93a7; font-size: 10px; font-weight: 750; letter-spacing: .13em; }
 .fc-flip-face-head span:last-child { color: #a4aaba; font-weight: 550; letter-spacing: 0; }
 .fc-face-text { position: relative; z-index: 1; max-width: 78%; margin: auto; color: #30384d; font-size: clamp(28px, 4.2vw, 46px); font-weight: 450; line-height: 1.36; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
-.fc-face-term { font-family: "Nanum Myeongjo", Georgia, serif; }
+.fc-face-term { font-family: "Segoe UI", "Noto Sans", "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif; }
 .fc-face-image { display: block; position: absolute; top: 74px; left: 50%; width: min(48%, 360px); max-height: 250px; border-radius: 14px; object-fit: contain; transform: translateX(-50%); }
 .fc-flip-face.has-media { grid-template-rows: auto minmax(0, 1fr) auto auto; row-gap: 8px; }
 .fc-flip-face.has-media .fc-face-image { position: static; grid-row: 2; width: min(66%, 440px); max-height: 285px; align-self: center; justify-self: center; margin: 0; transform: none; }

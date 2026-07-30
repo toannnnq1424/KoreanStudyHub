@@ -37,6 +37,11 @@ public class NewsArticleWriter {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PersistResult persist(NewsSource source, NewsCandidate candidate) {
+        return persist(source, candidate, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PersistResult persist(NewsSource source, NewsCandidate candidate, Long ingestionRunId) {
         String canonicalUrl = NewsUrlSupport.canonicalize(candidate.canonicalUrl());
         String urlHash = NewsUrlSupport.sha256(canonicalUrl);
         if (blacklistService.isBlacklistedHash(urlHash)) {
@@ -52,6 +57,7 @@ public class NewsArticleWriter {
         LocalDateTime now = LocalDateTime.now();
         NewsArticle article = new NewsArticle();
         article.setSourceId(source.getId());
+        article.setIngestionRunId(ingestionRunId);
         article.setSourceName(source.getName());
         article.setExternalId(trimTo(candidate.externalId(), 180));
         article.setCanonicalUrl(canonicalUrl);

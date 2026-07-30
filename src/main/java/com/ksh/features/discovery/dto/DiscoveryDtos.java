@@ -90,6 +90,7 @@ public final class DiscoveryDtos {
             String imageUrl,
             String canonicalUrl,
             String sourceBodyHtml,
+            String editorialBody,
             String sourceLayout,
             String sourceAuthor,
             Long sourceViewCount,

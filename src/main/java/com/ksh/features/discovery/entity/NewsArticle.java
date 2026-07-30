@@ -30,6 +30,9 @@ public class NewsArticle {
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
+    @Column(name = "ingestion_run_id")
+    private Long ingestionRunId;
+
     @Column(name = "source_name", nullable = false, length = 180)
     private String sourceName;
 
@@ -59,6 +62,24 @@ public class NewsArticle {
 
     @Column(name = "source_excerpt", columnDefinition = "TEXT")
     private String sourceExcerpt;
+
+    @Column(name = "ai_editorial_title", length = 700)
+    private String aiEditorialTitle;
+
+    @Column(name = "ai_editorial_excerpt", columnDefinition = "TEXT")
+    private String aiEditorialExcerpt;
+
+    @Column(name = "ai_editorial_body", columnDefinition = "MEDIUMTEXT")
+    private String aiEditorialBody;
+
+    @Column(name = "ai_generated_at")
+    private LocalDateTime aiGeneratedAt;
+
+    @Column(name = "ai_generation_run_id")
+    private Long aiGenerationRunId;
+
+    @Column(name = "ai_generation_error", length = 1000)
+    private String aiGenerationError;
 
     @Column(name = "source_body_html", columnDefinition = "MEDIUMTEXT")
     private String sourceBodyHtml;

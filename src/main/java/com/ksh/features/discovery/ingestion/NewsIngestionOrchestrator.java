@@ -110,7 +110,7 @@ public class NewsIngestionOrchestrator {
                     NewsCandidate enriched = articleWriter.requiresContentFetch(candidate)
                             ? contentCrawler.enrichIfNeeded(source, candidate)
                             : candidate;
-                    applyResult(run, articleWriter.persist(source, enriched));
+                    applyResult(run, articleWriter.persist(source, enriched, run.getId()));
                 } catch (RuntimeException itemException) {
                     run.setErrorCount(run.getErrorCount() + 1);
                     log.warn(
@@ -179,7 +179,9 @@ public class NewsIngestionOrchestrator {
             int rejected,
             int duplicates,
             int blacklisted,
-            int errors
+            int errors,
+            int aiGenerated,
+            int aiFailed
     ) {
         static RunSummary from(NewsIngestionRun run) {
             return new RunSummary(
@@ -190,7 +192,9 @@ public class NewsIngestionOrchestrator {
                     run.getRejectedCount(),
                     run.getDuplicateCount(),
                     run.getBlacklistedCount(),
-                    run.getErrorCount()
+                    run.getErrorCount(),
+                    run.getAiGeneratedCount(),
+                    run.getAiFailedCount()
             );
         }
     }

@@ -17,6 +17,7 @@ public final class DiscoveryLearningDtos {
     }
 
     public record SaveVocabularyRequest(
+            Long deckId,
             String word,
             String pronunciation,
             String meaningVi,

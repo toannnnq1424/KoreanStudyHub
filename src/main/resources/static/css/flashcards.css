@@ -38,7 +38,7 @@
 
 .fc-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .fc-card { display: grid; grid-template-columns: 150px minmax(0,1fr) auto; min-height: 112px; align-items: stretch; overflow: hidden; border: 1px solid var(--fc-line); border-radius: 13px; background: #fff; color: inherit; text-decoration: none; box-shadow: 0 5px 18px rgba(39,50,74,.035); transition: transform .2s, box-shadow .2s, border-color .2s; }
-.fc-card::before { content: "가 · 나 · 다"; display: flex; align-items: center; justify-content: center; min-height: 112px; background: linear-gradient(135deg, #eef1ff, #f8f5ff); color: #7380d8; font-family: "Nanum Myeongjo", Georgia, serif; font-size: 22px; letter-spacing: .18em; }
+.fc-card::before { content: "가 · 나 · 다"; display: flex; align-items: center; justify-content: center; min-height: 112px; background: linear-gradient(135deg, #eef1ff, #f8f5ff); color: #7380d8; font-family: "Segoe UI", "Noto Sans", "Malgun Gothic", Arial, sans-serif; font-size: 22px; letter-spacing: .18em; }
 .fc-card:nth-child(3n+2)::before { background: linear-gradient(135deg,#f1fbf8,#f7fbff); color: #4a9d8c; }
 .fc-card:nth-child(3n)::before { background: linear-gradient(135deg,#fff7ed,#fff9f5); color: #d79663; }
 .fc-card:hover { transform: translateY(-3px); border-color: #c5cdf6; box-shadow: 0 14px 28px rgba(39,50,74,.10); }
@@ -258,7 +258,7 @@
 .fc-term-row-with-image { min-height: 194px; padding-top: 22px; padding-bottom: 22px; }
 .fc-term-cell { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 18px; color: #3c455a; font-size: 15px; line-height: 1.45; }
 .fc-term-cell > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-.fc-term-front { font-family: "Nanum Myeongjo", "Noto Serif KR", serif; font-size: 17px; }
+.fc-term-front { font-family: "Segoe UI", "Noto Sans", "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif; font-size: 17px; }
 .fc-term-cell img { width: 54px; height: 54px; border-radius: 7px; object-fit: cover; }
 .fc-term-row-with-image .fc-term-cell { gap: 18px; }
 .fc-term-image-button { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 220px; max-width: 100%; height: 146px; flex: 0 1 220px; padding: 4px; overflow: hidden; border: 1px solid #e0e5ee; border-radius: 9px; background: #f8f9fc; cursor: zoom-in; }

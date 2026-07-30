@@ -1,7 +1,7 @@
 package com.ksh.features.discovery.dictionary;
 
 import com.ksh.features.discovery.ingestion.NewsHttpClient;
-import com.ksh.features.discovery.service.DiscoveryDictionarySettingsService;
+import com.ksh.features.dictionary.KoreanDictionarySettingsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -23,7 +23,7 @@ import java.util.Set;
 public class KoreanDictionaryClient {
 
     private final NewsHttpClient httpClient;
-    private final DiscoveryDictionarySettingsService settingsService;
+    private final KoreanDictionarySettingsService settingsService;
     private final String apiKey;
     private final String baseUrl;
 
@@ -33,7 +33,7 @@ public class KoreanDictionaryClient {
             @Value("${app.news.dictionary.api-key:}") String apiKey,
             @Value("${app.news.dictionary.base-url:https://krdict.korean.go.kr/api/search}")
             String baseUrl,
-            DiscoveryDictionarySettingsService settingsService
+            KoreanDictionarySettingsService settingsService
     ) {
         this.httpClient = httpClient;
         this.settingsService = settingsService;
@@ -56,7 +56,7 @@ public class KoreanDictionaryClient {
         if (!isConfigured() || koreanWord == null || koreanWord.isBlank()) {
             return Optional.empty();
         }
-        String url = UriComponentsBuilder.fromUriString(baseUrl)
+        String url = UriComponentsBuilder.fromUriString(effectiveBaseUrl())
                 .queryParam("key", effectiveApiKey())
                 .queryParam("q", koreanWord)
                 .queryParam("part", "word")
@@ -73,6 +73,10 @@ public class KoreanDictionaryClient {
 
     private String effectiveApiKey() {
         return settingsService == null ? apiKey : settingsService.apiKey(apiKey);
+    }
+
+    private String effectiveBaseUrl() {
+        return settingsService == null ? baseUrl : settingsService.baseUrl(baseUrl);
     }
 
     Optional<DictionaryEntry> parse(String xml, String requestedWord) {

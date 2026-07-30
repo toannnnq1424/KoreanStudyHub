@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${deck.title()}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css(v='2')}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
