@@ -23,11 +23,6 @@
           Lớp của bạn <span th:text="${rows != null ? rows.size() : 0}">0</span>
         </button>
       </div>
-      <div class="panel-top-right">
-        <button class="btn-ghost icon-only" id="viewToggle" type="button" aria-label="Chuyển dạng lưới">
-          <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        </button>
-      </div>
     </div>
 
     <!-- Toolbar -->
@@ -66,7 +61,7 @@
     </div>
 
     <!-- Class list -->
-    <div class="class-list">
+    <div class="class-list" id="active-class-list">
 
       <!-- Empty state when no active or pending classes -->
       <div class="empty"
@@ -94,8 +89,8 @@
             </div>
           </div>
         </a>
-        <div class="stat student-stat-text" th:text="${row.lecturerName()}">Lecturer</div>
-        <div class="stat student-stat-text"
+        <div class="stat student-stat-text student-class-lecturer" th:text="${row.lecturerName()}">Lecturer</div>
+        <div class="stat student-stat-text student-class-date"
              th:text="${#temporals.format(row.joinedAt(), 'dd/MM/yyyy')}">--/--/----</div>
         <div class="dropdown row-menu" style="position:relative;">
           <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn">
@@ -146,10 +141,9 @@
               </div>
             </div>
           </div>
-          <div class="stat student-stat-text" th:text="${row.lecturerName()}">Lecturer</div>
-          <div class="stat student-stat-text"
+          <div class="stat student-stat-text student-class-lecturer" th:text="${row.lecturerName()}">Lecturer</div>
+          <div class="stat student-stat-text student-class-date"
                th:text="${row.joinedAt() != null ? #temporals.format(row.joinedAt(), 'dd/MM/yyyy') : '—'}">--/--/----</div>
-          <div class="stat student-stat-text" style="color:#B45309; font-weight:600;">Chờ duyệt</div>
         </div>
       </div>
     </div>

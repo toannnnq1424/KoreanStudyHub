@@ -6,8 +6,6 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.PDFTextStripperByArea;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.awt.geom.Rectangle2D;
@@ -16,8 +14,6 @@ import java.io.IOException;
 
 @Service
 public class PracticePdfTextExtractionService {
-
-    private static final Logger log = LoggerFactory.getLogger(PracticePdfTextExtractionService.class);
 
     public String extractPageRangeText(String pdfPath, int startPage, int endPage) throws IOException {
         File file = new File(pdfPath);

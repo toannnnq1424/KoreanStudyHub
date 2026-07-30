@@ -926,15 +926,19 @@ class PracticeProgressServiceTest {
                     "raw_score":8,"raw_score_max":10,
                     "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   },
                   "103":{
                     "raw_score":15,"raw_score_max":30,
                     "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   }
                 }
                 """);
@@ -963,12 +967,15 @@ class PracticeProgressServiceTest {
         assertThat(q53Cohort.scoreFact().denominator()).isEqualByComparingTo("30");
         assertThat(q51Cohort.scoreFact().value()).isNotEqualByComparingTo("99");
         assertThat(q53Cohort.scoreFact().value()).isNotEqualByComparingTo("99");
-        assertThat(q51Cohort.policyBundleId()).isNull();
+        assertThat(q51Cohort.policyBundleId())
+                .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V2");
         assertThat(q51Cohort.scoringProfileId())
                 .isEqualTo(
                         "WRITING:TASK_NATIVE_RUBRIC_V1:"
-                                + "KSH_WRITING_EVALUATOR_V2");
-        assertThat(q51Cohort.cohortId()).doesNotContain("BUNDLE=");
+                                + "KSH_WRITING_EVALUATOR_V2:"
+                                + "BUNDLE=KSH_WRITING_POLICY_BUNDLE_V2");
+        assertThat(q51Cohort.cohortId())
+                .contains("BUNDLE=KSH_WRITING_POLICY_BUNDLE_V2");
         assertThat(page.analytics().writingAttemptCoverage().eligibleCount())
                 .isEqualTo(1);
         assertThat(page.analytics().history()).singleElement().satisfies(row -> {
@@ -979,16 +986,57 @@ class PracticeProgressServiceTest {
     }
 
     @Test
-    void writingSeparatesTaskProfileBundleAndMaximumCohorts() {
+    void deterministicInvalidWritingZeroRemainsEligibleCurrentEvidence() {
+        PracticeAttempt attempt = writingAttempt("""
+                {
+                  "151":{
+                    "raw_score":0,"raw_score_max":10,
+                    "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                    "evaluation_status":"INVALID_LEARNER_RESPONSE",
+                    "evaluation_source":"BACKEND_RULE",
+                    "evaluation_reason":"BLANK_ANSWER",
+                    "evaluation_retryable":false,
+                    "score_available":true
+                  }
+                }
+                """);
+        stubWritingEvidence(
+                List.of(attempt),
+                List.of(writingQuestion(
+                        151L,
+                        WritingTaskType.Q51,
+                        BigDecimal.TEN)));
+
+        PracticeProgressPageData page =
+                service.getProgressPageData(USER_ID, "Learner", "");
+        var q51 = writingTask(page, "Q51");
+
+        assertThat(q51.coverage().eligibleCount()).isEqualTo(1);
+        assertThat(q51.coverage().excludedCount()).isZero();
+        assertThat(q51.cohorts()).singleElement().satisfies(cohort -> {
+            assertThat(cohort.scoreFact().value())
+                    .isEqualByComparingTo("0.00");
+            assertThat(cohort.scoreFact().numerator())
+                    .isEqualByComparingTo("0");
+            assertThat(cohort.scoreFact().denominator())
+                    .isEqualByComparingTo("10");
+        });
+    }
+
+    @Test
+    void writingKeepsOnlyTheExactCurrentBundleInCurrentCohorts() {
         PracticeAttempt attempt = writingAttempt("""
                 {
                   "201":{
                     "raw_score":21,"raw_score_max":30,
                     "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"bundle-a",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   },
                   "202":{
                     "raw_score":20,"raw_score_max":40,
@@ -996,7 +1044,8 @@ class PracticeProgressServiceTest {
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
                     "policy_bundle_id":"bundle-b",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   }
                 }
                 """);
@@ -1012,17 +1061,14 @@ class PracticeProgressServiceTest {
                 service.getProgressPageData(USER_ID, "Learner", "");
         var q53 = writingTask(page, "Q53");
 
-        assertThat(q53.cohorts()).hasSize(2);
-        assertThat(q53.cohorts())
-                .extracting(cohort -> cohort.policyBundleId())
-                .containsExactly("bundle-a", "bundle-b");
+        assertThat(q53.cohorts()).singleElement()
+                .satisfies(cohort -> assertThat(cohort.policyBundleId())
+                        .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V2"));
         assertThat(q53.cohorts().get(0).maximum())
                 .isEqualByComparingTo("30");
-        assertThat(q53.cohorts().get(1).maximum())
-                .isEqualByComparingTo("40");
         assertThat(q53.cohorts())
                 .extracting(cohort -> cohort.scoreFact().value())
-                .containsExactly(new BigDecimal("70.00"), new BigDecimal("50.00"));
+                .containsExactly(new BigDecimal("70.00"));
         assertThat(q53.cohorts())
                 .allSatisfy(cohort -> {
                     assertThat(cohort.scoreFact().sampleSize()).isEqualTo(1);
@@ -1030,8 +1076,12 @@ class PracticeProgressServiceTest {
                             .isZero();
                 });
         assertThat(q53.coverage().activityCount()).isEqualTo(2);
-        assertThat(q53.coverage().eligibleCount()).isEqualTo(2);
-        assertThat(q53.coverage().excludedCount()).isZero();
+        assertThat(q53.coverage().eligibleCount()).isEqualTo(1);
+        assertThat(q53.coverage().excludedCount()).isEqualTo(1);
+        assertThat(q53.coverage().exclusions()).singleElement()
+                .extracting(exclusion -> exclusion.reason())
+                .isEqualTo(
+                        ProgressExclusionReason.WRITING_LEGACY_SCORE_EVIDENCE);
     }
 
     @Test
@@ -1042,11 +1092,14 @@ class PracticeProgressServiceTest {
                     "raw_score":8,"raw_score_max":10,
                     "task_type":"Q52","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   },
                   "302":{
                     "task_type":"Q52","engine":"KSH_WRITING_EVALUATOR_STATUS",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATION_UNAVAILABLE",
                     "evaluation_source":"PROVIDER","evaluation_reason":"HTTP_ERROR",
                     "score_available":false
@@ -1056,7 +1109,8 @@ class PracticeProgressServiceTest {
                     "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"LEGACY_BAND_V1",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","score_available":true
+                    "evaluation_reason":"NONE","evaluation_retryable":false,
+                    "score_available":true
                   }
                 }
                 """);
@@ -1131,6 +1185,7 @@ class PracticeProgressServiceTest {
                     "raw_score":8,"raw_score_max":10,
                     "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
                     "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
                     "evaluation_reason":"NONE","score_available":true
                   }
@@ -1268,15 +1323,181 @@ class PracticeProgressServiceTest {
                         """,
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
+                        "evaluated backend-rule cross-pair",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"BACKEND_RULE",
+                          "evaluation_reason":"NONE",
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
+                Arguments.of(
+                        "invalid learner response provider cross-pair",
+                        """
+                        {"401":{
+                          "raw_score":0,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"INVALID_LEARNER_RESPONSE",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"BLANK_ANSWER",
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
+                Arguments.of(
+                        "missing evaluation reason",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
+                        "non-textual evaluation reason",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":7,
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
+                        "missing evaluation retryable",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"NONE","score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
+                        "non-boolean evaluation retryable",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"NONE",
+                          "evaluation_retryable":"false","score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
+                        "score-bearing evaluation marked retryable",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"NONE",
+                          "evaluation_retryable":true,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
+                Arguments.of(
+                        "evaluated provenance uses an unsupported reason",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"CACHE_HIT",
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
+                Arguments.of(
+                        "invalid learner provenance uses an unsupported reason",
+                        """
+                        {"401":{
+                          "raw_score":0,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"INVALID_LEARNER_RESPONSE",
+                          "evaluation_source":"BACKEND_RULE",
+                          "evaluation_reason":"PROVIDER_ERROR",
+                          "evaluation_retryable":false,"score_available":true
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
+                Arguments.of(
+                        "missing score available",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"NONE",
+                          "evaluation_retryable":false
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
+                        "non-boolean score available",
+                        """
+                        {"401":{
+                          "raw_score":8,"raw_score_max":10,
+                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
+                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
+                          "evaluation_status":"EVALUATED",
+                          "evaluation_source":"PROVIDER",
+                          "evaluation_reason":"NONE",
+                          "evaluation_retryable":false,
+                          "score_available":"true"
+                        }}
+                        """,
+                        ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
+                Arguments.of(
                         "unsupported scoring profile",
                         """
                         {"401":{
                           "raw_score":8,"raw_score_max":10,
                           "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
                           "scoring_contract":"TASK_NATIVE_RUBRIC_V2",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                           "evaluation_status":"EVALUATED",
                           "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","score_available":true
+                          "evaluation_reason":"NONE","evaluation_retryable":false,
+                          "score_available":true
                         }}
                         """,
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
@@ -1287,9 +1508,11 @@ class PracticeProgressServiceTest {
                           "raw_score":8,"raw_score_max":20,
                           "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
                           "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                           "evaluation_status":"EVALUATED",
                           "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","score_available":true
+                          "evaluation_reason":"NONE","evaluation_retryable":false,
+                          "score_available":true
                         }}
                         """,
                         ProgressExclusionReason.WRITING_MAXIMUM_MISMATCH),
@@ -1300,9 +1523,11 @@ class PracticeProgressServiceTest {
                           "raw_score":8,"raw_score_max":10,
                           "engine":"KSH_WRITING_EVALUATOR_V2",
                           "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                           "evaluation_status":"EVALUATED",
                           "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","score_available":true
+                          "evaluation_reason":"NONE","evaluation_retryable":false,
+                          "score_available":true
                         }}
                         """,
                         ProgressExclusionReason.WRITING_TASK_IDENTITY_MISSING));

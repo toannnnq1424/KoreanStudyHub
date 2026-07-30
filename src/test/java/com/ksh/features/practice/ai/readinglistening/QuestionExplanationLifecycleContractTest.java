@@ -41,6 +41,31 @@ class QuestionExplanationLifecycleContractTest {
     }
 
     @Test
+    void forwardMigrationKeepsBindingHistoryAndAllowsOnlyOneActiveLanguageSlot()
+            throws IOException {
+        String migration = Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V63__practice_explanation_binding_supersession.sql"));
+
+        assertThat(migration).contains(
+                "ADD COLUMN binding_status",
+                "ADD COLUMN superseded_at",
+                "DROP INDEX uk_qveb_question_language",
+                "GENERATED ALWAYS AS",
+                "WHEN binding_status = 'ACTIVE' THEN explanation_language",
+                "UNIQUE (question_version_id, active_explanation_language)",
+                "binding_status IN ('ACTIVE', 'SUPERSEDED')");
+        assertThat(migration.split(
+                "ALTER TABLE question_version_explanation_bindings", -1))
+                .hasSize(2);
+        assertThat(migration).doesNotContain(";\n\nALTER TABLE");
+        assertThat(migration).doesNotContain(
+                "DROP TABLE question_version_explanation_bindings",
+                "DELETE FROM question_version_explanation_bindings",
+                "TRUNCATE");
+    }
+
+    @Test
     void publisherEmitsPreparationEventForTheCommittedImmutableVersion() throws IOException {
         String publisher = Files.readString(MAIN.resolve(
                 "features/practice/manage/service/PracticePublisherService.java"));
@@ -64,8 +89,12 @@ class QuestionExplanationLifecycleContractTest {
 
         assertThat(readService).contains("@Transactional(readOnly = true)")
                 .doesNotContain(".generate(", ".save(", "insertPendingIfAbsent", "bindIfAbsent");
-        assertThat(bindingRepository).contains("INSERT IGNORE", "bindIfAbsent")
-                .doesNotContain("UPDATE question_version_explanation_bindings");
+        assertThat(bindingRepository).contains(
+                "INSERT IGNORE",
+                "bindIfAbsent",
+                "supersedeActiveIfFingerprintChanged",
+                "SET binding_status = 'SUPERSEDED'",
+                "AND binding_status = 'ACTIVE'");
         assertThat(Files.exists(MAIN.resolve("entities/QuestionExplanationCache.java"))).isFalse();
         assertThat(Files.exists(MAIN.resolve(
                 "features/practice/service/ReadingListeningExplanationService.java"))).isFalse();

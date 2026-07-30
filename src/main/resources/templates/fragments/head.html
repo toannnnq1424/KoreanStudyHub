@@ -22,7 +22,67 @@
   <title th:text="${title} + ' | KSH — Korean Study Hub'">KSH</title>
   <link rel="icon" th:href="@{/favicon.svg}" type="image/svg+xml">
   <link rel="stylesheet" th:href="@{/css/main.css}">
+  <link rel="stylesheet" th:href="@{/css/korean-dictionary.css(v='1')}">
   <script defer th:src="@{/js/app.js}"></script>
+  <script defer th:src="@{/js/korean-dictionary.js(v='1')}"></script>
   <th:block th:replace="${extraCss}"></th:block>
+  <th:block th:if="${practiceKoreanFont != null}">
+    <meta name="practice-korean-font" th:content="${practiceKoreanFont}">
+    <meta name="practice-korean-font-size"
+          th:content="${practiceKoreanFontSize}">
+    <meta name="practice-korean-font-account"
+          th:content="${practiceKoreanFontAccountId}">
+    <meta name="practice-korean-font-schema"
+          th:content="${practiceKoreanFontSchemaVersion}">
+    <meta name="practice-korean-font-cache"
+          th:content="${practiceKoreanFontCacheNamespace}">
+    <script th:inline="javascript">
+      (() => {
+        const allowed = new Set([
+          "NANUM_MYEONGJO", "DIPHYLLEIA", "GOWUN_BATANG",
+          "NOTO_SERIF_KR", "NANUM_GOTHIC", "GOTHIC_A1",
+          "GOWUN_DODUM", "ORBIT", "SUNFLOWER",
+          "BLACK_AND_WHITE_PICTURE", "GUGI", "POOR_STORY",
+          "SINGLE_DAY", "GAEGU", "HI_MELODY",
+          "NANUM_GOTHIC_CODING", "NANUM_PEN_SCRIPT"
+        ]);
+        const allowedSizes = new Set([
+          "DEFAULT", "LARGE", "EXTRA_LARGE"
+        ]);
+        const serverFont = /*[[${practiceKoreanFont}]]*/ "NANUM_MYEONGJO";
+        const serverSize = /*[[${practiceKoreanFontSize}]]*/ "DEFAULT";
+        const accountId = String(
+          /*[[${practiceKoreanFontAccountId}]]*/ ""
+        );
+        const schemaVersion =
+          /*[[${practiceKoreanFontSchemaVersion}]]*/ 2;
+        const namespace = /*[[${practiceKoreanFontCacheNamespace}]]*/ "practice-korean-font-preference-v2";
+        const cacheKey = `${namespace}:${accountId}`;
+        try {
+          const cached = localStorage.getItem(cacheKey) || "";
+          const parts = cached.split("|");
+          const cachedSchema = Number.parseInt(parts[0], 10);
+          if (parts.length === 3
+              && cachedSchema === 2
+              && allowed.has(parts[1])
+              && allowedSizes.has(parts[2])) {
+            document.documentElement.dataset.practiceKoreanFont = parts[1];
+            document.documentElement.dataset.practiceKoreanSize = parts[2];
+          }
+        } catch (_ignored) {
+          // Invalid/blocked local storage is a fail-soft presentation concern.
+        }
+        if (schemaVersion === 2
+            && allowed.has(serverFont)
+            && allowedSizes.has(serverSize)) {
+          // Canonical server preference always overrides the local first-paint hint.
+          document.documentElement.dataset.practiceKoreanFont = serverFont;
+          document.documentElement.dataset.practiceKoreanSize = serverSize;
+        }
+      })();
+    </script>
+    <link rel="stylesheet" th:href="@{/css/practice-korean-font.css}">
+    <script defer th:src="@{/js/practice-korean-font.js}"></script>
+  </th:block>
 </head>
 </html>

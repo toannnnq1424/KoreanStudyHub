@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WritingTaskNativeScoringTest {
@@ -76,7 +78,7 @@ class WritingTaskNativeScoringTest {
     }
 
     @Test
-    void legacyBandProjectionKeepsLegacyPercentageConversion() throws Exception {
+    void legacyBandProjectionIsRejectedWithoutCreatingACompatibleScore() throws Exception {
         String legacy = """
                 {
                   "summary":"OK",
@@ -92,10 +94,70 @@ class WritingTaskNativeScoringTest {
 
         JsonNode result = objectMapper.readTree(normalizer.normalize(legacy, "Q53", "한국어 답안", null));
 
-        assertThat(result.path("score").asDouble()).isEqualTo(7.0);
-        assertThat(result.path("percentage").decimalValue())
-                .isEqualByComparingTo(WritingScoreMatrix.toHundredPointScale(7.0));
-        assertThat(result.path("scoring_contract").asText()).isEqualTo("LEGACY_BAND_V1");
+        assertThat(result.path("evaluation_status").asText())
+                .isEqualTo("EVALUATION_CONTRACT_FAILED");
+        assertThat(result.path("score_available").asBoolean()).isFalse();
+        assertThat(result.has("score")).isFalse();
+        assertThat(result.has("raw_score")).isFalse();
+    }
+
+    @Test
+    void currentScoreProvenanceAcceptsOnlyNormalizerOwnedPairs() {
+        assertThat(currentScoreProvenance(
+                "EVALUATED", "PROVIDER", "NONE", false)).isTrue();
+        assertThat(currentScoreProvenance(
+                "EVALUATED", "CACHE", "NONE", false)).isTrue();
+        assertThat(currentScoreProvenance(
+                "INVALID_LEARNER_RESPONSE",
+                "BACKEND_RULE",
+                "BLANK_ANSWER",
+                false)).isTrue();
+        assertThat(currentScoreProvenance(
+                "INVALID_LEARNER_RESPONSE",
+                "BACKEND_RULE",
+                "NO_HANGUL",
+                false)).isTrue();
+        assertThat(currentScoreProvenance(
+                "INVALID_LEARNER_RESPONSE",
+                "BACKEND_RULE",
+                "INVALID_LEARNER_RESPONSE",
+                false)).isTrue();
+    }
+
+    @Test
+    void currentScoreProvenanceRejectsStaleReasonAndRetryableScore() {
+        assertThat(currentScoreProvenance(
+                "INVALID_LEARNER_RESPONSE",
+                "BACKEND_RULE",
+                "EMPTY_OR_TOO_SHORT",
+                false)).isFalse();
+        assertThat(currentScoreProvenance(
+                "EVALUATED", "PROVIDER", "NONE", true)).isFalse();
+        assertThat(currentScoreProvenance(
+                "EVALUATED", "BACKEND_RULE", "NONE", false)).isFalse();
+    }
+
+    private boolean currentScoreProvenance(
+            String status,
+            String source,
+            String reason,
+            boolean retryable) {
+        WritingEvaluationResult value = new WritingEvaluationResult(
+                BigDecimal.ONE,
+                BigDecimal.TEN,
+                BigDecimal.TEN,
+                BigDecimal.TEN,
+                "Q51",
+                "KSH_WRITING_EVALUATOR_V2",
+                "TASK_NATIVE_RUBRIC_V1",
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                status,
+                source,
+                reason,
+                retryable,
+                true);
+        return WritingAssessmentPolicyBundle
+                .hasExactCurrentScoreProvenance(value);
     }
 
     private JsonNode normalize(String taskType, String rubricScores) throws Exception {

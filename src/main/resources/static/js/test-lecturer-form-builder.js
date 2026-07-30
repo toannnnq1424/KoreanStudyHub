@@ -22,6 +22,18 @@
         oEl.classList.toggle('is-correct', checked);
     }
 
+    function syncQuestionType(qEl) {
+        var correctCount = qEl.querySelectorAll('.lf-o-correct:checked').length;
+        var type = correctCount > 1 ? 'MR' : 'MCQ';
+        var hidden = qEl.querySelector('.lf-q-type');
+        if (hidden) hidden.value = type;
+        var badge = qEl.querySelector('.lf-q-type-badge');
+        if (badge) {
+            badge.dataset.type = type;
+            badge.textContent = type === 'MR' ? 'Nhiều đáp án' : 'Một đáp án';
+        }
+    }
+
     function readEditorHtml(el, hiddenSelector, quillProp) {
         if (el[quillProp]) {
             return el[quillProp].root.innerHTML;
@@ -55,6 +67,13 @@
         function refreshEmptyHint() {
             var has = questionsHost.querySelectorAll('.lf-question').length > 0;
             if (noQuestions) noQuestions.style.display = has ? 'none' : '';
+        }
+
+        function refreshQuestionNumbers() {
+            questionsHost.querySelectorAll('.lf-question').forEach(function (qEl, i) {
+                var number = qEl.querySelector('.lf-q-no');
+                if (number) number.textContent = 'Câu ' + (i + 1);
+            });
         }
 
         function mountQuestionEditor(qEl, html) {
@@ -122,20 +141,13 @@
             syncOptionCorrectState(node);
             var correctCb = node.querySelector('.lf-o-correct');
             correctCb.addEventListener('change', function () {
-                if (qEl.querySelector('.lf-q-type').value === 'MCQ' && correctCb.checked) {
-                    qEl.querySelectorAll('.lf-option').forEach(function (other) {
-                        var cb = other.querySelector('.lf-o-correct');
-                        if (cb && cb !== correctCb) {
-                            cb.checked = false;
-                            syncOptionCorrectState(other);
-                        }
-                    });
-                }
                 syncOptionCorrectState(node);
+                syncQuestionType(qEl);
             });
             node.querySelector('.lf-o-remove').addEventListener('click', function () {
                 node.remove();
                 refreshOptionLabels(qEl);
+                syncQuestionType(qEl);
             });
             qEl.querySelector('.lf-options').appendChild(node);
             mountOptionEditor(node, data ? (data.content || '') : '');
@@ -148,7 +160,6 @@
             node.dataset.questionId = data && data.id != null ? String(data.id) : '';
             questionsHost.appendChild(node);
             if (data) {
-                node.querySelector('.lf-q-type').value = data.type || 'MCQ';
                 node.querySelector('.lf-q-explanation').value = data.explanation || '';
                 node.querySelector('.lf-q-points').value = data.points != null ? data.points : 1;
                 mountQuestionEditor(node, data.content || '');
@@ -158,29 +169,17 @@
                 addOption(node, null);
                 addOption(node, null);
             }
-             var qType = node.querySelector('.lf-q-type');
-             qType.addEventListener('change', function () {
-                 if (qType.value !== 'MCQ') return;
-                 var firstChecked = null;
-                 node.querySelectorAll('.lf-option').forEach(function (oEl) {
-                     var cb = oEl.querySelector('.lf-o-correct');
-                     if (!cb || !cb.checked) return;
-                     if (!firstChecked) {
-                         firstChecked = cb;
-                         return;
-                     }
-                     cb.checked = false;
-                     syncOptionCorrectState(oEl);
-                 });
-             });
+            syncQuestionType(node);
             node.querySelector('.lf-add-option').addEventListener('click', function () {
                 addOption(node, null);
             });
             node.querySelector('.lf-q-remove').addEventListener('click', function () {
                 node.remove();
                 refreshEmptyHint();
+                refreshQuestionNumbers();
             });
             refreshEmptyHint();
+            refreshQuestionNumbers();
         }
 
         function collectQuestions() {
@@ -194,9 +193,10 @@
                         correct: oEl.querySelector('.lf-o-correct').checked
                     });
                 });
+                var correctCount = options.filter(function (option) { return option.correct; }).length;
                 questions.push({
                     id: parseId(qEl.dataset.questionId),
-                    type: qEl.querySelector('.lf-q-type').value,
+                    type: correctCount > 1 ? 'MR' : 'MCQ',
                     content: readEditorHtml(qEl, '.lf-q-content', '_quill'),
                     explanation: qEl.querySelector('.lf-q-explanation').value.trim(),
                     points: Number(qEl.querySelector('.lf-q-points').value || 1),

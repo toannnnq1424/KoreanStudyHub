@@ -161,7 +161,7 @@ class ClassesServiceTest {
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
-        assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
                 eq("Tạo lớp Java"), eq(LECTURER_ID));

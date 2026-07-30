@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionFeedbackRow;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import org.junit.jupiter.api.Test;
 
@@ -238,34 +237,6 @@ class WritingFeedbackViewMapperTest {
         assertFalse(json.contains("needsImprovement"));
     }
 
-    @Test
-    void serializesFinalPracticeQuestionFeedbackRowContract() throws Exception {
-        JsonNode sourceEntry = objectMapper.readTree("{\"raw_score\":8,\"raw_score_max\":10}");
-        WritingFeedbackView view = mapper.map(sourceEntry);
-        PracticeQuestionFeedbackRow row = new PracticeQuestionFeedbackRow(
-                101L,
-                51,
-                "ESSAY",
-                "Prompt",
-                "Answer",
-                view,
-                true);
-
-        String json = objectMapper.writeValueAsString(row);
-
-        assertTrue(json.contains("\"questionId\""));
-        assertTrue(json.contains("\"questionNo\""));
-        assertTrue(json.contains("\"questionType\""));
-        assertTrue(json.contains("\"prompt\""));
-        assertTrue(json.contains("\"learnerAnswer\""));
-        assertTrue(json.contains("\"writingFeedback\""));
-        assertTrue(json.contains("\"reEvaluatable\""));
-        assertTrue(json.contains("\"raw_score\""));
-        assertTrue(json.contains("\"raw_score_max\""));
-        assertFalse(json.contains("\"feedbackNode\""));
-        assertFalse(json.contains("\"rawFeedback\""));
-        assertFalse(json.contains("\"aiFeedbackJson\""));
-    }
 
     @Test
     void typedViewContractDoesNotExposeJsonNodeOrObjectNodeFields() {

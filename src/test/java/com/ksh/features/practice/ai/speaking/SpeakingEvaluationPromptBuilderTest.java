@@ -57,6 +57,21 @@ class SpeakingEvaluationPromptBuilderTest {
                 .isEqualTo(SpeakingPromptRules.SCHEMA_VERSION);
         assertThat(root.path("versions").path("evidence_contract_version").asText())
                 .isEqualTo(SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
+        assertThat(root.path("policy_bundle_id").asText())
+                .isEqualTo(
+                        SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertThat(root.path("policy_bundle_fingerprint").asText())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
+        assertThat(root.path("versions").path("policy_bundle_id").asText())
+                .isEqualTo(
+                        SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertThat(root.path("versions")
+                .path("policy_bundle_fingerprint").asText())
+                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
+        assertThat(root.path("score_policy").asText())
+                .startsWith("Chỉ lập hồ sơ ngôn ngữ KSH");
+        assertThat(root.path("required_output").asText())
+                .startsWith("Trả về JSON nghiêm ngặt");
     }
 
     @Test
@@ -132,7 +147,7 @@ class SpeakingEvaluationPromptBuilderTest {
                 "speaking-prompt-version-context-v1",
                 "자기소개를 하세요.",
                 "TOPIK II",
-                "Say who you are and what you study.",
+                "Hãy nói bạn là ai và đang học gì.",
                 imageEvidence,
                 textFallback ? null : 12L,
                 textFallback ? null : 13L,
@@ -145,11 +160,16 @@ class SpeakingEvaluationPromptBuilderTest {
                 "저는 학생 이에요",
                 "저는 학생이에요.",
                 "저는 학생이에요.",
-                "The learner introduces themself.",
+                "Học viên đang tự giới thiệu.",
                 new BigDecimal("0.81"),
                 textFallback,
                 SpeakingPromptRules.PROMPT_VERSION,
                 SpeakingPromptRules.RUBRIC_VERSION,
-                SpeakingPromptRules.SCHEMA_VERSION);
+                SpeakingPromptRules.SCHEMA_VERSION,
+                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
+                SpeakingEvaluatorCapability
+                        .TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
     }
 }

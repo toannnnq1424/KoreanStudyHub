@@ -2,18 +2,11 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.QuestionExplanationArtifact;
 import com.ksh.entities.QuestionVersionExplanationBinding;
-import com.ksh.features.practice.assessment.AnswerSpec;
-import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
-import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
-import com.ksh.features.practice.repository.PracticeQuestionVersionRepository;
 import com.ksh.features.practice.repository.QuestionExplanationArtifactRepository;
 import com.ksh.features.practice.repository.QuestionVersionExplanationBindingRepository;
 import org.slf4j.Logger;
@@ -24,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,22 +32,16 @@ public class QuestionExplanationReadService {
 
     private final QuestionVersionExplanationBindingRepository bindingRepository;
     private final QuestionExplanationArtifactRepository artifactRepository;
-    private final PracticeQuestionVersionRepository questionRepository;
-    private final AssessmentContractCodec contractCodec;
     private final QuestionTypeResolver typeResolver;
     private final ObjectMapper objectMapper;
 
     public QuestionExplanationReadService(
             QuestionVersionExplanationBindingRepository bindingRepository,
             QuestionExplanationArtifactRepository artifactRepository,
-            PracticeQuestionVersionRepository questionRepository,
-            AssessmentContractCodec contractCodec,
             QuestionTypeResolver typeResolver,
             ObjectMapper objectMapper) {
         this.bindingRepository = bindingRepository;
         this.artifactRepository = artifactRepository;
-        this.questionRepository = questionRepository;
-        this.contractCodec = contractCodec;
         this.typeResolver = typeResolver;
         this.objectMapper = objectMapper;
     }
@@ -125,33 +111,6 @@ public class QuestionExplanationReadService {
                 "UNAVAILABLE", "Chưa có explanation artifact cho phiên bản đề này", 0, total);
     }
 
-    @Transactional(readOnly = true)
-    public Optional<String> readDisplayJson(Long questionVersionId, String optionLabelMode) {
-        if (questionVersionId == null) return Optional.empty();
-        PracticeQuestionVersion question = questionRepository.findById(questionVersionId)
-                .orElse(null);
-        if (question == null) return Optional.empty();
-        String raw = readReadyJson(questionVersionId).orElse(null);
-        if (raw == null) return Optional.empty();
-        return Optional.ofNullable(prepareForDisplay(raw, question, optionLabelMode));
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<String> readReadyJson(Long questionVersionId) {
-        if (questionVersionId == null) return Optional.empty();
-        QuestionVersionExplanationBinding binding = bindingRepository
-                .findByQuestionVersionIdAndExplanationLanguage(questionVersionId, LANGUAGE)
-                .orElse(null);
-        if (binding == null) return Optional.empty();
-        QuestionExplanationArtifact artifact = artifactRepository.findById(binding.getArtifactId()).orElse(null);
-        if (!validBinding(binding, artifact)
-                || !QuestionExplanationArtifact.STATUS_READY.equals(artifact.getStatus())
-                || !validLegacyDisplayJson(artifact.getExplanationJson())) {
-            return Optional.empty();
-        }
-        return Optional.of(artifact.getExplanationJson());
-    }
-
     /**
      * Canonical, read-only Result Detail artifact read. The immutable assessment
      * snapshot remains authoritative; this method only returns type-specific
@@ -188,59 +147,6 @@ public class QuestionExplanationReadService {
                     questionVersionId,
                     exception.getMessage());
             return Optional.empty();
-        }
-    }
-
-    private String prepareForDisplay(
-            String explanationJson,
-            PracticeQuestionVersion question,
-            String optionLabelMode) {
-        try {
-            CanonicalQuestionType type = typeResolver.resolve(question.getQuestionType());
-            QuestionContent content = blank(question.getQuestionContentJson())
-                    ? contractCodec.adaptLegacyContent(question.getOptionsJson(), question.getQuestionType())
-                    : contractCodec.readQuestionContent(question.getQuestionContentJson(), type);
-            AnswerSpec answerSpec = blank(question.getAnswerSpecJson())
-                    ? contractCodec.adaptLegacyAnswerSpec(
-                            question.getQuestionType(), question.getAnswerKey(), content)
-                    : contractCodec.readAnswerSpec(question.getAnswerSpecJson(), content);
-            JsonNode parsed = objectMapper.readTree(explanationJson);
-            if (!(parsed instanceof ObjectNode root)) return null;
-
-            Map<String, String> labelsByOptionId = new LinkedHashMap<>();
-            for (int index = 0; index < content.options().size(); index++) {
-                String label = optionLabel(index, optionLabelMode);
-                labelsByOptionId.put(content.options().get(index).id(), label);
-                labelsByOptionId.put("option_" + (index + 1), label);
-            }
-            ArrayNode eliminated = objectMapper.createArrayNode();
-            if (root.path("eliminatedOptions").isArray()) {
-                for (JsonNode item : root.path("eliminatedOptions")) {
-                    if (!(item instanceof ObjectNode option)) continue;
-                    String label = labelsByOptionId.get(option.path("optionKey").asText(""));
-                    if (label == null) continue;
-                    ObjectNode display = option.deepCopy();
-                    display.put("optionKey", label);
-                    eliminated.add(display);
-                }
-            }
-            root.set("eliminatedOptions", eliminated);
-            List<String> correctAnswers = answerSpec.correctOptionIds().stream()
-                    .map(labelsByOptionId::get)
-                    .filter(java.util.Objects::nonNull)
-                    .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
-            if (correctAnswers.isEmpty() && !blank(answerSpec.correctValue())) {
-                correctAnswers.add(answerSpec.correctValue());
-            }
-            if (correctAnswers.isEmpty()) {
-                answerSpec.blanks().forEach(answer -> correctAnswers.addAll(answer.acceptedValues()));
-            }
-            root.put("correctAnswer", String.join(", ", correctAnswers));
-            return objectMapper.writeValueAsString(root);
-        } catch (Exception exception) {
-            log.warn("[ReadingListeningAI] Could not map READY explanation for display questionVersionId={} exception={}",
-                    question.getId(), exception.getClass().getSimpleName());
-            return null;
         }
     }
 
@@ -804,34 +710,6 @@ public class QuestionExplanationReadService {
         }
     }
 
-    private boolean validLegacyDisplayJson(String value) {
-        try {
-            JsonNode root = readObject(value, "legacy display explanation");
-            if (!nonBlankText(root, "meaningVi")
-                    || !nonBlankText(root, "evidenceQuote")
-                    || !nonBlankText(root, "correctReasonVi")
-                    || !root.path("relatedTranslationVi").isTextual()
-                    || !root.path("eliminatedOptions").isArray()) {
-                return false;
-            }
-            for (JsonNode option : root.path("eliminatedOptions")) {
-                if (!option.isObject()
-                        || !nonBlankText(option, "optionKey")
-                        || !nonBlankText(option, "reasonVi")) {
-                    return false;
-                }
-            }
-            return true;
-        } catch (IllegalArgumentException exception) {
-            return false;
-        }
-    }
-
-    private static boolean nonBlankText(JsonNode root, String field) {
-        JsonNode value = root.path(field);
-        return value.isTextual() && !value.asText().isBlank();
-    }
-
     private static JsonNode object(JsonNode parent, String field) {
         JsonNode node = parent.path(field);
         if (!node.isObject()) {
@@ -1060,12 +938,6 @@ public class QuestionExplanationReadService {
             Set<String> evidenceIds,
             List<EvidenceTranslation> translations
     ) {
-    }
-
-    private static String optionLabel(int index, String mode) {
-        return "ALPHA".equalsIgnoreCase(mode)
-                ? String.valueOf((char) ('A' + index))
-                : String.valueOf(index + 1);
     }
 
     private static boolean blank(String value) {

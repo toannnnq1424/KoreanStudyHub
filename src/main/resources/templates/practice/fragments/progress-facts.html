@@ -6,13 +6,12 @@
        aria-live="polite" aria-atomic="true">
     <span data-chart-failure-message>
       CHART_ENHANCEMENT_UNAVAILABLE — Biểu đồ chưa tải được; bảng chuẩn bên dưới vẫn dùng được.
-      · 차트를 불러오지 못했지만 아래 표는 계속 사용할 수 있습니다.
     </span>
     <a th:href="@{/practice/progress(tab=${filter.tab()},
                                      skill=${filter.skill().name()},
                                      writingTask=${filter.writingTask().name()},
                                      profile=${filter.profileId()})}">
-      Thử tải biểu đồ lại · 차트 다시 불러오기
+      Thử tải biểu đồ lại
     </a>
   </div>
 </th:block>
@@ -22,35 +21,29 @@
     <details class="pp-evidence-details">
       <summary>
         <span th:text="${'Nguồn: ' + fact.sampleSize() + '/'
-                       + fact.activityCount() + ' hoạt động · 출처 '
-                       + fact.sampleSize() + '/'
-                       + fact.activityCount() + '건'}">
+                       + fact.activityCount() + ' hoạt động'}">
           Nguồn: 0/0 hoạt động
         </span>
-        <span th:if="${fact.partialCoverage()}"> · Một phần · 부분 범위</span>
+        <span th:if="${fact.partialCoverage()}"> · Một phần</span>
       </summary>
       <div class="pp-evidence-body">
         <p class="pp-source-summary">
-          <strong>Quy mô mẫu · 표본:</strong>
+          <strong>Quy mô mẫu:</strong>
           <span th:text="${fact.sampleSize() + ' dữ kiện đủ điều kiện / '
-                         + fact.activityCount() + ' hoạt động · 적격 사실 '
-                         + fact.sampleSize() + '건 / 활동 '
-                         + fact.activityCount() + '건'}">0 / 0</span>
+                         + fact.activityCount() + ' hoạt động'}">0 / 0</span>
         </p>
         <p class="pp-partial-coverage" th:if="${fact.partialCoverage()}">
-          <strong>Độ phủ một phần · 부분 범위:</strong>
-          giá trị chỉ tính dữ kiện đủ điều kiện; hoạt động bị loại không được đổi thành 0 và vẫn được nêu trong độ phủ bên dưới ·
-          값은 적격 근거만 집계하며 제외된 활동은 0점으로 바꾸지 않고 아래 범위에 그대로 표시합니다.
+          <strong>Độ phủ một phần:</strong>
+          giá trị chỉ tính dữ kiện đủ điều kiện; hoạt động bị loại không được đổi thành 0 và vẫn được nêu trong độ phủ bên dưới.
         </p>
         <p th:if="${fact.numerator() != null && fact.denominator() != null}">
-          <strong>Điểm đạt / điểm có thể đạt · 획득 점수 / 가능 점수:</strong>
+          <strong>Điểm đạt / điểm có thể đạt:</strong>
           <span th:text="${fact.numerator() + ' / ' + fact.denominator()}">3 / 4</span>
         </p>
         <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${fact.coverage()})}"></th:block>
         <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${fact.observationWindow()})}"></th:block>
-        <p><strong>Độ tin cậy nguồn · 자료 신뢰 근거:</strong>
-          chỉ tóm tắt quy mô mẫu, độ mới và độ phủ; không phải phần trăm, cấp độ hay đánh giá chất lượng ·
-          표본 규모, 최신성, 범위만 요약하며 백분율, 등급 또는 품질 평가는 아닙니다.
+        <p><strong>Độ tin cậy nguồn:</strong>
+          chỉ tóm tắt quy mô mẫu, độ mới và độ phủ; không phải phần trăm, cấp độ hay đánh giá chất lượng.
         </p>
       </div>
     </details>
@@ -60,10 +53,8 @@
 <th:block th:fragment="coverage(coverage)">
   <details class="pp-evidence-details pp-coverage" th:if="${coverage != null}">
     <summary th:text="${'Độ phủ: ' + coverage.eligibleCount() + ' đủ điều kiện, '
-                       + coverage.excludedCount() + ' bị loại · 적격 '
-                       + coverage.eligibleCount() + '건, 제외 '
-                       + coverage.excludedCount() + '건'}">
-      Độ phủ nguồn · 소스 범위
+                       + coverage.excludedCount() + ' bị loại'}">
+      Độ phủ nguồn
     </summary>
     <div class="pp-evidence-body">
       <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${coverage})}"></th:block>
@@ -73,47 +64,44 @@
 
 <th:block th:fragment="coverageBody(coverage)">
   <div class="pp-coverage-body" th:if="${coverage != null}">
-    <p><strong>Độ phủ nguồn · 소스 범위:</strong>
+    <p><strong>Độ phủ nguồn:</strong>
       <span th:text="${coverage.eligibleCount() + ' đủ điều kiện, '
                      + coverage.excludedCount() + ' bị loại, '
-                     + coverage.activityCount() + ' hoạt động · 적격 '
-                     + coverage.eligibleCount() + '건, 제외 '
-                     + coverage.excludedCount() + '건, 활동 '
-                     + coverage.activityCount() + '건'}">0 hoạt động</span>
+                     + coverage.activityCount() + ' hoạt động'}">0 hoạt động</span>
     </p>
     <ul th:if="${!#lists.isEmpty(coverage.exclusions())}">
       <li th:each="exclusion : ${coverage.exclusions()}">
         <span th:switch="${exclusion.reason().name()}">
-          <span th:case="'NO_ACTIVITY'">Chưa có hoạt động · 활동 없음</span>
-          <span th:case="'FILTER_NO_DATA'">Bộ lọc không có dữ kiện · 필터에 데이터 없음</span>
-          <span th:case="'CHART_ENHANCEMENT_UNAVAILABLE'">Lớp biểu đồ chưa khả dụng · 차트 향상 기능 사용 불가</span>
-          <span th:case="'NO_ELIGIBLE_SCORE'">Không có điểm đủ điều kiện · 적격 점수 없음</span>
-          <span th:case="'INCOMPLETE_VERSION_LOCK'">Thiếu khóa phiên bản bất biến · 불변 버전 잠금 불완전</span>
-          <span th:case="'LEGACY_UNVERIFIED'">Dữ liệu cũ chưa xác minh · 검증되지 않은 이전 데이터</span>
-          <span th:case="'MISSING_OR_INVALID_DURATION'">Thiếu hoặc sai thời lượng · 소요 시간 누락 또는 오류</span>
-          <span th:case="'DURATION_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY'">Hoạt động chưa hoàn thành không có thời lượng áp dụng · 미완료 활동에는 소요 시간 적용 안 됨</span>
-          <span th:case="'SCORE_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY'">Hoạt động chưa hoàn thành không có điểm áp dụng · 미완료 활동에는 점수 적용 안 됨</span>
-          <span th:case="'UNSUPPORTED_SCORE_PROFILE'">Hồ sơ điểm không được hỗ trợ · 지원되지 않는 점수 프로필</span>
-          <span th:case="'MALFORMED_OBJECTIVE_EVIDENCE'">Dữ kiện câu hỏi khách quan không hợp lệ · 객관식 근거가 올바르지 않음</span>
-          <span th:case="'WRITING_SKILL_AGGREGATION_REQUIRES_TASK_COHORT'">Điểm Viết phải tách theo tác vụ và nhóm · 쓰기 점수는 문항과 그룹별로 분리해야 함</span>
-          <span th:case="'WRITING_TASK_IDENTITY_MISSING'">Thiếu định danh tác vụ Viết · 쓰기 문항 식별자 누락</span>
-          <span th:case="'WRITING_TASK_IDENTITY_MISMATCH'">Định danh tác vụ Viết không khớp · 쓰기 문항 식별자 불일치</span>
-          <span th:case="'WRITING_SCORE_EVIDENCE_MISSING'">Thiếu dữ kiện điểm Viết · 쓰기 점수 근거 누락</span>
-          <span th:case="'WRITING_SCORE_EVIDENCE_MALFORMED'">Dữ kiện điểm Viết không hợp lệ · 쓰기 점수 근거 오류</span>
-          <span th:case="'WRITING_EVALUATION_NOT_SCORE_BEARING'">Phản hồi Viết không mang điểm · 쓰기 평가가 점수를 포함하지 않음</span>
-          <span th:case="'WRITING_LEGACY_SCORE_EVIDENCE'">Điểm Viết cũ chưa xác minh · 이전 쓰기 점수 근거 미검증</span>
-          <span th:case="'WRITING_SCORING_PROFILE_UNSUPPORTED'">Hồ sơ chấm Viết không được hỗ trợ · 지원되지 않는 쓰기 채점 프로필</span>
-          <span th:case="'WRITING_MAXIMUM_MISMATCH'">Mức điểm tối đa không khớp · 쓰기 최대 점수 불일치</span>
-          <span th:case="'SPEAKING_NUMERIC_AGGREGATION_NOT_SUPPORTED'">Nói chỉ có hoạt động/hồ sơ/độ phủ; không có điểm tổng hợp · 말하기는 활동/프로필/범위만 제공하며 종합 점수는 없음</span>
-          <span th:case="'COMPARISON_SAMPLE_UNAVAILABLE'">Chưa có đủ mẫu so sánh · 비교 표본 부족</span>
-          <span th:case="'PAGE_DATA_UNAVAILABLE'">Dữ liệu trang chưa khả dụng · 페이지 데이터 사용 불가</span>
-          <span th:case="'SERIALIZATION_UNAVAILABLE'">Dữ liệu chưa thể tuần tự hóa an toàn · 데이터를 안전하게 직렬화할 수 없음</span>
-          <span th:case="*">Lý do loại chưa có bản dịch · 제외 사유 번역 없음
+          <span th:case="'NO_ACTIVITY'">Chưa có hoạt động</span>
+          <span th:case="'FILTER_NO_DATA'">Bộ lọc không có dữ kiện</span>
+          <span th:case="'CHART_ENHANCEMENT_UNAVAILABLE'">Lớp biểu đồ chưa khả dụng</span>
+          <span th:case="'NO_ELIGIBLE_SCORE'">Không có điểm đủ điều kiện</span>
+          <span th:case="'INCOMPLETE_VERSION_LOCK'">Thiếu khóa phiên bản bất biến</span>
+          <span th:case="'LEGACY_UNVERIFIED'">Dữ liệu cũ chưa xác minh</span>
+          <span th:case="'MISSING_OR_INVALID_DURATION'">Thiếu hoặc sai thời lượng</span>
+          <span th:case="'DURATION_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY'">Hoạt động chưa hoàn thành không có thời lượng áp dụng</span>
+          <span th:case="'SCORE_NOT_APPLICABLE_FOR_INCOMPLETE_ACTIVITY'">Hoạt động chưa hoàn thành không có điểm áp dụng</span>
+          <span th:case="'UNSUPPORTED_SCORE_PROFILE'">Hồ sơ điểm không được hỗ trợ</span>
+          <span th:case="'MALFORMED_OBJECTIVE_EVIDENCE'">Dữ kiện câu hỏi khách quan không hợp lệ</span>
+          <span th:case="'WRITING_SKILL_AGGREGATION_REQUIRES_TASK_COHORT'">Điểm Viết phải tách theo tác vụ và nhóm</span>
+          <span th:case="'WRITING_TASK_IDENTITY_MISSING'">Thiếu định danh tác vụ Viết</span>
+          <span th:case="'WRITING_TASK_IDENTITY_MISMATCH'">Định danh tác vụ Viết không khớp</span>
+          <span th:case="'WRITING_SCORE_EVIDENCE_MISSING'">Thiếu dữ kiện điểm Viết</span>
+          <span th:case="'WRITING_SCORE_EVIDENCE_MALFORMED'">Dữ kiện điểm Viết không hợp lệ</span>
+          <span th:case="'WRITING_EVALUATION_NOT_SCORE_BEARING'">Phản hồi Viết không mang điểm</span>
+          <span th:case="'WRITING_LEGACY_SCORE_EVIDENCE'">Điểm Viết cũ chưa xác minh</span>
+          <span th:case="'WRITING_SCORING_PROFILE_UNSUPPORTED'">Hồ sơ chấm Viết không được hỗ trợ</span>
+          <span th:case="'WRITING_MAXIMUM_MISMATCH'">Mức điểm tối đa không khớp</span>
+          <span th:case="'SPEAKING_NUMERIC_AGGREGATION_NOT_SUPPORTED'">Nói chỉ có hoạt động/hồ sơ/độ phủ; không có điểm tổng hợp</span>
+          <span th:case="'COMPARISON_SAMPLE_UNAVAILABLE'">Chưa có đủ mẫu so sánh</span>
+          <span th:case="'PAGE_DATA_UNAVAILABLE'">Dữ liệu trang chưa khả dụng</span>
+          <span th:case="'SERIALIZATION_UNAVAILABLE'">Dữ liệu chưa thể tuần tự hóa an toàn</span>
+          <span th:case="*">Lý do loại chưa có bản dịch
             <small th:text="${'[' + exclusion.reason().name() + ']'}">[CODE]</small>
           </span>
         </span>
         <strong th:text="${': ' + exclusion.activityCount()
-                          + ' hoạt động · 활동 ' + exclusion.activityCount() + '건'}">: 0</strong>
+                          + ' hoạt động'}">: 0</strong>
       </li>
     </ul>
   </div>
@@ -121,7 +109,7 @@
 
 <th:block th:fragment="sourceWindow(window)">
   <details class="pp-evidence-details pp-source-window" th:if="${window != null}">
-    <summary>Nguồn và mốc dữ liệu · 출처 및 기준 시각</summary>
+    <summary>Nguồn và mốc dữ liệu</summary>
     <div class="pp-evidence-body">
       <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${window})}"></th:block>
     </div>
@@ -131,7 +119,7 @@
 <th:block th:fragment="sourceEvidence(coverage, window)">
   <details class="pp-evidence-details pp-source-evidence"
            th:if="${coverage != null || window != null}">
-    <summary>Nguồn, độ phủ và thời điểm chốt · 출처, 범위 및 기준 시각</summary>
+    <summary>Nguồn, độ phủ và thời điểm chốt</summary>
     <div class="pp-evidence-body">
       <th:block th:replace="~{practice/fragments/progress-facts :: coverageBody(${coverage})}"></th:block>
       <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindowBody(${window})}"></th:block>
@@ -141,39 +129,32 @@
 
 <th:block th:fragment="sourceWindowBody(window)">
   <div class="pp-source-window-body" th:if="${window != null}">
-    <p><strong>Phạm vi nguồn · 소스 선택 범위:</strong>
+    <p><strong>Phạm vi nguồn:</strong>
       <span th:text="${window.label()}">Nguồn dữ kiện</span>
     </p>
-    <p><strong>Khoảng quan sát · 관찰 기간:</strong>
+    <p><strong>Khoảng quan sát:</strong>
       <span th:text="${window.observedFrom() == null ? 'Chưa có mốc bắt đầu'
-                     + ' · 시작 시각 없음'
                      : #temporals.format(window.observedFrom(), 'dd/MM/yyyy HH:mm')}">Bắt đầu</span>
       –
       <span th:text="${window.observedTo() == null ? 'Chưa có mốc kết thúc'
-                     + ' · 종료 시각 없음'
                      : #temporals.format(window.observedTo(), 'dd/MM/yyyy HH:mm')}">Kết thúc</span>
     </p>
-    <p><strong>Chốt dữ liệu · 기준 시각:</strong>
+    <p><strong>Chốt dữ liệu:</strong>
       <span th:text="${window.asOf() == null ? 'Chưa khả dụng'
-                     + ' · 사용 불가'
                      : #temporals.format(window.asOf(), 'dd/MM/yyyy HH:mm')}">Chưa khả dụng</span>;
-      <strong>ghi nhận gần nhất · 최근 관찰:</strong>
+      <strong>ghi nhận gần nhất:</strong>
       <span th:text="${window.lastObservedAt() == null ? 'Chưa có'
-                     + ' · 없음'
                      : #temporals.format(window.lastObservedAt(), 'dd/MM/yyyy HH:mm')}">Chưa có</span>
     </p>
     <p th:if="${window.bounded()}">
-      <strong>Nguồn giới hạn · 제한된 소스:</strong>
+      <strong>Nguồn giới hạn:</strong>
       tối đa <span th:text="${window.limit() == null ? 0 : window.limit()}">0</span> hoạt động;
       trả về <span th:text="${window.returnedCount()}">0</span>;
-      <span th:text="${window.truncated() ? 'đã cắt bớt nguồn · 일부 잘림'
-                     : 'không bị cắt bớt · 잘림 없음'}">không bị cắt</span>.
-      · 최대 <span th:text="${window.limit() == null ? 0 : window.limit()}">0</span>건;
-      반환 <span th:text="${window.returnedCount()}">0</span>건.
+      <span th:text="${window.truncated() ? 'đã cắt bớt nguồn'
+                     : 'không bị cắt bớt'}">không bị cắt</span>.
     </p>
     <p th:unless="${window.bounded()}">
-      <strong>Nguồn · 소스:</strong> toàn bộ lịch sử đủ điều kiện; không có giới hạn nguồn ·
-      전체 적격 기록; 소스 제한 없음.
+      <strong>Nguồn:</strong> toàn bộ lịch sử đủ điều kiện; không có giới hạn nguồn.
     </p>
   </div>
 </th:block>

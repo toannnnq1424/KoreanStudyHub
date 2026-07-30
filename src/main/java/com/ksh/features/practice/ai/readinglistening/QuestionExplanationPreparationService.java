@@ -78,11 +78,18 @@ public class QuestionExplanationPreparationService {
                 continue;
             }
             eligible++;
+            PracticeQuestionGroupVersion group = question.getGroupVersionId() == null
+                    ? null
+                    : groups.get(question.getGroupVersionId());
+            PreparedExplanation prepared = inputFactory.prepare(question, group, section);
             QuestionVersionExplanationBinding existingBinding = bindingRepository
                     .findByQuestionVersionIdAndExplanationLanguage(
                             question.getId(), ReadingListeningExplanationClient.EXPLANATION_LANGUAGE)
                     .orElse(null);
-            if (existingBinding != null) {
+            if (existingBinding != null
+                    && Objects.equals(
+                    existingBinding.getFingerprint(),
+                    prepared.fingerprint().fingerprint())) {
                 QuestionExplanationArtifact existingArtifact = artifactRepository
                         .findById(existingBinding.getArtifactId())
                         .orElseThrow(() -> new IllegalStateException(
@@ -92,16 +99,6 @@ public class QuestionExplanationPreparationService {
                 } else if (QuestionExplanationArtifact.STATUS_FAILED.equals(existingArtifact.getStatus())) {
                     failed++;
                 } else if (QuestionExplanationArtifact.STATUS_PENDING.equals(existingArtifact.getStatus())) {
-                    PracticeQuestionGroupVersion group = question.getGroupVersionId() == null
-                            ? null
-                            : groups.get(question.getGroupVersionId());
-                    PreparedExplanation prepared = inputFactory.prepare(question, group, section);
-                    if (!Objects.equals(
-                            existingBinding.getFingerprint(),
-                            prepared.fingerprint().fingerprint())) {
-                        throw new IllegalStateException(
-                                "Bound explanation fingerprint does not match immutable question input");
-                    }
                     if (prepared.input().readinessIssue() != null) {
                         markReadinessFailure(existingArtifact, prepared.input().readinessIssue());
                         failed++;
@@ -112,10 +109,6 @@ public class QuestionExplanationPreparationService {
                 }
                 continue;
             }
-            PracticeQuestionGroupVersion group = question.getGroupVersionId() == null
-                    ? null
-                    : groups.get(question.getGroupVersionId());
-            PreparedExplanation prepared = inputFactory.prepare(question, group, section);
             ExplanationFingerprint fingerprint = prepared.fingerprint();
             artifactRepository.insertPendingIfAbsent(
                     fingerprint.fingerprint(),
@@ -136,6 +129,10 @@ public class QuestionExplanationPreparationService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Explanation artifact was not available after insertion"));
 
+            bindingRepository.supersedeActiveIfFingerprintChanged(
+                    question.getId(),
+                    fingerprint.explanationLanguage(),
+                    fingerprint.fingerprint());
             bindingRepository.bindIfAbsent(
                     question.getId(),
                     artifact.getId(),
@@ -146,6 +143,12 @@ public class QuestionExplanationPreparationService {
                             question.getId(), fingerprint.explanationLanguage())
                     .orElseThrow(() -> new IllegalStateException(
                             "Explanation binding was not available after insertion"));
+            if (!Objects.equals(
+                    binding.getFingerprint(),
+                    fingerprint.fingerprint())) {
+                throw new IllegalStateException(
+                        "Active explanation binding does not match the current immutable input");
+            }
             if (!artifact.getId().equals(binding.getArtifactId())) {
                 QuestionExplanationArtifact concurrentlyBound = artifactRepository
                         .findById(binding.getArtifactId())

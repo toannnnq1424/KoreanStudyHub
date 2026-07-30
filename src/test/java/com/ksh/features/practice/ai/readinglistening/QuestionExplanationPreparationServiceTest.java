@@ -26,14 +26,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class QuestionExplanationPreparationServiceTest {
@@ -70,7 +68,8 @@ class QuestionExplanationPreparationServiceTest {
     void newFingerprintCreatesOneImmutableBindingAndOneGenerationTask() {
         Fixture fixture = fixture(101L);
         QuestionExplanationArtifact artifact = artifact(501L, QuestionExplanationArtifact.STATUS_PENDING);
-        QuestionVersionExplanationBinding binding = binding(101L, 501L);
+        QuestionVersionExplanationBinding binding =
+                binding(101L, 501L, "a".repeat(64));
         when(inputFactory.prepare(fixture.question(), null, fixture.section()))
                 .thenReturn(prepared("a".repeat(64), null));
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(101L, "vi"))
@@ -87,6 +86,8 @@ class QuestionExplanationPreparationServiceTest {
         verify(artifactRepository).insertPendingIfAbsent(
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(bindingRepository).supersedeActiveIfFingerprintChanged(
+                101L, "vi", "a".repeat(64));
         verify(bindingRepository).bindIfAbsent(101L, 501L, "vi", "a".repeat(64));
         verify(taskRepository).insertPendingIfAbsent(501L, 101L, 4);
     }
@@ -95,7 +96,8 @@ class QuestionExplanationPreparationServiceTest {
     void unchangedQuestionVersionReusesReadyArtifactWithoutQueueingProviderWork() {
         Fixture fixture = fixture(102L);
         QuestionExplanationArtifact artifact = artifact(502L, QuestionExplanationArtifact.STATUS_READY);
-        QuestionVersionExplanationBinding binding = binding(102L, 502L);
+        QuestionVersionExplanationBinding binding =
+                binding(102L, 502L, "b".repeat(64));
         when(inputFactory.prepare(fixture.question(), null, fixture.section()))
                 .thenReturn(prepared("b".repeat(64), null));
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(102L, "vi"))
@@ -113,10 +115,13 @@ class QuestionExplanationPreparationServiceTest {
     }
 
     @Test
-    void existingQuestionVersionBindingIsNeverRecomputedOrRebound() {
-        fixture(103L);
-        QuestionVersionExplanationBinding binding = binding(103L, 503L);
+    void unchangedActiveBindingReusesArtifactWithoutRebinding() {
+        Fixture fixture = fixture(103L);
+        QuestionVersionExplanationBinding binding =
+                binding(103L, 503L, "f".repeat(64));
         QuestionExplanationArtifact artifact = artifact(503L, QuestionExplanationArtifact.STATUS_READY);
+        when(inputFactory.prepare(fixture.question(), null, fixture.section()))
+                .thenReturn(prepared("f".repeat(64), null));
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(103L, "vi"))
                 .thenReturn(Optional.of(binding));
         when(artifactRepository.findById(503L)).thenReturn(Optional.of(artifact));
@@ -126,8 +131,9 @@ class QuestionExplanationPreparationServiceTest {
 
         assertThat(summary).isEqualTo(
                 new QuestionExplanationPreparationService.PreparationSummary(1, 1, 0, 0));
-        verifyNoInteractions(inputFactory);
         verify(bindingRepository, never()).bindIfAbsent(anyLong(), anyLong(), anyString(), anyString());
+        verify(bindingRepository, never()).supersedeActiveIfFingerprintChanged(
+                anyLong(), anyString(), anyString());
         verify(artifactRepository, never()).insertPendingIfAbsent(
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
@@ -138,8 +144,8 @@ class QuestionExplanationPreparationServiceTest {
     void existingPendingBindingRecreatesMissingGenerationTaskAfterCrashGap() {
         Fixture fixture = fixture(106L);
         String fingerprint = "e".repeat(64);
-        QuestionVersionExplanationBinding binding = binding(106L, 507L);
-        when(binding.getFingerprint()).thenReturn(fingerprint);
+        QuestionVersionExplanationBinding binding =
+                binding(106L, 507L, fingerprint);
         QuestionExplanationArtifact artifact = artifact(
                 507L, QuestionExplanationArtifact.STATUS_PENDING);
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(106L, "vi"))
@@ -166,7 +172,8 @@ class QuestionExplanationPreparationServiceTest {
         Fixture fixture = fixture(104L);
         QuestionExplanationArtifact computed = artifact(504L, QuestionExplanationArtifact.STATUS_PENDING);
         QuestionExplanationArtifact winner = artifact(505L, QuestionExplanationArtifact.STATUS_READY);
-        QuestionVersionExplanationBinding binding = binding(104L, 505L);
+        QuestionVersionExplanationBinding binding =
+                binding(104L, 505L, "c".repeat(64));
         when(inputFactory.prepare(fixture.question(), null, fixture.section()))
                 .thenReturn(prepared("c".repeat(64), null));
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(104L, "vi"))
@@ -184,10 +191,42 @@ class QuestionExplanationPreparationServiceTest {
     }
 
     @Test
+    void changedPolicyFingerprintSupersedesOnlyTheActiveBindingAndQueuesCurrentArtifact() {
+        Fixture fixture = fixture(107L);
+        String oldFingerprint = "1".repeat(64);
+        String currentFingerprint = "2".repeat(64);
+        QuestionVersionExplanationBinding oldBinding =
+                binding(107L, 508L, oldFingerprint);
+        QuestionVersionExplanationBinding currentBinding =
+                binding(107L, 509L, currentFingerprint);
+        QuestionExplanationArtifact currentArtifact =
+                artifact(509L, QuestionExplanationArtifact.STATUS_PENDING);
+        when(inputFactory.prepare(fixture.question(), null, fixture.section()))
+                .thenReturn(prepared(currentFingerprint, null));
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(107L, "vi"))
+                .thenReturn(Optional.of(oldBinding), Optional.of(currentBinding));
+        when(artifactRepository.findByFingerprint(currentFingerprint))
+                .thenReturn(Optional.of(currentArtifact));
+        when(taskRepository.insertPendingIfAbsent(509L, 107L, 4)).thenReturn(1);
+
+        QuestionExplanationPreparationService.PreparationSummary summary =
+                service.preparePublishedVersion(77L);
+
+        assertThat(summary).isEqualTo(
+                new QuestionExplanationPreparationService.PreparationSummary(1, 0, 1, 0));
+        verify(bindingRepository).supersedeActiveIfFingerprintChanged(
+                107L, "vi", currentFingerprint);
+        verify(bindingRepository).bindIfAbsent(
+                107L, 509L, "vi", currentFingerprint);
+        verify(taskRepository).insertPendingIfAbsent(509L, 107L, 4);
+    }
+
+    @Test
     void unavailablePublishedEvidenceFailsArtifactWithoutQueueingProviderWork() {
         Fixture fixture = fixture(105L);
         QuestionExplanationArtifact artifact = pendingArtifact(506L);
-        QuestionVersionExplanationBinding binding = binding(105L, 506L);
+        QuestionVersionExplanationBinding binding =
+                binding(105L, 506L, "d".repeat(64));
         when(inputFactory.prepare(fixture.question(), null, fixture.section()))
                 .thenReturn(prepared(
                         "d".repeat(64), ExplanationInputFactory.ISSUE_EVIDENCE_UNAVAILABLE));
@@ -291,10 +330,15 @@ class QuestionExplanationPreparationServiceTest {
         }
     }
 
-    private static QuestionVersionExplanationBinding binding(Long questionVersionId, Long artifactId) {
+    private static QuestionVersionExplanationBinding binding(
+            Long questionVersionId,
+            Long artifactId,
+            String fingerprint
+    ) {
         QuestionVersionExplanationBinding binding = mock(QuestionVersionExplanationBinding.class);
         when(binding.getQuestionVersionId()).thenReturn(questionVersionId);
         when(binding.getArtifactId()).thenReturn(artifactId);
+        when(binding.getFingerprint()).thenReturn(fingerprint);
         return binding;
     }
 

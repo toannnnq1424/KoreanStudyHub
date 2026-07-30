@@ -2,46 +2,144 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${deck.title()} + ' — Lật thẻ', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-flip.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css(v='2')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-learning.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-flip.css(v='2')}">
 </head>
-<body>
-<header th:replace="~{fragments/app-header :: appHeader('flashcards')}"></header>
+<body class="fc-learning-body fc-flip-mode-body">
+<header th:replace="~{fragments/flashcard-study-header :: studyHeader(${deck}, 'flip', false)}"></header>
 
-<main class="fc-page fc-study-page">
-  <div class="fc-form-head">
-    <a class="fc-back" th:href="@{|/my/flashcards/${deck.id()}|}">&larr; Quay lại bộ thẻ</a>
-    <h1 class="fc-page-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
-  </div>
+<main class="fc-page fc-study-page fc-flip-page">
+  <div id="fcStudy" th:attr="data-cards=${cardsJson},data-deck-id=${deck.id()}"></div>
 
-  <div id="fcStudy" th:attr="data-cards=${cardsJson}"></div>
-
-  <!-- Empty state -->
   <div class="fc-empty fc-study-empty" id="fcEmpty" hidden>
     Bộ thẻ này chưa có thẻ nào để học.
   </div>
 
-  <!-- Card viewer -->
   <div class="fc-study" id="fcViewer" hidden>
-    <div class="fc-flip-card" id="fcFlipCard" tabindex="0" role="button"
-         aria-label="Nhấn để lật thẻ">
-      <div class="fc-flip-inner">
-        <div class="fc-flip-face fc-flip-front">
-          <div class="fc-face-text" id="fcFrontText"></div>
+    <section class="fc-flip-session-head" aria-label="Tiến độ lật thẻ">
+      <div>
+        <span>LẬT THẺ</span>
+        <strong><span id="fcSeenCount">0</span> đã xem · <span id="fcRemainingCount">0</span> còn lại</strong>
+      </div>
+      <div class="fc-flip-progress" aria-hidden="true"><span id="fcFlipProgress"></span></div>
+      <p id="fcGestureHint"><kbd>Space</kbd> lật · vuốt dọc để lật · vuốt ngang để chuyển thẻ</p>
+    </section>
+
+    <div class="fc-flip-modes" aria-label="Tùy chọn lật thẻ">
+      <button type="button" class="fc-flip-mode-toggle" id="fcClassifyMode" aria-pressed="false">
+        <span class="fc-flip-mode-toggle-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/><path d="M3 12h18"/></svg>
+        </span>
+        <span>
+          <strong>Vuốt để chuyển</strong>
+          <small id="fcClassifyModeText">Trái/phải qua thẻ khác</small>
+        </span>
+        <i aria-hidden="true"></i>
+      </button>
+      <button type="button" class="fc-flip-mode-toggle" id="fcFocusMode" aria-pressed="false">
+        <span class="fc-flip-mode-toggle-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+        </span>
+        <span>
+          <strong>Gợi nhớ theo lớp</strong>
+          <small>Ảnh trước, từ sau</small>
+        </span>
+        <i aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="fc-flip-stage" id="fcFlipStage">
+      <span class="fc-flip-swipe-badge fc-flip-swipe-unknown" id="fcSwipeUnknown" aria-hidden="true">
+        <span id="fcSwipeUnknownText">Thẻ sau</span>
+      </span>
+      <span class="fc-flip-swipe-badge fc-flip-swipe-known" id="fcSwipeKnown" aria-hidden="true">
+        <span id="fcSwipeKnownText">Thẻ trước</span>
+      </span>
+      <div class="fc-flip-stack-layer fc-flip-stack-layer-back" aria-hidden="true"></div>
+      <div class="fc-flip-stack-layer fc-flip-stack-layer-middle" id="fcFlipPreview" aria-hidden="true">
+        <div class="fc-flip-preview-head">
+          <span id="fcFlipPreviewLabel">THẺ KẾ TIẾP</span>
+          <span>Mặt trước</span>
         </div>
-        <div class="fc-flip-face fc-flip-back">
-          <div class="fc-face-text" id="fcBackText"></div>
+        <div class="fc-flip-preview-content" id="fcFlipPreviewContent">
+          <img id="fcFlipPreviewImage" alt="" hidden>
+          <div id="fcFlipPreviewText"></div>
+        </div>
+      </div>
+      <div class="fc-flip-card" id="fcFlipCard" tabindex="0" role="button"
+           aria-label="Nhấn để lật thẻ">
+        <div class="fc-flip-inner">
+          <div class="fc-flip-face fc-flip-front">
+            <div class="fc-flip-face-head">
+              <span>THUẬT NGỮ</span>
+              <span>Mặt trước</span>
+            </div>
+            <img class="fc-face-image" id="fcFrontImage" alt="" hidden>
+            <button type="button" class="fc-focus-reveal" id="fcFocusReveal" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              <span>Hiện thuật ngữ</span>
+            </button>
+            <div class="fc-face-text fc-face-term" id="fcFrontText"></div>
+            <div class="fc-flip-face-foot">
+              <span>Nhấn để xem định nghĩa</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M5.1 9A8 8 0 0 1 18 5.3L20 7M4 17l2 1.7A8 8 0 0 0 18.9 15"/></svg>
+            </div>
+          </div>
+          <div class="fc-flip-face fc-flip-back">
+            <div class="fc-flip-face-head">
+              <span>ĐỊNH NGHĨA</span>
+              <span>Mặt sau</span>
+            </div>
+            <img class="fc-face-image" id="fcBackImage" alt="" hidden>
+            <div class="fc-face-text" id="fcBackText"></div>
+            <div class="fc-flip-face-foot">
+              <span>Nhấn để xem thuật ngữ</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M5.1 9A8 8 0 0 1 18 5.3L20 7M4 17l2 1.7A8 8 0 0 0 18.9 15"/></svg>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
+    <div class="fc-flip-rating" aria-label="Phân loại mức độ ghi nhớ">
+      <button type="button" class="fc-flip-rating-button is-unknown" id="fcRateUnknown" data-tooltip="Chưa biết · kéo sang trái">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        <span>Chưa biết</span>
+      </button>
+      <button type="button" class="fc-flip-rating-button is-known" id="fcRateKnown" data-tooltip="Đã biết · kéo sang phải">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+        <span>Đã biết</span>
+      </button>
+    </div>
+
     <div class="fc-study-controls">
-      <button type="button" class="fc-btn fc-btn-ghost" id="fcPrev">&larr; Trước</button>
-      <span class="fc-counter"><span id="fcPos">1</span>/<span id="fcTotal">1</span></span>
-      <button type="button" class="fc-btn fc-btn-ghost" id="fcNext">Sau &rarr;</button>
-      <button type="button" class="fc-btn fc-btn-secondary" id="fcShuffle">Xáo trộn</button>
+      <button type="button" class="fc-flip-control" id="fcPrev" aria-label="Thẻ trước">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <span class="fc-counter"><span id="fcPos">1</span> / <span id="fcTotal">1</span></span>
+      <button type="button" class="fc-flip-control" id="fcNext" aria-label="Thẻ sau">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button type="button" class="fc-flip-control fc-flip-shuffle" id="fcShuffle" aria-label="Trộn thẻ" data-tooltip="Trộn thẻ">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5"/><path d="m4 20 5-5M21 3l-7 7M16 21h5v-5"/><path d="m15 15 6 6M4 4l5 5"/></svg>
+      </button>
     </div>
   </div>
+
+  <section class="fc-flip-complete" id="fcFlipComplete" hidden aria-live="polite">
+    <div class="fc-flip-complete-check" aria-hidden="true">
+      <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="27"/><path d="m19 32 9 9 18-20"/></svg>
+    </div>
+    <span>HOÀN THÀNH LƯỢT LẬT THẺ</span>
+    <h1>Bạn vừa đi hết bộ thẻ.</h1>
+    <p><strong id="fcKnownTotal">0</strong> đã biết · <strong id="fcUnknownTotal">0</strong> cần ôn lại</p>
+    <div>
+      <button type="button" class="fc-flip-replay" id="fcFlipReplay">Lật lại bộ thẻ</button>
+      <a class="fc-flip-learn" id="fcFlipLearn"
+         th:href="@{/my/flashcards/{id}/learn(id=${deck.id()},focus='unknown',mix=${studyMixedDeckIds})}">Ôn các từ chưa biết</a>
+    </div>
+  </section>
 </main>
 
 <script th:src="@{/js/app.js}"></script>

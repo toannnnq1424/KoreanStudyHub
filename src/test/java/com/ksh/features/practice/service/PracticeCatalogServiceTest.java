@@ -1,12 +1,10 @@
 package com.ksh.features.practice.service;
 
-import com.ksh.entities.ClassEntity;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.WritingTaskType;
-import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -27,7 +25,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.LongStream;
@@ -56,16 +53,14 @@ class PracticeCatalogServiceTest {
     @Mock private PracticeTestRepository testRepository;
     @Mock private PracticeSectionRepository sectionRepository;
     @Mock private PracticeAttemptRepository attemptRepository;
-    @Mock private ClassRepository classRepository;
-    @Mock private PracticeLearnerAccessService learnerAccessService;
 
     @InjectMocks
     private PracticeCatalogService service;
 
     @BeforeEach
     void setUpGlobalResumeDefault() {
-        lenient().when(attemptRepository.findGlobalResumeCandidates(
-                anyLong(), anyList(), any(LocalDateTime.class), any()))
+        lenient().when(attemptRepository.findGlobalCatalogResumeCandidates(
+                anyLong(), any(LocalDateTime.class), any()))
                 .thenReturn(List.of());
         lenient().when(attemptRepository.findCatalogCompletedSections(
                         anyLong(), anyList()))
@@ -86,10 +81,8 @@ class PracticeCatalogServiceTest {
         PracticeAttempt readingAttempt = completedAttempt(42L, reading, true);
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED, PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS, USER_ID, List.of(-1L), 0L,
                 "buổi sáng", "READING", null, request))
                 .thenReturn(new PageImpl<>(List.of(set), request, 25));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
@@ -142,13 +135,12 @@ class PracticeCatalogServiceTest {
     }
 
     @Test
-    void invalidClassFilterFailsClosedWithoutLoadingCatalogRows() {
-        ClassEntity learnerClass = new ClassEntity(
-                "Lớp A", 2L, 2L, null,
-                LocalDate.now(), LocalDate.now().plusMonths(1), 30);
-        ReflectionTestUtils.setField(learnerClass, "id", 15L);
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of(15L));
-        when(classRepository.findAllById(List.of(15L))).thenReturn(List.of(learnerClass));
+    void legacyClassFilterIsIgnoredByTheStandaloneCatalog() {
+        PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
+        when(setRepository.findPublishedGlobalCatalog(
+                PracticeSet.STATUS_PUBLISHED, PracticeSet.SCOPE_GLOBAL,
+                "", "", null, request))
+                .thenReturn(new PageImpl<>(List.of(), request, 0));
 
         PracticeCatalogBatch batch = service.loadBatch(
                 USER_ID, new PracticeCatalogQuery("", "ALL", "Q51", 99L, 0));
@@ -156,11 +148,11 @@ class PracticeCatalogServiceTest {
         assertThat(batch.items()).isEmpty();
         assertThat(batch.totalElements()).isZero();
         assertThat(batch.hasMore()).isFalse();
-        assertThat(batch.classId()).isEqualTo(99L);
-        assertThat(batch.classes()).extracting(option -> option.id()).containsExactly(15L);
-        verify(setRepository, never()).findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), anyLong(), anyList(),
-                anyLong(), anyString(), anyString(), any(), any());
+        assertThat(batch.classId()).isNull();
+        assertThat(batch.classes()).isEmpty();
+        verify(setRepository).findPublishedGlobalCatalog(
+                PracticeSet.STATUS_PUBLISHED, PracticeSet.SCOPE_GLOBAL,
+                "", "", null, request);
         verify(testRepository, never()).findBySetIdInOrderBySetIdAscDisplayOrderAsc(anyList());
     }
 
@@ -173,10 +165,8 @@ class PracticeCatalogServiceTest {
         attempt.setAnalysisStatus(null);
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq(""), eq(null), eq(request)))
+        when(setRepository.findPublishedGlobalCatalog(
+                anyString(), anyString(), eq(""), eq(""), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set), request, 1));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -205,10 +195,8 @@ class PracticeCatalogServiceTest {
         PracticeSection listening = section(32L, SET_ID, TEST_ID, "LISTENING", 2);
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq(""), eq(null), eq(request)))
+        when(setRepository.findPublishedGlobalCatalog(
+                anyString(), anyString(), eq(""), eq(""), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set, set), request, 2));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -245,10 +233,8 @@ class PracticeCatalogServiceTest {
                 LocalDateTime.of(2026, 7, 29, 10, 0));
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), eq(USER_ID), eq(List.of(-1L)),
-                eq(0L), eq(""), eq("SPEAKING"), eq(null), eq(request)))
+        when(setRepository.findPublishedGlobalCatalog(
+                anyString(), anyString(), eq(""), eq("SPEAKING"), eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set), request, 1));
         when(testRepository.findBySetIdInOrderBySetIdAscDisplayOrderAsc(List.of(SET_ID)))
                 .thenReturn(List.of(test));
@@ -293,14 +279,9 @@ class PracticeCatalogServiceTest {
         PracticeSection writing = section(31L, SET_ID, TEST_ID, "WRITING", 1);
         PageRequest request = PageRequest.of(2, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "biểu đồ",
                 "WRITING",
                 WritingTaskType.Q53,
@@ -326,14 +307,9 @@ class PracticeCatalogServiceTest {
     @Test
     void unknownWritingTaskFailsSafelyToAllWithoutDroppingWritingSkill() {
         PageRequest request = PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "",
                 "WRITING",
                 null,
@@ -366,19 +342,13 @@ class PracticeCatalogServiceTest {
         when(resume.getActivityAt())
                 .thenReturn(LocalDateTime.parse("2026-07-25T12:00:00"));
 
-        when(learnerAccessService.activeClassIds(USER_ID))
-                .thenReturn(List.of(15L));
-        when(classRepository.findAllById(List.of(15L)))
-                .thenReturn(List.of());
-        when(attemptRepository.findGlobalResumeCandidates(
+        when(attemptRepository.findGlobalCatalogResumeCandidates(
                 eq(USER_ID),
-                eq(List.of(15L)),
                 any(LocalDateTime.class),
                 eq(PageRequest.of(0, 1))))
                 .thenReturn(List.of(resume));
-        when(setRepository.findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), eq(USER_ID),
-                eq(List.of(15L)), eq(0L), eq("đọc"), eq("READING"),
+        when(setRepository.findPublishedGlobalCatalog(
+                anyString(), anyString(), eq("đọc"), eq("READING"),
                 eq(null), eq(request)))
                 .thenReturn(new PageImpl<>(
                         List.of(visiblePageSet), request, 30));
@@ -416,11 +386,8 @@ class PracticeCatalogServiceTest {
         PageRequest request =
                 PageRequest.of(0, PracticeCatalogService.BATCH_SIZE);
 
-        when(learnerAccessService.activeClassIds(USER_ID))
-                .thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
-                anyString(), anyString(), anyString(), eq(USER_ID),
-                eq(List.of(-1L)), eq(0L), eq(""), eq(""), eq(null),
+        when(setRepository.findPublishedGlobalCatalog(
+                anyString(), anyString(), eq(""), eq(""), eq(null),
                 eq(request)))
                 .thenReturn(new PageImpl<>(List.of(set), request, 1));
         when(testRepository
@@ -481,14 +448,9 @@ class PracticeCatalogServiceTest {
                                 1))
                         .toList();
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "",
                 "",
                 null,
@@ -514,14 +476,9 @@ class PracticeCatalogServiceTest {
         assertThat(batch.totalElements()).isEqualTo(10_000);
         assertThat(batch.batch()).isEqualTo(417);
         assertThat(batch.hasMore()).isTrue();
-        verify(learnerAccessService).activeClassIds(USER_ID);
-        verify(setRepository).findLearnerVisiblePublished(
+        verify(setRepository).findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "",
                 "",
                 null,
@@ -530,9 +487,8 @@ class PracticeCatalogServiceTest {
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds);
         verify(sectionRepository)
                 .findBySetIdInOrderBySetIdAscDisplayOrderAsc(pageSetIds);
-        verify(attemptRepository).findGlobalResumeCandidates(
+        verify(attemptRepository).findGlobalCatalogResumeCandidates(
                 eq(USER_ID),
-                eq(List.of(-1L)),
                 any(LocalDateTime.class),
                 eq(PageRequest.of(0, 1)));
         verify(attemptRepository).findCatalogAttemptStateCandidates(
@@ -541,8 +497,6 @@ class PracticeCatalogServiceTest {
         verify(attemptRepository, never())
                 .findCatalogCompletedSections(anyLong(), anyList());
         verifyNoMoreInteractions(
-                learnerAccessService,
-                classRepository,
                 setRepository,
                 testRepository,
                 sectionRepository,
@@ -558,26 +512,17 @@ class PracticeCatalogServiceTest {
         PracticeSet lastSet =
                 set(SET_ID, "Bộ đề cuối", PracticeSet.SKILL_READING);
 
-        when(learnerAccessService.activeClassIds(USER_ID)).thenReturn(List.of());
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "",
                 "",
                 null,
                 requested))
                 .thenReturn(new PageImpl<>(List.of(), requested, 13));
-        when(setRepository.findLearnerVisiblePublished(
+        when(setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                USER_ID,
-                List.of(-1L),
-                0L,
                 "",
                 "",
                 null,

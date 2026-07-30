@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kiểu chữ luyện tiếng Hàn | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
+</head>
+<body class="pi-body practice-font-settings">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+
+<div class="pi-container">
+  <aside th:replace="~{fragments/practice-sidebar :: practiceSidebar('preferences')}"></aside>
+
+  <main class="pi-main-wrapper" id="main-content">
+    <section class="pkf-settings" aria-labelledby="pkf-title">
+      <header class="pkf-heading">
+        <p class="pkf-eyebrow">Hiển thị nội dung học</p>
+        <h1 id="pkf-title">Kiểu chữ luyện tiếng Hàn</h1>
+        <p>
+          Chỉ phần đề bài, đoạn đọc, bản chép lời, câu trả lời và chú thích
+          tiếng Hàn thay đổi. Giao diện tiếng Việt giữ nguyên.
+        </p>
+      </header>
+
+      <div th:if="${practiceKoreanFontUpdated}"
+           class="pkf-alert"
+           role="status">
+        Đã lưu kiểu chữ cho tài khoản này.
+      </div>
+
+      <form class="pkf-form"
+            method="post"
+            th:action="@{/practice/preferences/korean-font}"
+            data-practice-korean-font-form>
+        <input type="hidden"
+               th:name="${_csrf.parameterName}"
+               th:value="${_csrf.token}">
+        <input type="hidden"
+               name="schemaVersion"
+               th:value="${practiceKoreanFontSchemaVersion}">
+
+        <fieldset>
+          <legend>Chọn kiểu chữ</legend>
+          <p class="pkf-help" id="pkf-help">
+            17 kiểu chữ Hàn khác biệt và dễ so sánh được KSH self-host, không
+            phụ thuộc font cài trên máy.
+          </p>
+
+          <section class="pkf-preview pkf-preview-top"
+                   aria-labelledby="pkf-preview-title">
+            <div>
+              <p class="pkf-eyebrow">Xem trước lựa chọn hiện tại</p>
+              <h2 id="pkf-preview-title">Nội dung học tiếng Hàn</h2>
+            </div>
+            <p lang="ko" data-practice-korean-content>
+              오늘은 도서관에서 한국어 문법과 어휘를 연습합니다.
+            </p>
+            <p class="pkf-preview-note">
+              Chọn một mẫu bên dưới để xem ngay. Việc đổi font không thay đổi
+              văn bản, đáp án hay vị trí bằng chứng.
+            </p>
+          </section>
+
+          <div class="pkf-choice-grid">
+            <label class="pkf-choice"
+                   th:each="font : ${practiceKoreanFontOptions}"
+                   th:attr="data-font-profile=${font.name()}">
+              <input type="radio"
+                     name="koreanFont"
+                     th:value="${font.name()}"
+                     th:checked="${font.name() == practiceKoreanFont}"
+                     aria-describedby="pkf-help">
+              <span>
+                <strong th:text="${font.label()}">Font</strong>
+                <em class="pkf-choice-category"
+                    th:text="${font.categoryLabel()}">Sans</em>
+                <small th:text="${font.description()}">
+                  Mô tả kiểu chữ
+                </small>
+                <span class="pkf-choice-sample" lang="ko">
+                  한국어 문장을 읽어 보세요
+                </span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="pkf-size-fieldset">
+          <legend>Cỡ chữ nội dung Hàn</legend>
+          <p class="pkf-help" id="pkf-size-help">
+            Tăng cỡ đề bài, đoạn đọc, đáp án và bản chép lời tiếng Hàn.
+            Giao diện tiếng Việt không thay đổi.
+          </p>
+          <div class="pkf-size-grid">
+            <label class="pkf-size-choice"
+                   th:each="size : ${practiceKoreanFontSizeOptions}">
+              <input type="radio"
+                     name="koreanFontSize"
+                     th:value="${size.name()}"
+                     th:checked="${size.name() == practiceKoreanFontSize}"
+                     aria-describedby="pkf-size-help">
+              <span>
+                <strong th:text="${size.label()}">Mặc định</strong>
+                <small th:text="${size.percentLabel()}">100%</small>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="pkf-actions">
+          <button class="btn btn-primary" type="submit">Lưu hiển thị</button>
+          <a class="btn-ghost" th:href="@{/practice}">Quay lại kho bài</a>
+          <span class="sr-only"
+                aria-live="polite"
+                data-practice-korean-font-status></span>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+</body>
+</html>

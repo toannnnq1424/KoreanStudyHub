@@ -14,6 +14,8 @@ import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
+import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
+import com.ksh.features.practice.ai.writing.WritingDiagnosticContract;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.writing.WritingRubricCriterion;
@@ -60,7 +62,6 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
 
     private static final String CURRENT_SCORING_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
     private static final String CURRENT_EVALUATION_ENGINE = "KSH_WRITING_EVALUATOR_V2";
-    private static final Set<String> CURRENT_EVALUATION_SOURCES = Set.of("PROVIDER", "CACHE");
 
     private final ObjectMapper objectMapper;
     private final WritingFeedbackViewMapper feedbackMapper;
@@ -499,6 +500,10 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     || evidenceScope == WritingRubricCriterion.EvidenceScope.TASK_METADATA) {
                 continue;
             }
+            if (!WritingDiagnosticContract.validProviderMetadata(
+                    finding, criterion, task.taskType(), evidenceScope)) {
+                continue;
+            }
             String evidence = finding.path("evidence").asText("");
             String explanation = finding.path("explanationVi").asText("").trim();
             String correction = finding.path("correction").asText("").trim();
@@ -532,6 +537,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             String evidenceAvailability = ResultDetailDescriptorRegistry
                     .evidenceAvailability(evidenceScope.name());
             if (descriptor == null || evidenceAvailability == null
+                    || !java.util.Objects.equals(
+                    descriptor.parentCriterionId(),
+                    nullableText(finding.get("scoringCriterionId")))
                     || (descriptor.parentCriterionId() != null
                     && task.officialCriteria().stream().noneMatch(scoreCriterion ->
                     descriptor.parentCriterionId().equals(
@@ -550,6 +558,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     category.labelKo(),
                     category.stableOrder(),
                     feature.code(),
+                    finding.path("subtype").asText(),
                     feature.labelVi(),
                     feature.labelKo(),
                     feature.stableOrder(),
@@ -563,10 +572,10 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     evidence,
                     explanation,
                     correction,
-                    null,
-                    null,
-                    null,
-                    null);
+                    finding.path("impact").asText(),
+                    finding.path("frequency").intValue(),
+                    finding.path("confidence").decimalValue(),
+                    finding.path("observability").asText());
             target.add(new ResolvedDiagnostic(descriptor, diagnostic));
         }
     }
@@ -575,8 +584,17 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (node == null || !node.isTextual() || node.asText().isBlank()) {
             return null;
         }
+        return parseEvidenceScope(node.asText());
+    }
+
+    private static WritingRubricCriterion.EvidenceScope parseEvidenceScope(
+            String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
         try {
-            return WritingRubricCriterion.EvidenceScope.valueOf(node.asText().trim());
+            return WritingRubricCriterion.EvidenceScope.valueOf(
+                    value.trim());
         } catch (IllegalArgumentException exception) {
             return null;
         }
@@ -669,7 +687,6 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 ? feedbackMapper.map(feedbackNode)
                 : null;
         String upgradedAnswer = feedback == null ? null : feedback.upgradedAnswer();
-        String evaluatorSample = feedback == null ? null : feedback.sampleAnswer();
         List<WritingSentenceRewriteView> rewrites = feedback == null
                 ? List.of()
                 : feedback.sentenceRewrites().stream()
@@ -691,10 +708,10 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         "제출 답안을 바탕으로 개선한 답안"),
                 rewrites,
                 answerArtifact(
-                        evaluatorSample,
-                        "EVALUATOR_GENERATED_NOT_TEACHER_REFERENCE",
-                        "Bài tham khảo do bộ đánh giá tạo",
-                        "평가기가 생성한 참고 답안"));
+                        null,
+                        "NOT_PROVIDED_BY_CURRENT_EVALUATOR",
+                        "Bộ đánh giá hiện tại không tạo bài mẫu độc lập",
+                        "현재 평가기는 독립 모범 답안을 생성하지 않음"));
     }
 
     private static WritingAnswerArtifact answerArtifact(
@@ -825,7 +842,11 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 : List.of();
         List<WritingAnalysisLens> lenses = isCloze(taskType)
                 ? List.of()
-                : longFormLenses(visibleCriteria, availability.ready() ? feedback : null);
+                : longFormLenses(
+                        taskType,
+                        learnerAnswer,
+                        visibleCriteria,
+                        availability.ready() ? feedback : null);
 
         return new WritingTaskResult(
                 question.getQuestionId(),
@@ -907,6 +928,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     }
 
     private static List<WritingAnalysisLens> longFormLenses(
+            String taskType,
+            String learnerAnswer,
             List<ResultRubricCriterion> criteria,
             WritingFeedbackView feedback) {
         if (criteria.size() < 3) {
@@ -916,17 +939,23 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         ResultRubricCriterion structure = criteria.get(1);
         ResultRubricCriterion language = criteria.get(2);
         return List.of(
-                lens("CONTENT", "Nhiệm vụ và Nội dung", content, feedback,
+                lens(taskType, learnerAnswer,
+                        "CONTENT", "Nhiệm vụ và Nội dung", content, feedback,
                         Set.of("CONTENT", "TASK", "CONTEXT"), true),
-                lens("STRUCTURE", "Cấu trúc và mạch lạc", structure, feedback,
+                lens(taskType, learnerAnswer,
+                        "STRUCTURE", "Cấu trúc và mạch lạc", structure, feedback,
                         Set.of("ORGANIZATION", "COHERENCE", "STRUCTURE"), true),
-                lens("VOCABULARY", "Từ vựng và Diễn đạt", language, feedback,
+                lens(taskType, learnerAnswer,
+                        "VOCABULARY", "Từ vựng và Diễn đạt", language, feedback,
                         Set.of("VOCABULARY", "EXPRESSION", "LEXICAL"), false),
-                lens("GRAMMAR", "Ngữ pháp và Độ chính xác", language, feedback,
+                lens(taskType, learnerAnswer,
+                        "GRAMMAR", "Ngữ pháp và Độ chính xác", language, feedback,
                         Set.of("GRAMMAR", "SYNTAX", "SPELLING", "SPACING", "ACCURACY"), false));
     }
 
     private static WritingAnalysisLens lens(
+            String taskType,
+            String learnerAnswer,
             String code,
             String label,
             ResultRubricCriterion source,
@@ -934,7 +963,12 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             Set<String> categories,
             boolean allowCriterionFallback) {
         List<String> evidence = evidence(
-                feedback, source.criterionId(), categories, allowCriterionFallback);
+                feedback,
+                source.criterionId(),
+                categories,
+                allowCriterionFallback,
+                taskType,
+                learnerAnswer);
         return new WritingAnalysisLens(
                 code,
                 label,
@@ -946,26 +980,103 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             WritingFeedbackView feedback,
             String sourceCriterionId,
             Set<String> categories,
-            boolean allowCriterionFallback) {
+            boolean allowCriterionFallback,
+            String taskType,
+            String learnerAnswer) {
         if (feedback == null) {
             return List.of();
         }
         LinkedHashSet<String> result = new LinkedHashSet<>();
-        for (WritingFindingView finding : concat(feedback.strengths(), feedback.needsImprovement())) {
-            if (matches(finding.criterionId(), finding.category(), sourceCriterionId,
-                    categories, allowCriterionFallback)) {
-                addPresent(result, finding.explanationVi());
-                addPresent(result, finding.correction());
-            }
-        }
-        for (WritingAnnotationView annotation : feedback.annotations()) {
-            if (matches(annotation.criterionId(), annotation.category(), sourceCriterionId,
-                    categories, allowCriterionFallback)) {
-                addPresent(result, annotation.explanationVi());
-                addPresent(result, annotation.correction());
-            }
-        }
+        addValidatedOverviewEvidence(
+                result,
+                feedback.strengths(),
+                WritingRubricCriterion.Polarity.STRENGTH,
+                sourceCriterionId,
+                categories,
+                allowCriterionFallback,
+                taskType,
+                learnerAnswer);
+        addValidatedOverviewEvidence(
+                result,
+                feedback.needsImprovement(),
+                WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT,
+                sourceCriterionId,
+                categories,
+                allowCriterionFallback,
+                taskType,
+                learnerAnswer);
         return List.copyOf(result);
+    }
+
+    private static void addValidatedOverviewEvidence(
+            LinkedHashSet<String> target,
+            List<WritingFindingView> findings,
+            WritingRubricCriterion.Polarity polarity,
+            String sourceCriterionId,
+            Set<String> categories,
+            boolean allowCriterionFallback,
+            String taskType,
+            String learnerAnswer) {
+        for (WritingFindingView finding : findings) {
+            WritingRubricCriterion criterion =
+                    WritingRubricCriterion.parse(finding.criterionId());
+            WritingRubricCriterion.EvidenceScope evidenceScope =
+                    parseEvidenceScope(finding.evidenceScope());
+            if (criterion == null
+                    || criterion.polarity() != polarity
+                    || !criterion.activeForProvider()
+                    || !criterion.appliesTo(taskType)
+                    || evidenceScope == null
+                    || !criterion.supports(evidenceScope)
+                    || evidenceScope
+                            == WritingRubricCriterion.EvidenceScope.TASK_METADATA
+                    || !WritingDiagnosticContract.validProviderMetadata(
+                            finding.subtype(),
+                            finding.scoringCriterionId(),
+                            finding.impact(),
+                            finding.frequency(),
+                            finding.confidence(),
+                            finding.observability(),
+                            criterion,
+                            taskType,
+                            evidenceScope)
+                    || !matches(
+                            finding.criterionId(),
+                            finding.category(),
+                            sourceCriterionId,
+                            categories,
+                            allowCriterionFallback)) {
+                continue;
+            }
+            String evidence = finding.evidence() == null
+                    ? ""
+                    : finding.evidence();
+            String correction = finding.correction() == null
+                    ? ""
+                    : finding.correction();
+            if (finding.explanationVi() == null
+                    || finding.explanationVi().isBlank()
+                    || (evidenceScope
+                            == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && (evidence.isBlank()
+                    || learnerAnswer == null
+                    || !learnerAnswer.contains(evidence)))
+                    || (evidenceScope
+                            == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
+                    && !evidence.isEmpty())
+                    || (polarity
+                            == WritingRubricCriterion.Polarity.STRENGTH
+                    && !correction.isEmpty())
+                    || (polarity
+                            == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT
+                    && evidenceScope
+                            == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && correction.isBlank())) {
+                continue;
+            }
+            addPresent(target, finding.explanationVi());
+            addPresent(target, finding.correction());
+        }
     }
 
     private static boolean matches(
@@ -1032,8 +1143,10 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             return new ResultFeedbackAvailability(
                     "UNAVAILABLE", "Nhiệm vụ này hiện chưa có đánh giá khả dụng", 0, 1);
         }
-        if (normalizedStatus.contains("FAILED") || normalizedStatus.contains("ERROR")
-                || normalizedStatus.contains("INVALID")) {
+        if (normalizedStatus.contains("FAILED")
+                || normalizedStatus.contains("ERROR")
+                || (normalizedStatus.contains("INVALID")
+                && !scoreContractReady)) {
             return new ResultFeedbackAvailability(
                     "FAILED", "Không thể hoàn tất đánh giá nhiệm vụ này", 0, 1);
         }
@@ -1131,19 +1244,49 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 || feedbackNode == null
                 || !feedbackNode.isObject()
                 || evaluation == null
-                || !evaluation.scoreAvailableFlag()) {
+                || !evaluation.scoreAvailableFlag()
+                || !hasExactCurrentScoreEnvelopeShape(feedbackNode)) {
             return false;
         }
-        String evaluationStatus = normalize(evaluation.evaluationStatus());
-        String evaluationSource = normalize(evaluation.evaluationSource());
+        WritingScoringRubric rubric = WritingScoringPolicy.rubricFor(taskType);
+        BigDecimal expectedMaximum =
+                BigDecimal.valueOf(rubric.totalMaxScore());
         return taskType.equals(evaluation.taskType())
                 && CURRENT_SCORING_CONTRACT.equals(
                         text(feedbackNode, "scoring_contract"))
+                && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
+                        evaluation.policyBundleId())
                 && CURRENT_EVALUATION_ENGINE.equals(evaluation.engine())
-                && "EVALUATED".equals(evaluationStatus)
-                && CURRENT_EVALUATION_SOURCES.contains(evaluationSource)
+                && WritingAssessmentPolicyBundle
+                        .hasExactCurrentScoreProvenance(evaluation)
+                && evaluation.rawScore() != null
+                && evaluation.rawScoreMax() != null
+                && evaluation.rawScore().signum() >= 0
+                && evaluation.rawScore()
+                        .compareTo(evaluation.rawScoreMax()) <= 0
+                && evaluation.rawScoreMax()
+                        .compareTo(expectedMaximum) == 0;
+    }
+
+    private static boolean hasExactCurrentScoreEnvelopeShape(
+            JsonNode feedbackNode
+    ) {
+        return feedbackNode.path("raw_score").isNumber()
+                && feedbackNode.path("raw_score_max").isNumber()
                 && feedbackNode.path("score_available").isBoolean()
-                && feedbackNode.path("score_available").asBoolean();
+                && feedbackNode.path("score_available").asBoolean()
+                && feedbackNode.path("task_type").isTextual()
+                && feedbackNode.path("scoring_contract").isTextual()
+                && feedbackNode.path("policy_bundle_id").isTextual()
+                && feedbackNode.path("engine").isTextual()
+                && feedbackNode.path("evaluation_status").isTextual()
+                && feedbackNode.path("evaluation_source").isTextual()
+                && feedbackNode.path("evaluation_reason").isTextual()
+                && feedbackNode.path("evaluation_retryable").isBoolean();
+    }
+
+    private static String nullableText(JsonNode node) {
+        return node != null && node.isTextual() ? node.asText() : null;
     }
 
     private JsonNode readTree(String json) {
@@ -1235,14 +1378,6 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (value != null && !value.isBlank()) {
             values.add(value.trim());
         }
-    }
-
-    private static List<WritingFindingView> concat(
-            List<WritingFindingView> first,
-            List<WritingFindingView> second) {
-        List<WritingFindingView> values = new ArrayList<>(first);
-        values.addAll(second);
-        return values;
     }
 
     private record ResolvedDiagnostic(

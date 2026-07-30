@@ -205,7 +205,8 @@ public class WritingEvaluationCacheService {
                 + frame(nullToEmpty(model))
                 + frame(nullToEmpty(promptVersion))
                 + frame(nullToEmpty(rubricVersion))
-                + frame(nullToEmpty(schemaVersion));
+                + frame(nullToEmpty(schemaVersion))
+                + frame(WritingAssessmentPolicyBundle.identity());
         return sha256(raw);
     }
 

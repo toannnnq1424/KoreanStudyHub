@@ -1,8 +1,6 @@
 package com.ksh.features.questionbank.service;
 
-import com.ksh.entities.Category;
 import com.ksh.entities.User;
-import com.ksh.features.admin.categories.repository.CategoryRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.dto.QuestionBankCategoryForm;
 import com.ksh.features.questionbank.dto.QuestionBankViews.CategoryOption;
@@ -14,12 +12,7 @@ import com.ksh.security.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 /** Department-scoped category CRUD for question bank curation. */
 @Service
@@ -37,106 +30,50 @@ public class QuestionBankCategoryService {
     private final QuestionBankAccessPolicy accessPolicy;
     private final QuestionBankCategoryRepository categoryRepository;
     private final QuestionBankItemRepository itemRepository;
-    private final CategoryRepository courseCategoryRepository;
 
     public QuestionBankCategoryService(UserRepository userRepository,
                                        QuestionBankAccessPolicy accessPolicy,
                                        QuestionBankCategoryRepository categoryRepository,
-                                       QuestionBankItemRepository itemRepository,
-                                       CategoryRepository courseCategoryRepository) {
+                                       QuestionBankItemRepository itemRepository) {
         this.userRepository = userRepository;
         this.accessPolicy = accessPolicy;
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
-        this.courseCategoryRepository = courseCategoryRepository;
     }
 
     /**
-     * Authoring catalogue composed from department-owned question-bank categories
-     * and the active top-level course taxonomy managed by ADMIN.
-     *
-     * <p>A negative option id is an internal, transient reference to an ADMIN
-     * course category. It is resolved into a department-scoped question-bank
-     * category only when a question is actually saved or an import is confirmed;
-     * opening a GET page never writes taxonomy rows. An existing department row
-     * with the same name shadows the ADMIN source even when inactive, so a
-     * LEADER's explicit hide decision cannot be bypassed.</p>
+     * Returns the single canonical authoring catalogue for the actor's
+     * department. Only active department-owned question-bank categories are
+     * exposed, so lecturer authoring/filtering and LEADER curation always refer
+     * to the same rows and identifiers.
      */
     @Transactional(readOnly = true)
     public List<CategoryOption> activeOptionsFor(User user) {
         Long departmentId = requireDepartment(user);
-        List<QuestionBankCategory> departmentCategories =
-                categoryRepository.findByDepartmentIdOrderByNameAsc(departmentId);
-        List<CategoryOption> options = new ArrayList<>();
-        Set<String> shadowedNames = new LinkedHashSet<>();
-        for (QuestionBankCategory category : departmentCategories) {
-            shadowedNames.add(normalizeLookupName(category.getName()));
-            if (category.isActive()) {
-                options.add(new CategoryOption(category.getId(), category.getName(), true));
-            }
-        }
-        for (Category category : courseCategoryRepository.findByParentIdIsNullOrderByNameAsc()) {
-            String normalizedName = normalizeLookupName(category.getName());
-            if (!category.isTopLevel() || !category.isActive() || shadowedNames.contains(normalizedName)) {
-                continue;
-            }
-            options.add(new CategoryOption(adminCategoryReference(category.getId()), category.getName(), true));
-            shadowedNames.add(normalizedName);
-        }
-        options.sort(Comparator.comparing(CategoryOption::name, String.CASE_INSENSITIVE_ORDER));
-        return List.copyOf(options);
+        return categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(departmentId).stream()
+                .map(category -> new CategoryOption(category.getId(), category.getName(), true))
+                .toList();
     }
 
     /**
-     * Resolves either a real department category id or a transient ADMIN category
-     * reference for a write. ADMIN-backed choices are mirrored lazily to satisfy
-     * the existing {@code question_bank_items.category_id} foreign key.
+     * Resolves a real, active category owned by the actor's department.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public QuestionBankCategory resolveForContribution(Long categoryReference, User actor) {
         Long departmentId = requireDepartment(actor);
         if (!accessPolicy.canAccessDepartment(actor, departmentId) || categoryReference == null) {
             throw new QuestionBankValidationException(MSG_FORBIDDEN);
         }
-        if (categoryReference > 0L) {
-            QuestionBankCategory category = categoryRepository
-                    .findByIdAndDepartmentId(categoryReference, departmentId)
-                    .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
-            if (!category.isActive()) {
-                throw new QuestionBankValidationException("Danh mục đang bị ẩn");
-            }
-            return category;
-        }
-        if (categoryReference == 0L || categoryReference == Long.MIN_VALUE) {
+        if (categoryReference <= 0L) {
             throw new QuestionBankValidationException(MSG_NOT_FOUND);
         }
-
-        Long sourceId = -categoryReference;
-        Category source = courseCategoryRepository.findById(sourceId)
-                .filter(Category::isTopLevel)
-                .filter(Category::isActive)
+        QuestionBankCategory category = categoryRepository
+                .findByIdAndDepartmentId(categoryReference, departmentId)
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
-        QuestionBankCategory existing = categoryRepository
-                .findByDepartmentIdAndNameIgnoreCase(departmentId, source.getName())
-                .orElse(null);
-        if (existing != null) {
-            if (!existing.isActive()) {
-                throw new QuestionBankValidationException("Danh mục đang bị ẩn");
-            }
-            return existing;
-        }
-        categoryRepository.insertAdminMirrorIfAbsent(
-                departmentId,
-                source.getName(),
-                source.getDescription(),
-                actor.getId());
-        QuestionBankCategory resolved = categoryRepository
-                .findByDepartmentIdAndNameIgnoreCase(departmentId, source.getName())
-                .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
-        if (!resolved.isActive()) {
+        if (!category.isActive()) {
             throw new QuestionBankValidationException("Danh mục đang bị ẩn");
         }
-        return resolved;
+        return category;
     }
 
     @Transactional(readOnly = true)
@@ -270,14 +207,4 @@ public class QuestionBankCategoryService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static Long adminCategoryReference(Long id) {
-        if (id == null || id <= 0L) {
-            throw new IllegalStateException("ADMIN category id must be positive");
-        }
-        return -id;
-    }
-
-    private static String normalizeLookupName(String value) {
-        return value == null ? "" : value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
-    }
 }

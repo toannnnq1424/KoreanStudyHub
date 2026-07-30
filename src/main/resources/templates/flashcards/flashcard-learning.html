@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${deck.title()} + ' — Phòng luyện tập', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css(v='2')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcard-learning.css(v='3')}">
+</head>
+<body class="fc-learning-body" th:classappend="${activeMode == 'test'} ? ' fc-test-mode-body'">
+<header th:replace="~{fragments/flashcard-study-header :: studyHeader(${deck}, ${activeMode}, true)}"
+        class="fc-study-header"></header>
+
+<main class="fc-learning-shell">
+  <div class="fc-learning-topbar">
+    <a class="fc-learning-back" th:href="@{|/my/flashcards/${deck.id()}|}">← Bộ thẻ</a>
+    <div class="fc-learning-heading">
+      <span class="fc-learning-kicker">PHÒNG LUYỆN TẬP</span>
+      <h1 th:text="${deck.title()}">Tên bộ thẻ</h1>
+    </div>
+    <div class="fc-learning-summary">
+      <span th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
+    </div>
+  </div>
+
+  <div id="fcLearning"
+       th:attr="data-cards=${cardsJson},data-active-mode=${activeMode},data-deck-id=${deck.id()},
+                data-match-decks=${matchDeckOptionsJson},data-match-selected=${matchSelectedDeckIdsJson}"
+       class="fc-learning-app">
+    <section class="fc-learning-progress" aria-label="Tiến độ buổi học">
+      <div class="fc-progress-track"><span id="fcProgressBar"></span></div>
+      <div class="fc-progress-labels">
+        <span id="fcProgressLabel">Chọn một cách học để bắt đầu</span>
+        <span id="fcModeLabel">Tự luyện · không lưu lượt chơi</span>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'learn'} ? 'is-active'" data-panel="learn">
+      <div class="fc-round-head">
+        <div><span class="fc-learning-eyebrow">HỌC</span><h2 id="fcLearnTitle">Chọn nghĩa đúng</h2></div>
+        <span class="fc-round-count" id="fcLearnCount">1 / 1</span>
+      </div>
+      <div class="fc-question-card fc-learn-card" id="fcLearnCard">
+        <span class="fc-question-label" id="fcLearnPromptLabel">TỪ HÀN</span>
+        <img class="fc-card-media" id="fcLearnImage" alt="" hidden>
+        <div class="fc-question-word" id="fcLearnPrompt">—</div>
+        <button type="button" class="fc-audio-button" data-speak-target="fcLearnPrompt"
+                title="Phát âm" aria-label="Phát âm từ hiện tại">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4Z"/>
+            <path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/>
+          </svg>
+        </button>
+
+        <div class="fc-learn-choice-stage" id="fcLearnChoiceStage">
+          <span class="fc-learn-instruction">Chọn đáp án đúng</span>
+          <div class="fc-answer-grid" id="fcLearnAnswers"></div>
+        </div>
+
+        <div class="fc-learn-write-stage" id="fcLearnWriteStage" hidden>
+          <label class="fc-input-label" for="fcLearnInput">Đáp án của bạn</label>
+          <input id="fcLearnInput" class="fc-test-input fc-learn-input"
+                 autocomplete="off" spellcheck="false" placeholder="Nhập từ tiếng Hàn">
+          <div class="fc-learn-write-actions">
+            <button type="button" class="fc-soft-button" id="fcLearnHint">Hiển thị gợi ý</button>
+            <span class="fc-learn-hint" id="fcLearnHintText" hidden></span>
+            <button type="button" class="fc-soft-button fc-soft-button-blue" id="fcLearnSubmit">Trả lời</button>
+          </div>
+        </div>
+
+        <div class="fc-learn-question-actions" id="fcLearnQuestionActions">
+          <button type="button" class="fc-learn-unknown" id="fcLearnUnknown">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4a1 1 0 0 1 1-1h11l-2 4 2 4H6"/></svg>
+            Bạn không biết?
+          </button>
+        </div>
+
+        <p class="fc-feedback" id="fcLearnFeedback" aria-live="polite"></p>
+
+        <div class="fc-learn-correct-answer" id="fcLearnCorrectAnswer" hidden>
+          <span>Đáp án đúng</span>
+          <strong id="fcLearnCorrectText">—</strong>
+        </div>
+
+        <div class="fc-learn-continue-row">
+          <span id="fcLearnContinueHint" hidden>Nhấn Enter hoặc chọn Tiếp tục</span>
+          <button type="button" class="fc-soft-button fc-soft-button-blue fc-learn-continue"
+                  id="fcLearnContinue" hidden>Tiếp tục</button>
+        </div>
+      </div>
+
+      <div class="fc-learn-complete" id="fcLearnComplete" hidden>
+        <span class="fc-learn-complete-mark" aria-hidden="true">✓</span>
+        <h2>Hoàn thành lượt học</h2>
+        <p>Bạn đã đi hết các thẻ trong phiên này.</p>
+        <div class="fc-learn-complete-stats">
+          <span><strong id="fcLearnCorrectCount">0</strong> câu đúng</span>
+          <span><strong id="fcLearnReviewCount">0</strong> câu cần ôn lại</span>
+        </div>
+        <button type="button" class="fc-soft-button fc-soft-button-blue" id="fcLearnRestart">Học lại</button>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel fc-test-panel" th:classappend="${activeMode == 'test'} ? 'is-active'" data-panel="test">
+      <button type="button" class="fc-test-outline-toggle" id="fcTestOutlineToggle"
+              aria-label="Mở danh sách câu hỏi" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+      </button>
+
+      <aside class="fc-test-outline" id="fcTestOutline" hidden>
+        <div>
+          <strong>Câu hỏi</strong>
+          <button type="button" id="fcTestOutlineClose" aria-label="Đóng danh sách câu hỏi">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <nav id="fcTestOutlineLinks" aria-label="Danh sách câu hỏi"></nav>
+      </aside>
+
+      <div class="fc-test-paper">
+        <header class="fc-test-paper-heading">
+          <div>
+            <span>KIỂM TRA BỘ THẺ</span>
+            <h1 th:text="${deck.title()}">Tên bộ thẻ</h1>
+          </div>
+          <p><strong th:text="${deck.cardCount()}">0</strong> câu · Không giới hạn thời gian</p>
+        </header>
+
+        <div class="fc-test-questions" id="fcTestQuestions"></div>
+
+        <footer class="fc-test-submit-row">
+          <svg class="fc-test-submit-illustration" viewBox="0 0 150 74" aria-hidden="true">
+            <path d="M8 56c14-12 23-12 31 0 9 13 18 13 27-1 9-13 17-13 25 0 9 13 17 13 26-1 8-12 16-12 25 0"
+                  fill="none" stroke="#d9dcff" stroke-width="5" stroke-linecap="round"/>
+            <rect x="62" y="9" width="40" height="54" rx="7" fill="#f0dfff"/>
+            <rect x="69" y="17" width="26" height="38" rx="3" fill="#fff" opacity=".9"/>
+            <path d="m73 27 4 4 7-8m-11 17 4 4 7-8" fill="none" stroke="#bb72ee" stroke-width="3"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="m101 53 22-22 8 8-22 22-12 4z" fill="#8258f4"/>
+            <path d="m123 31 4-4a4 4 0 0 1 6 0l2 2a4 4 0 0 1 0 6l-4 4z" fill="#bc82f7"/>
+            <path d="m97 65 4-12 8 8z" fill="#4e45d6"/>
+          </svg>
+          <h2>Tất cả đã xong! Bạn đã sẵn sàng gửi bài kiểm tra?</h2>
+          <p id="fcTestAnsweredLabel">Đã trả lời 0 / 0 câu</p>
+          <button type="button" class="fc-test-submit" id="fcTestSubmit">Gửi bài kiểm tra</button>
+          <span>Bạn vẫn có thể đổi đáp án trước khi gửi.</span>
+        </footer>
+
+        <section class="fc-test-result" id="fcTestResult" hidden aria-live="polite">
+          <span class="fc-test-result-mark" aria-hidden="true">✓</span>
+          <div>
+            <span>KẾT QUẢ</span>
+            <h2 id="fcTestResultTitle">Hoàn thành bài kiểm tra</h2>
+            <p id="fcTestResultText"></p>
+          </div>
+          <button type="button" id="fcTestRetry">Làm bài mới</button>
+        </section>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'match'} ? 'is-active'" data-panel="match">
+      <div class="fc-round-head">
+        <div><span class="fc-learning-eyebrow">GHÉP CẶP</span><h2>Nối đúng, càng nhanh càng tốt</h2></div>
+        <span class="fc-round-count" id="fcMatchCount">0 cặp</span>
+      </div>
+      <div class="fc-match-toolbar">
+        <div class="fc-match-level" aria-label="Số cặp mỗi vòng">
+          <span>Số cặp mỗi vòng</span>
+          <div id="fcMatchLevel">
+            <button type="button" data-pairs="2">2</button>
+            <button type="button" data-pairs="3">3</button>
+            <button type="button" data-pairs="4" class="is-active">4</button>
+            <button type="button" data-pairs="6">6</button>
+            <button type="button" data-pairs="8">8</button>
+            <label class="fc-match-custom">
+              <span>Tùy chỉnh</span>
+              <input type="number" id="fcMatchCustomPairs" min="1" value="4" inputmode="numeric"
+                     aria-label="Số cặp tùy chỉnh">
+            </label>
+          </div>
+        </div>
+        <label class="fc-match-media-toggle">
+          <input type="checkbox" id="fcMatchMedia" checked>
+          <span aria-hidden="true"></span>
+          <span>Trộn ảnh với chữ</span>
+        </label>
+        <button type="button" class="fc-match-restart" id="fcMatchRestart">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M5.1 9A8 8 0 0 1 18 5.3L20 7M4 17l2 1.7A8 8 0 0 0 18.9 15"/></svg>
+          Chơi lại
+        </button>
+      </div>
+      <div class="fc-match-game">
+        <div class="fc-match-round-label" id="fcMatchRoundLabel">Vòng 1</div>
+        <div class="fc-match-board" id="fcMatchBoard"></div>
+        <div class="fc-match-toast" id="fcMatchFeedback" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'tiles'} ? 'is-active'" data-panel="tiles">
+      <div class="fc-round-head">
+        <div><span class="fc-learning-eyebrow">XẾP ÂM TIẾT</span><h2>Ghép từng âm tiết thành từ Hàn đúng</h2></div>
+        <span class="fc-round-count" id="fcTilesCount">0 từ</span>
+      </div>
+      <div class="fc-hangul-game fc-tiles-game">
+        <div class="fc-game-eligibility" id="fcTilesEligibility">
+          <strong>Game cần từ tiếng Hàn chuẩn</strong>
+          <span>Hãy thêm thẻ có một mặt chỉ gồm 2–8 âm tiết Hangul để bắt đầu.</span>
+        </div>
+        <div class="fc-tiles-clue">
+          <span>GỢI Ý</span>
+          <strong id="fcTilesClue">—</strong>
+        </div>
+        <div class="fc-tiles-status" aria-live="polite">
+          <span>CHUỖI <strong id="fcTilesCombo">0</strong></span>
+          <div class="fc-tiles-reactor"><i id="fcTilesTimer"></i></div>
+          <span><strong id="fcTilesSeconds">12</strong> GIÂY</span>
+        </div>
+        <div class="fc-tiles-workbench">
+          <div class="fc-tiles-rail-head"><span>LÕI RÁP TỪ</span><small>Bắt âm tiết trước khi băng chuyền quá nhiệt</small></div>
+          <div class="fc-tiles-answer" id="fcTilesAnswer" aria-label="Từ đang ghép"></div>
+          <div class="fc-tiles-tray-label">BĂNG CHUYỀN ÂM TIẾT</div>
+          <div class="fc-tiles-bank" id="fcTilesBank" aria-label="Các âm tiết có thể chọn"></div>
+        </div>
+        <div class="fc-game-actions">
+          <button type="button" class="fc-game-secondary" id="fcTilesReset">Làm lại</button>
+          <button type="button" class="fc-game-primary" id="fcTilesCheck">Phóng từ</button>
+        </div>
+        <p class="fc-feedback" id="fcTilesFeedback" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'word-search'} ? 'is-active'" data-panel="word-search">
+      <div class="fc-round-head">
+        <div><span class="fc-learning-eyebrow">SĂN CHỮ HÀN</span><h2>Kéo qua các âm tiết để tìm từ ẩn</h2></div>
+        <span class="fc-round-count" id="fcSearchCount">0 / 0 từ</span>
+      </div>
+      <div class="fc-hangul-game fc-search-game">
+        <div class="fc-game-eligibility" id="fcSearchEligibility">
+          <strong>Chưa đủ từ tiếng Hàn để tạo bảng</strong>
+          <span>Game dùng các thẻ có một mặt là từ Hangul chuẩn.</span>
+        </div>
+        <div class="fc-search-layout">
+          <div class="fc-search-board" id="fcSearchBoard" aria-label="Bảng săn chữ"></div>
+          <aside class="fc-search-side">
+            <div>
+              <span>TỪ CẦN TÌM</span>
+              <div class="fc-search-words" id="fcSearchWords"></div>
+            </div>
+            <button type="button" class="fc-game-secondary" id="fcSearchRestart">Tạo bảng mới</button>
+          </aside>
+        </div>
+        <p class="fc-feedback" id="fcSearchFeedback" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'word-connect'} ? 'is-active'" data-panel="word-connect">
+      <div class="fc-round-head">
+        <div><span class="fc-learning-eyebrow">NỐI ÂM TIẾT</span><h2>Nối các âm tiết theo đúng thứ tự</h2></div>
+        <span class="fc-round-count" id="fcConnectCount">0 từ</span>
+      </div>
+      <div class="fc-hangul-game fc-connect-game">
+        <div class="fc-game-eligibility" id="fcConnectEligibility">
+          <strong>Chưa có từ Hangul phù hợp</strong>
+          <span>Thêm từ tiếng Hàn gồm 2–8 âm tiết để chơi.</span>
+        </div>
+        <div class="fc-connect-clue">
+          <span>NGHĨA CẦN NỐI</span>
+          <strong id="fcConnectClue">—</strong>
+        </div>
+        <div class="fc-connect-status" aria-live="polite">
+          <span>CẤP <strong id="fcConnectLevel">1</strong></span>
+          <div class="fc-connect-energy" aria-hidden="true"><i id="fcConnectEnergy"></i></div>
+          <span>CHUỖI <strong id="fcConnectCombo">0</strong></span>
+        </div>
+        <div class="fc-connect-wheel" id="fcConnectWheel">
+          <svg id="fcConnectLines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div class="fc-connect-effects" id="fcConnectEffects" aria-hidden="true"></div>
+          <div id="fcConnectNodes"></div>
+          <strong id="fcConnectAnswer">Giữ và vẽ một nét qua các âm tiết</strong>
+        </div>
+        <button type="button" class="fc-game-secondary" id="fcConnectReset">Xóa đường nối</button>
+        <p class="fc-feedback" id="fcConnectFeedback" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="fc-mode-panel" th:classappend="${activeMode == 'blast'} ? 'is-active'" data-panel="blast">
+      <div class="fc-blast-stage" id="fcBlastStage">
+        <div class="fc-blast-cloud fc-blast-cloud-one" aria-hidden="true"></div>
+        <div class="fc-blast-cloud fc-blast-cloud-two" aria-hidden="true"></div>
+        <div class="fc-blast-ambient" id="fcBlastAmbient" aria-hidden="true"></div>
+        <div class="fc-blast-projectiles" id="fcBlastProjectiles" aria-hidden="true"></div>
+        <div class="fc-blast-prompt" aria-live="polite">
+          <span class="fc-blast-prompt-label">MỤC TIÊU</span>
+          <strong id="fcBlastPrompt">—</strong>
+        </div>
+        <div class="fc-blast-time-rail" aria-hidden="true"><i id="fcBlastTimeFill"></i></div>
+        <div class="fc-blast-hud" aria-live="polite">
+          <span class="fc-blast-timer" id="fcBlastTimer">60</span>
+          <span>CHỌN ĐÚNG · BẮN NHANH</span>
+        </div>
+        <div class="fc-blast-targets" id="fcBlastTargets"></div>
+        <div class="fc-blast-ship" id="fcBlastShip" aria-hidden="true">
+          <span class="fc-ship-window">K</span>
+          <span class="fc-ship-left"></span>
+          <span class="fc-ship-right"></span>
+          <span class="fc-ship-flame"></span>
+        </div>
+        <div class="fc-blast-level">
+          <span>Cấp 1</span>
+          <div><i id="fcBlastLevelBar"></i></div>
+        </div>
+        <div class="fc-blast-combo">
+          <span>Chuỗi</span>
+          <div id="fcBlastComboDots"></div>
+        </div>
+        <div class="fc-blast-overlay" id="fcBlastOverlay">
+          <div class="fc-blast-planet" aria-hidden="true"><span>K</span></div>
+          <h3 id="fcBlastOverlayTitle">Sẵn sàng bắn từ?</h3>
+          <p id="fcBlastOverlayText">Chọn đúng thiên thạch trước khi chúng trôi khỏi màn hình.</p>
+          <button type="button" class="fc-blast-start" id="fcBlastStart">Chơi</button>
+        </div>
+        <p class="fc-feedback fc-blast-feedback" id="fcBlastFeedback" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-learning.js(v='3')}"></script>
+</body>
+</html>

@@ -48,7 +48,8 @@ public class SmartReviewService {
         accessResolver.requireViewable(deckId, userId);
         List<CardView> cards = new ArrayList<>();
         for (Flashcard c : cardRepository.findDueCards(deckId, userId, LocalDateTime.now())) {
-            cards.add(new CardView(c.getId(), c.getFrontText(), c.getBackText()));
+            cards.add(new CardView(c.getId(), c.getFrontText(), c.getBackText(),
+                    c.getFrontImage(), c.getBackImage(), c.getAlternativesJson()));
         }
         return cards;
     }

@@ -18,6 +18,12 @@
 
     <ul class="side-nav">
       <li>
+        <a th:href="@{/leader/approvals}"
+           th:classappend="${activeTab == 'approvals'} ? 'active' : ''">
+          Duyệt lớp
+        </a>
+      </li>
+      <li>
         <a th:href="@{/leader}"
            th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
           Dashboard

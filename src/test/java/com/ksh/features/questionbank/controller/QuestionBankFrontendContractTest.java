@@ -39,11 +39,14 @@ class QuestionBankFrontendContractTest {
 
         assertThat(list)
                 .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục môn học hoặc danh mục ngân hàng câu hỏi")
-                .contains("Vui lòng liên hệ ADMIN hoặc trưởng bộ môn");
+                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
+                .contains("Vui lòng liên hệ trưởng bộ môn")
+                .doesNotContain("Vui lòng liên hệ ADMIN");
         assertThat(form)
                 .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục môn học hoặc danh mục ngân hàng câu hỏi")
-                .contains("Vui lòng liên hệ ADMIN hoặc trưởng bộ môn");
+                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
+                .contains("Vui lòng liên hệ trưởng bộ môn")
+                .contains("Danh mục ngân hàng câu hỏi")
+                .doesNotContain("Vui lòng liên hệ ADMIN");
     }
 }

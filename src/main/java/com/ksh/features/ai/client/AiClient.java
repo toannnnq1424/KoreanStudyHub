@@ -44,7 +44,9 @@ public class AiClient {
     private static final Logger log = LoggerFactory.getLogger(AiClient.class);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    // Reasoning models and document-backed generation regularly need more than
+    // 30 seconds even while progressing normally.
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
 
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 
@@ -149,6 +151,17 @@ public class AiClient {
      */
     public String chat(String systemPrompt, String userMessage, int maxTokens, Long userId,
                        String source) {
+        return chat(systemPrompt, userMessage, maxTokens, userId, source, false);
+    }
+
+    /** Sends a chat completion and asks compatible providers to enforce one JSON object. */
+    public String chatJsonObject(String systemPrompt, String userMessage, int maxTokens,
+                                 Long userId, String source) {
+        return chat(systemPrompt, userMessage, maxTokens, userId, source, true);
+    }
+
+    private String chat(String systemPrompt, String userMessage, int maxTokens, Long userId,
+                        String source, boolean jsonObject) {
         List<AiProvider> providers = repository.findEnabledOrdered();
         if (providers.isEmpty()) {
             throw new AiClientException(MSG_NOT_CONFIGURED);
@@ -158,7 +171,7 @@ public class AiClient {
         for (AiProvider provider : providers) {
             try {
                 return callProvider(provider, buildMessages(systemPrompt, userMessage),
-                        maxTokens, source, userId).content();
+                        maxTokens, source, userId, jsonObject).content();
             } catch (RuntimeException e) {
                 // Credentials, model names and API dialects are provider-specific. A 4xx
                 // from one endpoint must not block a later, independent provider.
@@ -199,7 +212,7 @@ public class AiClient {
     public String callOne(AiProvider provider, String userMessage, int maxTokens,
                           String source, Long userId) {
         return callProvider(provider, buildMessages(null, userMessage), maxTokens,
-                source, userId).content();
+                source, userId, false).content();
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -226,13 +239,15 @@ public class AiClient {
      */
     private AiResult callProvider(AiProvider provider, List<Map<String, Object>> messages,
                                   int maxTokens,
-                                  String source, Long userId) {
-        Map<String, Object> payload = Map.of(
-                "model", provider.getModel(),
-                "max_tokens", maxTokens,
-                "stream", false,
-                "messages", messages
-        );
+                                  String source, Long userId, boolean jsonObject) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("model", provider.getModel());
+        payload.put("max_tokens", maxTokens);
+        payload.put("stream", false);
+        payload.put("messages", messages);
+        if (jsonObject) {
+            payload.put("response_format", Map.of("type", "json_object"));
+        }
 
         long startedAt = System.nanoTime();
         try {

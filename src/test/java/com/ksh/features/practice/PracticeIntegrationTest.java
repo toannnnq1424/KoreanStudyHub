@@ -9,7 +9,9 @@ import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
+import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
+import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
@@ -54,6 +56,10 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogCard;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionRow;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
 import com.ksh.features.practice.dto.PracticeDtos.ProgressFilterState;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveSingleChoiceDetail;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -105,6 +111,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 class PracticeIntegrationTest {
+
+    private static final String
+            PRODUCTION_SHAPED_WRITING_CONTRACT_IDENTITY =
+            "ksh-writing-evaluation-v2|"
+                    + "policy-component|".repeat(34);
 
     @Autowired
     private MockMvc mockMvc;
@@ -259,9 +270,8 @@ class PracticeIntegrationTest {
 
         attemptRepository.deleteAll();
         when(writingEvaluationClient.evaluationContractIdentity())
-                .thenReturn("ksh-writing-evaluation-test");
-        when(writingEvaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
-                .thenReturn("{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}");
+                .thenReturn(
+                        PRODUCTION_SHAPED_WRITING_CONTRACT_IDENTITY);
         when(readingListeningExplanationClient.model()).thenReturn("test-rl-model");
         when(readingListeningExplanationClient.promptVersion()).thenReturn("prompt-v1");
         when(readingListeningExplanationClient.schemaVersion()).thenReturn("schema-v1");
@@ -1265,6 +1275,108 @@ class PracticeIntegrationTest {
         publishedVersionService.createPublishedVersion(setId, lecturer.getId());
     }
 
+    @Test
+    void explanationBindingSupersessionKeepsHistoryAndExactlyOneActiveRow() {
+        publishVersion(practiceSet.getId());
+        Long publishedVersionId = publishedVersionRepository
+                .findBySetIdOrderByVersionNumberDesc(practiceSet.getId())
+                .get(0)
+                .getId();
+        Long questionVersionId = questionVersionRepository
+                .findByPublishedVersionIdOrderBySectionVersionIdAscDisplayOrderAscQuestionNoAscIdAsc(
+                        publishedVersionId)
+                .get(0)
+                .getId();
+        String oldFingerprint = "a".repeat(63) + "1";
+        String currentFingerprint = "b".repeat(63) + "2";
+        explanationArtifactRepository.insertPendingIfAbsent(
+                oldFingerprint,
+                "READING",
+                "SINGLE_CHOICE",
+                "assessment-contract-v1",
+                "test-rl-model",
+                "prompt-v1",
+                "schema-v1",
+                "vi",
+                "1".repeat(64),
+                "2".repeat(64),
+                "3".repeat(64),
+                "4".repeat(64),
+                "{}");
+        explanationArtifactRepository.insertPendingIfAbsent(
+                currentFingerprint,
+                "READING",
+                "SINGLE_CHOICE",
+                "assessment-contract-v1",
+                "test-rl-model",
+                "prompt-v2",
+                "schema-v2",
+                "vi",
+                "1".repeat(64),
+                "2".repeat(64),
+                "3".repeat(64),
+                "4".repeat(64),
+                "{}");
+        QuestionExplanationArtifact oldArtifact =
+                explanationArtifactRepository
+                        .findByFingerprint(oldFingerprint)
+                        .orElseThrow();
+        QuestionExplanationArtifact currentArtifact =
+                explanationArtifactRepository
+                        .findByFingerprint(currentFingerprint)
+                        .orElseThrow();
+
+        assertThat(explanationBindingRepository.bindIfAbsent(
+                questionVersionId,
+                oldArtifact.getId(),
+                "vi",
+                oldFingerprint)).isEqualTo(1);
+        assertThat(
+                explanationBindingRepository
+                        .supersedeActiveIfFingerprintChanged(
+                                questionVersionId,
+                                "vi",
+                                currentFingerprint))
+                .isEqualTo(1);
+        assertThat(explanationBindingRepository.bindIfAbsent(
+                questionVersionId,
+                currentArtifact.getId(),
+                "vi",
+                currentFingerprint)).isEqualTo(1);
+
+        QuestionVersionExplanationBinding active =
+                explanationBindingRepository
+                        .findByQuestionVersionIdAndExplanationLanguage(
+                                questionVersionId,
+                                "vi")
+                        .orElseThrow();
+        assertThat(active.getArtifactId())
+                .isEqualTo(currentArtifact.getId());
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        assertThat(jdbc.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM question_version_explanation_bindings
+                WHERE question_version_id = ?
+                  AND explanation_language = 'vi'
+                  AND binding_status = 'ACTIVE'
+                """,
+                Integer.class,
+                questionVersionId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM question_version_explanation_bindings
+                WHERE question_version_id = ?
+                  AND explanation_language = 'vi'
+                  AND binding_status = 'SUPERSEDED'
+                  AND artifact_id = ?
+                """,
+                Integer.class,
+                questionVersionId,
+                oldArtifact.getId())).isEqualTo(1);
+    }
+
     private ExplanationRecoveryFixture failedRetryableExplanationFixture() {
         com.ksh.entities.PracticePublishedVersion published =
                 publishedVersionRepository
@@ -1474,12 +1586,15 @@ class PracticeIntegrationTest {
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssaySubmitRunsEvaluatorOutsideTransactionAndKeepsLegacyShape() throws Exception {
+    void testNonWritingEssaySubmitRunsEvaluatorOutsideTransactionAndKeepsSingleFeedbackShape() throws Exception {
         NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
                 "Reading Essay Submit Boundary", false, true);
         final boolean[] evaluatorSawTransaction = {true};
         try {
-            String feedback = "{\"score\":7.0,\"overall_score\":7.0,\"raw_score\":7.0,\"raw_score_max\":10.0,\"task_type\":\"GENERAL\"}";
+            String feedback = currentWritingFeedback(
+                    WritingTaskType.Q51,
+                    "7",
+                    "Đánh giá bài tự luận");
             when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
                     .thenAnswer(invocation -> {
                         evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
@@ -1498,7 +1613,7 @@ class PracticeIntegrationTest {
             assertFalse(evaluatorSawTransaction[0]);
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(77.78)));
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(70.00)));
             assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(15)));
             assertEquals(objectMapper.readTree(feedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
         } finally {
@@ -1516,7 +1631,10 @@ class PracticeIntegrationTest {
             when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
                         evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
-                        return "{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "8",
+                                "Đánh giá lại bài tự luận");
                     });
 
             practiceService.reEvaluate(fixture.attemptId(), student.getId());
@@ -1524,7 +1642,151 @@ class PracticeIntegrationTest {
             assertFalse(evaluatorSawTransaction[0]);
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(88.89)));
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+        } finally {
+            deleteNonWritingEssayAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testNonWritingEssaySubmitRejectsStaleScoreProvenanceWithoutMutation() {
+        NonWritingEssayAttemptFixture fixture =
+                createNonWritingEssayAttemptFixture(
+                        "Reading Essay Stale Score", false, true);
+        try {
+            String staleScore = currentWritingFeedback(
+                    WritingTaskType.Q51,
+                    "7",
+                    "Stale score")
+                    .replace(
+                            "\"evaluation_reason\":\"NONE\"",
+                            "\"evaluation_reason\":\"EMPTY_OR_TOO_SHORT\"");
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.essayPrompt()),
+                    anyString(),
+                    eq(false),
+                    any()))
+                    .thenReturn(staleScore);
+
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> practiceService.submitAttempt(
+                            fixture.attemptId(),
+                            student.getId(),
+                            Map.of(
+                                    "answer_" + fixture.mcqQuestionId(),
+                                    "1",
+                                    "answer_" + fixture.essayQuestionId(),
+                                    "Essay answer")));
+
+            PracticeAttempt preserved = attemptRepository.findById(
+                    fixture.attemptId()).orElseThrow();
+            assertEquals(
+                    PracticeAttempt.STATUS_IN_PROGRESS,
+                    preserved.getStatus());
+            assertEquals("{}", preserved.getAnswersJson());
+            assertNull(preserved.getScore());
+            assertNull(preserved.getTotalPoints());
+            assertNull(preserved.getAiFeedbackJson());
+        } finally {
+            deleteNonWritingEssayAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testNonWritingEssayReEvaluateRejectsRetryableScoreWithoutMutation() {
+        NonWritingEssayAttemptFixture fixture =
+                createNonWritingEssayAttemptFixture(
+                        "Reading Essay Retryable Score", true, true);
+        try {
+            PracticeAttempt before = attemptRepository.findById(
+                    fixture.attemptId()).orElseThrow();
+            String expectedStatus = before.getStatus();
+            String expectedAnswers = before.getAnswersJson();
+            String expectedFeedback = before.getAiFeedbackJson();
+            BigDecimal expectedScore = before.getScore();
+            BigDecimal expectedTotal = before.getTotalPoints();
+            String retryableScore = currentWritingFeedback(
+                    WritingTaskType.Q51,
+                    "8",
+                    "Retryable score")
+                    .replace(
+                            "\"evaluation_retryable\":false",
+                            "\"evaluation_retryable\":true");
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.essayPrompt()),
+                    anyString(),
+                    eq(true),
+                    any()))
+                    .thenReturn(retryableScore);
+
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> practiceService.reEvaluate(
+                            fixture.attemptId(),
+                            student.getId()));
+
+            PracticeAttempt preserved = attemptRepository.findById(
+                    fixture.attemptId()).orElseThrow();
+            assertEquals(expectedStatus, preserved.getStatus());
+            assertEquals(expectedAnswers, preserved.getAnswersJson());
+            assertEquals(expectedFeedback, preserved.getAiFeedbackJson());
+            assertEquals(0, expectedScore.compareTo(preserved.getScore()));
+            assertEquals(0, expectedTotal.compareTo(
+                    preserved.getTotalPoints()));
+        } finally {
+            deleteNonWritingEssayAttemptFixture(fixture);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void testNonWritingEssayReEvaluateUnavailablePreservesPreviousResult() {
+        NonWritingEssayAttemptFixture fixture =
+                createNonWritingEssayAttemptFixture(
+                        "Reading Essay Unavailable Re-evaluation",
+                        true,
+                        true);
+        try {
+            PracticeAttempt before = attemptRepository.findById(
+                    fixture.attemptId()).orElseThrow();
+            String expectedStatus = before.getStatus();
+            String expectedAnswers = before.getAnswersJson();
+            String expectedFeedback = before.getAiFeedbackJson();
+            BigDecimal expectedScore = before.getScore();
+            BigDecimal expectedTotal = before.getTotalPoints();
+            Long expectedLockVersion = before.getLockVersion();
+            when(writingEvaluationClient.evaluate(
+                    eq(student.getId()),
+                    eq(fixture.essayPrompt()),
+                    anyString(),
+                    eq(true),
+                    any()))
+                    .thenReturn(currentWritingUnavailable(
+                            WritingTaskType.Q51,
+                            "EVALUATION_UNAVAILABLE",
+                            "MISSING_API_KEY",
+                            false));
+
+            assertEquals(
+                    fixture.attemptId(),
+                    practiceService.reEvaluate(
+                            fixture.attemptId(),
+                            student.getId()));
+
+            PracticeAttempt preserved = attemptRepository.findById(
+                    fixture.attemptId()).orElseThrow();
+            assertEquals(expectedStatus, preserved.getStatus());
+            assertEquals(expectedAnswers, preserved.getAnswersJson());
+            assertEquals(expectedFeedback, preserved.getAiFeedbackJson());
+            assertEquals(0, expectedScore.compareTo(preserved.getScore()));
+            assertEquals(0, expectedTotal.compareTo(
+                    preserved.getTotalPoints()));
+            assertEquals(expectedLockVersion, preserved.getLockVersion());
         } finally {
             deleteNonWritingEssayAttemptFixture(fixture);
         }
@@ -2711,23 +2973,30 @@ class PracticeIntegrationTest {
         attempt.markSubmitted(BigDecimal.valueOf(2.5), BigDecimal.valueOf(2.5),
                 "{\"" + question.getId() + "\":\"1\"}");
         attempt = attemptRepository.saveAndFlush(attempt);
-        var before = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
+        var before = resultDetailAssembler.assemble(
+                attempt.getId(), student.getId(), null);
         List<Long> idsBefore = questionIds(practiceSet.getId());
         var log = createRestoreLog(practiceSet.getId(), "Versioned reading restore");
 
         revisionService.restoreRevision(log.getId(), lecturer.getId());
 
-        var after = practiceService.getReadingListeningResult(attempt.getId(), student.getId());
+        var after = resultDetailAssembler.assemble(
+                attempt.getId(), student.getId(), null);
         assertEquals(before, after);
-        assertEquals(question.getId(), after.groups().get(0).questions().get(0).questionId());
-        assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
+        ObjectiveDetailPayload readingPayload =
+                (ObjectiveDetailPayload) after.payload();
+        ObjectiveSingleChoiceDetail readingQuestion =
+                (ObjectiveSingleChoiceDetail) readingPayload.questions().get(0);
+        assertEquals(question.getId(), readingQuestion.core().questionId());
+        assertTrue(readingQuestion.options().get(0).learnerSelected());
         assertThat(questionIds(practiceSet.getId())).isNotEqualTo(idsBefore);
     }
 
     @Test
     void listeningVersionLockedResultRemainsIdenticalWhenLiveGraphIsRepublished() {
         ListeningAttemptFixture fixture = createListeningAttemptFixture("Listening history guard");
-        var before = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
+        var before = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), null);
         com.ksh.entities.PracticeDraft draft = createRepublishDraft(
                 fixture.setId(), "Versioned listening republish");
         int versionCountBefore = publishedVersionRepository
@@ -2735,10 +3004,15 @@ class PracticeIntegrationTest {
 
         assertEquals(fixture.setId(), publisherService.publish(draft.getId(), lecturer.getId()));
 
-        var after = practiceService.getReadingListeningResult(fixture.attemptId(), student.getId());
+        var after = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), null);
         assertEquals(before, after);
-        assertEquals(fixture.questionId(), after.groups().get(0).questions().get(0).questionId());
-        assertEquals("1", after.groups().get(0).questions().get(0).userAnswer());
+        ObjectiveDetailPayload listeningPayload =
+                (ObjectiveDetailPayload) after.payload();
+        ObjectiveSingleChoiceDetail listeningQuestion =
+                (ObjectiveSingleChoiceDetail) listeningPayload.questions().get(0);
+        assertEquals(fixture.questionId(), listeningQuestion.core().questionId());
+        assertTrue(listeningQuestion.options().get(0).learnerSelected());
         assertThat(publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(fixture.setId()))
                 .hasSize(versionCountBefore + 1);
     }
@@ -2746,17 +3020,25 @@ class PracticeIntegrationTest {
     @Test
     void writingVersionLockedResultRemainsIdenticalWhenLiveGraphIsRestored() {
         WritingAttemptFixture fixture = createWritingAttemptFixture("Writing history guard", true);
-        var before = practiceService.getResult(fixture.attemptId(), student.getId());
+        var before = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), fixture.questionId());
         var log = createRestoreLog(fixture.setId(), "Versioned writing restore");
 
         revisionService.restoreRevision(log.getId(), lecturer.getId());
 
-        var after = practiceService.getResult(fixture.attemptId(), student.getId());
+        var after = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), fixture.questionId());
         assertEquals(before, after);
-        assertEquals(fixture.questionId(), after.questionFeedbacks().get(0).questionId());
-        assertEquals(fixture.prompt(), after.questionFeedbacks().get(0).prompt());
-        assertEquals("Existing answer", after.questionFeedbacks().get(0).learnerAnswer());
-        assertEquals(fixture.oldFeedbackJson(), after.aiFeedbackJson());
+        WritingDetailPayload writingPayload =
+                (WritingDetailPayload) after.payload();
+        assertEquals(fixture.questionId(), writingPayload.tasks().get(0).questionId());
+        assertEquals(fixture.prompt(), writingPayload.tasks().get(0).prompt());
+        assertEquals("Existing answer", writingPayload.tasks().get(0).learnerAnswer());
+        assertEquals(
+                fixture.oldFeedbackJson(),
+                attemptRepository.findById(fixture.attemptId())
+                        .orElseThrow()
+                        .getAiFeedbackJson());
         assertThat(questionRepository.findBySetIdOrderByDisplayOrderAsc(fixture.setId()))
                 .singleElement()
                 .extracting(PracticeQuestion::getPrompt)
@@ -2770,7 +3052,8 @@ class PracticeIntegrationTest {
                 fixture.attemptId(), fixture.questionId(), PracticeSpeakingStorageProvider.LOCAL,
                 "test/guard-" + java.util.UUID.randomUUID() + ".webm", "audio/webm", "webm", "opus",
                 100L, 1000L, "a".repeat(64)));
-        var before = practiceService.getResult(fixture.attemptId(), student.getId());
+        var before = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), fixture.questionId());
         com.ksh.entities.PracticeDraft draft = createRepublishDraft(fixture.setId(), "Unsafe speaking republish");
         long cleanupCountBefore = cleanupTaskRepository.count();
         long logCountBefore = editLogRepository.findBySetIdOrderByEditedAtDesc(fixture.setId()).size();
@@ -2779,10 +3062,15 @@ class PracticeIntegrationTest {
         assertThrows(PublishedPracticeGraphMutationBlockedException.class,
                 () -> publisherService.publish(draft.getId(), lecturer.getId()));
 
-        var after = practiceService.getResult(fixture.attemptId(), student.getId());
+        var after = resultDetailAssembler.assemble(
+                fixture.attemptId(), student.getId(), fixture.questionId());
         assertEquals(before, after);
-        assertEquals(fixture.questionId(), after.speakingQuestionFeedbacks().get(0).questionId());
-        assertEquals("Existing spoken answer", after.speakingQuestionFeedbacks().get(0).learnerAnswer());
+        SpeakingDetailPayload speakingPayload =
+                (SpeakingDetailPayload) after.payload();
+        assertEquals(fixture.questionId(), speakingPayload.tasks().get(0).questionId());
+        assertEquals(
+                "Existing spoken answer",
+                speakingPayload.tasks().get(0).learnerSubmissionText());
         assertTrue(questionRepository.existsById(fixture.questionId()));
         PracticeSpeakingMedia unchanged = speakingMediaRepository.findById(media.getId()).orElseThrow();
         assertEquals(PracticeSpeakingMediaStatus.READY, unchanged.getStatus());
@@ -3039,6 +3327,60 @@ class PracticeIntegrationTest {
         PracticeAttempt unchanged = attemptRepository.findById(attemptId).orElseThrow();
         assertThat(unchanged.getStatus()).isEqualTo(PracticeAttempt.STATUS_IN_PROGRESS);
         verifyNoInteractions(writingEvaluationClient, readingListeningExplanationClient);
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void restartingExpiredWritingFinalizesSavedSnapshotAndCreatesFreshAttempt()
+            throws Exception {
+        WritingAttemptFixture fixture =
+                createWritingAttemptFixture(
+                        "Expired Writing Restart", false);
+        PracticeAttempt expired = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        expired.setAnswersJson(
+                "{\"" + fixture.questionId()
+                        + "\":\"저장된 답안\"}");
+        expired.setDeadlineAt(
+                LocalDateTime.now().minusSeconds(1));
+        attemptRepository.saveAndFlush(expired);
+        clearInvocations(writingEvaluationClient);
+
+        mockMvc.perform(post(
+                        "/practice/sets/" + fixture.setId()
+                                + "/tests/" + fixture.testId()
+                                + "/attempts")
+                        .with(csrf())
+                        .param(
+                                "sectionId",
+                                String.valueOf(fixture.sectionId()))
+                        .param("mode", "practice"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern(
+                        "/practice/attempts/*?mode=practice"));
+
+        PracticeAttempt finalized = attemptRepository
+                .findById(fixture.attemptId()).orElseThrow();
+        assertThat(finalized.getStatus())
+                .isEqualTo(PracticeAttempt.STATUS_SUBMITTED);
+        assertThat(finalized.getAnswersJson())
+                .contains("저장된 답안");
+        assertThat(attemptEvaluationJobRepository
+                .findByAttemptId(fixture.attemptId()))
+                .isPresent();
+
+        PracticeAttempt restarted = attemptRepository
+                .findFirstByUserIdAndTestIdAndSectionIdAndStatusOrderByCreatedAtDesc(
+                        student.getId(),
+                        fixture.testId(),
+                        fixture.sectionId(),
+                        PracticeAttempt.STATUS_IN_PROGRESS)
+                .orElseThrow();
+        assertThat(restarted.getId())
+                .isNotEqualTo(fixture.attemptId());
+        assertThat(restarted.getPublishedVersionId())
+                .isEqualTo(finalized.getPublishedVersionId());
+        verifyNoWritingEvaluationCall();
     }
 
     @Test
@@ -3410,10 +3752,6 @@ class PracticeIntegrationTest {
         attempt.setStatus("IN_PROGRESS");
         attempt = attemptRepository.saveAndFlush(attempt);
 
-        // Mock evaluation client for Question A
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq("Prompt A"), anyString(), anyBoolean(), any()))
-                .thenReturn("{\"raw_score\":8.0,\"raw_score_max\":10.0}"); // 80% earned points
-
         // Submit for Section A attempt
         mockMvc.perform(post("/practice/attempts/" + attempt.getId() + "/submit")
                         .with(csrf())
@@ -3475,15 +3813,20 @@ class PracticeIntegrationTest {
         Map<String, String> answersMap = Map.of(String.valueOf(q.getId()), maliciousAnswer);
         String answersJson = objectMapper.writeValueAsString(answersMap);
 
-        java.util.Map<String, Object> qFeedback = new java.util.LinkedHashMap<>();
-        qFeedback.put("raw_score", 8.0);
-        qFeedback.put("raw_score_max", 10.0);
-        qFeedback.put("summary_vi", "Bài tốt </script> <script>alert(1)</script> \"nháy\" \\ gạch");
+        com.fasterxml.jackson.databind.node.ObjectNode qFeedback =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        objectMapper.readTree(currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "8",
+                                "Bài tốt </script> <script>alert(1)</script> "
+                                        + "\"nháy\" \\ gạch"));
         qFeedback.put("upgraded_answer", "Nâng cấp </script> <script>alert(2)</script>");
 
-        java.util.Map<String, Object> feedbackMap = new java.util.LinkedHashMap<>();
-        feedbackMap.put(String.valueOf(q.getId()), qFeedback);
-        String aiFeedbackJson = objectMapper.writeValueAsString(feedbackMap);
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap =
+                objectMapper.createObjectNode();
+        feedbackMap.set(String.valueOf(q.getId()), qFeedback);
+        String aiFeedbackJson =
+                objectMapper.writeValueAsString(feedbackMap);
 
         attempt.markGraded(BigDecimal.valueOf(80.00), BigDecimal.valueOf(10.0), answersJson, aiFeedbackJson);
         attempt = attemptRepository.saveAndFlush(attempt);
@@ -3507,7 +3850,10 @@ class PracticeIntegrationTest {
                 .thenAnswer(invocation -> {
                     evaluatorCalls.incrementAndGet();
                     evaluatorBarrier.await(5, TimeUnit.SECONDS);
-                    return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    return currentWritingFeedback(
+                            WritingTaskType.Q51,
+                            "8",
+                            "Đánh giá đồng thời");
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -3593,7 +3939,10 @@ class PracticeIntegrationTest {
         when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.prompt()), anyString(), eq(false), any()))
                 .thenAnswer(invocation -> {
                     attemptDiscardService.discardForOwner(fixture.attemptId(), student.getId());
-                    return "{\"raw_score\":8.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    return currentWritingFeedback(
+                            WritingTaskType.Q51,
+                            "8",
+                            "Đánh giá trước xung đột");
                 });
 
         assertThrows(PracticeAttemptConflictException.class,
@@ -3622,7 +3971,10 @@ class PracticeIntegrationTest {
                                 fixture.attemptId(),
                                 student.getId(),
                                 Map.of("answer_" + fixture.essayQuestionId(), "Autosaved essay"));
-                        return "{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "8",
+                                "Đánh giá trước xung đột");
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -3661,7 +4013,10 @@ class PracticeIntegrationTest {
                         attemptRepository.saveAndFlush(attempt);
                         return null;
                     });
-                    return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    return currentWritingFeedback(
+                            WritingTaskType.Q51,
+                            "9",
+                            "Đánh giá lại");
                 });
 
         PracticeAttemptConflictException ex = assertThrows(PracticeAttemptConflictException.class,
@@ -3684,7 +4039,10 @@ class PracticeIntegrationTest {
     void testNonWritingEssayReEvaluateStaleResultConflictPreservesWinner() throws Exception {
         NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
                 "Reading Essay Reevaluate Stale Result", true, true);
-        String winnerFeedback = "{\"score\":6.0,\"overall_score\":6.0,\"raw_score\":6.0,\"raw_score_max\":10.0}";
+        String winnerFeedback = currentWritingFeedback(
+                WritingTaskType.Q51,
+                "6",
+                "Kết quả thắng xung đột");
         try {
             when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
@@ -3692,12 +4050,15 @@ class PracticeIntegrationTest {
                         template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                         template.execute(status -> {
                             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-                            attempt.markGraded(BigDecimal.valueOf(66.67), BigDecimal.valueOf(15),
+                            attempt.markGraded(BigDecimal.valueOf(60.00), BigDecimal.valueOf(15),
                                     attempt.getAnswersJson(), winnerFeedback);
                             attemptRepository.saveAndFlush(attempt);
                             return null;
                         });
-                        return "{\"score\":9.0,\"overall_score\":9.0,\"raw_score\":9.0,\"raw_score_max\":10.0}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "9",
+                                "Đánh giá bị xung đột");
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -3705,7 +4066,7 @@ class PracticeIntegrationTest {
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(66.67)));
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(60.00)));
             assertEquals(objectMapper.readTree(winnerFeedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
         } finally {
             deleteNonWritingEssayAttemptFixture(fixture);
@@ -3904,8 +4265,6 @@ class PracticeIntegrationTest {
     void testSpeakingResultDetailDoesNotRenderPerQuestionReEvaluateForm() throws Exception {
         SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking Reevaluate UI");
         try {
-            assertEquals("Không có điểm Nói tổng hợp",
-                    practiceService.getResult(fixture.attemptId(), student.getId()).scoreLabel());
             mockMvc.perform(get("/practice/attempts/" + fixture.attemptId() + "/result/detail"))
                     .andExpect(status().isOk())
                     .andExpect(view().name("practice/result-detail-speaking"))
@@ -4070,7 +4429,10 @@ class PracticeIntegrationTest {
                             attemptRepository.saveAndFlush(attempt);
                             return null;
                         });
-                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "9",
+                                "Đánh giá lại câu hỏi");
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -4102,7 +4464,10 @@ class PracticeIntegrationTest {
                             attemptRepository.flush();
                             return null;
                         });
-                        return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "9",
+                                "Đánh giá trước khi bài làm bị xóa");
                     });
 
             assertThrows(jakarta.persistence.EntityNotFoundException.class,
@@ -4124,7 +4489,10 @@ class PracticeIntegrationTest {
                 .thenAnswer(invocation -> {
                     evaluatorCalls.incrementAndGet();
                     evaluatorBarrier.await(5, TimeUnit.SECONDS);
-                    return "{\"raw_score\":9.0,\"raw_score_max\":10.0,\"rubric_scores\":[]}";
+                    return currentWritingFeedback(
+                            WritingTaskType.Q51,
+                            "9",
+                            "Đánh giá lại đồng thời");
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -4176,7 +4544,10 @@ class PracticeIntegrationTest {
                 .thenAnswer(invocation -> {
                     evaluatorCalls.incrementAndGet();
                     evaluatorBarrier.await(5, TimeUnit.SECONDS);
-                    return "{\"score\":8.0,\"overall_score\":8.0,\"raw_score\":8.0,\"raw_score_max\":10.0}";
+                    return currentWritingFeedback(
+                            WritingTaskType.Q51,
+                            "8",
+                            "Đánh giá đồng thời");
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -4213,7 +4584,7 @@ class PracticeIntegrationTest {
 
             PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
             assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(88.89)));
+            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
         } finally {
             executor.shutdownNow();
             deleteNonWritingEssayAttemptFixture(fixture);
@@ -4458,7 +4829,8 @@ class PracticeIntegrationTest {
                         com.ksh.entities.PracticeAttemptEvaluationJob
                                 .STATUS_QUEUED);
         assertThat(job.getEvaluationContractIdentity())
-                .isEqualTo("ksh-writing-evaluation-test");
+                .isEqualTo(
+                        PRODUCTION_SHAPED_WRITING_CONTRACT_IDENTITY);
         verifyNoWritingEvaluationCall();
     }
 
@@ -4485,9 +4857,10 @@ class PracticeIntegrationTest {
                         evaluatorSawTransaction[0] =
                                 TransactionSynchronizationManager
                                         .isActualTransactionActive();
-                        return "{\"raw_score\":8.0,"
-                                + "\"raw_score_max\":10.0,"
-                                + "\"rubric_scores\":[]}";
+                        return currentWritingFeedback(
+                                WritingTaskType.Q51,
+                                "8",
+                                "Đánh giá bất đồng bộ");
                     });
 
             practiceService.submitAttempt(
@@ -4550,15 +4923,11 @@ class PracticeIntegrationTest {
                     anyString(),
                     eq(false),
                     any()))
-                    .thenReturn("""
-                            {
-                              "evaluation_status":"EVALUATION_UNAVAILABLE",
-                              "evaluation_source":"PROVIDER",
-                              "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
-                              "evaluation_retryable":true,
-                              "score_available":false
-                            }
-                            """);
+                    .thenReturn(currentWritingUnavailable(
+                            WritingTaskType.Q51,
+                            "EVALUATION_UNAVAILABLE",
+                            "PROVIDER_TRANSPORT_ERROR",
+                            true));
             PracticeAttempt before = attemptRepository
                     .findById(fixture.attemptId()).orElseThrow();
             practiceService.submitAttempt(
@@ -4629,15 +4998,11 @@ class PracticeIntegrationTest {
                     anyString(),
                     eq(false),
                     any()))
-                    .thenReturn("""
-                            {
-                              "evaluation_status":"EVALUATION_UNAVAILABLE",
-                              "evaluation_source":"PROVIDER",
-                              "evaluation_reason":"MISSING_API_KEY",
-                              "evaluation_retryable":false,
-                              "score_available":false
-                            }
-                            """);
+                    .thenReturn(currentWritingUnavailable(
+                            WritingTaskType.Q51,
+                            "EVALUATION_UNAVAILABLE",
+                            "MISSING_API_KEY",
+                            false));
             PracticeAttempt before = attemptRepository
                     .findById(fixture.attemptId()).orElseThrow();
             practiceService.submitAttempt(
@@ -4700,15 +5065,11 @@ class PracticeIntegrationTest {
                     anyString(),
                     eq(true),
                     any()))
-                    .thenReturn("""
-                            {
-                              "evaluation_status":"EVALUATION_UNAVAILABLE",
-                              "evaluation_source":"PROVIDER",
-                              "evaluation_reason":"PROVIDER_TRANSPORT_ERROR",
-                              "evaluation_retryable":true,
-                              "score_available":false
-                            }
-                            """);
+                    .thenReturn(currentWritingUnavailable(
+                            WritingTaskType.Q51,
+                            "EVALUATION_UNAVAILABLE",
+                            "PROVIDER_TRANSPORT_ERROR",
+                            true));
             assertThat(practiceService.requestReEvaluation(
                     fixture.attemptId(),
                     fixture.questionId(),
@@ -5034,7 +5395,12 @@ class PracticeIntegrationTest {
                 writingSet.getId(), test.getId(), section.getId(), student.getId());
         PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         String answersJson = "{\"" + question.getId() + "\":\"Existing answer\"}";
-        String oldFeedbackJson = "{\"" + question.getId() + "\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
+        String oldFeedbackJson = "{\"" + question.getId() + "\":"
+                + currentWritingFeedback(
+                        WritingTaskType.Q51,
+                        "8",
+                        "Kết quả đã lưu")
+                + "}";
         if (graded) {
             attempt.markGraded(BigDecimal.valueOf(80.00), BigDecimal.TEN, answersJson, oldFeedbackJson);
         } else {
@@ -5198,7 +5564,12 @@ class PracticeIntegrationTest {
                 writingSet.getId(), test.getId(), section.getId(), student.getId());
         PracticeAttempt attempt = attemptRepository.findById(attemptId).orElseThrow();
         String answersJson = "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}";
-        String feedbackJson = "{\"" + essay.getId() + "\":{\"raw_score\":8.0,\"raw_score_max\":10.0}}";
+        String feedbackJson = "{\"" + essay.getId() + "\":"
+                + currentWritingFeedback(
+                        WritingTaskType.Q51,
+                        "8",
+                        "Kết quả đã lưu")
+                + "}";
         attempt.markGraded(BigDecimal.valueOf(90.00), BigDecimal.valueOf(20), answersJson, feedbackJson);
         attempt = attemptRepository.saveAndFlush(attempt);
 
@@ -5406,6 +5777,92 @@ class PracticeIntegrationTest {
                 anyBoolean(),
                 any(WritingTaskType.class),
                 any());
+    }
+
+    private String currentWritingFeedback(
+            WritingTaskType taskType,
+            String rawScore,
+            String summary
+    ) {
+        BigDecimal maximum = switch (taskType) {
+            case Q51, Q52 -> BigDecimal.TEN;
+            case Q53 -> BigDecimal.valueOf(30);
+            case Q54 -> BigDecimal.valueOf(50);
+        };
+        com.fasterxml.jackson.databind.node.ObjectNode node =
+                objectMapper.createObjectNode();
+        BigDecimal earned = new BigDecimal(rawScore);
+        BigDecimal percentage =
+                WritingScoringPolicy.percentage(earned, maximum);
+        node.put("score", percentage);
+        node.put("overall_score", percentage);
+        node.put("percentage", percentage);
+        node.put("raw_score", earned);
+        node.put("raw_score_max", maximum);
+        node.put("task_type", taskType.name());
+        node.put("engine", "KSH_WRITING_EVALUATOR_V2");
+        node.put(
+                "scoring_contract",
+                WritingScoringPolicy.SCORING_CONTRACT);
+        node.put(
+                "policy_bundle_id",
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        node.put("evaluation_status", "EVALUATED");
+        node.put("evaluation_source", "PROVIDER");
+        node.put("evaluation_reason", "NONE");
+        node.put("evaluation_retryable", false);
+        node.put("score_available", true);
+        node.put("summary", summary);
+        node.put("summary_vi", summary);
+        com.fasterxml.jackson.databind.node.ArrayNode rubricScores =
+                node.putArray("rubric_scores");
+        BigDecimal remaining = earned;
+        for (var criterion :
+                WritingScoringPolicy.rubricFor(
+                        taskType.name()).criteria()) {
+            BigDecimal criterionMaximum =
+                    BigDecimal.valueOf(criterion.maxScore());
+            BigDecimal criterionScore =
+                    remaining.max(BigDecimal.ZERO)
+                            .min(criterionMaximum);
+            remaining = remaining.subtract(criterionScore);
+            com.fasterxml.jackson.databind.node.ObjectNode row =
+                    rubricScores.addObject();
+            row.put("criterionId", criterion.criterionId());
+            row.put("name", criterion.displayName());
+            row.put("score", criterionScore);
+            row.put("maxScore", criterionMaximum);
+            row.put("feedback", "Nhận xét kiểm thử.");
+        }
+        node.putArray("strengths");
+        node.putArray("needs_improvement");
+        node.putArray("annotations");
+        node.put("upgraded_answer", "");
+        node.put("upgraded_answer_annotated", "");
+        node.put("sample_answer", "");
+        node.putArray("sentence_rewrites");
+        return node.toString();
+    }
+
+    private String currentWritingUnavailable(
+            WritingTaskType taskType,
+            String status,
+            String reason,
+            boolean retryable
+    ) {
+        com.fasterxml.jackson.databind.node.ObjectNode node =
+                objectMapper.createObjectNode();
+        node.put("task_type", taskType.name());
+        node.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
+        node.put(
+                "policy_bundle_id",
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        node.put("evaluation_status", status);
+        node.put("evaluation_source", "PROVIDER");
+        node.put("evaluation_reason", reason);
+        node.put("evaluation_retryable", retryable);
+        node.put("score_available", false);
+        return node.toString();
     }
 
     private record SpeakingAttemptFixture(

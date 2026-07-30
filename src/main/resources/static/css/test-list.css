@@ -59,3 +59,6 @@
 .pr-input { padding: 9px 12px; border: 1px solid var(--border, #d0d7de); border-radius: 8px; font-size: 14px; }
 .pr-hint { color: #9ca3af; font-size: 12px; }
 .pr-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.tst-filter-grid { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto; gap: 10px; margin-bottom: 18px; align-items: end; }
+@media (max-width: 900px) { .tst-filter-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .tst-filter-grid { grid-template-columns: 1fr; } }

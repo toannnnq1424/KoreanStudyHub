@@ -472,9 +472,64 @@ public interface PracticeAttemptRepository extends JpaRepository<PracticeAttempt
             @Param("setIds") List<Long> setIds);
 
     /**
-     * Global learner resume candidate. This query deliberately ignores catalog
-     * search, skill, class filter and pagination while retaining the same live
-     * published-set authorization boundary and a coherent immutable lock.
+     * Resume candidate for the standalone public Practice catalogue. Classroom
+     * membership is deliberately absent from this authorization boundary.
+     */
+    @Query(value = """
+            SELECT
+                a.id AS attemptId,
+                a.set_id AS setId,
+                a.test_id AS testId,
+                a.section_id AS sectionId,
+                psv.title AS setTitle,
+                ptv.title AS testTitle,
+                pscv.skill AS skill,
+                COALESCE(a.submitted_at, a.updated_at, a.created_at) AS activityAt
+            FROM practice_attempts a
+            JOIN practice_sets s
+              ON s.id = a.set_id
+             AND s.status = 'PUBLISHED'
+             AND s.is_deleted = 0
+             AND s.scope = 'GLOBAL'
+            JOIN practice_published_versions ppv
+              ON ppv.id = a.published_version_id
+             AND ppv.set_id = a.set_id
+            JOIN practice_set_versions psv
+              ON psv.id = a.set_version_id
+             AND psv.published_version_id = ppv.id
+             AND psv.set_id = a.set_id
+            JOIN practice_test_versions ptv
+              ON ptv.id = a.test_version_id
+             AND ptv.published_version_id = ppv.id
+             AND ptv.set_version_id = psv.id
+             AND ptv.test_id = a.test_id
+            JOIN practice_section_versions pscv
+              ON pscv.id = a.section_version_id
+             AND pscv.published_version_id = ppv.id
+             AND pscv.test_version_id = ptv.id
+             AND pscv.section_id = a.section_id
+             AND pscv.skill = a.skill
+            WHERE a.user_id = :userId
+              AND a.status = 'IN_PROGRESS'
+              AND a.deadline_at IS NOT NULL
+              AND a.deadline_at > :now
+              AND (
+                    a.version_compatibility_status IS NULL
+                    OR TRIM(a.version_compatibility_status) = ''
+                    OR UPPER(TRIM(a.version_compatibility_status)) = 'COMPATIBLE'
+                  )
+            ORDER BY
+                COALESCE(a.submitted_at, a.updated_at, a.created_at) DESC,
+                a.id DESC
+            """, nativeQuery = true)
+    List<GlobalResumeProjection> findGlobalCatalogResumeCandidates(
+            @Param("userId") Long userId,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
+
+    /**
+     * Legacy class-aware resume lookup retained for compatibility outside the
+     * standalone catalogue.
      */
     @Query(value = """
             SELECT

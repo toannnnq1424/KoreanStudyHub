@@ -68,7 +68,7 @@ public enum WritingRubricCriterion {
 
     W_TASK_REQUIREMENT_MISSING("Thiếu yêu cầu đề bài", "과제 요구 누락", Polarity.NEEDS_IMPROVEMENT,
             FindingCategory.CONTENT, scopes(EvidenceScope.WHOLE_ANSWER), tasks("Q53", "GENERAL"), true, null,
-            "Chỉ ra yêu cầu hiển thị rõ trong prompt nhưng bài làm chưa đáp ứng; Q54 structured requirement checking được defer."),
+            "Chỉ ra yêu cầu hiển thị rõ trong đề nhưng bài làm chưa đáp ứng; việc kiểm tra yêu cầu có cấu trúc cho Q54 được hoãn đến khi có thẩm quyền sản phẩm."),
     W_OFF_TOPIC_OR_WEAK_RELEVANCE("Lạc đề hoặc liên quan yếu", "주제 이탈 또는 연관성 부족", Polarity.NEEDS_IMPROVEMENT,
             FindingCategory.CONTENT, scopes(EvidenceScope.WHOLE_ANSWER), tasks("Q53", "Q54", "GENERAL"), true, null,
             "Chỉ ra toàn bài hoặc phần lớn nội dung không bám đề."),

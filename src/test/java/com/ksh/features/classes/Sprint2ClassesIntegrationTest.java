@@ -159,7 +159,7 @@ class Sprint2ClassesIntegrationTest {
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
         assertThat(saved.getCode()).hasSize(5);
         assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
-        assertThat(saved.getStatus()).isEqualTo("UPCOMING");
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
         // Sprint 2.3: ClassesService.create now provisions one active
         // CODE row and one active LINK row atomically.

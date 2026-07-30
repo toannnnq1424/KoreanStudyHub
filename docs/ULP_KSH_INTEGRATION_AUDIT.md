@@ -10,7 +10,7 @@
 
 | Field | Value |
 |---|---|
-| Audit status | PR #33 merged to `main` at `8b80e498`; the current non-Practice follow-up group is remediated locally, with database-backed concurrency/full-suite verification still explicitly open below |
+| Audit status | PR #33 merged to `main` at `8b80e498`; the current follow-up is remediated and committed locally, with automated runtime/full-suite verification still explicitly open below |
 | KSH audit baseline | `2549438c1a327b6932dc78d5284d7feaf5daf628` |
 | Integration merge commit | `27466f69a6f94f239f05a44d22b26616a01a8fe0` |
 | Working branch observed | `codex/e2e-assignment-messaging-fixes` |
@@ -19,7 +19,7 @@
 | KSH root | `D:\Downloads\ksh` |
 | Comparison method | Path inventory, normalized namespace/branding comparison, semantic review, call-site tracing, and test-contract review |
 | Phase-3 verification | 15/15 focused database-free tests passed; `node --check` passed for `import-excel.js`; no full or DB-backed suite was run |
-| Current follow-up verification | `mvnw.cmd -q -DskipTests compile` and `git diff --check` passed; tests were not run per project-owner request, and real-database concurrency remains unchecked |
+| Current follow-up verification | `mvnw.cmd -q -DskipTests test-compile` and `git diff --check` passed; no tests were executed per project-owner request, and real-database concurrency remains unchecked |
 | Last updated | 2026-07-29, Asia/Bangkok |
 | Primary constraint | Preserve the existing `/practice` foundation, AI configuration, and storage configuration |
 
@@ -34,8 +34,11 @@ means “implementation in progress,” not “verified.” Re-read `git status`
   not change or report it as a production-secret remediation.
 - [x] Migration-chain, empty-schema, Flyway/MySQL-version, and migration CI work
   is deferred. This branch neither adds nor edits a migration.
-- [x] `/practice` runtime code, AI configuration, storage configuration,
-  schema, assets, and tests remain frozen.
+- [x] `/practice` AI configuration, storage configuration, schema, assessment
+  runtime and direct legacy flows remain frozen. A later, explicit product
+  decision authorizes one bounded exception: the public catalogue/resume query
+  is GLOBAL-only and no longer exposes classroom filters; its focused contracts
+  were updated with that boundary.
 - [x] `TEST-ISO-001` belongs to another not-yet-merged branch. This follow-up
   does not duplicate it and does not run database-backed/full-suite tests
   against the developer schema.
@@ -67,7 +70,7 @@ means “implementation in progress,” not “verified.” Re-read `git status`
 | SCOPE-001 | High | The “202 changed files” scope is reconciled after namespace normalization and exclusion of five base/meta files | [x] | N/A |
 | BRAND-001 | High | All imported ULP symbols, routes, text, sources, and thread names must become KSH equivalents | [x] | [x] |
 | ROLE-001 | Critical | KSH `LEADER` and `/leader/**` are canonical; ULP `HEAD` and `/head/**` must not return | [x] | [x] |
-| PRACTICE-001 | Critical | Strict Practice runtime/config/storage freeze applies throughout this integration | [x] | [x] |
+| PRACTICE-001 | Critical | Practice foundation/config/storage freeze applies; only the explicitly authorized GLOBAL-only public-catalogue boundary may change | [x] | [x] |
 | SEC-001 | Critical | Reject ULP’s public `"/uploads/**"` authorization; retain KSH fail-closed upload policy | [x] | [x] |
 | MIG-001 | Critical | Reject wholesale ULP migration copying and preserve KSH Flyway history | [x] | [x] |
 | CONC-001 | Critical | Retain KSH class-row/invite locking; ULP class approval code is a downgrade | [x] | [x] |
@@ -1444,38 +1447,36 @@ unrelated discovery inside another commit.
 ### QB-TAXONOMY-001 — Admin and question-bank taxonomies are disconnected
 
 - Severity: High
-- Status: [x] Finding confirmed; [x] compatibility bridge implemented;
-  [ ] long-term schema consolidation
+- Status: [x] Finding confirmed; [x] compatibility bridge retired;
+  [x] department taxonomy selected as canonical
 - Evidence:
   - `/admin/categories` reads the global hierarchical `categories` table.
   - Question-bank authoring originally read only department-scoped
     `question_bank_categories`.
   - The development DB has 16 global rows (eight active top-level categories
     and eight children), but zero question-bank categories/items/options.
-- Current compatibility decision:
-  - [x] Offer active top-level Admin categories together with active
-    department-specific categories.
-  - [x] Represent an Admin choice as a transient negative reference so GET and
-    preview requests do not write the DB.
-  - [x] On manual save or import confirm, atomically mirror the selected name
-    into the actor's department using the unique `(department_id, name)` key,
-    then persist the positive mirror id required by the existing FK.
-  - [x] Let an existing department row, including an inactive one, shadow the
-    Admin name so LEADER hide decisions cannot be bypassed.
-  - [x] Keep CSRF, actor role, department access, and FK enforcement intact.
-- Long-term consolidation checklist:
-  - [ ] Decide whether global `categories` is the sole canonical taxonomy or
-    whether department overrides remain a product requirement.
-  - [ ] If global-only is approved, add a new migration that maps existing
-    mirrors, moves `question_bank_items.category_id` to the canonical model,
-    updates import/review services, validates orphan counts, and only then
-    drops `question_bank_categories`.
-  - [ ] Do not edit V46 or drop the current table in place.
-- Verification: category/controller/frontend focused batches passed 10/10;
-  the final atomic-mirror hardening passed 6/6. Browser UAT with a lecturer
-  assigned to a department remains open.
+- Final no-migration decision:
+  - [x] `question_bank_categories` is the sole taxonomy for question authoring,
+    import, filtering, review and test insertion.
+  - [x] LEADER owns department category create/edit/open/close actions.
+  - [x] Lecturer catalogue contains only active categories from the actor's
+    department and only positive persistent IDs.
+  - [x] Remove transient negative ADMIN references and lazy mirroring.
+  - [x] Keep global `categories` for course/content taxonomy only.
+  - [x] Keep existing mirrored rows as valid department categories; no data
+    rewrite or migration is required.
+  - [x] Do not edit V46 or drop `question_bank_categories`.
+- Verification:
+  - [x] Java 17 compile completed successfully.
+  - [x] Browser QA confirmed the lecturer catalogue exposes only active
+    department rows (`Kinh tế học`, `namdk`) and no transient negative IDs.
+  - [x] Existing question `#81` resolves its positive department category and
+    its detail page renders normally.
+  - [ ] Focused/full automated tests remain intentionally unexecuted per the
+    project owner's current instruction.
 - Owner: Codex root
-- Commit: `a517c6c9`
+- Supersedes compatibility commit: `a517c6c9`
+- Final canonical implementation: `015c0fa7`
 - PR:
 
 ### DB-INVENTORY-001 — table-count and taxonomy storage audit
@@ -2198,10 +2199,13 @@ Verification:
 
 Current follow-up verification:
 
-- [x] `.\mvnw.cmd -q -DskipTests compile` completed successfully.
+- [x] `.\mvnw.cmd -q -DskipTests test-compile` completed successfully without
+  executing tests.
 - [x] `git diff --check` completed successfully.
-- [x] No migration, demo-password, or `/practice` source/config/test path was
-  changed by this follow-up group.
+- [x] No migration, demo-password, Practice AI/storage/schema/assessment path
+  was changed. The public Practice catalogue and its contracts changed only to
+  remove classroom filtering, recorded under `PRACTICE-CATALOG-CLASS-001` in
+  the Browser QA incident report.
 - [ ] Focused tests and the full suite were not run, per project-owner request.
 - [ ] Real-database multi-connection concurrency behavior remains unchecked.
 
@@ -2290,6 +2294,8 @@ The integration is acceptable only when all of the following are true:
 - [x] LEADER parity is preserved.
 - [ ] Flyway history is valid from empty and existing schemas.
 - [ ] Full automated and manual gates pass.
-- [x] `/practice` production behavior, AI configuration, storage configuration, schema,
-  and tests remain intact.
+- [x] `/practice` AI configuration, storage configuration, schema, direct legacy
+  routes and historical data remain intact. The catalogue/resume query and its
+  contracts intentionally changed to GLOBAL-only so the standalone Practice
+  surface no longer depends on classroom membership.
 - [ ] Commits, PR, reviews, merge SHA, and post-merge evidence are recorded.

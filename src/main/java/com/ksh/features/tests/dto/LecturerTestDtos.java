@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Lecturer-facing DTOs: exam authoring form, exam list, live monitor snapshot,
@@ -71,6 +72,25 @@ public final class LecturerTestDtos {
     /** A row on the lecturer exam list. */
     public record LecturerExamRow(Long id, String title, String type, String status,
                                   String className, int totalQuestions, LocalDateTime endAt) {
+    }
+
+    /** Validated filter state for lecturer-facing exam lists. */
+    public record ExamFilter(String keyword, String status, String type, Long classId) {
+        private static final Set<String> STATUSES = Set.of("DRAFT", "PUBLISHED", "ARCHIVED");
+        private static final Set<String> TYPES = Set.of("MOCK", "MODULE", "PRACTICE");
+
+        public static ExamFilter of(String keyword, String status, String type, Long classId,
+                                    List<ClassOption> allowedClasses) {
+            Long safeClassId = classId != null && allowedClasses.stream()
+                    .anyMatch(option -> option.id().equals(classId)) ? classId : null;
+            return new ExamFilter(keyword == null ? "" : keyword.trim(),
+                    STATUSES.contains(status) ? status : null,
+                    TYPES.contains(type) ? type : null, safeClassId);
+        }
+
+        public boolean isEmpty() {
+            return keyword.isEmpty() && status == null && type == null && classId == null;
+        }
     }
 
     /** Minimal exam header for the monitor page (avoids leaking the entity). */

@@ -4,8 +4,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-progress.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-flow-polish.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body practice-flow-progress">
 <header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
 
 <div class="pi-container">
@@ -15,7 +16,7 @@
     <div class="pp-content-container">
       <header class="pp-page-heading">
         <div>
-          <span>Hồ sơ học tập · 학습 기록</span>
+          <span>Hồ sơ học tập</span>
           <h1>Tiến độ luyện tập</h1>
           <p>Số liệu đọc từ các bài làm đã lưu; tải lại trang không chấm lại và không gọi nhà cung cấp AI.</p>
         </div>
@@ -24,7 +25,7 @@
                     ? @{/practice(skill='WRITING',
                                   writingTask=${progressFilter.writingTask().name()})}
                     : @{/practice(skill=${progressFilter.skill().name()})}">
-          Luyện thêm · 더 연습하기
+          Luyện thêm
         </a>
       </header>
 
@@ -36,14 +37,12 @@
                        && progressState.reason() != null
                        && (progressState.reason().name() == 'PAGE_DATA_UNAVAILABLE'
                            || progressState.reason().name() == 'SERIALIZATION_UNAVAILABLE')}">
-        <h2>Chưa thể hiển thị dữ liệu tiến độ · 진행 데이터를 표시할 수 없습니다</h2>
+        <h2>Chưa thể hiển thị dữ liệu tiến độ</h2>
         <p th:if="${progressState.reason().name() == 'PAGE_DATA_UNAVAILABLE'}">
           KSH chưa tải được dữ liệu tiến độ. Trang không dùng ảnh chụp cũ, số liệu giả hoặc biểu đồ thay thế.
-          · KSH가 진행 데이터를 불러오지 못했습니다. 이전 스냅샷, 가짜 수치 또는 대체 차트를 사용하지 않습니다.
         </p>
         <p th:if="${progressState.reason().name() == 'SERIALIZATION_UNAVAILABLE'}">
           Dữ liệu đã được dừng trước khi hiển thị vì chưa thể tuần tự hóa an toàn. Không có biểu đồ cũ nào được giữ lại.
-          · 데이터를 안전하게 직렬화할 수 없어 표시 전에 중단했습니다. 이전 차트는 유지하지 않습니다.
         </p>
         <a th:if="${progressState.retryHint() == 'RELOAD'}"
            class="pi-btn-primary"
@@ -51,7 +50,7 @@
                                          skill=${progressFilter.skill().name()},
                                          writingTask=${progressFilter.writingTask().name()},
                                          profile=${progressFilter.profileId()})}">
-          Tải lại với bộ lọc hiện tại · 현재 필터로 다시 불러오기
+          Tải lại với bộ lọc hiện tại
         </a>
       </section>
 
@@ -59,58 +58,58 @@
                             && progressState.availability().name() == 'UNAVAILABLE'}">
         <section class="pp-filter-panel" aria-labelledby="progress-filter-title">
           <div>
-            <h2 id="progress-filter-title">Bộ lọc dữ kiện · 사실 필터</h2>
+            <h2 id="progress-filter-title">Bộ lọc dữ kiện</h2>
             <p>Bộ lọc chỉ chọn dữ kiện chuẩn hóa sẵn; không thay đổi cách chấm hoặc mẫu số.</p>
           </div>
           <form method="get" th:action="@{/practice/progress}" class="pp-filter-form">
             <input type="hidden" name="tab" th:value="${progressFilter.tab()}">
             <label>
-              Kỹ năng · 기능
+              Kỹ năng
               <select name="skill">
                 <option th:each="item : ${progressFilter.skillOptions()}"
                         th:value="${item.name()}"
                         th:selected="${item == progressFilter.skill()}"
-                        th:text="${item.labelVi() + ' · ' + item.labelKo()}">Tất cả</option>
+                        th:text="${item.labelVi()}">Tất cả</option>
               </select>
             </label>
             <label th:if="${progressFilter.skill().name() == 'WRITING'}">
-              Tác vụ Viết · 쓰기 문항
+              Tác vụ Viết
               <select name="writingTask">
                 <option th:each="item : ${progressFilter.writingTaskOptions()}"
                         th:value="${item.name()}"
                         th:selected="${item == progressFilter.writingTask()}"
-                        th:text="${item.labelVi() + ' · ' + item.labelKo()}">Tất cả</option>
+                        th:text="${item.labelVi()}">Tất cả</option>
               </select>
             </label>
             <input th:unless="${progressFilter.skill().name() == 'WRITING'}"
                    type="hidden" name="writingTask" value="ALL">
             <label th:if="${progressFilter.skill().name() == 'WRITING'
                            && !#lists.isEmpty(progressFilter.profileOptions())}">
-              Nhóm hồ sơ chấm · 채점 프로필 그룹
+              Nhóm hồ sơ chấm
               <select name="profile">
                 <option value="ALL" th:selected="${progressFilter.profileId() == 'ALL'}">
-                  Tất cả nhóm có thể so sánh · 비교 가능한 그룹 전체
+                  Tất cả nhóm có thể so sánh
                 </option>
                 <option th:each="option : ${progressFilter.profileOptions()}"
                         th:value="${option.id()}"
                         th:selected="${option.id() == progressFilter.profileId()}"
-                        th:text="${option.labelVi() + ' · ' + option.labelKo()}">Nhóm chấm</option>
+                        th:text="${option.labelVi()}">Nhóm chấm</option>
               </select>
             </label>
             <input th:unless="${progressFilter.skill().name() == 'WRITING'
                                && !#lists.isEmpty(progressFilter.profileOptions())}"
                    type="hidden" name="profile" value="ALL">
             <div class="pp-filter-actions">
-              <button type="submit" class="pi-btn-primary">Áp dụng · 적용</button>
+              <button type="submit" class="pi-btn-primary">Áp dụng</button>
               <a th:if="${progressFilter.active()}"
                  th:href="@{/practice/progress(tab=${progressFilter.tab()})}">
-                Xóa bộ lọc · 필터 지우기
+                Xóa bộ lọc
               </a>
             </div>
           </form>
           <details class="pp-filter-boundary"
                    th:if="${progressFilter.writingFilterActive()}">
-            <summary>Phạm vi của bộ lọc Viết · 쓰기 필터 범위</summary>
+            <summary>Phạm vi của bộ lọc Viết</summary>
             <p>
               Bộ lọc tác vụ/hồ sơ Viết chỉ áp dụng cho các nhóm điểm Viết. Tổng hoạt động, lịch học và lịch sử không có
               chiều tác vụ/hồ sơ nên vẫn là dữ kiện toàn cục hoặc chỉ lọc theo kỹ năng.
@@ -121,28 +120,26 @@
         <section class="pp-state-card"
                  th:if="${progressFilter.reason() != null
                           && progressFilter.reason().name() == 'NO_ACTIVITY'}">
-          <h2>Chưa có hoạt động luyện tập · 아직 연습 기록이 없습니다</h2>
-          <p>Điểm, so sánh, thời lượng và phân loại đều chưa khả dụng; KSH không thay chúng bằng số 0.
-            · 점수, 비교, 소요 시간 및 분류는 아직 사용할 수 없으며 0으로 대체하지 않습니다.</p>
+          <h2>Chưa có hoạt động luyện tập</h2>
+          <p>Điểm, so sánh, thời lượng và phân loại đều chưa khả dụng; KSH không thay chúng bằng số 0.</p>
           <div class="pp-state-actions">
-            <a class="pi-btn-primary" th:href="@{/practice}">Chọn bài để luyện · 연습 선택</a>
+            <a class="pi-btn-primary" th:href="@{/practice}">Chọn bài để luyện</a>
           </div>
         </section>
 
         <section class="pp-state-card"
                  th:if="${progressFilter.reason() != null
                           && progressFilter.reason().name() == 'FILTER_NO_DATA'}">
-          <h2>Có hoạt động, nhưng bộ lọc này chưa có dữ kiện · 이 필터에는 아직 데이터가 없습니다</h2>
-          <p>Bộ lọc đã được chuẩn hóa an toàn. Dữ kiện toàn cục vẫn được giữ nguyên và không có chuỗi điểm giả nào được tạo.
-            · 필터는 안전하게 정규화되었습니다. 전체 사실은 유지되며 가짜 점수 계열을 만들지 않습니다.</p>
+          <h2>Có hoạt động, nhưng bộ lọc này chưa có dữ kiện</h2>
+          <p>Bộ lọc đã được chuẩn hóa an toàn. Dữ kiện toàn cục vẫn được giữ nguyên và không có chuỗi điểm giả nào được tạo.</p>
           <div class="pp-state-actions">
-            <a th:href="@{/practice/progress(tab=${progressFilter.tab()})}">Xóa bộ lọc · 필터 지우기</a>
+            <a th:href="@{/practice/progress(tab=${progressFilter.tab()})}">Xóa bộ lọc</a>
             <a class="pi-btn-primary"
                th:href="${progressFilter.writingTask().name() != 'ALL'}
                         ? @{/practice(skill='WRITING',
                                       writingTask=${progressFilter.writingTask().name()})}
                         : @{/practice(skill=${progressFilter.skill().name()})}">
-              Luyện thêm · 더 연습하기
+              Luyện thêm
             </a>
           </div>
         </section>
@@ -157,7 +154,7 @@
                                              skill=${progressFilter.skill().name()},
                                              writingTask=${progressFilter.writingTask().name()},
                                              profile=${progressFilter.profileId()})}">
-              Tổng quan · 개요
+              Tổng quan
             </a>
             <a class="pp-tab-btn"
                th:classappend="${progressFilter.tab() == 'test-practice'} ? ' active'"
@@ -166,7 +163,7 @@
                                              skill=${progressFilter.skill().name()},
                                              writingTask=${progressFilter.writingTask().name()},
                                              profile=${progressFilter.profileId()})}">
-              Dữ kiện chi tiết · 상세 사실
+              Dữ kiện chi tiết
             </a>
           </nav>
 
@@ -230,7 +227,7 @@
 
               <article class="pp-chart-card pp-skill-panel" data-chart-shell="radar">
                 <header class="pp-chart-header">
-                  <h2>So sánh kỹ năng · 기능 비교</h2>
+                  <h2>So sánh kỹ năng</h2>
                   <p>Điểm Đọc/Nghe trên thang 100. Viết không vào radar; Nói không có điểm tổng hợp.</p>
                 </header>
                 <div class="pp-chart-container">
@@ -241,7 +238,7 @@
                   <th:block th:replace="~{practice/fragments/progress-facts
                                           :: chartFailure(${progressFilter})}"></th:block>
                   <details class="pp-chart-fallback" data-chart-fallback>
-                    <summary>Xem bảng và độ phủ · 데이터 표 및 범위</summary>
+                    <summary>Xem bảng và độ phủ</summary>
                     <table class="pp-table">
                       <caption>Bảng thay thế biểu đồ điểm Đọc/Nghe</caption>
                       <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / hoạt động</th><th scope="col">Độ phủ</th></tr></thead>
@@ -259,7 +256,7 @@
                         <td th:text="${metric.scoreFact().sampleSize() + ' / '
                                      + metric.scoreFact().activityCount()}">2 / 3</td>
                         <td>
-                          <strong th:if="${metric.scoreFact().partialCoverage()}">Một phần · 부분 범위</strong>
+                          <strong th:if="${metric.scoreFact().partialCoverage()}">Một phần</strong>
                           <span th:text="${metric.scoreFact().coverage().eligibleCount() + ' đủ điều kiện; '
                                          + metric.scoreFact().coverage().excludedCount() + ' bị loại'}">2 đủ điều kiện</span>
                         </td>
@@ -296,12 +293,12 @@
                 <p>Tối đa 8 hoạt động</p>
               </header>
               <div class="pp-empty-state" th:if="${#lists.isEmpty(overview.recentHistory())}">
-                <h3>Chưa có hoạt động phù hợp · 일치하는 활동이 없습니다</h3>
+                <h3>Chưa có hoạt động phù hợp</h3>
                 <a th:href="${progressFilter.writingTask().name() != 'ALL'}
                             ? @{/practice(skill='WRITING',
                                           writingTask=${progressFilter.writingTask().name()})}
                             : @{/practice(skill=${progressFilter.skill().name()})}">
-                  Luyện thêm · 더 연습하기
+                  Luyện thêm
                 </a>
               </div>
               <div class="pp-timeline" th:unless="${#lists.isEmpty(overview.recentHistory())}">
@@ -310,9 +307,9 @@
                     <div class="pp-timeline-main">
                       <span class="pp-timeline-skill-tag"
                             th:classappend="${#strings.toLowerCase(row.skill())}"
-                            th:text="${row.skill() == 'READING' ? 'Đọc · 읽기'
-                                     : (row.skill() == 'LISTENING' ? 'Nghe · 듣기'
-                                     : (row.skill() == 'WRITING' ? 'Viết · 쓰기' : 'Nói · 말하기'))}">Đọc</span>
+                            th:text="${row.skill() == 'READING' ? 'Đọc'
+                                     : (row.skill() == 'LISTENING' ? 'Nghe'
+                                     : (row.skill() == 'WRITING' ? 'Viết' : 'Nói'))}">Đọc</span>
                       <h3 th:text="${row.title()}">Tên bài</h3>
                       <time th:text="${row.activityAt() == null ? 'Chưa có thời điểm'
                                      : #temporals.format(row.activityAt(), 'dd/MM/yyyy HH:mm')}">25/07/2026</time>
@@ -351,18 +348,20 @@
             <section class="pp-overview-insights" aria-label="Biểu đồ bổ sung">
               <article class="pp-chart-card" data-chart-shell="distribution">
                 <header class="pp-chart-header">
-                  <h2>Hoạt động theo kỹ năng · 기능별 활동</h2>
+                  <h2>Hoạt động theo kỹ năng</h2>
                   <p>Số lượt đã lưu, không phải điểm năng lực.</p>
                 </header>
-                <div class="pp-chart-container">
-                  <canvas id="chart-donut-distribution" hidden aria-hidden="true"></canvas>
+                <div class="pp-chart-container pp-chart-container--distribution">
+                  <div class="pp-distribution-chart-frame">
+                    <canvas id="chart-donut-distribution" hidden aria-hidden="true"></canvas>
+                  </div>
                   <div class="pp-chart-loading is-distribution" data-chart-loading aria-hidden="true">
                     <span></span><span></span><span></span>
                   </div>
                   <th:block th:replace="~{practice/fragments/progress-facts
                                           :: chartFailure(${progressFilter})}"></th:block>
                   <details class="pp-chart-fallback" data-chart-fallback>
-                    <summary>Xem bảng hoạt động · 활동 표</summary>
+                    <summary>Xem bảng hoạt động</summary>
                     <table class="pp-table">
                       <caption>Bảng thay thế biểu đồ hoạt động theo kỹ năng</caption>
                       <thead><tr><th scope="col">Kỹ năng</th><th scope="col">Hoạt động</th><th scope="col">Hoàn thành</th><th scope="col">Đang làm</th></tr></thead>
@@ -387,7 +386,7 @@
               <article class="pp-heatmap-card" data-chart-shell="heatmap">
                 <header class="pp-heatmap-header">
                   <div>
-                    <h2>Nhịp luyện tập · 학습 빈도</h2>
+                    <h2>Nhịp luyện tập</h2>
                     <p>Tần suất toàn bộ kỹ năng theo ngày.</p>
                   </div>
                 </header>
@@ -397,7 +396,7 @@
                 <th:block th:replace="~{practice/fragments/progress-facts
                                         :: chartFailure(${progressFilter})}"></th:block>
                 <details class="pp-chart-fallback" data-chart-fallback>
-                  <summary>Xem lịch dạng bảng · 활동 달력 표</summary>
+                  <summary>Xem lịch dạng bảng</summary>
                   <table class="pp-table">
                     <caption>Bảng thay thế lịch hoạt động, từ nguồn gần đây bị giới hạn</caption>
                     <thead><tr><th scope="col">Ngày</th><th scope="col">Số hoạt động</th><th scope="col">Thời lượng hợp lệ</th><th scope="col">Độ phủ thời lượng</th></tr></thead>
@@ -425,7 +424,7 @@
           <div class="pp-tab-panel active" th:if="${progressFilter.tab() == 'test-practice'}">
             <section class="pp-chart-card" data-chart-shell="trend">
               <header class="pp-chart-header">
-                <h2>Xu hướng điểm Đọc/Nghe · 읽기/듣기 점수 추이</h2>
+                <h2>Xu hướng điểm Đọc/Nghe</h2>
                 <p>Chỉ dùng sự kiện câu hỏi khách quan đủ điều kiện; các sự kiện trùng thời điểm vẫn được giữ riêng.</p>
               </header>
               <div class="pp-chart-container pp-chart-container-wide">
@@ -436,7 +435,7 @@
                 <th:block th:replace="~{practice/fragments/progress-facts
                                         :: chartFailure(${progressFilter})}"></th:block>
                 <details class="pp-chart-fallback" data-chart-fallback>
-                  <summary>Xem bảng xu hướng và độ phủ · 추이 표 및 범위 보기</summary>
+                  <summary>Xem bảng xu hướng và độ phủ</summary>
                   <table class="pp-table">
                     <caption>Bảng thay thế biểu đồ xu hướng</caption>
                     <thead><tr><th scope="col">Thời điểm</th><th scope="col">Kỹ năng</th><th scope="col">Bài luyện</th><th scope="col">Điểm</th><th scope="col">Điểm đạt / có thể đạt</th><th scope="col">Mẫu / độ phủ</th></tr></thead>
@@ -454,7 +453,7 @@
                                    : 'Chưa khả dụng'}">3 / 4</td>
                       <td>
                         <strong th:if="${point.scoreFact().partialCoverage()}">
-                          Một phần · 부분 범위
+                          Một phần
                         </strong>
                         <span th:text="${point.scoreFact().sampleSize() + ' mẫu; '
                                        + point.scoreFact().coverage().eligibleCount() + ' đủ điều kiện; '
@@ -477,7 +476,7 @@
 
             <section class="pp-fact-section">
               <header class="pp-chart-header">
-                <h2>Dữ kiện 7 ngày theo kỹ năng · 최근 7일 기능별 사실</h2>
+                <h2>Dữ kiện 7 ngày theo kỹ năng</h2>
                 <p>Không gọi giá trị thiếu so sánh là “không đổi”.</p>
               </header>
               <div class="pp-weekly-cards">
@@ -493,7 +492,7 @@
                               && metric.scoreFact().renderableValue()}">
                     Điểm đủ điều kiện: <strong th:text="${metric.scoreFact().value() + '%'}">80%</strong>
                     <span th:if="${metric.scoreFact().partialCoverage()}">
-                      · độ phủ một phần · 부분 범위
+                      · độ phủ một phần
                     </span>
                   </p>
                   <p th:if="${(metric.skill() == 'READING' || metric.skill() == 'LISTENING')
@@ -505,41 +504,38 @@
                     Chênh lệch: 0 điểm
                   </p>
                   <p th:unless="${metric.deltaFact().renderableValue()}">
-                    Chưa có đủ mẫu so sánh · 비교 표본 부족
+                    Chưa có đủ mẫu so sánh
                   </p>
                   <th:block th:replace="~{practice/fragments/progress-facts :: sourceFact(${metric.scoreFact()})}"></th:block>
                 </article>
               </div>
               <p class="pp-section-empty" th:if="${#lists.isEmpty(analytics.weeklySkillMetrics())}">
-                Chưa có dữ kiện 7 ngày cho kỹ năng này · 이 기능의 최근 7일 데이터가 없습니다.
+                Chưa có dữ kiện 7 ngày cho kỹ năng này.
               </p>
             </section>
 
             <section class="pp-fact-section" th:if="${!#lists.isEmpty(analytics.writingTaskSeams())}">
               <header class="pp-chart-header">
-                <h2>Điểm Viết theo tác vụ và nhóm có thể so sánh · 쓰기 문항별 비교 그룹</h2>
+                <h2>Điểm Viết theo tác vụ và nhóm có thể so sánh</h2>
                 <p>Q51-Q54, hồ sơ/gói chính sách và mức tối đa khác nhau luôn ở các nhóm riêng; đây không phải “điểm trung bình kỹ năng Viết”. Nguồn chi tiết dùng tối đa 500 hoạt động Viết gần nhất và luôn báo rõ khi đã cắt bớt lịch sử.</p>
               </header>
               <div class="pp-writing-grid">
                 <article class="pp-writing-task-card" th:each="task : ${analytics.writingTaskSeams()}">
                   <header>
                     <div>
-                      <h3 th:text="${task.label() + ' · '
-                                    + (task.taskType() == 'Q51' ? '51번'
-                                    : (task.taskType() == 'Q52' ? '52번'
-                                    : (task.taskType() == 'Q53' ? '53번' : '54번')))}">Câu 51</h3>
+                      <h3 th:text="${task.label()}">Câu 51</h3>
                       <p>Nhóm điểm độc lập theo hồ sơ, gói chính sách và mức tối đa.</p>
                     </div>
                     <a th:href="@{/practice(skill='WRITING',writingTask=${task.taskType()})}">
-                      Luyện tác vụ này · 이 문항 연습
+                      Luyện tác vụ này
                     </a>
                   </header>
                   <div class="pp-state-card is-section"
                        th:if="${#lists.isEmpty(task.cohorts())}">
                     <strong th:switch="${task.availability().name()}">
-                      <span th:case="'DEFERRED'">Dữ kiện tác vụ đang chờ · 문항 데이터 대기 중</span>
-                      <span th:case="'NOT_SCORABLE'">Dữ kiện này không thể chấm · 채점할 수 없음</span>
-                      <span th:case="*">Chưa có nhóm điểm đủ điều kiện · 적격 점수 그룹 없음</span>
+                      <span th:case="'DEFERRED'">Dữ kiện tác vụ đang chờ</span>
+                      <span th:case="'NOT_SCORABLE'">Dữ kiện này không thể chấm</span>
+                      <span th:case="*">Chưa có nhóm điểm đủ điều kiện</span>
                     </strong>
                     <th:block th:replace="~{practice/fragments/progress-facts :: coverage(${task.coverage()})}"></th:block>
                     <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${task.observationWindow()})}"></th:block>
@@ -567,7 +563,7 @@
                       </p>
                       <th:block th:replace="~{practice/fragments/progress-facts :: sourceFact(${cohort.scoreFact()})}"></th:block>
                       <details class="pp-supporting-metadata">
-                        <summary>Siêu dữ liệu hỗ trợ · 기술 메타데이터</summary>
+                        <summary>Siêu dữ liệu hỗ trợ</summary>
                         <dl>
                           <div><dt>Hồ sơ chấm</dt><dd th:text="${cohort.scoringProfileId()}">hồ sơ</dd></div>
                           <div><dt>Gói chính sách</dt><dd th:text="${cohort.policyBundleId() == null
@@ -586,32 +582,32 @@
                      th:if="${progressFilter.skill().name() == 'SPEAKING'
                               || progressFilter.skill().name() == 'ALL'}">
               <header class="pp-chart-header">
-                <h2>Hoạt động Nói · 말하기 활동</h2>
+                <h2>Hoạt động Nói</h2>
                 <p>Chỉ hiển thị hoạt động, hồ sơ và độ phủ. Không có điểm mới nhất/tốt nhất, chênh lệch, xu hướng, phần trăm, điểm âm học hoặc điểm Nói tổng hợp.</p>
               </header>
               <article class="pp-speaking-activity"
                        th:each="metric : ${analytics.weeklySkillMetrics()}"
                        th:if="${metric.skill() == 'SPEAKING'}">
                 <p><strong th:text="${metric.attemptCounts().total()}">0</strong> hoạt động trong cửa sổ này.</p>
-                <p>Hồ sơ nguồn: hoạt động Nói không mang điểm · 소스 프로필: 점수를 포함하지 않는 말하기 활동.</p>
+                <p>Hồ sơ nguồn: hoạt động Nói không mang điểm.</p>
                 <th:block th:replace="~{practice/fragments/progress-facts :: coverage(${metric.coverage()})}"></th:block>
                 <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${metric.observationWindow()})}"></th:block>
                 <details class="pp-supporting-metadata"
                          th:if="${metric.scoreFact().profileId() != null}">
-                  <summary>Mã hồ sơ hỗ trợ · 지원 프로필 코드</summary>
+                  <summary>Mã hồ sơ hỗ trợ</summary>
                   <p th:text="${metric.scoreFact().profileId()}">SPEAKING_ACTIVITY_COVERAGE_ONLY_V1</p>
                 </details>
-                <a th:href="@{/practice(skill='SPEAKING')}">Luyện Nói thêm · 말하기 더 연습</a>
+                <a th:href="@{/practice(skill='SPEAKING')}">Luyện Nói thêm</a>
               </article>
               <p class="pp-section-empty"
                  th:unless="${analytics.hasWeeklySkill('SPEAKING')}">
-                Chưa có hồ sơ hoạt động Nói trong bộ lọc này · 이 필터에는 말하기 활동 기록이 없습니다.
+                Chưa có hồ sơ hoạt động Nói trong bộ lọc này.
               </p>
             </section>
 
             <section class="pp-fact-section">
               <header class="pp-chart-header">
-                <h2>Dạng câu hỏi khách quan · 객관식 문항 유형</h2>
+                <h2>Dạng câu hỏi khách quan</h2>
                 <p>Chỉ Đọc/Nghe có dữ kiện hỗ trợ; Viết và Nói không được tạo hàng điểm giả.</p>
               </header>
               <div class="pp-table-wrapper">
@@ -635,7 +631,7 @@
                   </tbody>
                 </table>
                 <p class="pp-section-empty" th:if="${#lists.isEmpty(analytics.questionTypePerf())}">
-                  Không có dữ kiện dạng câu hỏi phù hợp · 일치하는 문항 유형 데이터가 없습니다.
+                  Không có dữ kiện dạng câu hỏi phù hợp.
                 </p>
                 <th:block th:replace="~{practice/fragments/progress-facts :: sourceWindow(${analytics.recentDetailWindow()})}"></th:block>
               </div>
@@ -652,7 +648,6 @@
 <noscript>
   <p class="pp-chart-status">
     CHART_ENHANCEMENT_UNAVAILABLE — JavaScript đang tắt; các bảng chuẩn phía trên vẫn chứa đầy đủ dữ kiện.
-    · JavaScript가 꺼져 있어도 위의 표에서 동일한 사실을 확인할 수 있습니다.
   </p>
 </noscript>
 

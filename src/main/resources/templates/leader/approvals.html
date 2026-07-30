@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Trưởng bộ môn | Duyệt lớp', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/leader-department.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('leader')}"></header>
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/leader-sidebar :: leaderSidebar('approvals')}"></aside>
+  <main class="col">
+    <span id="flash-data" th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></span>
+    <h1 class="detail-title">Duyệt lớp</h1>
+    <p class="detail-sub">Lớp mới chỉ hoạt động và nhận sinh viên sau khi trưởng bộ môn duyệt.</p>
+    <div th:if="${leaderEmpty}" class="admin-list-empty">Bạn chưa được gán bộ môn.</div>
+    <section class="admin-list-panel" th:if="${!leaderEmpty}">
+      <div class="admin-list-empty" th:if="${pendingClasses.isEmpty()}">Không có lớp đang chờ duyệt.</div>
+      <table class="admin-list-table" th:if="${!pendingClasses.isEmpty()}">
+        <thead><tr><th>Mã</th><th>Tên lớp</th><th>Giảng viên</th><th>Ngày tạo</th><th>Hành động</th></tr></thead>
+        <tbody><tr th:each="row : ${pendingClasses}">
+          <td><code th:text="${row.classCode()}">CODE</code></td>
+          <td th:text="${row.className()}">Tên lớp</td>
+          <td th:text="${row.lecturerName()}">Giảng viên</td>
+          <td th:text="${row.createdAt() == null ? '—' : #temporals.format(row.createdAt(), 'dd/MM/yyyy HH:mm')}">—</td>
+          <td>
+            <form th:action="@{'/leader/approvals/' + ${row.classId()} + '/approve'}" method="post">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <button type="submit" class="btn-primary btn-sm">Duyệt</button>
+            </form>
+            <form th:action="@{'/leader/approvals/' + ${row.classId()} + '/reject'}" method="post">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <input name="note" maxlength="500" placeholder="Lý do (không bắt buộc)">
+              <button type="submit" class="btn-danger btn-sm">Từ chối</button>
+            </form>
+          </td>
+        </tr></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository for {@link FlashcardDeck}. The entity's
@@ -17,6 +18,8 @@ public interface FlashcardDeckRepository extends JpaRepository<FlashcardDeck, Lo
 
     /** Non-deleted decks owned by the caller, newest-updated first. */
     List<FlashcardDeck> findByOwnerIdOrderByUpdatedAtDesc(Long ownerId);
+
+    Optional<FlashcardDeck> findFirstByOwnerIdAndTitleOrderByIdAsc(Long ownerId, String title);
 
     /**
      * One page of the caller's non-deleted own decks. Ordering is governed by the

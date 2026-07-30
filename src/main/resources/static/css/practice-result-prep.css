@@ -1,0 +1,692 @@
+/*
+ * END_OF_PHASE_13_PREP_VISUAL_FIDELITY_DELTA
+ * Result Overview composition override.
+ *
+ * PREP controls visible geometry and density for this bounded visual delta.
+ * KSH copy, immutable result truth and task-native score semantics remain
+ * authoritative. No PREP brand or proprietary bitmap is copied here.
+ */
+
+.practice-result-page {
+  --prep-overview-blue-top: #4052f4;
+  --prep-overview-blue-bottom: #68b7f3;
+  --prep-overview-ink: #172033;
+  --prep-overview-panel-width: 914px;
+  background:
+    radial-gradient(ellipse 72% 62% at 50% 28%, transparent 42%, rgba(25, 37, 139, 0.12) 100%),
+    radial-gradient(ellipse 48% 42% at 50% 24%, rgba(255, 255, 255, 0.24) 0%, rgba(209, 231, 255, 0.09) 45%, transparent 76%),
+    radial-gradient(ellipse 30% 38% at -3% 60%, rgba(154, 201, 255, 0.22) 0%, transparent 74%),
+    radial-gradient(ellipse 34% 44% at 103% 48%, rgba(166, 205, 255, 0.19) 0%, transparent 74%),
+    linear-gradient(180deg, #4960eb 0%, #6689ed 43%, #89c9ef 100%);
+  background-color: #5c78e9;
+  background-attachment: fixed;
+}
+
+.practice-result-page .pr-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background: transparent;
+}
+
+.practice-result-page .pr-shell::before,
+.practice-result-page .pr-shell::after {
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+}
+
+.practice-result-page .pr-shell::before {
+  inset: 50px 0 0;
+  background:
+    radial-gradient(ellipse 27% 19% at 15% 70%, rgba(222, 239, 255, 0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 32% 21% at 85% 64%, rgba(218, 238, 255, 0.13) 0%, transparent 72%),
+    radial-gradient(ellipse 25% 25% at -4% 80%, rgba(165, 204, 244, 0.55) 0 64%, transparent 65%),
+    radial-gradient(ellipse 22% 22% at 12% 88%, rgba(173, 211, 247, 0.48) 0 64%, transparent 65%),
+    radial-gradient(ellipse 24% 24% at 104% 78%, rgba(159, 201, 244, 0.56) 0 64%, transparent 65%),
+    radial-gradient(ellipse 21% 21% at 90% 88%, rgba(177, 214, 248, 0.47) 0 64%, transparent 65%),
+    radial-gradient(circle at 8% 32%, rgba(255, 255, 255, 0.82) 0 4px, transparent 5px),
+    radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.46) 0 2px, transparent 3px),
+    radial-gradient(circle at 24% 44%, rgba(224, 240, 255, 0.72) 0 3px, transparent 4px),
+    radial-gradient(circle at 34% 20%, rgba(255, 255, 255, 0.28) 0 1px, transparent 2px),
+    radial-gradient(circle at 42% 35%, rgba(255, 255, 255, 0.58) 0 2px, transparent 3px),
+    radial-gradient(circle at 51% 16%, rgba(229, 242, 255, 0.72) 0 2px, transparent 3px),
+    radial-gradient(circle at 58% 31%, rgba(255, 255, 255, 0.38) 0 1px, transparent 2px),
+    radial-gradient(circle at 66% 46%, rgba(255, 255, 255, 0.3) 0 1px, transparent 2px),
+    radial-gradient(circle at 71% 12%, rgba(255, 255, 255, 0.64) 0 2px, transparent 3px),
+    radial-gradient(circle at 76% 21%, rgba(255, 255, 255, 0.56) 0 3px, transparent 4px),
+    radial-gradient(circle at 84% 39%, rgba(224, 240, 255, 0.72) 0 2px, transparent 3px),
+    radial-gradient(circle at 90% 16%, rgba(255, 255, 255, 0.44) 0 1px, transparent 2px),
+    radial-gradient(circle at 94% 28%, rgba(255, 255, 255, 0.84) 0 5px, transparent 6px);
+  background-repeat: no-repeat;
+  opacity: 0.82;
+}
+
+.practice-result-page .pr-shell::after {
+  right: -4%;
+  bottom: -105px;
+  left: -4%;
+  height: 520px;
+  background:
+    radial-gradient(ellipse 18% 58% at 3% 82%, rgba(238, 248, 255, 0.99) 0 67%, transparent 68%),
+    radial-gradient(ellipse 20% 64% at 20% 91%, rgba(223, 240, 255, 0.98) 0 66%, transparent 67%),
+    radial-gradient(ellipse 23% 58% at 44% 96%, rgba(190, 219, 248, 0.94) 0 67%, transparent 68%),
+    radial-gradient(ellipse 22% 61% at 69% 94%, rgba(185, 216, 247, 0.95) 0 67%, transparent 68%),
+    radial-gradient(ellipse 20% 62% at 88% 88%, rgba(224, 241, 255, 0.99) 0 67%, transparent 68%),
+    radial-gradient(ellipse 16% 55% at 101% 80%, rgba(239, 248, 255, 0.99) 0 67%, transparent 68%);
+  /*
+   * Keep the cloud layer unfiltered. A filter on the full fixed pseudo-element
+   * creates a one-pixel compositor seam across some viewport sizes.
+   */
+  filter: none;
+}
+
+.practice-result-page .pr-topbar,
+.practice-result-page .pr-main {
+  position: relative;
+  z-index: 1;
+}
+
+.practice-result-page .pr-topbar {
+  position: relative;
+  min-height: 50px;
+  padding: 0 24px;
+  border: 0;
+  color: #fff;
+  background: rgba(51, 70, 239, 0.84);
+  backdrop-filter: blur(8px);
+}
+
+.practice-result-page .pr-topbar > strong {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.practice-result-page .pr-back-link {
+  width: 38px;
+  height: 34px;
+  justify-content: center;
+  border-radius: 9px;
+  color: #172033;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(30, 45, 95, 0.14);
+}
+
+.practice-result-page .pr-back-link > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-back-link svg {
+  width: 18px;
+  height: 18px;
+}
+
+.practice-result-page .pr-state {
+  min-width: 84px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(98, 124, 255, 0.84);
+}
+
+.practice-result-page .pr-main {
+  width: min(var(--prep-overview-panel-width), calc(100% - 32px));
+  margin: 8px auto 72px;
+  padding: 0;
+}
+
+.practice-result-page .pr-lifecycle-notice {
+  margin-bottom: 8px;
+  border-radius: 12px;
+}
+
+.practice-result-page .pr-summary,
+.practice-result-page .pr-section {
+  border: 0;
+  border-radius: 24px;
+  box-shadow:
+    0 24px 54px rgba(25, 39, 111, 0.2),
+    0 4px 12px rgba(25, 39, 111, 0.11);
+}
+
+.practice-result-page .pr-summary {
+  position: relative;
+  min-height: 209px;
+  padding: 24px 26px;
+  overflow: hidden;
+}
+
+.practice-result-page .pr-summary-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  min-height: 161px;
+  align-items: center;
+}
+
+.practice-result-page .pr-summary-copy {
+  grid-column: 2;
+  grid-row: 1;
+  padding-right: 148px;
+}
+
+.practice-result-page .pr-summary-score {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  min-height: 0;
+}
+
+.practice-result-page .pr-baekho-celebration {
+  position: absolute;
+  z-index: 2;
+  top: 47px;
+  right: 34px;
+  width: 112px;
+  height: 112px;
+  pointer-events: none;
+  background-image: url("/images/practice/baekho/baekho_celebration_128.png");
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 1120px 112px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 8px 10px rgba(35, 50, 91, 0.14));
+  animation: pr-baekho-celebrate 1.4s steps(10, end) infinite;
+}
+
+@keyframes pr-baekho-celebrate {
+  to {
+    background-position: -1120px 0;
+  }
+}
+
+.practice-result-page .pr-result-focus,
+.practice-result-page .pr-score-unavailable {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-content: center;
+  width: 144px;
+  height: 144px;
+  min-width: 144px;
+  margin: 0;
+  padding: 18px;
+  border: 8px solid #efd07e;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #e8b85f 0%, #dca145 58%, #ca8733 100%);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 244, 207, 0.2),
+    inset 0 -3px 0 rgba(119, 73, 28, 0.1),
+    0 14px 28px rgba(37, 47, 105, 0.2);
+  text-align: center;
+  transform: none;
+}
+
+.practice-result-page .pr-result-focus > * {
+  transform: none;
+}
+
+.practice-result-page .pr-result-focus::before {
+  position: absolute;
+  z-index: -1;
+  inset: -4px;
+  border: 2px solid rgba(255, 232, 166, 0.58);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 216, 0.35);
+  content: "";
+}
+
+.practice-result-page .pr-result-focus::after {
+  content: none;
+}
+
+.practice-result-page .pr-score-unavailable {
+  border-color: #d9e1ee;
+  color: #526077;
+  background: #eef2f7;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.practice-result-page .pr-result-label {
+  color: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.practice-result-page .pr-score-line {
+  justify-content: center;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.practice-result-page .pr-score-line > strong,
+.practice-result-page .pr-score-line > span {
+  color: #fff;
+  font-size: 36px;
+  text-shadow: 0 1px 1px rgba(116, 67, 16, 0.18);
+}
+
+.practice-result-page .pr-score-line > small {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+}
+
+.practice-result-page .pr-eyebrow {
+  margin-bottom: 10px;
+  color: #5b6679;
+  font-size: 13px;
+  text-transform: none;
+}
+
+.practice-result-page .pr-eyebrow strong {
+  color: #304ecb;
+}
+
+.practice-result-page .pr-summary h1 {
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+.practice-result-page .pr-context {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.practice-result-page .pr-summary-answer-stats {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.practice-result-page .pr-summary-answer-stats > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 122px;
+  padding: 8px 12px;
+  border: 1px solid;
+  border-radius: 10px;
+}
+
+.practice-result-page .pr-summary-answer-stats strong {
+  font-size: 17px;
+}
+
+.practice-result-page .pr-summary-answer-stats small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.practice-result-page .pr-summary-answer-stats .is-correct {
+  border-color: #cbeed2;
+  color: #2a9d35;
+  background: #f0fbf2;
+}
+
+.practice-result-page .pr-summary-answer-stats .is-incorrect {
+  border-color: #f2cbd2;
+  color: #c72843;
+  background: #fff3f5;
+}
+
+.practice-result-page .pr-calculation-details {
+  position: absolute;
+  right: 26px;
+  bottom: 14px;
+  left: 260px;
+  margin: 0;
+  border: 0;
+}
+
+.practice-result-page .pr-calculation-details > summary {
+  min-height: 28px;
+  padding: 4px 0;
+  border-top: 0;
+  font-size: 11px;
+}
+
+.practice-result-page .pr-calculation-details > summary span {
+  display: none;
+}
+
+.practice-result-page .pr-calculation-details > summary small {
+  color: #9aa3b4;
+}
+
+.practice-result-page .pr-summary-meta {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  left: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 4px 0 0;
+  padding: 12px;
+  border: 1px solid #dce3ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(37, 54, 96, 0.16);
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+  position: relative;
+  height: 427px;
+  min-height: 427px;
+  margin-top: 15px;
+  margin-bottom: 70px;
+  padding: 27px 26px 25px;
+  overflow: visible;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-section-heading,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-section-heading {
+  width: auto;
+  margin-bottom: 14px;
+  padding: 0;
+  border: 0;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-section-kicker,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-section-kicker,
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-section-description,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-section-description,
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-denominator,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-denominator,
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-distribution,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-distribution,
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-objective-breakdown,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-objective-breakdown {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-section-heading h2,
+.practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-section-heading h2 {
+  font-size: 16px;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-table-wrap,
+.practice-result-page[data-result-skill="LISTENING"] .pr-table-wrap {
+  min-height: 338px;
+  border-color: #e5e9f1;
+  border-radius: 18px;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-table th,
+.practice-result-page[data-result-skill="READING"] .pr-table td,
+.practice-result-page[data-result-skill="LISTENING"] .pr-table th,
+.practice-result-page[data-result-skill="LISTENING"] .pr-table td {
+  height: 52px;
+  padding: 10px 14px;
+  border-color: #e9edf3;
+  font-size: 12px;
+  text-align: center;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-table th:first-child,
+.practice-result-page[data-result-skill="READING"] .pr-table td:first-child,
+.practice-result-page[data-result-skill="LISTENING"] .pr-table th:first-child,
+.practice-result-page[data-result-skill="LISTENING"] .pr-table td:first-child {
+  width: 38%;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(3),
+.practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(3),
+.practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(3),
+.practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(3) {
+  width: auto;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(5),
+.practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(5),
+.practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(5),
+.practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(5) {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-row-progress,
+.practice-result-page[data-result-skill="READING"] .pr-breakdown-states,
+.practice-result-page[data-result-skill="LISTENING"] .pr-row-progress,
+.practice-result-page[data-result-skill="LISTENING"] .pr-breakdown-states {
+  display: none;
+}
+
+/*
+ * PREP-4.1 Listening uses a wider/taller overview composition than the
+ * PREP-4.1 Reading state. Keep this desktop correction skill-scoped so the
+ * already accepted Reading geometry and all responsive layouts stay stable.
+ */
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="LISTENING"] {
+    --prep-overview-panel-width: 1138px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-main {
+    margin-top: 40px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-summary {
+    min-height: 256px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+    height: 367px;
+    min-height: 367px;
+    margin-top: 20px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table-wrap {
+    min-height: 280px;
+  }
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-next-action,
+.practice-result-page[data-result-skill="LISTENING"] .pr-next-action {
+  position: absolute;
+  bottom: -55px;
+  left: 50%;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translateX(-50%);
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-next-action-copy,
+.practice-result-page[data-result-skill="LISTENING"] .pr-next-action-copy {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="READING"] .pr-primary-action,
+.practice-result-page[data-result-skill="LISTENING"] .pr-primary-action {
+  min-width: 140px;
+  min-height: 38px;
+  border-radius: 9px;
+  color: #3156df;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(30, 56, 128, 0.15);
+}
+
+@media (max-width: 980px) {
+  .practice-result-page {
+    overflow-x: hidden;
+    background-attachment: scroll;
+  }
+
+  .practice-result-page .pr-main {
+    width: min(760px, calc(100% - 28px));
+  }
+
+  .practice-result-page .pr-summary {
+    min-height: 0;
+  }
+
+  .practice-result-page .pr-summary-layout {
+    grid-template-columns: 152px minmax(0, 1fr);
+  }
+
+  .practice-result-page .pr-summary-copy {
+    padding-right: 108px;
+  }
+
+  .practice-result-page .pr-baekho-celebration {
+    right: 22px;
+    width: 88px;
+    height: 88px;
+    background-size: 880px 88px;
+    animation-name: pr-baekho-celebrate-compact;
+  }
+
+  .practice-result-page .pr-result-focus,
+  .practice-result-page .pr-score-unavailable {
+    width: 122px;
+    height: 122px;
+    min-width: 122px;
+  }
+
+  .practice-result-page .pr-calculation-details {
+    left: 202px;
+  }
+}
+
+@media (max-width: 640px) {
+  .practice-result-page .pr-topbar {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    padding: 0 10px;
+  }
+
+  .practice-result-page .pr-topbar > strong {
+    display: block;
+    font-size: 14px;
+  }
+
+  .practice-result-page .pr-state {
+    min-width: 0;
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .practice-result-page .pr-main {
+    width: min(100% - 20px, 520px);
+    margin-top: 10px;
+  }
+
+  .practice-result-page .pr-shell::before {
+    opacity: 0.42;
+  }
+
+  .practice-result-page .pr-shell::after {
+    bottom: -126px;
+    height: 250px;
+    opacity: 0.78;
+  }
+
+  .practice-result-page .pr-summary {
+    padding: 20px;
+  }
+
+  .practice-result-page .pr-summary-copy {
+    padding-right: 0;
+  }
+
+  .practice-result-page .pr-summary-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    text-align: center;
+  }
+
+  .practice-result-page .pr-summary-copy,
+  .practice-result-page .pr-summary-score,
+  .practice-result-page .pr-summary-answer-stats {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .practice-result-page .pr-summary-score {
+    order: -1;
+    justify-self: center;
+  }
+
+  .practice-result-page .pr-baekho-celebration {
+    display: none;
+  }
+
+  .practice-result-page .pr-context,
+  .practice-result-page .pr-eyebrow,
+  .practice-result-page .pr-summary-answer-stats {
+    justify-content: center;
+  }
+
+  .practice-result-page .pr-summary h1 {
+    font-size: 25px;
+  }
+
+  .practice-result-page .pr-calculation-details {
+    display: block;
+    position: static;
+    margin-top: 14px;
+  }
+
+  .practice-result-page .pr-calculation-details > summary span {
+    display: inline;
+  }
+
+  .practice-result-page .pr-summary-meta {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-overview,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+    min-height: 0;
+    padding: 20px 14px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table-wrap,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table-wrap {
+    min-height: 0;
+    overflow-x: auto;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table {
+    min-width: 660px;
+  }
+}
+
+@keyframes pr-baekho-celebrate-compact {
+  to {
+    background-position: -880px 0;
+  }
+}
+
+@media (min-width: 641px) {
+  .practice-result-page .pr-calculation-details {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-result-page .pr-baekho-celebration {
+    animation: none;
+    background-position: 0 0;
+  }
+}

@@ -55,13 +55,18 @@ public class QuestionBankImportController {
     }
 
     @GetMapping(value = "/template", produces = XLSX_MIME)
-    public ResponseEntity<byte[]> template() {
+    public ResponseEntity<byte[]> template(@AuthenticationPrincipal KshUserDetails user) {
         try {
-            byte[] bytes = importTemplate.build();
+            byte[] bytes = importTemplate.build(
+                    importService.activeCategoryNamesForTemplate(user.getId(), user.getRole()));
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
             headers.setContentDispositionFormData("attachment", TEMPLATE_FILENAME);
             return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+        } catch (QuestionBankValidationException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (AccessDeniedException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (IOException ex) {
             log.error("Failed to generate collaborative question import template", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

@@ -33,7 +33,8 @@ public class FlashcardStudyService {
         accessResolver.requireViewable(deckId, userId);
         List<CardView> cards = new ArrayList<>();
         for (Flashcard c : cardRepository.findByDeckIdOrderBySortOrderAsc(deckId)) {
-            cards.add(new CardView(c.getId(), c.getFrontText(), c.getBackText()));
+            cards.add(new CardView(c.getId(), c.getFrontText(), c.getBackText(),
+                    c.getFrontImage(), c.getBackImage(), c.getAlternativesJson()));
         }
         return cards;
     }

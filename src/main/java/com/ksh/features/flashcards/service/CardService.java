@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 
 import static com.ksh.common.IConstant.MSG_CARD_SIDE_BLANK;
 
@@ -59,11 +60,12 @@ public class CardService {
      * @throws IllegalArgumentException with {@code MSG_CARD_SIDE_BLANK} on a blank side
      */
     @Transactional
-    public void replaceCards(Long deckId, Long ownerId, List<CardItem> items) {
+    public List<CardView> replaceCards(Long deckId, Long ownerId, List<CardItem> items) {
         accessResolver.requireOwner(deckId, ownerId);
+        List<CardItem> submitted = items == null ? List.of() : items;
         // Validate ALL rows before any mutation so a blank side leaves the
         // existing cards untouched (atomic even when joined to an outer tx).
-        for (CardItem item : items) {
+        for (CardItem item : submitted) {
             if (trim(item.front()).isEmpty() || trim(item.back()).isEmpty()) {
                 throw new IllegalArgumentException(MSG_CARD_SIDE_BLANK);
             }
@@ -74,17 +76,22 @@ public class CardService {
         for (Flashcard c : existing) byId.put(c.getId(), c);
 
         Set<Long> keptIds = new HashSet<>();
+        List<Flashcard> persisted = new ArrayList<>();
         int order = 0;
-        for (CardItem item : items) {
+        for (CardItem item : submitted) {
             String front = trim(item.front());
             String back = trim(item.back());
             if (item.id() != null && byId.containsKey(item.id())) {
                 Flashcard card = byId.get(item.id());
-                card.update(front, back, order);
-                cardRepository.save(card);
+                card.updateRich(front, back, clean(item.frontImage()), clean(item.backImage()),
+                        clean(item.alternativesJson()), order);
+                persisted.add(cardRepository.save(card));
                 keptIds.add(item.id());
             } else {
-                cardRepository.save(new Flashcard(deckId, front, back, order));
+                Flashcard card = new Flashcard(deckId, front, back, order);
+                card.updateRich(front, back, clean(item.frontImage()), clean(item.backImage()),
+                        clean(item.alternativesJson()), order);
+                persisted.add(cardRepository.save(card));
             }
             order++;
         }
@@ -93,13 +100,35 @@ public class CardService {
                 cardRepository.delete(c);
             }
         }
+        cardRepository.flush();
+        return persisted.stream().map(CardService::toView).toList();
+    }
+
+    @Transactional
+    public void setImage(Long cardId, Long ownerId, String side, String url) {
+        Flashcard card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thẻ"));
+        accessResolver.requireOwner(card.getDeckId(), ownerId);
+        if (!"front".equals(side) && !"back".equals(side)) {
+            throw new IllegalArgumentException("Mặt thẻ không hợp lệ");
+        }
+        card.updateRich(card.getFrontText(), card.getBackText(),
+                "front".equals(side) ? url : card.getFrontImage(),
+                "back".equals(side) ? url : card.getBackImage(),
+                card.getAlternativesJson(), card.getSortOrder());
+        cardRepository.save(card);
     }
 
     private static CardView toView(Flashcard c) {
-        return new CardView(c.getId(), c.getFrontText(), c.getBackText());
+        return new CardView(c.getId(), c.getFrontText(), c.getBackText(),
+                c.getFrontImage(), c.getBackImage(), c.getAlternativesJson());
     }
 
     private static String trim(String s) {
         return s == null ? "" : s.trim();
+    }
+
+    private static String clean(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 }

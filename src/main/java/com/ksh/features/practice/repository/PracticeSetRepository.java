@@ -19,6 +19,75 @@ public interface PracticeSetRepository extends JpaRepository<PracticeSet, Long> 
     List<PracticeSet> findByCreatedByNotOrderByCreatedAtDesc(Long createdBy, Pageable pageable);
     Optional<PracticeSet> findByIdAndCreatedBy(Long id, Long createdBy);
 
+    /**
+     * Public learner catalogue. Practice is intentionally independent from the
+     * classroom domain, so only published GLOBAL sets participate here.
+     */
+    @Query(value = """
+            select s from PracticeSet s
+            where s.status = :status
+              and s.scope = :globalScope
+              and (
+                    :search = ''
+                    or lower(s.title) like lower(concat('%', :search, '%'))
+                    or lower(coalesce(s.description, '')) like lower(concat('%', :search, '%'))
+                  )
+              and (
+                    :skill = ''
+                    or s.skill = :skill
+                    or exists (
+                        select section.id from PracticeSection section
+                        where section.setId = s.id and section.skill = :skill
+                    )
+                  )
+              and (
+                    :writingTask is null
+                    or exists (
+                        select question.id from PracticeQuestion question
+                        where question.setId = s.id
+                          and question.writingTaskType = :writingTask
+                    )
+                  )
+            order by s.createdAt desc, s.id desc
+            """,
+            countQuery = """
+            select count(s) from PracticeSet s
+            where s.status = :status
+              and s.scope = :globalScope
+              and (
+                    :search = ''
+                    or lower(s.title) like lower(concat('%', :search, '%'))
+                    or lower(coalesce(s.description, '')) like lower(concat('%', :search, '%'))
+                  )
+              and (
+                    :skill = ''
+                    or s.skill = :skill
+                    or exists (
+                        select section.id from PracticeSection section
+                        where section.setId = s.id and section.skill = :skill
+                    )
+                  )
+              and (
+                    :writingTask is null
+                    or exists (
+                        select question.id from PracticeQuestion question
+                        where question.setId = s.id
+                          and question.writingTaskType = :writingTask
+                    )
+                  )
+            """)
+    Page<PracticeSet> findPublishedGlobalCatalog(
+            @Param("status") String status,
+            @Param("globalScope") String globalScope,
+            @Param("search") String search,
+            @Param("skill") String skill,
+            @Param("writingTask") WritingTaskType writingTask,
+            Pageable pageable);
+
+    /**
+     * Legacy class-aware lookup retained for non-catalog compatibility tests.
+     * New learner catalogue code must use {@link #findPublishedGlobalCatalog}.
+     */
     @Query(value = """
             select s from PracticeSet s
             where s.status = :status

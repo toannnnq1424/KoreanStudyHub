@@ -233,6 +233,12 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         String evidenceContractVersion = representative == null
                 ? null
                 : representative.evidenceContractVersion();
+        String policyBundleId = representative == null
+                ? null
+                : representative.policyBundleId();
+        String policyBundleFingerprint = representative == null
+                ? null
+                : representative.policyBundleFingerprint();
         String profileState;
         if (coveredSegments == 0 && !lowConfidenceSegments.isEmpty()) {
             profileState = "LOW_CONFIDENCE";
@@ -261,6 +267,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 criteria,
                 evaluatorCapability,
                 evidenceContractVersion,
+                policyBundleId,
+                policyBundleFingerprint,
                 contractTrust,
                 holisticAvailable,
                 legacyUnverified);
@@ -433,7 +441,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             boolean currentEvidence,
             String authoritativeTranscript
     ) {
-        String transcript = authoritativeTranscript == null
+        String transcript = !currentEvidence || authoritativeTranscript == null
                 ? ""
                 : authoritativeTranscript;
         List<SpeakingTextSegment> fallback =

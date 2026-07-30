@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="vi"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Khám phá Hàn Quốc', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=Nanum+Myeongjo:wght@400;700;800&amp;family=Noto+Serif+KR:wght@400;500&amp;display=swap">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/discovery.css(v='4')}">
+</head>
+<body class="discovery-body"
+      th:classappend="${page.selectedLanguage == 'ko'} ? ' is-korean-mode' : ' is-vietnamese-mode'">
+<header th:replace="~{fragments/app-header :: appHeader('discover')}"></header>
+
+<nav class="discovery-language-strip" aria-label="Ưu tiên ngôn ngữ bản tin">
+  <div>
+    <span class="language-globe" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path>
+      </svg>
+    </span>
+    <span class="language-label">Ưu tiên ngôn ngữ</span>
+    <a th:href="@{/discover(lang='ko',category=${page.selectedCategory},q=${page.query})}"
+       th:classappend="${page.selectedLanguage == 'ko'} ? ' is-active' : ''"
+       th:attr="aria-current=${page.selectedLanguage == 'ko'} ? 'page' : null">
+      <strong lang="ko">한국어</strong>
+      <small>Đọc &amp; lưu từ mới</small>
+    </a>
+    <a th:href="@{/discover(lang='vi',category=${page.selectedCategory},q=${page.query})}"
+       th:classappend="${page.selectedLanguage == 'vi'} ? ' is-active' : ''"
+       th:attr="aria-current=${page.selectedLanguage == 'vi'} ? 'page' : null">
+      <strong>Tiếng Việt</strong>
+      <small>Ưu tiên nguồn Việt</small>
+    </a>
+  </div>
+</nav>
+
+<main class="discovery-shell">
+  <section class="discovery-masthead" aria-labelledby="discovery-title">
+    <div>
+      <p class="discovery-kicker"><span></span> KSH CURATION</p>
+      <h1 id="discovery-title">Khám phá Hàn Quốc</h1>
+      <p>Chuyện Hàn, chọn theo độ mới và chất lượng nguồn — gọn, rõ nguồn và không chính trị.</p>
+    </div>
+    <div class="discovery-masthead-actions">
+      <div sec:authorize="hasRole('ADMIN')" class="discovery-admin-actions">
+        <form class="discovery-refresh"
+              th:action="@{/admin/news/refresh}"
+              method="post"
+              data-news-refresh-form>
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="returnTo" value="discover">
+          <button type="submit" data-news-refresh-button>
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M20 11a8.1 8.1 0 1 0 2 5M20 4v7h-7"></path>
+            </svg>
+            <span data-news-refresh-label>Cào tin ngay</span>
+          </button>
+          <small>Thủ công · tự động mỗi 5 giờ</small>
+        </form>
+        <form th:if="${rawPreviewEnabled}"
+              class="discovery-reset"
+              th:action="@{/admin/news/reset-sample}"
+              method="post"
+              data-news-reset-form>
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <input type="hidden" name="returnTo" value="discover">
+          <button type="submit" title="Xóa tối đa 1 bài local mỗi nguồn để kiểm tra cào lại">
+            Xóa 5 bài test
+          </button>
+        </form>
+        <a class="discovery-admin-manage"
+           th:href="@{/admin/news}">
+          Quản lý · xóa bài
+        </a>
+      </div>
+      <form class="discovery-search" th:action="@{/discover}" method="get" role="search">
+        <input type="hidden" name="category" th:value="${page.selectedCategory}">
+        <input type="hidden" name="lang" th:value="${page.selectedLanguage}">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="sr-only" for="discovery-search-input">Tìm trong luồng tin</label>
+        <input id="discovery-search-input" name="q" maxlength="80"
+               th:value="${page.query}" placeholder="Tìm văn hóa, ẩm thực, học bổng…">
+        <button type="submit">Tìm</button>
+      </form>
+    </div>
+  </section>
+
+  <nav class="discovery-tabs" aria-label="Chủ đề Khám phá">
+    <a th:each="category : ${page.categories}"
+       th:href="@{/discover(category=${category.slug},q=${page.query},lang=${page.selectedLanguage})}"
+       th:classappend="${category.active} ? 'is-active' : ''"
+       th:attr="aria-current=${category.active} ? 'page' : null"
+       th:text="${category.label}">Chủ đề</a>
+  </nav>
+
+  <div th:if="${newsResetMessage != null}"
+       class="discovery-reset-result"
+       role="status"
+       aria-live="polite">
+    <span aria-hidden="true">↺</span>
+    <div>
+      <strong>Đã tạo khoảng trống để test</strong>
+      <p th:text="${newsResetMessage}">Đã xóa dữ liệu local để kiểm tra.</p>
+    </div>
+  </div>
+
+  <div th:if="${newsRefreshMessage != null}"
+       class="discovery-refresh-result"
+       role="status"
+       aria-live="polite">
+    <span aria-hidden="true">✓</span>
+    <div>
+      <strong>Đã hoàn tất lượt cào</strong>
+      <p th:text="${newsRefreshMessage}">Kết quả lượt cào</p>
+    </div>
+  </div>
+
+  <section th:if="${page.empty}" class="discovery-empty">
+    <div class="empty-glyph" aria-hidden="true">한</div>
+    <p class="discovery-kicker">LUỒNG ĐANG KHỞI ĐỘNG</p>
+    <h2 th:text="${#strings.isEmpty(page.query) ? 'Bản tin đầu tiên đang được tuyển chọn' : 'Chưa tìm thấy tin phù hợp'}">
+      Bản tin đầu tiên đang được tuyển chọn
+    </h2>
+    <p th:if="${#strings.isEmpty(page.query)}">
+      Hệ thống tự quét nguồn chính thức mỗi 5 giờ. Quản trị viên có thể chạy lượt đầu ngay trong
+      mục “Luồng Khám phá”.
+    </p>
+    <p th:unless="${#strings.isEmpty(page.query)}">
+      Thử một từ khóa ngắn hơn hoặc quay lại mục “Dành cho bạn”.
+    </p>
+    <a th:unless="${#strings.isEmpty(page.query)}"
+       th:href="@{/discover(lang=${page.selectedLanguage})}" class="discovery-button">
+      Xem toàn bộ luồng tin
+    </a>
+  </section>
+
+  <th:block th:unless="${page.empty}">
+    <section class="lead-grid" aria-label="Tin nổi bật">
+      <article class="lead-story">
+        <a class="lead-art story-art"
+           th:classappend="${' story-art--' + page.hero.categorySlug + (page.hero.imageUrl != null ? ' has-image' : '')}"
+           th:href="@{/discover/{slug}(slug=${page.hero.slug},lang=${page.selectedLanguage})}">
+          <img th:if="${page.hero.imageUrl != null}"
+               class="story-art-image"
+               data-story-image
+               th:src="${page.hero.imageUrl}"
+               alt=""
+               referrerpolicy="no-referrer"
+               fetchpriority="high"
+               decoding="async">
+          <span class="story-art-grid" aria-hidden="true"></span>
+          <span th:unless="${page.hero.categorySlug == 'scholarship'}"
+                class="story-art-glyph" lang="ko" th:text="${page.hero.glyph}">문</span>
+          <span th:if="${page.hero.categorySlug == 'scholarship' and page.hero.imageUrl == null}"
+                class="scholarship-source-cover" aria-hidden="true">
+            <small>STUDY IN KOREA</small>
+            <strong>GKS</strong>
+            <em>Official notice · NIIED</em>
+          </span>
+          <span class="story-art-caption" th:text="${page.hero.categoryLabel}">Văn hóa</span>
+        </a>
+        <div class="lead-copy">
+          <div class="story-meta">
+            <span class="category-chip" th:text="${page.hero.categoryLabel}">Văn hóa</span>
+            <span th:if="${page.hero.vietnamRelated}" class="vietnam-chip">Việt–Hàn</span>
+            <span th:text="${page.hero.displayDate}">29.07.2026</span>
+          </div>
+          <h2>
+            <a th:href="@{/discover/{slug}(slug=${page.hero.slug},lang=${page.selectedLanguage})}"
+               th:classappend="${page.selectedLanguage == 'ko' and page.hero.koreanOriginal} ? ' discovery-korean-text' : ''"
+               th:text="${page.selectedLanguage == 'ko' and page.hero.koreanOriginal ? page.hero.originalTitle : page.hero.title}">Tiêu đề</a>
+          </h2>
+          <p th:if="${page.hero.excerpt != null}" th:text="${page.hero.excerpt}">Mô tả</p>
+          <p th:unless="${page.hero.excerpt != null}" class="metadata-only">
+            Nguồn chỉ cung cấp metadata cho bản tin này. KSH dẫn bạn đến nội dung gốc.
+          </p>
+          <div class="story-byline">
+            <span th:text="${page.hero.sourceName}">Nguồn</span>
+            <span>·</span>
+            <span th:text="${page.hero.readMinutes + ' phút đọc'}">3 phút đọc</span>
+            <a th:href="@{/discover/{slug}(slug=${page.hero.slug},lang=${page.selectedLanguage})}">
+              Đọc bản tin
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <aside class="digest-card" aria-labelledby="digest-heading">
+        <div class="digest-head">
+          <div>
+            <span class="digest-dot"></span>
+            <p>BẢN TIN 3 PHÚT</p>
+          </div>
+          <span th:text="${page.hero.displayDate}">Hôm nay</span>
+        </div>
+        <h2 id="digest-heading">Nhanh một vòng chuyện Hàn</h2>
+        <ol>
+          <li th:each="story, loop : ${page.digest}">
+            <span th:text="${#numbers.formatInteger(loop.count, 2)}">01</span>
+            <a th:href="@{/discover/{slug}(slug=${story.slug},lang=${page.selectedLanguage})}"
+               th:classappend="${page.selectedLanguage == 'ko' and story.koreanOriginal} ? ' discovery-korean-text' : ''"
+               th:text="${page.selectedLanguage == 'ko' and story.koreanOriginal ? story.originalTitle : story.title}">Tiêu đề tin</a>
+          </li>
+        </ol>
+        <p th:if="${page.digest.isEmpty()}" class="digest-empty">
+          Các tin tiếp theo sẽ xuất hiện sau lượt quét mới.
+        </p>
+        <div class="digest-foot">
+          <span>Cập nhật tự động mỗi 5 giờ</span>
+          <span>Không chính trị</span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="discovery-section" th:if="${not page.featured.isEmpty()}">
+      <div class="section-heading">
+        <div>
+          <p class="discovery-kicker">EDITOR'S FLOW</p>
+          <h2>Mới và đáng chú ý</h2>
+        </div>
+        <a th:href="@{/discover(category='all',lang=${page.selectedLanguage})}">Xem tất cả <span>→</span></a>
+      </div>
+      <div class="featured-grid">
+        <article class="featured-card" th:each="story : ${page.featured}">
+          <a class="card-art story-art"
+             th:classappend="${' story-art--' + story.categorySlug + (story.imageUrl != null ? ' has-image' : '')}"
+             th:href="@{/discover/{slug}(slug=${story.slug},lang=${page.selectedLanguage})}">
+            <img th:if="${story.imageUrl != null}"
+                 class="story-art-image"
+                 data-story-image
+                 th:src="${story.imageUrl}"
+                 alt=""
+                 referrerpolicy="no-referrer"
+                 loading="lazy"
+                 decoding="async">
+            <span class="story-art-grid" aria-hidden="true"></span>
+            <span th:unless="${story.categorySlug == 'scholarship'}"
+                  class="story-art-glyph" lang="ko" th:text="${story.glyph}">맛</span>
+            <span th:if="${story.categorySlug == 'scholarship' and story.imageUrl == null}"
+                  class="scholarship-source-cover compact" aria-hidden="true">
+              <small>STUDY IN KOREA</small>
+              <strong>GKS</strong>
+              <em>Official notice</em>
+            </span>
+          </a>
+          <div class="featured-copy">
+            <div class="story-meta">
+              <span class="category-chip" th:text="${story.categoryLabel}">Ẩm thực</span>
+              <span th:if="${story.vietnamRelated}" class="vietnam-chip">Việt–Hàn</span>
+            </div>
+            <h3><a th:href="@{/discover/{slug}(slug=${story.slug},lang=${page.selectedLanguage})}"
+                   th:classappend="${page.selectedLanguage == 'ko' and story.koreanOriginal} ? ' discovery-korean-text' : ''"
+                   th:text="${page.selectedLanguage == 'ko' and story.koreanOriginal ? story.originalTitle : story.title}">Tiêu đề</a></h3>
+            <p th:if="${story.excerpt != null}" th:text="${story.excerpt}">Mô tả</p>
+            <div class="card-source">
+              <span th:text="${story.sourceName}">Nguồn</span>
+              <span th:text="${story.displayDate}">Ngày</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="content-rail">
+      <div class="latest-column">
+        <div class="section-heading compact">
+          <div>
+            <p class="discovery-kicker">THE LATEST</p>
+            <h2>Tin mới trong luồng</h2>
+          </div>
+        </div>
+        <div class="latest-list">
+          <article class="latest-row" th:each="story : ${page.latest}">
+            <a class="latest-art story-art"
+               th:classappend="${' story-art--' + story.categorySlug + (story.imageUrl != null ? ' has-image' : '')}"
+               th:href="@{/discover/{slug}(slug=${story.slug},lang=${page.selectedLanguage})}">
+              <img th:if="${story.imageUrl != null}"
+                   class="story-art-image"
+                   data-story-image
+                   th:src="${story.imageUrl}"
+                   alt=""
+                   referrerpolicy="no-referrer"
+                   loading="lazy"
+                   decoding="async">
+              <span th:unless="${story.categorySlug == 'scholarship'}"
+                    class="story-art-glyph" lang="ko" th:text="${story.glyph}">영</span>
+              <span th:if="${story.categorySlug == 'scholarship' and story.imageUrl == null}"
+                    class="scholarship-source-cover mini" aria-hidden="true">
+                <strong>GKS</strong>
+              </span>
+            </a>
+            <div>
+              <div class="story-meta">
+                <span class="category-chip" th:text="${story.categoryLabel}">Chủ đề</span>
+                <span th:if="${story.vietnamRelated}" class="vietnam-chip">Việt–Hàn</span>
+                <span th:text="${story.displayDate}">Ngày</span>
+              </div>
+              <h3><a th:href="@{/discover/{slug}(slug=${story.slug},lang=${page.selectedLanguage})}"
+                     th:classappend="${page.selectedLanguage == 'ko' and story.koreanOriginal} ? ' discovery-korean-text' : ''"
+                     th:text="${page.selectedLanguage == 'ko' and story.koreanOriginal ? story.originalTitle : story.title}">Tiêu đề</a></h3>
+              <p th:if="${story.excerpt != null}" th:text="${story.excerpt}">Mô tả</p>
+              <span class="latest-source" th:text="${story.sourceName}">Nguồn</span>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <aside class="discovery-rail">
+        <section class="vocab-panel">
+          <div class="rail-icon" aria-hidden="true">가</div>
+          <p class="discovery-kicker">HỌC NHANH QUA TIN</p>
+          <h2>3 từ Hàn mang theo</h2>
+          <div th:if="${not page.quickVocabulary.isEmpty()}" class="vocab-list">
+            <a th:each="word : ${page.quickVocabulary}"
+               th:href="${word.dictionaryUrl}" target="_blank" rel="noopener noreferrer"
+               class="vocab-row">
+              <span lang="ko" th:text="${word.word}">문화</span>
+              <span>
+                <small th:if="${word.pronunciation != null}"
+                       th:text="${'[' + word.pronunciation + ']'}">[mun-hwa]</small>
+                <strong th:text="${word.meaningVi}">văn hóa</strong>
+              </span>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M7 17 17 7M8 7h9v9"></path>
+              </svg>
+            </a>
+          </div>
+          <div th:if="${page.quickVocabulary.isEmpty()}" class="vocab-pending">
+            <span class="pending-pulse"></span>
+            Từ vựng đang chờ được đối chiếu bằng Korean Basic Dictionary Open API.
+          </div>
+          <p class="vocab-note">Nghĩa tiếng Việt lấy trực tiếp từ từ điển quốc gia Hàn Quốc.</p>
+        </section>
+
+        <section th:if="${page.scholarship != null}" class="opportunity-panel">
+          <p class="discovery-kicker">CƠ HỘI ĐÁNG CHÚ Ý</p>
+          <span class="opportunity-glyph" aria-hidden="true">꿈</span>
+          <h2><a th:href="@{/discover/{slug}(slug=${page.scholarship.slug},lang=${page.selectedLanguage})}"
+                 th:classappend="${page.selectedLanguage == 'ko' and page.scholarship.koreanOriginal} ? ' discovery-korean-text' : ''"
+                 th:text="${page.selectedLanguage == 'ko' and page.scholarship.koreanOriginal ? page.scholarship.originalTitle : page.scholarship.title}">Học bổng</a></h2>
+          <p th:if="${page.scholarship.excerpt != null}"
+             th:text="${page.scholarship.excerpt}">Mô tả</p>
+          <div>
+            <span th:text="${page.scholarship.sourceName}">Study in Korea</span>
+            <a th:href="@{/discover/{slug}(slug=${page.scholarship.slug},lang=${page.selectedLanguage})}">Xem cơ hội →</a>
+          </div>
+        </section>
+
+        <section class="flow-principles source-roster">
+          <p class="discovery-kicker">NGUỒN ĐANG CÀO</p>
+          <ul>
+            <li><span>01</span> KBS WORLD Vietnamese <small>Văn hóa · Giải trí</small></li>
+            <li><span>02</span> Korea.net Vietnamese <small>Văn hóa · Ẩm thực & Du lịch</small></li>
+            <li><span>03</span> Study in Korea <small>GKS · Học bổng chính phủ</small></li>
+          </ul>
+          <p class="source-roster-note">Việt–Hàn là một góc riêng, không phải luật ép thứ hạng toàn luồng.</p>
+        </section>
+      </aside>
+    </section>
+
+    <nav th:if="${page.totalPages > 1}"
+         class="discovery-pagination"
+         aria-label="Phân trang bản tin">
+      <div class="pagination-summary">
+        <strong th:text="${'Trang ' + page.currentPage + ' / ' + page.totalPages}">Trang 1 / 5</strong>
+        <span th:text="${page.totalElements + ' bài trong mục này'}">76 bài</span>
+      </div>
+      <div class="pagination-controls">
+        <a th:if="${page.hasPrevious}"
+           class="pagination-arrow"
+           rel="prev"
+           th:href="@{/discover(page=${page.currentPage - 1},lang=${page.selectedLanguage},category=${page.selectedCategory},q=${page.query})}">
+          <span aria-hidden="true">←</span>
+          Trước
+        </a>
+        <span th:unless="${page.hasPrevious}" class="pagination-arrow is-disabled">
+          <span aria-hidden="true">←</span>
+          Trước
+        </span>
+        <a th:each="number : ${page.pageNumbers}"
+           class="pagination-number"
+           th:classappend="${number == page.currentPage} ? ' is-active' : ''"
+           th:attr="aria-current=${number == page.currentPage} ? 'page' : null"
+           th:href="@{/discover(page=${number},lang=${page.selectedLanguage},category=${page.selectedCategory},q=${page.query})}"
+           th:text="${#numbers.formatInteger(number, 2)}">01</a>
+        <a th:if="${page.hasNext}"
+           class="pagination-arrow"
+           rel="next"
+           th:href="@{/discover(page=${page.currentPage + 1},lang=${page.selectedLanguage},category=${page.selectedCategory},q=${page.query})}">
+          Sau
+          <span aria-hidden="true">→</span>
+        </a>
+        <span th:unless="${page.hasNext}" class="pagination-arrow is-disabled">
+          Sau
+          <span aria-hidden="true">→</span>
+        </span>
+      </div>
+    </nav>
+  </th:block>
+</main>
+
+<footer class="discovery-footer">
+  <span>KSH · Korea Discovery</span>
+  <p>KSH tuyển chọn metadata từ nguồn công khai, không tái xuất bản toàn văn của bên thứ ba.</p>
+</footer>
+<script th:src="@{/js/discovery.js(v='4')}" defer></script>
+</body>
+</html>

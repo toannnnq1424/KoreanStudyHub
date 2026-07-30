@@ -3,8 +3,9 @@
 <head th:replace="~{fragments/head :: head('Chi tiết kết quả Đọc/Nghe | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail-prep.css}">
 </head>
-<body class="prd-body">
+<body class="prd-body prd-objective-body">
 <header class="prd-header prd-boundary-header">
   <a class="prd-back-btn"
      th:href="@{/practice/attempts/{id}/result(id=${resultDetail.identity().attemptId()})}">
@@ -17,7 +18,9 @@
 
 <main class="prd-boundary-shell prd-objective-shell"
       data-result-detail-kind="OBJECTIVE_DETAIL"
-      th:attr="data-contract-version=${resultDetail.schemaVersion()}">
+      data-visual-acceptance="PREP_RESULT_OVERVIEW_AND_DETAIL"
+      th:attr="data-contract-version=${resultDetail.schemaVersion()},
+               data-objective-skill=${resultDetail.identity().skill()}">
   <section class="prd-boundary-hero" aria-labelledby="objective-detail-title">
     <p class="prd-boundary-eyebrow" th:text="${resultDetail.state().label()}">Đã chấm</p>
     <h1 id="objective-detail-title" th:text="${resultDetail.identity().sectionTitle()}">Phần Đọc</h1>
@@ -37,40 +40,66 @@
   </details>
 
   <nav class="prd-boundary-card prd-objective-nav prd-question-rail"
-       aria-label="Điều hướng nguồn và câu hỏi">
-    <div>
-      <h2>Nguồn đề</h2>
-      <ul class="prd-objective-nav-list">
-        <li th:each="source : ${resultDetail.payload().sourceGroups()}">
-          <a th:href="${'#' + source.sourceId()}"
-             data-objective-source-link
-             th:attr="data-objective-source-id=${source.sourceId()}"
-             th:text="${source.label()}">Đoạn đọc 1</a>
-        </li>
-      </ul>
-    </div>
-    <div>
-      <h2>Câu hỏi</h2>
-      <ol class="prd-objective-nav-list">
-        <li th:each="question : ${resultDetail.payload().questions()}">
-          <a th:href="${'#' + question.core().anchorId()}"
-             data-objective-question-link
-             th:attr="data-objective-source-id=${question.core().sourceId()},
-                      data-objective-question-id=${question.core().anchorId()}"
-             th:text="${'Câu ' + question.core().questionNo()}">Câu 1</a>
-        </li>
-      </ol>
-    </div>
+       aria-label="Điều hướng nhóm nguồn và câu hỏi">
+    <h2>Nhóm câu hỏi</h2>
+    <ol class="prd-objective-group-nav">
+      <li th:each="group, groupNavStat : ${resultDetail.payload().groups()}"
+          data-objective-group-nav-item
+          th:classappend="${groupNavStat.first} ? ' is-active' : ''"
+          th:attr="data-objective-group-key=${group.groupKey()}">
+        <a th:href="${'#' + group.source().sourceId()}"
+           class="prd-objective-group-link"
+           data-objective-source-link
+           th:classappend="${groupNavStat.first} ? ' is-active' : ''"
+           th:attr="data-objective-group-key=${group.groupKey()},
+                    data-objective-source-id=${group.source().sourceId()},
+                    aria-current=${groupNavStat.first ? 'location' : null},
+                    aria-label=${'Mở nhóm ' + group.displayLabel()}"
+           th:text="${group.displayLabel()}">Nhóm nghe 1</a>
+        <span class="prd-objective-legacy-badge"
+              th:if="${group.legacyFallback()}">
+          Dữ liệu cũ
+        </span>
+        <ol class="prd-objective-nav-list"
+            th:attr="aria-label=${'Câu hỏi trong ' + group.displayLabel()}">
+          <li th:each="question, questionNavStat : ${group.questions()}">
+            <a th:href="${'#' + question.core().anchorId()}"
+               data-objective-question-link
+               th:classappend="${groupNavStat.first and questionNavStat.first} ? ' is-active' : ''"
+               th:attr="data-objective-group-key=${group.groupKey()},
+                        data-objective-source-id=${question.core().sourceId()},
+                        data-objective-question-id=${question.core().anchorId()},
+                        aria-current=${groupNavStat.first and questionNavStat.first ? 'page' : null}"
+               th:text="${'Câu ' + question.core().questionNo()}">Câu 1</a>
+          </li>
+        </ol>
+      </li>
+    </ol>
   </nav>
 
   <div class="prd-objective-layout">
-    <aside class="prd-boundary-card prd-objective-sources" aria-labelledby="objective-source-title">
-      <h2 id="objective-source-title">Nguồn và bằng chứng gốc</h2>
+    <section class="prd-objective-group-panel"
+             th:each="group, groupStat : ${resultDetail.payload().groups()}"
+             th:with="source=${group.source()}"
+             data-objective-group-panel
+             th:classappend="${groupStat.first} ? ' is-active' : ''"
+             th:hidden="${!groupStat.first}"
+             th:id="${'objective-group-' + group.groupKey()}"
+             th:attr="data-objective-group-key=${group.groupKey()},
+                      aria-label=${group.displayLabel()}">
+    <aside class="prd-boundary-card prd-objective-sources"
+           th:attr="aria-labelledby=${'objective-source-title-' + group.groupKey()}">
+      <h2 th:id="${'objective-source-title-' + group.groupKey()}"
+          th:text="${group.displayLabel()}">Nhóm nghe 1</h2>
+      <p class="prd-objective-legacy-note"
+         th:if="${group.legacyFallback()}">
+        Nhóm fallback có giới hạn cho dữ liệu phiên bản cũ chưa mang mã nhóm.
+      </p>
       <article class="prd-objective-source"
-               th:each="source : ${resultDetail.payload().sourceGroups()}"
                th:id="${source.sourceId()}"
                data-objective-source-panel
-               th:attr="data-objective-source-id=${source.sourceId()},
+               th:attr="data-objective-group-key=${group.groupKey()},
+                        data-objective-source-id=${source.sourceId()},
                         data-objective-source-empty=${!source.hasPassage()
                           and !source.hasImage()
                           and !source.hasAudio()
@@ -132,13 +161,20 @@
       </article>
     </aside>
 
-    <section class="prd-objective-review" aria-labelledby="objective-review-title">
-      <h2 id="objective-review-title" class="prd-visually-hidden">Đáp án và lời giải từng câu</h2>
+    <section class="prd-objective-review"
+             th:attr="aria-labelledby=${'objective-review-title-' + group.groupKey()}">
+      <h2 class="prd-visually-hidden"
+          th:id="${'objective-review-title-' + group.groupKey()}">
+        Đáp án và lời giải từng câu trong nhóm
+      </h2>
       <article class="prd-boundary-card prd-objective-question"
-               th:each="question : ${resultDetail.payload().questions()}"
+               th:each="question, questionStat : ${group.questions()}"
                th:id="${question.core().anchorId()}"
                data-objective-question-panel
-               th:attr="data-objective-question-type=${question.questionType().name()},
+               th:classappend="${questionStat.first} ? ' is-active' : ''"
+               th:hidden="${!questionStat.first}"
+               th:attr="data-objective-group-key=${group.groupKey()},
+                        data-objective-question-type=${question.questionType().name()},
                         data-objective-question-id=${question.core().anchorId()},
                         data-objective-source-id=${question.core().sourceId()}"
                tabindex="-1">
@@ -182,39 +218,46 @@
                  aria-label="Kết quả trắc nghiệm một đáp án">
           <header class="prd-objective-type-heading">
             <p>Trắc nghiệm một đáp án</p>
-            <h4>Đối chiếu từng phương án</h4>
-            <span>Đáp án đúng, lựa chọn của bạn và lý do loại phương án được tách rõ.</span>
+            <h4>Câu trả lời của bạn</h4>
+            <span>Màu và nhãn được xác định từ đáp án chính thức cùng bài làm đã khóa.</span>
           </header>
-          <table class="prd-objective-answer-table">
-            <caption>Phương án, trạng thái người học và lý do loại chọn</caption>
-            <thead>
-            <tr>
-              <th scope="col">Phương án</th>
-              <th scope="col">Trạng thái</th>
-              <th scope="col">Giải thích</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="option : ${question.options()}"
-                th:classappend="${option.correct()} ? 'is-correct' : (${option.learnerSelected()} ? 'is-incorrect' : '')">
-              <th scope="row" data-label="Phương án">
-                <span th:text="${option.visibleLabel()}">A</span>
-                <span lang="ko" th:text="${option.text()}">선택지</span>
+          <ol class="prd-objective-option-stack"
+              aria-label="Các phương án và trạng thái kết quả">
+            <li class="prd-objective-option"
+                th:each="option : ${question.options()}"
+                th:classappend="${' is-' + #strings.toLowerCase(option.state().name())}"
+                th:attr="data-option-state=${option.state().name()},
+                         aria-label=${'Phương án ' + option.visibleLabel()
+                           + (option.hasStatusLabel()
+                              ? ', ' + option.statusLabelVi()
+                              : '')}">
+              <div class="prd-objective-option-main">
+                <span class="prd-objective-option-label"
+                      aria-hidden="true"
+                      th:text="${option.visibleLabel()}">A</span>
+                <span class="prd-objective-option-text"
+                      lang="ko"
+                      th:text="${option.text()}">선택지</span>
                 <img th:if="${!option.imageReference().isBlank()}"
                      th:src="${option.imageReference()}"
                      th:alt="${'Hình ảnh của phương án ' + option.visibleLabel()}">
-              </th>
-              <td data-label="Trạng thái">
-                <span th:if="${option.learnerSelected()}">Người học đã chọn</span>
-                <span th:if="${option.correct()}">Đáp án đúng</span>
-                <span th:if="${!option.learnerSelected() and !option.correct()}">Không chọn</span>
-              </td>
-              <td data-label="Giải thích">
-                <strong class="prd-objective-rationale-label"
-                        th:text="${option.correct()} ? 'Vì sao đúng' : 'Vì sao loại'">
-                  Vì sao loại
-                </strong>
-                <p th:text="${option.rationaleVi()}">Lý do</p>
+                <span class="prd-objective-option-status"
+                      th:if="${option.hasStatusLabel()}">
+                  <span aria-hidden="true"
+                        th:text="${option.state().name() == 'CORRECT'} ? '✓' : (${option.state().name() == 'SELECTED_INCORRECT'} ? '!' : '●')">
+                    ✓
+                  </span>
+                  <span th:text="${option.statusLabelVi()}">Đáp án đúng</span>
+                </span>
+              </div>
+              <details class="prd-objective-option-explanation"
+                       th:if="${option.hasRationale()
+                         or !#lists.isEmpty(option.evidenceIds())}">
+                <summary th:attr="aria-label=${'Mở giải thích phương án ' + option.visibleLabel()}">
+                  Xem giải thích
+                </summary>
+                <p th:if="${option.hasRationale()}"
+                   th:text="${option.rationaleVi()}">Lý do</p>
                 <div class="prd-objective-inline-evidence"
                      th:if="${!#lists.isEmpty(option.evidenceIds())}">
                   <article th:each="evidence : ${question.explanation().evidenceRefs()}"
@@ -245,10 +288,9 @@
                     </div>
                   </article>
                 </div>
-              </td>
-            </tr>
-            </tbody>
-          </table>
+              </details>
+            </li>
+          </ol>
         </section>
 
         <section class="prd-objective-answer-block prd-objective-fill-review"
@@ -454,13 +496,18 @@
           </div>
         </section>
 
-        <section class="prd-objective-explanation"
+        <details class="prd-objective-explanation is-ready"
+                 th:if="${question.explanation().ready()
+                   or !question.core().teacherExplanation().isBlank()}"
                  aria-label="Lời giải và bằng chứng"
-                 th:attr="data-explanation-type=${question.questionType().name()}">
-          <header class="prd-objective-explanation-heading">
+                 th:attr="data-explanation-type=${question.questionType().name()},
+                          data-explanation-authority=${question.explanation().ready()
+                            ? 'VERIFIED_ARTIFACT'
+                            : 'IMMUTABLE_TEACHER_EXPLANATION'}">
+          <summary class="prd-objective-explanation-heading">
             <p class="prd-boundary-eyebrow">Lời giải theo dạng câu</p>
             <h4 th:if="${question.questionType().name() == 'SINGLE_CHOICE'}">
-              Kết luận và bằng chứng chọn đáp án
+              Giải thích đáp án
             </h4>
             <h4 th:if="${question.questionType().name() == 'FILL_BLANK'}">
               Dấu hiệu ngữ cảnh và vùng chứa đáp án
@@ -468,10 +515,7 @@
             <h4 th:if="${question.questionType().name() == 'TRUE_FALSE_NOT_GIVEN'}">
               Đối chiếu mệnh đề và bằng chứng
             </h4>
-          </header>
-          <p class="prd-objective-unavailable"
-             th:if="${!question.explanation().ready()}"
-             th:text="${question.explanation().stateLabel()}">Chưa có lời giải</p>
+          </summary>
           <div class="prd-objective-explanation-body"
                th:if="${question.explanation().ready()}">
             <div class="prd-objective-explanation-summary"
@@ -531,14 +575,24 @@
               </ul>
             </details>
           </div>
-        </section>
-
-        <details class="prd-objective-teacher"
-                 th:if="${!question.core().teacherExplanation().isBlank()}">
-          <summary>Giải thích của giáo viên</summary>
-          <p th:text="${question.core().teacherExplanation()}">Giải thích đã khóa</p>
+          <div class="prd-objective-explanation-body prd-objective-teacher"
+               th:if="${!question.core().teacherExplanation().isBlank()}">
+            <strong>Giải thích của giáo viên đã khóa</strong>
+            <p th:text="${question.core().teacherExplanation()}">Giải thích đã khóa</p>
+          </div>
         </details>
+
+        <section class="prd-objective-explanation is-unavailable"
+                 th:if="${!question.explanation().ready()
+                   and question.core().teacherExplanation().isBlank()}"
+                 aria-label="Lời giải và bằng chứng chưa khả dụng"
+                 th:attr="data-explanation-type=${question.questionType().name()},
+                          data-explanation-authority='UNAVAILABLE'">
+          <p class="prd-objective-unavailable"
+             th:text="${question.explanation().stateLabel()}">Chưa có lời giải</p>
+        </section>
       </article>
+    </section>
     </section>
   </div>
 

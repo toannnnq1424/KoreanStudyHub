@@ -7,6 +7,7 @@ import com.ksh.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamHeader;
 import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
+import com.ksh.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ksh.features.tests.dto.LecturerTestDtos.SaveResult;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
 import com.ksh.features.tests.service.ExamMonitorService;
@@ -118,9 +119,21 @@ public class LecturerTestController {
     /** Lists exams the lecturer owns (SSR numbered pager). */
     @GetMapping
     public String list(@RequestParam(name = "page", defaultValue = "0") int page,
+                       @RequestParam(name = "q", required = false) String q,
+                       @RequestParam(name = "status", required = false) String status,
+                       @RequestParam(name = "type", required = false) String type,
+                       @RequestParam(name = "classId", required = false) Long classId,
                        @AuthenticationPrincipal KshUserDetails user, Model model) {
-        Page<LecturerExamRow> exams = examService.listOwned(user.getId(), page);
+        List<ClassOption> classes = examService.ledClasses(user.getId());
+        ExamFilter filter = ExamFilter.of(q, status, type, classId, classes);
+        Page<LecturerExamRow> exams = examService.listOwned(user.getId(), page, filter);
         model.addAttribute(ATTR_EXAMS_PAGE, exams);
+        model.addAttribute("examFilter", filter);
+        model.addAttribute(ATTR_LED_CLASSES, classes);
+        model.addAttribute("examPagerParams", java.util.Map.of(
+                "q", filter.keyword(), "status", filter.status() == null ? "" : filter.status(),
+                "type", filter.type() == null ? "" : filter.type(),
+                "classId", filter.classId() == null ? "" : filter.classId()));
         return VIEW_TEST_LECTURER_LIST;
     }
 

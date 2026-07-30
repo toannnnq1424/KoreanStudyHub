@@ -38,10 +38,8 @@
         </div>
 
         <div class="detail-empty" th:if="${categories == null or categories.isEmpty()}">
-          <strong>Chưa có danh mục riêng của bộ môn.</strong>
-          Giảng viên vẫn có thể dùng các danh mục môn học đang hoạt động do ADMIN quản lý.
-          Khi câu hỏi đầu tiên được lưu, KSH sẽ tự tạo liên kết danh mục tương ứng cho bộ môn;
-          chỉ thêm danh mục ở đây khi bộ môn cần một phân loại riêng.
+          <strong>Chưa có danh mục ngân hàng câu hỏi của bộ môn.</strong>
+          Hãy tạo và mở ít nhất một danh mục để giảng viên có thể thêm hoặc import câu hỏi.
         </div>
 
         <div class="admin-list-table-scroll" th:if="${categories != null and !categories.isEmpty()}">

@@ -28,6 +28,9 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationFa
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -142,6 +145,16 @@ public class SecurityConfig {
         return new AuthenticatedPrincipalOAuth2AuthorizedClientRepository(authorizedClientService);
     }
 
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
     /**
      * Configures the main {@link SecurityFilterChain} for the application.
      *
@@ -177,17 +190,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
-                        // Raw upload routing is fail-closed. Only the two
-                        // controller-backed public namespaces are allowed;
+                        // Raw upload routing is fail-closed. Only the
+                        // controller-backed public image namespaces are allowed;
                         // Practice material must use its authorized controller.
                         .requestMatchers(
                                 "/uploads/avatars/**",
-                                "/uploads/exams/**"
+                                "/uploads/exams/**",
+                                "/uploads/flashcards/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
+                        .requestMatchers("/practice/preferences/**").hasRole(Roles.STUDENT)
                         .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
                         .requestMatchers("/leader/**").hasRole(Roles.LEADER)
@@ -231,6 +246,10 @@ public class SecurityConfig {
                         // class join.
                         .defaultSuccessUrl("/", false)
                 )
+                .sessionManagement(session -> session
+                        .sessionConcurrency(concurrency -> concurrency
+                                .maximumSessions(-1)
+                                .sessionRegistry(sessionRegistry())))
                 .addFilterBefore(
                         new LoginThrottleFilter(loginAttemptThrottle),
                         UsernamePasswordAuthenticationFilter.class)

@@ -4,7 +4,6 @@ import com.ksh.features.questionbank.entity.QuestionBankCategory;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -32,26 +31,6 @@ public interface QuestionBankCategoryRepository extends JpaRepository<QuestionBa
     Optional<QuestionBankCategory> findByIdAndDepartmentIdForUpdate(
             @Param("id") Long id,
             @Param("departmentId") Long departmentId);
-
-    Optional<QuestionBankCategory> findByDepartmentIdAndNameIgnoreCase(Long departmentId, String name);
-
-    /**
-     * Atomically creates the department mirror for an ADMIN taxonomy choice.
-     * The unique (department_id, name) key makes concurrent authoring/import
-     * requests converge on one row without weakening any other constraint.
-     */
-    @Modifying(flushAutomatically = true)
-    @Query(value = """
-            INSERT INTO question_bank_categories
-                (department_id, name, description, is_active, created_by)
-            VALUES
-                (:departmentId, :name, :description, 1, :createdBy)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
-            """, nativeQuery = true)
-    int insertAdminMirrorIfAbsent(@Param("departmentId") Long departmentId,
-                                  @Param("name") String name,
-                                  @Param("description") String description,
-                                  @Param("createdBy") Long createdBy);
 
     boolean existsByDepartmentIdAndNameIgnoreCase(Long departmentId, String name);
 

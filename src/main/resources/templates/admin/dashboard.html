@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/head :: head('Admin Dashboard', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css(v='3')}">
   <!-- Chart.js (CDN) cho donut chart users-by-role -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -13,7 +13,7 @@
 <div class="class-detail-layout">
   <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('dashboard')}"></aside>
 
-  <main class="col">
+  <main class="col admin-dashboard-main">
     <h1 class="detail-title">Bảng điều khiển hệ thống</h1>
 
     <!-- ===== 4 stat card ===== -->
@@ -102,15 +102,15 @@
           </thead>
           <tbody>
             <tr th:each="r : ${recentClasses}">
-              <td th:text="${r.name}">Lớp</td>
-              <td class="col-code"><b th:text="${r.code}">CODE</b></td>
-              <td th:text="${r.lecturerName != null ? r.lecturerName : '—'}">GV</td>
-              <td>
+              <td data-label="Tên lớp" th:text="${r.name}">Lớp</td>
+              <td data-label="Mã" class="col-code"><b th:text="${r.code}">CODE</b></td>
+              <td data-label="Giảng viên" th:text="${r.lecturerName != null ? r.lecturerName : '—'}">GV</td>
+              <td data-label="Trạng thái">
                 <span class="status-pill"
                       th:classappend="${#strings.toLowerCase(r.status)}"
                       th:text="${r.displayStatus()}">Trạng thái</span>
               </td>
-              <td th:text="${r.displayCreatedAt()}">—</td>
+              <td data-label="Tạo lúc" th:text="${r.displayCreatedAt()}">—</td>
             </tr>
           </tbody>
         </table>
@@ -123,6 +123,6 @@
 </div>
 
 <script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/admin.js(v='2')}"></script>
+<script th:src="@{/js/admin.js(v='3')}"></script>
 </body>
 </html>

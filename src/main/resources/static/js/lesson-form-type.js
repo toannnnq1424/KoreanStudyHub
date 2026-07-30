@@ -28,6 +28,11 @@
         return script ? (script.getAttribute('data-original-type') || 'RICHTEXT') : 'RICHTEXT';
     }
 
+    function isPersistedLesson() {
+        var script = document.querySelector('script[data-lesson-persisted]');
+        return script && script.getAttribute('data-lesson-persisted') === 'true';
+    }
+
     function getCsrfHeader() {
         var meta = document.querySelector('meta[name="_csrf"]');
         var headerMeta = document.querySelector('meta[name="_csrf_header"]');
@@ -472,6 +477,7 @@
         }
 
         function confirmTypeSwitch(next) {
+            if (!isPersistedLesson()) { next(true); return; }
             if (!modal) { next(true); return; }
             if (getSelectedContentType() === getOriginalType()) { next(true); return; }
             var settled = false;

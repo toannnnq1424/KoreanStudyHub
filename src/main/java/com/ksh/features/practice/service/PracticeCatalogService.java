@@ -1,15 +1,12 @@
 package com.ksh.features.practice.service;
 
-import com.ksh.entities.ClassEntity;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticeSection;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.PracticeTest;
 import com.ksh.entities.WritingTaskType;
-import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogCard;
-import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogClassOption;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogBatch;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogQuery;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeCatalogSkill;
@@ -54,51 +51,28 @@ public class PracticeCatalogService {
     private final PracticeTestRepository testRepository;
     private final PracticeSectionRepository sectionRepository;
     private final PracticeAttemptRepository attemptRepository;
-    private final ClassRepository classRepository;
-    private final PracticeLearnerAccessService learnerAccessService;
 
     public PracticeCatalogService(PracticeSetRepository setRepository,
                                   PracticeTestRepository testRepository,
                                   PracticeSectionRepository sectionRepository,
-                                  PracticeAttemptRepository attemptRepository,
-                                  ClassRepository classRepository,
-                                  PracticeLearnerAccessService learnerAccessService) {
+                                  PracticeAttemptRepository attemptRepository) {
         this.setRepository = setRepository;
         this.testRepository = testRepository;
         this.sectionRepository = sectionRepository;
         this.attemptRepository = attemptRepository;
-        this.classRepository = classRepository;
-        this.learnerAccessService = learnerAccessService;
     }
 
     public PracticeCatalogBatch loadBatch(Long userId, PracticeCatalogQuery rawQuery) {
         PracticeCatalogQuery query = normalize(rawQuery);
-        List<Long> activeClassIds = learnerAccessService.activeClassIds(userId);
-        List<Long> queryClassIds = activeClassIds.isEmpty() ? List.of(-1L) : activeClassIds;
-        List<PracticeCatalogClassOption> classOptions = loadClassOptions(activeClassIds);
-        PracticeGlobalResume globalResume =
-                loadGlobalResume(userId, queryClassIds);
-        if (query.classId() != null && !activeClassIds.contains(query.classId())) {
-            return new PracticeCatalogBatch(
-                    List.of(), globalResume, classOptions, query.search(), query.skill(),
-                    query.writingTask(), query.classId(),
-                    query.batch(), BATCH_SIZE, 0, false);
-        }
-        long selectedClassId = query.classId() == null ? 0L : query.classId();
+        PracticeGlobalResume globalResume = loadGlobalResume(userId);
 
         int effectiveBatch = query.batch();
         Page<PracticeSet> setPage = findVisibleSetPage(
-                userId,
-                queryClassIds,
-                selectedClassId,
                 query,
                 effectiveBatch);
         if (setPage.isEmpty() && setPage.getTotalElements() > 0 && effectiveBatch > 0) {
             effectiveBatch = Math.max(0, setPage.getTotalPages() - 1);
             setPage = findVisibleSetPage(
-                    userId,
-                    queryClassIds,
-                    selectedClassId,
                     query,
                     effectiveBatch);
         } else if (setPage.isEmpty() && setPage.getTotalElements() == 0) {
@@ -107,9 +81,8 @@ public class PracticeCatalogService {
 
         if (setPage.isEmpty()) {
             return new PracticeCatalogBatch(
-                    List.of(), globalResume, classOptions, query.search(), query.skill(),
-                    query.writingTask(),
-                    selectedClassId == 0 ? null : selectedClassId,
+                    List.of(), globalResume, List.of(), query.search(), query.skill(),
+                    query.writingTask(), null,
                     effectiveBatch, BATCH_SIZE, setPage.getTotalElements(), false);
         }
 
@@ -181,10 +154,6 @@ public class PracticeCatalogService {
 
         Map<Long, List<PracticeTest>> testsBySet = groupBy(tests, PracticeTest::getSetId);
         Map<Long, List<PracticeSection>> sectionsBySet = groupBy(sections, PracticeSection::getSetId);
-        Map<Long, String> classNames = classOptions.stream()
-                .collect(Collectors.toMap(PracticeCatalogClassOption::id,
-                        PracticeCatalogClassOption::name));
-
         List<PracticeCatalogCard> cards = sets.stream()
                 .map(set -> toCard(
                         set,
@@ -192,30 +161,22 @@ public class PracticeCatalogService {
                         sectionsBySet.getOrDefault(set.getId(), List.of()),
                         completedSectionIdsBySet.getOrDefault(
                                 set.getId(), Set.of()),
-                        classNames,
                         stateBySet.get(set.getId())))
                 .toList();
 
         return new PracticeCatalogBatch(
-                cards, globalResume, classOptions, query.search(), query.skill(), query.writingTask(),
-                selectedClassId == 0 ? null : selectedClassId,
+                cards, globalResume, List.of(), query.search(), query.skill(), query.writingTask(),
+                null,
                 effectiveBatch, BATCH_SIZE, setPage.getTotalElements(), setPage.hasNext());
     }
 
     private Page<PracticeSet> findVisibleSetPage(
-            Long userId,
-            List<Long> queryClassIds,
-            long selectedClassId,
             PracticeCatalogQuery query,
             int batch
     ) {
-        return setRepository.findLearnerVisiblePublished(
+        return setRepository.findPublishedGlobalCatalog(
                 PracticeSet.STATUS_PUBLISHED,
                 PracticeSet.SCOPE_GLOBAL,
-                PracticeSet.SCOPE_CLASS,
-                userId,
-                queryClassIds,
-                selectedClassId,
                 query.search(),
                 "ALL".equals(query.skill()) ? "" : query.skill(),
                 "ALL".equals(query.writingTask())
@@ -228,20 +189,15 @@ public class PracticeCatalogService {
                                        List<PracticeTest> tests,
                                        List<PracticeSection> sections,
                                        Set<Long> completedSectionIds,
-                                       Map<Long, String> classNames,
                                        CatalogStateCandidate stateCandidate) {
         List<PracticeCatalogSkill> skills = deriveSkills(set, sections);
         String primarySkill = skills.isEmpty() ? "READING" : skills.get(0).code();
         int completedTests = completedTestCount(
                 tests, sections, completedSectionIds);
         AttemptState state = resolveState(stateCandidate);
-        String visibility = PracticeSet.SCOPE_CLASS.equals(set.getScope())
-                ? classNames.getOrDefault(set.getClassId(), "Lớp học")
-                : "Công khai trong KSH";
-
         return new PracticeCatalogCard(
                 set.getId(), set.getTitle(), set.getDescription(), primarySkill,
-                skills, tests.size(), completedTests, visibility,
+                skills, tests.size(), completedTests, "Công khai trong KSH",
                 state.code(), state.label(), state.resumeAttemptId());
     }
 
@@ -295,13 +251,9 @@ public class PracticeCatalogService {
                 presentation.resumeAttemptId());
     }
 
-    private PracticeGlobalResume loadGlobalResume(
-            Long userId,
-            List<Long> activeClassIds
-    ) {
-        return attemptRepository.findGlobalResumeCandidates(
+    private PracticeGlobalResume loadGlobalResume(Long userId) {
+        return attemptRepository.findGlobalCatalogResumeCandidates(
                         userId,
-                        activeClassIds,
                         LocalDateTime.now(),
                         PageRequest.of(0, 1)).stream()
                 .findFirst()
@@ -316,14 +268,6 @@ public class PracticeCatalogService {
                         PracticeDtos.getSkillLabel(candidate.getSkill()),
                         candidate.getActivityAt()))
                 .orElse(null);
-    }
-
-    private List<PracticeCatalogClassOption> loadClassOptions(List<Long> classIds) {
-        if (classIds.isEmpty()) return List.of();
-        return classRepository.findAllById(classIds).stream()
-                .sorted(Comparator.comparing(ClassEntity::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(clazz -> new PracticeCatalogClassOption(clazz.getId(), clazz.getName()))
-                .toList();
     }
 
     private PracticeCatalogQuery normalize(PracticeCatalogQuery raw) {
@@ -342,10 +286,7 @@ public class PracticeCatalogService {
             writingTask = "ALL";
         }
         int batch = raw == null ? 0 : Math.max(0, raw.batch());
-        Long classId = raw == null || raw.classId() == null || raw.classId() <= 0
-                ? null
-                : raw.classId();
-        return new PracticeCatalogQuery(search, skill, writingTask, classId, batch);
+        return new PracticeCatalogQuery(search, skill, writingTask, null, batch);
     }
 
     private String skillLabel(String skill) {

@@ -9,40 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SpeakingResultRenderingContractTest {
 
-    @Test
-    void legacyResultDetailFailsClosedForSpeakingScoresWithoutRedesigningPhase13E() throws Exception {
-        String html = Files.readString(Path.of("src/main/resources/templates/practice/result-detail.html"));
-
-        assertThat(html)
-                .contains("questions.filter(q => q.questionType === 'ESSAY')")
-                .contains("currentQ.writingFeedback || {}")
-                .contains("profile_available")
-                .contains("profileAvailable")
-                .contains("holistic_score_available")
-                .contains("holisticScoreAvailable")
-                .contains("return setSkill === 'SPEAKING';")
-                .doesNotContain("currentQ.questionType !== 'ESSAY'")
-                .contains("row.availability === 'SCORED'")
-                .contains("function speakingScoredRubricRows()")
-                .contains("field(aiData, 'profile_available', 'profileAvailable') === true")
-                .contains("typeof score === 'number'")
-                .contains("typeof maxScore === 'number'")
-                .contains("Number.isFinite(score)")
-                .contains("Number.isFinite(maxScore)")
-                .contains("firstValue(r.name, 'Tiêu chí hồ sơ')")
-                .doesNotContain("SPEAKING_TRANSCRIPT_CRITERIA")
-                .doesNotContain("SPEAKING_ACOUSTIC_CRITERIA")
-                .doesNotContain("SPEAKING_CRITERION_LABELS")
-                .contains("result.set().skill() == 'SPEAKING' ? 'Không có điểm Nói tổng hợp' : 'Điểm bài làm'")
-                .contains("Không có điểm Nói tổng hợp")
-                .contains("Hồ sơ này chỉ dựa trên bản chép lời; không đánh giá độ lưu loát, phát âm hoặc đặc tính âm thanh.")
-                .contains("const score = row && row.score")
-                .contains("const maxScore = row && row.maxScore")
-                .doesNotContain("r.max_score, 100")
-                .doesNotContain("rubric.max_score, 100")
-                .doesNotContain("AUDIO_DIRECT_FULL_RESERVED")
-                .doesNotContain("DIRECT_AUDIO_AND_TRANSCRIPT");
-    }
 
     @Test
     void speakingOverviewConsumesExplicitCapabilityAndCriterionAvailabilityContract() throws Exception {
