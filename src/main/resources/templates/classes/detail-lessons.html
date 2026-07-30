@@ -242,6 +242,17 @@
               </svg>
             </button>
             <div class="lesson-menu-dropdown" data-menu-dropdown hidden>
+              <a th:if="${l.status() == 'PUBLISHED'}"
+                 th:href="@{'/my/classes/' + ${clazz.id} + '/lessons'(section=${selectedSectionId}, lesson=${l.id()})}"
+                 target="_blank" rel="noopener" title="Xem như học sinh">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Xem như học sinh</span>
+              </a>
               <a th:href="@{'/lecturer/classes/' + ${clazz.id}
                           + '/sections/' + ${selectedSectionId}
                           + '/lessons/' + ${l.id()} + '/edit'}">
