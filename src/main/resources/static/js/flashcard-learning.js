@@ -1,333 +1,180 @@
-/* Browser-only learning room. No attempt, effort or score is persisted. */
+/* Client-only study modes. A mode is a real URL; this file only renders the
+   mode selected by the server and keeps the session score in memory. */
 (function () {
     'use strict';
-
-    function ready(fn) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
-        else fn();
-    }
-
+    function ready(fn) { document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', fn) : fn(); }
     ready(function () {
         var host = document.getElementById('fcLearning');
         if (!host) return;
         var cards;
         try { cards = JSON.parse(host.dataset.cards || '[]'); } catch (e) { cards = []; }
-        cards = cards.filter(function (card) { return card && card.front && card.back; });
-
-        var panels = Array.prototype.slice.call(host.querySelectorAll('[data-panel]'));
-        var tabs = Array.prototype.slice.call(host.querySelectorAll('.fc-mode-tab'));
-        var scoreEl = document.getElementById('fcSessionScore');
-        var progressBar = document.getElementById('fcProgressBar');
-        var progressLabel = document.getElementById('fcProgressLabel');
-        var modeLabel = document.getElementById('fcModeLabel');
-        var score = 0;
-        var modeNames = {
-            hub: 'Chọn một cách học để bắt đầu',
-            learn: 'Học nhanh · trắc nghiệm',
-            flash: 'Lật thẻ · ôn nhẹ',
-            test: 'Kiểm tra · tự gõ',
-            match: 'Ghép cặp · tốc độ',
-            blast: 'Bắn từ · phản xạ'
-        };
-
-        function shuffle(items) {
-            var copy = items.slice();
-            for (var i = copy.length - 1; i > 0; i -= 1) {
-                var j = Math.floor(Math.random() * (i + 1));
-                var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
+        cards = cards.filter(function (c) { return c && c.front && c.back; });
+        var mode = host.dataset.activeMode || 'learn';
+        var focusUnknown = mode === 'learn' && new URLSearchParams(window.location.search).get('focus') === 'unknown';
+        if (focusUnknown) {
+            var reviewStorageKey = 'ksh:flashcards:' + host.dataset.deckId + ':unknown';
+            try {
+                var unknownIds = JSON.parse(window.sessionStorage.getItem(reviewStorageKey) || '[]').map(String);
+                cards = cards.filter(function (card) { return unknownIds.indexOf(String(card.id)) >= 0; });
+            } catch (e) {
+                cards = [];
             }
-            return copy;
         }
-        function normalize(value) {
-            return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+        var score = 0;
+        var state = {
+            learn: { items: shuffle(cards), index: 0, locked: false },
+            test: { items: shuffle(cards), index: 0, locked: false },
+            match: { done: 0, first: null, tiles: [] },
+            blocks: { items: shuffle(cards), index: 0, locked: false },
+            blast: { items: shuffle(cards), index: 0, running: false, timer: 30, interval: null, combo: 0, hits: 0 }
+        };
+        var scoreEl = document.getElementById('fcSessionScore');
+        var progress = document.getElementById('fcProgressBar');
+        var progressLabel = document.getElementById('fcProgressLabel');
+        var headerMode = document.getElementById('fcHeaderMode');
+        var labels = { learn: 'Học nhanh', test: 'Kiểm tra', match: 'Ghép cặp', blocks: 'Khối từ', blast: 'Bắn từ' };
+        if (headerMode) headerMode.textContent = labels[mode] || 'Học';
+
+        function shuffle(arr) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+        function norm(v) { return String(v || '').trim().toLocaleLowerCase().replace(/\s+/g, ' '); }
+        function alternativeLabels(card) {
+            if (!card || !card.alternativesJson) return [];
+            try {
+                var values = JSON.parse(card.alternativesJson);
+                return Array.isArray(values) ? values.map(function (value) {
+                    return String(value || '').trim();
+                }).filter(Boolean) : [];
+            } catch (e) {
+                return String(card.alternativesJson).split(/[,;|]/).map(function (value) {
+                    return String(value || '').trim();
+                }).filter(Boolean);
+            }
         }
-        function setScore(delta) {
-            score = Math.max(0, score + delta);
-            if (scoreEl) scoreEl.textContent = score + ' điểm';
+        function alternatives(card) { return alternativeLabels(card).map(norm).filter(Boolean); }
+        function acceptedAnswerText(card) {
+            var alsoAccepted = alternativeLabels(card);
+            return 'Đáp án: ' + card.front +
+                (alsoAccepted.length ? ' · Cũng chấp nhận: ' + alsoAccepted.join(', ') : '');
         }
-        function setProgress(done, total, label) {
-            var percent = total ? Math.min(100, Math.round(done / total * 100)) : 0;
-            if (progressBar) progressBar.style.width = percent + '%';
-            if (progressLabel) progressLabel.textContent = label || (done + ' / ' + total);
+        function setMedia(id, url, alt) {
+            var image = document.getElementById(id);
+            if (!image) return;
+            image.hidden = !url;
+            if (url) { image.src = url; image.alt = alt || ''; }
+            else image.removeAttribute('src');
         }
-        function setFeedback(el, text, good) {
-            if (!el) return;
-            el.textContent = text || '';
-            el.classList.toggle('is-good', !!good);
-            el.classList.toggle('is-bad', good === false);
-        }
-        function speak(text) {
-            if (!text || !window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
-            var utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = /[\uac00-\ud7af]/.test(text) ? 'ko-KR' : 'vi-VN';
-            window.speechSynthesis.speak(utterance);
-        }
+        function setScore(delta) { score = Math.max(0, score + delta); if (scoreEl) scoreEl.textContent = String(score); }
+        function setProgress(done, total, label) { if (progress) progress.style.width = (total ? Math.min(100, Math.round(done / total * 100)) : 0) + '%'; if (progressLabel) progressLabel.textContent = label || ''; }
+        function feedback(id, text, good) { var el = document.getElementById(id); if (!el) return; el.textContent = text || ''; el.classList.toggle('is-good', good === true); el.classList.toggle('is-bad', good === false); }
+        function speak(text) { if (!text || !window.speechSynthesis) return; window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(text); u.lang = /[\uac00-\ud7af]/.test(text) ? 'ko-KR' : 'vi-VN'; window.speechSynthesis.speak(u); }
 
         if (!cards.length) {
-            panels.forEach(function (panel) { panel.classList.remove('is-active'); });
-            var empty = document.createElement('div');
-            empty.className = 'fc-empty';
-            empty.textContent = 'Bộ thẻ chưa có nội dung để luyện tập.';
-            host.appendChild(empty);
+            document.getElementById('fcLearnCount').textContent = '0 / 0';
+            document.getElementById('fcLearnPrompt').textContent = focusUnknown ? 'Bạn đã biết tất cả các từ' : '—';
+            feedback('fcLearnFeedback', focusUnknown ? 'Không còn từ chưa biết trong lượt ôn này.' : 'Bộ thẻ chưa có nội dung để luyện tập.', focusUnknown);
+            setProgress(0, 0, focusUnknown ? 'Đã hoàn thành toàn bộ thẻ' : 'Chưa có thẻ để học');
             return;
         }
 
-        var state = {
-            mode: 'hub',
-            learnCards: shuffle(cards),
-            learnIndex: 0,
-            learnLocked: false,
-            flashCards: shuffle(cards),
-            flashIndex: 0,
-            testCards: shuffle(cards),
-            testIndex: 0,
-            testLocked: false,
-            matchTiles: [],
-            matchFirst: null,
-            matchDone: 0,
-            blastCards: shuffle(cards),
-            blastIndex: 0,
-            blastRunning: false,
-            blastTimer: 30,
-            blastInterval: null
-        };
-
-        function showMode(mode) {
-            state.mode = mode;
-            tabs.forEach(function (tab) { tab.classList.toggle('is-active', tab.dataset.mode === mode); });
-            panels.forEach(function (panel) { panel.classList.toggle('is-active', panel.dataset.panel === mode); });
-            if (modeLabel) modeLabel.textContent = modeNames[mode] + ' · không lưu lượt chơi';
-            if (mode === 'learn') renderLearn();
-            if (mode === 'flash') renderFlash();
-            if (mode === 'test') renderTest();
-            if (mode === 'match') renderMatch();
-            if (mode === 'blast') renderBlast();
-            if (mode === 'hub') setProgress(0, 0, modeNames.hub);
-        }
-
         function renderLearn() {
-            var card = state.learnCards[state.learnIndex];
-            var prompt = document.getElementById('fcLearnPrompt');
-            var count = document.getElementById('fcLearnCount');
-            var answers = document.getElementById('fcLearnAnswers');
-            var feedback = document.getElementById('fcLearnFeedback');
-            state.learnLocked = false;
-            prompt.textContent = card.front;
-            count.textContent = (state.learnIndex + 1) + ' / ' + state.learnCards.length;
-            setFeedback(feedback, '');
-            setProgress(state.learnIndex, state.learnCards.length, 'Đã luyện ' + state.learnIndex + ' / ' + state.learnCards.length);
+            var s = state.learn, card = s.items[s.index], answers = document.getElementById('fcLearnAnswers');
+            s.locked = false;
+            document.getElementById('fcLearnPrompt').textContent = card.front;
+            setMedia('fcLearnImage', card.frontImage, card.front);
+            document.getElementById('fcLearnCount').textContent = (s.index + 1) + ' / ' + s.items.length;
             answers.textContent = '';
-            var choices = shuffle([card].concat(shuffle(cards.filter(function (item) {
-                return item.id !== card.id && normalize(item.back) !== normalize(card.back);
-            })).slice(0, 3)));
+            var choices = shuffle([card].concat(shuffle(cards.filter(function (c) { return c.id !== card.id; })).slice(0, 3)));
             choices.forEach(function (choice) {
-                var button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'fc-answer-button';
-                button.textContent = choice.back;
-                button.addEventListener('click', function () {
-                    if (state.learnLocked) return;
-                    state.learnLocked = true;
-                    var correct = normalize(choice.back) === normalize(card.back);
-                    button.classList.add(correct ? 'is-correct' : 'is-wrong');
-                    if (!correct) {
-                        Array.prototype.forEach.call(answers.children, function (item) {
-                            if (normalize(item.textContent) === normalize(card.back)) item.classList.add('is-correct');
-                        });
-                    }
-                    setScore(correct ? 10 : 0);
-                    setFeedback(feedback, correct ? 'Chính xác — từ này đã vào trí nhớ tốt hơn.' : 'Chưa đúng. Đáp án: ' + card.back, correct);
-                    window.setTimeout(function () {
-                        state.learnIndex = (state.learnIndex + 1) % state.learnCards.length;
-                        renderLearn();
-                    }, 850);
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'fc-answer-button'; b.textContent = choice.back;
+                b.addEventListener('click', function () {
+                    if (s.locked) return; s.locked = true;
+                    var ok = choice.id === card.id; b.classList.add(ok ? 'is-correct' : 'is-wrong');
+                    if (!ok) Array.prototype.forEach.call(answers.children, function (x) { if (norm(x.textContent) === norm(card.back)) x.classList.add('is-correct'); });
+                    setScore(ok ? 10 : 0); feedback('fcLearnFeedback', ok ? 'Đúng rồi.' : 'Đáp án: ' + card.back, ok);
+                    window.setTimeout(function () { s.index = (s.index + 1) % s.items.length; renderLearn(); }, 720);
                 });
-                answers.appendChild(button);
+                answers.appendChild(b);
             });
-        }
-
-        function renderFlash() {
-            var card = state.flashCards[state.flashIndex];
-            document.getElementById('fcFlashFront').textContent = card.front;
-            document.getElementById('fcFlashBack').textContent = card.back;
-            document.getElementById('fcFlashSource').textContent = 'Tự đánh dấu trong buổi luyện này';
-            document.getElementById('fcFlashCount').textContent = (state.flashIndex + 1) + ' / ' + state.flashCards.length;
-            document.getElementById('fcBigFlashcard').classList.remove('is-flipped');
-            setProgress(state.flashIndex, state.flashCards.length, 'Đã xem ' + state.flashIndex + ' / ' + state.flashCards.length);
+            setProgress(s.index, s.items.length, 'Đã luyện ' + s.index + ' / ' + s.items.length + ' thẻ');
         }
 
         function renderTest() {
-            var card = state.testCards[state.testIndex];
-            state.testLocked = false;
+            var s = state.test, card = s.items[s.index]; s.locked = false;
             document.getElementById('fcTestPrompt').textContent = card.back;
-            document.getElementById('fcTestCount').textContent = (state.testIndex + 1) + ' / ' + state.testCards.length;
-            document.getElementById('fcTestInput').value = '';
-            document.getElementById('fcTestInput').disabled = false;
-            setFeedback(document.getElementById('fcTestFeedback'), '');
-            setProgress(state.testIndex, state.testCards.length, 'Đã kiểm tra ' + state.testIndex + ' / ' + state.testCards.length);
+            setMedia('fcTestImage', card.backImage, card.back);
+            document.getElementById('fcTestCount').textContent = (s.index + 1) + ' / ' + s.items.length;
+            var input = document.getElementById('fcTestInput'); input.value = ''; input.disabled = false;
+            feedback('fcTestFeedback', '');
+            setProgress(s.index, s.items.length, 'Đã kiểm tra ' + s.index + ' / ' + s.items.length + ' thẻ');
         }
-
         function checkTest(showAnswer) {
-            if (state.testLocked) return;
-            var card = state.testCards[state.testIndex];
-            var input = document.getElementById('fcTestInput');
-            var feedback = document.getElementById('fcTestFeedback');
-            var correct = normalize(input.value) === normalize(card.front);
-            state.testLocked = true;
-            input.disabled = true;
-            setScore(correct ? 15 : 0);
-            setFeedback(feedback, showAnswer ? 'Đáp án: ' + card.front : (correct ? 'Đúng rồi — tự gõ là nhớ lâu hơn.' : 'Chưa khớp. Đáp án: ' + card.front), correct);
-            window.setTimeout(function () {
-                state.testIndex = (state.testIndex + 1) % state.testCards.length;
-                renderTest();
-            }, 1050);
+            var s = state.test; if (s.locked) return; var card = s.items[s.index], input = document.getElementById('fcTestInput');
+            s.locked = true; input.disabled = true;
+            var answer = norm(input.value);
+            var ok = answer === norm(card.front) || alternatives(card).indexOf(answer) >= 0;
+            setScore(ok ? 15 : 0);
+            feedback('fcTestFeedback',
+                showAnswer ? acceptedAnswerText(card) : (ok ? 'Chính xác.' : acceptedAnswerText(card)),
+                ok);
+            window.setTimeout(function () { s.index = (s.index + 1) % s.items.length; renderTest(); }, 850);
         }
 
         function renderMatch() {
-            var board = document.getElementById('fcMatchBoard');
-            var pool = shuffle(cards.slice(0, Math.min(8, cards.length)));
-            state.matchTiles = [];
-            state.matchFirst = null;
-            state.matchDone = 0;
-            board.textContent = '';
-            pool.forEach(function (card) {
-                state.matchTiles.push({ key: String(card.id), value: card.front, kind: 'front' });
-                state.matchTiles.push({ key: String(card.id), value: card.back, kind: 'back' });
-            });
-            shuffle(state.matchTiles).forEach(function (tile, index) {
-                var button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'fc-match-tile';
-                button.textContent = tile.value;
-                button.dataset.tileKey = tile.key;
-                button.dataset.tileKind = tile.kind;
-                button.dataset.tileIndex = String(index);
-                button.addEventListener('click', function () { pickMatchTile(button); });
-                board.appendChild(button);
-            });
-            document.getElementById('fcMatchCount').textContent = '0 / ' + pool.length + ' cặp';
-            setFeedback(document.getElementById('fcMatchFeedback'), 'Chọn một từ Hàn và nghĩa tương ứng.', null);
-            setProgress(0, pool.length, 'Đã ghép 0 / ' + pool.length + ' cặp');
-        }
-
-        function pickMatchTile(button) {
-            if (button.classList.contains('is-matched') || button.classList.contains('is-selected')) return;
-            button.classList.add('is-selected');
-            if (!state.matchFirst) { state.matchFirst = button; return; }
-            var first = state.matchFirst;
-            state.matchFirst = null;
-            var matched = first.dataset.tileKey === button.dataset.tileKey && first.dataset.tileKind !== button.dataset.tileKind;
-            if (matched) {
-                first.classList.remove('is-selected');
-                first.classList.add('is-matched');
-                button.classList.remove('is-selected');
-                button.classList.add('is-matched');
-                state.matchDone += 1;
-                setScore(12);
-                setFeedback(document.getElementById('fcMatchFeedback'), state.matchDone === state.matchTiles.length / 2 ? 'Hoàn thành! Tốc độ rất tốt.' : 'Đúng cặp — tiếp tục nhé.', true);
-                var matchTotal = state.matchTiles.length / 2;
-                document.getElementById('fcMatchCount').textContent = state.matchDone + ' / ' + matchTotal + ' cặp';
-                setProgress(state.matchDone, matchTotal, 'Đã ghép ' + state.matchDone + ' / ' + matchTotal + ' cặp');
-            } else {
-                first.classList.add('is-error');
-                button.classList.add('is-error');
-                setFeedback(document.getElementById('fcMatchFeedback'), 'Chưa khớp — thử lại.', false);
-                window.setTimeout(function () {
-                    first.classList.remove('is-selected', 'is-error');
-                    button.classList.remove('is-selected', 'is-error');
-                }, 520);
-            }
-        }
-
-        function renderBlast() {
-            if (state.blastInterval) window.clearInterval(state.blastInterval);
-            state.blastRunning = false;
-            state.blastTimer = 30;
-            document.getElementById('fcBlastTimer').textContent = '30s';
-            document.getElementById('fcBlastStart').hidden = false;
-            document.getElementById('fcBlastStart').textContent = 'Bắt đầu game';
-            document.getElementById('fcBlastTargets').textContent = '';
-            document.getElementById('fcBlastPrompt').textContent = 'Sẵn sàng?';
-            setFeedback(document.getElementById('fcBlastFeedback'), 'Mỗi đáp án đúng ghi 20 điểm.', null);
-            setProgress(0, cards.length, 'Chưa bắt đầu');
-        }
-
-        function startBlast() {
-            state.blastCards = shuffle(cards);
-            state.blastIndex = 0;
-            state.blastRunning = true;
-            document.getElementById('fcBlastStart').hidden = true;
-            renderBlastQuestion();
-            state.blastInterval = window.setInterval(function () {
-                state.blastTimer -= 1;
-                document.getElementById('fcBlastTimer').textContent = state.blastTimer + 's';
-                if (state.blastTimer <= 0) {
-                    window.clearInterval(state.blastInterval);
-                    state.blastRunning = false;
-                    document.getElementById('fcBlastStart').hidden = false;
-                    document.getElementById('fcBlastStart').textContent = 'Chơi lại';
-                    setFeedback(document.getElementById('fcBlastFeedback'), 'Hết giờ — bạn được ' + score + ' điểm trong buổi này.', false);
-                }
-            }, 1000);
-        }
-
-        function renderBlastQuestion() {
-            var card = state.blastCards[state.blastIndex % state.blastCards.length];
-            var targets = shuffle([card].concat(shuffle(cards.filter(function (item) { return item.id !== card.id; })).slice(0, 3)));
-            document.getElementById('fcBlastPrompt').textContent = card.back;
-            var targetHost = document.getElementById('fcBlastTargets');
-            targetHost.textContent = '';
-            targets.forEach(function (choice) {
-                var target = document.createElement('button');
-                target.type = 'button';
-                target.className = 'fc-blast-target';
-                target.textContent = choice.front;
-                target.addEventListener('click', function () {
-                    if (!state.blastRunning) return;
-                    var correct = choice.id === card.id;
-                    target.classList.add(correct ? 'is-correct' : 'is-wrong');
-                    if (correct) {
-                        setScore(20);
-                        state.blastIndex += 1;
-                        setFeedback(document.getElementById('fcBlastFeedback'), 'Bắn trúng! +20 điểm.', true);
-                        setProgress(state.blastIndex, cards.length, 'Đã bắn trúng ' + state.blastIndex + ' từ');
-                        window.setTimeout(renderBlastQuestion, 260);
-                    } else {
-                        setFeedback(document.getElementById('fcBlastFeedback'), 'Trượt rồi — đừng để mất nhịp.', false);
-                        window.setTimeout(function () { target.classList.remove('is-wrong'); }, 320);
-                    }
+            var board = document.getElementById('fcMatchBoard'), pool = shuffle(cards).slice(0, Math.min(8, cards.length));
+            var s = state.match; s.done = 0; s.first = null; s.tiles = []; board.textContent = '';
+            pool.forEach(function (c) { s.tiles.push({ key: String(c.id), text: c.front, kind: 'front' }, { key: String(c.id), text: c.back, kind: 'back' }); });
+            shuffle(s.tiles).forEach(function (tile, index) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'fc-match-tile'; b.textContent = tile.text;
+                b.dataset.key = tile.key; b.dataset.kind = tile.kind;
+                b.addEventListener('click', function () {
+                    if (b.classList.contains('is-matched') || b.classList.contains('is-selected')) return;
+                    b.classList.add('is-selected');
+                    if (!s.first) { s.first = b; return; }
+                    var first = s.first; s.first = null; var ok = first.dataset.key === b.dataset.key && first.dataset.kind !== b.dataset.kind;
+                    if (ok) { first.classList.add('is-matched'); b.classList.add('is-matched'); s.done++; setScore(12); feedback('fcMatchFeedback', 'Đúng cặp.', true); }
+                    else { first.classList.add('is-error'); b.classList.add('is-error'); feedback('fcMatchFeedback', 'Chưa khớp, thử lại.', false); window.setTimeout(function () { first.classList.remove('is-selected','is-error'); b.classList.remove('is-selected','is-error'); }, 450); }
+                    document.getElementById('fcMatchCount').textContent = s.done + ' / ' + pool.length + ' cặp'; setProgress(s.done, pool.length, 'Đã ghép ' + s.done + ' / ' + pool.length + ' cặp');
                 });
-                targetHost.appendChild(target);
+                board.appendChild(b);
             });
+            document.getElementById('fcMatchCount').textContent = '0 / ' + pool.length + ' cặp'; setProgress(0, pool.length, 'Ghép đúng các cặp');
         }
 
-        tabs.forEach(function (tab) { tab.addEventListener('click', function () { showMode(tab.dataset.mode); }); });
-        Array.prototype.forEach.call(host.querySelectorAll('.fc-mode-card[data-mode]'), function (button) {
-            button.addEventListener('click', function () { showMode(button.dataset.mode); });
-        });
-        document.getElementById('fcBigFlashcard').addEventListener('click', function () { this.classList.toggle('is-flipped'); });
-        document.getElementById('fcFlashPrev').addEventListener('click', function () {
-            state.flashIndex = (state.flashIndex - 1 + state.flashCards.length) % state.flashCards.length; renderFlash();
-        });
-        document.getElementById('fcFlashNext').addEventListener('click', function () {
-            state.flashIndex = (state.flashIndex + 1) % state.flashCards.length; renderFlash();
-        });
-        document.getElementById('fcFlashShuffle').addEventListener('click', function () {
-            state.flashCards = shuffle(state.flashCards); state.flashIndex = 0; renderFlash();
-        });
-        document.getElementById('fcTestCheck').addEventListener('click', function () { checkTest(false); });
-        document.getElementById('fcTestHint').addEventListener('click', function () { checkTest(true); });
-        document.getElementById('fcTestInput').addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') checkTest(false);
-        });
-        document.getElementById('fcMatchRestart').addEventListener('click', renderMatch);
-        document.getElementById('fcBlastStart').addEventListener('click', startBlast);
-        Array.prototype.forEach.call(host.querySelectorAll('[data-speak-target]'), function (button) {
-            button.addEventListener('click', function () { speak(document.getElementById(button.dataset.speakTarget).textContent); });
-        });
+        function renderBlocks() {
+            var s = state.blocks, card = s.items[s.index], board = document.getElementById('fcBlocksBoard');
+            s.locked = false; document.getElementById('fcBlocksPrompt').textContent = card.back; board.textContent = '';
+            var choices = shuffle([card].concat(shuffle(cards.filter(function (c) { return c.id !== card.id; })).slice(0, 3)));
+            choices.forEach(function (choice) { var b = document.createElement('button'); b.type = 'button'; b.className = 'fc-block'; b.textContent = choice.front; b.addEventListener('click', function () {
+                if (s.locked) return; s.locked = true; var ok = choice.id === card.id; b.classList.add(ok ? 'is-good' : 'is-bad'); setScore(ok ? 8 : 0); feedback('fcBlocksFeedback', ok ? 'Khối đã vào đúng vị trí.' : 'Khối đúng là: ' + card.front, ok); window.setTimeout(function () { s.index = (s.index + 1) % s.items.length; renderBlocks(); }, 700);
+            }); board.appendChild(b); });
+            document.getElementById('fcBlocksCount').textContent = score + ' điểm'; setProgress(s.index, s.items.length, 'Đã xếp ' + s.index + ' / ' + s.items.length + ' khối');
+        }
 
-        setScore(0);
-        showMode('hub');
+        function blastTargets() {
+            var s = state.blast, card = s.items[s.index % s.items.length], hostTargets = document.getElementById('fcBlastTargets');
+            document.getElementById('fcBlastPrompt').textContent = card.back; hostTargets.textContent = '';
+            var choices = shuffle([card].concat(shuffle(cards.filter(function (c) { return c.id !== card.id; })).slice(0, 3)));
+            choices.forEach(function (choice, i) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'fc-blast-target'; b.textContent = choice.front;
+                b.style.setProperty('--x', (12 + i * 24 + Math.random() * 8) + '%'); b.style.setProperty('--delay', (Math.random() * 1.5) + 's'); b.style.setProperty('--drift', (Math.random() * 80 - 40) + 'px');
+                b.addEventListener('click', function () { if (!s.running) return; var ok = choice.id === card.id; b.classList.add(ok ? 'is-correct' : 'is-wrong'); if (ok) { s.hits++; s.combo++; setScore(20); feedback('fcBlastFeedback', 'Bắn trúng! +' + 20 + ' điểm', true); setProgress(s.hits, s.items.length, 'Đã bắn trúng ' + s.hits + ' từ'); window.setTimeout(function () { s.index++; blastTargets(); }, 330); } else { s.combo = 0; feedback('fcBlastFeedback', 'Trượt rồi.', false); window.setTimeout(function () { b.classList.remove('is-wrong'); }, 340); } });
+                hostTargets.appendChild(b);
+            });
+            var dots = document.getElementById('fcBlastComboDots'); if (dots) { dots.textContent = ''; for (var d = 0; d < 5; d++) { var dot = document.createElement('i'); dot.className = d < Math.min(s.combo, 5) ? 'is-lit' : ''; dots.appendChild(dot); } }
+            var level = document.getElementById('fcBlastLevelBar'); if (level) level.style.width = Math.min(100, s.hits / s.items.length * 100) + '%';
+        }
+        function finishBlast() { var s = state.blast; s.running = false; window.clearInterval(s.interval); document.getElementById('fcBlastOverlay').classList.add('is-visible'); document.getElementById('fcBlastOverlayTitle').textContent = 'Hết giờ'; document.getElementById('fcBlastOverlayText').textContent = 'Bạn bắn trúng ' + s.hits + ' từ · ' + score + ' điểm'; document.getElementById('fcBlastStart').textContent = 'Chơi lại'; }
+        function startBlast() { var s = state.blast; s.items = shuffle(cards); s.index = 0; s.timer = 30; s.hits = 0; s.combo = 0; s.running = true; document.getElementById('fcBlastOverlay').classList.remove('is-visible'); document.getElementById('fcBlastTimer').textContent = '30s'; blastTargets(); s.interval = window.setInterval(function () { s.timer--; document.getElementById('fcBlastTimer').textContent = s.timer + 's'; if (s.timer <= 0) finishBlast(); }, 1000); }
+
+        if (mode === 'learn') renderLearn();
+        if (mode === 'test') renderTest();
+        if (mode === 'match') { renderMatch(); document.getElementById('fcMatchRestart').addEventListener('click', renderMatch); }
+        if (mode === 'blocks') renderBlocks();
+        if (mode === 'blast') { document.getElementById('fcBlastOverlay').classList.add('is-visible'); document.getElementById('fcBlastStart').addEventListener('click', startBlast); }
+        var audio = document.getElementById('fcGlobalAudio'); if (audio) audio.addEventListener('click', function () { var prompt = document.querySelector('[id$="Prompt"], #fcBlastPrompt'); if (prompt) speak(prompt.textContent); });
+        var speakButton = document.querySelector('[data-speak-target]'); if (speakButton) speakButton.addEventListener('click', function () { speak(document.getElementById(speakButton.dataset.speakTarget).textContent); });
+        var testCheck = document.getElementById('fcTestCheck'); if (testCheck) testCheck.addEventListener('click', function () { checkTest(false); });
+        var testHint = document.getElementById('fcTestHint'); if (testHint) testHint.addEventListener('click', function () { checkTest(true); });
+        var testInput = document.getElementById('fcTestInput'); if (testInput) testInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') checkTest(false); });
     });
 })();

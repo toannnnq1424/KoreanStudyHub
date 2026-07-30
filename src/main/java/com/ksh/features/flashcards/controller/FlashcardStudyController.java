@@ -81,14 +81,16 @@ public class FlashcardStudyController {
      * game state, scoring and timers intentionally stay in the browser and do
      * not create attempt/effort records.
      */
-    @GetMapping("/{id}/learn")
+    @GetMapping("/{id}/{mode:learn|test|match|blast|blocks}")
     public String learning(@PathVariable Long id,
+                           @PathVariable String mode,
                            @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
         DeckDetailView deck = deckService.getDetail(id, user.getId());
         List<CardView> cards = studyService.getStudyCards(id, user.getId());
         model.addAttribute(ATTR_DECK, deck);
         model.addAttribute(ATTR_CARDS_JSON, toJson(cards));
+        model.addAttribute("activeMode", mode);
         return VIEW_FLASHCARD_LEARNING;
     }
 
