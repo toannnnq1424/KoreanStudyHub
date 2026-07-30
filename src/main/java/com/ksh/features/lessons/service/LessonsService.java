@@ -110,18 +110,31 @@ public class LessonsService {
     public LessonRow create(Long classId, Long sectionId, String title,
                             String status, String contentHtmlRaw,
                             Long userId, Role role) {
+        return create(classId, sectionId,
+                new LessonForm(title, status, contentHtmlRaw,
+                        CONTENT_TYPE_RICHTEXT, null, null), userId, role);
+    }
+
+    /** Creates a lesson while preserving an external video selected on the create form. */
+    @Transactional
+    public LessonRow create(Long classId, Long sectionId, LessonForm form,
+                            Long userId, Role role) {
         ClassEntity clazz = classesService.getEditable(classId, userId, role);
         reorderService.lockSectionForUpdate(sectionId, classId);
 
         short nextOrder = (short) (lessonRepository.findMaxDisplayOrder(sectionId) + 1);
-        Lesson lesson = new Lesson(sectionId, title, nextOrder, userId);
-        // Create always lands as RICHTEXT — the lecturer creates a draft,
-        // then optionally uploads a PDF/MP4 and saves the type switch.
-        lesson.updateContent(HtmlSanitizer.sanitize(contentHtmlRaw));
-        if (LESSON_STATUS_PUBLISHED.equals(status)) {
+        Lesson lesson = new Lesson(sectionId, form.title(), nextOrder, userId);
+        lesson.updateContent(HtmlSanitizer.sanitize(form.contentHtml()));
+        if (LESSON_STATUS_PUBLISHED.equals(form.status())) {
             lesson.publish();
         }
         Lesson saved = lessonRepository.save(lesson);
+
+        if (isExternalVideoForm(form)) {
+            saved.setVideoProvider(form.videoProvider());
+            saved.setVideoUrl(form.videoUrl());
+            contentTypeSwitcher.applyTo(saved, form);
+        }
 
         activityWriter.write(
                 saved.getId(),
@@ -401,5 +414,12 @@ public class LessonsService {
 
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private static boolean isExternalVideoForm(LessonForm form) {
+        if (!CONTENT_TYPE_VIDEO.equals(form.effectiveContentType())) return false;
+        boolean external = VIDEO_PROVIDER_YOUTUBE.equals(form.videoProvider())
+                || VIDEO_PROVIDER_VIMEO.equals(form.videoProvider());
+        return external && form.videoUrl() != null && !form.videoUrl().isBlank();
     }
 }

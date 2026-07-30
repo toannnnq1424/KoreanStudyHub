@@ -44,7 +44,9 @@ public class AiClient {
     private static final Logger log = LoggerFactory.getLogger(AiClient.class);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    // Reasoning models and document-backed generation regularly need more than
+    // 30 seconds even while progressing normally.
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
 
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 

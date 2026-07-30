@@ -4,6 +4,8 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.KshUserDetails;
 import com.ksh.features.profile.dto.ProfileDtos;
+import com.ksh.features.profile.service.SessionRevocationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,10 +39,13 @@ public class ChangePasswordController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SessionRevocationService sessionRevocationService;
 
-    public ChangePasswordController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public ChangePasswordController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                                    SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     /**
@@ -80,6 +85,7 @@ public class ChangePasswordController {
     public String change(@Valid @ModelAttribute("form") ProfileDtos.ChangePasswordRequest form,
                           BindingResult result,
                           @AuthenticationPrincipal KshUserDetails principal,
+                          HttpServletRequest request,
                           Model model,
                           RedirectAttributes ra) {
         if (result.hasErrors()) {
@@ -103,6 +109,10 @@ public class ChangePasswordController {
 
         user.setPasswordHash(passwordEncoder.encode(form.newPassword()));
         userRepository.save(user);
+
+        String currentSessionId = request.getSession(false) == null
+                ? null : request.getSession(false).getId();
+        sessionRevocationService.revokeOtherSessions(user.getEmail(), currentSessionId);
 
         ra.addFlashAttribute(ATTR_PASSWORD_CHANGED, true);
         return REDIRECT_CHANGE_PASSWORD;

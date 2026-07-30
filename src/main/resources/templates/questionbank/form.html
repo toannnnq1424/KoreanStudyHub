@@ -94,7 +94,9 @@
         <div class="lf-option" th:each="option, stat : *{options}"
              th:classappend="${option.correct} ? 'is-correct'">
           <label class="lf-o-mark" title="Đánh dấu đáp án đúng">
-            <input type="checkbox" class="lf-o-correct" th:field="*{options[__${stat.index}__].correct}">
+            <input type="checkbox" class="lf-o-correct" aria-label="Đáp án đúng"
+                   th:field="*{options[__${stat.index}__].correct}">
+            <span class="lf-o-box" aria-hidden="true"></span>
             <span class="lf-o-letter" aria-hidden="true"
                   th:text="${#strings.arraySplit('A,B,C,D,E,F,G,H', ',')[stat.index]}">A</span>
           </label>

@@ -44,6 +44,23 @@ public interface TestRepository extends JpaRepository<Test, Long> {
                                     @Param("classIds") Collection<Long> classIds,
                                     Pageable pageable);
 
+    @Query("SELECT t FROM Test t WHERE "
+            + "(:admin = true OR (:includeCreated = true AND t.createdBy = :userId) OR t.classId IN :classIds)"
+            + " AND (:admin = false OR t.type <> 'PRACTICE')"
+            + " AND (:classId IS NULL OR t.classId = :classId)"
+            + " AND (:status IS NULL OR t.status = :status)"
+            + " AND (:type IS NULL OR t.type = :type)"
+            + " AND LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    Page<Test> searchManageable(@Param("userId") Long userId,
+                                @Param("classIds") Collection<Long> classIds,
+                                @Param("admin") boolean admin,
+                                @Param("includeCreated") boolean includeCreated,
+                                @Param("classId") Long classId,
+                                @Param("keyword") String keyword,
+                                @Param("status") String status,
+                                @Param("type") String type,
+                                Pageable pageable);
+
     /**
      * Exams attached to classes inside one LEADER department scope.
      * The collection must be non-empty; callers use a sentinel when needed.

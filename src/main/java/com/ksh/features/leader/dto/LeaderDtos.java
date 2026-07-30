@@ -41,6 +41,15 @@ public final class LeaderDtos {
     ) {
     }
 
+    public record PendingClassRow(Long classId, String className, String classCode,
+                                  String lecturerName, LocalDateTime createdAt) {
+    }
+
+    public record ApprovalQueueView(DepartmentSummary department,
+                                    List<PendingClassRow> pendingClasses,
+                                    boolean emptyDepartment) {
+    }
+
     public record LecturerOption(Long id, String fullName, String email) {
     }
 

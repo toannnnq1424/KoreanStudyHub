@@ -8,6 +8,7 @@ import com.ksh.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
 import com.ksh.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
+import com.ksh.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ksh.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
@@ -83,17 +84,19 @@ public class LecturerExamService {
      */
     @Transactional(readOnly = true)
     public Page<LecturerExamRow> listOwned(Long userId, int page) {
+        return listOwned(userId, page, new ExamFilter("", null, null, null));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LecturerExamRow> listOwned(Long userId, int page, ExamFilter filter) {
         Role role = accessResolver.managementRole(userId);
         PageRequest pageable = PageRequest.of(Math.max(page, 0), DEFAULT_EXAM_PAGE_SIZE,
                 Sort.by(Sort.Direction.DESC, "updatedAt"));
-        if (role == Role.ADMIN) {
-            return toRows(testRepository.findByTypeNot(Test.TYPE_PRACTICE, pageable));
-        }
         List<Long> classIds = manageableClassIds(userId, role);
-        if (role == Role.LEADER) {
-            return toRows(testRepository.findByClassIdIn(classIds, pageable));
-        }
-        return toRows(testRepository.findOwnedByLecturer(userId, classIds, pageable));
+        Page<Test> result = testRepository.searchManageable(userId, classIds,
+                role == Role.ADMIN, role == Role.LECTURER, filter.classId(),
+                filter.keyword(), filter.status(), filter.type(), pageable);
+        return toRows(result);
     }
 
     /**

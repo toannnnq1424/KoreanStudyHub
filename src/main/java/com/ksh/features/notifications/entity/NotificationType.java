@@ -38,6 +38,8 @@ public final class NotificationType {
 
     /** Student notified when the class owner rejects their join request. */
     public static final String JOIN_REJECTED = "JOIN_REJECTED";
+    public static final String CLASS_APPROVED = "CLASS_APPROVED";
+    public static final String CLASS_REJECTED = "CLASS_REJECTED";
 
     /**
      * The set of notification types that trigger a durable email outbox job.
