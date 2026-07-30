@@ -17,7 +17,7 @@ public class NewsIngestionScheduler {
 
     public NewsIngestionScheduler(
             NewsIngestionOrchestrator orchestrator,
-            @Value("${app.news.ingestion.enabled:true}") boolean enabled
+            @Value("${app.news.ingestion.enabled:false}") boolean enabled
     ) {
         this.orchestrator = orchestrator;
         this.enabled = enabled;

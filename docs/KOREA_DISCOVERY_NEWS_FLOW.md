@@ -50,13 +50,16 @@ SHA-256 deduplication makes retries idempotent.
 Defaults:
 
 ```properties
-app.news.ingestion.enabled=true
+app.news.ingestion.enabled=false
 app.news.ingestion.initial-delay=PT2M
 app.news.ingestion.fixed-delay=PT5H
 ```
 
 `fixedDelay=PT5H` means the next run starts five hours after the previous run
 finishes, avoiding the uneven midnight gap of a `*/5` cron expression.
+Scheduled external ingestion is opt-in. Set `NEWS_INGESTION_ENABLED=true`
+only after the source policy, outbound access and operational monitoring are
+ready for the target environment.
 
 Admins can inspect sources and runs or trigger a safe manual refresh at:
 
