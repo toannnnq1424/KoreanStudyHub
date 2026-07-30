@@ -19,6 +19,28 @@
   </div>
 
   <section class="tst-section">
+    <form method="get" class="tst-filter-grid">
+      <input class="tst-input" type="search" name="q" placeholder="Tìm theo tiêu đề"
+             th:value="${examFilter.keyword()}">
+      <select class="tst-input" name="status">
+        <option value="">Mọi trạng thái</option>
+        <option value="DRAFT" th:selected="${examFilter.status() == 'DRAFT'}">Bản nháp</option>
+        <option value="PUBLISHED" th:selected="${examFilter.status() == 'PUBLISHED'}">Đã xuất bản</option>
+        <option value="ARCHIVED" th:selected="${examFilter.status() == 'ARCHIVED'}">Đã lưu trữ</option>
+      </select>
+      <select class="tst-input" name="type">
+        <option value="">Mọi loại</option>
+        <option value="MOCK" th:selected="${examFilter.type() == 'MOCK'}">Thi thử</option>
+        <option value="MODULE" th:selected="${examFilter.type() == 'MODULE'}">Theo học phần</option>
+        <option value="PRACTICE" th:selected="${examFilter.type() == 'PRACTICE'}">Luyện tập</option>
+      </select>
+      <select class="tst-input" name="classId">
+        <option value="">Mọi lớp</option>
+        <option th:each="clazz : ${ledClasses}" th:value="${clazz.id()}"
+                th:text="${clazz.name()}" th:selected="${examFilter.classId() == clazz.id()}">Lớp</option>
+      </select>
+      <button class="tst-btn" type="submit">Lọc</button>
+    </form>
     <div class="tst-empty" th:if="${examsPage.totalElements == 0}">
       Bạn chưa tạo bài test nào.
     </div>
@@ -48,7 +70,7 @@
       </tbody>
     </table>
 
-    <div th:replace="~{fragments/pager :: pager(${examsPage}, '/lecturer/tests', null)}"></div>
+    <div th:replace="~{fragments/pager :: pager(${examsPage}, '/lecturer/tests', ${examPagerParams})}"></div>
   </section>
 </main>
 
