@@ -1,36 +1,156 @@
-/* Flip study viewer (shared by flip + review modes, KSH-5.x). */
-
-.fc-study { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+/* Focused flip-card room: light, tactile, keyboard and swipe friendly. */
+.fc-flip-mode-body { background: #f7f8fc; }
+.fc-flip-page { width: min(100%, 1120px); min-height: calc(100vh - 72px); padding: 34px 28px 68px; box-sizing: border-box; }
+.fc-study { display: flex; align-items: center; flex-direction: column; gap: 22px; }
 .fc-study-empty { max-width: 480px; margin: 40px auto; }
 
-.fc-flip-card {
-    width: 100%; max-width: 560px; height: 320px; perspective: 1200px; cursor: pointer;
-    outline: none;
-}
-.fc-flip-inner {
-    position: relative; width: 100%; height: 100%; transition: transform .5s;
-    transform-style: preserve-3d;
-}
-.fc-flip-card.is-flipped .fc-flip-inner { transform: rotateY(180deg); }
+.fc-flip-session-head { display: grid; width: min(100%, 850px); grid-template-columns: auto minmax(180px, 1fr) auto; align-items: center; gap: 22px; }
+.fc-flip-session-head > div:first-child { display: grid; gap: 3px; }
+.fc-flip-session-head > div:first-child > span { color: #5b65df; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.fc-flip-session-head strong { color: #626c83; font-size: 12px; font-weight: 650; }
+.fc-flip-session-head p { margin: 0; color: #8b93a5; font-size: 11px; white-space: nowrap; }
+.fc-flip-session-head kbd { padding: 3px 7px; border: 1px solid #dfe3eb; border-radius: 6px; background: #fff; color: #616a80; font: inherit; font-weight: 650; box-shadow: 0 1px 0 #d5d9e3; }
+.fc-flip-progress { height: 7px; overflow: hidden; border-radius: 999px; background: #e4e7ef; }
+.fc-flip-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6968ee, #8977f5); transition: width .3s ease; }
 
-.fc-flip-face {
-    position: absolute; inset: 0; backface-visibility: hidden;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; padding: 24px; box-sizing: border-box;
-    border: 1px solid #e5e7eb; border-radius: 16px; background: #fff;
-    box-shadow: 0 6px 24px rgba(15,23,42,.08); overflow: auto;
+.fc-flip-modes { display: grid; width: min(100%, 850px); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: -8px; }
+.fc-flip-mode-toggle { display: grid; min-height: 54px; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #e0e4ed; border-radius: 14px; background: rgba(255,255,255,.76); color: #687288; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease; }
+.fc-flip-mode-toggle:hover { border-color: #c1c7ef; background: #fff; transform: translateY(-1px); }
+.fc-flip-mode-toggle.is-active { border-color: #adb6f4; background: #f2f3ff; color: #4654d6; }
+.fc-flip-mode-toggle-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #f0f2f7; color: #7d8699; }
+.fc-flip-mode-toggle.is-active .fc-flip-mode-toggle-icon { background: #5d67e9; color: #fff; box-shadow: 3px 3px 0 #8ed7ed; }
+.fc-flip-mode-toggle-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fc-flip-mode-toggle > span:nth-child(2) { display: grid; gap: 2px; }
+.fc-flip-mode-toggle strong { color: #3c455b; font-size: 11px; font-weight: 700; }
+.fc-flip-mode-toggle small { color: #8b93a5; font-size: 9px; font-weight: 550; }
+.fc-flip-mode-toggle > i { position: relative; width: 27px; height: 16px; border-radius: 999px; background: #d9dde7; transition: background .18s ease; }
+.fc-flip-mode-toggle > i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(30,38,58,.18); transition: transform .18s ease; }
+.fc-flip-mode-toggle.is-active > i { background: #6671e9; }
+.fc-flip-mode-toggle.is-active > i::after { transform: translateX(11px); }
+
+.fc-flip-stage { position: relative; width: min(100%, 850px); height: 500px; perspective: 1600px; isolation: isolate; }
+.fc-flip-stack-layer { position: absolute; left: 50%; width: calc(100% - 44px); height: calc(100% - 22px); border: 1px solid #e1e4ec; border-radius: 20px; background: #fff; transform: translateX(-50%); transform-origin: 50% 100%; box-shadow: 0 10px 28px rgba(48,56,78,.06); }
+.fc-flip-stack-layer-back { top: 18px; z-index: 0; width: calc(100% - 86px); opacity: .55; }
+.fc-flip-stack-layer-middle { --preview-reveal: 0; top: 9px; z-index: 1; display: grid; width: calc(100% - 42px); grid-template-rows: auto minmax(0, 1fr); padding: 26px 34px 30px; box-sizing: border-box; opacity: .82; overflow: hidden; transition: transform .28s cubic-bezier(.2,.82,.2,1), opacity .2s ease; }
+.fc-flip-preview-head { display: flex; align-items: center; justify-content: space-between; color: #969daf; font-size: 10px; font-weight: 750; letter-spacing: .13em; opacity: var(--preview-reveal); transition: opacity .12s linear; }
+.fc-flip-preview-head span:last-child { font-weight: 550; letter-spacing: 0; }
+.fc-flip-preview-content { display: grid; min-height: 0; place-items: center; gap: 18px; color: #30384d; opacity: var(--preview-reveal); transform: translateY(10px) scale(.98); transition: opacity .12s linear, transform .2s ease; }
+.fc-flip-preview-content > div { max-width: 78%; font-size: clamp(27px, 4vw, 44px); font-weight: 450; line-height: 1.36; text-align: center; overflow-wrap: anywhere; }
+.fc-flip-preview-content img { width: min(60%, 400px); max-height: 265px; border-radius: 14px; object-fit: contain; }
+.fc-flip-preview-content.has-media { grid-template-rows: minmax(0, 1fr) auto; align-content: center; }
+.fc-flip-preview-content.has-media > div { margin-bottom: 14px; font-size: clamp(22px, 3vw, 32px); }
+.fc-flip-stage.is-dragging .fc-flip-stack-layer-middle { transform: translateX(-50%) translateY(-3px) scale(.992); opacity: .96; }
+.fc-flip-stage.is-dragging-x .fc-flip-preview-content { transform: none; }
+
+.fc-flip-card { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; cursor: grab; outline: none; transform-origin: 50% 100%; touch-action: none; user-select: none; will-change: transform, opacity; }
+.fc-flip-card:active { cursor: grabbing; }
+.fc-flip-card:focus-visible { border-radius: 22px; box-shadow: 0 0 0 4px rgba(88,99,233,.18); }
+.fc-flip-inner { position: relative; width: 100%; height: 100%; transition: transform .55s cubic-bezier(.2,.72,.18,1); transform-style: preserve-3d; }
+.fc-flip-card.is-flipped .fc-flip-inner { transform: rotateX(180deg); }
+.fc-flip-card.is-entering { animation: fc-card-enter .32s cubic-bezier(.18,.75,.25,1); }
+.fc-flip-card.is-entering-left { animation: fc-card-enter-left .34s cubic-bezier(.16,.8,.24,1); }
+.fc-flip-card.is-entering-right { animation: fc-card-enter-right .34s cubic-bezier(.16,.8,.24,1); }
+.fc-flip-card.is-exiting-left { animation: fc-card-exit-left .28s ease-in forwards; }
+.fc-flip-card.is-exiting-right { animation: fc-card-exit-right .28s ease-in forwards; }
+
+.fc-flip-face { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; align-items: center; padding: 28px 34px 0; border: 1px solid #dde1ea; border-radius: 22px; background: #fff; box-sizing: border-box; box-shadow: 0 18px 48px rgba(42,50,75,.1); backface-visibility: hidden; overflow: hidden; }
+.fc-flip-back { transform: rotateX(180deg); background: #fff; }
+.fc-flip-face-head { display: flex; align-items: center; justify-content: space-between; align-self: start; color: #8b93a7; font-size: 10px; font-weight: 750; letter-spacing: .13em; }
+.fc-flip-face-head span:last-child { color: #a4aaba; font-weight: 550; letter-spacing: 0; }
+.fc-face-text { position: relative; z-index: 1; max-width: 78%; margin: auto; color: #30384d; font-size: clamp(28px, 4.2vw, 46px); font-weight: 450; line-height: 1.36; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fc-face-term { font-family: "Nanum Myeongjo", Georgia, serif; }
+.fc-face-image { display: block; position: absolute; top: 74px; left: 50%; width: min(48%, 360px); max-height: 250px; border-radius: 14px; object-fit: contain; transform: translateX(-50%); }
+.fc-flip-face.has-media { grid-template-rows: auto minmax(0, 1fr) auto auto; row-gap: 8px; }
+.fc-flip-face.has-media .fc-face-image { position: static; grid-row: 2; width: min(66%, 440px); max-height: 285px; align-self: center; justify-self: center; margin: 0; transform: none; }
+.fc-flip-face.has-media .fc-face-text { grid-row: 3; max-width: 88%; align-self: center; margin: 0 0 10px; font-size: clamp(23px, 3vw, 34px); }
+.fc-flip-face.has-media .fc-flip-face-foot { grid-row: 4; }
+.fc-focus-reveal { display: none; position: absolute; left: 50%; bottom: 74px; z-index: 4; min-height: 38px; align-items: center; gap: 7px; padding: 0 14px; border: 1px solid #d9deea; border-radius: 999px; background: rgba(255,255,255,.94); color: #5864df; font: inherit; font-size: 10px; font-weight: 700; box-shadow: 0 8px 24px rgba(39,47,70,.12); transform: translateX(-50%); cursor: pointer; }
+.fc-focus-reveal svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fc-focus-reveal:not([hidden]) { display: inline-flex; }
+.fc-flip-card.is-focus-active:not(.is-focus-revealed) .fc-flip-front .fc-face-text { opacity: 0; transform: translateY(8px); }
+.fc-flip-card.is-focus-active .fc-flip-front .fc-face-text { transition: opacity .25s ease, transform .25s ease; }
+.fc-flip-card.is-focus-active.is-focus-revealed .fc-flip-front .fc-face-text { opacity: 1; transform: none; }
+.fc-flip-face-foot { display: flex; min-height: 50px; align-items: center; justify-content: center; gap: 9px; margin: 0 -34px; border-top: 1px solid #eceef3; background: #fafafe; color: #646dde; font-size: 12px; font-weight: 650; }
+.fc-flip-face-foot svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.fc-flip-swipe-badge { position: absolute; top: 32px; z-index: 8; padding: 8px 14px; border: 2px solid currentColor; border-radius: 9px; background: rgba(255,255,255,.92); font-size: 13px; font-weight: 800; letter-spacing: .04em; opacity: 0; pointer-events: none; }
+.fc-flip-swipe-unknown { left: 34px; color: #cf5b63; transform: rotate(-8deg); }
+.fc-flip-swipe-known { right: 34px; color: #3d9a6c; transform: rotate(8deg); }
+.fc-flip-stage.is-dragging-x .fc-flip-stack-layer-middle { transform: translateX(-50%) translateY(-7px) scale(1); }
+.fc-flip-stage.is-dragging-y .fc-flip-stack-layer-middle { transform: translateX(-50%) translateY(-5px) scale(1.01); }
+.fc-flip-stage.is-edge-bump .fc-flip-card { animation: fc-edge-bump .25s ease; }
+
+.fc-flip-rating { display: flex; align-items: center; gap: 18px; }
+.fc-flip-rating-button { position: relative; display: flex; min-width: 150px; min-height: 48px; align-items: center; justify-content: center; gap: 9px; border: 1px solid #dfe3ec; border-radius: 999px; background: #fff; color: #737d91; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease; }
+.fc-flip-rating-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fc-flip-rating-button:hover { transform: translateY(-2px); }
+.fc-flip-rating-button.is-unknown:hover { border-color: #e4a9ad; background: #fff7f7; color: #c84d57; }
+.fc-flip-rating-button.is-known:hover { border-color: #98d4b6; background: #f4fbf7; color: #32865c; }
+
+.fc-study-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.fc-flip-control { display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #dfe3ec; border-radius: 50%; background: #fff; color: #667087; cursor: pointer; transition: border-color .15s ease, color .15s ease, transform .15s ease; }
+.fc-flip-control:hover { border-color: #aeb5e8; color: #5360da; transform: translateY(-1px); }
+.fc-flip-control svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fc-flip-shuffle { margin-left: 22px; border-radius: 14px; }
+.fc-counter { min-width: 66px; color: #515b72; font-size: 13px; font-weight: 700; text-align: center; }
+
+.fc-flip-complete { width: min(100%, 720px); margin: 70px auto; padding: 58px 30px; border: 1px solid #dfe3eb; border-radius: 24px; background: #fff; text-align: center; box-shadow: 0 20px 60px rgba(42,50,75,.09); }
+.fc-flip-complete[hidden] { display: none; }
+.fc-flip-complete-check { width: 82px; height: 82px; margin: 0 auto 24px; color: #43a875; animation: fc-complete-pop .7s cubic-bezier(.18,.9,.2,1); }
+.fc-flip-complete-check svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.fc-flip-complete-check circle { stroke-dasharray: 170; animation: fc-complete-ring .85s ease forwards; }
+.fc-flip-complete > span { color: #4c9b73; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+.fc-flip-complete h1 { margin: 10px 0; color: #30384d; font-size: clamp(26px, 4vw, 38px); }
+.fc-flip-complete p { margin: 0 0 28px; color: #788196; font-size: 14px; }
+.fc-flip-complete > div:last-child { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.fc-flip-complete button, .fc-flip-complete a { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 0 22px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.fc-flip-replay { border: 1px solid #dfe3eb; background: #fff; color: #5d677d; }
+.fc-flip-learn { border: 1px solid #5965e9; background: #5965e9; color: #fff; }
+
+@keyframes fc-card-enter { from { opacity: .4; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fc-card-enter-left { from { opacity: .08; transform: translateX(-16%) rotateZ(-2deg) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fc-card-enter-right { from { opacity: .08; transform: translateX(16%) rotateZ(2deg) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fc-card-exit-left { to { opacity: 0; transform: translateX(-120%) rotate(-11deg); } }
+@keyframes fc-card-exit-right { to { opacity: 0; transform: translateX(120%) rotate(11deg); } }
+@keyframes fc-complete-pop { 0% { opacity: 0; transform: rotate(-50deg) scale(.4); } 70% { transform: rotate(6deg) scale(1.1); } 100% { opacity: 1; transform: none; } }
+@keyframes fc-complete-ring { from { stroke-dashoffset: 170; } to { stroke-dashoffset: 0; } }
+@keyframes fc-edge-bump { 45% { transform: translateX(8px); } 75% { transform: translateX(-3px); } }
+
+@media (max-width: 760px) {
+    .fc-flip-page { padding: 22px 14px 48px; }
+    .fc-flip-session-head { grid-template-columns: 1fr; gap: 10px; }
+    .fc-flip-session-head p { display: none; }
+    .fc-flip-modes { grid-template-columns: 1fr; }
+    .fc-flip-stage { height: min(66vh, 430px); min-height: 360px; }
+    .fc-flip-face { padding: 22px 22px 0; border-radius: 18px; }
+    .fc-flip-face-foot { margin: 0 -22px; }
+    .fc-face-text { max-width: 92%; }
+    .fc-face-image { top: 64px; width: min(72%, 300px); max-height: 210px; }
+    .fc-flip-face.has-media .fc-face-image { width: min(78%, 360px); max-height: 225px; }
+    .fc-flip-rating { width: 100%; gap: 10px; }
+    .fc-flip-rating-button { min-width: 0; flex: 1; }
+    .fc-flip-shuffle { margin-left: 8px; }
 }
-.fc-flip-back { transform: rotateY(180deg); background: #f8fafc; }
 
-.fc-face-text {
-    font-size: 22px; font-weight: 600; color: #111827; text-align: center;
-    white-space: pre-wrap; word-break: break-word;
+@media (max-width: 430px) {
+    .fc-flip-stage { height: 390px; min-height: 390px; }
+    .fc-flip-stack-layer { display: none; }
+    .fc-flip-rating-button span { display: none; }
+    .fc-flip-rating-button { flex: 0 0 54px; min-height: 50px; border-radius: 50%; }
+    .fc-flip-complete { margin: 30px auto; padding: 42px 22px; }
+    .fc-flip-complete button, .fc-flip-complete a { width: 100%; }
 }
 
-.fc-study-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
-.fc-counter { font-size: 15px; font-weight: 600; color: #6b7280; min-width: 60px; text-align: center; }
-
-@media (max-width: 560px) {
-    .fc-flip-card { height: 260px; }
-    .fc-face-text { font-size: 18px; }
+@media (prefers-reduced-motion: reduce) {
+    /*
+     * Gesture completion is stateful: JavaScript waits for the card to leave
+     * before rendering the next one. Removing this transition entirely made
+     * the card freeze briefly and then jump. Keep a short, calm transition
+     * while suppressing only the decorative entrance animations.
+     */
+    .fc-flip-inner { transition-duration: .24s; }
+    .fc-flip-card.is-entering,
+    .fc-flip-card.is-entering-left,
+    .fc-flip-card.is-entering-right { animation: none; }
+    .fc-flip-progress span { transition: none; }
 }
