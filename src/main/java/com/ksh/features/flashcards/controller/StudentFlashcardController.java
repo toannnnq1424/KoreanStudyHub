@@ -1,11 +1,17 @@
 package com.ksh.features.flashcards.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.flashcards.dto.FlashcardDtos.CardItem;
+import com.ksh.features.flashcards.dto.FlashcardDtos.CardView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckDetailView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckEditorView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
 import com.ksh.features.flashcards.service.CardService;
 import com.ksh.features.flashcards.service.DeckService;
+import com.ksh.features.flashcards.service.FlashcardStudyService;
 import com.ksh.features.flashcards.service.SmartReviewService;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -21,6 +27,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 import static com.ksh.common.IConstant.*;
 
@@ -40,13 +48,19 @@ public class StudentFlashcardController {
     private final DeckService deckService;
     private final CardService cardService;
     private final SmartReviewService smartReviewService;
+    private final FlashcardStudyService flashcardStudyService;
+    private final ObjectMapper objectMapper;
 
     public StudentFlashcardController(DeckService deckService,
                                       CardService cardService,
-                                      SmartReviewService smartReviewService) {
+                                      SmartReviewService smartReviewService,
+                                      FlashcardStudyService flashcardStudyService,
+                                      ObjectMapper objectMapper) {
         this.deckService = deckService;
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
+        this.flashcardStudyService = flashcardStudyService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -63,28 +77,32 @@ public class StudentFlashcardController {
         return VIEW_FLASHCARD_LIST;
     }
 
-    /** Renders the new-deck form (metadata only). */
+    /** Renders the complete new-deck editor with two starter card rows. */
     @GetMapping("/new")
     public String newForm(Model model) {
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, DeckForm.empty());
         }
         model.addAttribute(ATTR_MODE, MODE_CREATE);
+        model.addAttribute(ATTR_CARDS, starterCards());
         return VIEW_FLASHCARD_FORM;
     }
 
-    /** Creates a PRIVATE deck then redirects to its card editor. */
+    /** Creates a PRIVATE deck and its initial cards in one editor submission. */
     @PostMapping
     public String create(@Valid @ModelAttribute("form") DeckForm form,
                          BindingResult result,
                          @AuthenticationPrincipal KshUserDetails user,
+                         @RequestParam(name = "cardsJson", defaultValue = "[]") String cardsJson,
                          Model model) {
+        List<CardItem> cards = parseCreateCards(cardsJson, result);
         if (result.hasErrors()) {
             model.addAttribute(ATTR_MODE, MODE_CREATE);
+            model.addAttribute(ATTR_CARDS, toCardViews(cards));
             return VIEW_FLASHCARD_FORM;
         }
-        Long deckId = deckService.createDeck(user.getId(), form);
-        return "redirect:" + deckUrl(deckId) + "/edit";
+        Long deckId = deckService.createDeckWithCards(user.getId(), form, cards).deckId();
+        return "redirect:" + deckUrl(deckId);
     }
 
     /** Deck launcher page (owner or shared member): metadata + study launchers. */
@@ -96,6 +114,7 @@ public class StudentFlashcardController {
         model.addAttribute(ATTR_DECK, deck);
         model.addAttribute(ATTR_SHARE_CLASSES, deck.shareClasses());
         model.addAttribute(ATTR_DUE_COUNT, smartReviewService.countDue(id, user.getId()));
+        model.addAttribute(ATTR_CARDS, flashcardStudyService.getStudyCards(id, user.getId()));
         return VIEW_FLASHCARD_DETAIL;
     }
 
@@ -168,5 +187,31 @@ public class StudentFlashcardController {
     /** Canonical URL for a single deck. Carries a path variable, so not a constant. */
     private static String deckUrl(Long id) {
         return BASE_FLASHCARDS + "/" + id;
+    }
+
+    private List<CardItem> parseCreateCards(String cardsJson, BindingResult result) {
+        try {
+            return objectMapper.readValue(cardsJson, new TypeReference<>() {});
+        } catch (JsonProcessingException ex) {
+            result.reject("flashcards.cards.invalid", "Dữ liệu thẻ không hợp lệ, vui lòng thử lại");
+            return List.of();
+        }
+    }
+
+    private static List<CardView> starterCards() {
+        return List.of(
+                new CardView(null, "", "", null, null, null),
+                new CardView(null, "", "", null, null, null)
+        );
+    }
+
+    private static List<CardView> toCardViews(List<CardItem> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return starterCards();
+        }
+        return cards.stream()
+                .map(card -> new CardView(card.id(), card.front(), card.back(),
+                        card.frontImage(), card.backImage(), card.alternativesJson()))
+                .toList();
     }
 }

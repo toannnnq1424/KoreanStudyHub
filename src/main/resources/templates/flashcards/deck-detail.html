@@ -11,72 +11,261 @@
       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError},data-flash-info=${flashInfo}"
       style="display:none;"></span>
 
-<main class="fc-page fc-detail-page">
-  <div class="fc-form-head">
-    <a class="fc-back" th:href="@{/my/flashcards}">&larr; Danh sách bộ thẻ</a>
-  </div>
+<main class="fc-page fc-set-page">
+  <a class="fc-back fc-set-back" th:href="@{/my/flashcards}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    <span>Thư viện của bạn</span>
+  </a>
 
-  <section class="fc-detail-card">
-    <!-- Owner edit/delete: faint icon buttons in the top-right corner. -->
-    <div class="fc-detail-actions" th:if="${deck.owner()}">
-      <a class="fc-icon-action" th:href="@{|/my/flashcards/${deck.id()}/edit|}"
-         title="Chỉnh sửa" aria-label="Chỉnh sửa">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+  <header class="fc-set-header">
+    <div>
+      <h1 class="fc-set-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
+      <p class="fc-set-description" th:if="${deck.description() != null}" th:text="${deck.description()}">Mô tả</p>
+    </div>
+    <div class="fc-set-actions" th:if="${deck.owner()}">
+      <a class="fc-round-action" th:href="@{|/my/flashcards/${deck.id()}/edit|}" title="Chỉnh sửa" aria-label="Chỉnh sửa">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
       </a>
-      <form th:action="@{|/my/flashcards/${deck.id()}/delete|}" method="post"
-            onsubmit="return confirm('Xoá bộ thẻ này?');">
-        <button type="submit" class="fc-icon-action fc-icon-danger"
-                title="Xoá bộ thẻ" aria-label="Xoá bộ thẻ">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <form th:action="@{|/my/flashcards/${deck.id()}/delete|}" method="post" onsubmit="return confirm('Xoá bộ thẻ này?');">
+        <button type="submit" class="fc-round-action fc-round-danger" title="Xoá bộ thẻ" aria-label="Xoá bộ thẻ">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
         </button>
       </form>
     </div>
-    <h1 class="fc-detail-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
-    <p class="fc-detail-desc" th:if="${deck.description() != null}" th:text="${deck.description()}">Mô tả</p>
-    <div class="fc-detail-meta">
-      <span class="fc-badge" th:text="${deck.cardCount()} + ' thẻ'">0 thẻ</span>
-      <span class="fc-badge fc-badge-shared" th:if="${deck.shared()}"
-            th:text="${deck.className() != null} ? 'Chia sẻ với ' + ${deck.className()} : 'Đã chia sẻ'">Đã chia sẻ</span>
-      <span class="fc-badge fc-badge-due" th:if="${dueCount > 0}"
-            th:text="'Còn ' + ${dueCount} + ' thẻ đến hạn'">Đến hạn</span>
-    </div>
+  </header>
 
-    <!-- Study launchers -->
-    <div class="fc-launchers" th:if="${deck.cardCount() > 0}">
-      <a class="fc-btn fc-btn-feature" th:href="@{|/my/flashcards/${deck.id()}/learn|}">Phòng luyện tập</a>
-      <a class="fc-btn fc-btn-primary" th:href="@{|/my/flashcards/${deck.id()}/flip|}">Học lật thẻ</a>
-      <a class="fc-btn fc-btn-secondary" th:href="@{|/my/flashcards/${deck.id()}/review|}">Ôn tập thông minh</a>
+  <section class="fc-mode-section" th:if="${deck.cardCount() > 0}">
+    <h2>Học và chơi</h2>
+    <div class="fc-mode-grid">
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/flip|}">
+        <span class="fc-mode-icon fc-mode-flip"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="15" height="14" rx="2"/><path d="M8 21h10a2 2 0 0 0 2-2V8"/></svg></span>
+        <span>Lật thẻ</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/learn|}">
+        <span class="fc-mode-icon fc-mode-learn"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A7 7 0 1 1 15.5 14.5C14.6 15.2 14 16 14 17h-4c0-1-.6-1.8-1.5-2.5Z"/></svg></span>
+        <span>Học</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/test|}">
+        <span class="fc-mode-icon fc-mode-test"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg></span>
+        <span>Kiểm tra</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/match|}">
+        <span class="fc-mode-icon fc-mode-match"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/><path d="m15 4 6 6M21 4l-6 6M3 16h6"/></svg></span>
+        <span>Ghép cặp</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/blocks|}">
+        <span class="fc-mode-icon fc-mode-blocks"><svg viewBox="0 0 24 24"><path d="m12 2 4 2.3v4.5L12 11 8 8.8V4.3Z"/><path d="m6 12 4 2.3v4.5L6 21l-4-2.2v-4.5Z"/><path d="m18 12 4 2.3v4.5L18 21l-4-2.2v-4.5Z"/></svg></span>
+        <span>Khối từ</span>
+      </a>
+      <a class="fc-mode-card" th:href="@{|/my/flashcards/${deck.id()}/blast|}">
+        <span class="fc-mode-icon fc-mode-blast"><svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.2-2 4-2 4s2.8-.5 4-2"/><path d="M9 15 4 10l4-1 3-5c3-2 6-2 9-2 0 3 0 6-2 9l-5 3-1 4Z"/><circle cx="15" cy="7" r="1.5"/><path d="m9 18-3 3"/></svg></span>
+        <span>Bắn từ</span>
+      </a>
     </div>
-    <p class="fc-empty" th:if="${deck.cardCount() == 0}">Bộ thẻ chưa có thẻ nào để học.</p>
+  </section>
 
-    <!-- Owner controls -->
-    <div class="fc-owner-controls" th:if="${deck.owner()}">
-      <!-- Share control -->
-      <div class="fc-share">
-        <h3 class="fc-section-title">Chia sẻ</h3>
-        <form class="fc-share-form" th:action="@{|/my/flashcards/${deck.id()}/share|}" method="post"
-              th:unless="${#lists.isEmpty(shareClasses)}">
-          <label for="shareClass">Chia sẻ bộ thẻ tới lớp:</label>
-          <select id="shareClass" name="classId">
-            <option th:each="c : ${shareClasses}" th:value="${c.id()}" th:text="${c.name()}"
-                    th:selected="${deck.classId() != null and deck.classId() == c.id()}">Lớp</option>
-          </select>
-          <button type="submit" class="fc-btn fc-btn-secondary">Chia sẻ</button>
-        </form>
-        <p class="fc-empty" th:if="${#lists.isEmpty(shareClasses)}">
-          Bạn chưa tham gia lớp nào để chia sẻ.
-        </p>
-        <form th:action="@{|/my/flashcards/${deck.id()}/unshare|}" method="post" th:if="${deck.shared()}">
-          <button type="submit" class="fc-btn fc-btn-ghost">Ngừng chia sẻ (chuyển về riêng tư)</button>
-        </form>
+  <section id="fcSetStudy" class="fc-set-study" th:if="${deck.cardCount() > 0}" aria-label="Xem nhanh bộ thẻ">
+    <div id="fcSetData" hidden>
+      <span th:each="card : ${cards}" class="fc-set-data"
+            th:attr="data-card-id=${card.id()},data-front=${card.front()},data-back=${card.back()},data-front-image=${card.frontImage()},data-back-image=${card.backImage()}"></span>
+    </div>
+    <button id="fcSetCard" class="fc-set-card" type="button" aria-label="Lật thẻ">
+      <span class="fc-set-card-inner">
+        <span class="fc-set-card-side fc-set-card-front">
+          <img id="fcSetFrontImage" class="fc-set-card-image" alt="" hidden>
+          <span id="fcSetFrontText">Thuật ngữ</span>
+          <span class="fc-set-face-hint">Nhấp để xem định nghĩa</span>
+        </span>
+        <span class="fc-set-card-side fc-set-card-back">
+          <img id="fcSetBackImage" class="fc-set-card-image" alt="" hidden>
+          <span id="fcSetBackText">Định nghĩa</span>
+          <span class="fc-set-face-hint">Nhấp để xem thuật ngữ</span>
+        </span>
+      </span>
+    </button>
+    <div class="fc-set-controls">
+      <div class="fc-set-tracking">
+        <button id="fcSetTrackingToggle" class="fc-tracking-toggle" type="button" role="switch" aria-checked="false">
+          <span>Theo dõi tiến độ</span>
+          <span class="fc-toggle-track" aria-hidden="true"><i></i></span>
+        </button>
       </div>
+      <div class="fc-set-navigation" role="group" aria-label="Điều hướng thẻ">
+        <button id="fcSetPrev" type="button" aria-label="Thẻ trước">
+          <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <span id="fcSetRating" class="fc-set-rating" role="group" aria-label="Mức độ ghi nhớ">
+          <button id="fcSetUnknown" class="fc-rating-button fc-rating-unknown" type="button" aria-label="Chưa biết" data-tooltip="Chưa biết" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+          </button>
+        </span>
+        <strong><span id="fcSetPos">1</span> / <span id="fcSetTotal" th:text="${deck.cardCount()}">1</span></strong>
+        <span class="fc-set-rating" role="group" aria-label="Mức độ ghi nhớ">
+          <button id="fcSetKnown" class="fc-rating-button fc-rating-known" type="button" aria-label="Đã biết" data-tooltip="Đã biết" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9"/></svg>
+          </button>
+        </span>
+        <button id="fcSetNext" type="button" aria-label="Thẻ tiếp theo">
+          <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="fc-set-playback">
+        <button id="fcSetAutoPlay" class="fc-set-auto" type="button" aria-label="Bắt đầu tự lật">
+          <svg class="fc-auto-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>
+          <svg class="fc-auto-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg>
+          <svg class="fc-auto-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18"/></svg>
+        </button>
+        <button id="fcSetShuffle" class="fc-set-shuffle" type="button" aria-label="Trộn thẻ">
+          <svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="m4 4 5 5"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="fcSetComplete"
+           class="fc-set-complete"
+           th:if="${deck.cardCount() > 0}"
+           th:attr="data-learn-url=@{|/my/flashcards/${deck.id()}/learn?focus=unknown|},data-deck-id=${deck.id()}"
+           aria-labelledby="fcCompleteTitle"
+           hidden>
+    <div class="fc-complete-heading">
+      <h2 id="fcCompleteTitle">Chúc mừng! Bạn đã ôn tập tất cả các thẻ.</h2>
+      <svg class="fc-complete-confetti" viewBox="0 0 120 96" aria-hidden="true">
+        <path class="fc-confetti-cone" d="M70 48 113 78 65 88Z"/>
+        <path class="fc-confetti-line fc-confetti-one" d="M58 25 49 8"/>
+        <path class="fc-confetti-line fc-confetti-two" d="M78 31 92 14"/>
+        <path class="fc-confetti-line fc-confetti-three" d="M45 45 23 39"/>
+        <path class="fc-confetti-line fc-confetti-four" d="M66 12 70 2"/>
+        <circle class="fc-confetti-dot fc-confetti-dot-one" cx="36" cy="18" r="4"/>
+        <circle class="fc-confetti-dot fc-confetti-dot-two" cx="98" cy="38" r="4"/>
+        <path class="fc-confetti-ribbon" d="M59 43c-13 1-18 8-13 18 5 9-3 15-13 15"/>
+      </svg>
+    </div>
+
+    <div class="fc-complete-grid">
+      <div class="fc-complete-progress">
+        <h3>Tiến độ của bạn</h3>
+        <div class="fc-complete-progress-body">
+          <div class="fc-complete-ring" aria-label="Đã hoàn thành">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="fc-complete-ring-track" cx="50" cy="50" r="40"/>
+              <circle class="fc-complete-ring-progress" cx="50" cy="50" r="40"/>
+            </svg>
+            <svg id="fcCompleteCheck" class="fc-complete-check" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 12 4 4L19 6"/>
+            </svg>
+            <strong id="fcCompletePercent" class="fc-complete-percent">0%</strong>
+          </div>
+          <div class="fc-complete-counts">
+            <div class="fc-complete-count fc-complete-count-done">
+              <span id="fcCompleteKnownLabel">Đã biết</span>
+              <strong id="fcCompleteKnown">0</strong>
+            </div>
+            <div class="fc-complete-count fc-complete-count-learning">
+              <span id="fcCompleteUnknownLabel">Đang học</span>
+              <strong id="fcCompleteUnknown" th:text="${deck.cardCount()}">0</strong>
+            </div>
+          </div>
+        </div>
+        <button id="fcCompleteBack" class="fc-complete-back" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Quay lại câu hỏi cuối cùng</span>
+        </button>
+      </div>
+
+      <div class="fc-complete-next">
+        <h3>Bước tiếp theo</h3>
+        <a id="fcCompleteLearn" class="fc-complete-learn" th:href="@{|/my/flashcards/${deck.id()}/learn?focus=unknown|}">
+          <span class="fc-complete-learn-fill" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
+            <path d="M20 4v5h-5"/>
+          </svg>
+          <span>Ôn luyện với các câu hỏi</span>
+        </a>
+        <button id="fcCompleteReset" class="fc-complete-reset" type="button">Đặt lại Thẻ ghi nhớ</button>
+        <p class="fc-complete-auto">Tự động chuyển sang chế độ Học khi thanh hoàn tất.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="fc-empty" th:if="${deck.cardCount() == 0}">Bộ thẻ chưa có thuật ngữ nào để học.</p>
+
+  <section class="fc-set-author">
+    <span class="fc-author-avatar"
+          th:text="${deck.ownerName() != null and !#strings.isEmpty(deck.ownerName()) ? #strings.substring(deck.ownerName(), 0, 1) : 'K'}">K</span>
+    <span><small>Tạo bởi</small><strong th:text="${deck.ownerName() != null ? deck.ownerName() : 'Thành viên KSH'}">Thành viên KSH</strong></span>
+    <span class="fc-owner-label" th:if="${deck.owner()}">Tác giả</span>
+    <span class="fc-owner-label" th:if="${deck.shared()}">Đã chia sẻ</span>
+  </section>
+
+  <section class="fc-term-section" th:if="${deck.cardCount() > 0}">
+    <h2 th:text="'Thuật ngữ trong bộ thẻ này (' + ${deck.cardCount()} + ')'">Thuật ngữ</h2>
+    <div class="fc-term-list">
+      <article class="fc-term-row"
+               th:each="card : ${cards}"
+               th:classappend="${card.frontImage() != null or card.backImage() != null} ? ' fc-term-row-with-image' : ''">
+        <div class="fc-term-cell fc-term-front">
+          <button th:if="${card.frontImage() != null}"
+                  class="fc-term-image-button"
+                  type="button"
+                  th:attr="data-full-image=${card.frontImage()}"
+                  aria-label="Phóng to ảnh mặt trước">
+            <img th:src="${card.frontImage()}" alt="">
+            <span class="fc-term-image-zoom" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/></svg>
+            </span>
+          </button>
+          <span th:text="${card.front()}">Thuật ngữ</span>
+        </div>
+        <div class="fc-term-separator"></div>
+        <div class="fc-term-cell">
+          <button th:if="${card.backImage() != null}"
+                  class="fc-term-image-button"
+                  type="button"
+                  th:attr="data-full-image=${card.backImage()}"
+                  aria-label="Phóng to ảnh mặt sau">
+            <img th:src="${card.backImage()}" alt="">
+            <span class="fc-term-image-zoom" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/></svg>
+            </span>
+          </button>
+          <span th:text="${card.back()}">Định nghĩa</span>
+        </div>
+        <a th:if="${deck.owner()}" class="fc-term-edit" th:href="@{|/my/flashcards/${deck.id()}/edit|}" aria-label="Sửa thuật ngữ">✎</a>
+      </article>
+    </div>
+  </section>
+
+  <section id="share" class="fc-owner-controls" th:if="${deck.owner()}">
+    <div class="fc-share">
+      <h3 class="fc-section-title">Chia sẻ với lớp</h3>
+      <form class="fc-share-form" th:action="@{|/my/flashcards/${deck.id()}/share|}" method="post" th:unless="${#lists.isEmpty(shareClasses)}">
+        <select id="shareClass" name="classId" aria-label="Chọn lớp">
+          <option th:each="c : ${shareClasses}" th:value="${c.id()}" th:text="${c.name()}" th:selected="${deck.classId() != null and deck.classId() == c.id()}">Lớp</option>
+        </select>
+        <button type="submit" class="fc-btn fc-btn-primary">Chia sẻ</button>
+      </form>
+      <p class="fc-empty" th:if="${#lists.isEmpty(shareClasses)}">Bạn chưa tham gia lớp nào để chia sẻ.</p>
+      <form th:action="@{|/my/flashcards/${deck.id()}/unshare|}" method="post" th:if="${deck.shared()}">
+        <button type="submit" class="fc-btn fc-btn-ghost">Ngừng chia sẻ</button>
+      </form>
     </div>
   </section>
 </main>
 
+<div id="fcImageViewer" class="fc-image-viewer" role="dialog" aria-modal="true" aria-label="Xem ảnh thẻ" hidden>
+  <button id="fcImageViewerClose" class="fc-image-viewer-close" type="button" aria-label="Đóng ảnh">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <div class="fc-image-viewer-stage">
+    <img id="fcImageViewerImage" alt="Ảnh trong thẻ đang được phóng to">
+  </div>
+  <p>Bấm ra ngoài hoặc nhấn Esc để đóng</p>
+</div>
+
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/flashcard-deck-detail.js}"></script>
 </body>
 </html>
