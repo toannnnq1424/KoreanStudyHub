@@ -155,8 +155,13 @@
 
 .lf-questions { display: flex; flex-direction: column; gap: 16px; }
 .lf-question { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; background: #fbfcfd; }
-.lf-q-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-.lf-q-type { max-width: 220px; }
+.lf-q-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.lf-q-no { font-size: 14px; font-weight: 700; color: #334155; }
+.lf-q-type-badge { padding: 3px 10px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; }
+.lf-q-type-badge[data-type="MR"] { background: #f5f3ff; color: #6d28d9; }
+.lf-q-points-field { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.lf-q-points-label, .lf-options-hint { color: #64748b; font-size: 13px; }
+.lf-options-hint { margin: 0 0 8px; }
 .lf-q-points { max-width: 90px; }
 .lf-q-explanation { margin-bottom: 10px; }
 .lf-q-editor { margin-bottom: 10px; background: #fff; border-radius: 8px; }
@@ -202,15 +207,19 @@
 
 .lf-o-mark {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   height: 34px;
   margin-top: 4px;
   cursor: pointer;
   flex: 0 0 auto;
   user-select: none;
 }
+.lf-o-box { display: grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; }
+.lf-o-box::after { content: ''; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; }
+.lf-option.is-correct .lf-o-box { border-color: #22c55e; background: #22c55e; }
+.lf-option.is-correct .lf-o-box::after { opacity: 1; }
 .lf-o-correct {
   position: absolute;
   opacity: 0;
@@ -221,8 +230,8 @@
 .lf-o-letter {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   border: 1.5px solid #d0d7de;
   background: #f8fafc;
@@ -238,10 +247,9 @@
   color: #1d4ed8;
 }
 .lf-option.is-correct .lf-o-letter {
-  border-color: #22c55e;
-  background: #22c55e;
-  color: #fff;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 /* Quill mounts toolbar as a sibling of the host (.lf-o-editor), so the
