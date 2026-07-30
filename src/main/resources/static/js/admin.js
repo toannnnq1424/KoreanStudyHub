@@ -26,7 +26,14 @@
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: colors,
+        backgroundColor: colors.map(function (color) {
+          var hex = color.replace('#', '');
+          if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+          var mix = function (offset) {
+            return Math.round(parseInt(hex.slice(offset, offset + 2), 16) * .62 + 255 * .38);
+          };
+          return 'rgb(' + mix(0) + ',' + mix(2) + ',' + mix(4) + ')';
+        }),
         borderWidth: 2,
         borderColor: '#FFFFFF'
       }]

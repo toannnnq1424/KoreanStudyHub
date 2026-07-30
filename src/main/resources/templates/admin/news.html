@@ -4,12 +4,12 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/discovery-admin.css(v='3')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/discovery-admin.css(v='6')}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
-<div class="class-detail-layout">
+<div class="class-detail-layout news-admin-layout">
   <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('news')}"></aside>
 
   <main class="col news-admin">
@@ -32,6 +32,9 @@
         </form>
         <a class="news-admin-link" th:href="@{/discover}" target="_blank" rel="noopener noreferrer">
           Mở giao diện Khám phá ↗
+        </a>
+        <a class="news-admin-link" th:href="@{/admin/settings/ai/logs}">
+          Xem usage token AI →
         </a>
       </div>
     </div>
@@ -175,61 +178,60 @@
     </section>
 
     <section class="news-admin-panel">
-      <div class="news-admin-panel-head">
-        <div>
+      <details class="news-run-disclosure">
+        <summary class="news-admin-panel-head">
+          <div>
           <h2>Nhật ký 10 lượt gần nhất</h2>
-          <p>Giữ số tin mới, loại, trùng, blacklist và lỗi để truy vết.</p>
-        </div>
-      </div>
+          <p>Mở khi cần xem số bài mới, trùng, blacklist và lỗi.</p>
+          </div>
+          <span class="news-disclosure-label">Xem nhật ký</span>
+        </summary>
+      <div class="news-run-disclosure-body">
       <div class="news-run-empty" th:if="${overview.recentRuns.isEmpty()}">
         Chưa có lượt quét nào. Scheduler sẽ tự chạy sau khi ứng dụng khởi động.
       </div>
-      <div class="news-run-table-wrap" th:unless="${overview.recentRuns.isEmpty()}">
-        <table class="news-run-table">
-          <thead>
-          <tr>
-            <th>Lượt</th>
-            <th>Kích hoạt</th>
-            <th>Trạng thái</th>
-            <th>Bắt đầu</th>
-            <th>Đọc</th>
-            <th>Mới</th>
-            <th>Loại</th>
-            <th>Trùng</th>
-            <th>Blacklist</th>
-            <th>Lỗi</th>
-            <th>AI xong</th>
-            <th>AI lỗi</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr th:each="run : ${overview.recentRuns}">
-            <td th:text="${'#' + run.id}">#1</td>
-            <td th:text="${run.triggerType}">MANUAL</td>
-            <td><span class="run-status" th:classappend="' is-' + ${#strings.toLowerCase(run.status)}"
-                      th:text="${run.status}">SUCCEEDED</span></td>
-            <td th:text="${#temporals.format(run.startedAt, 'dd/MM HH:mm')}">29/07 21:00</td>
-            <td th:text="${run.fetchedCount}">0</td>
-            <td>
+      <div class="news-run-list" th:unless="${overview.recentRuns.isEmpty()}">
+        <article class="news-run-card" th:each="run : ${overview.recentRuns}">
+          <div class="news-run-card-head">
+            <strong th:text="${'Lượt #' + run.id}">Lượt #1</strong>
+            <span th:text="${run.triggerType == 'MANUAL' ? 'Thủ công' : 'Tự động'}">Thủ công</span>
+            <span class="run-status" th:classappend="' is-' + ${#strings.toLowerCase(run.status)}"
+                  th:text="${run.status}">SUCCEEDED</span>
+            <time th:text="${#temporals.format(run.startedAt, 'dd/MM · HH:mm')}">29/07 · 21:00</time>
+          </div>
+          <dl class="news-run-metrics">
+            <div><dt>Đã đọc</dt><dd th:text="${run.fetchedCount}">0</dd></div>
+            <div><dt>Bài mới</dt><dd>
               <a th:if="${run.publishedCount > 0}"
                  class="news-run-new-link"
-                 th:href="@{/admin/news(runId=${run.id})}"
+                 th:href="@{/admin/news(runId=${run.id})} + '#articles'"
                  th:text="${run.publishedCount + ' bài ↗'}">0 bài</a>
               <span th:unless="${run.publishedCount > 0}">0</span>
-            </td>
-            <td th:text="${run.rejectedCount}">0</td>
-            <td th:text="${run.duplicateCount}">0</td>
-            <td th:text="${run.blacklistedCount}">0</td>
-            <td th:text="${run.errorCount}">0</td>
-            <td th:text="${run.aiGeneratedCount}">0</td>
-            <td th:text="${run.aiFailedCount}">0</td>
-          </tr>
-          </tbody>
-        </table>
+            </dd></div>
+            <div><dt>Đã loại</dt><dd th:text="${run.rejectedCount}">0</dd></div>
+            <div><dt>Trùng</dt><dd th:text="${run.duplicateCount}">0</dd></div>
+            <div><dt>Blacklist</dt><dd th:text="${run.blacklistedCount}">0</dd></div>
+            <div><dt>Lỗi crawl</dt><dd th:text="${run.errorCount}">0</dd></div>
+            <div><dt>AI xong</dt><dd>
+              <a th:if="${run.aiGeneratedCount > 0}" class="news-run-new-link"
+                 th:href="@{/admin/news(aiRunId=${run.id},ai='generated')} + '#articles'"
+                 th:text="${run.aiGeneratedCount + ' bài ↗'}">0 bài</a>
+              <span th:unless="${run.aiGeneratedCount > 0}">0</span>
+            </dd></div>
+            <div><dt>AI lỗi</dt><dd>
+              <a th:if="${run.aiFailedCount > 0}" class="news-run-error-link"
+                 th:href="@{/admin/news(aiRunId=${run.id},ai='failed')} + '#articles'"
+                 th:text="${run.aiFailedCount + ' bài ↗'}">0 bài</a>
+              <span th:unless="${run.aiFailedCount > 0}">0</span>
+            </dd></div>
+          </dl>
+        </article>
       </div>
+      </div>
+      </details>
     </section>
 
-    <section class="news-admin-panel">
+    <section class="news-admin-panel" id="articles">
       <div class="news-admin-panel-head">
         <div>
           <h2>Bài đã cào</h2>
@@ -237,15 +239,25 @@
         </div>
       </div>
 
-      <form class="news-trace-filters" method="get" th:action="@{/admin/news}">
+      <form class="news-trace-filters" method="get" th:action="@{/admin/news} + '#articles'">
         <label>
-          Lượt crawl
+          Lượt tạo bài
           <select name="runId">
             <option value="">Tất cả lượt</option>
             <option th:each="run : ${overview.recentRuns}"
                     th:value="${run.id}"
                     th:selected="${overview.selectedRunId != null and overview.selectedRunId == run.id}"
                     th:text="${'#' + run.id + ' · ' + run.publishedCount + ' bài mới'}">#1</option>
+          </select>
+        </label>
+        <label>
+          Lượt AI xử lý
+          <select name="aiRunId">
+            <option value="">Tất cả lượt</option>
+            <option th:each="run : ${overview.recentRuns}"
+                    th:value="${run.id}"
+                    th:selected="${overview.selectedAiRunId != null and overview.selectedAiRunId == run.id}"
+                    th:text="${'#' + run.id + ' · xong ' + run.aiGeneratedCount + ' · lỗi ' + run.aiFailedCount}">#1</option>
           </select>
         </label>
         <label>
@@ -258,10 +270,12 @@
           </select>
         </label>
         <button type="submit" class="btn-ghost btn-sm">Lọc bài</button>
-        <a th:if="${overview.selectedRunId != null or overview.selectedAiStatus != null}"
-           th:href="@{/admin/news}">Xóa bộ lọc</a>
+        <a th:if="${overview.selectedRunId != null or overview.selectedAiRunId != null or overview.selectedAiStatus != null}"
+           th:href="@{/admin/news} + '#articles'">Xóa bộ lọc</a>
         <strong th:if="${overview.selectedRunId != null}"
                 th:text="${'Đang xem bài mới của lượt #' + overview.selectedRunId}">Đang lọc</strong>
+        <strong th:if="${overview.selectedAiRunId != null}"
+                th:text="${'Đang xem bài AI xử lý ở lượt #' + overview.selectedAiRunId}">Đang lọc AI</strong>
       </form>
 
       <div th:if="${overview.recentArticles == null or overview.recentArticles.isEmpty()}" class="news-run-empty">
@@ -284,6 +298,11 @@
           <div class="news-bulk-actions">
             <button type="submit" class="btn-primary btn-sm"
                     data-news-bulk-action
+                    th:formaction="@{/admin/news/articles/ai-editorial}">
+              Biên tập bằng AI
+            </button>
+            <button type="submit" class="btn-primary btn-sm"
+                    data-news-bulk-action
                     th:formaction="@{/admin/news/articles/delete}">
               Xóa đã chọn
             </button>
@@ -295,33 +314,22 @@
           </div>
         </div>
 
-        <div class="news-run-table-wrap">
-          <table class="news-run-table news-article-table" data-news-bulk-table>
-            <thead>
-            <tr>
-              <th class="news-check-col">
-                <input type="checkbox" data-news-select-all aria-label="Chọn tất cả">
-              </th>
-              <th>Tiêu đề</th>
-              <th>Nguồn</th>
-              <th>Ngày</th>
-              <th>Ngôn ngữ</th>
-              <th>Trạng thái</th>
-              <th>Dấu vết</th>
-              <th>Liên kết</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="article : ${overview.recentArticles.content}" class="news-article-row"
+        <div class="news-article-list" data-news-bulk-table>
+          <div class="news-article-list-head">
+            <label><input type="checkbox" data-news-select-all aria-label="Chọn tất cả"> Chọn tất cả</label>
+            <span>Nội dung bài</span>
+            <span>Dấu vết xử lý</span>
+          </div>
+          <article th:each="article : ${overview.recentArticles.content}" class="news-article-row"
                 th:classappend="${overview.selectedRunId != null and article.ingestionRunId == overview.selectedRunId} ? ' is-new-run' : ''">
-              <td class="news-check-col">
+              <div class="news-check-col">
                 <input type="checkbox"
                        class="news-row-check"
                        name="articleIds"
                        th:value="${article.id}"
                        aria-label="Chọn bài">
-              </td>
-              <td>
+              </div>
+              <div class="news-article-main">
                 <a class="news-article-title"
                    th:href="@{/discover/{slug}(slug=${article.slug})}"
                    th:text="${article.displayTitle}">
@@ -330,15 +338,18 @@
                 <div class="news-article-subtitle" th:text="${article.sourceExcerpt}">
                   Mô tả
                 </div>
-              </td>
-              <td th:text="${article.sourceName}">Nguồn</td>
-              <td th:text="${#temporals.format(article.publishedAt, 'dd/MM/yyyy HH:mm')}">29/07/2026 10:00</td>
-              <td th:text="${article.languageCode}">vi</td>
-              <td>
+                <div class="news-article-meta">
+                  <span th:text="${article.sourceName}">Nguồn</span>
+                  <span th:text="${#temporals.format(article.publishedAt, 'dd/MM/yyyy HH:mm')}">29/07/2026 10:00</span>
+                  <span th:text="${#strings.toUpperCase(article.languageCode)}">VI</span>
+                  <a th:href="${article.canonicalUrl}" target="_blank" rel="noopener noreferrer">Nguồn gốc ↗</a>
+                </div>
+              </div>
+              <div class="news-article-state">
                 <span class="run-status" th:classappend="' is-' + ${#strings.toLowerCase(article.status.name())}"
                       th:text="${article.status}">PUBLISHED</span>
-              </td>
-              <td class="news-trace-cell">
+              </div>
+              <div class="news-trace-cell">
                 <span th:if="${article.ingestionRunId != null}" class="news-trace-badge is-crawl"
                       th:text="${'Mới ở #' + article.ingestionRunId}">Mới ở #1</span>
                 <span th:if="${article.aiGeneratedAt != null}" class="news-trace-badge is-ai"
@@ -363,13 +374,8 @@
                   </div>
                   <p th:if="${article.aiGenerationError != null}" th:text="${article.aiGenerationError}">Lỗi AI</p>
                 </details>
-              </td>
-              <td class="news-article-link-cell">
-                <a th:href="${article.canonicalUrl}" target="_blank" rel="noopener noreferrer">Gốc ↗</a>
-              </td>
-            </tr>
-            </tbody>
-          </table>
+              </div>
+          </article>
         </div>
       </form>
 
@@ -386,7 +392,7 @@
           <a th:if="${overview.recentArticles.hasPrevious()}"
              class="pagination-arrow"
              rel="prev"
-             th:href="@{/admin/news(page=${overview.recentArticles.number},runId=${overview.selectedRunId},ai=${overview.selectedAiStatus})}">
+             th:href="@{/admin/news(page=${overview.recentArticles.number},runId=${overview.selectedRunId},aiRunId=${overview.selectedAiRunId},ai=${overview.selectedAiStatus})} + '#articles'">
             <span aria-hidden="true">←</span>
             Trước
           </a>
@@ -396,7 +402,7 @@
           </span>
           <a th:if="${overview.recentArticles.number + 1 > 3}"
              class="pagination-number"
-             th:href="@{/admin/news(page=1,runId=${overview.selectedRunId},ai=${overview.selectedAiStatus})}">01</a>
+             th:href="@{/admin/news(page=1,runId=${overview.selectedRunId},aiRunId=${overview.selectedAiRunId},ai=${overview.selectedAiStatus})} + '#articles'">01</a>
           <span th:if="${overview.recentArticles.number + 1 > 4}"
                 class="pagination-ellipsis"
                 aria-hidden="true">…</span>
@@ -405,19 +411,19 @@
              class="pagination-number"
              th:classappend="${number == overview.recentArticles.number + 1} ? ' is-active' : ''"
              th:attr="aria-current=${number == overview.recentArticles.number + 1} ? 'page' : null"
-             th:href="@{/admin/news(page=${number},runId=${overview.selectedRunId},ai=${overview.selectedAiStatus})}"
+             th:href="@{/admin/news(page=${number},runId=${overview.selectedRunId},aiRunId=${overview.selectedAiRunId},ai=${overview.selectedAiStatus})} + '#articles'"
              th:text="${#numbers.formatInteger(number, 2)}">01</a>
           <span th:if="${overview.recentArticles.number + 1 < overview.recentArticles.totalPages - 3}"
                 class="pagination-ellipsis"
                 aria-hidden="true">…</span>
           <a th:if="${overview.recentArticles.number + 1 < overview.recentArticles.totalPages - 2}"
              class="pagination-number"
-             th:href="@{/admin/news(page=${overview.recentArticles.totalPages},runId=${overview.selectedRunId},ai=${overview.selectedAiStatus})}"
+             th:href="@{/admin/news(page=${overview.recentArticles.totalPages},runId=${overview.selectedRunId},aiRunId=${overview.selectedAiRunId},ai=${overview.selectedAiStatus})} + '#articles'"
              th:text="${#numbers.formatInteger(overview.recentArticles.totalPages, 2)}">20</a>
           <a th:if="${overview.recentArticles.hasNext()}"
              class="pagination-arrow"
              rel="next"
-             th:href="@{/admin/news(page=${overview.recentArticles.number + 2},runId=${overview.selectedRunId},ai=${overview.selectedAiStatus})}">
+             th:href="@{/admin/news(page=${overview.recentArticles.number + 2},runId=${overview.selectedRunId},aiRunId=${overview.selectedAiRunId},ai=${overview.selectedAiStatus})} + '#articles'">
             Sau
             <span aria-hidden="true">→</span>
           </a>
