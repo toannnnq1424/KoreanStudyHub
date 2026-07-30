@@ -31,6 +31,12 @@
         function hangulCount(value) {
             return (String(value || '').match(/[\uac00-\ud7a3]/g) || []).length;
         }
+        function gameClue(value) {
+            var text = String(value || '').replace(/\s+/g, ' ').trim();
+            var separator = text.indexOf(' — ');
+            if (separator > 0) text = text.slice(0, separator).trim();
+            return text.length > 120 ? text.slice(0, 117).trimEnd() + '…' : text;
+        }
         function toHangulEntry(card) {
             var front = String(card.front || '').trim().normalize('NFC');
             var back = String(card.back || '').trim().normalize('NFC');
@@ -766,7 +772,7 @@
             if (s.bank.length > 1 && s.bank.map(function (token) { return token.value; }).join('') === entry.word) {
                 s.bank.push(s.bank.shift());
             }
-            document.getElementById('fcTilesClue').textContent = entry.clue;
+            document.getElementById('fcTilesClue').textContent = gameClue(entry.clue);
             document.getElementById('fcTilesCount').textContent = s.completed + ' từ';
             document.getElementById('fcTilesCombo').textContent = s.combo;
             feedback('fcTilesFeedback', '', null);
@@ -1095,7 +1101,7 @@
             s.tokens = shuffle(correctTokens.concat(distractors));
             s.coordinates = {};
             wheel.classList.toggle('is-dense', s.tokens.length > 8);
-            document.getElementById('fcConnectClue').textContent = entry.clue;
+            document.getElementById('fcConnectClue').textContent = gameClue(entry.clue);
             document.getElementById('fcConnectCount').textContent = s.completed + ' từ';
             feedback('fcConnectFeedback', '', null);
 
@@ -1331,7 +1337,7 @@
             s.tokens = shuffle(correctTokens.concat(distractors));
             s.coordinates = {};
             wheel.classList.toggle('is-dense', s.tokens.length > 8);
-            document.getElementById('fcConnectClue').textContent = entry.clue;
+            document.getElementById('fcConnectClue').textContent = gameClue(entry.clue);
             document.getElementById('fcConnectCount').textContent = s.completed + ' từ';
             document.getElementById('fcConnectLevel').textContent = connectLevel;
             document.getElementById('fcConnectCombo').textContent = s.combo;
@@ -1756,7 +1762,7 @@
             var hostTargets = document.getElementById('fcBlastTargets');
             var round = ++s.roundId;
             s.shotLocked = false;
-            document.getElementById('fcBlastPrompt').textContent = card.back || card.front;
+            document.getElementById('fcBlastPrompt').textContent = gameClue(card.back || card.front);
             hostTargets.textContent = '';
             s.entities = [];
             var desiredCount = blastDifficulty().targetCount;

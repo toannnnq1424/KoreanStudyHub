@@ -15,6 +15,7 @@ public final class SystemSettingGroups {
     public static final String AI = "AI";
     public static final String STORAGE = "STORAGE";
     public static final String DISCOVERY = "DISCOVERY";
+    public static final String DICTIONARY = "DICTIONARY";
 
     private SystemSettingGroups() {
         // utility class

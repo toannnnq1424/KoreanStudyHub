@@ -222,10 +222,12 @@
   const pronunciationInput = vocabDrawer.querySelector('[data-vocab-pronunciation]');
   const partOfSpeechInput = vocabDrawer.querySelector('[data-vocab-part-of-speech]');
   const dictionaryUrlInput = vocabDrawer.querySelector('[data-vocab-dictionary-url]');
+  const deckSelect = vocabDrawer.querySelector('[data-vocab-deck]');
   const dictionaryLink = vocabDrawer.querySelector('[data-vocab-dictionary-link]');
   const saveButton = vocabDrawer.querySelector('[data-vocab-save]');
   const deckLink = vocabDrawer.querySelector('[data-vocab-deck-link]');
   let selectedKorean = '';
+  let decksLoaded = false;
 
   function csrfHeaders() {
     const token = document.querySelector('meta[name="_csrf"]');
@@ -244,6 +246,12 @@
       .trim();
   }
 
+  function conciseMeaning(value) {
+    const normalized = (value || '').replace(/\s+/g, ' ').trim();
+    const separator = normalized.indexOf(' — ');
+    return separator > 0 ? normalized.slice(0, separator).trim() : normalized;
+  }
+
   function setStatus(message, kind) {
     status.textContent = message;
     status.classList.toggle('is-success', kind === 'success');
@@ -251,7 +259,32 @@
   }
 
   function syncSaveState() {
-    saveButton.disabled = !wordInput.value.trim() || !meaningInput.value.trim();
+    saveButton.disabled = !wordInput.value.trim() || !meaningInput.value.trim() || !deckSelect.value;
+  }
+
+  async function loadDecks() {
+    if (decksLoaded) return;
+    const response = await fetch('/api/korean-dictionary/decks', { credentials: 'same-origin' });
+    const data = await readEnvelope(response);
+    deckSelect.textContent = '';
+    if (!data.decks || data.decks.length === 0) {
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = 'Bạn chưa có bộ thẻ — hãy tạo một bộ trước';
+      deckSelect.appendChild(empty);
+      return;
+    }
+    const prompt = document.createElement('option');
+    prompt.value = '';
+    prompt.textContent = 'Chọn bộ thẻ';
+    deckSelect.appendChild(prompt);
+    data.decks.forEach(function (deck) {
+      const option = document.createElement('option');
+      option.value = String(deck.id);
+      option.textContent = deck.title + ' · ' + deck.cardCount + ' thẻ';
+      deckSelect.appendChild(option);
+    });
+    decksLoaded = true;
   }
 
   function setDictionaryLink(url) {
@@ -269,7 +302,7 @@
     selectedKorean = word;
     wordInput.value = word;
     wordDisplay.textContent = word || '단어';
-    meaningInput.value = data.meaning || '';
+    meaningInput.value = conciseMeaning(data.meaning);
     pronunciationInput.value = data.pronunciation || '';
     partOfSpeechInput.value = data.partOfSpeech || '';
     pronunciationPreview.textContent = data.pronunciation
@@ -281,6 +314,7 @@
 
   function openDrawer(data) {
     vocabDrawer.hidden = false;
+    loadDecks().catch(function (error) { setStatus(error.message, 'error'); });
     if (data) {
       fillWord(data);
     }
@@ -309,7 +343,7 @@
     saveButton.disabled = true;
     try {
       const response = await fetch(
-        '/api/discovery/articles/' + articleId + '/dictionary?word=' +
+        '/api/korean-dictionary/lookup?word=' +
           encodeURIComponent(word),
         { credentials: 'same-origin' }
       );
@@ -345,37 +379,39 @@
     }
   }
 
-  document.querySelectorAll('[data-korean-reading-surface]').forEach(function (surface) {
-    surface.addEventListener('mouseup', function () {
-      window.setTimeout(function () {
-        const selection = window.getSelection();
-        const word = normalizeSelectedWord(selection ? selection.toString() : '');
-        if (!word || word.length > 120 || !hangulPattern.test(word)) {
-          selectionAction.hidden = true;
-          return;
-        }
-        const range = selection.rangeCount ? selection.getRangeAt(0) : null;
-        if (!range || !surface.contains(range.commonAncestorContainer)) {
-          selectionAction.hidden = true;
-          return;
-        }
-        const rect = range.getBoundingClientRect();
-        selectedKorean = word;
-        selectionAction.style.left =
-          Math.max(12, Math.min(window.innerWidth - 145, rect.left)) + 'px';
-        selectionAction.style.top =
-          Math.max(76, rect.top - 48) + 'px';
-        selectionAction.hidden = false;
-      }, 0);
+  if (selectionAction) {
+    document.querySelectorAll('[data-korean-reading-surface]').forEach(function (surface) {
+      surface.addEventListener('mouseup', function () {
+        window.setTimeout(function () {
+          const selection = window.getSelection();
+          const word = normalizeSelectedWord(selection ? selection.toString() : '');
+          if (!word || word.length > 120 || !hangulPattern.test(word)) {
+            selectionAction.hidden = true;
+            return;
+          }
+          const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+          if (!range || !surface.contains(range.commonAncestorContainer)) {
+            selectionAction.hidden = true;
+            return;
+          }
+          const rect = range.getBoundingClientRect();
+          selectedKorean = word;
+          selectionAction.style.left =
+            Math.max(12, Math.min(window.innerWidth - 145, rect.left)) + 'px';
+          selectionAction.style.top =
+            Math.max(76, rect.top - 48) + 'px';
+          selectionAction.hidden = false;
+        }, 0);
+      });
     });
-  });
 
-  selectionAction.addEventListener('click', function () {
-    selectionAction.hidden = true;
-    if (selectedKorean) {
-      lookupWord(selectedKorean);
-    }
-  });
+    selectionAction.addEventListener('click', function () {
+      selectionAction.hidden = true;
+      if (selectedKorean) {
+        lookupWord(selectedKorean);
+      }
+    });
+  }
 
   document.querySelectorAll('[data-vocab-open]').forEach(function (button) {
     button.addEventListener('click', function () {
@@ -405,6 +441,7 @@
 
   meaningInput.addEventListener('input', syncSaveState);
   wordInput.addEventListener('input', syncSaveState);
+  deckSelect.addEventListener('change', syncSaveState);
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -415,7 +452,7 @@
     setStatus('Đang tạo flashcard cá nhân…');
     try {
       const response = await fetch(
-        '/api/discovery/articles/' + articleId + '/flashcards',
+        '/api/korean-dictionary/flashcards',
         {
           method: 'POST',
           credentials: 'same-origin',
@@ -424,6 +461,7 @@
             csrfHeaders()
           ),
           body: JSON.stringify({
+            deckId: Number(deckSelect.value),
             word: wordInput.value,
             meaningVi: meaningInput.value,
             pronunciation: pronunciationInput.value,

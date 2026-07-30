@@ -26,9 +26,6 @@ import java.util.regex.Pattern;
 @Service
 public class DiscoveryVocabularyLearningService {
 
-    static final String DISCOVERY_DECK_TITLE = "Từ mới · Khám phá Hàn Quốc";
-    private static final String DISCOVERY_DECK_DESCRIPTION =
-            "Từ tiếng Hàn đã lưu khi đọc luồng Khám phá Hàn Quốc.";
     private static final Pattern HANGUL =
             Pattern.compile("[\\u1100-\\u11ff\\u3130-\\u318f\\uac00-\\ud7af]");
     private static final Pattern EDGE_PUNCTUATION =
@@ -94,9 +91,9 @@ public class DiscoveryVocabularyLearningService {
         String word = normalizeWord(request == null ? null : request.word());
         DictionaryEntry resolved = resolveEntry(articleId, word).orElse(null);
 
-        String meaning = resolved == null
+        String meaning = conciseMeaning(resolved == null
                 ? normalizeRequired(request == null ? null : request.meaningVi(), "Nhập nghĩa tiếng Việt trước khi lưu")
-                : resolved.meaningVi();
+                : resolved.meaningVi());
         String pronunciation = resolved == null
                 ? normalizeOptional(request.pronunciation(), 180)
                 : resolved.pronunciation();
@@ -107,13 +104,13 @@ public class DiscoveryVocabularyLearningService {
                 ? safeDictionaryUrl(request.dictionaryUrl())
                 : resolved.dictionaryUrl();
 
-        FlashcardDeck deck = deckRepository
-                .findFirstByOwnerIdAndTitleOrderByIdAsc(userId, DISCOVERY_DECK_TITLE)
-                .orElseGet(() -> deckRepository.save(new FlashcardDeck(
-                        userId,
-                        DISCOVERY_DECK_TITLE,
-                        DISCOVERY_DECK_DESCRIPTION
-                )));
+        if (request == null || request.deckId() == null) {
+            throw new IllegalArgumentException("Hãy chọn bộ thẻ muốn lưu.");
+        }
+        FlashcardDeck deck = deckRepository.findById(request.deckId())
+                .filter(value -> value.getOwnerId().equals(userId))
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Không tìm thấy bộ thẻ thuộc tài khoản của bạn."));
 
         Optional<Flashcard> existing =
                 cardRepository.findFirstByDeckIdAndFrontText(deck.getId(), word);
@@ -125,7 +122,7 @@ public class DiscoveryVocabularyLearningService {
         Flashcard card = cardRepository.save(new Flashcard(
                 deck.getId(),
                 word,
-                buildBack(meaning, pronunciation, partOfSpeech, dictionaryUrl, article),
+                meaning,
                 sortOrder
         ));
         return result(deck, card, false);
@@ -182,6 +179,11 @@ public class DiscoveryVocabularyLearningService {
         return normalized;
     }
 
+    private static String conciseMeaning(String value) {
+        int separator = value.indexOf(" — ");
+        return separator > 0 ? value.substring(0, separator).trim() : value;
+    }
+
     private static String normalizeOptional(String value, int maxLength) {
         if (value == null || value.isBlank()) {
             return null;
@@ -198,28 +200,6 @@ public class DiscoveryVocabularyLearningService {
         }
         String normalized = value.trim();
         return normalized.startsWith("https://krdict.korean.go.kr/") ? normalized : null;
-    }
-
-    private static String buildBack(
-            String meaning,
-            String pronunciation,
-            String partOfSpeech,
-            String dictionaryUrl,
-            NewsArticle article
-    ) {
-        StringBuilder back = new StringBuilder(meaning);
-        if (pronunciation != null) {
-            back.append("\nPhát âm: ").append(pronunciation);
-        }
-        if (partOfSpeech != null) {
-            back.append("\nTừ loại: ").append(partOfSpeech);
-        }
-        back.append("\nTừ bài: ").append(article.getDisplayTitle());
-        back.append("\nNguồn: ").append(article.getCanonicalUrl());
-        if (dictionaryUrl != null) {
-            back.append("\nTừ điển: ").append(dictionaryUrl);
-        }
-        return back.toString();
     }
 
     private static SaveVocabularyResult result(

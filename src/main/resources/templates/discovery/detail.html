@@ -325,7 +325,7 @@
   Tra nghĩa &amp; lưu
 </button>
 
-<aside th:if="${article.containsKorean}"
+<aside th:if="${article.containsKorean or not article.vocabulary.isEmpty()}"
        class="vocab-drawer"
        data-vocab-drawer
        th:attr="data-article-id=${article.id}"
@@ -349,20 +349,20 @@
     <input type="hidden" data-vocab-word-input>
     <input type="hidden" data-vocab-dictionary-url>
     <label>
-      <span>Nghĩa tiếng Việt</span>
-      <textarea rows="3" maxlength="1000" data-vocab-meaning
+      <span>Nghĩa ở mặt sau</span>
+      <textarea rows="2" maxlength="1000" data-vocab-meaning
                 placeholder="Nghĩa lấy từ Korean Basic Dictionary hoặc nhập thủ công"></textarea>
+      <small>Giữ ngắn gọn để ôn nhanh; bạn vẫn có thể chỉnh trước khi lưu.</small>
     </label>
-    <div class="vocab-drawer-fields">
-      <label>
-        <span>Phát âm</span>
-        <input maxlength="180" data-vocab-pronunciation placeholder="예: 문화">
-      </label>
-      <label>
-        <span>Từ loại</span>
-        <input maxlength="80" data-vocab-part-of-speech placeholder="예: 명사">
-      </label>
-    </div>
+    <label>
+      <span>Lưu vào bộ thẻ</span>
+      <select data-vocab-deck required>
+        <option value="">Đang tải các bộ thẻ của bạn…</option>
+      </select>
+      <small>Không tự tạo bộ mới. Bạn chọn chính xác bộ sẽ nhận từ này.</small>
+    </label>
+    <input type="hidden" data-vocab-pronunciation>
+    <input type="hidden" data-vocab-part-of-speech>
     <div class="vocab-drawer-actions">
       <button type="submit" class="vocab-save-button" data-vocab-save disabled>
         Lưu vào flashcard
@@ -381,6 +381,6 @@
   <p>Luôn đọc nguồn gốc trước khi trích dẫn hoặc chia sẻ thông tin.</p>
 </footer>
 
-<script th:src="@{/js/discovery.js(v='4')}" defer></script>
+<script th:src="@{/js/discovery.js(v='7')}" defer></script>
 </body>
 </html>

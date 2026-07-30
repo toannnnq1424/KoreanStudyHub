@@ -2329,8 +2329,15 @@ a.story-art:hover .story-art-image {
   text-transform: uppercase;
 }
 
+.vocab-drawer label > small {
+  color: #7b8799;
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
 .vocab-drawer textarea,
-.vocab-drawer input {
+.vocab-drawer input,
+.vocab-drawer select {
   width: 100%;
   border: 1px solid #d4ddeb;
   border-radius: 11px;
@@ -2341,8 +2348,14 @@ a.story-art:hover .story-art-image {
 }
 
 .vocab-drawer textarea {
-  resize: vertical;
+  min-height: 72px;
+  resize: none;
   padding: 11px 12px;
+}
+
+.vocab-drawer select {
+  height: 44px;
+  padding: 0 36px 0 12px;
 }
 
 .vocab-drawer input {
@@ -2351,7 +2364,8 @@ a.story-art:hover .story-art-image {
 }
 
 .vocab-drawer textarea:focus,
-.vocab-drawer input:focus {
+.vocab-drawer input:focus,
+.vocab-drawer select:focus {
   border-color: var(--discover-blue);
   box-shadow: 0 0 0 3px rgba(36, 92, 219, .1);
 }
