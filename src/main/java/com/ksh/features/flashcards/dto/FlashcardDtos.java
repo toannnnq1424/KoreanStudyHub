@@ -50,15 +50,31 @@ public final class FlashcardDtos {
      * @param front front text
      * @param back  back text
      */
-    public record CardView(Long id, String front, String back) {
+    public record CardView(Long id, String front, String back,
+                           String frontImage, String backImage, String alternativesJson) {
+        public CardView(Long id, String front, String back) {
+            this(id, front, back, null, null, null);
+        }
     }
 
-    /** A submitted card item (bulk save); text-only. */
-    public record CardItem(Long id, String front, String back) {
+    /** A submitted card item (bulk save); rich fields are optional. */
+    public record CardItem(Long id, String front, String back,
+                           String frontImage, String backImage, String alternativesJson) {
+        public CardItem(Long id, String front, String back) {
+            this(id, front, back, null, null, null);
+        }
     }
 
     /** Bulk card-save request body. */
     public record SaveCardsRequest(List<CardItem> cards) {
+    }
+
+    /** Creates a deck and its initial cards through the editor JSON workflow. */
+    public record CreateDeckRequest(String title, String description, List<CardItem> cards) {
+    }
+
+    /** Ordered persisted cards returned to the editor so deferred media can be uploaded. */
+    public record DeckSaveResult(Long deckId, List<CardView> cards) {
     }
 
     /** Recall-rating request body (quality already mapped from the UI button). */
@@ -91,7 +107,14 @@ public final class FlashcardDtos {
     public record DeckDetailView(Long id, String title, String description,
                                  long cardCount, boolean owner, boolean shared,
                                  Long classId, String className,
-                                 List<ClassOption> shareClasses) {
+                                 List<ClassOption> shareClasses, String ownerName) {
+        public DeckDetailView(Long id, String title, String description,
+                              long cardCount, boolean owner, boolean shared,
+                              Long classId, String className,
+                              List<ClassOption> shareClasses) {
+            this(id, title, description, cardCount, owner, shared,
+                    classId, className, shareClasses, null);
+        }
     }
 
     /**
