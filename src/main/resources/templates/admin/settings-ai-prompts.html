@@ -21,10 +21,9 @@
         </nav>
 
         <h1 class="detail-title">Danh mục System Prompt</h1>
-        <p class="detail-sub">Quản lý danh mục system prompt cấp hệ thống.
-            Phiên bản hiện tại chỉ lưu và quản trị danh mục; chưa nối danh mục này
-            vào AI client hoặc luồng Luyện tập. Trạng thái bật/tắt chỉ thuộc phạm vi
-            danh mục quản trị.</p>
+        <p class="detail-sub">Quản lý system message dùng lại ở cấp hệ thống.
+            Hiện luồng sinh câu hỏi đã nối với prompt <code>AI_QUESTION_GENERATOR</code>;
+            các prompt khác chỉ có hiệu lực khi một luồng nghiệp vụ tham chiếu đúng tên.</p>
 
         <!-- Flash → toast on page load (admin.js drains this node). -->
         <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
@@ -135,8 +134,15 @@
         <section class="settings-form-panel" id="aiPromptForm">
             <h2 class="panel-title"
                 th:text="${form.id} != null ? 'Sửa system prompt' : 'Thêm system prompt'">Thêm system prompt</h2>
-            <p class="panel-sub">Đặt tên dễ nhận biết — đây là tên hiển thị khi các
-                màn hình khác chọn prompt.</p>
+            <p class="panel-sub">Tạo và quản lý nội dung system message. Prompt chỉ có hiệu lực
+                khi một luồng runtime tham chiếu đúng tên kỹ thuật của nó.</p>
+
+            <div class="ai-prompt-runtime-note" role="note">
+                <strong>Runtime đang hỗ trợ</strong>
+                <span>Luồng sinh câu hỏi đọc prompt đang bật có tên chính xác
+                    <code>AI_QUESTION_GENERATOR</code>. Các tên khác hiện chỉ được lưu trong danh mục,
+                    chưa tự động gắn với AI provider hoặc màn hình nghiệp vụ.</span>
+            </div>
 
             <form th:action="@{/admin/settings/ai/prompts}" method="post"
                   th:object="${form}" class="settings-form" novalidate>
@@ -149,7 +155,7 @@
                     <div class="form-row">
                         <label for="name">Tên <span class="req" aria-hidden="true">*</span></label>
                         <input type="text" id="name" th:field="*{name}"
-                               placeholder="Trợ giảng môn học" autocomplete="off"
+                               placeholder="AI_QUESTION_GENERATOR" autocomplete="off"
                                maxlength="100" required aria-required="true"
                                th:attr="aria-invalid=${#fields.hasErrors('name')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('name')} ? 'name-error' : ''">
                         <span id="name-error" class="field-error" role="alert"

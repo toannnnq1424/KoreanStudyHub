@@ -634,11 +634,61 @@
 
 .ai-check-wrap .field-hint { margin: 0; }
 
+.dictionary-settings-panel {
+    max-width: 920px;
+}
+
+.dictionary-settings-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.dictionary-settings-head .panel-sub {
+    margin-bottom: 0;
+}
+
+.dictionary-scope-note,
+.ai-prompt-runtime-note {
+    display: grid;
+    gap: 5px;
+    margin: 20px 0 0;
+    padding: 14px 16px;
+    border: 1px solid #cfe0fb;
+    border-radius: 12px;
+    background: #f4f8ff;
+    color: #526178;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.dictionary-scope-note strong,
+.ai-prompt-runtime-note strong {
+    color: #1e3a6d;
+    font-size: 13px;
+}
+
+.ai-prompt-runtime-note {
+    margin-bottom: 22px;
+}
+
+.ai-prompt-runtime-note code {
+    width: fit-content;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #e6efff;
+    color: #244d93;
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .admin-list-empty .btn { margin-top: 12px; }
 
 @media (max-width: 720px) {
     .ai-cell-url { max-width: 160px; }
     .ai-key-text { min-width: 80px; max-width: 140px; }
+    .dictionary-settings-head { display: grid; gap: 12px; }
 }
 
 /* ── AI request logs ──────────────────────────────────────────────── */

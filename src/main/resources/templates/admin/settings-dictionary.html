@@ -11,21 +11,43 @@
   <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
   <main class="col">
     <nav class="detail-breadcrumb"><a th:href="@{/admin/settings}">Cài đặt</a><span>/</span><span>Từ điển Hàn–Việt</span></nav>
-    <h1 class="detail-title">Korean Basic Dictionary</h1>
+    <h1 class="detail-page-title">Từ điển Hàn–Việt</h1>
     <p class="detail-sub">Cấu hình thư viện tra cứu Hàn → Việt dùng chung cho toàn KSH, ngoại trừ khu vực Practice.</p>
     <div th:if="${flashSuccess}" class="alert alert-success" th:text="${flashSuccess}"></div>
     <div th:if="${flashError}" class="alert alert-danger" th:text="${flashError}"></div>
-    <section class="panel">
-      <div class="panel-head">
-        <div><h2>KRDICT Open API</h2><p>API key được lưu phía server và áp dụng ngay, không cần restart.</p></div>
-        <span class="badge" th:text="${configured ? 'Đã kết nối' : 'Chưa cấu hình'}">Chưa cấu hình</span>
+    <section class="settings-form-panel dictionary-settings-panel">
+      <div class="dictionary-settings-head">
+        <div>
+          <h2 class="panel-title">Korean Basic Dictionary Open API</h2>
+          <p class="panel-sub">Thông tin xác thực được mã hóa phía server và áp dụng ngay sau khi lưu.</p>
+        </div>
+        <span class="ai-badge" th:classappend="${configured ? ' ai-badge-on' : ' ai-badge-off'}"
+              th:text="${configured ? 'Đã cấu hình' : 'Chưa cấu hình'}">Chưa cấu hình</span>
       </div>
-      <form method="post" th:action="@{/admin/settings/dictionary}" th:object="${form}" class="stack-form">
+      <form method="post" th:action="@{/admin/settings/dictionary}" th:object="${form}" class="settings-form" novalidate>
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-        <label><span>API key KRDICT</span><input type="password" th:field="*{apiKey}" autocomplete="new-password" placeholder="32 ký tự hex hoặc giữ nguyên giá trị đã che"></label>
-        <label><span>Base URL</span><input type="url" th:field="*{baseUrl}" required></label>
-        <p class="field-help">Từ điển chỉ tra Hàn → Việt. Người dùng có thể bôi đen từ Hàn ở các màn ngoài Practice, xem nghĩa rồi chọn bộ flashcard để lưu.</p>
-        <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+        <fieldset class="settings-fieldset">
+          <legend>Kết nối KRDICT</legend>
+          <div class="form-row">
+            <label for="dictionaryApiKey">API key</label>
+            <input id="dictionaryApiKey" type="password" th:field="*{apiKey}" autocomplete="new-password"
+                   maxlength="500" placeholder="Nhập API key 32 ký tự">
+            <p class="field-hint">Giữ nguyên giá trị đã che để không thay đổi key hiện tại.</p>
+          </div>
+          <div class="form-row">
+            <label for="dictionaryBaseUrl">Base URL</label>
+            <input id="dictionaryBaseUrl" type="text" th:field="*{baseUrl}" maxlength="500" required>
+            <p class="field-hint">Chỉ chấp nhận endpoint chính thức thuộc <code>krdict.korean.go.kr</code>.</p>
+          </div>
+        </fieldset>
+        <div class="dictionary-scope-note">
+          <strong>Phạm vi sử dụng</strong>
+          <span>Tra Hàn → Việt và lưu vào bộ flashcard người dùng chọn trên toàn KSH; tự động tắt trong Practice.</span>
+        </div>
+        <div class="settings-form-actions">
+          <a th:href="@{/admin/settings}" class="btn btn-ghost">Quay lại</a>
+          <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+        </div>
       </form>
     </section>
   </main>
