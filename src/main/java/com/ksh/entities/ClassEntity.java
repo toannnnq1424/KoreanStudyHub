@@ -32,6 +32,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClassEntity {
 
+    public static final String STATUS_DRAFT = "DRAFT";
+    public static final String STATUS_UPCOMING = "UPCOMING";
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_REJECTED = "REJECTED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -78,6 +85,15 @@ public class ClassEntity {
     @Column(name = "is_deleted")
     private boolean deleted = false;
 
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_note", length = 500)
+    private String rejectionNote;
+
     /**
      * Creates a new class for the create flow.
      * The status is set to {@code UPCOMING} by default.
@@ -101,7 +117,7 @@ public class ClassEntity {
         this.startDate = startDate;
         this.endDate = endDate;
         this.maxStudents = maxStudents != null ? maxStudents : 100;
-        this.status = "UPCOMING";
+        this.status = STATUS_DRAFT;
     }
 
     // ── Business helpers ───────────────────────────────────────────
@@ -144,5 +160,27 @@ public class ClassEntity {
      */
     public void reassignLecturer(Long lecturerId) {
         this.lecturerId = lecturerId;
+    }
+
+    public void approve(Long reviewerId, LocalDateTime reviewedAt) {
+        requireDraft();
+        this.status = STATUS_UPCOMING;
+        this.approvedBy = reviewerId;
+        this.approvedAt = reviewedAt;
+        this.rejectionNote = null;
+    }
+
+    public void reject(Long reviewerId, String note, LocalDateTime reviewedAt) {
+        requireDraft();
+        this.status = STATUS_REJECTED;
+        this.approvedBy = reviewerId;
+        this.approvedAt = reviewedAt;
+        this.rejectionNote = note == null || note.isBlank() ? null : note.trim();
+    }
+
+    private void requireDraft() {
+        if (!STATUS_DRAFT.equals(status)) {
+            throw new IllegalStateException("Lớp không còn ở trạng thái chờ duyệt");
+        }
     }
 }

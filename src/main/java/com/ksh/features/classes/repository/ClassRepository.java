@@ -102,6 +102,9 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     /** Non-deleted classes owned by a department, newest first. */
     List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
 
+    List<ClassEntity> findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
+            Long departmentId, String status);
+
     /** Paginated department-scoped class list. */
     Page<ClassEntity> findAllByDepartmentId(Long departmentId, Pageable pageable);
 
