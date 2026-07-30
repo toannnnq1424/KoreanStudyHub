@@ -36,7 +36,7 @@ class NewsAiEditorialServiceTest {
         when(articles.findById(7L)).thenReturn(Optional.of(article));
         when(prompts.findByNameAndEnabledTrue(NewsAiEditorialService.PROMPT_NAME))
                 .thenReturn(Optional.empty());
-        when(client.chat(ArgumentMatchers.anyString(), ArgumentMatchers.anyString(),
+        when(client.chatJsonObject(ArgumentMatchers.anyString(), ArgumentMatchers.anyString(),
                 ArgumentMatchers.eq(2_400), ArgumentMatchers.isNull(),
                 ArgumentMatchers.eq(SOURCE_DISCOVERY_NEWS)))
                 .thenReturn("""

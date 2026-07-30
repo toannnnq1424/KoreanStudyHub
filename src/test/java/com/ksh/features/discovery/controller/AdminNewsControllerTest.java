@@ -34,7 +34,7 @@ class AdminNewsControllerTest {
 
         assertThat(view).isEqualTo("redirect:/discover");
         assertThat(attributes.getFlashAttributes().get("newsRefreshMessage"))
-                .isEqualTo("Lần cào #42: SUCCEEDED · mới 3 · loại 2 · trùng 9 · blacklist 4 · lỗi 1 · AI xong 2 · AI lỗi 1");
+                .isEqualTo("Lần cào #42: SUCCEEDED · mới 3 · loại 2 · trùng 9 · blacklist 4 · lỗi 1. Chưa gọi AI; hãy chọn bài cần biên tập ở danh sách bên dưới.");
         verify(orchestrator).run(NewsIngestionOrchestrator.Trigger.MANUAL);
     }
 
@@ -56,7 +56,7 @@ class AdminNewsControllerTest {
 
         String view = controller.deleteArticles(null, true, 2, attributes);
 
-        assertThat(view).isEqualTo("redirect:/admin/news?page=2");
+        assertThat(view).isEqualTo("redirect:/admin/news?page=2#articles");
         assertThat(attributes.getFlashAttributes().get("newsArticlesMessage").toString())
                 .contains("Đã xóa 0 bài");
     }
@@ -69,7 +69,7 @@ class AdminNewsControllerTest {
 
         String view = controller.blacklistArticles(null, 3, attributes);
 
-        assertThat(view).isEqualTo("redirect:/admin/news?page=3");
+        assertThat(view).isEqualTo("redirect:/admin/news?page=3#articles");
         assertThat(attributes.getFlashAttributes().get("newsArticlesMessage").toString())
                 .contains("Đã blacklist 2 link");
     }

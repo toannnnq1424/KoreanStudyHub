@@ -1,6 +1,7 @@
 package com.ksh.features.discovery.controller;
 
 import com.ksh.features.discovery.ingestion.NewsIngestionOrchestrator;
+import com.ksh.features.discovery.ai.NewsAiEditorialService;
 import com.ksh.features.discovery.service.AdminNewsService;
 import com.ksh.features.discovery.service.DiscoveryDictionarySettingsService;
 import com.ksh.security.KshUserDetails;
@@ -28,6 +29,7 @@ public class AdminNewsController {
     private final AdminNewsService adminNewsService;
     private final NewsIngestionOrchestrator orchestrator;
     private final DiscoveryDictionarySettingsService dictionarySettingsService;
+    private final NewsAiEditorialService aiEditorialService;
     private final boolean rawPreviewEnabled;
     private final String environmentDictionaryApiKey;
 
@@ -36,12 +38,14 @@ public class AdminNewsController {
             AdminNewsService adminNewsService,
             NewsIngestionOrchestrator orchestrator,
             DiscoveryDictionarySettingsService dictionarySettingsService,
+            NewsAiEditorialService aiEditorialService,
             @Value("${app.news.raw-preview-enabled:false}") boolean rawPreviewEnabled,
             @Value("${app.news.dictionary.api-key:}") String environmentDictionaryApiKey
     ) {
         this.adminNewsService = adminNewsService;
         this.orchestrator = orchestrator;
         this.dictionarySettingsService = dictionarySettingsService;
+        this.aiEditorialService = aiEditorialService;
         this.rawPreviewEnabled = rawPreviewEnabled;
         this.environmentDictionaryApiKey = environmentDictionaryApiKey;
     }
@@ -51,17 +55,18 @@ public class AdminNewsController {
             NewsIngestionOrchestrator orchestrator,
             boolean rawPreviewEnabled
     ) {
-        this(adminNewsService, orchestrator, null, rawPreviewEnabled, "");
+        this(adminNewsService, orchestrator, null, null, rawPreviewEnabled, "");
     }
 
     @GetMapping
     public String index(
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "runId", required = false) Long runId,
+            @RequestParam(name = "aiRunId", required = false) Long aiRunId,
             @RequestParam(name = "ai", required = false) String aiStatus,
             Model model
     ) {
-        model.addAttribute("overview", adminNewsService.overview(page, runId, aiStatus));
+        model.addAttribute("overview", adminNewsService.overview(page, runId, aiRunId, aiStatus));
         if (dictionarySettingsService == null) {
             model.addAttribute("dictionaryKeyConfigured", false);
             model.addAttribute("dictionaryKeyMask", "");
@@ -124,8 +129,7 @@ public class AdminNewsController {
                         + " · trùng " + summary.duplicates()
                         + " · blacklist " + summary.blacklisted()
                         + " · lỗi " + summary.errors()
-                        + " · AI xong " + summary.aiGenerated()
-                        + " · AI lỗi " + summary.aiFailed()
+                        + ". Chưa gọi AI; hãy chọn bài cần biên tập ở danh sách bên dưới."
         );
         return "discover".equals(returnTo)
                 ? "redirect:/discover"
@@ -166,7 +170,7 @@ public class AdminNewsController {
                         + " bài · blacklist " + result.blacklistedCount()
                         + " link · bỏ qua " + result.skippedCount() + " link"
         );
-        return "redirect:/admin/news?page=" + Math.max(1, page);
+        return "redirect:/admin/news?page=" + Math.max(1, page) + "#articles";
     }
 
     @PostMapping("/articles/blacklist")
@@ -181,6 +185,22 @@ public class AdminNewsController {
                 "Đã blacklist " + result.blacklistedCount()
                         + " link · bỏ qua " + result.skippedCount() + " link"
         );
-        return "redirect:/admin/news?page=" + Math.max(1, page);
+        return "redirect:/admin/news?page=" + Math.max(1, page) + "#articles";
+    }
+
+    @PostMapping("/articles/ai-editorial")
+    public String aiEditorial(
+            @RequestParam(name = "articleIds", required = false) Collection<Long> articleIds,
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            RedirectAttributes redirectAttributes
+    ) {
+        NewsAiEditorialService.EnrichmentSummary result = aiEditorialService.enrichSelected(articleIds);
+        redirectAttributes.addFlashAttribute(
+                "newsArticlesMessage",
+                "AI đã biên tập " + result.generated() + "/" + result.candidates()
+                        + " bài đã chọn · lỗi " + result.failed()
+                        + ". Xem số token trong Nhật ký AI."
+        );
+        return "redirect:/admin/news?page=" + Math.max(1, page) + "#articles";
     }
 }

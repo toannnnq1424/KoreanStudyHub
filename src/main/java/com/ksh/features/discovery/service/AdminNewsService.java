@@ -45,7 +45,7 @@ public class AdminNewsService {
         this.vocabularyEnrichmentService = vocabularyEnrichmentService;
     }
 
-    public Overview overview(int page, Long runId, String aiStatus) {
+    public Overview overview(int page, Long runId, Long aiRunId, String aiStatus) {
         int safePage = Math.max(1, page);
         String safeAiStatus = switch (aiStatus == null ? "" : aiStatus.trim().toLowerCase()) {
             case "generated", "pending", "failed" -> aiStatus.trim().toLowerCase();
@@ -61,9 +61,10 @@ public class AdminNewsService {
                 articleRepository.countByImageUrlIsNotNull(),
                 vocabularyEnrichmentService.isDictionaryConfigured(),
                 runId,
+                aiRunId,
                 safeAiStatus,
                 articleRepository.findAdminArticles(
-                        runId, safeAiStatus, PageRequest.of(safePage - 1, PAGE_SIZE))
+                        runId, aiRunId, safeAiStatus, PageRequest.of(safePage - 1, PAGE_SIZE))
         );
     }
 
@@ -145,6 +146,7 @@ public class AdminNewsService {
             long imageCount,
             boolean dictionaryConfigured,
             Long selectedRunId,
+            Long selectedAiRunId,
             String selectedAiStatus,
             Page<NewsArticle> recentArticles
     ) {

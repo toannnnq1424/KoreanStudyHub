@@ -1,7 +1,6 @@
 package com.ksh.features.discovery.ingestion;
 
 import com.ksh.features.discovery.dictionary.NewsVocabularyEnrichmentService;
-import com.ksh.features.discovery.ai.NewsAiEditorialService;
 import com.ksh.features.discovery.entity.NewsIngestionRun;
 import com.ksh.features.discovery.entity.NewsSource;
 import com.ksh.features.discovery.entity.NewsSourceType;
@@ -31,7 +30,6 @@ public class NewsIngestionOrchestrator {
     private final NewsSourceContentCrawler contentCrawler;
     private final NewsIngestionLease ingestionLease;
     private final NewsVocabularyEnrichmentService vocabularyEnrichmentService;
-    private final NewsAiEditorialService aiEditorialService;
     private final NewsBlacklistService blacklistService;
     private final Map<NewsSourceType, NewsSourceAdapter> adapters;
 
@@ -42,7 +40,6 @@ public class NewsIngestionOrchestrator {
             NewsSourceContentCrawler contentCrawler,
             NewsIngestionLease ingestionLease,
             NewsVocabularyEnrichmentService vocabularyEnrichmentService,
-            NewsAiEditorialService aiEditorialService,
             NewsBlacklistService blacklistService,
             List<NewsSourceAdapter> adapters
     ) {
@@ -52,7 +49,6 @@ public class NewsIngestionOrchestrator {
         this.contentCrawler = contentCrawler;
         this.ingestionLease = ingestionLease;
         this.vocabularyEnrichmentService = vocabularyEnrichmentService;
-        this.aiEditorialService = aiEditorialService;
         this.blacklistService = blacklistService;
         this.adapters = new EnumMap<>(NewsSourceType.class);
         adapters.forEach(adapter -> this.adapters.put(adapter.supportedType(), adapter));
@@ -78,10 +74,6 @@ public class NewsIngestionOrchestrator {
                 ingestSource(source, run);
             }
             vocabularyEnrichmentService.enrichRecentMissing();
-            NewsAiEditorialService.EnrichmentSummary aiSummary =
-                    aiEditorialService.enrichRecentMissing(run.getId());
-            run.setAiGeneratedCount(aiSummary.generated());
-            run.setAiFailedCount(aiSummary.failed());
             run.setStatus(run.getErrorCount() == 0 ? "SUCCEEDED" : "PARTIAL");
         } catch (RuntimeException exception) {
             log.error("Korea Discovery ingestion failed", exception);

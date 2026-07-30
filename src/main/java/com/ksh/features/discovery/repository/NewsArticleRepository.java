@@ -33,6 +33,7 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             SELECT article
             FROM NewsArticle article
             WHERE (:runId IS NULL OR article.ingestionRunId = :runId)
+              AND (:aiRunId IS NULL OR article.aiGenerationRunId = :aiRunId)
               AND (
                     :aiStatus IS NULL
                     OR (:aiStatus = 'generated' AND article.aiGeneratedAt IS NOT NULL)
@@ -44,6 +45,7 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             """)
     Page<NewsArticle> findAdminArticles(
             @Param("runId") Long runId,
+            @Param("aiRunId") Long aiRunId,
             @Param("aiStatus") String aiStatus,
             Pageable pageable
     );
@@ -123,6 +125,17 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
             ORDER BY article.rankScore DESC, article.publishedAt DESC, article.id DESC
             """)
     List<NewsArticle> findAiEditorialCandidates(Pageable pageable);
+
+    @Query("""
+            SELECT article
+            FROM NewsArticle article
+            WHERE article.id IN :ids
+              AND article.status = com.ksh.features.discovery.entity.NewsArticleStatus.PUBLISHED
+              AND article.sourceBodyText IS NOT NULL
+              AND LENGTH(article.sourceBodyText) > 80
+            ORDER BY article.id
+            """)
+    List<NewsArticle> findAiEditorialCandidatesByIds(@Param("ids") List<Long> ids);
 
     long countByStatus(NewsArticleStatus status);
 
