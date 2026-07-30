@@ -47,13 +47,14 @@ class NewsAiEditorialServiceTest {
 
         NewsAiEditorialService service = new NewsAiEditorialService(
                 articles, prompts, client, new ObjectMapper());
-        NewsAiEditorialService.EnrichmentSummary summary = service.enrichRecentMissing();
+        NewsAiEditorialService.EnrichmentSummary summary = service.enrichRecentMissing(42L);
 
         assertThat(summary.generated()).isEqualTo(1);
         assertThat(article.getAiEditorialTitle()).isEqualTo("Ngày hội văn hóa Hàn Quốc");
         assertThat(article.getAiEditorialExcerpt()).isEqualTo("Những điểm chính của sự kiện.");
         assertThat(article.getAiEditorialBody()).contains("\n\n");
         assertThat(article.getAiGeneratedAt()).isNotNull();
+        assertThat(article.getAiGenerationRunId()).isEqualTo(42L);
         verify(articles).save(article);
     }
 }

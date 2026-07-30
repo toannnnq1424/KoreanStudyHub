@@ -57,9 +57,11 @@ public class AdminNewsController {
     @GetMapping
     public String index(
             @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "runId", required = false) Long runId,
+            @RequestParam(name = "ai", required = false) String aiStatus,
             Model model
     ) {
-        model.addAttribute("overview", adminNewsService.overview(page));
+        model.addAttribute("overview", adminNewsService.overview(page, runId, aiStatus));
         if (dictionarySettingsService == null) {
             model.addAttribute("dictionaryKeyConfigured", false);
             model.addAttribute("dictionaryKeyMask", "");
@@ -122,10 +124,12 @@ public class AdminNewsController {
                         + " · trùng " + summary.duplicates()
                         + " · blacklist " + summary.blacklisted()
                         + " · lỗi " + summary.errors()
+                        + " · AI xong " + summary.aiGenerated()
+                        + " · AI lỗi " + summary.aiFailed()
         );
         return "discover".equals(returnTo)
                 ? "redirect:/discover"
-                : "redirect:/admin/news";
+                : "redirect:/admin/news?runId=" + summary.runId();
     }
 
     @PostMapping("/reset-sample")

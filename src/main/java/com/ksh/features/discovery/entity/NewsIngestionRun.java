@@ -48,6 +48,12 @@ public class NewsIngestionRun {
     @Column(name = "error_count", nullable = false)
     private int errorCount;
 
+    @Column(name = "ai_generated_count", nullable = false)
+    private int aiGeneratedCount;
+
+    @Column(name = "ai_failed_count", nullable = false)
+    private int aiFailedCount;
+
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
 

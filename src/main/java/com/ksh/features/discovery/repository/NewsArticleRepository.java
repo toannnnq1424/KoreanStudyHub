@@ -32,6 +32,25 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     @Query("""
             SELECT article
             FROM NewsArticle article
+            WHERE (:runId IS NULL OR article.ingestionRunId = :runId)
+              AND (
+                    :aiStatus IS NULL
+                    OR (:aiStatus = 'generated' AND article.aiGeneratedAt IS NOT NULL)
+                    OR (:aiStatus = 'pending' AND article.aiGeneratedAt IS NULL
+                        AND article.aiGenerationError IS NULL)
+                    OR (:aiStatus = 'failed' AND article.aiGenerationError IS NOT NULL)
+                  )
+            ORDER BY article.ingestedAt DESC, article.id DESC
+            """)
+    Page<NewsArticle> findAdminArticles(
+            @Param("runId") Long runId,
+            @Param("aiStatus") String aiStatus,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT article
+            FROM NewsArticle article
             WHERE article.status = com.ksh.features.discovery.entity.NewsArticleStatus.PUBLISHED
               AND (:category IS NULL OR article.category = :category)
               AND (

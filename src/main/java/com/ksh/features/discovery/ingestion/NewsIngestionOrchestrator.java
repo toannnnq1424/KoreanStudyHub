@@ -78,7 +78,10 @@ public class NewsIngestionOrchestrator {
                 ingestSource(source, run);
             }
             vocabularyEnrichmentService.enrichRecentMissing();
-            aiEditorialService.enrichRecentMissing();
+            NewsAiEditorialService.EnrichmentSummary aiSummary =
+                    aiEditorialService.enrichRecentMissing(run.getId());
+            run.setAiGeneratedCount(aiSummary.generated());
+            run.setAiFailedCount(aiSummary.failed());
             run.setStatus(run.getErrorCount() == 0 ? "SUCCEEDED" : "PARTIAL");
         } catch (RuntimeException exception) {
             log.error("Korea Discovery ingestion failed", exception);
@@ -115,7 +118,7 @@ public class NewsIngestionOrchestrator {
                     NewsCandidate enriched = articleWriter.requiresContentFetch(candidate)
                             ? contentCrawler.enrichIfNeeded(source, candidate)
                             : candidate;
-                    applyResult(run, articleWriter.persist(source, enriched));
+                    applyResult(run, articleWriter.persist(source, enriched, run.getId()));
                 } catch (RuntimeException itemException) {
                     run.setErrorCount(run.getErrorCount() + 1);
                     log.warn(
@@ -184,7 +187,9 @@ public class NewsIngestionOrchestrator {
             int rejected,
             int duplicates,
             int blacklisted,
-            int errors
+            int errors,
+            int aiGenerated,
+            int aiFailed
     ) {
         static RunSummary from(NewsIngestionRun run) {
             return new RunSummary(
@@ -195,7 +200,9 @@ public class NewsIngestionOrchestrator {
                     run.getRejectedCount(),
                     run.getDuplicateCount(),
                     run.getBlacklistedCount(),
-                    run.getErrorCount()
+                    run.getErrorCount(),
+                    run.getAiGeneratedCount(),
+                    run.getAiFailedCount()
             );
         }
     }

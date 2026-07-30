@@ -30,6 +30,9 @@ public class NewsArticle {
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
+    @Column(name = "ingestion_run_id")
+    private Long ingestionRunId;
+
     @Column(name = "source_name", nullable = false, length = 180)
     private String sourceName;
 
@@ -71,6 +74,9 @@ public class NewsArticle {
 
     @Column(name = "ai_generated_at")
     private LocalDateTime aiGeneratedAt;
+
+    @Column(name = "ai_generation_run_id")
+    private Long aiGenerationRunId;
 
     @Column(name = "ai_generation_error", length = 1000)
     private String aiGenerationError;

@@ -27,25 +27,25 @@ class AdminNewsControllerTest {
     @Test
     void refreshRunsTheRealManualPipelineAndReturnsToDiscoveryFeed() {
         when(orchestrator.run(NewsIngestionOrchestrator.Trigger.MANUAL))
-                .thenReturn(new NewsIngestionOrchestrator.RunSummary(42L, "SUCCEEDED", 15, 3, 2, 9, 4, 1));
+                .thenReturn(new NewsIngestionOrchestrator.RunSummary(42L, "SUCCEEDED", 15, 3, 2, 9, 4, 1, 2, 1));
         RedirectAttributesModelMap attributes = new RedirectAttributesModelMap();
 
         String view = controller.refresh("discover", attributes);
 
         assertThat(view).isEqualTo("redirect:/discover");
         assertThat(attributes.getFlashAttributes().get("newsRefreshMessage"))
-                .isEqualTo("Lần cào #42: SUCCEEDED · mới 3 · loại 2 · trùng 9 · blacklist 4 · lỗi 1");
+                .isEqualTo("Lần cào #42: SUCCEEDED · mới 3 · loại 2 · trùng 9 · blacklist 4 · lỗi 1 · AI xong 2 · AI lỗi 1");
         verify(orchestrator).run(NewsIngestionOrchestrator.Trigger.MANUAL);
     }
 
     @Test
     void refreshOnlyAllowsTheKnownFeedRedirect() {
         when(orchestrator.run(NewsIngestionOrchestrator.Trigger.MANUAL))
-                .thenReturn(new NewsIngestionOrchestrator.RunSummary(43L, "SUCCEEDED", 0, 0, 0, 0, 0, 0));
+                .thenReturn(new NewsIngestionOrchestrator.RunSummary(43L, "SUCCEEDED", 0, 0, 0, 0, 0, 0, 0, 0));
 
         String view = controller.refresh("https://example.com", new RedirectAttributesModelMap());
 
-        assertThat(view).isEqualTo("redirect:/admin/news");
+        assertThat(view).isEqualTo("redirect:/admin/news?runId=43");
     }
 
     @Test

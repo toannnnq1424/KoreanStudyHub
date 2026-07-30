@@ -303,15 +303,15 @@
 }
 
 .news-article-table th:nth-child(2) {
-  width: 36%;
+  width: 28%;
 }
 
 .news-article-table th:nth-child(3) {
-  width: 17%;
+  width: 13%;
 }
 
 .news-article-table th:nth-child(4) {
-  width: 14%;
+  width: 11%;
 }
 
 .news-article-table th:nth-child(5) {
@@ -323,7 +323,11 @@
 }
 
 .news-article-table th:nth-child(7) {
-  width: 8%;
+  width: 23%;
+}
+
+.news-article-table th:nth-child(8) {
+  width: 7%;
 }
 
 .news-article-table thead th {
@@ -365,6 +369,106 @@
   color: var(--primary);
   font-size: 10.5px;
   font-weight: 800;
+}
+
+.news-run-new-link {
+  color: var(--primary);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.news-trace-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #dce4f2;
+  border-radius: 10px;
+  background: #f8faff;
+}
+
+.news-trace-filters label {
+  display: grid;
+  gap: 5px;
+  color: #637089;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.news-trace-filters select {
+  min-width: 170px;
+  padding: 8px 10px;
+  border: 1px solid #ccd7ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #263955;
+}
+
+.news-trace-filters > strong {
+  margin-left: auto;
+  color: #315ed8;
+  font-size: 11px;
+}
+
+.news-article-row.is-new-run td {
+  background: #f1f6ff;
+}
+
+.news-trace-cell {
+  min-width: 260px;
+}
+
+.news-trace-badge {
+  display: inline-flex;
+  margin: 0 4px 5px 0;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.news-trace-badge.is-crawl { background: #e7efff; color: #2758cb; }
+.news-trace-badge.is-ai { background: #e4f7ec; color: #197143; }
+.news-trace-badge.is-error { background: #ffebeb; color: #ad3434; }
+.news-trace-badge.is-pending { background: #f0f2f6; color: #68758a; }
+
+.news-ai-diff {
+  margin-top: 5px;
+  border-top: 1px solid #e4e9f2;
+  padding-top: 7px;
+}
+
+.news-ai-diff summary {
+  cursor: pointer;
+  color: #315ed8;
+  font-weight: 900;
+}
+
+.news-ai-diff div {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.news-ai-diff strong {
+  color: #233753;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.news-ai-diff p {
+  margin: 0 0 6px;
+  color: #58677d;
+  line-height: 1.45;
+}
+
+.news-ai-body-preview {
+  max-height: 130px;
+  overflow: auto;
+  white-space: pre-line;
 }
 
 .news-bulk-toolbar {

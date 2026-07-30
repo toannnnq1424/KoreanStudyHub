@@ -51,6 +51,10 @@ public class NewsAiEditorialService {
     }
 
     public EnrichmentSummary enrichRecentMissing() {
+        return enrichRecentMissing(null);
+    }
+
+    public EnrichmentSummary enrichRecentMissing(Long generationRunId) {
         List<NewsArticle> candidates = articleRepository.findAiEditorialCandidates(
                 PageRequest.of(0, BATCH_SIZE));
         int generated = 0;
@@ -58,10 +62,18 @@ public class NewsAiEditorialService {
         for (NewsArticle article : candidates) {
             try {
                 Editorial editorial = generate(article);
-                saveSuccess(article.getId(), editorial);
+                saveSuccess(article.getId(), editorial, generationRunId);
                 generated++;
-            } catch (AiClientException notConfigured) {
-                log.info("Discovery AI editorial skipped: {}", notConfigured.getMessage());
+            } catch (AiClientException providerFailure) {
+                if (providerFailure.getMessage() != null
+                        && providerFailure.getMessage().startsWith("Chưa cấu hình AI provider")) {
+                    log.info("Discovery AI editorial skipped: {}", providerFailure.getMessage());
+                    break;
+                }
+                failed++;
+                saveFailure(article.getId(), providerFailure);
+                log.warn("Discovery AI editorial providers failed for article {}: {}",
+                        article.getId(), providerFailure.getMessage());
                 break;
             } catch (RuntimeException exception) {
                 failed++;
@@ -106,12 +118,13 @@ public class NewsAiEditorialService {
     }
 
     @Transactional
-    protected void saveSuccess(Long articleId, Editorial editorial) {
+    protected void saveSuccess(Long articleId, Editorial editorial, Long generationRunId) {
         NewsArticle article = articleRepository.findById(articleId).orElseThrow();
         article.setAiEditorialTitle(editorial.titleVi());
         article.setAiEditorialExcerpt(editorial.excerptVi());
         article.setAiEditorialBody(editorial.bodyVi());
         article.setAiGeneratedAt(LocalDateTime.now());
+        article.setAiGenerationRunId(generationRunId);
         article.setAiGenerationError(null);
         article.setUpdatedAt(LocalDateTime.now());
         articleRepository.save(article);
