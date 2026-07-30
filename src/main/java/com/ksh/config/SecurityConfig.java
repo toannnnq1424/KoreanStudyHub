@@ -248,6 +248,7 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session
                         .sessionConcurrency(concurrency -> concurrency
+                                .maximumSessions(-1)
                                 .sessionRegistry(sessionRegistry())))
                 .addFilterBefore(
                         new LoginThrottleFilter(loginAttemptThrottle),
