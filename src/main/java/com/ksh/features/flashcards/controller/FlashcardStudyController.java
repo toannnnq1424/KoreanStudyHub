@@ -57,10 +57,11 @@ public class FlashcardStudyController {
     /** Flip study mode: all cards in order. */
     @GetMapping("/{id}/flip")
     public String flip(@PathVariable Long id,
+                       @RequestParam(name = "mix", required = false) List<Long> mixedDeckIds,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         DeckDetailView deck = deckService.getDetail(id, user.getId());
-        List<CardView> cards = studyService.getStudyCards(id, user.getId());
+        List<CardView> cards = populateStudySession(id, mixedDeckIds, user.getId(), deck, model);
         model.addAttribute(ATTR_DECK, deck);
         model.addAttribute(ATTR_CARDS_JSON, toJson(cards));
         return VIEW_FLASHCARD_FLIP;
@@ -84,41 +85,57 @@ public class FlashcardStudyController {
      * game state, scoring and timers intentionally stay in the browser and do
      * not create attempt/effort records.
      */
-    @GetMapping("/{id}/{mode:learn|test|match|blast|blocks}")
+    @GetMapping("/{id}/{mode:learn|test|match|blast|tiles|word-search|word-connect}")
     public String learning(@PathVariable Long id,
                            @PathVariable String mode,
                            @RequestParam(name = "mix", required = false) List<Long> mixedDeckIds,
                            @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
         DeckDetailView deck = deckService.getDetail(id, user.getId());
-        List<CardView> cards = new ArrayList<>(studyService.getStudyCards(id, user.getId()));
-        if ("match".equals(mode)) {
-            LinkedHashSet<Long> selectedIds = new LinkedHashSet<>();
-            selectedIds.add(id);
-            if (mixedDeckIds != null) {
-                mixedDeckIds.stream()
-                        .filter(deckId -> deckId != null && !deckId.equals(id))
-                        .limit(7)
-                        .forEach(selectedIds::add);
-            }
-            selectedIds.stream().skip(1)
-                    .forEach(deckId -> cards.addAll(studyService.getStudyCards(deckId, user.getId())));
-            var studyDeckOptions = deckService.listStudyDeckOptions(user.getId());
-            model.addAttribute("matchDeckOptionsJson", toJson(studyDeckOptions));
-            model.addAttribute("matchSelectedDeckIdsJson", toJson(selectedIds));
-            if (selectedIds.size() > 1) {
-                var sessionDecks = studyDeckOptions.stream()
-                        .filter(summary -> selectedIds.contains(summary.id()))
-                        .toList();
-                model.addAttribute("matchSessionDecks", sessionDecks);
-                model.addAttribute("matchSessionTitle",
-                        "Ghép " + sessionDecks.size() + " bộ · " + cards.size() + " thuật ngữ");
-            }
-        }
+        List<CardView> cards = populateStudySession(id, mixedDeckIds, user.getId(), deck, model);
         model.addAttribute(ATTR_DECK, deck);
         model.addAttribute(ATTR_CARDS_JSON, toJson(cards));
         model.addAttribute("activeMode", mode);
         return VIEW_FLASHCARD_LEARNING;
+    }
+
+    /** Keeps old bookmarks working after replacing the Blocks prototype. */
+    @GetMapping("/{id}/blocks")
+    public String legacyBlocks(@PathVariable Long id) {
+        return "redirect:/my/flashcards/" + id + "/tiles";
+    }
+
+    /** Builds one read-only, client-side study session from up to eight viewable decks. */
+    private List<CardView> populateStudySession(Long primaryDeckId,
+                                                List<Long> mixedDeckIds,
+                                                Long userId,
+                                                DeckDetailView primaryDeck,
+                                                Model model) {
+        LinkedHashSet<Long> selectedIds = new LinkedHashSet<>();
+        selectedIds.add(primaryDeckId);
+        if (mixedDeckIds != null) {
+            mixedDeckIds.stream()
+                    .filter(deckId -> deckId != null && !deckId.equals(primaryDeckId))
+                    .limit(7)
+                    .forEach(selectedIds::add);
+        }
+
+        List<CardView> cards = new ArrayList<>();
+        selectedIds.forEach(deckId -> cards.addAll(studyService.getStudyCards(deckId, userId)));
+        var deckOptions = deckService.listStudyDeckOptions(userId);
+        var sessionDecks = deckOptions.stream()
+                .filter(summary -> selectedIds.contains(summary.id()))
+                .toList();
+        var mixedIds = selectedIds.stream().skip(1).toList();
+
+        model.addAttribute("studyDeckOptions", deckOptions);
+        model.addAttribute("studySelectedDeckIds", selectedIds);
+        model.addAttribute("studyMixedDeckIds", mixedIds);
+        model.addAttribute("studySessionDecks", sessionDecks);
+        model.addAttribute("studySessionTitle", selectedIds.size() > 1
+                ? selectedIds.size() + " bộ · " + cards.size() + " thuật ngữ"
+                : primaryDeck.title());
+        return cards;
     }
 
     /** Serializes the card list to a JSON string for the data attribute. */
