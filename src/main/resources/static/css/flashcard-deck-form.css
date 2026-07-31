@@ -29,6 +29,26 @@
 .fc-cards-tools svg, .fc-import-tpl svg, .fc-add-card-bottom svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; }
 .fc-import-tpl { display: inline-flex; align-items: center; gap: 6px; padding: 9px 4px; color: #5865f2; font-size: 12px; font-weight: 650; text-decoration: none; }
 .fc-import-tpl:hover { color: #3847d8; }
+.fc-cards-tools .fc-btn-ai { border-color: #d9dcf7; background: #f7f7ff; color: #4e59cc; }
+
+.fc-ai-panel { margin: 0 0 18px; padding: 18px; border: 1px solid #dfe3f3; border-radius: 14px; background: linear-gradient(145deg,#fbfbff,#f5f7fc); box-shadow: 0 8px 24px rgba(39,50,74,.06); }
+.fc-ai-panel[hidden] { display: none; }
+.fc-ai-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.fc-ai-panel-head h3 { margin: 0; color: #374054; font-size: 18px; }
+.fc-ai-panel-head .fc-icon-btn { flex: 0 0 auto; font-size: 22px; }
+.fc-ai-hint { max-width: 900px; margin: 10px 0 14px; color: #68738a; font-size: 13px; line-height: 1.55; }
+.fc-ai-label { display: block; margin: 0 0 7px; color: #4b556b; font-size: 12px; font-weight: 700; }
+.fc-ai-text { width: 100%; min-height: 112px; box-sizing: border-box; padding: 13px 14px; border: 1px solid #d8ddea; border-radius: 10px; background: #fff; color: #303648; font: inherit; line-height: 1.5; outline: none; resize: vertical; }
+.fc-ai-text:focus, .fc-ai-input:focus { border-color: #8792f7; box-shadow: 0 0 0 3px rgba(88,101,242,.1); }
+.fc-ai-options { display: grid; grid-template-columns: minmax(240px,1fr) 130px 170px; gap: 12px; margin-top: 12px; }
+.fc-ai-options label { display: flex; flex-direction: column; gap: 6px; color: #667085; font-size: 11px; font-weight: 650; }
+.fc-ai-file { justify-content: center; padding: 10px 12px; border: 1px dashed #cdd4e3; border-radius: 10px; background: #fff; cursor: pointer; }
+.fc-ai-file input { max-width: 100%; color: #59647b; font-size: 11px; }
+.fc-ai-input { min-height: 43px; padding: 9px 10px; border: 1px solid #d8ddea; border-radius: 10px; background: #fff; color: #394156; font: inherit; outline: none; }
+.fc-ai-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.fc-ai-actions .fc-btn { min-height: 43px; }
+.fc-ai-state { color: #69748b; font-size: 12px; line-height: 1.45; }
+.fc-ai-state.is-error { color: #b54755; }
 
 .fc-card-row { position: relative; display: grid; grid-template-columns: 1fr; gap: 17px; margin-bottom: 14px; padding: 0 20px 20px; border: 1px solid #e6e9f0; border-radius: 12px; background: #fff; box-shadow: 0 5px 20px rgba(39,50,74,.065); transition: border-color .18s,box-shadow .18s,opacity .18s,transform .18s; }
 .fc-card-row:focus-within { border-color: #bdc4fb; box-shadow: 0 9px 28px rgba(66,85,214,.11); }
@@ -97,6 +117,7 @@
   .fc-row-sides { grid-template-columns: 1fr; }
   .fc-row-extra { grid-template-columns: 1fr; }
   .fc-alternative-field { grid-column: 1; }
+  .fc-ai-options { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .fc-save-top { min-width: 94px; padding: 0 16px; }
@@ -105,4 +126,6 @@
   .fc-cards-tools .fc-btn, .fc-import-tpl { font-size: 11px; }
   .fc-card-row { padding: 0 14px 16px; }
   .fc-form-actions .fc-btn { width: 100%; }
+  .fc-ai-actions { align-items: stretch; flex-direction: column; }
+  .fc-ai-actions .fc-btn { width: 100%; }
 }

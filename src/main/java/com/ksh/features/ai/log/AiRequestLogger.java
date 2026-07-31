@@ -35,6 +35,9 @@ public class AiRequestLogger {
     /** Marks an automatic editorial pass for Korea Discovery news. */
     public static final String SOURCE_DISCOVERY_NEWS = "DISCOVERY_NEWS";
 
+    /** Marks a document-backed flashcard generation call. */
+    public static final String SOURCE_FLASHCARD_GEN = "FLASHCARD_GEN";
+
     private final AiRequestLogWriter writer;
 
     AiRequestLogger(AiRequestLogWriter writer) {
