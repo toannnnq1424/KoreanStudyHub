@@ -176,6 +176,45 @@ class LeaderDepartmentIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
+    void approvals_page_renders_pending_class() throws Exception {
+        ClassEntity pending = new ClassEntity(
+                "Lớp chờ duyệt", lecturer.getId(), lecturer.getId(),
+                "desc", null, null, 50);
+        pending.setCode("HAP01");
+        pending.setDepartmentId(cntt.getId());
+        classRepository.save(pending);
+
+        mockMvc.perform(get("/leader/approvals"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("leader/approvals"))
+                .andExpect(model().attribute("emptyDepartment", false))
+                .andExpect(content().string(containsString("Lớp chờ duyệt")))
+                .andExpect(content().string(containsString("Duyệt")));
+    }
+
+    @Test
+    @WithUserDetails("leader@ksh.edu.vn")
+    void approve_class_moves_it_out_of_draft() throws Exception {
+        ClassEntity pending = new ClassEntity(
+                "Lớp được duyệt", lecturer.getId(), lecturer.getId(),
+                "desc", null, null, 50);
+        pending.setCode("HAP02");
+        pending.setDepartmentId(cntt.getId());
+        ClassEntity saved = classRepository.saveAndFlush(pending);
+
+        mockMvc.perform(post("/leader/approvals/" + saved.getId() + "/approve").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(view().name("redirect:/leader/approvals"))
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        ClassEntity approved = classRepository.findById(saved.getId()).orElseThrow();
+        assertThat(approved.getStatus()).isEqualTo(ClassEntity.STATUS_UPCOMING);
+        assertThat(approved.getApprovedBy()).isEqualTo(leader.getId());
+        assertThat(approved.getApprovedAt()).isNotNull();
+    }
+
+    @Test
+    @WithUserDetails("leader@ksh.edu.vn")
     void empty_state_when_no_department() throws Exception {
         // Clear leader assignment and department_id so resolver returns empty.
         for (Department d : departmentRepository.findAll()) {

@@ -94,6 +94,35 @@ class AiQuestionGenerationServiceTest {
     }
 
     @Test
+    void generate_retries_once_when_provider_reply_breaks_the_question_schema() {
+        GenerateRequest request = new GenerateRequest(3, Question.TYPE_MCQ, "medium");
+        List<DraftQuestion> drafts = drafts();
+        Preview preview = new Preview(
+                "3bde5f97-6573-44d8-94c7-019128de5e0b", drafts);
+        when(accessResolver.requireManageable(9L, 42L)).thenReturn(exam);
+        when(writer.hasStudentActivity(9L)).thenReturn(false);
+        when(extractor.normalizePastedText("material")).thenReturn("material");
+        when(promptBuilder.systemPrompt()).thenReturn("system");
+        when(promptBuilder.userMessage(request, "material")).thenReturn("user");
+        when(aiClient.chat("system", "user", 1_200, 42L,
+                AiRequestLogger.SOURCE_QUESTION_GEN)).thenReturn("bad");
+        when(parser.parse("bad", 3, Question.TYPE_MCQ))
+                .thenThrow(new IllegalArgumentException("invalid"));
+        when(promptBuilder.retrySystemPrompt()).thenReturn("retry-system");
+        when(promptBuilder.retryUserMessage(request, "material")).thenReturn("retry-user");
+        when(aiClient.chat("retry-system", "retry-user", 1_200, 42L,
+                AiRequestLogger.SOURCE_QUESTION_GEN)).thenReturn("fixed");
+        when(parser.parse("fixed", 3, Question.TYPE_MCQ)).thenReturn(drafts);
+        when(sessionStore.save(42L, 9L, drafts)).thenReturn(preview);
+
+        assertThat(service.generate(42L, 9L, null, "material", request))
+                .isEqualTo(preview);
+
+        verify(aiClient).chat("retry-system", "retry-user", 1_200, 42L,
+                AiRequestLogger.SOURCE_QUESTION_GEN);
+    }
+
+    @Test
     void confirm_locks_exam_then_session_and_consumes_after_append() {
         List<DraftQuestion> drafts = drafts();
         AiQuestionDraftSessionEntity entity = mock(AiQuestionDraftSessionEntity.class);

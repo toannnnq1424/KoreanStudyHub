@@ -58,6 +58,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String handleNotFound(Exception ex, HttpServletRequest request, Model model) {
         log.info("404 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        model.addAttribute("status", HttpStatus.NOT_FOUND.value());
         model.addAttribute("message",
                 ex.getMessage() != null ? ex.getMessage() : "Không tìm thấy nội dung yêu cầu.");
         return "error";
@@ -79,6 +80,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public String handleForbidden(AccessDeniedException ex, HttpServletRequest request, Model model) {
         log.info("403 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        model.addAttribute("status", HttpStatus.FORBIDDEN.value());
         model.addAttribute("message", "Bạn không có quyền thực hiện thao tác này.");
         return "error";
     }
@@ -127,6 +129,7 @@ public class GlobalExceptionHandler {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(AjaxResult.failure(message));
         }
+        model.addAttribute("status", HttpStatus.BAD_REQUEST.value());
         model.addAttribute("message", message);
         return "error";
     }
@@ -154,7 +157,8 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleUnexpected(Exception ex, HttpServletRequest request, Model model) {
         log.error("Loi khong xu ly tai [{}]: {}", request.getRequestURI(), ex.getMessage(), ex);
-        model.addAttribute("message", "Da co loi xay ra. Vui long thu lai sau.");
+        model.addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        model.addAttribute("message", "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
         return "error";
     }
 }

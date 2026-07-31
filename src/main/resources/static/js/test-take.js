@@ -137,6 +137,7 @@
 
         var attemptId = form.getAttribute('data-attempt-id');
         var remaining = parseInt(form.getAttribute('data-remaining'), 10);
+        var deadline = parseInt(form.getAttribute('data-deadline'), 10);
         var submitUrl = form.getAttribute('data-submit-url');
         var heartbeatUrl = form.getAttribute('data-heartbeat-url');
         var resultBase = form.getAttribute('data-result-base');
@@ -169,21 +170,36 @@
             doSubmit();
         });
 
-        // Countdown + auto-submit only when the exam has a timer (remaining >= 0).
-        if (remaining >= 0) {
-            var left = remaining;
-            if (timerValue) timerValue.textContent = formatClock(left);
-            var tick = setInterval(function () {
-                left -= 1;
+        // Recompute from the absolute server deadline on every tick. This stays
+        // accurate when browsers throttle timers in background tabs.
+        if (remaining >= 0 || deadline >= 0) {
+            var fallbackStartedAt = Date.now();
+            var tick = null;
+
+            function secondsLeft() {
+                if (deadline >= 0) {
+                    return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+                }
+                return Math.max(0, remaining
+                    - Math.floor((Date.now() - fallbackStartedAt) / 1000));
+            }
+
+            function renderCountdown() {
+                var left = secondsLeft();
                 if (timerValue) timerValue.textContent = formatClock(left);
                 if (left <= 0) {
-                    clearInterval(tick);
+                    if (tick) clearInterval(tick);
                     if (!submitting) {
                         toast('info', 'Hết giờ — bài của bạn đang được nộp tự động.');
                         doSubmit();
                     }
                 }
-            }, 1000);
+            }
+
+            renderCountdown();
+            if (!submitting && secondsLeft() > 0) {
+                tick = setInterval(renderCountdown, 1000);
+            }
         }
 
         // Lightweight heartbeat so the lecturer monitor sees activity.

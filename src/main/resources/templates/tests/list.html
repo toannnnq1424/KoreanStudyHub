@@ -29,21 +29,36 @@
 
     <div class="tst-grid" th:if="${examsPage.totalElements > 0}">
       <a th:each="exam : ${examsPage.content}" class="tst-card"
-         th:href="@{|/my/tests/${exam.id()}/take|}">
+         th:href="${exam.practice()}
+                  ? @{|/my/tests/${exam.id()}/take|}
+                  : @{|/my/tests/${exam.id()}|}">
         <div class="tst-card-body">
-          <span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
-                th:text="${exam.type()}">MOCK</span>
-          <span class="tst-badge tst-badge-practice" th:if="${exam.practice()}">Luyện tập</span>
+          <div class="tst-card-badges">
+            <span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
+                  th:text="${exam.type()}">MOCK</span>
+            <span class="tst-badge tst-badge-practice" th:if="${exam.practice()}">Luyện tập</span>
+            <span class="tst-attempt-pill tst-attempt-active"
+                  th:if="${!exam.practice() and exam.lastAttemptStatus() == 'IN_PROGRESS'}">Đang làm</span>
+            <span class="tst-attempt-pill tst-attempt-done"
+                  th:if="${!exam.practice() and (exam.lastAttemptStatus() == 'SUBMITTED' or exam.lastAttemptStatus() == 'TIMED_OUT')}">
+              Đã hoàn thành
+            </span>
+          </div>
           <h3 class="tst-card-title" th:text="${exam.title()}">Tên bài test</h3>
           <p class="tst-card-class" th:if="${exam.className() != null}"
              th:text="${exam.className()}">Lớp</p>
         </div>
         <div class="tst-card-foot">
           <span class="tst-meta" th:text="${exam.totalQuestions()} + ' câu'">0 câu</span>
-          <span class="tst-meta" th:if="${exam.durationMinutes() != null}"
+          <span class="tst-meta"
+                th:if="${exam.timeMode() == 'INDIVIDUAL' and exam.durationMinutes() != null}"
                 th:text="${exam.durationMinutes()} + ' phút'">30 phút</span>
+          <span class="tst-meta" th:if="${exam.timeMode() == 'FIXED_WINDOW'}">
+            Khung giờ chung
+          </span>
           <span class="tst-meta tst-meta-done" th:if="${exam.bestScorePercent() != null}"
-                th:text="'Điểm cao nhất: ' + ${exam.bestScorePercent()} + '%'">Điểm cao nhất</span>
+                th:text="'Điểm: ' + ${exam.bestScorePercent()} + '%'">Điểm</span>
+          <span class="tst-card-open" th:unless="${exam.practice()}">Xem chi tiết →</span>
         </div>
       </a>
     </div>

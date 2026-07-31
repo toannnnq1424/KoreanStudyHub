@@ -22,7 +22,7 @@ public final class TestDtos {
     public record ExamListRow(
             Long id, String title, String type, String status, String className,
             boolean practice, Integer durationMinutes, String timeMode,
-            LocalDateTime endAt, int totalQuestions,
+            LocalDateTime startAt, LocalDateTime endAt, int totalQuestions,
             String lastAttemptStatus, Integer bestScorePercent) {
     }
 
@@ -40,6 +40,31 @@ public final class TestDtos {
                                  Page<ExamListRow> exams) {
     }
 
+    /**
+     * Read-only landing page shown before a class exam starts. Merely viewing
+     * this DTO never creates an attempt or starts the student's timer.
+     */
+    public record StudentTestDetail(
+            Long id,
+            String title,
+            String description,
+            Long classId,
+            String className,
+            String type,
+            String timeMode,
+            Integer durationMinutes,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
+            int totalQuestions,
+            String availability,
+            Long attemptId,
+            String attemptStatus,
+            Integer scorePercent,
+            boolean canStart,
+            boolean canResume,
+            boolean completed) {
+    }
+
     // ── Taking screen ────────────────────────────────────────────────
 
     /** An option as shown while taking (never carries is_correct). */
@@ -53,7 +78,7 @@ public final class TestDtos {
 
     /** The full taking view: attempt, exam meta, remaining seconds, questions. */
     public record TakeView(Long attemptId, Long testId, String title, String description,
-                           String timeMode, long remainingSeconds,
+                           String timeMode, long remainingSeconds, long deadlineEpochMillis,
                            String mediaType, String mediaUrl, String mediaEmbedUrl,
                            List<TakeQuestionView> questions) {
     }

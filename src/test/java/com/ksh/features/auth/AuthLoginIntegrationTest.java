@@ -64,14 +64,14 @@ class AuthLoginIntegrationTest {
     }
 
     @Test
-    void dangNhap_dungThongTin_thanhCongVaChuyenVeTrangChu() throws Exception {
+    void dangNhap_dungThongTin_thanhCongVaChuyenVeKhuVucQuanTri() throws Exception {
         // withRoles() asserts an exact authority set, so it cannot be used now that RBAC
         // appends PERM_* alongside ROLE_*. The assertion below keeps the original intent:
         // logging in maps the account to its role.
         mockMvc.perform(formLogin("/login").user("admin@ksh.edu.vn").password("123456"))
                 .andExpect(authenticated().withAuthentication(
                         auth -> assertThat(authorityNames(auth)).contains("ROLE_ADMIN")))
-                .andExpect(redirectedUrl("/"));
+                .andExpect(redirectedUrl("/admin/dashboard"));
     }
 
     @Test

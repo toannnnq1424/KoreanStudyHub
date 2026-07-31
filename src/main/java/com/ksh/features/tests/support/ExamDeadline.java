@@ -5,6 +5,7 @@ import com.ksh.features.tests.entity.TestAttempt;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * Authoritative deadline computation shared by the taking view and the submit
@@ -34,7 +35,12 @@ public final class ExamDeadline {
         if (test.isIndividualTimer()) {
             Integer minutes = test.getDurationMinutes();
             if (minutes == null || minutes <= 0) return null;
-            return attempt.getStartedAt().plusMinutes(minutes);
+            LocalDateTime personalDeadline = attempt.getStartedAt().plusMinutes(minutes);
+            LocalDateTime availabilityEnd = test.getEndAt();
+            if (availabilityEnd != null && availabilityEnd.isBefore(personalDeadline)) {
+                return availabilityEnd;
+            }
+            return personalDeadline;
         }
         // FIXED_WINDOW: the shared exam end time.
         return test.getEndAt();
@@ -56,5 +62,31 @@ public final class ExamDeadline {
         LocalDateTime deadline = deadline(test, attempt);
         if (deadline == null) return false;
         return now.isAfter(deadline.plusSeconds(GRACE_SECONDS));
+    }
+
+    /**
+     * Absolute client deadline. Using an epoch value lets the browser recompute
+     * the countdown after background-tab throttling instead of drifting one
+     * second per delayed interval tick.
+     */
+    public static long deadlineEpochMillis(Test test, TestAttempt attempt) {
+        LocalDateTime deadline = deadline(test, attempt);
+        return deadline == null
+                ? NO_TIMER
+                : deadline.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    /**
+     * Reported work time, capped at the authoritative deadline. A request that
+     * arrives late must not record more work time than the exam allowed.
+     */
+    public static int elapsedSeconds(Test test, TestAttempt attempt, LocalDateTime now) {
+        LocalDateTime effectiveEnd = now;
+        LocalDateTime deadline = deadline(test, attempt);
+        if (deadline != null && effectiveEnd.isAfter(deadline)) {
+            effectiveEnd = deadline;
+        }
+        long seconds = Duration.between(attempt.getStartedAt(), effectiveEnd).getSeconds();
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, seconds));
     }
 }

@@ -34,11 +34,31 @@
   transition: box-shadow .15s, transform .15s;
 }
 .tst-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); transform: translateY(-2px); }
+.tst-card-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .tst-card-title { font-size: 16px; font-weight: 700; margin: 8px 0 4px; }
 .tst-card-class { font-size: 13px; color: #6b7280; margin: 0; }
 .tst-card-foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .tst-meta { font-size: 12px; color: #6b7280; }
 .tst-meta-done { color: #166534; font-weight: 600; }
+.tst-attempt-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f4f8;
+  color: #69758a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tst-attempt-active { background: #eef2ff; color: #4563bf; }
+.tst-attempt-done { background: #edf8f2; color: #347957; }
+.tst-card-open {
+  margin-left: auto;
+  color: #5269bd;
+  font-size: 12px;
+  font-weight: 700;
+}
 
 .tst-empty { padding: 40px; text-align: center; color: #6b7280;
   border: 1px dashed var(--border, #d0d7de); border-radius: 12px; }

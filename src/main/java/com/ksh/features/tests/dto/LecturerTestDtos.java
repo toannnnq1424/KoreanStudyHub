@@ -84,8 +84,8 @@ public final class LecturerTestDtos {
             Long safeClassId = classId != null && allowedClasses.stream()
                     .anyMatch(option -> option.id().equals(classId)) ? classId : null;
             return new ExamFilter(keyword == null ? "" : keyword.trim(),
-                    STATUSES.contains(status) ? status : null,
-                    TYPES.contains(type) ? type : null, safeClassId);
+                    status != null && STATUSES.contains(status) ? status : null,
+                    type != null && TYPES.contains(type) ? type : null, safeClassId);
         }
 
         public boolean isEmpty() {
