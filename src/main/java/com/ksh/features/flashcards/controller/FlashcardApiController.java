@@ -1,5 +1,8 @@
 package com.ksh.features.flashcards.controller;
 
+import com.ksh.features.ai.client.AiClientException;
+import com.ksh.features.ai.flashcardgen.AiFlashcardGenDtos.GenerateRequest;
+import com.ksh.features.ai.flashcardgen.AiFlashcardGenerationService;
 import com.ksh.features.flashcards.dto.FlashcardDtos;
 import com.ksh.features.flashcards.dto.FlashcardDtos.CreateDeckRequest;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
@@ -41,6 +44,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.ksh.common.IConstant.API_FLASHCARDS;
+import static com.ksh.common.IConstant.SUBPATH_AI_GENERATE;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.badRequest;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.forbidden;
 import static com.ksh.features.lessons.controller.support.AjaxResponses.internalError;
@@ -76,6 +80,7 @@ public class FlashcardApiController {
     private final FlashcardImageStorageService imageStorage;
     private final FlashcardRepository cardRepository;
     private final DeckService deckService;
+    private final AiFlashcardGenerationService aiGenerationService;
 
     public FlashcardApiController(CardService cardService,
                                   SmartReviewService smartReviewService,
@@ -84,7 +89,8 @@ public class FlashcardApiController {
                                   FlashcardImportTemplate importTemplate,
                                   FlashcardImageStorageService imageStorage,
                                   FlashcardRepository cardRepository,
-                                  DeckService deckService) {
+                                  DeckService deckService,
+                                  AiFlashcardGenerationService aiGenerationService) {
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
         this.accessResolver = accessResolver;
@@ -93,6 +99,7 @@ public class FlashcardApiController {
         this.imageStorage = imageStorage;
         this.cardRepository = cardRepository;
         this.deckService = deckService;
+        this.aiGenerationService = aiGenerationService;
     }
 
     /**
@@ -217,6 +224,38 @@ public class FlashcardApiController {
             return notFound(ex.getMessage());
         } catch (RuntimeException ex) {
             log.error("Failed to import Excel for deck {}", deckId, ex);
+            return internalError();
+        }
+    }
+
+    /**
+     * Generates unsaved editor rows from PDF/DOCX or pasted text. Ownership is
+     * verified before document parsing or provider usage.
+     */
+    @PostMapping(value = "/{deckId}" + SUBPATH_AI_GENERATE,
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> generateCards(@PathVariable Long deckId,
+                                           @RequestParam(value = "file", required = false)
+                                           MultipartFile file,
+                                           @RequestParam(value = "text", required = false)
+                                           String text,
+                                           @RequestParam(defaultValue = "20") int count,
+                                           @RequestParam(required = false) String language,
+                                           @AuthenticationPrincipal KshUserDetails user) {
+        try {
+            return ResponseEntity.ok(AjaxResult.success(aiGenerationService.generate(
+                    user.getId(), deckId, file, text, new GenerateRequest(count, language))));
+        } catch (IllegalArgumentException ex) {
+            return badRequest(ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            return forbidden();
+        } catch (EntityNotFoundException ex) {
+            return notFound(ex.getMessage());
+        } catch (AiClientException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(AjaxResult.failure(ex.getMessage()));
+        } catch (RuntimeException ex) {
+            log.error("Failed to generate AI flashcards for deck {}", deckId, ex);
             return internalError();
         }
     }

@@ -3,6 +3,8 @@ package com.ksh.features.flashcards.controller;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
+import com.ksh.features.ai.client.AiClient;
+import com.ksh.features.ai.client.AiClientException;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
@@ -10,6 +12,7 @@ import com.ksh.features.flashcards.dto.FlashcardDtos.CardItem;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.service.CardService;
 import com.ksh.features.flashcards.service.DeckService;
+import com.ksh.features.flashcards.repository.FlashcardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,16 +27,23 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static com.ksh.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -62,6 +72,8 @@ class FlashcardControllerTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private FlashcardRepository flashcardRepository;
+    @MockitoBean private AiClient aiClient;
 
     private Long deckId;
     private Long cardId;
@@ -80,6 +92,10 @@ class FlashcardControllerTest {
                 new CardItem(null, "front", "back")));
         deckService.share(deckId, owner.getId(), clazz.getId());
         cardId = cardService.getEditorView(deckId, owner.getId()).cards().get(0).id();
+        when(aiClient.chatJsonObject(anyString(), anyString(), anyInt(), anyLong(), anyString()))
+                .thenReturn("""
+                        {"cards":[{"front":"Hàng đợi","back":"Cấu trúc FIFO"},
+                                  {"front":"Ngăn xếp","back":"Cấu trúc LIFO"}]}""");
     }
 
     @Test
@@ -216,6 +232,67 @@ class FlashcardControllerTest {
         mockMvc.perform(get("/api/flashcards/import-template"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(XLSX_MIME));
+    }
+
+    @Test
+    @WithUserDetails(OWNER)
+    void ai_generation_returns_unsaved_rows_and_persists_nothing() throws Exception {
+        long before = flashcardRepository.count();
+
+        mockMvc.perform(multipart("/api/flashcards/" + deckId + "/ai-generate")
+                        .with(csrf())
+                        .param("count", "5")
+                        .param("language", "tiếng việt")
+                        .param("text", "Hàng đợi theo FIFO, ngăn xếp theo LIFO."))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.data.count").value(2))
+                .andExpect(jsonPath("$.data.cards[0].front").value("Hàng đợi"))
+                .andExpect(jsonPath("$.data.cards[1].back").value("Cấu trúc LIFO"));
+
+        assertEquals(before, flashcardRepository.count(),
+                "AI output must stay in the editor until the existing save flow runs");
+    }
+
+    @Test
+    @WithUserDetails(MEMBER)
+    void ai_generation_is_owner_only() throws Exception {
+        mockMvc.perform(multipart("/api/flashcards/" + deckId + "/ai-generate")
+                        .with(csrf())
+                        .param("count", "5")
+                        .param("text", "Không được gửi nội dung này cho provider"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
+    @WithUserDetails(OWNER)
+    void ai_generation_requires_csrf_and_valid_material() throws Exception {
+        mockMvc.perform(multipart("/api/flashcards/" + deckId + "/ai-generate")
+                        .param("count", "5")
+                        .param("text", "Nội dung"))
+                .andExpect(status().isForbidden());
+
+        MockMultipartFile fakePdf = new MockMultipartFile(
+                "file", "notes.pdf", "application/pdf",
+                "not a pdf".getBytes(StandardCharsets.UTF_8));
+        mockMvc.perform(multipart("/api/flashcards/" + deckId + "/ai-generate")
+                        .file(fakePdf).with(csrf()).param("count", "5"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
+    @WithUserDetails(OWNER)
+    void ai_provider_failure_is_a_retryable_gateway_error() throws Exception {
+        when(aiClient.chatJsonObject(anyString(), anyString(), anyInt(), anyLong(), anyString()))
+                .thenThrow(new AiClientException("Chưa cấu hình AI provider nào đang bật."));
+
+        mockMvc.perform(multipart("/api/flashcards/" + deckId + "/ai-generate")
+                        .with(csrf()).param("count", "5").param("text", "Nội dung"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.ok").value(false))
+                .andExpect(jsonPath("$.message", containsString("Chưa cấu hình AI provider")));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

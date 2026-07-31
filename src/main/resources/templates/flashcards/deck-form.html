@@ -59,12 +59,61 @@
             Import Excel
           </button>
           <input type="file" id="fcImportInput" accept=".xlsx" hidden>
+          <button type="button" class="fc-btn fc-btn-ai" id="fcAiGenBtn"
+                  th:if="${mode == 'edit'}">
+            <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M5 12H3M21 12h-2M8 8l8 8M16 8l-8 8"/></svg>
+            Sinh thẻ bằng AI
+          </button>
           <button type="button" class="fc-btn fc-btn-ghost" id="fcAddCard">
             <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             Thêm thẻ
           </button>
         </div>
       </div>
+
+      <section class="fc-ai-panel" id="fcAiPanel" hidden th:if="${mode == 'edit'}">
+        <div class="fc-ai-panel-head">
+          <div>
+            <p class="fc-form-eyebrow">TRỢ LÝ AI</p>
+            <h3>Tạo thẻ từ tài liệu</h3>
+          </div>
+          <button type="button" class="fc-icon-btn" id="fcAiClose" aria-label="Đóng trình tạo thẻ">×</button>
+        </div>
+        <p class="fc-ai-hint">
+          Tải PDF/DOCX hoặc dán nội dung. AI chỉ thêm bản nháp vào danh sách để bạn kiểm tra;
+          không thẻ nào được lưu trước khi bạn nhấn <b>Lưu bộ thẻ</b>.
+        </p>
+        <label class="fc-ai-label" for="fcAiText">Nội dung tài liệu</label>
+        <textarea class="fc-ai-text" id="fcAiText" rows="6"
+                  placeholder="Dán nội dung vào đây, hoặc chọn một file bên dưới"></textarea>
+        <div class="fc-ai-options">
+          <label class="fc-ai-file">
+            <span>PDF hoặc DOCX, tối đa 5 MB</span>
+            <input id="fcAiFile" type="file" accept=".pdf,.docx">
+          </label>
+          <label>Số thẻ
+            <select class="fc-ai-input" id="fcAiCount">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+          </label>
+          <label>Ngôn ngữ
+            <select class="fc-ai-input" id="fcAiLanguage">
+              <option value="">Theo tài liệu</option>
+              <option value="tiếng việt">Tiếng Việt</option>
+              <option value="한국어">한국어</option>
+              <option value="english">English</option>
+            </select>
+          </label>
+        </div>
+        <div class="fc-ai-actions">
+          <button type="button" class="fc-btn fc-btn-primary" id="fcAiGenerate">Tạo bản nháp</button>
+          <span class="fc-ai-state" id="fcAiState" role="status">Chưa gửi nội dung cho AI.</span>
+        </div>
+      </section>
 
       <div id="fcCardList">
         <!-- Existing card rows -->
@@ -198,5 +247,6 @@
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/flashcard-common.js}"></script>
 <script th:src="@{/js/flashcard-deck-form.js}"></script>
+<script th:src="@{/js/flashcard-ai-generate.js}"></script>
 </body>
 </html>
