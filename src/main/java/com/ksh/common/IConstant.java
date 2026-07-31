@@ -351,6 +351,7 @@ public interface IConstant {
 
     // View names.
     String VIEW_TEST_LIST          = "tests/list";
+    String VIEW_TEST_DETAIL        = "tests/detail";
     String VIEW_TEST_TAKE          = "tests/take";
     String VIEW_TEST_RESULT        = "tests/result";
     String VIEW_TEST_REVIEW        = "tests/review";
@@ -363,6 +364,7 @@ public interface IConstant {
 
     // Model attribute keys.
     String ATTR_EXAMS_PAGE   = "examsPage";
+    String ATTR_DETAIL       = "detail";
     String ATTR_TAKE         = "take";
     String ATTR_RESULT       = "result";
     String ATTR_REVIEW       = "review";
@@ -390,6 +392,15 @@ public interface IConstant {
     String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
     String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
     String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
+    String MSG_EXAM_TYPE_INVALID     = "Loại bài test không hợp lệ";
+    String MSG_EXAM_STATUS_INVALID   = "Trạng thái bài test không hợp lệ";
+    String MSG_EXAM_TIME_MODE_INVALID = "Cách tính giờ không hợp lệ";
+    String MSG_EXAM_TIME_RANGE_INVALID = "Thời gian kết thúc phải sau thời gian bắt đầu";
+    String MSG_EXAM_FIXED_WINDOW_REQUIRED =
+            "Bài test theo khung giờ chung phải có thời gian bắt đầu và kết thúc";
+    String MSG_EXAM_DURATION_REQUIRED =
+            "Bài test tính giờ theo học sinh phải có thời lượng làm bài";
+    String MSG_EXAM_DURATION_INVALID = "Thời lượng làm bài phải từ 1 đến 600 phút";
     String MSG_EXAM_MEDIA_URL_REQUIRED = "Vui lòng nhập URL media khi đã chọn loại media";
     String MSG_EXAM_MEDIA_TYPE_REQUIRED = "Vui lòng chọn loại media khi đã nhập URL";
     String MSG_EXAM_MEDIA_YOUTUBE_INVALID = "URL YouTube không hợp lệ";

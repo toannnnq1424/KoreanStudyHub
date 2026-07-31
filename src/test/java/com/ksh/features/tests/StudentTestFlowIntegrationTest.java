@@ -15,6 +15,8 @@ import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.QuestionOption;
 import com.ksh.features.tests.repository.QuestionOptionRepository;
 import com.ksh.features.tests.repository.QuestionRepository;
+import com.ksh.features.tests.repository.TestAttemptRepository;
+import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.features.tests.service.LecturerExamService;
 import com.ksh.features.tests.service.TestAttemptService;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +41,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -64,6 +68,8 @@ class StudentTestFlowIntegrationTest {
     @Autowired private TestAttemptService attemptService;
     @Autowired private QuestionRepository questionRepository;
     @Autowired private QuestionOptionRepository optionRepository;
+    @Autowired private TestAttemptRepository attemptRepository;
+    @Autowired private TestRepository testRepository;
 
     private Long lecturerId;
     private Long studentId;
@@ -82,7 +88,7 @@ class StudentTestFlowIntegrationTest {
         examId = lecturerExamService.save(lecturerId, examForm(clazz.getId(),
                 LocalDateTime.now().plusDays(1)));
         lateExamId = lecturerExamService.save(lecturerId, examForm(clazz.getId(),
-                LocalDateTime.now().minusHours(1)));
+                LocalDateTime.now().plusHours(1)));
     }
 
     @Test
@@ -98,6 +104,32 @@ class StudentTestFlowIntegrationTest {
     void outsider_take_returns_404() throws Exception {
         mockMvc.perform(get("/my/tests/" + examId + "/take"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithUserDetails(STUDENT)
+    void detail_does_not_create_or_start_attempt() throws Exception {
+        mockMvc.perform(get("/my/tests/" + examId))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Đồng hồ chỉ bắt đầu")))
+                .andExpect(content().string(containsString("Bắt đầu làm bài")));
+
+        assertEquals(0,
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(examId, studentId)
+                        .size());
+    }
+
+    @Test
+    @WithUserDetails(STUDENT)
+    void direct_take_without_explicit_start_redirects_to_detail() throws Exception {
+        mockMvc.perform(get("/my/tests/" + examId + "/take"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/my/tests/" + examId))
+                .andExpect(flash().attributeExists("flashError"));
+
+        assertEquals(0,
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(examId, studentId)
+                        .size());
     }
 
     @Test
@@ -124,12 +156,34 @@ class StudentTestFlowIntegrationTest {
     @WithUserDetails(STUDENT)
     void late_submit_is_timed_out_but_graded() throws Exception {
         Long attemptId = openAttempt(lateExamId);
+        com.ksh.features.tests.entity.Test exam =
+                testRepository.findById(lateExamId).orElseThrow();
+        exam.setEndAt(LocalDateTime.now().minusMinutes(1));
+        testRepository.saveAndFlush(exam);
+
         mockMvc.perform(post("/api/tests/attempts/" + attemptId + "/submit").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(allCorrectPayload(lateExamId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.status").value("TIMED_OUT"));
+    }
+
+    @Test
+    @WithUserDetails(STUDENT)
+    void submitted_class_exam_cannot_be_started_a_second_time() throws Exception {
+        Long attemptId = openAttempt(examId);
+        attemptService.submit(attemptId, studentId, new SubmitRequest(List.of()));
+
+        mockMvc.perform(post("/my/tests/" + examId + "/start").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/my/tests/" + examId))
+                .andExpect(flash().attribute("flashError",
+                        containsString("chỉ được làm một lần")));
+
+        assertEquals(1,
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(examId, studentId)
+                        .size());
     }
 
     @Test
@@ -146,6 +200,9 @@ class StudentTestFlowIntegrationTest {
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private Long openAttempt(Long id) throws Exception {
+        mockMvc.perform(post("/my/tests/" + id + "/start").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/my/tests/" + id + "/take"));
         TakeView take = (TakeView) mockMvc.perform(get("/my/tests/" + id + "/take"))
                 .andExpect(status().isOk())
                 .andReturn().getModelAndView().getModel().get("take");

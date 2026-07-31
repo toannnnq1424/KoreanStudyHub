@@ -19,6 +19,7 @@
   <form id="tkForm"
         th:attr="data-attempt-id=${take.attemptId()},
                  data-remaining=${take.remainingSeconds()},
+                 data-deadline=${take.deadlineEpochMillis()},
                  data-time-mode=${take.timeMode()},
                  data-submit-url=@{|/api/tests/attempts/${take.attemptId()}/submit|},
                  data-heartbeat-url=@{|/api/tests/attempts/${take.attemptId()}/heartbeat|},

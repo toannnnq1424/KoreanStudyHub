@@ -35,6 +35,44 @@ class AiFlashcardResponseParserTest {
     }
 
     @Test
+    void acceptsCommonFreeProviderShapesAndIgnoresSurroundingProse() {
+        String reply = """
+                Tôi đã tạo dữ liệu:
+                [{"term":"문화","definition":"văn hóa"},
+                 {"question":"교류","answer":"giao lưu"}]
+                Chúc bạn học tốt.""";
+
+        List<AiFlashcardGenDtos.GeneratedCardRow> rows = parser.parse(reply);
+
+        assertEquals(2, rows.size());
+        assertEquals("문화", rows.get(0).front());
+        assertEquals("giao lưu", rows.get(1).back());
+    }
+
+    @Test
+    void findsNestedCardsWithoutCombiningUnrelatedJsonObjects() {
+        String reply = """
+                metadata {"attempt":1}
+                result {"data":{"flashcards":[{"word":"한글","meaning":"chữ Hàn"}]}}
+                footer {"done":true}""";
+
+        List<AiFlashcardGenDtos.GeneratedCardRow> rows = parser.parse(reply);
+
+        assertEquals(1, rows.size());
+        assertEquals("한글", rows.get(0).front());
+    }
+
+    @Test
+    void salvagesValidRowsWhenOneProviderRowIsUnusable() {
+        List<AiFlashcardGenDtos.GeneratedCardRow> rows = parser.parse("""
+                {"cards":[{"front":"A","back":42},
+                          {"front":"B","back":"Hợp lệ"}]}""");
+
+        assertEquals(1, rows.size());
+        assertEquals("B", rows.get(0).front());
+    }
+
+    @Test
     void rejectsMalformedOrUnusableCards() {
         assertThrows(IllegalArgumentException.class, () -> parser.parse("không có JSON"));
         assertThrows(IllegalArgumentException.class, () -> parser.parse("{\"cards\":[]}"));

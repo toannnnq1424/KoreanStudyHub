@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -96,18 +95,55 @@ public class TestAttemptService {
     }
 
     /**
-     * Starts a new attempt or resumes the caller's open one. Access is checked
-     * first (inaccessible → 404). At most one IN_PROGRESS attempt exists per
-     * (test, user); a second start reuses it.
+     * Starts a class exam after an explicit student action, or resumes its open
+     * attempt. Non-practice exams allow exactly one attempt per student.
      */
     @Transactional
     public TakeView startOrResume(Long testId, Long userId) {
         Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
-        TestAttempt attempt = attemptRepository
-                .findFirstByTestIdAndUserIdAndStatusOrderByStartedAtDesc(
-                        testId, userId, TestAttempt.STATUS_IN_PROGRESS)
-                .orElseGet(() -> attemptRepository.save(new TestAttempt(testId, userId)));
+        List<TestAttempt> attempts =
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(testId, userId);
+        if (!test.isPractice() && attempts.stream().anyMatch(a -> !a.isInProgress())) {
+            throw completedAttemptException();
+        }
+        TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress)
+                .findFirst().orElse(null);
+        if (open != null) {
+            return takeViewBuilder.build(test, open);
+        }
+        ensureStartable(test, LocalDateTime.now());
+        TestAttempt attempt = attemptRepository.save(new TestAttempt(testId, userId));
         return takeViewBuilder.build(test, attempt);
+    }
+
+    /**
+     * Renders an existing attempt. Direct GET requests never start a class
+     * exam; the legacy practice flow keeps its repeatable start behaviour.
+     */
+    @Transactional
+    public TakeView resumeForTake(Long testId, Long userId) {
+        Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
+        List<TestAttempt> attempts =
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(testId, userId);
+        if (!test.isPractice() && attempts.stream().anyMatch(a -> !a.isInProgress())) {
+            throw completedAttemptException();
+        }
+        TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress)
+                .findFirst().orElse(null);
+        if (open != null) {
+            return takeViewBuilder.build(test, open);
+        }
+        if (test.isPractice()) {
+            TestAttempt practiceAttempt = attemptRepository.save(new TestAttempt(testId, userId));
+            return takeViewBuilder.build(test, practiceAttempt);
+        }
+        throw new TestAttemptUnavailableException(
+                "Hãy xem thông tin bài test và bấm Bắt đầu làm bài.");
+    }
+
+    private TestAttemptUnavailableException completedAttemptException() {
+        return new TestAttemptUnavailableException(
+                "Bạn đã hoàn thành bài test này. Mỗi học sinh chỉ được làm một lần.");
     }
 
     /** Updates {@code last_activity_at} for a live attempt; owner-only. No-op when closed. */
@@ -154,8 +190,7 @@ public class TestAttemptService {
 
         String finalStatus = ExamDeadline.isPastDeadline(test, attempt, LocalDateTime.now())
                 ? TestAttempt.STATUS_TIMED_OUT : TestAttempt.STATUS_SUBMITTED;
-        int timeSpent = (int) Math.max(0,
-                Duration.between(attempt.getStartedAt(), LocalDateTime.now()).getSeconds());
+        int timeSpent = ExamDeadline.elapsedSeconds(test, attempt, LocalDateTime.now());
         attempt.finalizeGrade(earnedSum, totalPointsSum, correctCount, questions.size(),
                 timeSpent, finalStatus);
         attemptRepository.save(attempt);
@@ -192,5 +227,25 @@ public class TestAttemptService {
 
     private static BigDecimal nonNull(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    private void ensureStartable(Test test, LocalDateTime now) {
+        if (test.isPractice()) return;
+        if (test.getStartAt() != null && now.isBefore(test.getStartAt())) {
+            throw new TestAttemptUnavailableException("Bài test chưa đến giờ mở.");
+        }
+        if (test.getEndAt() != null && !now.isBefore(test.getEndAt())) {
+            throw new TestAttemptUnavailableException("Bài test đã kết thúc.");
+        }
+        if (Test.TIME_MODE_FIXED_WINDOW.equals(test.getTimeMode())
+                && test.getEndAt() == null) {
+            throw new TestAttemptUnavailableException(
+                    "Bài test chưa được cấu hình thời gian kết thúc.");
+        }
+        if (test.isIndividualTimer()
+                && (test.getDurationMinutes() == null || test.getDurationMinutes() <= 0)) {
+            throw new TestAttemptUnavailableException(
+                    "Bài test chưa được cấu hình thời lượng làm bài.");
+        }
     }
 }

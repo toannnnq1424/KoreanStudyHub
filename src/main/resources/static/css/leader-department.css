@@ -43,3 +43,184 @@
   color: var(--muted, #6b7280);
   font-style: italic;
 }
+
+/* Class approval queue */
+.leader-approval-main {
+  min-width: 0;
+}
+
+.leader-approval-main > .detail-sub {
+  margin-bottom: 1.25rem;
+}
+
+.leader-approval-table {
+  min-width: 920px;
+}
+
+.leader-approval-table th:last-child,
+.leader-approval-table td:last-child {
+  width: 410px;
+}
+
+.leader-class-code {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--border-soft, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bg-soft, #f8fafc);
+  color: var(--primary, #2563eb);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.leader-class-name {
+  color: var(--heading, #1f2937);
+  font-weight: 700;
+}
+
+.leader-approval-action-cell {
+  min-width: 360px;
+}
+
+.leader-approval-actions {
+  display: grid;
+  grid-template-columns: max-content minmax(220px, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.leader-approval-approve-form,
+.leader-approval-reject-form {
+  margin: 0;
+}
+
+.leader-approval-reject-form {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) max-content;
+  gap: 8px;
+  align-items: center;
+}
+
+.leader-approval-reject-form input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: var(--fg, #374151);
+  font: inherit;
+  font-size: .86rem;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.leader-approval-reject-form input:focus {
+  outline: none;
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff);
+}
+
+.leader-approval-actions button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.leader-approval-empty {
+  display: grid;
+  gap: 5px;
+}
+
+.leader-approval-empty strong {
+  color: var(--heading, #1f2937);
+}
+
+@media (max-width: 1120px) {
+  .leader-approval-table th:last-child,
+  .leader-approval-table td:last-child {
+    width: 320px;
+  }
+
+  .leader-approval-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .leader-approval-approve-form .btn-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .leader-approval-main > .detail-sub {
+    line-height: 1.55;
+  }
+
+  .leader-approval-main .admin-list-panel,
+  .leader-approval-main .admin-list-table-scroll {
+    overflow: visible;
+  }
+
+  .leader-approval-table,
+  .leader-approval-table tbody,
+  .leader-approval-table tr,
+  .leader-approval-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .leader-approval-table thead {
+    display: none;
+  }
+
+  .leader-approval-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .leader-approval-table tbody tr {
+    padding: 4px 14px;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    background: var(--bg, #fff);
+  }
+
+  .leader-approval-table tbody td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-soft, #f1f5f9);
+  }
+
+  .leader-approval-table tbody td::before {
+    content: attr(data-label);
+    color: var(--muted, #6b7280);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .leader-approval-table tbody td:last-child {
+    display: block;
+    width: 100%;
+    border-bottom: 0;
+  }
+
+  .leader-approval-table tbody td:last-child::before {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .leader-approval-reject-form {
+    grid-template-columns: 1fr;
+  }
+
+  .leader-approval-reject-form .btn-danger {
+    width: 100%;
+  }
+}

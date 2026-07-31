@@ -42,8 +42,15 @@
 .fc-ai-text:focus, .fc-ai-input:focus { border-color: #8792f7; box-shadow: 0 0 0 3px rgba(88,101,242,.1); }
 .fc-ai-options { display: grid; grid-template-columns: minmax(240px,1fr) 130px 170px; gap: 12px; margin-top: 12px; }
 .fc-ai-options label { display: flex; flex-direction: column; gap: 6px; color: #667085; font-size: 11px; font-weight: 650; }
-.fc-ai-file { justify-content: center; padding: 10px 12px; border: 1px dashed #cdd4e3; border-radius: 10px; background: #fff; cursor: pointer; }
-.fc-ai-file input { max-width: 100%; color: #59647b; font-size: 11px; }
+.fc-ai-file { position: relative; justify-content: center; padding: 12px; border: 1px dashed #cdd4e3; border-radius: 10px; background: #fff; cursor: pointer; }
+.fc-ai-file:hover { border-color: #aeb8d1; background: #fafbff; }
+.fc-ai-file:focus-within { border-color: #8792f7; box-shadow: 0 0 0 3px rgba(88,101,242,.1); }
+.fc-ai-file-picker { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fc-ai-file-button { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #cfd5e3; border-radius: 8px; background: #f7f8fb; color: #465067; font-size: 12px; font-weight: 700; }
+.fc-ai-file-name { min-width: 0; overflow: hidden; color: #59647b; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.fc-ai-file-name.has-file { color: #2f6d49; font-weight: 650; }
+.fc-ai-file-help { color: #7a8498; font-size: 10px; font-weight: 500; line-height: 1.4; }
+.fc-ai-file-input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; opacity: 0; }
 .fc-ai-input { min-height: 43px; padding: 9px 10px; border: 1px solid #d8ddea; border-radius: 10px; background: #fff; color: #394156; font: inherit; outline: none; }
 .fc-ai-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 .fc-ai-actions .fc-btn { min-height: 43px; }

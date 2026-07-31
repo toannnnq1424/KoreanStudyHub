@@ -67,8 +67,16 @@ public class TestAccessResolver {
      * existence is not leaked.
      */
     public Test requireAttemptable(Long testId, Long userId) {
+        return requireViewable(testId, userId);
+    }
+
+    /**
+     * Authorizes the read-only student landing page. Scheduling and attempt
+     * limits are enforced only when the student explicitly starts the exam.
+     */
+    public Test requireViewable(Long testId, Long userId) {
         Test test = loadOrNotFound(testId);
-        return requireAttemptable(test, userId);
+        return requireStudentAccess(test, userId);
     }
 
     /** Returns and locks an accessible exam while a new attempt is created. */
@@ -78,10 +86,10 @@ public class TestAccessResolver {
         if (test.isDeleted()) {
             throw new EntityNotFoundException(NF_MSG);
         }
-        return requireAttemptable(test, userId);
+        return requireStudentAccess(test, userId);
     }
 
-    private Test requireAttemptable(Test test, Long userId) {
+    private Test requireStudentAccess(Test test, Long userId) {
         // Own PRACTICE test: always accessible to its owner.
         if (test.isPractice() && userId.equals(test.getCreatedBy())) {
             return test;

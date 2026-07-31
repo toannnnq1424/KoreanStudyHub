@@ -37,6 +37,16 @@
 .lf-panel-head-stack { align-items: flex-start; gap: 12px; }
 .lf-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .lf-panel-title { font-size: 16px; font-weight: 700; margin: 0; }
+.lf-ai-create-hint {
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
 
 .lf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .lf-col-2 { grid-column: 1 / -1; }

@@ -87,9 +87,17 @@
         <textarea class="fc-ai-text" id="fcAiText" rows="6"
                   placeholder="Dán nội dung vào đây, hoặc chọn một file bên dưới"></textarea>
         <div class="fc-ai-options">
-          <label class="fc-ai-file">
+          <label class="fc-ai-file" for="fcAiFile">
             <span>PDF hoặc DOCX, tối đa 5 MB</span>
-            <input id="fcAiFile" type="file" accept=".pdf,.docx">
+            <span class="fc-ai-file-picker">
+              <span class="fc-ai-file-button" aria-hidden="true">Chọn file</span>
+              <span class="fc-ai-file-name" id="fcAiFileName">Chưa chọn file</span>
+            </span>
+            <input class="fc-ai-file-input" id="fcAiFile" type="file" accept=".pdf,.docx"
+                   aria-describedby="fcAiFileHelp">
+            <small class="fc-ai-file-help" id="fcAiFileHelp">
+              File đã chọn sẽ được giữ để bạn thử lại nếu AI gặp lỗi.
+            </small>
           </label>
           <label>Số thẻ
             <select class="fc-ai-input" id="fcAiCount">
@@ -100,12 +108,12 @@
               <option value="50">50</option>
             </select>
           </label>
-          <label>Ngôn ngữ
+          <label>Ngôn ngữ giải nghĩa
             <select class="fc-ai-input" id="fcAiLanguage">
+              <option value="tiếng việt" selected>Tiếng Việt (mặt sau)</option>
+              <option value="english">English (mặt sau)</option>
+              <option value="한국어">한국어 (mặt sau)</option>
               <option value="">Theo tài liệu</option>
-              <option value="tiếng việt">Tiếng Việt</option>
-              <option value="한국어">한국어</option>
-              <option value="english">English</option>
             </select>
           </label>
         </div>

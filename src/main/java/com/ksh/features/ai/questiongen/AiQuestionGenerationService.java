@@ -98,8 +98,18 @@ public class AiQuestionGenerationService {
                     AiQuestionPromptBuilder.maxTokensFor(request.count()),
                     userId,
                     AiRequestLogger.SOURCE_QUESTION_GEN);
-            List<DraftQuestion> drafts =
-                    responseParser.parse(reply, request.count(), expectedType);
+            List<DraftQuestion> drafts;
+            try {
+                drafts = responseParser.parse(reply, request.count(), expectedType);
+            } catch (IllegalArgumentException malformedReply) {
+                String retryReply = aiClient.chat(
+                        promptBuilder.retrySystemPrompt(),
+                        promptBuilder.retryUserMessage(request, material),
+                        AiQuestionPromptBuilder.maxTokensFor(request.count()),
+                        userId,
+                        AiRequestLogger.SOURCE_QUESTION_GEN);
+                drafts = responseParser.parse(retryReply, request.count(), expectedType);
+            }
             return sessionStore.save(userId, test.getId(), drafts);
         } finally {
             activeGenerations.remove(userId);
