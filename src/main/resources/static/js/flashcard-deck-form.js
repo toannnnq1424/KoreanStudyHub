@@ -506,5 +506,13 @@
         if (addBottomBtn) addBottomBtn.addEventListener('click', function () { addRow(); });
         bindImport();
         renumber();
+
+        // Narrow integration seam for append-only helpers such as AI generation.
+        // Saving remains owned exclusively by this module's submit orchestrator.
+        window.FcDeckEditor = {
+            deckId: deckId,
+            addRow: function (values) { return addRow(values); },
+            renumber: renumber
+        };
     });
 })();
