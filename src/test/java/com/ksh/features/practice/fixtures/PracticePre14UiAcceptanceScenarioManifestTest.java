@@ -497,11 +497,20 @@ class PracticePre14UiAcceptanceScenarioManifestTest {
                     .isEqualTo(PREMIUM_SPEAKING_SUBCRITERIA.size());
             assertThat(scenario.path("expectedFindingCount").asInt())
                     .isEqualTo(
-                            PREMIUM_SPEAKING_SUBCRITERIA.size() + 1);
+                            PREMIUM_SPEAKING_SUBCRITERIA.size()
+                                    + ("STRENGTH".equals(
+                                    scenario.path("expectedPolarity").asText())
+                                    ? 1 : 0));
             assertThat(scenario.path("repeatedFeature").asText())
                     .contains("S_VOCAB_REPETITION_CONTROL");
             assertThat(scenario.path("expectedFrequency").asInt())
                     .isEqualTo(2);
+            if ("NEEDS_IMPROVEMENT".equals(
+                    scenario.path("expectedPolarity").asText())) {
+                assertThat(scenario.path(
+                        "expectedRepeatedOperation").asText())
+                        .isEqualTo("REDUNDANT");
+            }
             assertThat(scenario.path("overviewUrl").asText())
                     .isEqualTo(
                             "/practice/attempts/" + attemptId + "/result");

@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Kiểm tra thiết bị phần Nói | KSH', ~{::link.page-css})}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/practice/speaking-preflight.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice/speaking-preflight.css(v='pre14-e13')}">
 </head>
 <body class="spc-body">
 <main class="spc-page"
+      data-pre14-mic-check
       th:attr="data-upload-enabled=${speakingMediaUploadEnabled},data-return-url=${returnUrl}">
   <div class="spc-decor" aria-hidden="true">
     <span class="spc-star is-one"></span>
@@ -91,6 +92,6 @@
 
   <div class="spc-mascot" role="img" aria-label="Bạch Hổ KSH kiểm tra micro"></div>
 </main>
-<script defer th:src="@{/js/practice/speaking-preflight.js}"></script>
+<script defer th:src="@{/js/practice/speaking-preflight.js(v='pre14-e13')}"></script>
 </body>
 </html>

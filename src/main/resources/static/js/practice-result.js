@@ -79,11 +79,297 @@
 
   runResultCelebration();
 
+  document.querySelectorAll('[data-speaking-question-drawer-trigger]')
+    .forEach((trigger) => {
+      const drawerId = trigger.getAttribute('aria-controls');
+      const drawer = drawerId ? document.getElementById(drawerId) : null;
+      if (!(drawer instanceof HTMLDialogElement)) return;
+      const closeButton = drawer.querySelector(
+        '[data-speaking-question-drawer-close]'
+      );
+
+      const openDrawer = () => {
+        if (!drawer.open) drawer.showModal();
+        document.body.classList.add('is-speaking-question-drawer-open');
+        trigger.setAttribute('aria-expanded', 'true');
+        const current = drawer.querySelector('[aria-current="page"]');
+        (current || closeButton)?.focus({ preventScroll: true });
+      };
+      const restoreDrawerState = () => {
+        document.body.classList.remove('is-speaking-question-drawer-open');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.focus({ preventScroll: true });
+      };
+      const closeDrawer = () => {
+        if (drawer.open) drawer.close();
+        restoreDrawerState();
+      };
+
+      trigger.addEventListener('click', openDrawer);
+      closeButton?.addEventListener('click', closeDrawer);
+      drawer.addEventListener('click', (event) => {
+        if (event.target === drawer) closeDrawer();
+      });
+      drawer.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        closeDrawer();
+      });
+      drawer.addEventListener('close', () => {
+        restoreDrawerState();
+      });
+    });
+
   const tabLists = document.querySelectorAll('[data-result-tabs]');
   const hasToken = (value, token) => String(value || '')
     .split(/\s+/)
     .filter(Boolean)
     .includes(token);
+
+  function setDiagnosticGroupExpanded(toggle, expanded) {
+    if (!toggle) return;
+    const childrenId = toggle.getAttribute('aria-controls');
+    const children = childrenId ? document.getElementById(childrenId) : null;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    if (children) children.hidden = !expanded;
+  }
+
+  function closeDiagnosticPicker(picker, restoreFocus = false) {
+    if (!picker) return;
+    const trigger = picker.querySelector('[data-diagnostic-group-trigger]');
+    const menu = picker.querySelector('[data-diagnostic-group-menu]');
+    if (!trigger || !menu) return;
+    trigger.setAttribute('aria-expanded', 'false');
+    menu.hidden = true;
+    if (restoreFocus) trigger.focus();
+  }
+
+  function syncDiagnosticPicker(select) {
+    const picker = select?.closest('.prd-diagnostic-parent-picker');
+    const trigger = picker?.querySelector('[data-diagnostic-group-trigger]');
+    const value = trigger?.querySelector('[data-diagnostic-group-value]');
+    const selected = select?.selectedOptions?.[0];
+    if (!trigger || !value || !selected) return;
+
+    value.textContent = selected.textContent.trim();
+    picker.querySelectorAll('[data-diagnostic-group-option]').forEach((option) => {
+      option.setAttribute(
+        'aria-selected',
+        String(option.dataset.diagnosticGroupTarget === select.value)
+      );
+    });
+  }
+
+  function enhanceDiagnosticGroupSelect(select, pickerIndex) {
+    const picker = select.closest('.prd-diagnostic-parent-picker');
+    if (!picker || picker.querySelector('[data-diagnostic-group-trigger]')) return;
+
+    const menuId = `${select.id || `diagnostic-group-${pickerIndex}`}-menu`;
+    const control = document.createElement('div');
+    control.className = 'prd-diagnostic-custom-select';
+    control.dataset.diagnosticGroupPicker = '';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'prd-diagnostic-group-trigger';
+    trigger.dataset.diagnosticGroupTrigger = '';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-controls', menuId);
+    trigger.innerHTML = '<span data-diagnostic-group-value></span><i aria-hidden="true"></i>';
+
+    const menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'prd-diagnostic-group-menu';
+    menu.dataset.diagnosticGroupMenu = '';
+    menu.setAttribute('role', 'listbox');
+    menu.tabIndex = -1;
+    menu.hidden = true;
+
+    Array.from(select.options).forEach((sourceOption) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'prd-diagnostic-group-option';
+      option.dataset.diagnosticGroupOption = '';
+      option.dataset.diagnosticGroupTarget = sourceOption.value;
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', String(sourceOption.selected));
+      option.textContent = sourceOption.textContent.trim();
+      menu.append(option);
+    });
+
+    control.append(trigger, menu);
+    select.insertAdjacentElement('afterend', control);
+    select.hidden = true;
+    select.tabIndex = -1;
+    select.setAttribute('aria-hidden', 'true');
+    syncDiagnosticPicker(select);
+
+    const options = () => Array.from(
+      menu.querySelectorAll('[data-diagnostic-group-option]')
+    );
+    const focusOption = (index) => {
+      const items = options();
+      if (items.length === 0) return;
+      items[(index + items.length) % items.length].focus();
+    };
+    const selectOption = (option) => {
+      select.value = option.dataset.diagnosticGroupTarget || '';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      closeDiagnosticPicker(picker, true);
+    };
+
+    trigger.addEventListener('click', () => {
+      const opening = trigger.getAttribute('aria-expanded') !== 'true';
+      document.querySelectorAll('[data-diagnostic-group-picker]')
+        .forEach((candidate) => closeDiagnosticPicker(candidate));
+      if (!opening) return;
+      trigger.setAttribute('aria-expanded', 'true');
+      menu.hidden = false;
+      picker.classList.remove('opens-upward');
+      const triggerRect = trigger.getBoundingClientRect();
+      const availableBelow = window.innerHeight - triggerRect.bottom - 12;
+      const availableAbove = triggerRect.top - 12;
+      const wantedHeight = Math.min(menu.scrollHeight, 320);
+      const opensUpward = availableBelow < wantedHeight
+        && availableAbove > availableBelow;
+      picker.classList.toggle('opens-upward', opensUpward);
+      menu.style.setProperty(
+        '--diagnostic-menu-max-height',
+        `${Math.max(140, Math.min(320, opensUpward
+          ? availableAbove
+          : availableBelow))}px`
+      );
+      const items = options();
+      const selectedIndex = Math.max(
+        0,
+        items.findIndex((item) => item.getAttribute('aria-selected') === 'true')
+      );
+      items[selectedIndex]?.focus();
+    });
+
+    trigger.addEventListener('keydown', (event) => {
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      if (menu.hidden) {
+        trigger.click();
+        return;
+      }
+      const items = options();
+      focusOption(event.key === 'End' || event.key === 'ArrowUp'
+        ? items.length - 1
+        : 0);
+    });
+
+    menu.addEventListener('keydown', (event) => {
+      const items = options();
+      const current = items.indexOf(document.activeElement);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDiagnosticPicker(picker, true);
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        focusOption(current + 1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        focusOption(current - 1);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        focusOption(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        focusOption(items.length - 1);
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        const option = document.activeElement.closest(
+          '[data-diagnostic-group-option]'
+        );
+        if (option) selectOption(option);
+      }
+    });
+
+    menu.addEventListener('click', (event) => {
+      const option = event.target.closest('[data-diagnostic-group-option]');
+      if (option) selectOption(option);
+    });
+    select.addEventListener('change', () => syncDiagnosticPicker(select));
+  }
+
+  document.querySelectorAll('[data-diagnostic-group-select]')
+    .forEach(enhanceDiagnosticGroupSelect);
+  document.addEventListener('pointerdown', (event) => {
+    document.querySelectorAll('[data-diagnostic-group-picker]').forEach((picker) => {
+      if (!picker.contains(event.target)) closeDiagnosticPicker(picker);
+    });
+  });
+
+  document.querySelectorAll(
+    '.prd-writing-overview, .prd-speaking-overview'
+  ).forEach((overview) => {
+    const triggers = Array.from(
+      overview.querySelectorAll('[data-overview-criterion-trigger]')
+    );
+    const details = Array.from(
+      overview.querySelectorAll('[data-overview-criterion-detail]')
+    );
+    const activateCriterion = (trigger, focus = false) => {
+      const targetId = trigger?.getAttribute('aria-controls');
+      const target = targetId
+        ? details.find((detail) => detail.id === targetId)
+        : null;
+      if (!target) return;
+      triggers.forEach((candidate) => {
+        const active = candidate === trigger;
+        candidate.classList.toggle('is-active', active);
+        candidate.setAttribute('aria-selected', String(active));
+        candidate.setAttribute('aria-expanded', String(active));
+        if (active) candidate.setAttribute('aria-current', 'true');
+        else candidate.removeAttribute('aria-current');
+        candidate.tabIndex = active ? 0 : -1;
+      });
+      details.forEach((detail) => {
+        const active = detail === target;
+        detail.hidden = !active;
+        detail.setAttribute('aria-hidden', String(!active));
+      });
+      if (focus) trigger.focus({ preventScroll: true });
+    };
+
+    triggers.forEach((trigger, index) => {
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        activateCriterion(trigger);
+      });
+      trigger.addEventListener('keydown', (event) => {
+        let next = null;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+          next = (index + 1) % triggers.length;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+          next = (index - 1 + triggers.length) % triggers.length;
+        } else if (event.key === 'Home') {
+          next = 0;
+        } else if (event.key === 'End') {
+          next = triggers.length - 1;
+        }
+        if (next == null) return;
+        event.preventDefault();
+        activateCriterion(triggers[next], true);
+      });
+    });
+    if (triggers.length) activateCriterion(triggers[0]);
+
+    overview.querySelectorAll('[data-overview-coverage-trigger]')
+      .forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+          const targetId = trigger.getAttribute('aria-controls');
+          const detail = targetId ? document.getElementById(targetId) : null;
+          if (!detail) return;
+          const expanded = trigger.getAttribute('aria-expanded') === 'true';
+          trigger.setAttribute('aria-expanded', String(!expanded));
+          detail.hidden = expanded;
+        });
+      });
+  });
 
   function resetDiagnosticState(review) {
     if (!review) return;
@@ -98,10 +384,20 @@
     ).forEach((item) => {
       if (!item.hasAttribute('data-writing-diagnostic-filter')
           && !item.hasAttribute('data-writing-upgrade-filter')
-          && !item.hasAttribute('data-speaking-diagnostic-filter')) {
-        item.hidden = false;
+          && !item.hasAttribute('data-speaking-diagnostic-filter')
+          && !item.hasAttribute('data-speaking-upgrade-filter')) {
+        item.hidden = Boolean(item.closest('[data-requires-child-filter]'));
       }
     });
+
+    review.querySelectorAll('[data-diagnostic-group-toggle]')
+      .forEach((toggle) => setDiagnosticGroupExpanded(toggle, false));
+    review.querySelectorAll('[data-diagnostic-group-select]')
+      .forEach((select) => {
+        select.value = '';
+        syncDiagnosticPicker(select);
+        closeDiagnosticPicker(select.closest('.prd-diagnostic-parent-picker'));
+      });
 
     review.querySelectorAll(
       '[data-writing-occurrence-trigger], [data-speaking-occurrence-trigger]'
@@ -123,12 +419,25 @@
         'is-selected', 'is-muted', 'is-upgrade', 'is-occurrence-selected'
       );
     });
+    review.querySelectorAll('.prd-writing-blank-answer').forEach((blank) => {
+      blank.classList.remove('is-selected');
+    });
+    review.querySelectorAll(
+      '.prd-writing-rewrite, .prd-speaking-rewrite'
+    ).forEach((rewrite) => {
+      rewrite.classList.remove('is-upgrade-selected', 'is-muted');
+    });
 
     review.querySelectorAll(
       '[data-writing-filter-status], [data-writing-upgrade-filter-status], '
       + '[data-speaking-filter-status], [data-speaking-upgrade-filter-status]'
     ).forEach((status) => {
-      status.textContent = 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+      const panel = status.closest('[role="tabpanel"]');
+      status.textContent = panel?.querySelector(
+        '[data-diagnostic-group-select], [data-diagnostic-group-toggle]'
+      )
+        ? 'Chọn một nhóm tiêu chí để xem các tiêu chí con.'
+        : 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
     });
   }
 
@@ -158,12 +467,40 @@
       if (panel) panel.hidden = !selected;
     });
 
+    const feedback = tabList.closest(
+      '.prd-writing-feedback, .prd-speaking-feedback'
+    );
+    if (feedback && currentTab !== nextTab) {
+      feedback.scrollTop = 0;
+      feedback.querySelectorAll(':scope > [role="tabpanel"]')
+        .forEach((panel) => { panel.scrollTop = 0; });
+    }
+
     if (focus) nextTab.focus();
   }
 
   tabLists.forEach((tabList) => {
     const tabs = Array.from(tabList.querySelectorAll(':scope > [role="tab"]'));
     if (tabs.length === 0) return;
+
+    const feedback = tabList.closest(
+      '.prd-writing-feedback, .prd-speaking-feedback'
+    );
+    const reviewLayout = tabList.closest(
+      '.prd-writing-review-layout, .prd-speaking-review-layout'
+    );
+    reviewLayout?.addEventListener('scroll', () => {
+      if (window.matchMedia('(min-width: 981px)').matches
+          && reviewLayout.scrollTop !== 0) {
+        reviewLayout.scrollTop = 0;
+      }
+    }, { passive: true });
+    feedback?.addEventListener('scroll', () => {
+      if (window.matchMedia('(min-width: 981px)').matches
+          && feedback.scrollTop !== 0) {
+        feedback.scrollTop = 0;
+      }
+    }, { passive: true });
 
     const initial = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') || tabs[0];
     activate(tabList, initial, false);
@@ -189,6 +526,66 @@
         event.preventDefault();
         activate(tabList, tabs[nextIndex], true);
       });
+    });
+  });
+
+  document.querySelectorAll(
+    '[data-writing-active-question], [data-speaking-active-question]'
+  ).forEach((review) => resetDiagnosticState(review));
+
+  document.querySelectorAll('[data-diagnostic-group-toggle]').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const groupSet = toggle.closest('[data-diagnostic-chip-groups]');
+      const review = toggle.closest(
+        '[data-writing-active-question], [data-speaking-active-question]'
+      );
+      const panel = toggle.closest('[role="tabpanel"]');
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+
+      resetDiagnosticState(review);
+      groupSet?.querySelectorAll('[data-diagnostic-group-toggle]')
+        .forEach((candidate) => setDiagnosticGroupExpanded(candidate, false));
+      if (open) setDiagnosticGroupExpanded(toggle, true);
+
+      const status = panel?.querySelector(
+        '[data-writing-filter-status], [data-writing-upgrade-filter-status], '
+        + '[data-speaking-filter-status], [data-speaking-upgrade-filter-status]'
+      );
+      if (status && open) {
+        status.textContent = 'Chọn một tiêu chí con để xem đúng occurrence tương ứng.';
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-diagnostic-group-select]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const targetId = select.value;
+      const groupSet = select.closest('[data-diagnostic-chip-groups]');
+      const review = select.closest(
+        '[data-writing-active-question], [data-speaking-active-question]'
+      );
+      const panel = select.closest('[role="tabpanel"]');
+
+      resetDiagnosticState(review);
+      select.value = targetId;
+      syncDiagnosticPicker(select);
+      groupSet?.querySelectorAll('[data-diagnostic-group-children]')
+        .forEach((children) => { children.hidden = children.id !== targetId; });
+      groupSet?.querySelectorAll('[data-diagnostic-group-toggle]')
+        .forEach((toggle) => setDiagnosticGroupExpanded(
+          toggle,
+          toggle.getAttribute('aria-controls') === targetId
+        ));
+
+      const status = panel?.querySelector(
+        '[data-writing-filter-status], [data-writing-upgrade-filter-status], '
+        + '[data-speaking-filter-status], [data-speaking-upgrade-filter-status]'
+      );
+      if (status) {
+        status.textContent = targetId
+          ? 'Chọn một tiêu chí con để xem đúng occurrence tương ứng.'
+          : 'Chọn một nhóm tiêu chí để xem các tiêu chí con.';
+      }
     });
   });
 
@@ -225,13 +622,30 @@
           )
         )
         : [];
+      const knownFindings = review
+        ? Array.from(review.querySelectorAll(
+          '[data-writing-finding-id][data-writing-feature]'
+        )).filter((item) =>
+          !item.hasAttribute('data-writing-diagnostic-filter')
+          && !item.hasAttribute('data-writing-upgrade-filter'))
+        : [];
+      const matchingFindingIds = new Set(knownFindings
+        .filter((finding) => finding.dataset.writingFeature
+          === filter.dataset.writingFeature)
+        .map((finding) => finding.dataset.writingFindingId)
+        .filter(Boolean));
+      const upgradeSuggestions = Array.from(
+        panel.querySelectorAll('[data-writing-upgrade-finding-ids]')
+      );
       const feature = filter.dataset.writingFeature;
       const activateFilter = filter.getAttribute('aria-pressed') !== 'true';
+      const requiresChildFilter = panel.hasAttribute('data-requires-child-filter');
 
       scopedFilters.forEach((item) => item.setAttribute('aria-pressed', 'false'));
       findings.forEach((finding) => {
-        finding.hidden = activateFilter
-          && finding.dataset.writingFeature !== feature;
+        finding.hidden = requiresChildFilter
+          ? (!activateFilter || finding.dataset.writingFeature !== feature)
+          : (activateFilter && finding.dataset.writingFeature !== feature);
       });
       annotations.forEach((annotation) => {
         const selected = activateFilter
@@ -240,10 +654,39 @@
         annotation.classList.toggle('is-muted', activateFilter && !selected);
         annotation.classList.toggle('is-upgrade', selected && upgradeFilter);
       });
+      upgradeSuggestions.forEach((suggestion) => {
+        const selected = activateFilter && upgradeFilter
+          && Array.from(matchingFindingIds).some((findingId) =>
+            hasToken(suggestion.dataset.writingUpgradeFindingIds, findingId));
+        suggestion.classList.toggle('is-upgrade-selected', selected);
+        suggestion.classList.toggle(
+          'is-muted', activateFilter && upgradeFilter && !selected
+        );
+      });
       review?.querySelectorAll('[data-writing-number-feature]').forEach((number) => {
         number.hidden = activateFilter
           && number.dataset.writingNumberFeature !== feature;
       });
+      const matchingBlankTargets = knownFindings.filter((finding) =>
+        activateFilter
+        && finding.dataset.writingFeature === feature
+        && finding.dataset.writingTargetKind === 'BLANK'
+      );
+      review?.querySelectorAll('.prd-writing-blank-answer').forEach((blank) => {
+        const selected = matchingBlankTargets.some((finding) =>
+          (finding.dataset.writingTargetBlankId
+            && finding.dataset.writingTargetBlankId === blank.dataset.writingBlankId)
+          || (finding.dataset.writingTargetBlankIndex
+            && finding.dataset.writingTargetBlankIndex === blank.dataset.writingBlankIndex)
+        );
+        blank.classList.toggle('is-selected', selected);
+      });
+      const selectedAnnotationCount = annotations.filter((annotation) =>
+        annotation.classList.contains('is-selected')
+        && !annotation.closest('.prd-writing-blank-answer')).length;
+      const selectedBlankCount = review
+        ? Array.from(review.querySelectorAll('.prd-writing-blank-answer.is-selected')).length
+        : 0;
 
       const zeroState = panel.querySelector('[data-writing-zero-chip-empty]');
       if (zeroState) {
@@ -255,8 +698,15 @@
         '[data-writing-filter-status], [data-writing-upgrade-filter-status]'
       );
       if (!activateFilter) {
-        if (status) status.textContent =
-          'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+        if (status) status.textContent = panel.querySelector(
+          '[data-diagnostic-group-select]'
+        )?.value || panel.querySelector(
+          '[data-diagnostic-group-toggle][aria-expanded="true"]'
+        )
+          ? 'Chọn một tiêu chí con để xem đúng occurrence tương ứng.'
+          : (requiresChildFilter
+            ? 'Chọn một nhóm tiêu chí để xem các tiêu chí con.'
+            : 'Đang hiển thị toàn bộ occurrence có bằng chứng.');
         return;
       }
 
@@ -265,10 +715,22 @@
         (finding) => finding.dataset.writingFeature === feature
       ).length;
       if (status) {
-        status.textContent = upgradeFilter
-          ? `Đang đánh dấu ${annotations.filter((annotation) =>
-            hasToken(annotation.dataset.writingFeatures, feature)).length} đoạn được nâng cấp.`
-          : `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
+        if (upgradeFilter) {
+          const markedSources = [];
+          if (selectedAnnotationCount > 0) {
+            markedSources.push(`${selectedAnnotationCount} đoạn trong bài làm`);
+          }
+          if (selectedBlankCount > 0) {
+            markedSources.push(`${selectedBlankCount} ô trả lời`);
+          }
+          const sourceSummary = markedSources.length > 0
+            ? markedSources.join(' và ')
+            : '0 vùng trong bài làm';
+          status.textContent = `Đang đánh dấu ${sourceSummary} và ${upgradeSuggestions.filter((suggestion) =>
+            suggestion.classList.contains('is-upgrade-selected')).length} gợi ý nâng cấp.`;
+        } else {
+          status.textContent = `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
+        }
       }
     });
   });
@@ -327,7 +789,9 @@
   );
 
   document.querySelectorAll('[data-speaking-filter-status]').forEach((status) => {
-    status.textContent = 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+    status.textContent = status.closest('[data-requires-child-filter]')
+      ? 'Chọn một nhóm tiêu chí để xem các tiêu chí con.'
+      : 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
   });
 
   speakingFilters.forEach((filter) => {
@@ -359,13 +823,18 @@
           )
         )
         : [];
+      const upgradeSuggestions = Array.from(
+        panel.querySelectorAll('[data-speaking-upgrade-feature]')
+      );
       const feature = filter.dataset.speakingFeature;
       const activateFilter = filter.getAttribute('aria-pressed') !== 'true';
+      const requiresChildFilter = panel.hasAttribute('data-requires-child-filter');
 
       scopedFilters.forEach((item) => item.setAttribute('aria-pressed', 'false'));
       findings.forEach((finding) => {
-        finding.hidden = activateFilter
-          && finding.dataset.speakingFeature !== feature;
+        finding.hidden = requiresChildFilter
+          ? (!activateFilter || finding.dataset.speakingFeature !== feature)
+          : (activateFilter && finding.dataset.speakingFeature !== feature);
       });
       annotations.forEach((annotation) => {
         const selected = activateFilter
@@ -373,6 +842,14 @@
         annotation.classList.toggle('is-selected', selected);
         annotation.classList.toggle('is-muted', activateFilter && !selected);
         annotation.classList.toggle('is-upgrade', selected && upgradeFilter);
+      });
+      upgradeSuggestions.forEach((suggestion) => {
+        const selected = activateFilter && upgradeFilter
+          && suggestion.dataset.speakingUpgradeFeature === feature;
+        suggestion.classList.toggle('is-upgrade-selected', selected);
+        suggestion.classList.toggle(
+          'is-muted', activateFilter && upgradeFilter && !selected
+        );
       });
       review?.querySelectorAll('[data-speaking-number-feature]').forEach((number) => {
         number.hidden = activateFilter
@@ -390,9 +867,16 @@
       );
       if (!activateFilter) {
         if (status) {
-          status.textContent = upgradeFilter
-            ? ''
-            : 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+          status.textContent = panel.querySelector(
+            '[data-diagnostic-group-select]'
+          )?.value || panel.querySelector(
+            '[data-diagnostic-group-toggle][aria-expanded="true"]'
+          )
+            ? 'Chọn một tiêu chí con để xem đúng occurrence tương ứng.'
+            : (requiresChildFilter
+              ? 'Chọn một nhóm tiêu chí để xem các tiêu chí con.'
+              : (upgradeFilter ? ''
+                : 'Đang hiển thị toàn bộ occurrence có bằng chứng.'));
         }
         return;
       }
@@ -405,7 +889,8 @@
         status.textContent =
           upgradeFilter
             ? `Đang đánh dấu ${annotations.filter((annotation) =>
-              hasToken(annotation.dataset.speakingFeatures, feature)).length} đoạn được nâng cấp.`
+              hasToken(annotation.dataset.speakingFeatures, feature)).length} đoạn trong bản chép lời và ${upgradeSuggestions.filter((suggestion) =>
+              suggestion.classList.contains('is-upgrade-selected')).length} gợi ý nâng cấp.`
             : `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
       }
     });
@@ -444,6 +929,17 @@
         'is-occurrence-selected', !expanded && hasToken(ids, identity)
       );
     });
+    if (kind === 'writing') {
+      review?.querySelectorAll('.prd-writing-blank-answer').forEach((blank) => {
+        const selected = !expanded
+          && card.dataset.writingTargetKind === 'BLANK'
+          && ((card.dataset.writingTargetBlankId
+              && card.dataset.writingTargetBlankId === blank.dataset.writingBlankId)
+            || (card.dataset.writingTargetBlankIndex
+              && card.dataset.writingTargetBlankIndex === blank.dataset.writingBlankIndex));
+        blank.classList.toggle('is-selected', selected);
+      });
+    }
     if (expanded) return;
 
     trigger.setAttribute('aria-expanded', 'true');
@@ -477,6 +973,21 @@
           : '[data-speaking-occurrence-trigger]'
       );
       if (!trigger) return;
+      const groupChildren = card.closest('[data-diagnostic-group-children]');
+      if (groupChildren?.hidden) {
+        const groupSelect = groupChildren.closest(
+          '[data-diagnostic-chip-groups]'
+        )?.querySelector('[data-diagnostic-group-select]');
+        if (groupSelect) {
+          groupSelect.value = groupChildren.id;
+          syncDiagnosticPicker(groupSelect);
+        }
+        const groupToggle = document.querySelector(
+          `[data-diagnostic-group-toggle][aria-controls="${groupChildren.id}"]`
+        );
+        setDiagnosticGroupExpanded(groupToggle, true);
+        groupChildren.hidden = false;
+      }
       card.hidden = false;
       activateOccurrence(trigger, writing ? 'writing' : 'speaking');
       card.scrollIntoView({

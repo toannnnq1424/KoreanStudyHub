@@ -142,7 +142,7 @@ class PracticePre14UiAcceptanceSeedTest {
                     "kiểm soát lặp từ"),
             speakingChip(
                     SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS,
-                    "S_VOCAB_WORD_CHOICE", "도움이 되다", "VOCABULARY",
+                    "S_VOCAB_WORD_CHOICE", "도움이 되", "VOCABULARY",
                     "lựa chọn từ ngữ"),
             speakingChip(
                     SpeakingRubricCriterion.COHERENCE_ORGANIZATION,
@@ -2367,11 +2367,16 @@ class PracticePre14UiAcceptanceSeedTest {
                     parent,
                     evidenceId,
                     requirementIds,
-                    "Đoạn này cần điều chỉnh về "
-                            + feature.vietnameseLabel() + ".",
+                    q54ImprovementExplanation(feature),
                     "REPLACE".equals(operation)
-                            ? "교사가 다듬은 정확한 표현" : "",
+                            ? q54ImprovementCorrection(feature) : "",
                     "MODERATE");
+            if ("REPLACE".equals(operation)) {
+                assertThat(finding.path("replacementKo").asText())
+                        .as("Q54 %s exact replacement", feature.id())
+                        .isEqualTo(q54ImprovementCorrection(feature))
+                        .doesNotContain("정확한 표현");
+            }
             if (feature == WritingRubricCriterion
                     .W_REPETITIVE_WORDS_EXPRESSIONS) {
                 finding.put("frequency", 5);
@@ -2449,6 +2454,79 @@ class PracticePre14UiAcceptanceSeedTest {
                     W_LOGICAL_FLOW_ISSUES -> null;
             default -> throw new IllegalArgumentException(
                     "Q54 improvement is not catalogued: "
+                            + feature.id());
+        };
+    }
+
+    private static String q54ImprovementCorrection(
+            WritingRubricCriterion feature) {
+        return switch (feature) {
+            case W_TRANSITION_DEVICE_ISSUES -> "그러나";
+            case W_VOCABULARY_ERRORS ->
+                    "학습 자료에 빠르게 접근하게 하며";
+            case W_GRAMMAR_ERRORS -> "바로 검색하고";
+            case W_PARTICLE_ERRORS -> "학생은";
+            case W_AWKWARD_UNNATURAL_EXPRESSIONS ->
+                    "확인하게 해 준다";
+            case W_SENTENCE_STRUCTURE_ISSUES ->
+                    "자신의 생각을 정리하는 힘이 약해질";
+            case W_REGISTER_CONSISTENCY_ISSUES -> "도구가 된다";
+            case W_SPELLING_SPACING_ERRORS -> "사용해야";
+            default -> throw new IllegalArgumentException(
+                    "Q54 replacement is not catalogued: "
+                            + feature.id());
+        };
+    }
+
+    private static String q54ImprovementExplanation(
+            WritingRubricCriterion feature) {
+        return switch (feature) {
+            case W_OFF_TOPIC_OR_WEAK_RELEVANCE ->
+                    "Bài có nêu lợi ích và hạn chế của thiết bị số, nhưng chưa "
+                            + "neo rõ từng ý vào yêu cầu đánh giá việc dùng thiết bị số "
+                            + "trong giáo dục.";
+            case W_INSUFFICIENT_IDEA_DEVELOPMENT ->
+                    "Ý về khả năng tiếp cận tài liệu mới dừng ở nhận định; cần thêm "
+                            + "cơ chế hoặc ví dụ cho thấy việc tiếp cận đó cải thiện "
+                            + "quá trình học như thế nào.";
+            case W_UNSUPPORTED_CLAIM ->
+                    "Nhận định thiết bị số giúp hiểu bài nhanh hơn chưa có ví dụ hoặc "
+                            + "lập luận nối nguyên nhân với kết quả.";
+            case W_WEAK_PARAGRAPH_ORGANIZATION ->
+                    "Đoạn lợi ích và đoạn hạn chế chưa có câu chủ đề đủ rõ để người đọc "
+                            + "nhận ra vai trò của từng đoạn ngay khi đọc lướt.";
+            case W_LOGICAL_FLOW_ISSUES ->
+                    "Chuyển từ lợi ích sang hạn chế còn đột ngột; cần một quan hệ tương "
+                            + "phản nhất quán trước khi triển khai ý tiếp theo.";
+            case W_TRANSITION_DEVICE_ISSUES ->
+                    "`그리고` biểu thị bổ sung còn `그러나` biểu thị tương phản; đặt hai "
+                            + "liên từ cạnh nhau làm quan hệ logic mâu thuẫn, nên chỉ giữ "
+                            + "`그러나`.";
+            case W_VOCABULARY_ERRORS ->
+                    "`자료를 만들다` làm lệch nghĩa thành tạo tài liệu; ngữ cảnh đang nói "
+                            + "đến việc tiếp cận học liệu, nên dùng `학습 자료에 접근하다`.";
+            case W_GRAMMAR_ERRORS ->
+                    "Sau `검색하는` câu cần tiếp tục bằng một vị ngữ song song, vì vậy "
+                            + "dùng dạng liên kết `검색하고`.";
+            case W_PARTICLE_ERRORS ->
+                    "`학생` có 받침, vì vậy tiểu từ chủ đề phải là `은`, không phải `는`.";
+            case W_REPETITIVE_WORDS_EXPRESSIONS ->
+                    "`디지털 기기` xuất hiện dày trong cùng đoạn; có thể lược chủ ngữ "
+                            + "hoặc dùng cách quy chiếu phù hợp để giảm lặp mà không mất nghĩa.";
+            case W_AWKWARD_UNNATURAL_EXPRESSIONS ->
+                    "`확인이 되어진다` chồng hai lớp bị động nên nặng và không tự nhiên; "
+                            + "`확인하게 해 준다` diễn đạt quan hệ tác động rõ hơn.";
+            case W_SENTENCE_STRUCTURE_ISSUES ->
+                    "Cụm `자신의 생각이 힘이` có hai chủ ngữ nối trực tiếp; cần chuyển "
+                            + "`자신의 생각` thành bổ ngữ của `정리하는 힘`.";
+            case W_REGISTER_CONSISTENCY_ISSUES ->
+                    "`돼요` thuộc lối nói thân mật, không nhất quán với văn phong viết "
+                            + "trang trọng của phần còn lại; dùng `된다`.";
+            case W_SPELLING_SPACING_ERRORS ->
+                    "`사용하다` kết hợp với `-아/어야 하다` được viết liền thành "
+                            + "`사용해야`, không tách `사용 해야`.";
+            default -> throw new IllegalArgumentException(
+                    "Q54 explanation is not catalogued: "
                             + feature.id());
         };
     }
@@ -3535,13 +3613,9 @@ class PracticePre14UiAcceptanceSeedTest {
             String annotationType,
             String operation,
             BigDecimal contentScore) throws Exception {
-        String transcript = """
-                관심사와 목표를 말씀드리겠습니다. 첫째, 한국 드라마를 통해 공부했습니다. \
-                그래서 친구들과 한국어 모임에서 이야기하고 싶습니다. 시간이 있으면 연습합니다. \
-                정말 꾸준히 익혀 가다 보면 정말 도움이 되다라는 점을 알 수 있습니다. \
-                그 결과 자신감이 생겼고, 마지막으로 앞으로의 계획을 설명하겠습니다.
-                """.strip();
         boolean strength = "strength".equals(annotationType);
+        String transcript = premiumSpeakingTranscript(strength);
+        String companionTranscript = premiumSpeakingTranscript(!strength);
         SpeakingEvaluationResult result = premiumSpeakingResult(
                 attemptId,
                 14405L,
@@ -3552,24 +3626,26 @@ class PracticePre14UiAcceptanceSeedTest {
         SpeakingEvaluationResult companion = premiumSpeakingResult(
                 attemptId,
                 5L,
-                transcript,
+                companionTranscript,
                 strength ? "needs_improvement" : "strength",
                 strength ? "REPLACE" : "KEEP",
                 strength ? new BigDecimal("8") : new BigDecimal("20"));
         assertThat(result.transcriptAnnotations())
                 .as("Premium Speaking attempt %s must retain every primary transcript chip",
                         attemptId)
-                .hasSize(PREMIUM_SPEAKING_CHIPS.size() + 1);
+                .hasSize(PREMIUM_SPEAKING_CHIPS.size()
+                        + (strength ? 1 : 0));
         assertThat(companion.transcriptAnnotations())
                 .as("Premium Speaking attempt %s must retain the opposite-polarity companion",
                         attemptId)
-                .hasSize(PREMIUM_SPEAKING_CHIPS.size() + 1);
+                .hasSize(PREMIUM_SPEAKING_CHIPS.size()
+                        + (strength ? 0 : 1));
         assertThat(result.rubricScores())
                 .as("Acoustic rows remain visible but unscored")
                 .hasSize(6);
 
         ObjectNode answers = mapper.createObjectNode();
-        answers.put("5", transcript);
+        answers.put("5", companionTranscript);
         answers.put("14405", transcript);
         ObjectNode feedback = mapper.createObjectNode();
         feedback.put("_contract", "speaking_ai_v1");
@@ -3598,6 +3674,19 @@ class PracticePre14UiAcceptanceSeedTest {
                 connection, attemptId, answers, feedback);
     }
 
+    private static String premiumSpeakingTranscript(boolean strength) {
+        String repetitionSentence = strength
+                ? "정말 꾸준히 익혀 가다 보면 도움이 되는 것을 느낍니다. 정말, 이 목표는 "
+                        + "제가 계속 연습하게 하는 힘입니다."
+                : "정말 정말 꾸준히 익혀 가다 보면 도움이 되다라는 점을 "
+                        + "알 수 있습니다.";
+        return ("""
+                관심사와 목표를 말씀드리겠습니다. 첫째, 한국 드라마를 통해 공부했습니다. \
+                그래서 친구들과 한국어 모임에서 이야기하고 싶습니다. 시간이 있으면 연습합니다. \
+                %s 그 결과 자신감이 생겼고, 마지막으로 앞으로의 계획을 설명하겠습니다.
+                """).formatted(repetitionSentence).strip();
+    }
+
     private SpeakingEvaluationResult premiumSpeakingResult(
             long attemptId,
             long questionId,
@@ -3614,6 +3703,17 @@ class PracticePre14UiAcceptanceSeedTest {
             SpeakingChipDescriptor descriptor =
                     PREMIUM_SPEAKING_CHIPS.get(index);
             String suffix = strength ? "STRENGTH" : "IMPROVEMENT";
+            boolean repetition = "S_VOCAB_REPETITION_CONTROL".equals(
+                    descriptor.subcriterionId());
+            int evidenceOffset = repetition && !strength
+                    ? transcript.lastIndexOf(descriptor.exactText())
+                    : transcript.indexOf(descriptor.exactText());
+            assertThat(evidenceOffset)
+                    .as("Premium Speaking %s span %s must exist",
+                            annotationType, descriptor.subcriterionId())
+                    .isGreaterThanOrEqualTo(0);
+            String findingOperation = strength ? "KEEP"
+                    : repetition ? "REDUNDANT" : operation;
             findings.add(speakingFinding(
                     "SP-" + attemptId + "-Q" + questionId + "-" + (index + 1)
                             + "-" + suffix,
@@ -3621,26 +3721,23 @@ class PracticePre14UiAcceptanceSeedTest {
                     descriptor.criterion(),
                     descriptor.subcriterionId(),
                     descriptor.exactText(),
-                    transcript.indexOf(descriptor.exactText()),
+                    evidenceOffset,
                     annotationType,
-                    operation,
+                    findingOperation,
                     descriptor.category(),
                     strength ? "LOW" : "MEDIUM",
-                    strength
-                            ? "Bằng chứng bản chép lời xác nhận "
-                            + descriptor.labelVi() + "."
-                            : "Cần điều chỉnh "
-                            + descriptor.labelVi()
-                            + " trong bản chép lời.",
-                    strength
-                            ? ""
-                            : "표현을 더 정확하고 자연스럽게 고쳐 보세요."));
-            if ("S_VOCAB_REPETITION_CONTROL".equals(
-                    descriptor.subcriterionId())) {
+                    premiumSpeakingExplanation(descriptor, strength),
+                    strength ? ""
+                            : premiumSpeakingSuggestion(descriptor)));
+            if (repetition && strength) {
                 int repeatedOffset = transcript.indexOf(
                         descriptor.exactText(),
                         transcript.indexOf(descriptor.exactText())
                                 + descriptor.exactText().length());
+                assertThat(repeatedOffset)
+                        .as("Premium Speaking strength repeated span %s must exist",
+                                descriptor.subcriterionId())
+                        .isGreaterThanOrEqualTo(0);
                 findings.add(speakingFinding(
                         "SP-" + attemptId + "-Q" + questionId + "-" + (index + 1)
                                 + "B-" + suffix,
@@ -3653,21 +3750,123 @@ class PracticePre14UiAcceptanceSeedTest {
                         annotationType,
                         operation,
                         descriptor.category(),
-                        strength ? "LOW" : "MEDIUM",
-                        strength
-                                ? "Lần xuất hiện thứ hai tiếp tục xác nhận "
-                                + descriptor.labelVi() + "."
-                                : "Lần xuất hiện thứ hai cần điều chỉnh "
-                                + descriptor.labelVi() + ".",
-                        strength
-                                ? ""
-                                : "같은 표현의 반복을 줄여 보세요."));
+                        "LOW",
+                        "Lần `정말` thứ hai mở một câu mới để tiếp tục nhấn mạnh "
+                                + "mục tiêu; hai occurrence đảm nhiệm hai ý khác nhau "
+                                + "nên không phải lặp dư.",
+                        ""));
             }
         }
         SpeakingEvaluationResult result =
                 SpeakingEvaluationTestFixtures.currentResultWithFindings(
                         mapper, transcript, contentScore, findings);
         return result;
+    }
+
+    private static String premiumSpeakingExplanation(
+            SpeakingChipDescriptor descriptor,
+            boolean strength) {
+        String span = "`" + descriptor.exactText() + "`";
+        if ("S_VOCAB_REPETITION_CONTROL".equals(
+                descriptor.subcriterionId())) {
+            return strength
+                    ? "Hai lần `정말` mở hai câu có chức năng khác nhau: lần đầu "
+                            + "nhấn vào nỗ lực, lần sau nhấn vào động lực; đây là "
+                            + "điệp có chủ đích chứ không phải lặp dư."
+                    : "Hai `정말` đứng liền nhau cùng bổ nghĩa cho `꾸준히`; lần "
+                            + "thứ hai không thêm nghĩa và làm câu nặng, nên lược bỏ.";
+        }
+        return switch (descriptor.subcriterionId()) {
+            case "S_CONTENT_RELEVANCE" -> strength
+                    ? span + " nêu trực tiếp chủ đề sở thích nên câu trả lời bám đề."
+                    : span + " mới chỉ gọi tên chủ đề; cần nói rõ sở thích cụ thể là gì.";
+            case "S_CONTENT_PROMPT_COVERAGE" -> strength
+                    ? span + " báo trước mục tiêu, xác nhận câu trả lời bao phủ yêu cầu thứ hai."
+                    : span + " chưa cho biết mục tiêu cụ thể hoặc cách đạt mục tiêu đó.";
+            case "S_CONTENT_SPECIFICITY_EXAMPLES" -> strength
+                    ? span + " là một địa điểm/hoạt động cụ thể, giúp ý không dừng ở mức khái quát."
+                    : span + " cần thêm thời điểm hoặc hoạt động thực tế để thành ví dụ đầy đủ.";
+            case "S_GRAMMAR_PARTICLES" -> strength
+                    ? span + " dùng `과` để chỉ người cùng thực hiện hành động, phù hợp ngữ cảnh."
+                    : span + " cần làm rõ quan hệ cùng tham gia bằng `함께` trong câu này.";
+            case "S_GRAMMAR_TENSE_ASPECT" -> strength
+                    ? span + " dùng quá khứ `-았/었-` nhất quán khi kể kinh nghiệm đã có."
+                    : span + " cần nối kinh nghiệm quá khứ với kết quả hiện tại rõ hơn.";
+            case "S_GRAMMAR_ENDINGS" -> strength
+                    ? span + " dùng đuôi mong muốn trang trọng, phù hợp ngữ cảnh trình bày."
+                    : span + " cần nêu đối tượng hoặc mục tiêu của mong muốn để câu đủ thông tin.";
+            case "S_GRAMMAR_SENTENCE_STRUCTURE" -> strength
+                    ? span + " tạo quan hệ điều kiện–hành động hoàn chỉnh và dễ theo dõi."
+                    : span + " còn chung chung; cần xác định khi nào và luyện nội dung gì.";
+            case "S_GRAMMAR_HONORIFIC_REGISTER" -> strength
+                    ? span + " giữ lối trình bày trang trọng nhất quán ở phần mở đầu."
+                    : span + " trang trọng hơn phần còn lại; cần giữ cùng một mức độ nói xuyên suốt.";
+            case "S_GRAMMAR_CONNECTORS" -> strength
+                    ? span + " nối nguyên nhân với kế hoạch tiếp theo đúng quan hệ kết quả."
+                    : span + " cần nêu nguyên nhân ngay trước đó rõ hơn để quan hệ kết quả có căn cứ.";
+            case "S_VOCAB_TOPIC_WORDS" -> strength
+                    ? span + " là từ khóa đúng chủ đề sở thích và học tiếng Hàn."
+                    : span + " quá rộng; cần nêu thể loại hoặc hoạt động gắn với sở thích này.";
+            case "S_VOCAB_NATURAL_EXPRESSIONS" -> strength
+                    ? span + " là kết hợp từ tự nhiên để diễn tả quá trình tiến bộ dần."
+                    : span + " cần một chủ ngữ hoặc đối tượng rõ để người nghe biết điều gì được rèn luyện."
+                    ;
+            case "S_VOCAB_WORD_CHOICE" -> strength
+                    ? span + " diễn đạt tác dụng tích cực tự nhiên trong tiếng Hàn."
+                    : span + " chưa nói rõ điều gì có ích cho mục tiêu nào; cần bổ sung đối tượng.";
+            case "S_COHERENCE_ORGANIZATION" -> strength
+                    ? span + " báo hiệu ý thứ nhất và tạo khung tổ chức cho câu trả lời."
+                    : span + " chỉ có ý thứ nhất; cần có nhãn song song cho ý tiếp theo hoặc bỏ đánh số.";
+            case "S_COHERENCE_LOGICAL_FLOW" -> strength
+                    ? span + " chỉ rõ kết quả của quá trình luyện tập ở câu trước."
+                    : span + " cần nêu kết quả cụ thể thay vì chuyển ý ngay sau nhãn kết quả.";
+            case "S_COHERENCE_DISCOURSE_MARKERS" -> strength
+                    ? span + " đánh dấu phần kết và giúp người nghe nhận ra cấu trúc bài nói."
+                    : span + " mở phần kết nhưng câu sau vẫn triển khai ý mới; cần chốt nội dung thật sự.";
+            default -> throw new IllegalArgumentException(
+                    "Speaking explanation is not catalogued: "
+                            + descriptor.subcriterionId());
+        };
+    }
+
+    private static String premiumSpeakingSuggestion(
+            SpeakingChipDescriptor descriptor) {
+        return switch (descriptor.subcriterionId()) {
+            case "S_CONTENT_RELEVANCE" ->
+                    "제 관심사는 한국 드라마를 보며 한국어를 배우는 것입니다.";
+            case "S_CONTENT_PROMPT_COVERAGE" ->
+                    "제 목표와 연습 방법, 앞으로의 계획을 차례대로 말씀드리겠습니다.";
+            case "S_CONTENT_SPECIFICITY_EXAMPLES" ->
+                    "예를 들어 매주 토요일 한국어 모임에서 친구들과 연습합니다.";
+            case "S_GRAMMAR_PARTICLES" -> "친구들과 함께";
+            case "S_GRAMMAR_TENSE_ASPECT" ->
+                    "한국 드라마를 보며 공부해 왔습니다.";
+            case "S_GRAMMAR_ENDINGS" ->
+                    "친구들과 자연스럽게 이야기하고 싶습니다.";
+            case "S_GRAMMAR_SENTENCE_STRUCTURE" ->
+                    "시간이 있으면 한국어 대화를 연습합니다.";
+            case "S_GRAMMAR_HONORIFIC_REGISTER" ->
+                    "관심사와 목표를 말씀드리겠습니다.";
+            case "S_GRAMMAR_CONNECTORS" ->
+                    "한국어를 더 자주 쓰고 싶어서 모임에 참여합니다.";
+            case "S_VOCAB_TOPIC_WORDS" ->
+                    "한국 드라마의 일상 대사를 따라 말합니다.";
+            case "S_VOCAB_NATURAL_EXPRESSIONS" ->
+                    "한국어 표현을 꾸준히 익혀 갑니다.";
+            case "S_VOCAB_REPETITION_CONTROL" ->
+                    "정말 꾸준히 익혀 가다 보면 도움이 됩니다.";
+            case "S_VOCAB_WORD_CHOICE" ->
+                    "한국어를 자연스럽게 말하는 데 도움이 됩니다.";
+            case "S_COHERENCE_ORGANIZATION" ->
+                    "첫째는 관심사이고, 둘째는 앞으로의 목표입니다.";
+            case "S_COHERENCE_LOGICAL_FLOW" ->
+                    "그 결과 한국어로 말할 때 자신감이 생겼습니다.";
+            case "S_COHERENCE_DISCOURSE_MARKERS" ->
+                    "마지막으로 앞으로의 연습 계획을 말씀드리겠습니다.";
+            default -> throw new IllegalArgumentException(
+                    "Speaking suggestion is not catalogued: "
+                            + descriptor.subcriterionId());
+        };
     }
 
     private void seedLecturerAuthoringScenarios(

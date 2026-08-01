@@ -176,6 +176,10 @@
             <strong th:text="${result.answers().correct()}">0</strong>
             <small>câu đúng</small>
           </span>
+          <span class="is-partial" th:if="${result.answers().partial() > 0}">
+            <strong th:text="${result.answers().partial()}">0</strong>
+            <small>đúng một phần</small>
+          </span>
           <span class="is-incorrect">
             <strong th:text="${result.answers().incorrect()}">0</strong>
             <small>câu sai</small>

@@ -1128,6 +1128,12 @@
   background: #f0fbf2;
 }
 
+.practice-result-page .pr-summary-answer-stats .is-partial {
+  border-color: #cbd8ff;
+  color: #2f5fd7;
+  background: #f2f6ff;
+}
+
 .practice-result-page .pr-summary-answer-stats .is-incorrect {
   border-color: #f2cbd2;
   color: #c72843;

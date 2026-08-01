@@ -2,7 +2,7 @@
 <html class="prd-speaking-root" lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Chi tiết kết quả Nói | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-detail.css(v='pre14-e16')}">
 </head>
 <body class="prd-body prd-speaking-body">
 <header class="prd-header prd-boundary-header">
@@ -45,7 +45,7 @@
         </section>
 
         <section aria-labelledby="speaking-result-source-title">
-          <h2 id="speaking-result-source-title">Thông tin nguồn kỹ thuật</h2>
+          <h2 id="speaking-result-source-title">Nguồn chấm và khả dụng</h2>
           <dl class="prd-speaking-source-definition">
             <div>
               <dt>Loại nhiệm vụ</dt>
@@ -108,32 +108,78 @@
 </header>
 
 <main class="prd-boundary-shell prd-speaking-shell"
-      data-result-detail-kind="SPEAKING_DETAIL"
-      th:attr="data-contract-version=${resultDetail.schemaVersion()},
-               data-descriptor-policy=${resultDetail.descriptorPolicyId()},
-               data-speaking-evidence-mode=${resultDetail.payload().evidenceMode()},
-               data-speaking-evaluator-capability=${resultDetail.payload().evaluatorCapability()}">
+      data-result-detail-kind="SPEAKING_DETAIL">
   <section class="prd-boundary-hero prd-speaking-topbar"
            aria-labelledby="speaking-detail-title">
     <h1 id="speaking-detail-title" th:text="${resultDetail.identity().sectionTitle()}">Phần Nói</h1>
-    <nav class="prd-boundary-task-nav" aria-label="Chọn nhiệm vụ Nói">
-      <a th:each="task : ${resultDetail.payload().tasks()}"
-         th:if="${task.detailAvailable()}"
-         th:href="@{/practice/attempts/{attemptId}/result/detail(attemptId=${resultDetail.identity().attemptId()},questionId=${task.questionId()})}"
-         th:classappend="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'is-active'"
-         th:aria-current="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'page'">
-        <span th:text="${task.taskLabelVi()}">Câu Nói 1</span>
-      </a>
-    </nav>
+    <button class="prd-speaking-question-drawer-trigger"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="speaking-question-drawer"
+            data-speaking-question-drawer-trigger>
+      <span class="prd-speaking-question-drawer-current"
+            th:each="task : ${resultDetail.payload().tasks()}"
+            th:if="${task.questionId().equals(resultDetail.payload().activeQuestionId())}"
+            th:text="${task.taskLabelVi()}">Câu Nói 1</span>
+      <small th:text="${resultDetail.payload().tasks().size() + ' câu'}">2 câu</small>
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
+    <dialog class="prd-speaking-question-drawer"
+            id="speaking-question-drawer"
+            aria-labelledby="speaking-question-drawer-title"
+            data-speaking-question-drawer>
+      <div class="prd-speaking-question-drawer-surface">
+        <header>
+          <div>
+            <h2 id="speaking-question-drawer-title">Danh sách câu hỏi</h2>
+          </div>
+          <button type="button"
+                  aria-label="Đóng danh sách câu Nói"
+                  data-speaking-question-drawer-close>
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M6 6l12 12M18 6L6 18"></path>
+            </svg>
+          </button>
+        </header>
+        <section class="prd-speaking-question-group"
+                 aria-labelledby="speaking-question-group-title">
+          <div class="prd-speaking-question-group-heading">
+            <h3 id="speaking-question-group-title"
+                th:text="${resultDetail.identity().sectionTitle()}">Phần Nói</h3>
+            <span th:text="${resultDetail.payload().tasks().size() + ' câu'}">2 câu</span>
+          </div>
+          <nav class="prd-speaking-question-list" aria-label="Các câu trong Phần Nói">
+            <a th:each="task : ${resultDetail.payload().tasks()}"
+               th:if="${task.detailAvailable()}"
+               th:href="@{/practice/attempts/{attemptId}/result/detail(attemptId=${resultDetail.identity().attemptId()},questionId=${task.questionId()})}"
+               th:classappend="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'is-active'"
+               th:aria-current="${task.questionId().equals(resultDetail.payload().activeQuestionId())} ? 'page'">
+              <span class="prd-speaking-question-index" th:text="${task.questionNo()}">1</span>
+              <span>
+                <strong th:text="${task.taskLabelVi()}">Câu Nói 1</strong>
+                <small th:text="${task.compatibilityLabelVi()}">Nhiệm vụ Nói chuẩn hiện hành</small>
+              </span>
+              <span class="prd-speaking-question-current"
+                    th:if="${task.questionId().equals(resultDetail.payload().activeQuestionId())}">
+                Đang xem
+              </span>
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M9 18l6-6-6-6"></path>
+              </svg>
+            </a>
+          </nav>
+        </section>
+      </div>
+    </dialog>
   </section>
 
   <th:block th:each="task : ${resultDetail.payload().tasks()}"
             th:if="${task.questionId().equals(resultDetail.payload().activeQuestionId())}">
     <section class="prd-speaking-review-layout"
-             th:attr="data-speaking-active-question=${task.questionId()},
-                      data-speaking-question-version=${task.questionVersionId()},
-                      data-speaking-question-type=${task.questionType()},
-                      data-speaking-compatibility-mode=${task.compatibilityMode()}">
+             th:attr="data-speaking-active-question=${task.questionId()}">
       <article class="prd-boundary-card prd-speaking-source"
                th:aria-labelledby="${'speaking-source-title-' + task.questionId()}">
         <header class="prd-speaking-source-heading">
@@ -338,26 +384,45 @@
           </button>
         </div>
 
-        <section class="prd-speaking-panel"
+        <section class="prd-speaking-panel prd-speaking-overview"
                  role="tabpanel"
                  tabindex="0"
                  th:id="${'speaking-panel-overview-' + task.questionId()}"
                  th:attr="aria-labelledby=${'speaking-tab-overview-' + task.questionId()}">
-          <header class="prd-speaking-panel-heading">
-            <h3>Tổng quan</h3>
+          <header class="prd-speaking-panel-heading prd-speaking-overview-heading">
+            <div>
+              <p class="prd-boundary-eyebrow">Kết quả theo tiêu chí KSH</p>
+              <h3>Điểm nhiệm vụ</h3>
+            </div>
+            <div class="prd-speaking-task-score is-unavailable">
+              <strong aria-label="Không có điểm tổng nhiệm vụ">—</strong>
+              <span>Không tạo điểm tổng</span>
+            </div>
+          </header>
+          <div class="prd-speaking-overview-context">
             <p th:if="${task.summary() != null && !task.summary().isBlank()}"
                th:text="${task.summary()}">Nhận xét tổng quan</p>
             <p th:text="${resultDetail.payload().evidenceNote()}">Phạm vi bằng chứng</p>
-          </header>
-          <div class="prd-speaking-status-spotlight">
-            <span>Trạng thái câu đang chọn</span>
-            <strong th:text="${task.evaluationStateLabelVi()}">Phản hồi đã sẵn sàng</strong>
           </div>
-          <div class="prd-speaking-score-grid">
-            <article class="prd-speaking-score-card"
-                     th:each="criterion : ${resultDetail.payload().scoreCriteria()}"
-                     th:attr="data-speaking-criterion=${criterion.criterionId()},
-                              data-speaking-criterion-state=${criterion.availability()}">
+          <div class="prd-speaking-status-spotlight">
+            <span>Phạm vi điểm</span>
+            <strong th:text="${resultDetail.payload().taskScoreStateLabelVi()}">
+              Có điểm theo tiêu chí ngôn ngữ; không tạo điểm tổng nhiệm vụ
+            </strong>
+          </div>
+          <div class="prd-speaking-score-grid"
+               role="tablist"
+               aria-label="Chọn tiêu chí điểm để xem phản hồi">
+            <button class="prd-speaking-score-card"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    aria-expanded="false"
+                    data-overview-criterion-trigger
+                    th:each="criterion : ${resultDetail.payload().scoreCriteria()}"
+                    th:attr="data-speaking-criterion=${criterion.criterionId()},
+                             data-speaking-criterion-state=${criterion.availability()},
+                             aria-controls=${'speaking-overview-criterion-' + task.questionId() + '-' + criterion.criterionId()}">
               <h4 th:text="${criterion.labelVi()}">Tiêu chí Nói</h4>
               <strong th:if="${criterion.scoreDisplay() != null}"
                       th:text="${criterion.scoreDisplay()}">16/20</strong>
@@ -375,6 +440,34 @@
               <span th:if="${criterion.availability() == 'UNAVAILABLE'}">
                 Chưa có bằng chứng đủ điều kiện
               </span>
+            </button>
+          </div>
+          <div class="prd-overview-criterion-details">
+            <article class="prd-overview-criterion-detail"
+                     hidden
+                     data-overview-criterion-detail
+                     th:each="criterion : ${resultDetail.payload().scoreCriteria()}"
+                     th:id="${'speaking-overview-criterion-' + task.questionId() + '-' + criterion.criterionId()}">
+              <header>
+                <div>
+                  <p class="prd-boundary-eyebrow">Phản hồi tiêu chí</p>
+                  <h4 th:text="${criterion.labelVi()}">Tiêu chí Nói</h4>
+                </div>
+                <strong th:if="${criterion.scoreDisplay() != null}"
+                        th:text="${criterion.scoreDisplay()}">16/20</strong>
+                <span th:unless="${criterion.scoreDisplay() != null}"
+                      th:text="${criterion.performanceLevel() != null
+                               ? criterion.performanceLevel().labelVi()
+                               : 'Chưa khả dụng'}">Chưa khả dụng</span>
+              </header>
+              <p th:if="${criterion.feedbackVi() != null}"
+                 th:text="${criterion.feedbackVi()}">Phản hồi được xác minh theo tiêu chí.</p>
+              <p th:if="${criterion.feedbackVi() == null && criterion.availability() == 'NOT_SCORABLE'}">
+                Tiêu chí này cần bằng chứng âm thanh trực tiếp; bản chép lời không đủ thẩm quyền để suy diễn phát âm hoặc độ lưu loát.
+              </p>
+              <p th:if="${criterion.feedbackVi() == null && criterion.availability() != 'NOT_SCORABLE'}">
+                Chưa có nhận xét chi tiết đủ bằng chứng cho tiêu chí này; hệ thống không tạo nội dung thay thế từ bản chép lời.
+              </p>
             </article>
           </div>
           <p class="prd-speaking-score-note">
@@ -388,6 +481,7 @@
                  role="tabpanel"
                  tabindex="0"
                  hidden
+                 data-requires-child-filter
                  th:id="${'speaking-panel-strengths-' + task.questionId()}"
                  th:attr="aria-labelledby=${'speaking-tab-strengths-' + task.questionId()}">
           <header class="prd-speaking-panel-heading">
@@ -401,16 +495,41 @@
              aria-live="polite">
             Chọn một chip để mở phản hồi và đánh dấu đúng đoạn trong bản chép lời.
           </p>
-          <div class="prd-speaking-diagnostic-groups">
+          <div class="prd-speaking-diagnostic-groups prd-diagnostic-chip-groups"
+               data-diagnostic-chip-groups>
+            <div class="prd-diagnostic-parent-picker">
+              <label th:for="${'speaking-strength-group-' + task.questionId()}">Nhóm tiêu chí</label>
+              <select data-diagnostic-group-select
+                      th:id="${'speaking-strength-group-' + task.questionId()}">
+                <option value="">Chọn một nhóm tiêu chí</option>
+                <option th:each="group : ${resultDetail.payload().diagnosticGroups()}"
+                        th:if="${!group.strengthChips().isEmpty()}"
+                        th:value="${'speaking-strength-children-' + task.questionId() + '-' + group.categoryCode()}"
+                        th:text="${group.labelVi() + ' · ' + #lists.size(group.strengthChips())}">
+                  Nhóm tiêu chí · 3
+                </option>
+              </select>
+            </div>
             <section class="prd-speaking-diagnostic-group"
                      th:each="group : ${resultDetail.payload().diagnosticGroups()}"
-                     th:if="${!group.strengthChips().isEmpty()}"
-                     th:aria-labelledby="${'speaking-strength-group-' + task.questionId() + '-' + group.categoryCode()}">
-              <header>
-                <h4 th:id="${'speaking-strength-group-' + task.questionId() + '-' + group.categoryCode()}"
-                    th:text="${group.labelVi()}">Nhóm chẩn đoán Nói</h4>
-              </header>
-              <div class="prd-speaking-chip-list" aria-label="Nhãn điểm mạnh bài nói">
+                     th:if="${!group.strengthChips().isEmpty()}">
+              <button class="prd-diagnostic-group-chip"
+                      type="button"
+                      aria-expanded="false"
+                      data-diagnostic-group-toggle
+                      th:attr="aria-controls=${'speaking-strength-children-' + task.questionId() + '-' + group.categoryCode()},
+                               aria-label=${group.labelVi() + ': ' + #lists.size(group.strengthChips()) + ' tiêu chí con'}">
+                <small th:text="${#lists.size(group.strengthChips())}">3</small>
+                <span th:text="${group.labelVi()}">Nhóm chẩn đoán Nói</span>
+                <i aria-hidden="true"></i>
+              </button>
+              <div class="prd-diagnostic-group-children"
+                   data-diagnostic-group-children
+                   role="group"
+                   hidden
+                   th:id="${'speaking-strength-children-' + task.questionId() + '-' + group.categoryCode()}"
+                   th:attr="aria-label=${group.labelVi()}">
+                <div class="prd-speaking-chip-list" aria-label="Nhãn điểm mạnh bài nói">
                 <button class="prd-speaking-chip"
                         type="button"
                         aria-pressed="false"
@@ -422,7 +541,7 @@
                   <strong th:text="${chip.count()}">1</strong>
                   <span th:text="${chip.labelVi()}">Nhãn</span>
                 </button>
-              </div>
+                </div>
               <article class="prd-speaking-finding is-strength"
                        th:each="finding, findingStatus : ${group.strengths()}"
                        th:id="${'speaking-finding-' + finding.findingId()}"
@@ -435,23 +554,23 @@
                         th:attr="aria-controls=${'speaking-finding-detail-' + finding.findingId()}">
                   <span class="prd-speaking-finding-number" th:text="${finding.scopedDisplayNumber()}">1</span>
                   <h5>
-                    <th:block th:each="chip : ${group.strengthChips()}"
+                    <span lang="ko"
+                          th:if="${finding.evidenceScope() == 'TEXT_SPAN'
+                                && finding.evidence() != null
+                                && !finding.evidence().isBlank()}"
+                          th:text="${finding.evidence()}">근거</span>
+                    <th:block th:unless="${finding.evidenceScope() == 'TEXT_SPAN'
+                                           && finding.evidence() != null
+                                           && !finding.evidence().isBlank()}"
+                              th:each="chip : ${group.strengthChips()}"
                               th:if="${chip.id().equals(finding.descriptorId())}">
                       <span th:text="${chip.labelVi()}">Phát hiện</span>
                     </th:block>
                   </h5>
-                  <span class="prd-occurrence-preview" lang="ko"
-                        th:if="${finding.evidenceScope() == 'TEXT_SPAN'}"
-                        th:text="${finding.evidence()}">근거</span>
                 </button>
                 <div class="prd-occurrence-detail"
                      hidden
                      th:id="${'speaking-finding-detail-' + finding.findingId()}">
-                  <div class="prd-speaking-evidence-block"
-                       th:if="${finding.evidenceScope() == 'TEXT_SPAN'}">
-                    <strong>Bằng chứng trong bản chép lời</strong>
-                    <blockquote lang="ko" th:text="${finding.evidence()}">근거</blockquote>
-                  </div>
                   <p class="prd-speaking-whole-answer"
                      th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
                     Phát hiện áp dụng cho toàn câu trả lời; không tạo đoạn tô sáng giả.
@@ -462,6 +581,7 @@
                   </div>
                 </div>
               </article>
+              </div>
             </section>
           </div>
           <div class="prd-chip-empty" data-speaking-zero-chip-empty hidden>
@@ -469,7 +589,8 @@
             <p>Tiêu chí này chưa có occurrence đủ bằng chứng trong câu đang chọn.</p>
           </div>
           <p class="prd-speaking-empty"
-             th:unless="${resultDetail.payload().hasStrengthFindings()}">
+             th:if="${#lists.isEmpty(resultDetail.payload().diagnosticGroups())
+                      && !resultDetail.payload().hasStrengthFindings()}">
             Chưa có điểm mạnh nào đủ bằng chứng cho câu đang chọn.
           </p>
         </section>
@@ -478,6 +599,7 @@
                  role="tabpanel"
                  tabindex="0"
                  hidden
+                 data-requires-child-filter
                  th:id="${'speaking-panel-needs-' + task.questionId()}"
                  th:attr="aria-labelledby=${'speaking-tab-needs-' + task.questionId()}">
           <header class="prd-speaking-panel-heading">
@@ -491,16 +613,41 @@
              aria-live="polite">
             Chọn một chip để mở phản hồi và đánh dấu đúng đoạn trong bản chép lời.
           </p>
-          <div class="prd-speaking-diagnostic-groups">
+          <div class="prd-speaking-diagnostic-groups prd-diagnostic-chip-groups"
+               data-diagnostic-chip-groups>
+            <div class="prd-diagnostic-parent-picker">
+              <label th:for="${'speaking-needs-group-' + task.questionId()}">Nhóm tiêu chí</label>
+              <select data-diagnostic-group-select
+                      th:id="${'speaking-needs-group-' + task.questionId()}">
+                <option value="">Chọn một nhóm tiêu chí</option>
+                <option th:each="group : ${resultDetail.payload().diagnosticGroups()}"
+                        th:if="${!group.needsImprovementChips().isEmpty()}"
+                        th:value="${'speaking-needs-children-' + task.questionId() + '-' + group.categoryCode()}"
+                        th:text="${group.labelVi() + ' · ' + #lists.size(group.needsImprovementChips())}">
+                  Nhóm tiêu chí · 3
+                </option>
+              </select>
+            </div>
             <section class="prd-speaking-diagnostic-group"
                      th:each="group : ${resultDetail.payload().diagnosticGroups()}"
-                     th:if="${!group.needsImprovementChips().isEmpty()}"
-                     th:aria-labelledby="${'speaking-needs-group-' + task.questionId() + '-' + group.categoryCode()}">
-              <header>
-                <h4 th:id="${'speaking-needs-group-' + task.questionId() + '-' + group.categoryCode()}"
-                    th:text="${group.labelVi()}">Nhóm chẩn đoán Nói</h4>
-              </header>
-              <div class="prd-speaking-chip-list" aria-label="Nhãn cần cải thiện bài nói">
+                     th:if="${!group.needsImprovementChips().isEmpty()}">
+              <button class="prd-diagnostic-group-chip"
+                      type="button"
+                      aria-expanded="false"
+                      data-diagnostic-group-toggle
+                      th:attr="aria-controls=${'speaking-needs-children-' + task.questionId() + '-' + group.categoryCode()},
+                               aria-label=${group.labelVi() + ': ' + #lists.size(group.needsImprovementChips()) + ' tiêu chí con'}">
+                <small th:text="${#lists.size(group.needsImprovementChips())}">3</small>
+                <span th:text="${group.labelVi()}">Nhóm chẩn đoán Nói</span>
+                <i aria-hidden="true"></i>
+              </button>
+              <div class="prd-diagnostic-group-children"
+                   data-diagnostic-group-children
+                   role="group"
+                   hidden
+                   th:id="${'speaking-needs-children-' + task.questionId() + '-' + group.categoryCode()}"
+                   th:attr="aria-label=${group.labelVi()}">
+                <div class="prd-speaking-chip-list" aria-label="Nhãn cần cải thiện bài nói">
                 <button class="prd-speaking-chip"
                         type="button"
                         aria-pressed="false"
@@ -512,7 +659,7 @@
                   <strong th:text="${chip.count()}">1</strong>
                   <span th:text="${chip.labelVi()}">Nhãn</span>
                 </button>
-              </div>
+                </div>
               <article class="prd-speaking-finding is-need"
                        th:each="finding, findingStatus : ${group.needsImprovement()}"
                        th:id="${'speaking-finding-' + finding.findingId()}"
@@ -525,23 +672,35 @@
                         th:attr="aria-controls=${'speaking-finding-detail-' + finding.findingId()}">
                   <span class="prd-speaking-finding-number" th:text="${finding.scopedDisplayNumber()}">1</span>
                   <h5>
-                    <th:block th:each="chip : ${group.needsImprovementChips()}"
+                    <span lang="ko"
+                          th:if="${finding.evidenceScope() == 'TEXT_SPAN'
+                                && finding.evidence() != null
+                                && !finding.evidence().isBlank()}"
+                          th:text="${finding.evidence()}">근거</span>
+                    <th:block th:unless="${finding.evidenceScope() == 'TEXT_SPAN'
+                                           && finding.evidence() != null
+                                           && !finding.evidence().isBlank()}"
+                              th:each="chip : ${group.needsImprovementChips()}"
                               th:if="${chip.id().equals(finding.descriptorId())}">
-                      <span th:text="${chip.labelVi()}">Phát hiện</span>
+                      <span th:text="${finding.correctionKo() != null
+                                      && !finding.correctionKo().isBlank()
+                                      ? 'Bổ sung: ' + finding.correctionKo()
+                                      : chip.labelVi()}">Phát hiện</span>
                     </th:block>
                   </h5>
-                  <span class="prd-occurrence-preview" lang="ko"
-                        th:if="${finding.evidenceScope() == 'TEXT_SPAN'}"
-                        th:text="${finding.evidence()}">근거</span>
+                  <span class="prd-occurrence-preview"
+                        th:if="${finding.evidenceScope() == 'TEXT_SPAN'
+                              && finding.evidence() != null
+                              && !finding.evidence().isBlank()
+                              && finding.correctionKo() != null
+                              && !finding.correctionKo().isBlank()}">
+                    <span aria-hidden="true">→</span>
+                    <b lang="ko" th:text="${finding.correctionKo()}">교정</b>
+                  </span>
                 </button>
                 <div class="prd-occurrence-detail"
                      hidden
                      th:id="${'speaking-finding-detail-' + finding.findingId()}">
-                  <div class="prd-speaking-evidence-block"
-                       th:if="${finding.evidenceScope() == 'TEXT_SPAN'}">
-                    <strong>Chỗ cần xem lại</strong>
-                    <blockquote lang="ko" th:text="${finding.evidence()}">근거</blockquote>
-                  </div>
                   <p class="prd-speaking-whole-answer"
                      th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
                     Phát hiện áp dụng cho toàn câu trả lời; không tạo đoạn tô sáng giả.
@@ -551,20 +710,15 @@
                     <p th:text="${finding.explanationVi()}">Giải thích</p>
                   </div>
                   <div class="prd-speaking-correction"
-                       th:if="${finding.correctionKo() != null && !finding.correctionKo().isBlank()}">
+                       th:if="${finding.evidenceScope() != 'TEXT_SPAN'
+                             && finding.correctionKo() != null
+                             && !finding.correctionKo().isBlank()}">
                     <strong>Cách diễn đạt tốt hơn</strong>
-                    <div class="prd-speaking-replacement"
-                         th:if="${finding.evidenceScope() == 'TEXT_SPAN'}">
-                      <span lang="ko" th:text="${finding.evidence()}">원문</span>
-                      <span aria-hidden="true">→</span>
-                      <b lang="ko" th:text="${finding.correctionKo()}">교정</b>
-                    </div>
-                    <p lang="ko"
-                       th:if="${finding.evidenceScope() != 'TEXT_SPAN'}"
-                       th:text="${finding.correctionKo()}">교정</p>
+                    <p lang="ko" th:text="${finding.correctionKo()}">교정</p>
                   </div>
                 </div>
               </article>
+              </div>
             </section>
           </div>
           <div class="prd-chip-empty" data-speaking-zero-chip-empty hidden>
@@ -572,7 +726,8 @@
             <p>Tiêu chí này chưa có occurrence đủ bằng chứng trong câu đang chọn.</p>
           </div>
           <p class="prd-speaking-empty"
-             th:unless="${resultDetail.payload().hasNeedsImprovementFindings()}">
+             th:if="${#lists.isEmpty(resultDetail.payload().diagnosticGroups())
+                      && !resultDetail.payload().hasNeedsImprovementFindings()}">
             Chưa có điểm cần cải thiện nào đủ bằng chứng cho câu đang chọn.
           </p>
         </section>
@@ -597,20 +752,46 @@
               </h4>
               <p>Mỗi thẻ chỉ xuất hiện khi có phát hiện và cách sửa dựa trên bản chép lời đã khóa.</p>
             </header>
-            <div class="prd-speaking-upgrade-criterion-grid">
+            <div class="prd-speaking-upgrade-criterion-grid prd-diagnostic-chip-groups"
+                 data-diagnostic-chip-groups>
+              <div class="prd-diagnostic-parent-picker">
+                <label th:for="${'speaking-upgrade-group-' + task.questionId()}">Nhóm tiêu chí</label>
+                <select data-diagnostic-group-select
+                        th:id="${'speaking-upgrade-group-' + task.questionId()}">
+                  <option value="">Chọn một nhóm tiêu chí</option>
+                  <option th:each="group : ${resultDetail.payload().diagnosticGroups()}"
+                          th:if="${resultDetail.payload().hasUpgradeForGroup(group.categoryCode())}"
+                          th:value="${'speaking-upgrade-children-' + task.questionId() + '-' + group.categoryCode()}"
+                          th:text="${group.labelVi() + ' · ' + #lists.size(group.needsImprovementChips())}">
+                    Nhóm tiêu chí · 3
+                  </option>
+                </select>
+              </div>
               <article class="prd-speaking-upgrade-criterion"
                        th:each="group : ${resultDetail.payload().diagnosticGroups()}"
-                       th:if="${group.hasNeedsImprovement()}"
+                       th:if="${resultDetail.payload().hasUpgradeForGroup(group.categoryCode())}"
                        th:attr="data-speaking-upgrade-criterion=${group.categoryCode()}">
-                <header>
-                  <h5 th:text="${group.labelVi()}">Nhóm tiêu chí Nói</h5>
-                  <strong th:text="${#lists.size(group.needsImprovement())}">1</strong>
-                </header>
-                <div class="prd-speaking-upgrade-chip-list">
+                <button class="prd-diagnostic-group-chip"
+                        type="button"
+                        aria-expanded="false"
+                        data-diagnostic-group-toggle
+                        th:attr="aria-controls=${'speaking-upgrade-children-' + task.questionId() + '-' + group.categoryCode()},
+                                 aria-label=${group.labelVi() + ': ' + #lists.size(group.needsImprovementChips()) + ' tiêu chí con'}">
+                  <span th:text="${group.labelVi()}">Nhóm tiêu chí Nói</span>
+                  <small th:text="${#lists.size(group.needsImprovementChips()) + ' tiêu chí'}">3 tiêu chí</small>
+                  <i aria-hidden="true"></i>
+                </button>
+                <div class="prd-speaking-upgrade-chip-list prd-diagnostic-group-children"
+                     data-diagnostic-group-children
+                     role="group"
+                     hidden
+                     th:id="${'speaking-upgrade-children-' + task.questionId() + '-' + group.categoryCode()}"
+                     th:attr="aria-label=${group.labelVi()}">
                   <button class="prd-speaking-upgrade-chip"
                           type="button"
                           aria-pressed="false"
                           th:each="chip : ${group.needsImprovementChips()}"
+                          th:if="${resultDetail.payload().hasUpgradeForDescriptor(chip.id())}"
                           th:attr="data-speaking-upgrade-filter=${chip.id()},
                                    data-speaking-feature=${chip.id()},
                                    data-speaking-chip-count=${chip.count()},
@@ -626,15 +807,7 @@
                aria-live="polite"></p>
           </section>
 
-          <article class="prd-speaking-provenance-card is-learner-derived">
-            <header>
-              <h4 th:text="${resultDetail.payload().upgrade().learnerDerivedUpgrade().labelVi()}">
-                Bài nói nâng cấp
-              </h4>
-            </header>
-            <span class="prd-speaking-provenance-badge">
-              Dựa trên câu trả lời của người học · đầu ra bộ đánh giá · không phải bài giáo viên
-            </span>
+          <article class="prd-speaking-continuous-panel is-learner-derived">
             <div class="prd-speaking-upgraded-answer"
                  lang="ko"
                  th:if="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}"
@@ -644,6 +817,10 @@
             <p class="prd-speaking-empty"
                th:unless="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}">
               Chưa có bài nói nâng cấp đủ điều kiện cho câu đang chọn.
+            </p>
+            <p class="prd-speaking-source-note"
+               th:if="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}">
+              Nguồn: bản nâng cấp được tạo từ chính bản chép lời đã khóa.
             </p>
           </article>
 
@@ -655,7 +832,9 @@
             </h4>
             <ol>
               <li class="prd-speaking-rewrite"
-                  th:each="rewrite : ${resultDetail.payload().upgrade().significantRewrites()}">
+                  th:each="rewrite : ${resultDetail.payload().upgrade().significantRewrites()}"
+                  th:attr="data-speaking-upgrade-finding-id=${rewrite.findingId()},
+                           data-speaking-upgrade-feature=${rewrite.descriptorId()}">
                 <div class="prd-speaking-rewrite-text">
                   <span>
                     <small>Nguyên văn</small>
@@ -664,7 +843,9 @@
                   <span class="prd-speaking-rewrite-arrow" aria-hidden="true">→</span>
                   <span>
                     <small>Bản nâng cấp</small>
-                    <ins lang="ko" th:text="${rewrite.upgraded()}">개선 표현</ins>
+                    <ins class="prd-upgrade-suggestion"
+                         lang="ko"
+                         th:text="${rewrite.upgraded()}">개선 표현</ins>
                   </span>
                 </div>
                 <p th:text="${rewrite.reason()}">Lý do</p>
@@ -672,21 +853,21 @@
             </ol>
           </section>
 
-          <article class="prd-speaking-provenance-card is-evaluator-sample"
+          <article class="prd-speaking-continuous-panel is-evaluator-sample"
                    th:if="${resultDetail.payload().upgrade().evaluatorSample().available()}">
             <header>
               <h4 th:text="${resultDetail.payload().upgrade().evaluatorSample().labelVi()}">
                 Câu trả lời mẫu do bộ đánh giá tạo
               </h4>
             </header>
-            <span class="prd-speaking-provenance-badge">
-              Do bộ đánh giá tạo · không phải bài tham khảo của giáo viên
-            </span>
             <div class="prd-speaking-reference-answer"
                  lang="ko"
                  th:text="${resultDetail.payload().upgrade().evaluatorSample().content()}">
               평가기 예시 답변
             </div>
+            <p class="prd-speaking-source-note">
+              Nguồn: bài tham khảo của bộ đánh giá, không phải bài giáo viên.
+            </p>
           </article>
         </section>
 
@@ -700,20 +881,15 @@
             <h3>Mẫu</h3>
             <p>Chỉ hiển thị câu trả lời mẫu có nguồn giáo viên được ghi nhận rõ ràng.</p>
           </header>
-          <article class="prd-speaking-provenance-card is-teacher-sample"
+          <article class="prd-speaking-continuous-panel is-teacher-sample"
                    th:if="${resultDetail.payload().teacherSample().available()}"
-                   th:attr="data-speaking-teacher-sample=${resultDetail.payload().teacherSample().fixtureId()}">
-            <header>
-              <h4>Câu trả lời mẫu do giáo viên soạn</h4>
-            </header>
-            <span class="prd-speaking-provenance-badge">
-              Giáo viên KSH · nội dung biên soạn
-            </span>
+                   data-speaking-teacher-sample="available">
             <div class="prd-speaking-reference-answer"
                  lang="ko"
                  th:text="${resultDetail.payload().teacherSample().content()}">
               교사 작성 예시
             </div>
+            <p class="prd-speaking-source-note">Nguồn: giáo viên KSH biên soạn.</p>
           </article>
           <p class="prd-speaking-empty"
              th:unless="${resultDetail.payload().teacherSample().available()}">
@@ -729,6 +905,6 @@
     Không có nhiệm vụ Nói hỗ trợ trang chi tiết trong bài làm bất biến này.
   </section>
 </main>
-<script th:src="@{/js/practice-result.js(v='pre14-b2')}"></script>
+<script th:src="@{/js/practice-result.js(v='pre14-e16')}"></script>
 </body>
 </html>
