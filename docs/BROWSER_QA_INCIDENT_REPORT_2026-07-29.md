@@ -110,8 +110,8 @@
 
 - [x] Đã sửa markup/CSS responsive và compile bằng JDK 17.
 - [x] Đã Browser QA route lecturer ở viewport 390×844.
-- [ ] Route review có dữ liệu danh mục cần UAT lại khi bộ môn tạo danh mục đầu
-  tiên; trạng thái rỗng hiện tại đã render bình thường.
+- [x] Đã UAT route review bằng danh mục và câu hỏi tạm, sau đó xoá sạch dữ liệu
+  QA; trang và modal không gây tràn ngang ở viewport 819 px.
 - Mức độ: High.
 - Phạm vi:
   - `/lecturer/question-bank`
@@ -229,6 +229,32 @@
   - Mobile: shell rộng 375px trong viewport 390px, không tràn ngang; empty state
     và các control vẫn render bình thường.
 - Commit: `00a3728f`.
+
+### CLASS-STUDENT-AUTH-001 — Route lớp học viên chỉ kiểm tra đăng nhập
+
+- [x] Đã siết toàn bộ controller lớp học viên về đúng vai trò `STUDENT`.
+- [x] Đã thêm contract test cho sáu controller và Browser QA cả luồng hợp lệ lẫn
+  truy cập sai vai trò.
+- Mức độ: High.
+- Nguyên nhân gốc:
+  - Năm controller lớp học viên còn dùng `isAuthenticated()`, trong khi
+    `StudentClassTestsController` đã dùng ranh giới vai trò chính xác.
+  - Vì vậy LECTURER/LEADER/ADMIN có thể đi vào `/my/classes...` rồi mới bị chặn
+    muộn hoặc render nhầm không gian học viên.
+- Bản sửa:
+  - Dùng `Roles.PREAUTH_STUDENT` cho `StudentClassesController`,
+    `StudentLessonsController`, `StudentClassMessagesController`,
+    `LearningProgressController` và `InviteLinkController`.
+  - Contract test khóa cả năm controller trên cùng với
+    `StudentClassTestsController`, tránh tái phát về `isAuthenticated()`.
+- Bằng chứng:
+  - 11/11 test role/navigation đạt và 39/39 focused audit test non-Practice đạt.
+  - STUDENT mở danh sách lớp và dashboard lớp rỗng bình thường, vẫn thấy sidebar
+    đầy đủ.
+  - LECTURER đăng nhập từ saved request `/my/classes` được đưa về
+    `/lecturer/classes`; truy cập trực tiếp danh sách, bài giảng, test, tin nhắn
+    và link mời của học viên đều bị chặn bằng trang 403 có đường hồi phục đúng
+    vai trò.
 
 ### PRACTICE-CATALOG-CLASS-001 — Catalog `/practice` lẫn bộ lọc lớp học
 
@@ -385,7 +411,7 @@
 - [x] Đã triển khai owner-bound staged upload và transactional claim.
 - [x] Đã harden sanitize/canonical URL, lỗi xoá storage và cache header.
 - [x] Đã Browser QA staged → durable trên bài test thật.
-- [ ] Không chạy focused/full tests theo yêu cầu của chủ dự án.
+- [x] `ExamImageStorageServiceTest` đã chạy đạt 9/9 trong đợt audit 01/08/2026.
 - Mức độ: High.
 - Rủi ro đã đóng:
   - Rich HTML bị sanitizer loại bỏ không còn tạo durable object mồ côi.
@@ -492,8 +518,9 @@
 - [x] Nhóm follow-up hiện tại compile cả main/test-source thành công bằng
   `.\mvnw.cmd -q -DskipTests test-compile`; không thực thi test;
   `git diff --check` đạt.
-- [ ] Không chạy test focused/full-suite cho nhóm follow-up hiện tại theo yêu
-  cầu; hành vi khóa đồng thời trên kết nối DB thật vẫn chưa được xác minh.
+- [x] Các focused test non-Practice của nhóm follow-up đã chạy đạt 39/39 ngày
+  01/08/2026. Full-suite và test dùng DB thật không chạy vì phạm vi hiện tại
+  loại trừ Practice và migration/database harness.
 - [x] Server-log sweep cuối: không có `ERROR`, exception, 403 hay lỗi template
   mới; chỉ còn hai warning platform đã ghi ở trên.
 - [x] Giữ nguyên phạm vi loại trừ: mật khẩu demo `123456`, migration chain,
