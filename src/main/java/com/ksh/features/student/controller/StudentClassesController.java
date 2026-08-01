@@ -1,6 +1,7 @@
 package com.ksh.features.student.controller;
 
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import com.ksh.entities.ClassEntity;
 import com.ksh.features.classes.service.invites.InviteCodeValidationException;
 import com.ksh.features.classes.service.JoinClassService;
@@ -34,12 +35,12 @@ import static com.ksh.common.IConstant.*;
 /**
  * Student-facing controller for the {@code /my/classes} surface.
  *
- * <p>Authentication is required; any authenticated user can use these endpoints
- * so lecturers can exercise the join flow from their own account.
+ * <p>This is a learner-only surface. Elevated roles must use their own class
+ * management routes instead of entering the student enrollment flow.
  */
 @Controller
 @RequestMapping("/my")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentClassesController {
 
     private static final String VIEW_MY_CLASSES = "student/my-classes";

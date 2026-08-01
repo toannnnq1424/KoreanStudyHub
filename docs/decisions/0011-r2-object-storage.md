@@ -9,7 +9,7 @@ Accepted
 ## Context
 
 KSH stores every uploaded byte on the local disk under `app.upload.dir`
-(`uploads/`) via five storage services (avatar, exam image, lesson
+(`~/.ksh/uploads` by default) via five storage services (avatar, exam image, lesson
 attachment, lesson video, library). Local disk does not scale across
 hosts, video Range streaming is heavy on the app process, and
 `WebConfig` currently maps the entire `/uploads/**` tree as a public
@@ -50,9 +50,11 @@ supporting a dual-read path for files already on disk.
 10. **Admin UI** — `/admin/settings/storage` clones the Email settings
     design system. Permission `PERM_system.storage` (ADMIN). Test
     connection runs HeadBucket.
-11. **CI / dev default** — seed `storage.provider=local`. Tests use
-    `LocalObjectStorage` / dual-read with in-memory or temp local;
-    never call real Cloudflare.
+11. **CI / dev default** — seed `storage.provider=local`. The normal local
+    root is `${user.home}/.ksh/uploads`, outside every Git worktree, and can be
+    overridden with absolute `KSH_DATA_DIR` / `UPLOAD_DIR` values. Tests use
+    `LocalObjectStorage` / dual-read with in-memory or temp local; never call
+    real Cloudflare.
 
 ## Alternatives Considered
 

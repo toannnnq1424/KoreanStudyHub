@@ -23,7 +23,8 @@ public class LocalAssetStorageService implements AssetStorageService {
 
     private final Path uploadRoot;
 
-    public LocalAssetStorageService(@Value("${app.upload.dir:uploads}") String uploadDir) {
+    public LocalAssetStorageService(
+            @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String uploadDir) {
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
     }
 
