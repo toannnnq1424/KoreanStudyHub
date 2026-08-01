@@ -35,6 +35,7 @@ import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultAttemptIdentity;
@@ -655,6 +656,7 @@ class PracticeResultPresenterTest {
                     assertThat(row.status()).isEqualTo("NOT_MET");
                     assertThat(row.labelVi()).isNotBlank();
                     assertThat(row.evidenceIds()).isEmpty();
+                    assertThat(row.evidenceCount()).isZero();
                 });
         assertThat(detail.diagnosticFindings()).hasSize(2);
         assertThat(detail.filterChips()).hasSize(25);
@@ -831,11 +833,130 @@ class PracticeResultPresenterTest {
             assertThat(task.feedback().ready()).isTrue();
             assertThat(task.officialCriteria()).hasSize(6);
         });
-        assertThat(detail.scoreCriteria()).hasSize(12);
+        assertThat(detail.scoreCriteria()).hasSize(12)
+                .allSatisfy(criterion -> assertThat(criterion.feedbackVi())
+                        .isNotBlank());
         assertThat(detail.diagnosticFindings()).isEmpty();
         assertThat(detail.filterChips()).isEmpty();
         assertThat(detail.diagnosticAvailability())
                 .isEqualTo("BLANK_IDENTITY_UNAVAILABLE");
+    }
+
+    @Test
+    void writingDetailMapsCanonicalSourceOffsetsIntoTheAuthoritativeBlank() throws Exception {
+        PracticeQuestionVersion q52 = writingQuestion(
+                152L, 52, WritingTaskType.Q52);
+        WritingBlankContract.QuestionResponse authority =
+                new WritingBlankContract.QuestionResponse(
+                        WritingBlankContract.RESPONSE_SCHEMA_VERSION,
+                        WritingBlankContract.RESPONSE_MODE,
+                        WritingTaskType.Q52,
+                        List.of(
+                                new WritingBlankContract.BlankDefinition(
+                                        "q52-b1", 1, "첫째"),
+                                new WritingBlankContract.BlankDefinition(
+                                        "q52-b2", 2, "둘째")));
+        QuestionContent content = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION_V3,
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                authority,
+                "ko");
+        when(q52.getQuestionContentJson()).thenReturn(
+                objectMapper.writeValueAsString(content));
+
+        WritingBlankContract.LearnerResponse response =
+                new WritingBlankContract.LearnerResponse(
+                        WritingBlankContract.LEARNER_SCHEMA_VERSION,
+                        WritingTaskType.Q52,
+                        WritingBlankContract.RESPONSE_MODE,
+                        List.of(
+                                new WritingBlankContract.LearnerBlankAnswer(
+                                        "q52-b1", "학생는 학교에 갑니다"),
+                                new WritingBlankContract.LearnerBlankAnswer(
+                                        "q52-b2", "친구를 만납니다")));
+        String learnerSource = objectMapper.writeValueAsString(response);
+        String evidence = "학생는";
+        int evidenceStart = learnerSource.indexOf(evidence);
+        String normalized = currentWritingEvaluation(
+                "Q52",
+                learnerSource,
+                envelope -> {
+                    WritingContractTestFixtures.addEvidence(
+                            envelope,
+                            "WEV-BLANK-1",
+                            learnerSource,
+                            evidence,
+                            evidenceStart);
+                    WritingContractTestFixtures.addFinding(
+                            envelope,
+                            "WF-BLANK-1",
+                            "IMPROVEMENT",
+                            "REPLACE",
+                            "W_CLOZE_GRAMMAR_COMPATIBILITY",
+                            "ENDINGS_CONJUGATION",
+                            "W_CLOZE_BLANK_1_GRAMMAR",
+                            "WEV-BLANK-1",
+                            List.of("CLOZE_BLANK_1_CONTEXT"),
+                            "Tiểu từ chủ đề chưa tương thích.",
+                            "학생은",
+                            "MODERATE");
+                    WritingContractTestFixtures.replaceIds(
+                            WritingContractTestFixtures.rubric(
+                                    envelope,
+                                    "W_CLOZE_BLANK_1_GRAMMAR"),
+                            "findingIds",
+                            "WF-BLANK-1");
+                    ObjectNode coverage =
+                            WritingContractTestFixtures.coverage(
+                                    envelope,
+                                    "CLOZE_BLANK_1_CONTEXT");
+                    coverage.put("status", "NOT_MET");
+                    coverage.putArray("evidenceIds");
+                },
+                2, 1, 1, 2, 2, 1);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn(
+                writingFeedback(Map.of(152L, normalized)));
+        WritingResultPresenter presenter = writingPresenter();
+        PracticeResultContext context = context(
+                "WRITING",
+                List.of(q52),
+                Map.of("152", learnerSource),
+                attempt);
+        PracticeResultPresenter.Presentation presentation =
+                presenter.present(context);
+
+        WritingDetailPayload detail = (WritingDetailPayload)
+                presenter.presentDetail(
+                        context,
+                        overview("WRITING", presentation),
+                        152L);
+
+        assertThat(detail.structuredBlankAnswers()).hasSize(2);
+        assertThat(detail.diagnosticAvailability()).isEqualTo("AVAILABLE");
+        assertThat(detail.diagnosticFindings())
+                .extracting(finding -> finding.findingId())
+                .containsExactly("WF-BLANK-1");
+        assertThat(detail.structuredBlankAnswers().get(0).segments())
+                .extracting(WritingTextSegment::text)
+                .containsExactly("학생는", " 학교에 갑니다");
+        assertThat(detail.structuredBlankAnswers().get(0).segments())
+                .filteredOn(WritingTextSegment::annotated)
+                .singleElement()
+                .satisfies(segment -> {
+                    assertThat(segment.annotationId())
+                            .isEqualTo("WF-BLANK-1");
+                    assertThat(segment.text()).isEqualTo(evidence);
+                    assertThat(segment.correctionKo()).isEqualTo("학생은");
+                });
+        assertThat(detail.structuredBlankAnswers().get(1).segments())
+                .singleElement()
+                .satisfies(segment -> assertThat(segment.annotated())
+                        .isFalse());
     }
 
     @Test
@@ -1623,8 +1744,10 @@ class PracticeResultPresenterTest {
                 .filteredOn(criterion -> criterion.criterionId()
                         .equals("S_CONTENT_TASK_FULFILLMENT"))
                 .singleElement()
-                .satisfies(criterion -> assertThat(criterion.score())
-                        .isEqualByComparingTo("18"));
+                .satisfies(criterion -> {
+                    assertThat(criterion.score()).isEqualByComparingTo("18");
+                    assertThat(criterion.feedbackVi()).isNotBlank();
+                });
     }
 
     @Test
@@ -1674,7 +1797,7 @@ class PracticeResultPresenterTest {
                                 "GRAMMAR",
                                 "MEDIUM",
                                 "Cần kiểm tra tiểu từ chỉ nơi chốn.",
-                                "학교에"),
+                                "학교에서"),
                         speakingFinding(
                                 "SF-PARTICLE-OBJECT",
                                 "SEV-PARTICLE-OBJECT",
@@ -1687,7 +1810,7 @@ class PracticeResultPresenterTest {
                                 "GRAMMAR",
                                 "MEDIUM",
                                 "Cần củng cố tiểu từ tân ngữ.",
-                                "친구를"),
+                                "친구와"),
                         speakingFinding(
                                 "SF-ENDING",
                                 "SEV-ENDING",
@@ -1762,6 +1885,14 @@ class PracticeResultPresenterTest {
         assertThat(detail.filterChips())
                 .extracting(chip -> chip.id())
                 .doesNotHaveDuplicates();
+        assertThat(detail.hasUpgradeForDescriptor(
+                "D_S_GRAMMAR_PARTICLES_NEEDS_IMPROVEMENT")).isTrue();
+        assertThat(detail.hasUpgradeForDescriptor(
+                "D_S_GRAMMAR_ENDINGS_NEEDS_IMPROVEMENT")).isTrue();
+        assertThat(detail.hasUpgradeForDescriptor(
+                "D_S_VOCAB_TOPIC_WORDS_NEEDS_IMPROVEMENT")).isFalse();
+        assertThat(detail.hasUpgradeForGroup("MORPHOSYNTAX")).isTrue();
+        assertThat(detail.hasUpgradeForGroup("LEXICON_COLLOCATION")).isFalse();
         assertThat(detail.scoreCriteria())
                 .filteredOn(criterion -> criterion.criterionId()
                 .equals("S_GRAMMAR_SENTENCE_CONTROL"))

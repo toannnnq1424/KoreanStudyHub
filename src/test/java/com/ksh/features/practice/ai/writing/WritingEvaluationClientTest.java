@@ -160,7 +160,7 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-        assertEquals("v7.2", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v7.3", WritingPromptRules.PROMPT_VERSION);
         assertEquals("v5.2", WritingPromptRules.RUBRIC_VERSION);
         assertEquals("v6.1", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
     }

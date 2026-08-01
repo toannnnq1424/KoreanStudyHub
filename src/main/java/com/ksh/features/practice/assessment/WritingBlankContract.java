@@ -108,7 +108,7 @@ public final class WritingBlankContract {
         }
     }
 
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record LearnerBlankAnswer(
             String blankId,
             String text

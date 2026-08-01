@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -84,7 +85,7 @@ public class AssessmentScoringEngine {
                 correctUnits++;
             }
         }
-        return aggregate(correctUnits, spec.blanks().size(), points, spec);
+        return aggregateMatching(correctUnits, spec.blanks().size(), points, spec);
     }
 
     private AssessmentScoreResult scoreSingleChoice(AnswerSpec spec,
@@ -156,6 +157,28 @@ public class AssessmentScoringEngine {
         return result(AssessmentScoreStatus.PARTIALLY_CORRECT,
                 proportional(points, correctUnits, totalUnits),
                 points, spec, correctUnits, totalUnits);
+    }
+
+    /**
+     * A matching target is an independently scored unit. Partial credit is rounded
+     * once at question level to one decimal place before it enters attempt totals.
+     */
+    private AssessmentScoreResult aggregateMatching(int correctUnits,
+                                                     int totalUnits,
+                                                     BigDecimal points,
+                                                     AnswerSpec spec) {
+        if (correctUnits == totalUnits) {
+            return result(AssessmentScoreStatus.CORRECT, points, points, spec,
+                    correctUnits, totalUnits);
+        }
+        if (correctUnits == 0) {
+            return result(AssessmentScoreStatus.INCORRECT, BigDecimal.ZERO, points, spec,
+                    0, totalUnits);
+        }
+        BigDecimal earned = proportional(points, correctUnits, totalUnits)
+                .setScale(1, RoundingMode.HALF_UP);
+        return result(AssessmentScoreStatus.PARTIALLY_CORRECT,
+                earned, points, spec, correctUnits, totalUnits);
     }
 
     private AssessmentScoreResult binary(boolean correct,

@@ -450,8 +450,12 @@ public class SpeakingEvaluationNormalizer {
                     || !criterion.ownsSubcriterion(subCriterionId)
                     || (!strength && !improvement)
                     || !validFindingOperation(operation, strength)
+                    || !validContextualRepetitionFinding(
+                    subCriterionId, operation, improvement, evidence)
                     || !transcriptGroundedClaim(explanationVi)
                     || explanationVi == null
+                    || !meaningfulFindingFeedback(
+                    explanationVi, suggestionKo, evidence.excerpt(), improvement)
                     || findingConfidence == null
                     || strength && suggestionKo != null && !suggestionKo.isEmpty()
                     || improvement && (suggestionKo == null || suggestionKo.isBlank())
@@ -552,6 +556,49 @@ public class SpeakingEvaluationNormalizer {
             return "KEEP".equals(operation);
         }
         return Set.of("REPLACE", "REDUNDANT").contains(operation);
+    }
+
+    private boolean validContextualRepetitionFinding(
+            String subCriterionId,
+            String operation,
+            boolean improvement,
+            SpeakingEvaluationResult.Evidence evidence
+    ) {
+        if (!"S_VOCAB_REPETITION_CONTROL".equals(subCriterionId)) {
+            return true;
+        }
+        return evidence != null
+                && evidence.occurrenceCount() != null
+                && evidence.occurrenceCount() >= 2
+                && (!improvement || "REDUNDANT".equals(operation));
+    }
+
+    private boolean meaningfulFindingFeedback(
+            String explanationVi,
+            String suggestionKo,
+            String evidence,
+            boolean improvement
+    ) {
+        if (explanationVi == null || explanationVi.isBlank()) {
+            return false;
+        }
+        String explanation = explanationVi.trim();
+        String exact = evidence == null ? "" : evidence.trim();
+        if (explanation.equals(exact)
+                || explanation.matches(
+                "(?iu)^Bằng chứng bản chép lời xác nhận .+\\.$")
+                || explanation.matches(
+                "(?iu)^Cần điều chỉnh .+ trong bản chép lời\\.$")) {
+            return false;
+        }
+        if (!improvement) {
+            return true;
+        }
+        return suggestionKo != null
+                && !suggestionKo.isBlank()
+                && !suggestionKo.trim().equals(exact)
+                && !"표현을 더 정확하고 자연스럽게 고쳐 보세요."
+                .equals(suggestionKo.trim());
     }
 
     private boolean validAuthoritativeOccurrence(

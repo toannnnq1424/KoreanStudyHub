@@ -5,7 +5,7 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v7.2";
+    public static final String PROMPT_VERSION = "v7.3";
     public static final String RUBRIC_VERSION = "v5.2";
     public static final String EVALUATION_SCHEMA_VERSION = "v6.1";
     public static final String EVALUATION_CONTRACT_VERSION = "v8.2";
@@ -149,7 +149,13 @@ public final class WritingPromptRules {
                 1. W_VOCABULARY_ERRORS: sai nghĩa, sai ngữ cảnh, hoặc quá sơ cấp ở vị trí cần từ học thuật.
                 2. W_GRAMMAR_ERRORS: sai vĩ tố, thời thì, cấu trúc; phân loại nếu phù hợp: 호응 오류, 피동/사동 오류, 시제 오류, 존칭 오류.
                 3. W_PARTICLE_ERRORS: sai/thiếu 이/가, 을/를, 은/는, 에/에서...
-                4. W_REPETITIVE_WORDS_EXPRESSIONS: lặp cùng từ/cụm/cấu trúc quá nhiều.
+                4. W_REPETITIVE_WORDS_EXPRESSIONS: chỉ ghi khi lặp từ/cụm/cấu trúc
+                   thực sự dư thừa trong ngữ cảnh và làm nghèo hoặc làm nặng diễn đạt.
+                   Tần suất (kể cả xuất hiện hai lần) chỉ là tín hiệu kiểm tra, không phải
+                   kết luận. Không phạt điệp cấu trúc, nhấn mạnh, đối chiếu, liệt kê,
+                   trích dẫn hoặc các lần xuất hiện ở đoạn có chức năng khác nhau.
+                   Gắn REDUNDANT vào đúng occurrence dư, giải thích tác động trong ngữ cảnh;
+                   không chỉ lặp lại span hoặc báo số lần xuất hiện.
                 5. W_AWKWARD_UNNATURAL_EXPRESSIONS: dịch thô từ tiếng Việt, câu gượng dù ngữ pháp không hoàn toàn sai.
                 6. W_SENTENCE_STRUCTURE_ISSUES: câu quá dài, thiếu chủ/vị, vế câu bất đối xứng.
                 7. W_REGISTER_CONSISTENCY_ISSUES: trộn văn nói/văn viết, 해요체 trong bài nghị luận, từ khẩu ngữ.
@@ -160,6 +166,19 @@ public final class WritingPromptRules {
                 - Không bịa lỗi nếu câu của học viên chấp nhận được; không biến mọi cách diễn đạt đơn giản thành lỗi.
                 - Chỉ ghi lỗi khi ảnh hưởng chất lượng bài hoặc chưa phù hợp task.
                 - Gộp lỗi cùng loại lặp lại và luôn dựa trên evidence thật hoặc whole-answer issue hợp lý.
+
+                [KỶ LUẬT PHÁN ĐOÁN CHO MỌI TIÊU CHÍ]
+                allowed_rubric là danh mục được phép, không phải checklist buộc phải tạo đủ finding.
+                Trước mỗi finding, phải kiểm tra span, ngữ cảnh trước/sau, chức năng trong câu/đoạn,
+                biến thể tiếng Hàn vẫn chấp nhận được và tác động thật lên yêu cầu dạng bài.
+                Nếu còn hai cách hiểu hợp lý thì không tạo finding và không đoán polarity.
+                Không coi cấu trúc đơn giản, từ vựng phổ thông, thiếu từ nối hiển ngôn hoặc khác câu mẫu
+                là lỗi khi bài vẫn đúng, tự nhiên, mạch lạc và phù hợp đề.
+                Strength phải chứng minh một năng lực cụ thể; không khen chỉ vì từ khóa xuất hiện.
+                explanationVi phải nói rõ đặc điểm và tác động trong ngữ cảnh, không lặp tên chip,
+                lặp nguyên evidence hoặc dùng câu khuôn chung chung. replacementKo phải sửa đúng điểm
+                đã chứng minh và giữ ý người học; không dùng lời khuyên chung chung thay cho bản sửa.
+                Cùng một span không thể vừa là strength vừa là needs improvement trong cùng kết quả.
 
                 [BỘ LỌC KHẨU NGỮ ĐÃ PHÁT HIỆN BỞI JAVA]
                 Trường rule_violations là ngữ cảnh kỹ thuật, không tự quyết định điểm cuối.

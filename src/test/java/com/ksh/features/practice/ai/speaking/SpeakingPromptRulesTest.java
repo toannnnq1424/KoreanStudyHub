@@ -40,6 +40,7 @@ class SpeakingPromptRulesTest {
                 .contains("Mạch lạc / Tổ chức ý")
                 .contains("action_plan")
                 .contains("criterion_feedback")
+                .contains("Không dùng câu khuôn chung chung như “bằng chứng đã xác minh”")
                 .contains("transcript_annotations")
                 .contains("upgraded_answer")
                 .contains("sample_answer")

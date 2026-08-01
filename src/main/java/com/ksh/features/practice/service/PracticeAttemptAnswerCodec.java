@@ -217,13 +217,19 @@ public class PracticeAttemptAnswerCodec {
                     "attempt response");
             String mode = node.path("responseMode").asText("");
             if (TEXT_RESPONSE_MODE.equals(mode)) {
-                if (!node.has("text")
+                JsonNode textNode = node.get("text");
+                if ((textNode != null && !textNode.isTextual())
                         || !node.path("writingBlanks").isMissingNode()) {
                     throw invalid("Invalid text response shape");
                 }
+                // Versions that used NON_EMPTY for AnswerEntry accidentally
+                // omitted an intentionally empty text value.  Treat that one
+                // exact historical shape as an empty response so an autosave
+                // cannot brick reload or submission; the writer below always
+                // emits the canonical `text: ""` field from now on.
                 text.put(
                         field.getKey(),
-                        node.path("text").asText(""));
+                        textNode == null ? "" : textNode.asText());
                 continue;
             }
             if (!WritingBlankContract.RESPONSE_MODE.equals(mode)
@@ -241,6 +247,8 @@ public class PracticeAttemptAnswerCodec {
                     objectMapper.treeToValue(
                             node.get("writingBlanks"),
                             WritingBlankContract.LearnerResponse.class);
+            response = recoverOmittedEmptyBlankTexts(
+                    node.get("writingBlanks"), response);
             WritingBlankContractVerifier.verifyLearnerResponse(
                     authority, response);
             writing.put(field.getKey(), response);
@@ -271,6 +279,57 @@ public class PracticeAttemptAnswerCodec {
         }
         return new DecodedAnswers(
                 Map.copyOf(text), Map.of(), true, true);
+    }
+
+    private WritingBlankContract.LearnerResponse
+            recoverOmittedEmptyBlankTexts(
+                    JsonNode source,
+                    WritingBlankContract.LearnerResponse response) {
+        if (source == null || response == null
+                || response.answers() == null) {
+            return response;
+        }
+        JsonNode answerNodes = source.get("answers");
+        if (answerNodes == null || !answerNodes.isArray()
+                || answerNodes.size() != response.answers().size()) {
+            return response;
+        }
+        List<WritingBlankContract.LearnerBlankAnswer> recovered =
+                new java.util.ArrayList<>(response.answers().size());
+        boolean changed = false;
+        for (int index = 0; index < response.answers().size(); index++) {
+            JsonNode answerNode = answerNodes.get(index);
+            WritingBlankContract.LearnerBlankAnswer answer =
+                    response.answers().get(index);
+            if (answerNode == null || !answerNode.isObject()) {
+                recovered.add(answer);
+                continue;
+            }
+            rejectUnknown(
+                    answerNode,
+                    Set.of("blankId", "text"),
+                    "Writing learner blank answer");
+            JsonNode textNode = answerNode.get("text");
+            if (textNode != null && !textNode.isTextual()) {
+                throw invalid(
+                        "Writing learner blank answer text must be textual");
+            }
+            if (textNode == null) {
+                recovered.add(new WritingBlankContract.LearnerBlankAnswer(
+                        answer.blankId(), ""));
+                changed = true;
+            } else {
+                recovered.add(answer);
+            }
+        }
+        if (!changed) {
+            return response;
+        }
+        return new WritingBlankContract.LearnerResponse(
+                response.contractVersion(),
+                response.taskType(),
+                response.responseMode(),
+                recovered);
     }
 
     private static String cleanText(String value) {
@@ -318,7 +377,7 @@ public class PracticeAttemptAnswerCodec {
     ) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     record AnswerEntry(
             String responseMode,
             String text,

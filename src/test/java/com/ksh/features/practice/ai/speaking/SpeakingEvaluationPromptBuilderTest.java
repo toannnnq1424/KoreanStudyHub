@@ -128,6 +128,22 @@ class SpeakingEvaluationPromptBuilderTest {
     }
 
     @Test
+    void systemPromptRequiresContextualEvidenceInsteadOfFrequencyOrChecklistScoring() {
+        String prompt = builder.systemPrompt(request(false));
+
+        assertThat(prompt)
+                .contains("Số lần một từ/cụm xuất hiện chỉ là tín hiệu để kiểm tra")
+                .contains("Không tự động coi một từ xuất hiện hai lần")
+                .contains("nhấn mạnh có chủ đích")
+                .contains("operation=REDUNDANT")
+                .contains("gắn evidence vào đúng occurrence dư thừa")
+                .contains("allowed_subcriteria là danh mục được phép")
+                .contains("Nếu còn hai cách hiểu hợp lý")
+                .contains("không được lặp tên chip")
+                .contains("không dùng lời khuyên chung chung");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void responseFormatUsesStrictJsonSchemaAndSpeakingCriterionIds() {
         Map<String, Object> responseFormat = builder.responseFormat(request(false));

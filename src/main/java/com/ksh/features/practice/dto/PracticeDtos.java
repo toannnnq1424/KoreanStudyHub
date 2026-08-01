@@ -1975,6 +1975,10 @@ public final class PracticeDtos {
             };
         }
 
+        public int evidenceCount() {
+            return evidenceIds.size();
+        }
+
         public boolean hasRationale() {
             return !rationaleVi.isBlank();
         }
@@ -2810,6 +2814,33 @@ public final class PracticeDtos {
                     .anyMatch(WritingDiagnosticGroup::hasNeedsImprovement);
         }
 
+        public boolean hasUpgradeForDescriptor(String descriptorId) {
+            if (descriptorId == null || descriptorId.isBlank()
+                    || upgrade == null) {
+                return false;
+            }
+            Set<String> rewriteFindingIds = upgrade.significantRewrites()
+                    .stream()
+                    .flatMap(rewrite -> rewrite.findingIds().stream())
+                    .collect(java.util.stream.Collectors.toSet());
+            return diagnosticFindings().stream().anyMatch(finding ->
+                    descriptorId.equals(finding.descriptorId())
+                            && rewriteFindingIds.contains(
+                            finding.findingId()));
+        }
+
+        public boolean hasUpgradeForGroup(String categoryCode) {
+            if (categoryCode == null || categoryCode.isBlank()) {
+                return false;
+            }
+            return diagnosticGroups.stream()
+                    .filter(group -> categoryCode.equals(
+                            group.categoryCode()))
+                    .flatMap(group -> group.needsImprovementChips()
+                            .stream())
+                    .anyMatch(chip -> hasUpgradeForDescriptor(chip.id()));
+        }
+
         @Override
         public ResultDetailScreenKind screenKind() {
             return ResultDetailScreenKind.WRITING_DETAIL;
@@ -2862,6 +2893,10 @@ public final class PracticeDtos {
                 default -> throw new IllegalStateException(
                         "Unknown Writing coverage status");
             };
+        }
+
+        public int evidenceCount() {
+            return evidenceIds.size();
         }
     }
 
@@ -3638,6 +3673,33 @@ public final class PracticeDtos {
                     .anyMatch(SpeakingDiagnosticGroup::hasNeedsImprovement);
         }
 
+        public boolean hasUpgradeForDescriptor(String descriptorId) {
+            if (descriptorId == null || descriptorId.isBlank()
+                    || upgrade == null) {
+                return false;
+            }
+            Set<String> rewriteFindingIds = upgrade.significantRewrites()
+                    .stream()
+                    .map(SpeakingPhraseRewriteView::findingId)
+                    .collect(java.util.stream.Collectors.toSet());
+            return diagnosticFindings().stream().anyMatch(finding ->
+                    descriptorId.equals(finding.descriptorId())
+                            && rewriteFindingIds.contains(
+                            finding.findingId()));
+        }
+
+        public boolean hasUpgradeForGroup(String categoryCode) {
+            if (categoryCode == null || categoryCode.isBlank()) {
+                return false;
+            }
+            return diagnosticGroups.stream()
+                    .filter(group -> categoryCode.equals(
+                            group.categoryCode()))
+                    .flatMap(group -> group.needsImprovementChips()
+                            .stream())
+                    .anyMatch(chip -> hasUpgradeForDescriptor(chip.id()));
+        }
+
         public String profileStateLabelVi() {
             return switch (profileState) {
                 case "READY" -> "Hồ sơ đã sẵn sàng";
@@ -4235,12 +4297,16 @@ public final class PracticeDtos {
     }
 
     public record SpeakingPhraseRewriteView(
+            String findingId,
+            String descriptorId,
             String original,
             String upgraded,
             String reason
     ) {
         public SpeakingPhraseRewriteView {
-            if (original == null || original.isBlank()
+            if (findingId == null || findingId.isBlank()
+                    || descriptorId == null || descriptorId.isBlank()
+                    || original == null || original.isBlank()
                     || upgraded == null || upgraded.isBlank()
                     || reason == null || reason.isBlank()) {
                 throw new IllegalArgumentException(
@@ -4274,9 +4340,12 @@ public final class PracticeDtos {
             BigDecimal maxScore,
             String availability,
             int stableOrder,
-            ResultPerformanceLevel performanceLevel
+            ResultPerformanceLevel performanceLevel,
+            String feedbackVi
     ) {
         public ResultDetailScoreCriterion {
+            feedbackVi = feedbackVi == null || feedbackVi.isBlank()
+                    ? null : feedbackVi.trim();
             if (criterionId == null || criterionId.isBlank()
                     || labelVi == null || labelVi.isBlank()
                     || availability == null || availability.isBlank()
@@ -4304,10 +4373,25 @@ public final class PracticeDtos {
                 BigDecimal score,
                 BigDecimal maxScore,
                 String availability,
+                int stableOrder,
+                ResultPerformanceLevel performanceLevel
+        ) {
+            this(questionId, criterionId, labelVi, labelKo, score, maxScore,
+                    availability, stableOrder, performanceLevel, null);
+        }
+
+        public ResultDetailScoreCriterion(
+                Long questionId,
+                String criterionId,
+                String labelVi,
+                String labelKo,
+                BigDecimal score,
+                BigDecimal maxScore,
+                String availability,
                 int stableOrder
         ) {
             this(questionId, criterionId, labelVi, labelKo, score, maxScore,
-                    availability, stableOrder, null);
+                    availability, stableOrder, null, null);
         }
 
         public String scoreDisplay() {

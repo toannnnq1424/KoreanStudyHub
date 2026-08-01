@@ -953,7 +953,9 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     score,
                     maxScore,
                     availability,
-                    criterion.ordinal() + 1));
+                    criterion.ordinal() + 1,
+                    null,
+                    row == null ? null : row.feedback()));
         }
         return List.copyOf(result);
     }
@@ -1295,9 +1297,18 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             }
             String key = normalizeKey(finding.evidence())
                     + "|" + normalizeKey(finding.correction());
+            ResultDetailDescriptorRegistry.Definition descriptor =
+                    ResultDetailDescriptorRegistry.speaking(
+                            finding.criterion(), finding.subCriterionId(),
+                            ResultDetailPolarity.NEEDS_IMPROVEMENT);
+            if (descriptor == null || !present(finding.findingId())) {
+                continue;
+            }
             unique.putIfAbsent(
                     key,
                     new SpeakingPhraseRewriteView(
+                            finding.findingId(),
+                            descriptor.id(),
                             finding.evidence(),
                             finding.correction(),
                             finding.explanationVi()));

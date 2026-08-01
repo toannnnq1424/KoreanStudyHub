@@ -236,6 +236,55 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
+    void genericTemplateFeedbackFailsClosed() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode finding =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        input.path("transcript_annotations").get(0);
+        finding.put(
+                "explanation_vi",
+                "Cần điều chỉnh tiểu từ trong bản chép lời.");
+        finding.put(
+                "suggestion_ko",
+                "표현을 더 정확하고 자연스럽게 고쳐 보세요.");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(
+                SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertTrue(result.transcriptAnnotations().isEmpty());
+    }
+
+    @Test
+    void repetitionFindingCannotBeInferredFromOneOccurrenceOrReplaceOperation()
+            throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode evidence =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        input.path("evidence").get(2);
+        evidence.put(
+                "sub_criterion_id",
+                "S_VOCAB_REPETITION_CONTROL");
+        com.fasterxml.jackson.databind.node.ObjectNode finding =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        input.path("transcript_annotations").get(0);
+        finding.put("evidence_id", "SEV-VOCAB-1");
+        finding.put("criterion_id", "S_VOCABULARY_EXPRESSIONS");
+        finding.put(
+                "sub_criterion_id",
+                "S_VOCAB_REPETITION_CONTROL");
+        finding.put("operation", "REPLACE");
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(
+                SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertTrue(result.transcriptAnnotations().isEmpty());
+    }
+
+    @Test
     void providerOffsetsAreAuthoritativeAndMismatchFailsClosed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
         com.fasterxml.jackson.databind.node.ObjectNode evidence =
@@ -530,6 +579,7 @@ class SpeakingEvaluationNormalizerTest {
                   "retryable":false
                 }
                 """);
+        input.put("prompt_version", SpeakingPromptRules.PROMPT_VERSION);
         input.put(
                 "policy_bundle_fingerprint",
                 SpeakingAssessmentPolicyBundle.fingerprint());

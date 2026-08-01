@@ -207,7 +207,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         criterion.score() == null || criterion.maxScore() == null
                                 ? "UNAVAILABLE" : "SCORED",
                         taskIndex * 100 + criterionIndex + 1,
-                        resultPerformanceLevel(criterion)));
+                        resultPerformanceLevel(criterion),
+                        criterion.feedback()));
             }
         }
 
@@ -304,7 +305,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         }
         structuredBlankAnswers = annotateStructuredBlankAnswers(
                 structuredBlankAnswers,
-                diagnosticGroups);
+                diagnosticGroups,
+                activeTask == null ? null : activeTask.learnerAnswer());
         if (activeTask != null && !activeTask.clozeTask()
                 && !diagnosticGroups.isEmpty()) {
             learnerAnswerSegments =
@@ -387,14 +389,19 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         }
     }
 
-    private static List<WritingBlankAnswerView>
+    private List<WritingBlankAnswerView>
             annotateStructuredBlankAnswers(
             List<WritingBlankAnswerView> blanks,
-            List<WritingDiagnosticGroup> groups
+            List<WritingDiagnosticGroup> groups,
+            String learnerAnswerSource
     ) {
-        if (blanks.isEmpty() || groups.isEmpty()) {
+        if (blanks.isEmpty() || groups.isEmpty()
+                || learnerAnswerSource == null
+                || learnerAnswerSource.isBlank()) {
             return blanks;
         }
+        String source = Normalizer.normalize(
+                learnerAnswerSource, Normalizer.Form.NFC);
         List<WritingDiagnosticFinding> findings = groups.stream()
                 .flatMap(group -> java.util.stream.Stream.concat(
                         group.strengths().stream(),
@@ -404,7 +411,15 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         .WritingDiagnosticTargetKind.BLANK)
                 .toList();
         List<WritingBlankAnswerView> result = new ArrayList<>();
+        int sourceCursor = 0;
         for (WritingBlankAnswerView blank : blanks) {
+            Integer blankSourceStart = structuredBlankSourceStart(
+                    source, blank.text(), sourceCursor);
+            if (blankSourceStart == null) {
+                result.add(blank);
+                continue;
+            }
+            sourceCursor = blankSourceStart + blank.text().length();
             List<BlankAnnotationCandidate> candidates = new ArrayList<>();
             for (WritingDiagnosticFinding finding : findings) {
                 if (!blank.blankId().equals(
@@ -413,10 +428,14 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         finding.evidenceScope())) {
                     continue;
                 }
-                Integer start = finding.startOffset();
-                Integer end = finding.endOffset();
-                if (start == null || end == null
-                        || start < 0 || end <= start
+                Integer sourceStart = finding.startOffset();
+                Integer sourceEnd = finding.endOffset();
+                if (sourceStart == null || sourceEnd == null) {
+                    continue;
+                }
+                int start = sourceStart - blankSourceStart;
+                int end = sourceEnd - blankSourceStart;
+                if (start < 0 || end <= start
                         || end > blank.text().length()
                         || !blank.text().substring(start, end)
                         .equals(finding.evidence())) {
@@ -486,6 +505,35 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     segments));
         }
         return List.copyOf(result);
+    }
+
+    private Integer structuredBlankSourceStart(
+            String source,
+            String blankText,
+            int sourceCursor
+    ) {
+        if (source == null || blankText == null || blankText.isEmpty()
+                || sourceCursor < 0 || sourceCursor > source.length()) {
+            return null;
+        }
+        try {
+            String encodedText = objectMapper.writeValueAsString(blankText);
+            String token = "\"text\":" + encodedText;
+            int tokenStart = source.indexOf(token, sourceCursor);
+            if (tokenStart < 0) {
+                return null;
+            }
+            int valueStart = tokenStart + "\"text\":".length() + 1;
+            // Provider offsets are defined over the immutable NFC learner
+            // source.  If JSON escaping means the displayed blank no longer
+            // has a one-to-one offset mapping, fail closed instead of locating
+            // a similar phrase by text search.
+            return source.startsWith(blankText, valueStart)
+                    ? valueStart
+                    : null;
+        } catch (Exception exception) {
+            return null;
+        }
     }
 
     private static List<WritingTextSegment>
@@ -1332,11 +1380,11 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         return counts.values().stream()
                 .sorted(Comparator
                         .comparingInt((ChipCount value) -> value.count() == 0 ? 1 : 0)
-                        .thenComparingInt(value -> value.definition().stableOrder()))
+                .thenComparingInt(value -> value.definition().stableOrder()))
                 .map(value -> new WritingDiagnosticChip(
                         value.definition().id(),
-                        value.definition().feature().labelVi(),
-                        value.definition().feature().labelKo(),
+                        diagnosticChipLabelVi(value.definition()),
+                        diagnosticChipLabelKo(value.definition()),
                         value.polarity(),
                         value.definition().parentCriterionId(),
                         value.definition().scoreEffect(),
@@ -1346,6 +1394,24 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         false,
                         value.evidenceAvailability()))
                 .toList();
+    }
+
+    private static String diagnosticChipLabelVi(
+            WritingDiagnosticDescriptorRegistry.Resolution definition
+    ) {
+        Integer blankIndex = definition.target().blankIndex();
+        return blankIndex == null
+                ? definition.feature().labelVi()
+                : definition.feature().labelVi() + " · Ô " + blankIndex;
+    }
+
+    private static String diagnosticChipLabelKo(
+            WritingDiagnosticDescriptorRegistry.Resolution definition
+    ) {
+        Integer blankIndex = definition.target().blankIndex();
+        return blankIndex == null
+                ? definition.feature().labelKo()
+                : definition.feature().labelKo() + " · 빈칸 " + blankIndex;
     }
 
     private static List<CatalogChip> writingChipCatalog(

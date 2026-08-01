@@ -278,8 +278,23 @@ public final class SpeakingEvaluationTestFixtures {
                 .put("criterion", criterion.id())
                 .put("score", score)
                 .put("max_score", criterion.maxScore())
-                .put("feedback", "Bằng chứng đã xác minh.");
+                .put("feedback", criterionFeedback(criterion));
         row.putArray("evidence_ids").add(evidenceId);
+    }
+
+    private static String criterionFeedback(SpeakingRubricCriterion criterion) {
+        return switch (criterion) {
+            case CONTENT_TASK_FULFILLMENT ->
+                    "Câu trả lời bám chủ đề và nêu được mục tiêu học; mức phát triển ý được phản ánh từ đúng nội dung trong bản chép lời.";
+            case GRAMMAR_SENTENCE_CONTROL ->
+                    "Đuôi câu và cấu trúc được kiểm soát nhất quán, giúp các quan hệ điều kiện, nguyên nhân và kế hoạch dễ theo dõi.";
+            case VOCABULARY_EXPRESSIONS ->
+                    "Từ vựng phù hợp chủ đề và các cụm diễn đạt được dùng đúng ngữ cảnh, không chỉ lặp lại từ khóa của đề.";
+            case COHERENCE_ORGANIZATION ->
+                    "Các dấu hiệu mở ý, kết quả và kết đoạn tạo trình tự rõ ràng cho toàn bộ câu trả lời.";
+            case FLUENCY, PRONUNCIATION_DELIVERY ->
+                    "Chưa chấm: bộ đánh giá không nhận bằng chứng âm thanh trực tiếp.";
+        };
     }
 
     private static String sourceHash(String source) {
