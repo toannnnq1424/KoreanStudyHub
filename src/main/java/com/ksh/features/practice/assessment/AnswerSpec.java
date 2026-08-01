@@ -11,7 +11,8 @@ public record AnswerSpec(
         List<String> correctOptionIds,
         String correctValue,
         List<BlankAnswer> blanks,
-        ScoringPolicyCode scoringPolicyCode
+        ScoringPolicyCode scoringPolicyCode,
+        WritingBlankContract.AnswerAuthority writingBlankAuthority
 ) {
     public static final String SCHEMA_VERSION = "answer-spec-v1";
 
@@ -19,6 +20,16 @@ public record AnswerSpec(
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
         correctOptionIds = correctOptionIds == null ? List.of() : List.copyOf(correctOptionIds);
         blanks = blanks == null ? List.of() : List.copyOf(blanks);
+    }
+
+    public AnswerSpec(String schemaVersion,
+                      CanonicalQuestionType questionType,
+                      List<String> correctOptionIds,
+                      String correctValue,
+                      List<BlankAnswer> blanks,
+                      ScoringPolicyCode scoringPolicyCode) {
+        this(schemaVersion, questionType, correctOptionIds, correctValue,
+                blanks, scoringPolicyCode, null);
     }
 
     public record BlankAnswer(String blankId, List<String> acceptedValues) {

@@ -39,6 +39,12 @@ public class PracticeQuestionGroupVersion {
     @Column(name = "stimulus_type", length = 40)
     private String stimulusType;
 
+    @Column(name = "stimulus_language_tag", nullable = false, length = 8)
+    private String stimulusLanguageTag;
+
+    @Column(name = "instruction_language_tag", nullable = false, length = 8)
+    private String instructionLanguageTag;
+
     @Column(name = "passage_text", columnDefinition = "LONGTEXT")
     private String passageText;
 
@@ -72,6 +78,8 @@ public class PracticeQuestionGroupVersion {
         this.questionTo = group.getQuestionTo();
         this.instruction = group.getInstruction();
         this.stimulusType = group.getStimulusType();
+        this.stimulusLanguageTag = group.getStimulusLanguageTag();
+        this.instructionLanguageTag = group.getInstructionLanguageTag();
         this.passageText = group.getPassageText();
         this.transcriptText = group.getTranscriptText();
         this.imageUrl = group.getImageUrl();
@@ -90,6 +98,8 @@ public class PracticeQuestionGroupVersion {
     public Integer getQuestionTo() { return questionTo; }
     public String getInstruction() { return instruction; }
     public String getStimulusType() { return stimulusType; }
+    public String getStimulusLanguageTag() { return stimulusLanguageTag; }
+    public String getInstructionLanguageTag() { return instructionLanguageTag; }
     public String getPassageText() { return passageText; }
     public String getTranscriptText() { return transcriptText; }
     public String getImageUrl() { return imageUrl; }

@@ -30,10 +30,61 @@ public class AssessmentScoringEngine {
 
         return switch (spec.questionType()) {
             case SINGLE_CHOICE -> scoreSingleChoice(spec, answer, points);
+            case MULTIPLE_ANSWER -> scoreMultipleAnswer(spec, answer, points);
+            case MATCHING -> scoreMatching(spec, answer, points);
             case TRUE_FALSE_NOT_GIVEN -> scoreTfng(spec, answer, points);
             case FILL_BLANK -> scoreFillBlank(spec, answer, points);
             case ESSAY, SPEAKING -> pendingAi(spec, points);
         };
+    }
+
+    private AssessmentScoreResult scoreMultipleAnswer(AnswerSpec spec,
+                                                       LearnerAnswer answer,
+                                                       BigDecimal points) {
+        requirePolicy(spec, Set.of(ScoringPolicyCode.ALL_OR_NOTHING));
+        if (spec.correctOptionIds().size() < 2) {
+            throw new IllegalArgumentException(
+                    "Multiple-answer spec must contain at least two correct options");
+        }
+        if (answer.selectedOptionIds().isEmpty()) {
+            return result(AssessmentScoreStatus.NOT_ANSWERED, BigDecimal.ZERO, points, spec,
+                    0, spec.correctOptionIds().size());
+        }
+        boolean correct = Set.copyOf(spec.correctOptionIds())
+                .equals(Set.copyOf(answer.selectedOptionIds()));
+        return binary(correct, points, spec, spec.correctOptionIds().size());
+    }
+
+    private AssessmentScoreResult scoreMatching(AnswerSpec spec,
+                                                 LearnerAnswer answer,
+                                                 BigDecimal points) {
+        requirePolicy(spec, Set.of(ScoringPolicyCode.NORMALIZED_EXACT));
+        if (spec.blanks().isEmpty()) {
+            throw new IllegalArgumentException("Matching answer spec has no targets");
+        }
+        Set<String> targetIds = spec.blanks().stream()
+                .map(AnswerSpec.BlankAnswer::blankId)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (!targetIds.containsAll(answer.blankAnswers().keySet())) {
+            throw new IllegalArgumentException("Matching learner answer contains an unknown target ID");
+        }
+        if (answer.blankAnswers().isEmpty()
+                || answer.blankAnswers().values().stream().allMatch(AssessmentScoringEngine::blank)) {
+            return result(AssessmentScoreStatus.NOT_ANSWERED, BigDecimal.ZERO, points, spec,
+                    0, spec.blanks().size());
+        }
+        int correctUnits = 0;
+        for (AnswerSpec.BlankAnswer targetSpec : spec.blanks()) {
+            requireCount(targetSpec.acceptedValues(), 1,
+                    "matching target authoritative candidate");
+            String learnerCandidate = answer.blankAnswers().get(targetSpec.blankId());
+            if (!blank(learnerCandidate)
+                    && normalize(learnerCandidate)
+                    .equals(normalize(targetSpec.acceptedValues().get(0)))) {
+                correctUnits++;
+            }
+        }
+        return aggregate(correctUnits, spec.blanks().size(), points, spec);
     }
 
     private AssessmentScoreResult scoreSingleChoice(AnswerSpec spec,

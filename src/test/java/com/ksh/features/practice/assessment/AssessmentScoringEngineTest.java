@@ -59,6 +59,41 @@ class AssessmentScoringEngineTest {
     }
 
     @Test
+    void multipleAnswerRequiresTheExactAuthoritativeSet() {
+        AnswerSpec spec = spec(CanonicalQuestionType.MULTIPLE_ANSWER,
+                List.of("a", "c"), null, List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+
+        assertScore(engine.score(spec,
+                        selected(CanonicalQuestionType.MULTIPLE_ANSWER, "c", "a"), points("3")),
+                AssessmentScoreStatus.CORRECT, "3");
+        assertScore(engine.score(spec,
+                        selected(CanonicalQuestionType.MULTIPLE_ANSWER, "a"), points("3")),
+                AssessmentScoreStatus.INCORRECT, "0");
+        assertScore(engine.score(spec,
+                        selected(CanonicalQuestionType.MULTIPLE_ANSWER), points("3")),
+                AssessmentScoreStatus.NOT_ANSWERED, "0");
+    }
+
+    @Test
+    void matchingScoresEachAuthoritativeTargetAndRejectsUnknownTargets() {
+        AnswerSpec spec = spec(CanonicalQuestionType.MATCHING, List.of(), null,
+                List.of(
+                        new AnswerSpec.BlankAnswer("q14", List.of("label_c")),
+                        new AnswerSpec.BlankAnswer("q15", List.of("label_g"))),
+                ScoringPolicyCode.NORMALIZED_EXACT);
+
+        LearnerAnswer partial = answer(CanonicalQuestionType.MATCHING, List.of(), null,
+                Map.of("q14", "label_c", "q15", "label_a"), null);
+        assertScore(engine.score(spec, partial, points("4")),
+                AssessmentScoreStatus.PARTIALLY_CORRECT, "2");
+        assertThatThrownBy(() -> engine.score(spec,
+                answer(CanonicalQuestionType.MATCHING, List.of(), null,
+                        Map.of("unknown", "label_c"), null), points("4")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unknown target ID");
+    }
+
+    @Test
     void trueFalseNotGivenAndAiScoredTypesHaveExplicitStates() {
         AnswerSpec tfng = spec(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
                 List.of(), "NOT_GIVEN", List.of(), ScoringPolicyCode.ALL_OR_NOTHING);

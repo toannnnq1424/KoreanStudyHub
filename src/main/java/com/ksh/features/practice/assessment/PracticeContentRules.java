@@ -40,18 +40,25 @@ public class PracticeContentRules {
     public ScoringPolicyCode scoringPolicy(CanonicalQuestionType type) {
         require(type, "question type");
         return switch (type) {
-            case SINGLE_CHOICE, TRUE_FALSE_NOT_GIVEN -> ScoringPolicyCode.ALL_OR_NOTHING;
-            case FILL_BLANK -> ScoringPolicyCode.NORMALIZED_EXACT;
+            case SINGLE_CHOICE, MULTIPLE_ANSWER, TRUE_FALSE_NOT_GIVEN ->
+                    ScoringPolicyCode.ALL_OR_NOTHING;
+            case FILL_BLANK, MATCHING -> ScoringPolicyCode.NORMALIZED_EXACT;
             case ESSAY, SPEAKING -> ScoringPolicyCode.PROFILE_BASED;
         };
     }
 
     public int minOptions(CanonicalQuestionType type) {
-        return type == CanonicalQuestionType.SINGLE_CHOICE ? MIN_SINGLE_CHOICE_OPTIONS : 0;
+        return type == CanonicalQuestionType.SINGLE_CHOICE
+                || type == CanonicalQuestionType.MULTIPLE_ANSWER
+                || type == CanonicalQuestionType.MATCHING
+                ? MIN_SINGLE_CHOICE_OPTIONS : 0;
     }
 
     public int maxOptions(CanonicalQuestionType type) {
-        return type == CanonicalQuestionType.SINGLE_CHOICE ? MAX_SINGLE_CHOICE_OPTIONS : 0;
+        return type == CanonicalQuestionType.SINGLE_CHOICE
+                || type == CanonicalQuestionType.MULTIPLE_ANSWER
+                || type == CanonicalQuestionType.MATCHING
+                ? MAX_SINGLE_CHOICE_OPTIONS : 0;
     }
 
     public Set<WritingTaskType> requiredWritingTasks() {
@@ -87,10 +94,14 @@ public class PracticeContentRules {
         Map<AssessmentSkill, List<CanonicalQuestionType>> rules = new EnumMap<>(AssessmentSkill.class);
         rules.put(AssessmentSkill.READING, List.of(
                 CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING,
                 CanonicalQuestionType.FILL_BLANK,
                 CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN));
         rules.put(AssessmentSkill.LISTENING, List.of(
                 CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING,
                 CanonicalQuestionType.FILL_BLANK,
                 CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN));
         rules.put(AssessmentSkill.WRITING, List.of(CanonicalQuestionType.ESSAY));

@@ -2,6 +2,8 @@ package com.ksh.features.practice.assessment;
 
 public enum CanonicalQuestionType {
     SINGLE_CHOICE(true),
+    MULTIPLE_ANSWER(true),
+    MATCHING(true),
     TRUE_FALSE_NOT_GIVEN(true),
     FILL_BLANK(true),
     ESSAY(false),
