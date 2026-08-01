@@ -86,6 +86,8 @@ public record SpeakingEvaluationResult(
         strengths = copy(strengths);
         needsImprovement = copy(needsImprovement);
         rubricScores = copy(rubricScores);
+        findings = copy(findings);
+        evidence = copy(evidence);
         boolean detailedEvidenceValid = true;
         if (explicitCurrentCapability) {
             boolean transcriptRequired = evaluationStatus != null && evaluationStatus.scoreBearing();
@@ -97,7 +99,12 @@ public record SpeakingEvaluationResult(
                     validTranscriptAnnotation(row, actuallyHeardTranscript))
                     && strengths.stream().allMatch(row -> validFeedbackItem(row, actuallyHeardTranscript)
                     && "".equals(row.correction()))
-                    && needsImprovement.stream().allMatch(row -> validFeedbackItem(row, actuallyHeardTranscript));
+                    && needsImprovement.stream().allMatch(row -> validFeedbackItem(row, actuallyHeardTranscript))
+                    && evidence.stream().allMatch(row ->
+                    validEvidence(row, actuallyHeardTranscript))
+                    && validLedgerLinkage(
+                    rubricScores, transcriptAnnotations, strengths,
+                    needsImprovement, evidence);
             if (!transcriptRequired) {
                 detailedEvidenceValid = detailedEvidenceValid
                         && actionPlan.isEmpty() && criterionFeedback.isEmpty()
@@ -130,8 +137,6 @@ public record SpeakingEvaluationResult(
                 && (!validRubricContract(evaluationStatus, rubricScores) || !detailedEvidenceValid)) {
             contractTrust = SpeakingContractTrust.LEGACY_UNVERIFIED;
         }
-        findings = copy(findings);
-        evidence = copy(evidence);
         if (explicitCurrentCapability) {
             if (!findings.isEmpty() || !evidence.stream().allMatch(row ->
                     validEvidence(row, actuallyHeardTranscript))) {
@@ -479,6 +484,11 @@ public record SpeakingEvaluationResult(
             if (row.availability() != SpeakingCriterionAvailability.SCORED
                     || row.score() == null
                     || row.maxScore() == null
+                    || row.evidenceIds().isEmpty()
+                    || row.evidenceIds().stream().anyMatch(id ->
+                    id == null || id.isBlank())
+                    || row.evidenceIds().stream().distinct().count()
+                    != row.evidenceIds().size()
                     || row.maxScore().compareTo(criterion.maxScore()) != 0
                     || row.score().compareTo(BigDecimal.ZERO) < 0
                     || row.score().compareTo(row.maxScore()) > 0) {
@@ -538,27 +548,172 @@ public record SpeakingEvaluationResult(
             TranscriptAnnotation row,
             String actuallyHeardTranscript
     ) {
-        return row != null && row.criterion() != null && row.criterion().transcriptGrounded()
+        return row != null
+                && presentId(row.findingId()) && presentId(row.evidenceId())
+                && row.criterion() != null && row.criterion().transcriptGrounded()
                 && row.criterion().ownsSubcriterion(row.subCriterionId())
                 && row.evidenceSource() == SpeakingEvidenceSource.TRANSCRIPT
+                && validOccurrenceIdentity(
+                row.evidence(), row.startOffset(), row.endOffset(),
+                row.occurrenceIndex(), row.occurrenceCount(),
+                row.normalization(), row.sourceHash(),
+                actuallyHeardTranscript)
                 && validEvidenceScope(row.evidenceScope(), row.evidence(),
                 row.startOffset(), row.endOffset(), actuallyHeardTranscript);
     }
 
     private static boolean validFeedbackItem(FeedbackItem row, String actuallyHeardTranscript) {
-        return row != null && row.criterion() != null && row.criterion().transcriptGrounded()
+        return row != null
+                && presentId(row.findingId()) && presentId(row.evidenceId())
+                && row.criterion() != null && row.criterion().transcriptGrounded()
                 && row.criterion().ownsSubcriterion(row.subCriterionId())
                 && row.evidenceSource() == SpeakingEvidenceSource.TRANSCRIPT
+                && validOccurrenceIdentity(
+                row.evidence(), row.startOffset(), row.endOffset(),
+                row.occurrenceIndex(), row.occurrenceCount(),
+                row.normalization(), row.sourceHash(),
+                actuallyHeardTranscript)
                 && validEvidenceScope(row.evidenceScope(), row.evidence(),
-                null, null, actuallyHeardTranscript);
+                row.startOffset(), row.endOffset(), actuallyHeardTranscript);
     }
 
     private static boolean validEvidence(Evidence row, String actuallyHeardTranscript) {
-        return row != null && row.source() == SpeakingEvidenceSource.TRANSCRIPT
+        return row != null && presentId(row.evidenceId())
+                && row.source() == SpeakingEvidenceSource.TRANSCRIPT
                 && row.criterion() != null && row.criterion().transcriptGrounded()
-                && row.excerpt() != null && !row.excerpt().isBlank()
-                && actuallyHeardTranscript != null
-                && actuallyHeardTranscript.contains(row.excerpt());
+                && row.criterion().ownsSubcriterion(row.subCriterionId())
+                && validOccurrenceIdentity(
+                row.excerpt(), row.startOffset(), row.endOffset(),
+                row.occurrenceIndex(), row.occurrenceCount(),
+                row.normalization(), row.sourceHash(),
+                actuallyHeardTranscript)
+                && validEvidenceScope(row.evidenceScope(), row.excerpt(),
+                row.startOffset(), row.endOffset(), actuallyHeardTranscript);
+    }
+
+    private static boolean validLedgerLinkage(
+            List<RubricScore> rubricScores,
+            List<TranscriptAnnotation> annotations,
+            List<FeedbackItem> strengths,
+            List<FeedbackItem> needsImprovement,
+            List<Evidence> evidence
+    ) {
+        java.util.Map<String, Evidence> evidenceById =
+                new java.util.LinkedHashMap<>();
+        for (Evidence row : evidence) {
+            if (row == null || row.evidenceId() == null
+                    || evidenceById.put(row.evidenceId(), row) != null) {
+                return false;
+            }
+        }
+        java.util.Set<String> findingIds = new java.util.HashSet<>();
+        java.util.Set<String> annotationEvidenceIds =
+                new java.util.HashSet<>();
+        for (TranscriptAnnotation annotation : annotations) {
+            Evidence row = annotation == null
+                    ? null : evidenceById.get(annotation.evidenceId());
+            if (row == null
+                    || !findingIds.add(annotation.findingId())
+                    || !annotationEvidenceIds.add(annotation.evidenceId())
+                    || row.criterion() != annotation.criterion()
+                    || !java.util.Objects.equals(
+                    row.subCriterionId(), annotation.subCriterionId())) {
+                return false;
+            }
+        }
+        java.util.List<FeedbackItem> feedback = new java.util.ArrayList<>();
+        feedback.addAll(strengths);
+        feedback.addAll(needsImprovement);
+        if (feedback.size() != annotations.size()) {
+            return false;
+        }
+        for (FeedbackItem item : feedback) {
+            boolean matches = annotations.stream().anyMatch(annotation ->
+                    java.util.Objects.equals(
+                            annotation.findingId(), item.findingId())
+                            && java.util.Objects.equals(
+                            annotation.evidenceId(), item.evidenceId())
+                            && annotation.criterion() == item.criterion()
+                            && java.util.Objects.equals(
+                            annotation.subCriterionId(),
+                            item.subCriterionId()));
+            if (!matches) {
+                return false;
+            }
+        }
+        for (RubricScore score : rubricScores) {
+            if (score == null || !score.scored()) {
+                continue;
+            }
+            if (score.evidenceIds().isEmpty()
+                    || score.evidenceIds().stream().anyMatch(id -> {
+                Evidence row = evidenceById.get(id);
+                return row == null || row.criterion() != score.criterion();
+            })) {
+                return false;
+            }
+            if (score.score().compareTo(score.maxScore()) == 0
+                    && annotations.stream().anyMatch(annotation ->
+                    annotation.criterion() == score.criterion()
+                            && "needs_improvement".equals(
+                            annotation.annotationType()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean presentId(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static boolean validOccurrenceIdentity(
+            String exactText,
+            Integer startOffset,
+            Integer endOffset,
+            Integer index,
+            Integer count,
+            String normalization,
+            String sourceHash,
+            String source
+    ) {
+        if (source == null || exactText == null || exactText.isBlank()
+                || startOffset == null || endOffset == null
+                || index == null || count == null
+                || !"UTF16_EXACT_V1".equals(normalization)
+                || !java.util.Objects.equals(
+                speakingSourceHash(source), sourceHash)
+                || startOffset < 0
+                || endOffset != startOffset + exactText.length()
+                || endOffset > source.length()
+                || !source.substring(startOffset, endOffset).equals(exactText)) {
+            return false;
+        }
+        java.util.List<Integer> positions = new java.util.ArrayList<>();
+        for (int cursor = 0;
+             cursor + exactText.length() <= source.length();
+             cursor++) {
+            if (source.regionMatches(
+                    cursor, exactText, 0, exactText.length())) {
+                positions.add(cursor);
+            }
+        }
+        return count == positions.size()
+                && index >= 1 && index <= positions.size()
+                && positions.get(index - 1).equals(startOffset);
+    }
+
+    private static String speakingSourceHash(String source) {
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(source.getBytes(
+                                    java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 is required for Speaking evidence identity",
+                    exception);
+        }
     }
 
     private static boolean validEvidenceScope(
@@ -594,9 +749,11 @@ public record SpeakingEvaluationResult(
             BigDecimal score,
             BigDecimal maxScore,
             String feedback,
-            SpeakingCriterionAvailability availability
+            SpeakingCriterionAvailability availability,
+            List<String> evidenceIds
     ) {
         public RubricScore {
+            evidenceIds = copy(evidenceIds);
             availability = availability == null
                     ? (score == null ? SpeakingCriterionAvailability.UNAVAILABLE
                     : SpeakingCriterionAvailability.SCORED)
@@ -604,7 +761,18 @@ public record SpeakingEvaluationResult(
             if (availability != SpeakingCriterionAvailability.SCORED) {
                 score = null;
                 maxScore = null;
+                evidenceIds = List.of();
             }
+        }
+
+        public RubricScore(
+                SpeakingRubricCriterion criterion,
+                BigDecimal score,
+                BigDecimal maxScore,
+                String feedback,
+                SpeakingCriterionAvailability availability
+        ) {
+            this(criterion, score, maxScore, feedback, availability, List.of());
         }
 
         public RubricScore(
@@ -615,7 +783,8 @@ public record SpeakingEvaluationResult(
         ) {
             this(criterion, score, maxScore, feedback,
                     score == null ? SpeakingCriterionAvailability.UNAVAILABLE
-                            : SpeakingCriterionAvailability.SCORED);
+                            : SpeakingCriterionAvailability.SCORED,
+                    List.of());
         }
 
         public boolean scored() {
@@ -657,6 +826,8 @@ public record SpeakingEvaluationResult(
     }
 
     public record TranscriptAnnotation(
+            String findingId,
+            String evidenceId,
             String annotationType,
             String category,
             SpeakingRubricCriterion criterion,
@@ -665,6 +836,11 @@ public record SpeakingEvaluationResult(
             String replacement,
             Integer startOffset,
             Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String operation,
             String explanation,
             String severity,
             SpeakingEvidenceSource evidenceSource,
@@ -685,11 +861,21 @@ public record SpeakingEvaluationResult(
     ) {}
 
     public record FeedbackItem(
+            String findingId,
+            String evidenceId,
             SpeakingRubricCriterion criterion,
             String subCriterionId,
             String evidenceScope,
             String evidence,
             SpeakingEvidenceSource evidenceSource,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String operation,
+            String category,
             String explanationVi,
             String correction
     ) {}
@@ -701,9 +887,18 @@ public record SpeakingEvaluationResult(
     ) {}
 
     public record Evidence(
+            String evidenceId,
             SpeakingEvidenceSource source,
             SpeakingRubricCriterion criterion,
+            String subCriterionId,
+            String evidenceScope,
             String excerpt,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
             BigDecimal confidence
     ) {}
 }

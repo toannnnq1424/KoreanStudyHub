@@ -74,6 +74,27 @@ class SpeakingPromptDeliveryPresenterTest {
     }
 
     @Test
+    void v3LanguageAuthorityKeepsTypedTextOnlyDelivery() {
+        QuestionContent v3 = content(
+                QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                QuestionContent.SpeakingDeliveryMode.TEXT_ONLY,
+                QuestionContent.SpeakingAudioOrigin.NONE,
+                null,
+                null).withLanguageTag("ko");
+
+        SpeakingPromptDelivery delivery = presenter.present(
+                v3, "주말에 무엇을 합니까?", null);
+
+        assertThat(delivery.contentSchemaVersion())
+                .isEqualTo(QuestionContent.SCHEMA_VERSION_V3);
+        assertThat(delivery.promptText()).isEqualTo("주말에 무엇을 합니까?");
+        assertThat(delivery.promptAudioReference()).isNull();
+        assertThat(delivery.steps()).containsExactly(
+                SpeakingPromptDelivery.Step.PREPARATION,
+                SpeakingPromptDelivery.Step.RECORDING);
+    }
+
+    @Test
     void historicalV1KeepsAudioFirstDualReadBehavior() {
         QuestionContent v1 = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION_V1,

@@ -102,11 +102,21 @@ public class SpeakingFeedbackViewMapper {
     private static List<SpeakingFindingView> feedbackItems(List<SpeakingEvaluationResult.FeedbackItem> items) {
         return items.stream()
                 .map(item -> new SpeakingFindingView(
+                        item.findingId(),
+                        item.evidenceId(),
                         item.criterion() == null ? null : item.criterion().id(),
                         item.subCriterionId(),
                         item.evidenceScope(),
                         item.evidence(),
                         item.evidenceSource() == null ? null : item.evidenceSource().name(),
+                        item.startOffset(),
+                        item.endOffset(),
+                        item.occurrenceIndex(),
+                        item.occurrenceCount(),
+                        item.normalization(),
+                        item.sourceHash(),
+                        item.operation(),
+                        item.category(),
                         item.explanationVi(),
                         item.correction()))
                 .toList();
@@ -206,6 +216,8 @@ public class SpeakingFeedbackViewMapper {
             List<SpeakingEvaluationResult.TranscriptAnnotation> items) {
         return items.stream()
                 .map(item -> new SpeakingTranscriptAnnotationView(
+                        item.findingId(),
+                        item.evidenceId(),
                         item.criterion() == null ? null : item.criterion().id(),
                         item.subCriterionId(),
                         item.evidenceScope(),
@@ -215,6 +227,11 @@ public class SpeakingFeedbackViewMapper {
                         item.endOffset(),
                         item.startOffset(),
                         item.endOffset(),
+                        item.occurrenceIndex(),
+                        item.occurrenceCount(),
+                        item.normalization(),
+                        item.sourceHash(),
+                        item.operation(),
                         item.annotationType(),
                         annotationKind(item.annotationType()),
                         item.category(),

@@ -4,10 +4,10 @@ import java.util.stream.Collectors;
 
 public final class SpeakingPromptRules {
     public static final String PROMPT_VERSION =
-            "speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only";
+            "speaking-eval-v6-authoritative-transcript-ledger";
     public static final String RUBRIC_VERSION = "speaking-rubric-v2-transcript-language-profile";
     public static final String SCHEMA_VERSION =
-            "speaking-schema-v3-policy-bundle-partial-language-profile";
+            "speaking-schema-v4-authoritative-utf16-ledger";
     public static final String EVIDENCE_CONTRACT_VERSION =
             SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION.contractVersion();
 
@@ -96,13 +96,18 @@ public final class SpeakingPromptRules {
                 [QUY TẮC NGUỒN BẰNG CHỨNG]
                 Giá trị nguồn bằng chứng chỉ được là: %s.
                 AUDIO_METADATA không phải nguồn căn cứ được phép cho bộ đánh giá này.
-                evidence loại TEXT_SPAN phải là chuỗi con chính xác, không rỗng của actually_heard_transcript.
-                evidence loại WHOLE_ANSWER phải là chuỗi rỗng.
+                Mỗi evidence ledger row phải có evidence_id ổn định, criterion_id, sub_criterion_id,
+                evidence_scope=TEXT_SPAN, exact_text, start_offset/end_offset UTF-16,
+                occurrence_index/occurrence_count (đếm từ 1), normalization=UTF16_EXACT_V1,
+                source_hash SHA-256 của actually_heard_transcript và confidence.
+                exact_text phải là chuỗi con chính xác, không rỗng tại đúng offsets đã gửi.
+                Provider phải chỉ rõ occurrence; backend không đoán vị trí bằng String.indexOf.
+                Repeated/out-of-order evidence phải giữ đúng occurrence identity và source hash.
                 Contract bằng chứng hiện tại không chấp nhận TASK_METADATA hoặc prompt_context ở output.
                 Chúng có thể hỗ trợ hiểu mức độ liên quan của Nội dung với nhiệm vụ nhưng không được tạo highlight/phát hiện về người học.
-                startOffset/endOffset do provider trả về không có thẩm quyền và có thể là null; backend tự suy ra offset từ đoạn chép lời chính xác.
                 Không tạo phát hiện khi thiếu bằng chứng an toàn.
-                Quét bản chép lời từ đầu đến cuối và nhóm hợp lý các lỗi cùng loại bị lặp.
+                Mỗi rubric_scores phải tham chiếu evidence_ids thuộc đúng criterion.
+                Điểm tối đa không được đồng thời có finding needs_improvement đã xác nhận cùng criterion.
                 """.formatted(evidenceSources());
     }
 
@@ -127,14 +132,12 @@ public final class SpeakingPromptRules {
     static String strengthsAndNeedsSection() {
         return """
                 [ĐIỂM MẠNH VÀ ĐIỂM CẦN CẢI THIỆN]
-                Tạo các mảng strengths và needs_improvement dựa trên bằng chứng.
-                Mỗi strength phải có criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
-                explanation_vi và correction="".
-                Mỗi mục needs_improvement phải có criterion_id, sub_criterion_id, evidence_scope, evidence,
-                evidence_source, explanation_vi và correction.
+                Backend tự tạo các tab Strengths và Needs improvement từ transcript_annotations đã xác minh.
+                Không xuất mảng strengths/needs_improvement riêng và không lặp lại claim tự do.
+                Mỗi transcript annotation phải là một claim nguyên tử, gắn một evidence_id duy nhất.
                 criterion_id và sub_criterion_id phải lấy từ allowed_rubric / allowed_subcriteria.
-                correction của strengths luôn là chuỗi rỗng.
-                correction của needs_improvement phải là văn bản tiếng Hàn đã sửa, một cụm tiếng Hàn hoặc cụm luyện nói tiếng Hàn.
+                Strength dùng operation=KEEP và suggestion_ko="".
+                Needs improvement dùng operation=REPLACE hoặc REDUNDANT và phải có suggestion_ko tiếng Hàn.
                 Không tạo điểm mạnh giả.
                 """;
     }
@@ -143,10 +146,12 @@ public final class SpeakingPromptRules {
         return """
                 [CHÚ THÍCH BẢN CHÉP LỜI]
                 Chỉ tạo transcript_annotations khi có bằng chứng an toàn.
-                Mỗi mục phải có criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
-                start_offset, end_offset, annotation_type, explanation_vi và suggestion_ko.
+                Mỗi mục phải có finding_id ổn định, evidence_id, criterion_id, sub_criterion_id,
+                evidence_source, annotation_type, operation, category, severity, confidence,
+                explanation_vi và suggestion_ko.
                 annotation_type phải là strength, needs_improvement hoặc advisory.
-                Không chú thích quá dày.
+                Mỗi evidence_id chỉ thuộc một finding; backend dùng finding_id cho ánh xạ span-card 1-1.
+                Chọn đơn vị lỗi/điểm mạnh nhỏ nhất có thẩm quyền; không tô cả câu khi một từ/cụm đã đủ.
                 Không tạo phát hiện về âm học, phát âm, độ lưu loát, ngắt nghỉ, tốc độ, nhịp, ngữ điệu, nối âm hoặc cấp âm vị.
                 """;
     }
@@ -277,19 +282,20 @@ public final class SpeakingPromptRules {
                 Phải có ít nhất:
                 evaluation_status, score_available, interpreted_intent=null, intent_confidence=null,
                 overall_score=null, level_label=null, overall_summary, task_achievement_summary,
-                rubric_scores, criterion_feedback, strengths, needs_improvement, transcript_annotations, upgraded_answer,
-                sample_answer, confidence_notes, action_plan, findings, evidence, recommendations,
+                rubric_scores, criterion_feedback, transcript_annotations, upgraded_answer,
+                sample_answer, confidence_notes, action_plan, evidence, recommendations,
                 error_category, retryable. Dữ liệu nguồn backend, danh tính bản chép lời, danh tính model/version và media
                 là trường có thẩm quyền của ứng dụng; model không được bịa. score_available phải là false.
-                Mỗi rubric_scores: criterion, score, max_score, feedback.
+                Mỗi rubric_scores: criterion, score, max_score, feedback, evidence_ids.
                 Mỗi criterion_feedback: criterion_id, display_name, score, max_score, level_label, summary,
                 strengths, needs_improvement, subcriteria.
                 Mỗi subcriteria trong criterion_feedback: sub_criterion_id, display_name, level_label, summary,
                 strengths, needs_improvement.
-                Mỗi strengths: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source, explanation_vi, correction="".
-                Mỗi needs_improvement: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source, explanation_vi, correction.
-                Mỗi transcript_annotations: criterion_id, sub_criterion_id, evidence_scope, evidence, evidence_source,
-                start_offset, end_offset, annotation_type, explanation_vi, suggestion_ko.
+                Mỗi evidence: evidence_id, source, criterion_id, sub_criterion_id, evidence_scope, exact_text,
+                start_offset, end_offset, occurrence_index, occurrence_count, normalization, source_hash, confidence.
+                Mỗi transcript_annotations: finding_id, evidence_id, criterion_id, sub_criterion_id,
+                evidence_source, annotation_type, operation, category, severity, confidence,
+                explanation_vi, suggestion_ko.
                 Mỗi action_plan: criterion_id, sub_criterion_id, title, instruction, reason, priority.
                 """;
     }

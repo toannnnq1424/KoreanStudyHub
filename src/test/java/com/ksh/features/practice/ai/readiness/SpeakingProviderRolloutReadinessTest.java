@@ -15,7 +15,7 @@ class SpeakingProviderRolloutReadinessTest {
     void disabledDefaultsBlockLiveRolloutWithoutCallingProvider() {
         var readiness = new SpeakingProviderRolloutReadiness(
                 transcription(false, "openai", ""),
-                evaluator(false, "openai-compatible", ""));
+                evaluator(false, "openai-primary", ""));
 
         AiReadinessReport report = readiness.assessLiveSpeakingProviderReadiness();
 
@@ -30,7 +30,7 @@ class SpeakingProviderRolloutReadinessTest {
     void bothGatesAndAllowedProvidersRemainNoGoWithoutDirectAudioFullEvaluator() {
         var readiness = new SpeakingProviderRolloutReadiness(
                 transcription(true, "openai", "TRANSCRIPTION_SECRET"),
-                evaluator(true, "openai-compatible", "EVALUATOR_SECRET"));
+                evaluator(true, "openai-primary", "EVALUATOR_SECRET"));
 
         AiReadinessReport report = readiness.assessLiveSpeakingProviderReadiness();
 
@@ -62,7 +62,7 @@ class SpeakingProviderRolloutReadinessTest {
     void enabledGateRequiresMatchingApiKey() {
         var readiness = new SpeakingProviderRolloutReadiness(
                 transcription(true, "openai", ""),
-                evaluator(false, "openai-compatible", ""));
+                evaluator(false, "openai-primary", ""));
 
         AiReadinessReport report = readiness.assessLiveSpeakingProviderReadiness();
 
@@ -90,9 +90,9 @@ class SpeakingProviderRolloutReadinessTest {
         return new SpeakingEvaluatorProperties(
                 enabled,
                 provider,
-                "https://generativelanguage.googleapis.com/v1beta/openai",
+                "https://api.openai.com/v1",
                 apiKey,
-                "models/gemini-2.5-flash",
+                "assessment-model",
                 Duration.ofSeconds(30),
                 2,
                 SpeakingPromptRules.PROMPT_VERSION,

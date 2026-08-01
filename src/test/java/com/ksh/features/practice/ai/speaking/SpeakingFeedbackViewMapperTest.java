@@ -14,19 +14,23 @@ class SpeakingFeedbackViewMapperTest {
 
     @Test
     void currentPartialLanguageProfileMapsCapabilityAndAvailabilityWithoutHolisticScore() {
-        SpeakingEvaluationResult result = currentResult(profileRows());
+        SpeakingEvaluationResult result = trustedCurrentResult();
 
         SpeakingFeedbackView view = mapper.map(result);
 
         assertNull(view.percentage());
         assertEquals(6, view.rubricScores().size());
         assertEquals(new BigDecimal("75.00"), view.rubricScores().get(0).percentage());
-        assertEquals("Tổng quan", view.overallSummary());
-        assertEquals("Đã đáp ứng nhiệm vụ", view.taskAchievementSummary());
+        assertEquals(
+                "Hồ sơ ngôn ngữ được tổng hợp từ bằng chứng bản chép lời.",
+                view.overallSummary());
+        assertEquals(
+                "Câu trả lời có bằng chứng nội dung đã xác minh.",
+                view.taskAchievementSummary());
         assertEquals("heard", view.actuallyHeardTranscript());
         assertNull(view.interpretedIntent());
-        assertEquals("Sample", view.sampleAnswer());
-        assertEquals("Upgraded", view.correctedVersion());
+        assertEquals("heard", view.sampleAnswer());
+        assertEquals("heard", view.correctedVersion());
         assertEquals("PROVIDER", view.source());
         assertFalse(view.scoreAvailable());
         assertTrue(view.profileAvailable());
@@ -41,7 +45,7 @@ class SpeakingFeedbackViewMapperTest {
 
     @Test
     void speakingCriterionHeadingsUseBackendOwnedVietnameseLabels() {
-        SpeakingFeedbackView view = mapper.map(currentResult(profileRows()));
+        SpeakingFeedbackView view = mapper.map(trustedCurrentResult());
 
         assertEquals(List.of(
                         "Nội dung và hoàn thành yêu cầu",
@@ -168,6 +172,11 @@ class SpeakingFeedbackViewMapperTest {
                 SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION.contractVersion(),
                 SpeakingContractTrust.CURRENT_VERIFIED,
                 rows);
+    }
+
+    private SpeakingEvaluationResult trustedCurrentResult() {
+        return SpeakingEvaluationTestFixtures.currentResult(
+                new ObjectMapper(), "heard", new BigDecimal("15"));
     }
 
     private SpeakingEvaluationResult result(

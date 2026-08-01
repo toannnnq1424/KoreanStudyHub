@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -191,8 +194,8 @@ class SpeakingEvaluationNormalizerTest {
         assertEquals(
                 "Học viên giới thiệu bản thân và bám đúng chủ đề.",
                 result.taskAchievementSummary());
-        assertEquals(2, result.majorStrengths().size());
-        assertEquals(2, result.majorNeedsImprovement().size());
+        assertEquals(1, result.majorStrengths().size());
+        assertEquals(1, result.majorNeedsImprovement().size());
         assertEquals(1, result.actionPlan().size());
         assertEquals(SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL, result.actionPlan().get(0).criterion());
         assertEquals("S_GRAMMAR_PARTICLES", result.actionPlan().get(0).subCriterionId());
@@ -206,7 +209,7 @@ class SpeakingEvaluationNormalizerTest {
         assertThat(result.criterionFeedback()).allMatch(row -> row.criterion().transcriptGrounded());
         assertEquals(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, result.criterionFeedback().get(0).criterion());
         assertEquals("S_CONTENT_RELEVANCE", result.criterionFeedback().get(0).subcriteria().get(0).subCriterionId());
-        assertEquals(1, result.transcriptAnnotations().size());
+        assertEquals(2, result.transcriptAnnotations().size());
         assertEquals("needs_improvement", result.transcriptAnnotations().get(0).annotationType());
         assertEquals(SpeakingEvidenceSource.TRANSCRIPT, result.transcriptAnnotations().get(0).evidenceSource());
         assertEquals("TEXT_SPAN", result.transcriptAnnotations().get(0).evidenceScope());
@@ -217,84 +220,101 @@ class SpeakingEvaluationNormalizerTest {
     }
 
     @Test
-    void nonexistentTranscriptSpanIsDroppedFromAnnotationsAndFindings() throws Exception {
+    void nonexistentTranscriptSpanFailsClosedInsteadOfBeingGuessed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        com.fasterxml.jackson.databind.node.ObjectNode annotation =
-                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
-        annotation.put("evidence", "존재하지 않는 구절");
+        com.fasterxml.jackson.databind.node.ObjectNode evidence =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("evidence").get(0);
+        evidence.put("exact_text", "존재하지 않는 구절");
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
         assertTrue(result.transcriptAnnotations().isEmpty());
-        assertTrue(result.findings().isEmpty());
-        assertEquals(SpeakingContractTrust.CURRENT_VERIFIED, result.contractTrust());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertEquals(SpeakingContractTrust.CURRENT_VERIFIED,
+                result.contractTrust());
     }
 
     @Test
-    void providerOffsetsAreIgnoredAndDerivedFromAuthoritativeTranscript() throws Exception {
+    void providerOffsetsAreAuthoritativeAndMismatchFailsClosed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        com.fasterxml.jackson.databind.node.ObjectNode annotation =
-                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
-        annotation.put("start_offset", 999);
-        annotation.put("end_offset", -7);
+        com.fasterxml.jackson.databind.node.ObjectNode evidence =
+                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("evidence").get(1);
+        evidence.put("start_offset", 999);
+        evidence.put("end_offset", 1005);
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertEquals(1, result.transcriptAnnotations().size());
-        assertEquals(3, result.transcriptAnnotations().get(0).startOffset());
-        assertEquals(9, result.transcriptAnnotations().get(0).endOffset());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertTrue(result.transcriptAnnotations().isEmpty());
     }
 
     @Test
-    void wholeAnswerWithNonemptyEvidenceIsDropped() throws Exception {
+    void wholeAnswerProviderScopeCannotEnterAtomicTranscriptLedger() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        com.fasterxml.jackson.databind.node.ObjectNode strength =
-                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("strengths").get(0);
-        strength.put("evidence_scope", "WHOLE_ANSWER");
-        strength.put("evidence", "fake whole-answer highlight");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) input.path("evidence").get(0))
+                .put("evidence_scope", "WHOLE_ANSWER");
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.strengths().isEmpty());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
     }
 
     @Test
-    void strengthWithProviderCorrectionIsDropped() throws Exception {
+    void strengthWithProviderCorrectionFailsClosed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        ((com.fasterxml.jackson.databind.node.ObjectNode) input.path("strengths").get(0))
-                .put("correction", "không được phép sửa trong điểm mạnh");
+        ((com.fasterxml.jackson.databind.node.ObjectNode)
+                input.path("transcript_annotations").get(1))
+                .put("suggestion_ko", "수정하면 안 됩니다");
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.strengths().isEmpty());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
     }
 
     @Test
-    void taskMetadataWithoutAuthoritativeEnvelopeIsDropped() throws Exception {
+    void taskMetadataWithoutAuthoritativeEnvelopeFailsClosed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        com.fasterxml.jackson.databind.node.ObjectNode need =
-                (com.fasterxml.jackson.databind.node.ObjectNode) input.path("needs_improvement").get(0);
-        need.put("evidence_scope", "TASK_METADATA");
-        need.put("evidence_source", "PROMPT");
-        need.put("evidence", "provider-authored task claim");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) input.path("evidence").get(0))
+                .put("source", "PROMPT");
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.needsImprovement().isEmpty());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
     }
 
     @Test
-    void repeatedExactSpanUsesDistinctBackendDerivedOccurrencesInProviderOrder() throws Exception {
+    void repeatedExactSpanRequiresExplicitDistinctOccurrenceIdentity() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
-        input.put("actually_heard_transcript", "다시 다시 말해요");
+        input.put("actually_heard_transcript", "저는 학생 이에요. 다시 다시");
+        withAuthoritativeLedger(input);
+        String transcript = input.path("actually_heard_transcript").asText();
+        String hash = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(
+                        transcript.getBytes(StandardCharsets.UTF_8)));
+        com.fasterxml.jackson.databind.node.ArrayNode ledger =
+                (com.fasterxml.jackson.databind.node.ArrayNode)
+                        input.path("evidence");
+        addEvidence(ledger, "SEV-REPEAT-1",
+                "S_GRAMMAR_SENTENCE_CONTROL", "S_GRAMMAR_CONNECTORS",
+                transcript, 11, 13, hash);
+        addEvidence(ledger, "SEV-REPEAT-2",
+                "S_GRAMMAR_SENTENCE_CONTROL", "S_GRAMMAR_CONNECTORS",
+                transcript, 14, 16, hash);
         com.fasterxml.jackson.databind.node.ArrayNode annotations =
                 (com.fasterxml.jackson.databind.node.ArrayNode) input.path("transcript_annotations");
         com.fasterxml.jackson.databind.node.ObjectNode first =
                 (com.fasterxml.jackson.databind.node.ObjectNode) annotations.get(0).deepCopy();
-        first.put("evidence", "다시");
-        first.put("start_offset", 100);
-        first.put("end_offset", 200);
+        first.put("finding_id", "SF-REPEAT-1");
+        first.put("evidence_id", "SEV-REPEAT-1");
+        first.put("sub_criterion_id", "S_GRAMMAR_CONNECTORS");
         com.fasterxml.jackson.databind.node.ObjectNode second = first.deepCopy();
+        second.put("finding_id", "SF-REPEAT-2");
+        second.put("evidence_id", "SEV-REPEAT-2");
         annotations.removeAll();
         annotations.add(first);
         annotations.add(second);
@@ -302,14 +322,16 @@ class SpeakingEvaluationNormalizerTest {
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
         assertEquals(2, result.transcriptAnnotations().size());
-        assertEquals(0, result.transcriptAnnotations().get(0).startOffset());
-        assertEquals(2, result.transcriptAnnotations().get(0).endOffset());
-        assertEquals(3, result.transcriptAnnotations().get(1).startOffset());
-        assertEquals(5, result.transcriptAnnotations().get(1).endOffset());
+        assertEquals(11, result.transcriptAnnotations().get(0).startOffset());
+        assertEquals(1, result.transcriptAnnotations().get(0).occurrenceIndex());
+        assertEquals(2, result.transcriptAnnotations().get(0).occurrenceCount());
+        assertEquals(14, result.transcriptAnnotations().get(1).startOffset());
+        assertEquals(2, result.transcriptAnnotations().get(1).occurrenceIndex());
+        assertEquals(2, result.transcriptAnnotations().get(1).occurrenceCount());
     }
 
     @Test
-    void mismatchedSubcriterionParentIsDropped() throws Exception {
+    void mismatchedSubcriterionParentFailsClosed() throws Exception {
         com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
         com.fasterxml.jackson.databind.node.ObjectNode annotation =
                 (com.fasterxml.jackson.databind.node.ObjectNode) input.path("transcript_annotations").get(0);
@@ -318,7 +340,40 @@ class SpeakingEvaluationNormalizerTest {
 
         SpeakingEvaluationResult result = normalizer.normalize(input);
 
-        assertTrue(result.transcriptAnnotations().isEmpty());
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+    }
+
+    @Test
+    void maximumCriterionScoreWithConfirmedImprovementFailsClosed()
+            throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        com.fasterxml.jackson.databind.node.ObjectNode grammar =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        input.path("rubric_scores").get(1);
+        grammar.put("score", 20);
+        grammar.put("max_score", 20);
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertEquals("SPEAKING_SCORE_EVIDENCE_CONTRADICTION",
+                result.errorCategory());
+    }
+
+    @Test
+    void mismatchedTranscriptSourceHashFailsClosed() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode input = richInput();
+        ((com.fasterxml.jackson.databind.node.ObjectNode)
+                input.path("evidence").get(0))
+                .put("source_hash", "0".repeat(64));
+
+        SpeakingEvaluationResult result = normalizer.normalize(input);
+
+        assertEquals(SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
+                result.evaluationStatus());
+        assertTrue(result.evidence().isEmpty());
     }
 
     @Test
@@ -437,10 +492,10 @@ class SpeakingEvaluationNormalizerTest {
                   "source":"PROVIDER",
                   "model":"fake-evaluator",
                   "transcription_model":"fake-transcriber",
-                  "prompt_version":"speaking-eval-v5-policy-bundle-vi-ko-transcript-language-only",
+                  "prompt_version":"speaking-eval-v6-authoritative-transcript-ledger",
                   "rubric_version":"speaking-rubric-v2-transcript-language-profile",
-                  "schema_version":"speaking-schema-v3-policy-bundle-partial-language-profile",
-                  "policy_bundle_id":"KSH_SPEAKING_POLICY_BUNDLE_V1",
+                  "schema_version":"speaking-schema-v4-authoritative-utf16-ledger",
+                  "policy_bundle_id":"KSH_SPEAKING_POLICY_BUNDLE_V2",
                   "audio_media_id":44,
                   "media_version":3,
                   "transcript":"저는 학교 갔어요",
@@ -478,7 +533,7 @@ class SpeakingEvaluationNormalizerTest {
         input.put(
                 "policy_bundle_fingerprint",
                 SpeakingAssessmentPolicyBundle.fingerprint());
-        return input;
+        return withAuthoritativeLedger(input);
     }
 
     private com.fasterxml.jackson.databind.node.ObjectNode richInput() throws Exception {
@@ -492,6 +547,128 @@ class SpeakingEvaluationNormalizerTest {
                 SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
         input.put("policy_bundle_fingerprint",
                 SpeakingAssessmentPolicyBundle.fingerprint());
+        return withAuthoritativeLedger(input);
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode withAuthoritativeLedger(
+            com.fasterxml.jackson.databind.node.ObjectNode input
+    ) throws Exception {
+        String transcript = input.path("actually_heard_transcript").asText();
+        String sourceHash = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(
+                        transcript.getBytes(StandardCharsets.UTF_8)));
+        com.fasterxml.jackson.databind.node.ArrayNode ledger =
+                objectMapper.createArrayNode();
+        addEvidence(ledger, "SEV-CONTENT-1", "S_CONTENT_TASK_FULFILLMENT",
+                "S_CONTENT_RELEVANCE", transcript, 0, 2, sourceHash);
+        String grammarText = transcript.contains("학생 이에요")
+                ? "학생 이에요" : "학교";
+        int grammarStart = transcript.contains("학생 이에요") ? 3 : 3;
+        addEvidence(ledger, "SEV-GRAMMAR-1", "S_GRAMMAR_SENTENCE_CONTROL",
+                "S_GRAMMAR_PARTICLES", transcript, grammarStart,
+                grammarStart + grammarText.length(), sourceHash);
+        String vocabText = transcript.contains("학생") ? "학생" : "학교";
+        int vocabStart = transcript.contains("학생") ? 3 : 3;
+        addEvidence(ledger, "SEV-VOCAB-1", "S_VOCABULARY_EXPRESSIONS",
+                "S_VOCAB_TOPIC_WORDS", transcript, vocabStart,
+                vocabStart + vocabText.length(), sourceHash);
+        String coherenceText = transcript.contains("갔어요")
+                ? "갔어요" : "저는 학생";
+        int coherenceStart = transcript.lastIndexOf(coherenceText);
+        addEvidence(ledger, "SEV-COHERENCE-1",
+                "S_COHERENCE_ORGANIZATION",
+                "S_COHERENCE_LOGICAL_FLOW", transcript, coherenceStart,
+                coherenceStart + coherenceText.length(), sourceHash);
+        input.set("evidence", ledger);
+
+        java.util.Map<String, String> criterionEvidence = java.util.Map.of(
+                "S_CONTENT_TASK_FULFILLMENT", "SEV-CONTENT-1",
+                "CONTENT_TASK_FULFILLMENT", "SEV-CONTENT-1",
+                "S_GRAMMAR_SENTENCE_CONTROL", "SEV-GRAMMAR-1",
+                "GRAMMAR_SENTENCE_CONTROL", "SEV-GRAMMAR-1",
+                "S_VOCABULARY_EXPRESSIONS", "SEV-VOCAB-1",
+                "VOCABULARY_EXPRESSIONS", "SEV-VOCAB-1",
+                "S_COHERENCE_ORGANIZATION", "SEV-COHERENCE-1",
+                "COHERENCE_ORGANIZATION", "SEV-COHERENCE-1");
+        input.withArray("rubric_scores").forEach(row -> {
+            String criterion = row.path("criterion").asText();
+            String evidenceId = criterionEvidence.get(criterion);
+            if (evidenceId != null) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) row)
+                        .putArray("evidence_ids").add(evidenceId);
+            }
+        });
+
+        com.fasterxml.jackson.databind.node.ArrayNode findings =
+                objectMapper.createArrayNode();
+        findings.addObject()
+                .put("finding_id", "SF-GRAMMAR-1")
+                .put("evidence_id", "SEV-GRAMMAR-1")
+                .put("criterion_id", "S_GRAMMAR_SENTENCE_CONTROL")
+                .put("sub_criterion_id", "S_GRAMMAR_PARTICLES")
+                .put("evidence_source", "TRANSCRIPT")
+                .put("annotation_type", "needs_improvement")
+                .put("operation", "REPLACE")
+                .put("category", "GRAMMAR")
+                .put("severity", "LOW")
+                .put("confidence", 0.8)
+                .put("explanation_vi", "Cần chỉnh cách nói tự nhiên hơn.")
+                .put("suggestion_ko", transcript.contains("학생 이에요")
+                        ? "학생이에요" : "학교에");
+        findings.addObject()
+                .put("finding_id", "SF-CONTENT-1")
+                .put("evidence_id", "SEV-CONTENT-1")
+                .put("criterion_id", "S_CONTENT_TASK_FULFILLMENT")
+                .put("sub_criterion_id", "S_CONTENT_RELEVANCE")
+                .put("evidence_source", "TRANSCRIPT")
+                .put("annotation_type", "strength")
+                .put("operation", "KEEP")
+                .put("category", "CONTENT")
+                .put("severity", "LOW")
+                .put("confidence", 0.9)
+                .put("explanation_vi", "Câu trả lời bám đúng chủ đề.")
+                .put("suggestion_ko", "");
+        input.set("transcript_annotations", findings);
         return input;
+    }
+
+    private void addEvidence(
+            com.fasterxml.jackson.databind.node.ArrayNode ledger,
+            String evidenceId,
+            String criterionId,
+            String subCriterionId,
+            String transcript,
+            int start,
+            int end,
+            String sourceHash
+    ) {
+        String exact = transcript.substring(start, end);
+        int occurrenceCount = 0;
+        int occurrenceIndex = 0;
+        for (int cursor = 0;
+             cursor + exact.length() <= transcript.length();
+             cursor++) {
+            if (transcript.regionMatches(
+                    cursor, exact, 0, exact.length())) {
+                occurrenceCount++;
+                if (cursor == start) {
+                    occurrenceIndex = occurrenceCount;
+                }
+            }
+        }
+        ledger.addObject()
+                .put("evidence_id", evidenceId)
+                .put("source", "TRANSCRIPT")
+                .put("criterion_id", criterionId)
+                .put("sub_criterion_id", subCriterionId)
+                .put("evidence_scope", "TEXT_SPAN")
+                .put("exact_text", exact)
+                .put("start_offset", start)
+                .put("end_offset", end)
+                .put("occurrence_index", occurrenceIndex)
+                .put("occurrence_count", occurrenceCount)
+                .put("normalization", "UTF16_EXACT_V1")
+                .put("source_hash", sourceHash)
+                .put("confidence", 0.9);
     }
 }

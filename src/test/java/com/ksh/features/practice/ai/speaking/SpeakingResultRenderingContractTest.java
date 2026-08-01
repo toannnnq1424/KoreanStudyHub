@@ -39,7 +39,7 @@ class SpeakingResultRenderingContractTest {
                 .contains("LEGACY_UNVERIFIED")
                 .contains("AUDIO_DIRECT_FULL_RESERVED")
                 .contains("trustedOverviewCapability")
-                .contains("item.criterion().transcriptGrounded()")
+                .contains("criterion.transcriptGrounded()")
                 .contains("limit(4)");
         assertThat(dto)
                 .contains("String evaluatorCapability")

@@ -29,10 +29,10 @@ public class SpeakingEvaluatorProperties {
 
     public SpeakingEvaluatorProperties(
             @Value("${app.practice.speaking-evaluator.enabled:false}") boolean enabled,
-            @Value("${app.practice.speaking-evaluator.provider:openai-compatible}") String provider,
-            @Value("${app.practice.speaking-evaluator.base-url:${openai.base-url:https://generativelanguage.googleapis.com/v1beta/openai}}") String baseUrl,
-            @Value("${app.practice.speaking-evaluator.api-key:${openai.api-key:}}") String apiKey,
-            @Value("${app.practice.speaking-evaluator.model:${openai.evaluator-model:models/gemini-2.5-flash}}") String model,
+            @Value("${app.practice.speaking-evaluator.provider:openai-primary}") String provider,
+            @Value("${app.practice.speaking-evaluator.base-url:${app.practice.ai.openai-primary.base-url:https://api.openai.com/v1}}") String baseUrl,
+            @Value("${app.practice.speaking-evaluator.api-key:${app.practice.ai.openai-primary.api-key:}}") String apiKey,
+            @Value("${app.practice.speaking-evaluator.model:${app.practice.ai.openai-primary.assessment-text-vision-model:}}") String model,
             @Value("${app.practice.speaking-evaluator.timeout:30s}") Duration timeout,
             @Value("${app.practice.speaking-evaluator.max-retries:2}") int maxRetries,
             @Value("${app.practice.speaking-evaluator.prompt-version:}") String promptVersion,
@@ -40,10 +40,10 @@ public class SpeakingEvaluatorProperties {
             @Value("${app.practice.speaking-evaluator.schema-version:}") String schemaVersion
     ) {
         this.enabled = enabled;
-        this.provider = text(provider, "openai-compatible").toLowerCase(Locale.ROOT);
-        this.baseUrl = trimTrailingSlash(text(baseUrl, "https://generativelanguage.googleapis.com/v1beta/openai"));
+        this.provider = text(provider, "openai-primary").toLowerCase(Locale.ROOT);
+        this.baseUrl = trimTrailingSlash(text(baseUrl, "https://api.openai.com/v1"));
         this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.model = text(model, "models/gemini-2.5-flash");
+        this.model = text(model, "");
         this.timeout = boundedTimeout(timeout);
         this.maxRetries = Math.min(
                 MAX_RETRIES, Math.max(0, maxRetries));
