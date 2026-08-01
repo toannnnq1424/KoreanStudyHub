@@ -3,10 +3,6 @@
 
   const player = document.querySelector('.exam-player');
   if (!player) return;
-  const reducedMotion = window.matchMedia(
-    '(prefers-reduced-motion: reduce)'
-  );
-
   const attemptId = player.dataset.attemptId || 'unknown';
   const skill = player.dataset.skill || '';
   const workspace = document.querySelector('.exam-workspace');
@@ -39,15 +35,103 @@
     }
   };
 
+  const localStore = {
+    get(key) {
+      try {
+        return window.localStorage.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    },
+    set(key, value) {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (error) {
+        // Attempt-scoped UI state is optional when persistent storage is unavailable.
+      }
+    }
+  };
+  const questionPinStorageKey = `ksh:practice-player:${attemptId}:pinned-questions`;
+  const materialPinStorageKey = `ksh:practice-player:${attemptId}:pinned-material-groups`;
+
+  const readStoredSet = (key) => {
+    try {
+      const value = JSON.parse(localStore.get(key) || '[]');
+      return new Set(Array.isArray(value) ? value.map(String) : []);
+    } catch (error) {
+      return new Set();
+    }
+  };
+
+  const writeStoredSet = (key, values) => {
+    localStore.set(key, JSON.stringify(Array.from(values)));
+  };
+
+  const pinnedQuestionIds = readStoredSet(questionPinStorageKey);
+  player.querySelectorAll('.exam-question[data-question-id]').forEach((question) => {
+    const flag = question.querySelector('[data-review-flag]');
+    if (!flag) return;
+    const questionId = String(question.dataset.questionId || '');
+    const questionNo = question.querySelector('.exam-question-number')
+      ?.textContent.trim() || '';
+    const paintQuestionPin = () => {
+      const pinned = flag.checked;
+      const action = pinned ? 'Bỏ ghim câu hỏi' : 'Ghim câu hỏi';
+      flag.setAttribute('aria-label', `${action} ${questionNo}`.trim());
+      const label = flag.closest('.exam-bookmark');
+      if (label) label.title = action;
+    };
+    flag.checked = pinnedQuestionIds.has(questionId);
+    paintQuestionPin();
+    flag.addEventListener('change', () => {
+      if (flag.checked) pinnedQuestionIds.add(questionId);
+      else pinnedQuestionIds.delete(questionId);
+      writeStoredSet(questionPinStorageKey, pinnedQuestionIds);
+      paintQuestionPin();
+    });
+  });
+
+  const pinnedMaterialGroups = readStoredSet(materialPinStorageKey);
+
+  const paintMaterialPins = () => {
+    player.querySelectorAll('[data-material-pin]').forEach((button) => {
+      const stage = button.closest('[data-group-stage]');
+      const groupIndex = String(stage && stage.dataset.groupStage || '');
+      const pinned = pinnedMaterialGroups.has(groupIndex);
+      button.setAttribute('aria-pressed', String(pinned));
+      button.title = pinned ? 'Bỏ ghim học liệu dùng chung' : 'Ghim học liệu dùng chung';
+      const label = button.querySelector('[data-material-pin-label]');
+      if (label) label.textContent = pinned ? 'Bỏ ghim' : 'Ghim học liệu';
+      if (stage) stage.classList.toggle('is-material-pinned', pinned);
+    });
+    if (workspace) {
+      workspace.classList.toggle(
+        'has-pinned-material',
+        pinnedMaterialGroups.has(String(activeGroup))
+      );
+    }
+  };
+
+  player.querySelectorAll('[data-material-pin]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const stage = button.closest('[data-group-stage]');
+      const groupIndex = String(stage && stage.dataset.groupStage || '');
+      if (pinnedMaterialGroups.has(groupIndex)) pinnedMaterialGroups.delete(groupIndex);
+      else pinnedMaterialGroups.add(groupIndex);
+      writeStoredSet(materialPinStorageKey, pinnedMaterialGroups);
+      paintMaterialPins();
+      button.focus();
+    });
+  });
+
   const stageSelector = (index) => `[data-group-stage="${index}"]`;
 
   const updateAdaptiveLayout = (index) => {
     if (!workspace || skill !== 'READING') return;
     const source = workspace.querySelector(`.exam-source-stage${stageSelector(index)}`);
     const hasSource = source && source.dataset.hasSource === 'true';
-    const longSource = source && source.dataset.longSource === 'true';
     workspace.classList.remove('layout-focus', 'layout-stacked', 'layout-split');
-    workspace.classList.add(!hasSource ? 'layout-focus' : (longSource ? 'layout-split' : 'layout-stacked'));
+    workspace.classList.add(hasSource ? 'layout-split' : 'layout-focus');
   };
 
   const groupQuestions = (index) => Array.from(
@@ -59,6 +143,18 @@
     if (radios.length) return radios.some((input) => input.checked);
     const blankInputs = Array.from(question.querySelectorAll('.exam-blank-input'));
     if (blankInputs.length) return blankInputs.every((input) => input.value.trim().length > 0);
+    const multipleOptions = Array.from(question.querySelectorAll('[data-multiple-option]'));
+    if (multipleOptions.length) return multipleOptions.some((input) => input.checked);
+    const matchingTargets = Array.from(question.querySelectorAll('[data-matching-target]'));
+    if (matchingTargets.length) return matchingTargets.every((select) => select.value);
+    const writingBlankInputs = Array.from(
+      question.querySelectorAll('[data-writing-blank-answer]')
+    );
+    if (writingBlankInputs.length) {
+      return writingBlankInputs.every(
+        (input) => input.value.trim().length > 0
+      );
+    }
     const response = question.querySelector('textarea[name^="answer_"], input[type="text"][name^="answer_"]');
     return Boolean(response && response.value.trim().length > 0);
   };
@@ -102,13 +198,17 @@
       button.disabled = activeGroup === groupCount - 1;
     });
     updateAdaptiveLayout(activeGroup);
+    paintMaterialPins();
     updateProgress();
     if (shouldFocus) {
       player.querySelectorAll('.exam-source-pane, .exam-question-pane, .writing-source-pane, .writing-answer-pane')
-        .forEach((pane) => pane.scrollTo({
-          top: 0,
-          behavior: reducedMotion.matches ? 'auto' : 'smooth'
-        }));
+        .forEach((pane) => {
+          pane.scrollTop = 0;
+          pane.scrollLeft = 0;
+        });
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       const firstAnswer = questionStage && questionStage.querySelector('input:not([type="hidden"]), textarea');
       if (firstAnswer && window.matchMedia('(max-width: 900px)').matches) firstAnswer.focus({ preventScroll: true });
     }
@@ -146,35 +246,61 @@
 
       const source = template.textContent || '';
       const tokenPattern = /\{\{blank:([^}]+)\}\}/g;
-      const fragment = document.createDocumentFragment();
-      let cursor = 0;
-      let match;
-      let tokenCount = 0;
-      while ((match = tokenPattern.exec(source)) !== null) {
-        fragment.appendChild(document.createTextNode(source.slice(cursor, match.index)));
-        const blankId = match[1].trim();
-        const row = Array.from(bank.querySelectorAll('[data-blank-row]'))
-          .find((candidate) => candidate.dataset.blankRow === blankId);
+      const rows = Array.from(bank.querySelectorAll('[data-blank-row]'));
+      const appendInlineInput = (fragment, row, ordinal) => {
         const input = row && row.querySelector('.exam-blank-input');
-        if (input) {
-          const inline = document.createElement('span');
-          inline.className = 'exam-inline-blank';
-          const number = document.createElement('b');
-          number.className = 'exam-inline-blank-number';
-          number.textContent = row.dataset.blankNumber || String(tokenCount + 1);
-          inline.append(number, input);
-          fragment.appendChild(inline);
-          row.hidden = true;
-          tokenCount += 1;
-        } else {
-          fragment.appendChild(document.createTextNode('_____'));
+        if (!input) return false;
+        const inline = document.createElement('span');
+        inline.className = 'exam-inline-blank';
+        const number = document.createElement('b');
+        number.className = 'exam-inline-blank-number';
+        number.textContent = row.dataset.blankNumber || String(ordinal + 1);
+        inline.append(number, input);
+        fragment.appendChild(inline);
+        row.hidden = true;
+        return true;
+      };
+
+      const renderTokenizedPrompt = () => {
+        tokenPattern.lastIndex = 0;
+        const matches = Array.from(source.matchAll(tokenPattern));
+        if (matches.length === 0) return null;
+        const matchedRows = matches.map((match) => rows.find(
+          (candidate) => candidate.dataset.blankRow === match[1].trim()
+        ));
+        if (matchedRows.some((row) => !row || !row.querySelector('.exam-blank-input'))) {
+          return null;
         }
-        cursor = tokenPattern.lastIndex;
-      }
-      if (tokenCount > 0) {
+        const fragment = document.createDocumentFragment();
+        let cursor = 0;
+        matches.forEach((match, tokenCount) => {
+          fragment.appendChild(document.createTextNode(source.slice(cursor, match.index)));
+          appendInlineInput(fragment, matchedRows[tokenCount], tokenCount);
+          cursor = match.index + match[0].length;
+        });
         fragment.appendChild(document.createTextNode(source.slice(cursor)));
-        template.replaceChildren(fragment);
-      }
+        return fragment;
+      };
+
+      const renderPublishedUnderlinePrompt = () => {
+        const placeholders = Array.from(source.matchAll(/_{2,}/g));
+        if (rows.length === 0 || placeholders.length !== rows.length) return null;
+        const fragment = document.createDocumentFragment();
+        let cursor = 0;
+        placeholders.forEach((placeholder, index) => {
+          fragment.appendChild(document.createTextNode(
+            source.slice(cursor, placeholder.index)
+          ));
+          appendInlineInput(fragment, rows[index], index);
+          cursor = placeholder.index + placeholder[0].length;
+        });
+        fragment.appendChild(document.createTextNode(source.slice(cursor)));
+        return fragment;
+      };
+
+      const renderedPrompt = renderTokenizedPrompt()
+        || renderPublishedUnderlinePrompt();
+      if (renderedPrompt) template.replaceChildren(renderedPrompt);
       bank.hidden = !bank.querySelector('.exam-fill-row:not([hidden])');
       template.dataset.rendered = 'true';
     });
@@ -211,9 +337,183 @@
     }
   };
 
+  const syncMultipleAnswer = (container) => {
+    const hidden = container.querySelector('[data-multiple-answer]');
+    if (!hidden) return;
+    hidden.value = JSON.stringify({
+      schemaVersion: 'learner-answer-v1',
+      questionType: 'MULTIPLE_ANSWER',
+      selectedOptionIds: Array.from(
+        container.querySelectorAll('[data-multiple-option]:checked')
+      ).map((input) => input.value)
+    });
+  };
+
+  const hydrateMultipleAnswer = (container) => {
+    const hidden = container.querySelector('[data-multiple-answer]');
+    if (!hidden || !hidden.value) return;
+    try {
+      const stored = JSON.parse(hidden.value);
+      const selected = new Set(Array.isArray(stored.selectedOptionIds)
+        ? stored.selectedOptionIds.map(String)
+        : []);
+      container.querySelectorAll('[data-multiple-option]').forEach((input) => {
+        input.checked = selected.has(String(input.value));
+      });
+    } catch (error) {
+      // Malformed retained drafts remain unselected and are replaced on change.
+    }
+  };
+
+  const closeMatchingPicker = (picker, restoreFocus = false) => {
+    if (!picker) return;
+    const target = picker.querySelector('[data-matching-target]');
+    const list = picker.querySelector('[data-matching-picker-list]');
+    if (!target || !list) return;
+    target.setAttribute('aria-expanded', 'false');
+    list.hidden = true;
+    picker.classList.remove('is-open');
+    if (restoreFocus) target.focus();
+  };
+
+  const closeOtherMatchingPickers = (current) => {
+    player.querySelectorAll('[data-matching-picker].is-open').forEach((picker) => {
+      if (picker !== current) closeMatchingPicker(picker);
+    });
+  };
+
+  const setMatchingPickerValue = (target, value) => {
+    const picker = target.closest('[data-matching-picker]');
+    const label = picker?.querySelector('[data-matching-picker-label]');
+    const options = Array.from(
+      picker?.querySelectorAll('[data-matching-option]') || []
+    );
+    const normalized = typeof value === 'string' ? value : '';
+    const selected = options.find(
+      (option) => option.dataset.matchingOption === normalized
+    );
+    target.value = selected ? normalized : '';
+    if (label) label.textContent = selected ? selected.textContent.trim() : 'Chọn A–H';
+    options.forEach((option) => {
+      option.setAttribute(
+        'aria-selected',
+        String(option.dataset.matchingOption === target.value)
+      );
+    });
+  };
+
+  const initializeMatchingPickers = () => {
+    player.querySelectorAll('[data-matching-picker]').forEach((picker) => {
+      const target = picker.querySelector('[data-matching-target]');
+      const list = picker.querySelector('[data-matching-picker-list]');
+      const options = Array.from(picker.querySelectorAll('[data-matching-option]'));
+      if (!target || !list || options.length === 0) return;
+
+      const open = (focusIndex = null) => {
+        closeOtherMatchingPickers(picker);
+        target.setAttribute('aria-expanded', 'true');
+        list.hidden = false;
+        picker.classList.add('is-open');
+        if (focusIndex !== null) {
+          const bounded = Math.max(0, Math.min(options.length - 1, focusIndex));
+          options[bounded].focus();
+        }
+      };
+      const choose = (option) => {
+        setMatchingPickerValue(target, option.dataset.matchingOption || '');
+        closeMatchingPicker(picker, true);
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      target.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (picker.classList.contains('is-open')) closeMatchingPicker(picker);
+        else open();
+      });
+      target.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeMatchingPicker(picker, true);
+          return;
+        }
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        if (event.key === 'ArrowUp' || event.key === 'End') open(options.length - 1);
+        else open(0);
+      });
+      options.forEach((option, index) => {
+        option.addEventListener('click', () => choose(option));
+        option.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closeMatchingPicker(picker, true);
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            choose(option);
+            return;
+          }
+          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          let next = index;
+          if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = options.length - 1;
+          else next = (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length)
+            % options.length;
+          options[next].focus();
+        });
+      });
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('[data-matching-picker]')) {
+        closeOtherMatchingPickers(null);
+      }
+    });
+  };
+
+  const syncMatchingAnswer = (container) => {
+    const blankAnswers = {};
+    container.querySelectorAll('[data-matching-target]').forEach((target) => {
+      if (target.value) blankAnswers[target.dataset.matchingTarget] = target.value;
+    });
+    const hidden = container.querySelector('[data-matching-answer]');
+    if (!hidden) return;
+    hidden.value = JSON.stringify({
+      schemaVersion: 'learner-answer-v1',
+      questionType: 'MATCHING',
+      blankAnswers: blankAnswers
+    });
+  };
+
+  const hydrateMatchingAnswer = (container) => {
+    const hidden = container.querySelector('[data-matching-answer]');
+    if (!hidden || !hidden.value) return;
+    try {
+      const stored = JSON.parse(hidden.value);
+      const blankAnswers = stored && stored.blankAnswers;
+      if (!blankAnswers || typeof blankAnswers !== 'object') return;
+      container.querySelectorAll('[data-matching-target]').forEach((target) => {
+        const value = blankAnswers[target.dataset.matchingTarget];
+        if (typeof value === 'string') setMatchingPickerValue(target, value);
+      });
+    } catch (error) {
+      // Malformed retained drafts remain unselected and are replaced on change.
+    }
+  };
+
+  const syncTypedObjectiveAnswers = () => {
+    player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+    player.querySelectorAll('[data-multiple-question]').forEach(syncMultipleAnswer);
+    player.querySelectorAll('[data-matching-question]').forEach(syncMatchingAnswer);
+  };
+
   renderFillBlankTemplates();
+  initializeMatchingPickers();
   player.querySelectorAll('[data-fill-question]').forEach(hydrateFillAnswer);
-  player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+  player.querySelectorAll('[data-multiple-question]').forEach(hydrateMultipleAnswer);
+  player.querySelectorAll('[data-matching-question]').forEach(hydrateMatchingAnswer);
+  syncTypedObjectiveAnswers();
 
   let autosaveTimer = null;
   let autosaveInFlight = null;
@@ -261,7 +561,7 @@
       autosavePending = true;
       return autosaveInFlight;
     }
-    player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+    syncTypedObjectiveAnswers();
     const requestedGeneration = autosaveGeneration;
     autosavePending = false;
     const body = new FormData(player);
@@ -384,7 +684,11 @@
     updateProgress();
     markAutosaveDirty();
   });
-  player.addEventListener('change', () => {
+  player.addEventListener('change', (event) => {
+    const multiple = event.target.closest && event.target.closest('[data-multiple-question]');
+    if (multiple) syncMultipleAnswer(multiple);
+    const matching = event.target.closest && event.target.closest('[data-matching-question]');
+    if (matching) syncMatchingAnswer(matching);
     updateProgress();
     markAutosaveDirty();
   });
@@ -777,7 +1081,7 @@
 
   let nativeSubmitAuthorized = false;
   player.addEventListener('submit', (event) => {
-    player.querySelectorAll('[data-fill-question]').forEach(syncFillAnswer);
+    syncTypedObjectiveAnswers();
     if (!nativeSubmitAuthorized) {
       event.preventDefault();
       if (submissionPending) return;

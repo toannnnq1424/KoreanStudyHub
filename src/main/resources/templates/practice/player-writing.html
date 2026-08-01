@@ -57,8 +57,10 @@
                th:attr="data-group-stage=${gStat.index}">
         <div class="writing-task-label" th:text="${g.groupLabel() != null and !#strings.isEmpty(g.groupLabel()) ? g.groupLabel() : 'Writing Task ' + (gStat.index + 1)}">Writing Task 1</div>
         <p class="writing-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+           th:lang="${g.instructionLanguageTag()}"
            th:text="${g.instruction()}">Hướng dẫn</p>
-        <div class="writing-passage exam-selectable" lang="ko"
+        <div class="writing-passage exam-selectable"
+             th:lang="${g.stimulusLanguageTag()}"
              th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
              th:text="${g.passageText()}">Nội dung nguồn</div>
         <figure class="writing-source-figure" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
@@ -66,7 +68,8 @@
         </figure>
 
         <section class="writing-prompt-block" th:each="q : ${g.questions()}">
-          <p class="exam-selectable" lang="ko"
+          <p class="exam-selectable"
+             th:lang="${q.languageTag()}"
              th:if="${q.prompt() != null and !#strings.isEmpty(q.prompt())}"
              th:text="${q.prompt()}">Đề bài</p>
           <figure th:if="${q.imageReference() != null and !#strings.isEmpty(q.imageReference())}">
@@ -112,7 +115,41 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
             </label>
           </div>
-          <div class="writing-editor" th:if="${q.questionType() == 'ESSAY'}">
+          <div class="writing-structured-blanks"
+               th:if="${q.writingResponse() != null}"
+               th:attr="data-writing-response-schema=${q.writingResponse().responseSchemaVersion()},
+                        data-writing-response-mode=${q.writingResponse().responseMode()},
+                        data-writing-task-type=${q.writingResponse().taskType()}">
+            <p class="writing-structured-blanks__hint">
+              Nhập một câu trả lời cho từng ô. Các phương án chấp nhận của
+              giảng viên chỉ được đối chiếu sau khi nộp bài.
+            </p>
+            <label class="writing-blank-field"
+                   th:each="blank : ${q.writingResponse().blanks()}"
+                   th:attr="data-writing-blank-id=${blank.blankId()}">
+              <span class="writing-blank-field__ordinal"
+                    th:text="'Ô ' + ${blank.ordinal()}">Ô 1</span>
+              <span class="writing-blank-field__context"
+                    th:text="${blank.context()}">Ngữ cảnh ô trống</span>
+              <textarea lang="ko"
+                        data-writing-answer
+                        data-writing-blank-answer
+                        th:id="'writing-answer-' + ${q.id()} + '-' + ${blank.blankId()}"
+                        th:name="'answer_' + ${q.id()} + '__blank_' + ${blank.blankId()}"
+                        th:attr="aria-describedby='writing-count-' + ${q.id()} + '-' + ${blank.blankId()}"
+                        placeholder="Nhập câu trả lời tiếng Hàn"
+                        spellcheck="false"
+                        th:text="${savedWritingBlankAnswers.get(#strings.toString(q.id())) != null ? savedWritingBlankAnswers.get(#strings.toString(q.id())).get(blank.blankId()) : ''}"></textarea>
+              <span data-answer-count
+                    th:id="'writing-count-' + ${q.id()} + '-' + ${blank.blankId()}">0 ký tự</span>
+            </label>
+          </div>
+          <div class="writing-editor"
+               th:if="${q.writingResponse() == null and q.questionType() == 'ESSAY'}">
+            <p class="writing-legacy-response-label"
+               th:if="${legacyWritingAnswerDocument and (q.questionNo() == 51 or q.questionNo() == 52)}">
+              Bản tương thích cũ · câu trả lời dạng bài viết
+            </p>
             <label class="sr-only" th:for="'writing-answer-' + ${q.id()}"
                    th:text="'Bài viết tiếng Hàn cho câu ' + ${q.questionNo()}">Bài viết tiếng Hàn</label>
             <textarea th:id="'writing-answer-' + ${q.id()}" lang="ko"
@@ -122,7 +159,8 @@
                       th:text="${savedAnswers.get(#strings.toString(q.id()))}"></textarea>
             <span data-answer-count th:id="'writing-count-' + ${q.id()}">0 ký tự</span>
           </div>
-          <div class="writing-short-answer" th:unless="${q.questionType() == 'ESSAY'}">
+          <div class="writing-short-answer"
+               th:if="${q.writingResponse() == null and q.questionType() != 'ESSAY'}">
             <label class="sr-only" th:for="'writing-answer-' + ${q.id()}"
                    th:text="'Câu trả lời tiếng Hàn cho câu ' + ${q.questionNo()}">Câu trả lời tiếng Hàn</label>
             <textarea th:id="'writing-answer-' + ${q.id()}" lang="ko"

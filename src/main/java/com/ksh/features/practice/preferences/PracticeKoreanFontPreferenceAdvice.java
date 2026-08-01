@@ -1,6 +1,7 @@
 package com.ksh.features.practice.preferences;
 
 import com.ksh.features.practice.controller.PracticeController;
+import com.ksh.features.practice.manage.controller.PracticeDraftController;
 import com.ksh.security.AuthenticatedUserIdResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
@@ -9,10 +10,16 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
-@ControllerAdvice(assignableTypes = PracticeController.class)
+import java.util.Set;
+
+@ControllerAdvice(assignableTypes = {
+        PracticeController.class,
+        PracticeDraftController.class
+})
 public class PracticeKoreanFontPreferenceAdvice {
 
-    private static final String ROLE_STUDENT = "ROLE_STUDENT";
+    private static final Set<String> PREFERENCE_AUTHORITIES =
+            Set.of("ROLE_STUDENT", "ROLE_LECTURER");
 
     private final AuthenticatedUserIdResolver userIdResolver;
     private final PracticeKoreanFontPreferenceService preferenceService;
@@ -25,7 +32,7 @@ public class PracticeKoreanFontPreferenceAdvice {
     }
 
     @ModelAttribute
-    public void addLearnerPreference(
+    public void addAccountPreference(
             Authentication authentication,
             HttpServletRequest request,
             Model model) {
@@ -33,7 +40,7 @@ public class PracticeKoreanFontPreferenceAdvice {
                 || authentication == null
                 || authentication.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
-                        .noneMatch(ROLE_STUDENT::equals)) {
+                        .noneMatch(PREFERENCE_AUTHORITIES::contains)) {
             return;
         }
         PracticeKoreanFontPreferenceController.addPreferenceModel(

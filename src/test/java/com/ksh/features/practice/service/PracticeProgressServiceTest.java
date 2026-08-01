@@ -1,6 +1,8 @@
 package com.ksh.features.practice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ksh.entities.PracticeAttempt;
@@ -12,6 +14,7 @@ import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingContractTestFixtures;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
 import com.ksh.features.practice.dto.PracticeDtos.ProgressAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ProgressExclusionReason;
@@ -40,6 +43,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -920,28 +926,9 @@ class PracticeProgressServiceTest {
     @Test
     void writingUsesImmutablePerQuestionEvidenceInsteadOfRepeatingAttemptScore()
             throws Exception {
-        PracticeAttempt attempt = writingAttempt("""
-                {
-                  "101":{
-                    "raw_score":8,"raw_score_max":10,
-                    "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                    "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
-                  },
-                  "103":{
-                    "raw_score":15,"raw_score_max":30,
-                    "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
-                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                    "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
-                  }
-                }
-                """);
+        PracticeAttempt attempt = writingAttempt(writingPayload(Map.of(
+                101L, currentWritingEntry(WritingTaskType.Q51, 8),
+                103L, currentWritingEntry(WritingTaskType.Q53, 15))));
         attempt.markGraded(
                 new BigDecimal("99"), new BigDecimal("40"), "{}",
                 attempt.getAiFeedbackJson());
@@ -968,14 +955,14 @@ class PracticeProgressServiceTest {
         assertThat(q51Cohort.scoreFact().value()).isNotEqualByComparingTo("99");
         assertThat(q53Cohort.scoreFact().value()).isNotEqualByComparingTo("99");
         assertThat(q51Cohort.policyBundleId())
-                .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V2");
+                .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V3");
         assertThat(q51Cohort.scoringProfileId())
                 .isEqualTo(
                         "WRITING:TASK_NATIVE_RUBRIC_V1:"
-                                + "KSH_WRITING_EVALUATOR_V2:"
-                                + "BUNDLE=KSH_WRITING_POLICY_BUNDLE_V2");
+                                + "KSH_WRITING_EVALUATOR_V3:"
+                                + "BUNDLE=KSH_WRITING_POLICY_BUNDLE_V3");
         assertThat(q51Cohort.cohortId())
-                .contains("BUNDLE=KSH_WRITING_POLICY_BUNDLE_V2");
+                .contains("BUNDLE=KSH_WRITING_POLICY_BUNDLE_V3");
         assertThat(page.analytics().writingAttemptCoverage().eligibleCount())
                 .isEqualTo(1);
         assertThat(page.analytics().history()).singleElement().satisfies(row -> {
@@ -987,21 +974,13 @@ class PracticeProgressServiceTest {
 
     @Test
     void deterministicInvalidWritingZeroRemainsEligibleCurrentEvidence() {
-        PracticeAttempt attempt = writingAttempt("""
-                {
-                  "151":{
-                    "raw_score":0,"raw_score_max":10,
-                    "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                    "evaluation_status":"INVALID_LEARNER_RESPONSE",
-                    "evaluation_source":"BACKEND_RULE",
-                    "evaluation_reason":"BLANK_ANSWER",
-                    "evaluation_retryable":false,
-                    "score_available":true
-                  }
-                }
-                """);
+        ObjectNode invalid = currentWritingEntry(
+                WritingTaskType.Q51, 0);
+        invalid.put("evaluation_status", "INVALID_LEARNER_RESPONSE");
+        invalid.put("evaluation_source", "BACKEND_RULE");
+        invalid.put("evaluation_reason", "BLANK_ANSWER");
+        PracticeAttempt attempt = writingAttempt(
+                writingPayload(Map.of(151L, invalid)));
         stubWritingEvidence(
                 List.of(attempt),
                 List.of(writingQuestion(
@@ -1027,28 +1006,13 @@ class PracticeProgressServiceTest {
 
     @Test
     void writingKeepsOnlyTheExactCurrentBundleInCurrentCohorts() {
-        PracticeAttempt attempt = writingAttempt("""
-                {
-                  "201":{
-                    "raw_score":21,"raw_score_max":30,
-                    "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
-                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                    "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
-                  },
-                  "202":{
-                    "raw_score":20,"raw_score_max":40,
-                    "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V3",
-                    "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                    "policy_bundle_id":"bundle-b",
-                    "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
-                  }
-                }
-                """);
+        ObjectNode incompatible = currentWritingEntry(
+                WritingTaskType.Q53, 20);
+        incompatible.put("raw_score_max", 40);
+        incompatible.put("policy_bundle_id", "bundle-b");
+        PracticeAttempt attempt = writingAttempt(writingPayload(Map.of(
+                201L, currentWritingEntry(WritingTaskType.Q53, 21),
+                202L, incompatible)));
         stubWritingEvidence(
                 List.of(attempt),
                 List.of(
@@ -1063,7 +1027,7 @@ class PracticeProgressServiceTest {
 
         assertThat(q53.cohorts()).singleElement()
                 .satisfies(cohort -> assertThat(cohort.policyBundleId())
-                        .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V2"));
+                        .isEqualTo("KSH_WRITING_POLICY_BUNDLE_V3"));
         assertThat(q53.cohorts().get(0).maximum())
                 .isEqualByComparingTo("30");
         assertThat(q53.cohorts())
@@ -1324,212 +1288,84 @@ class PracticeProgressServiceTest {
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "evaluated backend-rule cross-pair",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"BACKEND_RULE",
-                          "evaluation_reason":"NONE",
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("evaluation_source", "BACKEND_RULE")),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "invalid learner response provider cross-pair",
-                        """
-                        {"401":{
-                          "raw_score":0,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"INVALID_LEARNER_RESPONSE",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"BLANK_ANSWER",
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node -> {
+                            node.put("raw_score", 0);
+                            node.put("evaluation_status",
+                                    "INVALID_LEARNER_RESPONSE");
+                            node.put("evaluation_source", "PROVIDER");
+                            node.put("evaluation_reason", "BLANK_ANSWER");
+                        }),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "missing evaluation reason",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.remove("evaluation_reason")),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "non-textual evaluation reason",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":7,
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("evaluation_reason", 7)),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "missing evaluation retryable",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.remove("evaluation_retryable")),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "non-boolean evaluation retryable",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE",
-                          "evaluation_retryable":"false","score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("evaluation_retryable", "false")),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "score-bearing evaluation marked retryable",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE",
-                          "evaluation_retryable":true,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("evaluation_retryable", true)),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "evaluated provenance uses an unsupported reason",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"CACHE_HIT",
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("evaluation_reason", "CACHE_HIT")),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "invalid learner provenance uses an unsupported reason",
-                        """
-                        {"401":{
-                          "raw_score":0,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"INVALID_LEARNER_RESPONSE",
-                          "evaluation_source":"BACKEND_RULE",
-                          "evaluation_reason":"PROVIDER_ERROR",
-                          "evaluation_retryable":false,"score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node -> {
+                            node.put("raw_score", 0);
+                            node.put("evaluation_status",
+                                    "INVALID_LEARNER_RESPONSE");
+                            node.put("evaluation_source", "BACKEND_RULE");
+                            node.put("evaluation_reason", "PROVIDER_ERROR");
+                        }),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "missing score available",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE",
-                          "evaluation_retryable":false
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.remove("score_available")),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "non-boolean score available",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE",
-                          "evaluation_retryable":false,
-                          "score_available":"true"
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("score_available", "true")),
                         ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED),
                 Arguments.of(
                         "unsupported scoring profile",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V2",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","evaluation_retryable":false,
-                          "score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("scoring_contract",
+                                        "TASK_NATIVE_RUBRIC_V2")),
                         ProgressExclusionReason.WRITING_SCORING_PROFILE_UNSUPPORTED),
                 Arguments.of(
                         "immutable maximum mismatch",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":20,
-                          "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","evaluation_retryable":false,
-                          "score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.put("raw_score_max", 20)),
                         ProgressExclusionReason.WRITING_MAXIMUM_MISMATCH),
                 Arguments.of(
                         "missing task identity in stored evidence",
-                        """
-                        {"401":{
-                          "raw_score":8,"raw_score_max":10,
-                          "engine":"KSH_WRITING_EVALUATOR_V2",
-                          "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
-                          "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
-                          "evaluation_status":"EVALUATED",
-                          "evaluation_source":"PROVIDER",
-                          "evaluation_reason":"NONE","evaluation_retryable":false,
-                          "score_available":true
-                        }}
-                        """,
+                        mutatedWritingPayload(node ->
+                                node.remove("task_type")),
                         ProgressExclusionReason.WRITING_TASK_IDENTITY_MISSING));
     }
 
@@ -1546,6 +1382,47 @@ class PracticeProgressServiceTest {
                 "\"reason\":\"SERIALIZATION_UNAVAILABLE\"",
                 "\"scoreTrend\":[]",
                 "\"recentHistory\":[]");
+    }
+
+    private static String mutatedWritingPayload(
+            Consumer<ObjectNode> mutation) {
+        ObjectNode node = currentWritingEntry(
+                WritingTaskType.Q51, 8);
+        mutation.accept(node);
+        return writingPayload(Map.of(401L, node));
+    }
+
+    private static String writingPayload(
+            Map<Long, ObjectNode> entries) {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+        new LinkedHashMap<>(entries).forEach(
+                (questionId, entry) ->
+                        root.set(String.valueOf(questionId), entry));
+        return root.toString();
+    }
+
+    private static ObjectNode currentWritingEntry(
+            WritingTaskType taskType,
+            int rawScore) {
+        ObjectMapper mapper = new ObjectMapper();
+        String learnerAnswer =
+                WritingContractTestFixtures.scoreBearingLearnerAnswer(
+                        taskType.name(), rawScore);
+        String normalized = WritingContractTestFixtures.normalizedFeedback(
+                mapper,
+                taskType.name(),
+                learnerAnswer,
+                envelope -> WritingContractTestFixtures.applyRawScore(
+                        envelope,
+                        taskType.name(),
+                        learnerAnswer,
+                        rawScore));
+        try {
+            return (ObjectNode) mapper.readTree(normalized);
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private PracticeAttempt writingAttempt(String feedbackJson) {

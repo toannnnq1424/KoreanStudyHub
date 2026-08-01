@@ -250,6 +250,11 @@
   gap: 20px 16px;
 }
 
+.practice-flow-home .pc-card-grid.is-single {
+  grid-template-columns: minmax(280px, calc((100% - 16px) / 2));
+  justify-content: start;
+}
+
 .practice-flow-home .pc-set-card {
   height: 100%;
 }
@@ -831,6 +836,10 @@
 
   .practice-flow-home .pc-card-grid {
     grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  }
+
+  .practice-flow-home .pc-card-grid.is-single {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .practice-flow-home .pc-library {

@@ -49,6 +49,9 @@ class PracticeKoreanFontUiContractTest {
                 "categoryLabel()",
                 "description()",
                 "lang=\"ko\"",
+                "hasRole('LECTURER')",
+                "th:href=\"@{/practice/manage}\"",
+                "Quay lại quản lý bộ đề",
                 "aria-live=\"polite\"");
         assertThat(settings.indexOf("pkf-preview-top"))
                 .as("the current selection preview precedes the long font catalog")
@@ -58,6 +61,7 @@ class PracticeKoreanFontUiContractTest {
                 "Cỡ chữ nội dung Hàn",
                 "Giao diện tiếng Việt không thay đổi");
         assertThat(sidebar).contains(
+                "hasAnyRole('STUDENT','LECTURER')",
                 "th:href=\"@{/practice/preferences}\"",
                 "Kiểu chữ Hàn");
         assertThat(catalog).contains(
@@ -165,8 +169,21 @@ class PracticeKoreanFontUiContractTest {
                     .hasSize(17)
                     .allMatch(path -> path.toFile().length() > 0);
         }
-        for (Path player : PLAYERS) {
-            assertThat(Files.readString(player)).contains("lang=\"ko\"");
-        }
+        assertThat(Files.readString(PLAYERS.get(0))).contains(
+                "th:lang=\"${g.instructionLanguageTag()}\"",
+                "th:lang=\"${g.stimulusLanguageTag()}\"",
+                "th:lang=\"${q.languageTag()}\"");
+        assertThat(Files.readString(PLAYERS.get(1))).contains(
+                "th:lang=\"${g.instructionLanguageTag()}\"",
+                "th:lang=\"${g.stimulusLanguageTag()}\"",
+                "th:lang=\"${q.languageTag()}\"");
+        assertThat(Files.readString(PLAYERS.get(2))).contains(
+                "data-prompt-text").doesNotContain(
+                "data-prompt-text lang=\"ko\"");
+        assertThat(Files.readString(Path.of(
+                "src/main/resources/static/js/practice/player-speaking.js")))
+                .contains(
+                        "currentQuestion.languageTag === \"vi\" ? \"vi\" : \"ko\"",
+                        "promptText.lang");
     }
 }

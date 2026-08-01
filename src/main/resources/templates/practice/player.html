@@ -60,12 +60,24 @@
                th:attr="data-group-stage=${gStat.index},
                         data-has-source=${(g.passageText() != null and !#strings.isEmpty(g.passageText())) or (g.imageUrl() != null and !#strings.isEmpty(g.imageUrl()))},
                         data-long-source=${(g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())) or (g.passageText() != null and #strings.length(g.passageText()) >= 320)}">
+        <div class="exam-source-pin-row"
+             th:if="${(g.passageText() != null and !#strings.isEmpty(g.passageText())) or (g.imageUrl() != null and !#strings.isEmpty(g.imageUrl()))}">
+          <button type="button" class="exam-source-pin" data-material-pin
+                  aria-pressed="false"
+                  title="Ghim học liệu dùng chung"
+                  th:attr="aria-label=${'Ghim học liệu cho ' + (g.groupLabel() != null and !#strings.isEmpty(g.groupLabel()) ? g.groupLabel() : 'nhóm câu hỏi')}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5M5 3h14M7 3l1 7-3 3h14l-3-3 1-7"/></svg>
+            <span data-material-pin-label>Ghim học liệu</span>
+          </button>
+        </div>
         <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+           th:lang="${g.instructionLanguageTag()}"
            th:text="${g.instruction()}">Đề bài</p>
         <figure class="exam-source-figure" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
           <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
         </figure>
-        <div class="exam-passage exam-selectable" lang="ko"
+        <div class="exam-passage exam-selectable"
+             th:lang="${g.stimulusLanguageTag()}"
              th:if="${g.passageText() != null and !#strings.isEmpty(g.passageText())}"
              th:text="${g.passageText()}">Nội dung bài đọc</div>
       </article>
@@ -84,10 +96,12 @@
                data-question-stage>
         <div class="exam-reading-focus-lead" th:if="${activeSectionSkill == 'READING'}">
           <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:lang="${g.instructionLanguageTag()}"
              th:text="${g.instruction()}">Hướng dẫn</p>
         </div>
         <div class="exam-listening-lead" th:if="${activeSectionSkill == 'LISTENING'}">
           <p class="exam-source-instruction exam-selectable" th:if="${g.instruction() != null and !#strings.isEmpty(g.instruction())}"
+             th:lang="${g.instructionLanguageTag()}"
              th:text="${g.instruction()}">Hướng dẫn</p>
           <figure class="exam-source-figure compact" th:if="${g.imageUrl() != null and !#strings.isEmpty(g.imageUrl())}">
             <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
@@ -112,7 +126,8 @@
           </div>
         </div>
 
-        <div class="exam-example exam-selectable" lang="ko"
+        <div class="exam-example exam-selectable"
+             th:lang="${g.stimulusLanguageTag()}"
              th:if="${g.exampleBox() != null}">
           <strong>&lt;<span th:text="${g.exampleBox().label()}">보기</span>&gt;</strong>
           <p th:text="${g.exampleBox().content()}">Ví dụ</p>
@@ -127,13 +142,15 @@
                    th:attr="data-question-id=${q.id()}">
             <div class="exam-question-heading">
               <span class="exam-question-number" th:text="${q.questionNo()}">1</span>
-              <label class="exam-bookmark" title="Đánh dấu xem lại">
-                <input type="checkbox" data-review-flag>
+              <label class="exam-bookmark" title="Ghim câu hỏi">
+                <input type="checkbox" data-review-flag
+                       th:attr="aria-label=${'Ghim câu hỏi ' + q.questionNo()}">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
               </label>
             </div>
 
-            <p class="exam-question-prompt exam-selectable" lang="ko"
+            <p class="exam-question-prompt exam-selectable"
+               th:lang="${q.languageTag()}"
                th:if="${q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.prompt() != null and !#strings.isEmpty(q.prompt())}"
                th:text="${q.prompt()}">Câu hỏi</p>
 
@@ -166,7 +183,8 @@
                        th:value="${option.id()}"
                        th:checked="${savedAnswers.get(#strings.toString(q.id())) == option.id()}">
                 <span class="exam-option-key" th:text="${optionStat.count}">1</span>
-                <span class="exam-option-content exam-selectable" lang="ko">
+                <span class="exam-option-content exam-selectable"
+                      th:lang="${q.languageTag()}">
                   <span th:text="${option.text()}">Phương án</span>
                   <img th:if="${option.imageReference() != null and !#strings.isEmpty(option.imageReference())}"
                        th:src="${option.imageReference()}" alt="Ảnh phương án">
@@ -180,16 +198,90 @@
               <label class="exam-option"><input type="radio" th:name="'answer_' + ${q.id()}" value="NOT_GIVEN" th:checked="${savedAnswers.get(#strings.toString(q.id())) == 'NOT_GIVEN'}"><span class="exam-option-key">C</span><span>Không có thông tin</span></label>
             </div>
 
+            <div class="exam-options" data-multiple-question
+                 th:if="${q.questionType() == 'MULTIPLE_ANSWER'}">
+              <p class="exam-response-instruction">Chọn tất cả phương án đúng.</p>
+              <label class="exam-option" th:each="option, optionStat : ${q.optionRows()}">
+                <input type="checkbox" data-multiple-option
+                       th:value="${option.id()}">
+                <span class="exam-option-key"
+                      th:text="${#strings.substring('ABCDEFGH', optionStat.index, optionStat.index + 1)}">A</span>
+                <span class="exam-option-content exam-selectable"
+                      th:lang="${q.languageTag()}">
+                  <span th:text="${option.text()}">Phương án</span>
+                  <img th:if="${option.imageReference() != null and !#strings.isEmpty(option.imageReference())}"
+                       th:src="${option.imageReference()}" alt="Ảnh phương án">
+                </span>
+              </label>
+              <input type="hidden" th:name="'answer_' + ${q.id()}"
+                     th:value="${savedAnswers.get(#strings.toString(q.id()))}"
+                     data-multiple-answer>
+            </div>
+
+            <div class="exam-matching-response" data-matching-question
+                 th:if="${q.questionType() == 'MATCHING'}">
+              <p class="exam-response-instruction">Ghép một phương án A–H với từng nội dung.</p>
+              <div class="exam-matching-candidates" aria-label="Danh sách phương án">
+                <div th:each="option, optionStat : ${q.optionRows()}">
+                  <b th:text="${#strings.substring('ABCDEFGH', optionStat.index, optionStat.index + 1)}">A</b>
+                  <span class="exam-selectable" th:lang="${q.languageTag()}" th:text="${option.text()}">Phương án</span>
+                </div>
+              </div>
+              <div class="exam-matching-targets">
+                <div th:each="blank, blankStat : ${q.blankRows()}" class="exam-matching-target">
+                  <span><b th:text="${blankStat.count}">1</b><span class="exam-selectable"
+                      th:lang="${q.languageTag()}" th:text="${blank.prompt()}">Nội dung cần ghép</span></span>
+                  <div class="exam-matching-picker" data-matching-picker>
+                    <button type="button"
+                            class="exam-matching-picker-toggle"
+                            value=""
+                            data-matching-target
+                            aria-haspopup="listbox"
+                            aria-expanded="false"
+                            th:attr="data-matching-target=${blank.id()},
+                                     aria-label='Chọn phương án cho ' + ${blank.prompt()},
+                                     aria-controls=${'matching-list-' + q.id() + '-' + blank.id()}">
+                      <span data-matching-picker-label>Chọn A–H</span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m7 10 5 5 5-5"></path>
+                      </svg>
+                    </button>
+                    <div class="exam-matching-picker-list"
+                         role="listbox"
+                         hidden
+                         data-matching-picker-list
+                         th:id="${'matching-list-' + q.id() + '-' + blank.id()}"
+                         th:attr="aria-label='Danh sách A–H cho ' + ${blank.prompt()}">
+                      <button type="button"
+                              role="option"
+                              aria-selected="false"
+                              th:each="option, optionStat : ${q.optionRows()}"
+                              th:attr="data-matching-option=${option.id()}"
+                              th:text="${#strings.substring('ABCDEFGH', optionStat.index, optionStat.index + 1) + ' — ' + option.text()}">
+                        A — Phương án
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" th:name="'answer_' + ${q.id()}"
+                     th:value="${savedAnswers.get(#strings.toString(q.id()))}"
+                     data-matching-answer>
+            </div>
+
             <div class="exam-fill-response" data-fill-question
                  th:if="${q.questionType() == 'FILL_BLANK' or q.questionType() == 'GAP_FILL'}">
-              <div class="exam-fill-template exam-selectable" lang="ko"
+              <div class="exam-fill-template exam-selectable"
+                   th:lang="${q.languageTag()}"
                    th:text="${q.prompt()}">Điền vào chỗ trống</div>
               <div class="exam-fill-bank">
                 <label class="exam-fill-row" th:each="blank, blankStat : ${q.blankRows()}"
                        th:attr="data-blank-row=${blank.id()},data-blank-number=${blankStat.count}">
                   <span><b th:text="${blankStat.count}">1</b><span
+                      th:lang="${q.languageTag()}"
                       th:text="${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}">Ô trống 1</span></span>
-                  <input type="text" class="exam-blank-input" lang="ko"
+                  <input type="text" class="exam-blank-input"
+                         th:lang="${q.languageTag()}"
                          th:attr="data-blank-id=${blank.id()},aria-label=${blank.prompt() != null and !#strings.isEmpty(blank.prompt()) ? blank.prompt() : 'Ô trống ' + blankStat.count}"
                          autocomplete="off" spellcheck="false">
                 </label>
@@ -200,8 +292,8 @@
             </div>
 
             <div class="exam-short-answer"
-                 th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.questionType() != 'ESSAY' and q.questionType() != 'SPEAKING'}">
-              <input type="text" lang="ko" th:name="'answer_' + ${q.id()}"
+                 th:if="${q.questionType() != 'MCQ' and q.questionType() != 'SINGLE_CHOICE' and q.questionType() != 'MULTIPLE_ANSWER' and q.questionType() != 'MATCHING' and q.questionType() != 'TRUE_FALSE_NOT_GIVEN' and q.questionType() != 'FILL_BLANK' and q.questionType() != 'GAP_FILL' and q.questionType() != 'ESSAY' and q.questionType() != 'SPEAKING'}">
+              <input type="text" th:lang="${q.languageTag()}" th:name="'answer_' + ${q.id()}"
                      th:value="${savedAnswers.get(#strings.toString(q.id()))}"
                      placeholder="Nhập câu trả lời" autocomplete="off">
             </div>

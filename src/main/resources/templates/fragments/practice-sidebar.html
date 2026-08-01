@@ -27,7 +27,7 @@
       <span class="pi-nav-text">Tiến độ</span>
     </a>
 
-    <a sec:authorize="hasRole('STUDENT')"
+    <a sec:authorize="hasAnyRole('STUDENT','LECTURER')"
        th:href="@{/practice/preferences}"
        class="pi-nav-item"
        th:classappend="${activeItem == 'preferences'} ? 'active'"

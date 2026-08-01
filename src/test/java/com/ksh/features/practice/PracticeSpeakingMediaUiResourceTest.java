@@ -65,6 +65,8 @@ class PracticeSpeakingMediaUiResourceTest {
                 "step === \"PROMPT_PLAYBACK\"",
                 "step === \"PREPARATION\"",
                 "step === \"RECORDING\"",
+                "currentQuestion.languageTag === \"vi\" ? \"vi\" : \"ko\"",
+                "promptText.lang",
                 "showAction(\"Phát đề bài\"",
                 "promptAudioState.hidden = true",
                 "stopMicrophone();\n    resetAudio();",

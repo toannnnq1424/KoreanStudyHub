@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head('Kiểu chữ luyện tiếng Hàn | KSH', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-index.css}">
@@ -108,7 +110,12 @@
 
         <div class="pkf-actions">
           <button class="btn btn-primary" type="submit">Lưu hiển thị</button>
-          <a class="btn-ghost" th:href="@{/practice}">Quay lại kho bài</a>
+          <a sec:authorize="hasRole('STUDENT') and !hasRole('LECTURER')"
+             class="btn-ghost"
+             th:href="@{/practice}">Quay lại kho bài</a>
+          <a sec:authorize="hasRole('LECTURER')"
+             class="btn-ghost"
+             th:href="@{/practice/manage}">Quay lại quản lý bộ đề</a>
           <span class="sr-only"
                 aria-live="polite"
                 data-practice-korean-font-status></span>
