@@ -3044,3 +3044,600 @@ Artifacts:
 Checkpoint verdict:
 
 `A_DELTA_WS_ANALYSIS_SINGLE_SURFACE_PASS_GATE_C_RESUMED`
+
+## 49. GATE C — WRITING Q51–54 HIERARCHICAL DIAGNOSTIC CONVERGENCE
+
+Direct Q51--Q54 browser review found that the flat diagnostic catalogue was
+technically complete but cognitively overloaded: entering Strengths or Needs
+painted 9--18 child chips and every occurrence immediately. The learner could
+not first choose the KSH criterion family, and Q51/Q52 typed `BLANK` targets
+filtered the right-hand list without visibly routing back to the authoritative
+blank on the left.
+
+Writing now uses a two-level disclosure contract. At tab entry only typed KSH
+parent groups are visible and all child chips/occurrences are hidden. A parent
+button exposes its small child set; a child button then reveals only the
+matching occurrence and routes to an exact `TEXT_SPAN`, `BLANK`, or intentionally
+unhighlighted `WHOLE_ANSWER` target. The same accessible parent/child mechanism
+has been installed in Speaking as the first Gate D convergence slice. It uses
+native buttons with `aria-expanded`/`aria-controls`, collapses the previous
+group, clears stale filters and remains keyboard/focus operable.
+
+The user-provided Speaking example is represented without a parallel UI-only
+taxonomy: `Hoàn thành nhiệm vụ và mức độ phù hợp` opens exactly `Bám sát đề`,
+`Bao phủ yêu cầu`, and `Mức độ cụ thể và ví dụ`. Writing retains its own typed
+KSH families such as `Yêu cầu & nội dung`, `Tổ chức & liên kết diễn ngôn`, and
+`Hình thái & cú pháp`.
+
+The PREP-style five-tab flow is otherwise preserved. Strength/Needs occurrences
+remain one ruled list, the upgraded response and teacher sample are continuous
+surfaces rather than nested provenance cards, and learner-facing evidence IDs,
+strategy/scenario/provider codes are absent. Q54 deterministic REPLACE data no
+longer uses a generic correction; browser proof routes `학생는` to `학생은`.
+
+```text
+Q51 / Q52 structured blank rows:                       2 / 2
+Q51 selected typed target:                         q51-b1
+Q52 selected typed target:                         q52-b1
+Q53 exact annotated spans / scoped numbers:           9 / 9
+Q54 exact annotated spans:                                9
+Q54 particle operation:                         REPLACE
+Q54 particle source -> correction:          학생는 -> 학생은
+Writing Needs groups / initial children / occurrences: 6 / 0 / 0
+Speaking Needs groups / initial children / occurrences: 5 / 0 / 0
+Speaking first parent child chips:                       3
+Horizontal overflow at 1280x720:                      0px
+Internal learner-facing code leaks:                      0
+Focused Writing/UI test classes:                    16 PASS
+Deterministic seed load:                            1 PASS
+Temporary DB users after cleanup:                        0
+Real provider calls:                                     0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-c-writing-detail/gate-c-final-f5-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-c-writing-detail/q54-hierarchical-needs-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-c-writing-detail/q51-blank-target-routing-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-c-writing-detail/q54-particle-replace-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-c-writing-detail/q51-q54-hierarchical-filter-audit.json`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-hierarchical-needs-1280x720.png`
+
+Checkpoint verdict:
+
+`GATE_C_WRITING_Q51_Q54_HIERARCHICAL_DIAGNOSTICS_PASS_GATE_D_ACTIVE`
+
+## 50. GATE D — SPEAKING DETAIL HIERARCHY, AUTHORITY AND CONTINUOUS SURFACES
+
+Speaking Detail now follows the same two-level learner flow proven in Gate C.
+Entering Strengths or Needs shows only the five KSH parent families. Opening a
+family exposes only its own child criteria; selecting a child then reveals the
+matching occurrence and highlights only the authoritative transcript span.
+`Hoàn thành nhiệm vụ và mức độ phù hợp` opens exactly `Bám sát đề`, `Bao phủ
+yêu cầu`, and `Mức độ cụ thể và ví dụ`. Repeated evidence remains occurrence
+scoped: `Kiểm soát lặp từ` exposes two rows numbered 1--2 and exactly two
+selected transcript spans.
+
+Zero-count child criteria no longer paint the full catalogue or create a fake
+highlight. Selecting one shows the Baekho empty state, zero occurrences and
+zero selected spans. Upgrade and teacher sample are continuous reading
+surfaces with an explicit source note rather than nested provenance cards.
+
+The evidence contract remains fail-closed. Both checked Speaking questions
+have an authoritative transcript but no audio alignment or recording binding,
+so word audio and recording controls are absent. The four transcript-grounded
+criteria remain scored; fluency and pronunciation/delivery remain explicitly
+not scorable. Overview radar proof still derives every axis from `earned/max`
+(14/20, 16/20, 12/15, 12/15), never from chip counts or a fabricated holistic
+score.
+
+The result-information popover was also recertified after correcting both its
+definition labels and values from white-on-white to readable slate colors.
+Learner-facing contract/scenario/provider/evidence identifiers remain absent.
+
+```text
+Speaking parent groups / initial children / occurrences: 5 / 0 / 0
+First parent child criteria:                               3
+Selected Bám sát đề occurrences / spans:                1 / 1
+Repeated chip occurrences / selected spans:             2 / 2
+Zero-count chip occurrences / selected spans:           0 / 0
+Zero-count Baekho empty state:                            YES
+Transcript authority:                              AVAILABLE
+Audio alignment / recording authority:       NOT_AVAILABLE
+Word audio / recording controls:                       0 / 0
+Transcript-grounded score rows:                            4
+Acoustic rows kept not scorable:                           2
+Radar earned/max percentages:                  70/80/80/80
+Popover readable dt / dd values:                     10 / 10
+Horizontal overflow at browser proof sizes:              0px
+Focused Gate D tests:                               152/152
+Provider calls:                                           0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-hierarchical-needs-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-needs-exact-span-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-strength-repeated-occurrence-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-zero-chip-empty-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-result-info-contrast-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-audio-authority-audit.json`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-radar-authority-proof.json`
+
+Checkpoint verdict:
+
+`GATE_D_SPEAKING_HIERARCHY_AUTHORITY_CONTINUOUS_SURFACES_PASS_GATE_E_ACTIVE`
+
+## 51. GATE E — SUBJECTIVE OVERVIEW, CODE-NATIVE PICKER AND RESPONSIVE CONTAINMENT
+
+The final Writing/Speaking comparison against the user-supplied PREP Overall
+screens found three remaining interaction drifts. The KSH overview still used
+vertically stretched score rows, the criterion-family chooser remained a
+platform `<select>` whose macOS popup could escape the review pane, and compact
+layouts could place the white sheet directly against the viewport edge.
+
+Writing and Speaking Overview now share PREP's score-first hierarchy: a task
+score heading, one horizontal criterion-chip rail and the typed KSH detail
+below it. Writing uses the authoritative Q51--Q54 points and requirement
+coverage states. Speaking deliberately renders an em dash with `Không tạo
+điểm tổng`; its four transcript-grounded `earned/max` rows remain available
+while the two acoustic rows stay fail-closed. No PREP band or holistic task
+score is inferred.
+
+All six Strengths/Needs/Upgrade parent choosers now expose a code-native
+button/listbox. The original select remains hidden only as the typed form-state
+bridge, so existing filtering and deep links do not fork. The visible listbox
+is pane-contained, flips upward when the trigger is near the viewport bottom,
+closes on outside click or Escape, and supports ArrowUp/ArrowDown/Home/End plus
+Enter/Space selection. Browser proof selected the last Writing group through
+`ArrowDown -> End -> Enter` and exposed only that group's child rail.
+
+Subjective panels now use `align-content: start` and max-content rows, removing
+the artificial vertical bands between heading, authority note, parent picker,
+child rail and occurrence. At compact sizes the document is the only vertical
+scroll owner; the sheet keeps an 8--12px safe gutter, the feedback/layout
+containers stay `overflow: visible`, and no horizontal document overflow was
+observed at the exact 390x844 proof size.
+
+```text
+Writing Q54 authoritative score:                       3/50
+Writing Q54 typed requirement rows:                       5
+Speaking invented task total:                             0
+Speaking task-total presentation:             NOT_AVAILABLE
+Visible native selects:                                   0
+Code-native picker option rows (Writing / Speaking):   7 / 6
+Desktop picker horizontally contained:                   YES
+Compact picker flips upward / stays in viewport:   YES / YES
+Keyboard selection (ArrowDown -> End -> Enter):          PASS
+Exact compact CSS viewport:                         390x844
+Compact shell gutters left / right:                  8 / 8px
+Nested feedback/layout scroll owners:                    0 / 0
+Horizontal document overflow:                              0
+Focused test classes:                              6/6 PASS
+Provider calls:                                           0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/writing-q54-overview-final-prep-convergence-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/speaking-overview-final-prep-convergence-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/writing-code-native-dropdown-contained-1440x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/writing-code-native-dropdown-flips-up-responsive-820x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/writing-detail-safe-gutter-single-scroll-390x844.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/speaking-code-native-dropdown-contained-mobile-390x844.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-diagnostic-visual-convergence/speaking-hierarchy-expanded-compact-1440x900.png`
+
+Checkpoint verdict:
+
+`GATE_E_SUBJECTIVE_OVERVIEW_PICKER_RESPONSIVE_CONTAINMENT_PASS_CLOSURE_ACTIVE`
+
+## 52. GATE E CLOSURE — PARTIAL MATCHING SCORE, SPEAKING DETAIL ROUTING AND MIC PREFLIGHT
+
+The last user-reported correctness drift was the all-or-nothing score shown
+for a matching question with four targets. Matching now earns the authoritative
+question maximum proportionally by target, rounded `HALF_UP` to one decimal.
+The live acceptance attempt therefore awards `0.8/1` for three correct targets
+out of four, marks the question `PARTIALLY_CORRECT`, increments the Overview
+partial count once and renders `80%` for the Matching type. The result-detail
+matrix shows three green rows and one red row without converting any target
+into an independent question or duplicating the question maximum.
+
+Speaking Detail was recertified after the final cache and disclosure fixes.
+Selecting `Ngữ pháp và kiểm soát câu` now activates the matching authoritative
+criterion panel and its `16/20` feedback; selecting a Needs child reveals only
+its one occurrence, one exact transcript span and one expandable explanation.
+A zero-count child renders only the Baekho empty state. Upgrade parent/child
+rails exclude groups without authoritative rewrites, and meaningful fixture
+feedback states the observed language feature and learner impact instead of
+repeating a criterion label or generic evidence boilerplate. The prompt contract
+forbids that generic filler and retains the contextual-repetition rule: a token
+such as `정말` is not an error merely because it occurs twice.
+
+The Speaking mic preflight now loads explicit `pre14-e13` assets. Its content is
+one 24px white surface, the code-native microphone icon is legible, and the
+Baekho mascot sits in the blue header instead of overlapping the meter/card at
+compact widths. The real media-upload gate stays fail-closed; the disabled
+start action is not cosmetically enabled when recording persistence authority
+is unavailable.
+
+The master 48-row matrix was brought forward from the obsolete Gate B
+checkpoint. The four former capability gaps are now `PARTIAL`, not `MISSING`,
+with direct artifacts for multi-answer, matching, pinned shared material and
+the local no-provider helper. Strict visual promotion remains conservative:
+the four rows do not become `MATCH` until their own normalized PREP/KSH overlay
+packs exist.
+
+```text
+Matching target result:                         3/4
+Matching question score:                       0.8/1
+Matching result state:             PARTIALLY_CORRECT
+Matching Overview type percentage:                80%
+Matching Detail ruled rows green / red:           3 / 1
+Speaking selected criterion panel:              16/20
+Speaking Needs visible groups/findings/spans:   1/1/1
+Expanded occurrence detail:                       YES
+Zero-chip findings/spans/Baekho:               0/0/YES
+Speaking Upgrade parent groups / selected rewrite: 2 / 1
+Preflight panel radius / width:               24px / 760px
+Preflight mascot overlap at 820/1536:            NO / NO
+Checked detail viewports:        820x900, 1440x900, 1536x915
+Horizontal overflow at checked routes:             0px
+Focused Pre-14 tests:                         335/335 PASS
+Manifest / deterministic seed:                 PASS / PASS
+Flyway migrations validated:                           75
+Temporary DB users after cleanup:                       0
+JavaScript syntax / git diff check:             PASS / PASS
+Provider calls:                                          0
+Matrix verdicts:              36 PARTIAL / 0 MISSING / 12 MATCH
+```
+
+The unscoped repository suite was also probed, but it is not claimed as a
+closure pass: its disposable `TEST_DB_URL` safety user correctly rejects
+`V1__init_schema.sql` because that legacy migration hard-codes `USE ksh_db`.
+No global database privilege was granted and no shared database was exposed to
+the test run. The scoped 335-test suite and isolated Flyway-75 acceptance seed
+are the authority for this gate.
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/browser-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-matching-14813-overview-1440.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-matching-14813-detail-q13-1440.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-detail-14702-e13e-needs.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-detail-14701-e13e-820-needs.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-detail-14702-e13d-upgrade.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-e13d-820-preflight.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-e13d-1536-preflight.png`
+
+Checkpoint verdict:
+
+`GATE_E_DIRECT_BROWSER_AND_CONTRACT_CLOSURE_PASS_STRICT_48_ROW_OVERLAY_RECERTIFICATION_REMAINS`
+
+## 53. GATE D/E FINAL DELTA — SCALABLE SPEAKING QUESTION DRAWER AND ACOUSTIC FAIL-CLOSED RECERTIFICATION
+
+The remaining real product gap in the 48-row matrix was Speaking Detail row
+44. The page still exposed every immutable task in a horizontal top rail; that
+pattern happened to fit the two-question acceptance seed but could not scale
+without consuming review width. It has been replaced by a code-native modal
+drawer. The compact trigger shows the current task and immutable question
+count, while the drawer groups the task links below the authoritative result
+`sectionTitle`. The current snapshot owns one `Phần Nói` section, so no
+PREP-only Part 1/2/3 label is fabricated.
+
+The drawer lives in the browser top layer rather than either review pane. It
+therefore cannot be clipped by the fixed shell or splitter, does not shrink the
+source/feedback panes, owns its own vertical scroll, locks background scroll,
+and dims/inerts the underlying sheet. The current question receives focus on
+open. Escape, the close control and backdrop click all close it, clear the
+expanded state and restore focus to the trigger. Immutable question links keep
+the existing attempt/question route contract.
+
+Direct browser proof used the actual `/14702/...questionId=14405` snapshot with
+hot-loaded `pre14-e16` CSS/JS. Direct comparison with PREP row 44 corrected the
+drawer to the same left-side ownership. At `1536x915`, `820x900` and `390x844`,
+document horizontal overflow stayed zero, and the compact drawer reduced to
+`376px` with a safe 14px right gutter.
+The desktop width was measured from the normalized PREP app surface and reduced
+from the first `420px` implementation to `300px`; the row-44 mean channel delta
+improved from `54.555` to `46.251` while preserving KSH authority.
+
+Rows 39, 41, 43 and 48 were also recertified from `MISSING` to `PARTIAL` on the
+truthful product state. Both acoustic criteria remain explicitly not scorable;
+`audioAlignment=NOT_AVAILABLE`, word-audio elements are zero and recording
+controls are zero. Those rows are no longer missing a fail-closed contract,
+but they are not promoted to `MATCH`: their PREP phoneme/stress/clip states
+remain blocked until a real aligned-audio authority exists.
+
+```text
+Speaking drawer authoritative groups:                    1
+Speaking drawer immutable question links:                2
+Invented PREP Part labels:                                0
+Native modal / internal scroll owner:               YES / YES
+Current question receives focus:                        YES
+Escape / backdrop close:                          PASS / PASS
+Trigger focus restoration:                       PASS / PASS
+Background scroll locked while open:                   YES
+Checked drawer viewports:       1536x915, 820x900, 390x844
+Horizontal document overflow:                            0px
+Row-44 normalized mean delta before / after:    54.555 / 46.251
+Acoustic alignment authority:                  NOT_AVAILABLE
+Word-audio / recording controls:                       0 / 0
+Master matrix MISSING rows:                               0
+Focused final closure tests:                    265/265 PASS
+JavaScript syntax / git diff check:             PASS / PASS
+Provider calls:                                           0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-drawer-1536x915.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-drawer-820x900.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/pre14-speaking-drawer-390x844.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-e-final-closure/speaking-question-drawer-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-d-speaking-detail/speaking-audio-authority-audit.json`
+
+Checkpoint verdict:
+
+`GATE_D_E_PRODUCT_CONTRACT_CLOSURE_PASS_ZERO_MISSING_STRICT_VISUAL_PARTIALS_REMAIN`
+
+## 54. GATE E VISUAL RECERTIFICATION — SPEAKING GRAMMAR OCCURRENCE DESKTOP AND COMPACT
+
+Speaking Detail matrix rows 37, 38, 40, 42, 46 and 47 were replayed on the
+immutable 14401/14701/14702
+snapshot at their exact PREP comparison sizes. The route selected the typed
+`MORPHOSYNTAX` parent, the `Tiểu từ` child and the one authoritative Korean
+particle occurrence. Exactly one occurrence expanded, exactly one transcript
+span selected, the other child chips remained neutral and document horizontal
+overflow stayed zero. The separate Overview criterion interaction also proved
+that `S_GRAMMAR_SENTENCE_CONTROL` now resolves its own `16/20` feedback rather
+than retaining the previous criterion card.
+
+The same-size pairs now show the intended PREP hierarchy: primary tab → typed
+parent → child rail → neutral occurrence row → single pale-red expanded detail.
+The structural and behavior verdicts are `MATCH`; the strict visual verdict
+stays `PARTIAL` because PREP supplies seven English grammar findings while the
+KSH snapshot authoritatively supplies one Korean particle finding. No fake
+English density or duplicate Korean finding was introduced to lower the image
+delta.
+
+```text
+Overview selected criterion:          S_GRAMMAR_SENTENCE_CONTROL
+Overview selected score:                                  16/20
+Needs parent / child:                  MORPHOSYNTAX / Tiểu từ
+Visible / expanded occurrences:                             1 / 1
+Selected transcript spans:                                     1
+Document horizontal overflow:                                0px
+Row-40 normalized app surface:                           1536x835
+Row-40 mean channel delta:                                  18.851
+Row-37 zero-state mean channel delta:                       16.363
+Row-38 linguistic Strength mean delta:                      20.333
+Row-46 exact compact mean delta:                            19.236
+Row-42 normalized app surface:                           1536x833
+Row-42 mean channel delta:                                  19.168
+Row-47 exact app surface:                               1280x694
+Row-47 mean channel delta:                                  18.786
+Structural / behavior verdict:                      MATCH / MATCH
+Provider calls:                                                  0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-42/app-surface-1536x833/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-42/app-surface-1536x833/side-by-side.png`
+- `target/pre14-ui-acceptance-current/master-result-48/row-47/app-surface-1280x694/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-47/app-surface-1280x694/side-by-side.png`
+- `target/pre14-ui-acceptance-current/master-result-48/row-40/app-surface-1536x835/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-40/app-surface-1536x835/side-by-side.png`
+- `target/pre14-ui-acceptance-current/master-result-48/row-37/app-surface-1536x831/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-38/app-surface-1536x826/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-46/app-surface-1276x692/comparison-proof.json`
+
+Checkpoint verdict:
+
+`GATE_E_SPEAKING_LINGUISTIC_OCCURRENCE_EXACT_PAIRS_RECERTIFIED_VISUAL_PARTIAL_AUTHORITY_DRIVEN`
+
+## 55. GATE E VISUAL RECERTIFICATION — WRITING OVERALL, LINGUISTIC OCCURRENCE, UPGRADE AND SAMPLE
+
+Writing Detail rows 26, 27, 29, 33, 35 and 36 were replayed against their
+PREP references on the immutable Q53/Q54 snapshots. Overall criterion chips
+now prove their own selected feedback instead of retaining a prior criterion;
+Q51–54 navigation remains visible. Strengths keeps whole-answer evidence free
+of fake offsets. Needs selects one typed Korean grammar occurrence, expands
+only that row and highlights exactly one source span. Upgraded answer filters
+one persisted learner span and one persisted upgrade suggestion. Sample
+remains an independent teacher-authored continuous response with no diagnostic
+card leakage.
+
+All six pairs retain the PREP macro hierarchy and interaction boundary while
+preserving KSH task/rubric authority. They therefore receive structural and
+behavior `MATCH`; strict visual verdicts remain `PARTIAL` because the Korean
+Q53/Q54 content and KSH criteria cannot be replaced by PREP IELTS text merely
+to reduce bitmap delta.
+
+```text
+Q53 Overall criteria / coverage rows:                     3 / 6
+Q53 Strength visible / expanded occurrences:             1 / 0
+Q54 Overall criteria / coverage rows:                     3 / 5
+Q54 grammar visible / expanded / selected spans:        1 / 1 / 1
+Q54 upgrade selected learner / suggestion spans:         1 / 1
+Q54 Sample diagnostic cards:                                  0
+Horizontal document overflow across all pairs:             0px
+Row-26 / 27 mean delta:                         25.661 / 23.085
+Row-29 / 33 mean delta:                         28.376 / 23.787
+Row-35 / 36 mean delta:                         28.873 / 28.492
+Structural / behavior verdict:                      MATCH / MATCH
+Provider calls:                                                  0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-26/app-surface-1536x839/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-27/app-surface-1536x832/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-29/app-surface-1536x836/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-33/app-surface-1536x840/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-35/app-surface-1536x834/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-36/app-surface-1536x842/comparison-proof.json`
+
+Checkpoint verdict:
+
+`GATE_E_WRITING_CORE_DETAIL_EXACT_PAIRS_RECERTIFIED_VISUAL_PARTIAL_AUTHORITY_DRIVEN`
+
+## 56. GATE E VISUAL RECERTIFICATION — WRITING CHILD SWITCH, EXPANDED OCCURRENCE AND REPETITION
+
+Writing Detail rows 30, 31, 32 and 34 were replayed against the exact PREP
+references. Q53 now has direct browser evidence for switching from the first
+typed lexical child to the second child: both the right occurrence catalogue
+and the left learner span change together, and the scoped visible index restarts
+at `1`. The morphosyntax state expands only the selected advanced-grammar
+occurrence and selects exactly one authoritative Korean sentence span.
+
+Q54 also proves that the Needs interaction selects the `Lặp từ và cụm từ`
+child itself rather than falling back to the first positive child. The current
+immutable snapshot authoritatively exposes one repeated-phrase finding and one
+persisted span. It does not expose PREP's multi-word frequency catalogue, so
+the row is deliberately recorded as behavior/visual `PARTIAL`; no frequency or
+extra occurrence is inferred from raw text merely to improve bitmap similarity.
+
+```text
+Q53 lexical child chips:                                      3
+First child visible / expanded occurrences:               1 / 0
+Second child scoped occurrence index:                         1
+Second child selected learner spans:                           1
+Advanced grammar visible / expanded / selected spans:     1 / 1 / 1
+Q54 repetition aggregate findings / spans:                 1 / 1
+Horizontal document overflow across all pairs:               0px
+Row-30 / 31 mean delta:                           22.966 / 22.396
+Row-32 / 34 mean delta:                           29.593 / 24.024
+Rows 30–32 structural / behavior:                    MATCH / MATCH
+Row 34 structural / behavior:                      MATCH / PARTIAL
+Provider calls:                                                0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-30/app-surface-1536x836/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-31/app-surface-1536x842/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-32/app-surface-1536x836/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-34/app-surface-1536x834/comparison-proof.json`
+
+Checkpoint verdict:
+
+`GATE_E_WRITING_CHILD_AND_OCCURRENCE_PAIRS_RECERTIFIED_REPETITION_AUTHORITY_PARTIAL`
+
+## 57. GATE E VISUAL RECERTIFICATION — WRITING CONTINUOUS SPAN AND PANE SCROLL OWNERSHIP
+
+Writing Detail row 28 now has an exact same-size comparison instead of a
+conceptual assertion. The selected Q53 lexical finding creates one inline
+source annotation without splitting the Korean answer into artificial block
+lines. The independent-scroll boundary was exercised separately on the
+immutable long Q54 answer: the source pane moved from `scrollTop=0` to its
+`377px` maximum while the feedback pane stayed at `0`. Document horizontal
+overflow remained zero.
+
+```text
+Selected Q53 answer spans:                                  1
+Q54 source scrollTop / range:                       377 / 377
+Q54 feedback scroll before / after:                    0 / 0
+Document horizontal overflow:                            0px
+Normalized app surface:                             1536x839
+Mean channel delta:                                    24.246
+Structural / behavior verdict:                  MATCH / MATCH
+Provider calls:                                              0
+```
+
+Artifact:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-28/app-surface-1536x839/comparison-proof.json`
+
+Checkpoint verdict:
+
+`GATE_E_WRITING_ALL_MATRIX_ROWS_HAVE_DIRECT_EXACT_PAIR_OR_AUTHORITY_PARTIAL_PROOF`
+
+## 58. GATE E VISUAL RECERTIFICATION — FINAL FIVE ROW-SPECIFIC PAIRS
+
+The last five matrix rows without their own normalized pairs now have direct
+reference/actual/overlay/difference packs. Speaking row 9 reuses the immutable
+zero-authority state and proves a selectable zero-count child, zero occurrence,
+zero transcript span and a quiet Baekho empty state. Matching row 24 proves four
+typed target mappings, attempt-local material pinning and the grouped bottom
+navigator. The objective guidance drawer has both an app-surface pair (row 19)
+and a normalized `580x1322` drawer crop (row 25), with inert-background,
+focus-return, `Escape` and zero-provider ownership retained.
+
+Row 18 remains deliberately structural/behavior `PARTIAL`: its typed KSH
+multiple-answer state has the required correct/wrong/missed colors and one
+canonical explanation, but the exact PREP reference also contains listening
+transcript, profile and AI-helper columns. Those unsupported macro columns were
+not fabricated and are now recorded as a visible product-authority delta rather
+than being hidden behind a generic PASS.
+
+```text
+Row 9 zero child / occurrences / spans:                0 / 0 / 0
+Row 18 correct-selected / wrong / missed:              1 / 1 / 1
+Row 24 matching targets / pinned:                         4 / yes
+Rows 19/25 provider calls:                                      0
+Row-9 mean delta:                                          16.296
+Row-18 mean delta:                                         13.040
+Row-19 mean delta:                                         53.252
+Row-24 mean delta:                                         14.680
+Row-25 drawer mean delta:                                  10.275
+Rows 9/19/24/25 structural / behavior:              MATCH / MATCH
+Row 18 structural / behavior:                    PARTIAL / PARTIAL
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-9/app-surface-1536x830/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-18/app-surface-1536x844/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-19/app-surface-1536x761/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-24/app-surface-1536x837/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-25/drawer-surface-580x1322/comparison-proof.json`
+
+Checkpoint verdict:
+
+`GATE_E_ALL_48_MATRIX_ROWS_HAVE_DIRECT_VISUAL_PROOF_WITH_ROW18_AUTHORITY_PARTIAL`
+
+## 59. GATE E VISUAL RECERTIFICATION — ACOUSTIC FAIL-CLOSED ROW-SPECIFIC PAIRS
+
+The four acoustic matrix rows now have their own exact normalized comparison
+packs. Direct inspection confirms that each PREP reference depends on aligned
+learner audio, a reference clip, token timing and either phoneme or stress
+authority. The immutable KSH Speaking result has none of those contracts, so
+the corresponding desktop and compact states remain deliberately
+`NOT_AVAILABLE` instead of deriving acoustic evidence from transcript text.
+
+All four KSH captures contain zero word-audio controls, zero recording
+controls, zero phoneme rows, zero stress rows and zero acoustic transcript
+selection. The compact `1268x688` capture also has zero document horizontal
+overflow. These rows remain structural/behavior/visual `PARTIAL` because the
+aligned PREP state cannot truthfully exist without real audio authority; the
+fail-closed product behavior itself is fully proven.
+
+```text
+Row 39 / 41 / 43 / 48 audio alignment:        NOT_AVAILABLE
+Word-audio / recording controls:                        0 / 0
+Phoneme / stress rows:                                  0 / 0
+Selected acoustic transcript spans:                         0
+Horizontal document overflow:                              0px
+Row-39 / 41 mean delta:                         18.396 / 18.818
+Row-43 / 48 mean delta:                         18.570 / 19.212
+Structural / behavior / visual verdict:      PARTIAL / PARTIAL / PARTIAL
+Focused scoring/presenter/codec contracts:              64/64 PASS
+JavaScript syntax / git diff check:                     PASS / PASS
+Provider calls:                                                0
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/row-39/app-surface-1536x837/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-41/app-surface-1536x838/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-43/app-surface-1536x844/comparison-proof.json`
+- `target/pre14-ui-acceptance-current/master-result-48/row-48/app-surface-1268x688/comparison-proof.json`
+
+The master result audit now has one direct row-specific visual pack for every
+matrix row: `48/48`, with no missing row directory and no fabricated acoustic
+substate.
+
+Checkpoint verdict:
+
+`GATE_E_ALL_48_ROWS_DIRECTLY_RECERTIFIED_ACOUSTIC_AUTHORITY_FAIL_CLOSED`
