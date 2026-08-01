@@ -1,0 +1,311 @@
+{
+  "schemaVersion": "practice-pre14-ui-acceptance-scenarios-v3",
+  "fixtureAuthority": "DEV_TEST_ONLY",
+  "catalogPattern": "ksh_test_pre14_ui_*",
+  "account": {
+    "student": "student@ksh.edu.vn",
+    "lecturer": "lecturer@ksh.edu.vn"
+  },
+  "safety": {
+    "idempotent": true,
+    "productionMigration": false,
+    "realProviderCalls": 0,
+    "containsSecrets": false
+  },
+  "counts": {
+    "objectiveScenarios": 28,
+    "objectiveCompatibilityCells": 128,
+    "objectiveSkills": 2,
+    "objectiveSourceModesPerSkill": 2,
+    "objectiveQuestionTypesPerSkillAndSourceMode": 5,
+    "activeStrategies": 11,
+    "blockedStrategies": 9,
+    "writingQuestions": 4,
+    "writingCases": 6,
+    "writingQuestionResults": 24,
+    "writingBlankContractScenarios": 10,
+    "premiumWritingAttempts": 6,
+    "premiumWritingExpectedChipInstances": 62,
+    "speakingQuestions": 2,
+    "premiumSpeakingAttempts": 2,
+    "premiumSpeakingTranscriptChipsPerPolarity": 16,
+    "lecturerDrafts": 2,
+    "objectivePlayerAttempts": 1
+  },
+  "objectiveStrategyRegistry": {
+    "registryVersion": "rl-explanation-strategy-registry-v2",
+    "strategyVersion": "v1",
+    "active": [
+      "EXACT_EVIDENCE_ONLY",
+      "FULL_SOURCE_INLINE_HIGHLIGHT",
+      "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+      "MCQ_OPTION_ELIMINATION",
+      "EVIDENCE_AND_ELIMINATION",
+      "TFNG_CONTRADICTION_TABLE",
+      "NOT_GIVEN_BOUNDARY",
+      "FILL_SLOT_GRAMMAR_ANALYSIS",
+      "KEYWORD_PARAPHRASE_BRIDGE",
+      "BILINGUAL_STEP_BY_STEP",
+      "MATCHING_MATRIX"
+    ],
+    "blocked": [
+      {"code":"PARAGRAPH_PURPOSE_MAP","reason":"KSH chưa persist paragraph/speaker-purpose IDs trong immutable question."},
+      {"code":"SEQUENCE_TIMELINE","reason":"KSH chưa có canonical ORDERING/SEQUENCE answer contract."},
+      {"code":"CAUSE_EFFECT_CHAIN","reason":"KSH chưa persist typed causal-node/link authority."},
+      {"code":"COMPARE_CONTRAST_TABLE","reason":"KSH chưa persist typed comparison entities/axes."},
+      {"code":"REFERENCE_RESOLUTION","reason":"KSH chưa persist antecedent/reference link authority."},
+      {"code":"DISTRACTOR_TRAP_ANALYSIS","reason":"Strict option rationale chưa có trapCode allowlist."},
+      {"code":"SPEAKER_INTENT_AND_ATTITUDE","reason":"Không suy luận tone/attitude khi chưa có trusted audio evidence."},
+      {"code":"TIMESTAMP_TURN_MAP","reason":"Immutable transcript chưa có verified timestamp alignment."},
+      {"code":"HYBRID_TEACHER_GUIDED","reason":"Chưa có persisted ordered block-composition contract."}
+    ]
+  },
+  "objectiveCompatibilityMatrix": {
+    "skills": ["READING", "LISTENING"],
+    "sourceModes": ["GROUP_SOURCE", "STANDALONE_NO_PASSAGE"],
+    "strategiesByQuestionType": {
+      "SINGLE_CHOICE": [
+        "EXACT_EVIDENCE_ONLY",
+        "FULL_SOURCE_INLINE_HIGHLIGHT",
+        "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+        "MCQ_OPTION_ELIMINATION",
+        "EVIDENCE_AND_ELIMINATION",
+        "KEYWORD_PARAPHRASE_BRIDGE",
+        "BILINGUAL_STEP_BY_STEP"
+      ],
+      "TRUE_FALSE_NOT_GIVEN": [
+        "EXACT_EVIDENCE_ONLY",
+        "FULL_SOURCE_INLINE_HIGHLIGHT",
+        "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+        "TFNG_CONTRADICTION_TABLE",
+        "NOT_GIVEN_BOUNDARY",
+        "KEYWORD_PARAPHRASE_BRIDGE",
+        "BILINGUAL_STEP_BY_STEP"
+      ],
+      "FILL_BLANK": [
+        "EXACT_EVIDENCE_ONLY",
+        "FULL_SOURCE_INLINE_HIGHLIGHT",
+        "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+        "FILL_SLOT_GRAMMAR_ANALYSIS",
+        "KEYWORD_PARAPHRASE_BRIDGE",
+        "BILINGUAL_STEP_BY_STEP"
+      ],
+      "MULTIPLE_ANSWER": [
+        "EXACT_EVIDENCE_ONLY",
+        "FULL_SOURCE_INLINE_HIGHLIGHT",
+        "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+        "EVIDENCE_AND_ELIMINATION",
+        "KEYWORD_PARAPHRASE_BRIDGE",
+        "BILINGUAL_STEP_BY_STEP"
+      ],
+      "MATCHING": [
+        "EXACT_EVIDENCE_ONLY",
+        "FULL_SOURCE_INLINE_HIGHLIGHT",
+        "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+        "MATCHING_MATRIX",
+        "KEYWORD_PARAPHRASE_BRIDGE",
+        "BILINGUAL_STEP_BY_STEP"
+      ]
+    },
+    "expectedExpandedCellCount": 128
+  },
+  "objectiveScenarios": [
+    {"id":"R-GROUP-EVIDENCE","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"EXACT_EVIDENCE_ONLY","answerState":"SELECTED_CORRECT","attemptId":14100,"questionId":14101,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14101"},
+    {"id":"R-GROUP-ELIMINATION","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"FULL_SOURCE_INLINE_HIGHLIGHT","answerState":"SELECTED_WRONG","attemptId":14100,"questionId":14102,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14102"},
+    {"id":"R-GROUP-FULL-CONTEXT","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"MCQ_OPTION_ELIMINATION","answerState":"CORRECT_NOT_SELECTED","attemptId":14100,"questionId":14103,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14103"},
+    {"id":"R-GROUP-HYBRID","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"TFNG_CONTRADICTION_TABLE","answerState":"UNANSWERED","attemptId":14100,"questionId":14104,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14104"},
+    {"id":"R-GROUP-TFNG","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"FILL_BLANK","strategy":"FILL_SLOT_GRAMMAR_ANALYSIS","answerState":"SELECTED_CORRECT","attemptId":14100,"questionId":14105,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14105"},
+    {"id":"R-GROUP-FILL","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"FILL_BLANK","strategy":"KEYWORD_PARAPHRASE_BRIDGE","answerState":"SELECTED_WRONG","attemptId":14100,"questionId":14106,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14106"},
+    {"id":"R-STANDALONE-EVIDENCE","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"QUESTION_EVIDENCE_TRANSLATION_TABLE","answerState":"CORRECT_NOT_SELECTED","attemptId":14100,"questionId":14107,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14107"},
+    {"id":"R-STANDALONE-ELIMINATION","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"EVIDENCE_AND_ELIMINATION","answerState":"UNANSWERED","attemptId":14100,"questionId":14108,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14108"},
+    {"id":"R-STANDALONE-FULL-CONTEXT","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"BILINGUAL_STEP_BY_STEP","answerState":"SELECTED_CORRECT","attemptId":14100,"questionId":14109,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14109"},
+    {"id":"R-STANDALONE-HYBRID","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"NOT_GIVEN_BOUNDARY","answerState":"SELECTED_WRONG","attemptId":14100,"questionId":14110,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14110"},
+    {"id":"R-STANDALONE-TFNG","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"FULL_SOURCE_INLINE_HIGHLIGHT","answerState":"CORRECT_NOT_SELECTED","attemptId":14100,"questionId":14111,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14111"},
+    {"id":"R-STANDALONE-FILL","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"FILL_BLANK","strategy":"EXACT_EVIDENCE_ONLY","answerState":"UNANSWERED","attemptId":14100,"questionId":14112,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14112"},
+    {"id":"L-GROUP-EVIDENCE","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"EXACT_EVIDENCE_ONLY","answerState":"SELECTED_CORRECT","attemptId":14200,"questionId":14201,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14201"},
+    {"id":"L-GROUP-ELIMINATION","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"FULL_SOURCE_INLINE_HIGHLIGHT","answerState":"SELECTED_WRONG","attemptId":14200,"questionId":14202,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14202"},
+    {"id":"L-GROUP-FULL-CONTEXT","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"SINGLE_CHOICE","strategy":"MCQ_OPTION_ELIMINATION","answerState":"CORRECT_NOT_SELECTED","attemptId":14200,"questionId":14203,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14203"},
+    {"id":"L-GROUP-HYBRID","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"TFNG_CONTRADICTION_TABLE","answerState":"UNANSWERED","attemptId":14200,"questionId":14204,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14204"},
+    {"id":"L-GROUP-TFNG","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"FILL_BLANK","strategy":"FILL_SLOT_GRAMMAR_ANALYSIS","answerState":"SELECTED_CORRECT","attemptId":14200,"questionId":14205,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14205"},
+    {"id":"L-GROUP-FILL","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"FILL_BLANK","strategy":"KEYWORD_PARAPHRASE_BRIDGE","answerState":"SELECTED_WRONG","attemptId":14200,"questionId":14206,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14206"},
+    {"id":"L-STANDALONE-EVIDENCE","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"QUESTION_EVIDENCE_TRANSLATION_TABLE","answerState":"CORRECT_NOT_SELECTED","attemptId":14200,"questionId":14207,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14207"},
+    {"id":"L-STANDALONE-ELIMINATION","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"EVIDENCE_AND_ELIMINATION","answerState":"UNANSWERED","attemptId":14200,"questionId":14208,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14208"},
+    {"id":"L-STANDALONE-FULL-CONTEXT","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"SINGLE_CHOICE","strategy":"BILINGUAL_STEP_BY_STEP","answerState":"SELECTED_CORRECT","attemptId":14200,"questionId":14209,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14209"},
+    {"id":"L-STANDALONE-HYBRID","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"NOT_GIVEN_BOUNDARY","answerState":"SELECTED_WRONG","attemptId":14200,"questionId":14210,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14210"},
+    {"id":"L-STANDALONE-TFNG","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"TRUE_FALSE_NOT_GIVEN","strategy":"FULL_SOURCE_INLINE_HIGHLIGHT","answerState":"CORRECT_NOT_SELECTED","attemptId":14200,"questionId":14211,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14211"},
+    {"id":"L-STANDALONE-FILL","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"FILL_BLANK","strategy":"EXACT_EVIDENCE_ONLY","answerState":"UNANSWERED","attemptId":14200,"questionId":14212,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14212"},
+    {"id":"R-GROUP-MATCHING-A-H","skill":"READING","sourceMode":"GROUP_SOURCE","questionType":"MATCHING","strategy":"MATCHING_MATRIX","answerState":"SELECTED_CORRECT","attemptId":14100,"questionId":14113,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14113"},
+    {"id":"R-STANDALONE-MULTIPLE","skill":"READING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"MULTIPLE_ANSWER","strategy":"EVIDENCE_AND_ELIMINATION","answerState":"SELECTED_WRONG","attemptId":14100,"questionId":14114,"overviewUrl":"/practice/attempts/14100/result","detailUrl":"/practice/attempts/14100/result/detail","anchor":"#objective-question-14114"},
+    {"id":"L-GROUP-MATCHING-A-H","skill":"LISTENING","sourceMode":"GROUP_SOURCE","questionType":"MATCHING","strategy":"MATCHING_MATRIX","answerState":"SELECTED_CORRECT","attemptId":14200,"questionId":14213,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14213"},
+    {"id":"L-STANDALONE-MULTIPLE","skill":"LISTENING","sourceMode":"STANDALONE_NO_PASSAGE","questionType":"MULTIPLE_ANSWER","strategy":"EVIDENCE_AND_ELIMINATION","answerState":"SELECTED_WRONG","attemptId":14200,"questionId":14214,"overviewUrl":"/practice/attempts/14200/result","detailUrl":"/practice/attempts/14200/result/detail","anchor":"#objective-question-14214"}
+  ],
+  "objectiveInteractionCapabilities": [
+    {"code":"MULTIPLE_ANSWER","status":"AVAILABLE","authority":"answer-spec-v1 correctOptionIds; ALL_OR_NOTHING"},
+    {"code":"MATCHING","status":"AVAILABLE","authority":"answer-spec-v1 blank target to stable candidate option ID; NORMALIZED_EXACT"},
+    {"code":"PINNED_SHARED_MATERIAL","status":"AVAILABLE","authority":"learner device; attempt plus immutable group; keyboard-operable local persistence"},
+    {"code":"LOCAL_HELPER_DRAWER","status":"AVAILABLE","authority":"static KSH UI guidance; no provider call"}
+  ],
+  "objectivePlayerScenario": {
+    "attemptId": 14800,
+    "skill": "READING",
+    "status": "IN_PROGRESS",
+    "url": "/practice/attempts/14800",
+    "questionIds": [14101,14102,14103,14104,14105,14106,14107,14108,14109,14110,14111,14112,14113,14114],
+    "requiredCapabilities": ["MULTIPLE_ANSWER","MATCHING","PINNED_SHARED_MATERIAL"]
+  },
+  "writingScenarios": [
+    {"case":"MIXED","attemptId":14301,"expectedPercentage":75,"overviewUrl":"/practice/attempts/14301/result","questions":[{"task":"Q51","questionId":14351,"rawScore":3,"performanceLevel":"MODEST","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14301/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":3,"performanceLevel":"MODEST","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14301/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":28,"performanceLevel":"GOOD","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14301/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":41,"performanceLevel":"GOOD","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14301/result/detail?questionId=14354"}]},
+    {"case":"NO_DIAGNOSTIC","attemptId":14302,"expectedPercentage":0,"overviewUrl":"/practice/attempts/14302/result","questions":[{"task":"Q51","questionId":14351,"rawScore":0,"performanceLevel":"LIMITED","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14302/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":0,"performanceLevel":"LIMITED","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14302/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":0,"performanceLevel":"LIMITED","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14302/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":0,"performanceLevel":"LIMITED","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14302/result/detail?questionId=14354"}]},
+    {"case":"PARTIAL","attemptId":14303,"expectedPercentage":72,"overviewUrl":"/practice/attempts/14303/result","questions":[{"task":"Q51","questionId":14351,"rawScore":1,"performanceLevel":"LIMITED","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14303/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":1,"performanceLevel":"LIMITED","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14303/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":25,"performanceLevel":"GOOD","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14303/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":45,"performanceLevel":"GOOD","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14303/result/detail?questionId=14354"}]},
+    {"case":"FULL","attemptId":14304,"expectedPercentage":100,"overviewUrl":"/practice/attempts/14304/result","questions":[{"task":"Q51","questionId":14351,"rawScore":10,"performanceLevel":"EXCELLENT","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14304/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":10,"performanceLevel":"EXCELLENT","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14304/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":30,"performanceLevel":"EXCELLENT","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14304/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":50,"performanceLevel":"EXCELLENT","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14304/result/detail?questionId=14354"}]},
+    {"case":"PENDING","attemptId":14305,"expectedPercentage":null,"overviewUrl":"/practice/attempts/14305/result","questions":[{"task":"Q51","questionId":14351,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14305/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14305/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14305/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14305/result/detail?questionId=14354"}]},
+    {"case":"UNAVAILABLE","attemptId":14306,"expectedPercentage":null,"overviewUrl":"/practice/attempts/14306/result","questions":[{"task":"Q51","questionId":14351,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14306/result/detail?questionId=14351"},{"task":"Q52","questionId":14352,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"STRUCTURED_BLANKS_WITH_LEGACY_RESULT_COMPATIBILITY","detailUrl":"/practice/attempts/14306/result/detail?questionId=14352"},{"task":"Q53","questionId":4,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14306/result/detail?questionId=4"},{"task":"Q54","questionId":14354,"rawScore":null,"performanceLevel":"UNAVAILABLE","responseAuthority":"LONG_FORM_V3","detailUrl":"/practice/attempts/14306/result/detail?questionId=14354"}]}
+  ],
+  "writingBlankContractScenarios": [
+    {"case":"EXACT_ACCEPTED","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","expectedVerdicts":["CORRECT","CORRECT"]},
+    {"case":"ALTERNATIVE_ACCEPTED","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","expectedVerdicts":["CORRECT","CORRECT"]},
+    {"case":"NEAR_MISS_PARTIAL","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","expectedVerdicts":["PARTIAL","CORRECT"]},
+    {"case":"INCORRECT","taskType":"Q52","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","expectedVerdicts":["INCORRECT","INCORRECT"]},
+    {"case":"EMPTY","taskType":"Q52","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","expectedVerdicts":["EMPTY","CORRECT"]},
+    {"case":"SWAPPED_FAIL_CLOSED","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"FAIL_CLOSED","expectedError":"unknown, swapped or missing blank"},
+    {"case":"MULTIPLE_ACCEPTED_VARIANTS","taskType":"Q52","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","acceptedVariantCountPerBlank":2},
+    {"case":"LITERAL_SLASH","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","literal":"주 2회/온라인"},
+    {"case":"LITERAL_SEMICOLON","taskType":"Q51","responseMode":"STRUCTURED_BLANKS","expectedDisposition":"ACCEPT","literal":"온라인; 복습"},
+    {"case":"LEGACY_ESSAY_READ_ONLY","taskType":"Q52","responseMode":"LEGACY_ESSAY_READ_ONLY","expectedDisposition":"READ_ONLY_COMPATIBILITY","browserUrl":"/practice/attempts/14301/result/detail?questionId=14352"}
+  ],
+  "premiumWritingContract": {
+    "requiredTabs": ["Tổng quan", "Điểm mạnh", "Cần cải thiện", "Bài nâng cấp", "Mẫu"],
+    "teacherSample": {
+      "contractVersion": "ksh-teacher-sample-v1",
+      "source": "TEACHER_AUTHORED",
+      "authorRole": "LECTURER"
+    },
+    "q51StrengthFeaturesPerBlank": [
+      "W_ACCURATE_SPELLING_SPACING",
+      "W_FORMAL_REGISTER_CONSISTENCY",
+      "W_FORMAL_VOCABULARY_USAGE",
+      "W_NATURAL_KOREAN_EXPRESSIONS",
+      "W_CLOZE_CONTEXT_FIT",
+      "W_CONNECTIVE_ENDING_ACCURACY",
+      "W_SENTENCE_COMPLETION_NATURALNESS"
+    ],
+    "q52ImprovementFeaturesPerBlank": [
+      "W_CLOZE_GRAMMAR_COMPATIBILITY",
+      "W_CLOZE_REGISTER_MATCH",
+      "W_VOCABULARY_ERRORS",
+      "W_GRAMMAR_ERRORS",
+      "W_PARTICLE_ERRORS",
+      "W_AWKWARD_UNNATURAL_EXPRESSIONS",
+      "W_SENTENCE_STRUCTURE_ISSUES",
+      "W_REGISTER_CONSISTENCY_ISSUES",
+      "W_SPELLING_SPACING_ERRORS"
+    ],
+    "structuredBlankTargets": {
+      "Q51": ["q51-b1", "q51-b2"],
+      "Q52": ["q52-b1", "q52-b2"]
+    },
+    "q53StrengthFeatures": [
+      "W_ADVANCED_GRAMMAR_STRUCTURES",
+      "W_ACCURATE_SPELLING_SPACING",
+      "W_FORMAL_REGISTER_CONSISTENCY",
+      "W_FORMAL_VOCABULARY_USAGE",
+      "W_TOPIC_SPECIFIC_EXPRESSIONS",
+      "W_NATURAL_KOREAN_EXPRESSIONS",
+      "W_LENGTH_REQUIREMENT_MET",
+      "W_SENTENCE_PATTERN_VARIETY",
+      "W_TASK_REQUIREMENT_COVERAGE",
+      "W_LOGICAL_ORGANIZATION",
+      "W_EFFECTIVE_TRANSITIONS",
+      "W_ACCURATE_DATA_DESCRIPTION"
+    ],
+    "q54ImprovementFeatures": [
+      "W_OFF_TOPIC_OR_WEAK_RELEVANCE",
+      "W_LOGICAL_FLOW_ISSUES",
+      "W_TRANSITION_DEVICE_ISSUES",
+      "W_VOCABULARY_ERRORS",
+      "W_GRAMMAR_ERRORS",
+      "W_PARTICLE_ERRORS",
+      "W_REPETITIVE_WORDS_EXPRESSIONS",
+      "W_AWKWARD_UNNATURAL_EXPRESSIONS",
+      "W_SENTENCE_STRUCTURE_ISSUES",
+      "W_REGISTER_CONSISTENCY_ISSUES",
+      "W_SPELLING_SPACING_ERRORS",
+      "W_INSUFFICIENT_IDEA_DEVELOPMENT",
+      "W_UNSUPPORTED_CLAIM",
+      "W_WEAK_PARAGRAPH_ORGANIZATION"
+    ],
+    "q54UniqueStrengthFeatures": [
+      "W_CLEAR_THESIS_OR_MAIN_IDEA",
+      "W_RELEVANT_EXAMPLES_OR_REASONS"
+    ],
+    "q53UniqueImprovementFeatures": [
+      "W_TASK_REQUIREMENT_MISSING",
+      "W_Q53_DATA_FLOW_ISSUES"
+    ],
+    "zeroFindingVisibility": "VISIBLE_LAST_WITH_EMPTY_STATE"
+  },
+  "premiumWritingScenarios": [
+    {"case":"Q51_ALL_STRENGTHS","task":"Q51","attemptId":14601,"questionId":14351,"expectedPolarity":"STRENGTH","expectedOperations":["KEEP"],"expectedChipCount":14,"expectedInlineAnnotationCount":14,"expectedPercentage":100,"responseAuthority":"STRUCTURED_BLANKS","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14601/result","detailUrl":"/practice/attempts/14601/result/detail?questionId=14351"},
+    {"case":"Q52_ALL_IMPROVEMENTS","task":"Q52","attemptId":14602,"questionId":14352,"expectedPolarity":"NEEDS_IMPROVEMENT","expectedOperations":["MISSING","REPLACE","REDUNDANT"],"expectedChipCount":18,"expectedInlineAnnotationCount":18,"expectedPercentage":90,"responseAuthority":"STRUCTURED_BLANKS","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14602/result","detailUrl":"/practice/attempts/14602/result/detail?questionId=14352"},
+    {"case":"Q53_ALL_STRENGTHS","task":"Q53","attemptId":14603,"questionId":4,"expectedPolarity":"STRENGTH","expectedOperations":["KEEP"],"expectedChipCount":12,"expectedInlineAnnotationCount":9,"expectedPercentage":100,"responseAuthority":"LONG_FORM_V3","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14603/result","detailUrl":"/practice/attempts/14603/result/detail?questionId=4"},
+    {"case":"Q54_ALL_IMPROVEMENTS","task":"Q54","attemptId":14604,"questionId":14354,"expectedPolarity":"NEEDS_IMPROVEMENT","expectedOperations":["MISSING","REPLACE","REDUNDANT"],"expectedChipCount":14,"expectedInlineAnnotationCount":9,"expectedPercentage":43,"responseAuthority":"LONG_FORM_V3","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14604/result","detailUrl":"/practice/attempts/14604/result/detail?questionId=14354"},
+    {"case":"Q54_UNIQUE_STRENGTHS","task":"Q54","attemptId":14605,"questionId":14354,"expectedPolarity":"STRENGTH","expectedOperations":["KEEP"],"expectedChipCount":2,"expectedInlineAnnotationCount":0,"expectedPercentage":100,"responseAuthority":"LONG_FORM_V3","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14605/result","detailUrl":"/practice/attempts/14605/result/detail?questionId=14354"},
+    {"case":"Q53_UNIQUE_IMPROVEMENTS","task":"Q53","attemptId":14606,"questionId":4,"expectedPolarity":"NEEDS_IMPROVEMENT","expectedOperations":["MISSING"],"expectedChipCount":2,"expectedInlineAnnotationCount":0,"expectedPercentage":72,"responseAuthority":"LONG_FORM_V3","teacherSampleRequired":true,"overviewUrl":"/practice/attempts/14606/result","detailUrl":"/practice/attempts/14606/result/detail?questionId=4"}
+  ],
+  "speakingScenarios": [
+    {"case":"TRANSCRIPT_MIXED","attemptId":14401,"questionId":5,"overviewUrl":"/practice/attempts/14401/result","detailUrl":"/practice/attempts/14401/result/detail?questionId=5","acousticStatus":"NOT_SCORABLE"},
+    {"case":"TRANSCRIPT_NO_DIAGNOSTIC","attemptId":14401,"questionId":14405,"overviewUrl":"/practice/attempts/14401/result","detailUrl":"/practice/attempts/14401/result/detail?questionId=14405","acousticStatus":"NOT_SCORABLE"}
+  ],
+  "premiumSpeakingContract": {
+    "requiredTabs": ["Tổng quan", "Điểm mạnh", "Cần cải thiện", "Bài nâng cấp", "Mẫu"],
+    "teacherSample": {
+      "contractVersion": "ksh-speaking-teacher-sample-v1",
+      "source": "TEACHER_AUTHORED",
+      "authorRole": "LECTURER",
+      "persistedField": "speaking_teacher_samples_by_question"
+    },
+    "transcriptGroundedSubcriteria": [
+      "S_CONTENT_RELEVANCE",
+      "S_CONTENT_PROMPT_COVERAGE",
+      "S_CONTENT_SPECIFICITY_EXAMPLES",
+      "S_GRAMMAR_PARTICLES",
+      "S_GRAMMAR_TENSE_ASPECT",
+      "S_GRAMMAR_ENDINGS",
+      "S_GRAMMAR_SENTENCE_STRUCTURE",
+      "S_GRAMMAR_HONORIFIC_REGISTER",
+      "S_GRAMMAR_CONNECTORS",
+      "S_VOCAB_TOPIC_WORDS",
+      "S_VOCAB_NATURAL_EXPRESSIONS",
+      "S_VOCAB_REPETITION_CONTROL",
+      "S_VOCAB_WORD_CHOICE",
+      "S_COHERENCE_ORGANIZATION",
+      "S_COHERENCE_LOGICAL_FLOW",
+      "S_COHERENCE_DISCOURSE_MARKERS"
+    ],
+    "chipIdPattern": "D_<SUBCRITERION>_<POLARITY>",
+    "acousticCriteria": ["S_FLUENCY", "S_PRONUNCIATION_DELIVERY"],
+    "withoutVerifiedAudio": "NOT_SCORABLE",
+    "overviewCapabilities": {
+      "HOLISTIC_SCORE": "NOT_SCORABLE",
+      "CRITERION_RADAR": "AVAILABLE",
+      "PART_PERFORMANCE": "AVAILABLE",
+      "NAMED_CRITERION_SUBMETRICS": "AVAILABLE"
+    }
+  },
+  "premiumSpeakingScenarios": [
+    {"case":"PREMIUM_ALL_STRENGTHS","attemptId":14701,"questionId":14405,"overviewUrl":"/practice/attempts/14701/result","detailUrl":"/practice/attempts/14701/result/detail?questionId=14405","expectedPolarity":"STRENGTH","expectedAnnotationType":"strength","expectedOperation":"KEEP","expectedChipCount":16,"expectedFindingCount":17,"repeatedFeature":"D_S_VOCAB_REPETITION_CONTROL_STRENGTH","expectedFrequency":2,"acousticStatus":"NOT_SCORABLE","teacherSampleRequired":true},
+    {"case":"PREMIUM_ALL_IMPROVEMENTS","attemptId":14702,"questionId":14405,"overviewUrl":"/practice/attempts/14702/result","detailUrl":"/practice/attempts/14702/result/detail?questionId=14405","expectedPolarity":"NEEDS_IMPROVEMENT","expectedAnnotationType":"needs_improvement","expectedOperation":"REPLACE","expectedChipCount":16,"expectedFindingCount":17,"repeatedFeature":"D_S_VOCAB_REPETITION_CONTROL_NEEDS_IMPROVEMENT","expectedFrequency":2,"acousticStatus":"NOT_SCORABLE","teacherSampleRequired":true},
+    {"case":"PREMIUM_IMPROVEMENTS_COMPANION","attemptId":14701,"questionId":5,"overviewUrl":"/practice/attempts/14701/result","detailUrl":"/practice/attempts/14701/result/detail?questionId=5","expectedPolarity":"NEEDS_IMPROVEMENT","expectedAnnotationType":"needs_improvement","expectedOperation":"REPLACE","expectedChipCount":16,"expectedFindingCount":17,"repeatedFeature":"D_S_VOCAB_REPETITION_CONTROL_NEEDS_IMPROVEMENT","expectedFrequency":2,"acousticStatus":"NOT_SCORABLE","teacherSampleRequired":true},
+    {"case":"PREMIUM_STRENGTHS_COMPANION","attemptId":14702,"questionId":5,"overviewUrl":"/practice/attempts/14702/result","detailUrl":"/practice/attempts/14702/result/detail?questionId=5","expectedPolarity":"STRENGTH","expectedAnnotationType":"strength","expectedOperation":"KEEP","expectedChipCount":16,"expectedFindingCount":17,"repeatedFeature":"D_S_VOCAB_REPETITION_CONTROL_STRENGTH","expectedFrequency":2,"acousticStatus":"NOT_SCORABLE","teacherSampleRequired":true}
+  ],
+  "lecturerScenarios": [
+    {"skill":"READING","draftId":14501,"url":"/practice/manage/drafts/14501","questionCount":12,"activeStrategies":11},
+    {"skill":"LISTENING","draftId":14502,"url":"/practice/manage/drafts/14502","questionCount":12,"activeStrategies":11}
+  ],
+  "visibilityRules": {
+    "optionalDiagnosticChipWithoutEvidence": "VISIBLE_LAST_WITH_EMPTY_STATE",
+    "mandatoryRubricRowWithoutDiagnostic": "VISIBLE_WITH_SCORE_OR_UNAVAILABLE_REASON",
+    "findingScoreChipCardIdentity": "SAME_FINDING_AND_EVIDENCE_IDS",
+    "acousticWithoutVerifiedAudioEvidence": "NOT_SCORABLE"
+  }
+}
