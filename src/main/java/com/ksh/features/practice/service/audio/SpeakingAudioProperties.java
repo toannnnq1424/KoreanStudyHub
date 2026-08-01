@@ -25,7 +25,7 @@ public class SpeakingAudioProperties {
 
     public SpeakingAudioProperties(
             @Value("${app.practice.speaking-audio.local-root:private-storage/practice-speaking-audio}") String privateLocalRoot,
-            @Value("${app.upload.dir:uploads}") String publicUploadRoot,
+            @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String publicUploadRoot,
             @Value("${app.practice.speaking-audio.ffprobe-path:ffprobe}") String ffprobePath,
             @Value("${app.practice.speaking-audio.ffprobe-timeout:10s}") Duration ffprobeTimeout,
             @Value("${app.practice.speaking-audio.max-probe-stdout-bytes:262144}") int maxProbeStdoutBytes,

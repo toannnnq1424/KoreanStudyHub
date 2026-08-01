@@ -18,7 +18,8 @@ public class PracticePdfStorageService {
 
     private final Path uploadRoot;
 
-    public PracticePdfStorageService(@Value("${app.upload.dir:uploads}") String uploadDir) {
+    public PracticePdfStorageService(
+            @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String uploadDir) {
         this.uploadRoot = Paths.get(uploadDir, "practice-pdfs").toAbsolutePath().normalize();
         try {
             Files.createDirectories(uploadRoot);

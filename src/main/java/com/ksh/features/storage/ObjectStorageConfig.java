@@ -20,7 +20,7 @@ public class ObjectStorageConfig {
 
     @Bean
     public LocalObjectStorage localObjectStorage(
-            @Value("${app.upload.dir:uploads}") String uploadDir) {
+            @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String uploadDir) {
         Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
         return new LocalObjectStorage(root);
     }
