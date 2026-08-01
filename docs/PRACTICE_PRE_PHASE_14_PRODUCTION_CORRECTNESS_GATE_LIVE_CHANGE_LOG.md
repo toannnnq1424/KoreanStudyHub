@@ -3009,3 +3009,38 @@ Artifacts:
 Checkpoint verdict:
 
 `A_DELTA_CONTENT_HEIGHT_F5_MOTION_CLOSED_GATE_C_RESUMED`
+
+## 48. A-DELTA REGRESSION — WRITING/SPEAKING SINGLE-SURFACE ROUNDING
+
+The Writing and Speaking analysis sheets deliberately keep `overflow:
+visible` so their detached detail actions are not clipped. Their first painted
+heading child still had square corners, however, and covered the rounded
+parent edge. Writing also retained a one-pixel outline beside the overview
+shadow. At wide card widths this read as a straight top edge and two stacked
+white layers.
+
+Both subjective analysis sheets now paint one white surface with no outline,
+one shadow and a 24px radius. The exposed heading owns the same 24px top
+corners, preserving the external CTA while making the visible edge match the
+rounded summary card. Browser proof at 1280x720 confirms the same computed
+contract for Writing and Speaking and zero horizontal overflow.
+
+```text
+Writing analysis border / radius:                 0 / 24px
+Speaking analysis border / radius:                0 / 24px
+Heading top radius:                         24px / 24px
+Analysis shadows per panel:                             1
+Detached CTA clipped:                                 NO
+Horizontal overflow:                                  0px
+Focused test:                                 1 class PASS
+```
+
+Artifacts:
+
+- `target/pre14-ui-acceptance-current/master-result-48/gate-a-delta-motion-layout/writing-single-surface-rounded-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-a-delta-motion-layout/speaking-single-surface-rounded-1280x720.png`
+- `target/pre14-ui-acceptance-current/master-result-48/gate-a-delta-motion-layout/writing-speaking-single-surface-proof.json`
+
+Checkpoint verdict:
+
+`A_DELTA_WS_ANALYSIS_SINGLE_SURFACE_PASS_GATE_C_RESUMED`

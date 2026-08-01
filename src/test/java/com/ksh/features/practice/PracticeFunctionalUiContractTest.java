@@ -575,6 +575,9 @@ class PracticeFunctionalUiContractTest {
                 "@keyframes pr-result-cloud-bob",
                 "@keyframes pr-sky-particle-pop",
                 "@keyframes pr-baekho-sprite",
+                ") #result-analysis > .pr-section-heading",
+                "border-radius: 24px 24px 0 0",
+                "box-shadow: 0 16px 36px rgba(25, 39, 111, 0.14)",
                 "var(--celebration-delay) 1 both",
                 "@media (prefers-reduced-motion: reduce)",
                 "html[data-practice-motion=\"off\"]")

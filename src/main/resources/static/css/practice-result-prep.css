@@ -3439,3 +3439,25 @@ html[data-practice-motion="off"] .practice-result-page .pr-baekho-celebration {
     align-content: center;
   }
 }
+
+/* A-delta surface closure: Writing/Speaking analysis panels keep overflow
+   visible for their detached detail CTA. Without rounding the first painted
+   child, its square white background covered the parent's curved corners and
+   the one-pixel outline plus two shadows read as stacked cards. Paint one
+   surface and round the exposed child edge explicitly. */
+.practice-result-page:is(
+    [data-result-skill="WRITING"],
+    [data-result-skill="SPEAKING"]
+  ) #result-analysis {
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(25, 39, 111, 0.14);
+}
+
+.practice-result-page:is(
+    [data-result-skill="WRITING"],
+    [data-result-skill="SPEAKING"]
+  ) #result-analysis > .pr-section-heading {
+  border-radius: 24px 24px 0 0;
+}
